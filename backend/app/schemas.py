@@ -49,6 +49,20 @@ class LedgerTransaction(LedgerTransactionBase):
     class Config:
         from_attributes = True
 
+class LedgerSummary(BaseModel):
+    gained: int
+    lost: int
+    spent: int
+    net: int
+    saved_in: int
+    saved_out: int
+    held: int
+    released: int
+    transaction_count: int
+
+    class Config:
+        from_attributes = True
+
 class RedemptionRequestBase(BaseModel):
     points: int
     title: str

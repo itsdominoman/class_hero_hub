@@ -2,28 +2,85 @@
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { api } from '$lib/api';
-  import { Star, PiggyBank, Trophy, History, Send, Lock, Unlock, ChevronLeft, Sparkles, TrendingUp, Clock } from 'lucide-svelte';
+  import { Star, PiggyBank, Trophy, History, Lock, Unlock, ChevronLeft, Sparkles, TrendingUp } from 'lucide-svelte';
+
+  type PetStage = 'egg' | 'hatchling' | 'cub' | 'hero' | 'beast';
+  type ChildSummary = {
+    child: {
+      display_name: string;
+    };
+    spending_balance: number;
+    savings_balance: number;
+    locked_savings: number;
+    available_savings: number;
+    available_spending: number;
+    pending_redemptions: number;
+    pet_progress: {
+      current_stage: PetStage;
+      lifetime_points: number;
+    };
+  };
+  type LedgerSummary = {
+    gained: number;
+    lost: number;
+    spent: number;
+    net: number;
+    saved_in: number;
+    saved_out: number;
+    held: number;
+    released: number;
+    transaction_count: number;
+  };
+  type LedgerTransaction = {
+    jar: string;
+    transaction_type: string;
+    points: number;
+    description: string;
+    created_at: string;
+  };
 
   let childId = $derived(page.params.id);
-  let summary = $state(null);
-  let ledger = $state([]);
+  let summary = $state(null as ChildSummary | null);
+  let ledgerSummary = $state(null as LedgerSummary | null);
+  let ledger = $state([] as LedgerTransaction[]);
   let loading = $state(true);
-  let error = $state(null);
+  let error = $state(null as string | null);
+  let selectedPeriod = $state<'day' | 'week' | 'month'>('week');
 
   // Form states
   let rewardTitle = $state('');
   let rewardPoints = $state(1);
   let submitting = $state(false);
 
+  const periodOptions: Array<{ value: 'day' | 'week' | 'month'; label: string }> = [
+    { value: 'day', label: 'Day' },
+    { value: 'week', label: 'Week' },
+    { value: 'month', label: 'Month' }
+  ];
+
+  const activityLabels: Record<string, string> = {
+    award: 'Earned points',
+    penalty: 'Lost points',
+    savings_deposit: 'Moved to savings',
+    savings_withdrawal: 'Moved from savings',
+    redemption_hold: 'Held for reward',
+    redemption_rejected: 'Hold released',
+    redemption_approved: 'Spent points',
+    adjustment: 'Adjustment'
+  };
+
   async function loadData() {
     try {
       loading = true;
-      const [s, l] = await Promise.all([
+      error = null;
+      const [childSummary, periodSummary, periodLedger] = await Promise.all([
         api.get(`/children/${childId}`),
-        api.get(`/children/${childId}/ledger`)
+        api.get(`/children/${childId}/ledger/summary?period=${selectedPeriod}`),
+        api.get(`/children/${childId}/ledger?period=${selectedPeriod}`)
       ]);
-      summary = s;
-      ledger = l;
+      summary = childSummary;
+      ledgerSummary = periodSummary;
+      ledger = periodLedger;
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load data';
     } finally {
@@ -33,10 +90,16 @@
 
   onMount(loadData);
 
-  async function handleRedeem(e) {
+  async function setPeriod(period: 'day' | 'week' | 'month') {
+    if (selectedPeriod === period) return;
+    selectedPeriod = period;
+    await loadData();
+  }
+
+  async function handleRedeem(e: SubmitEvent) {
     e.preventDefault();
     if (!rewardTitle || rewardPoints < 1) return;
-    
+
     try {
       submitting = true;
       await api.post(`/children/${childId}/redemptions`, {
@@ -58,7 +121,7 @@
   async function handleSavingsDeposit() {
     const amount = window.prompt('How many points to move to savings?');
     if (!amount || isNaN(parseInt(amount))) return;
-    
+
     try {
       await api.post(`/children/${childId}/savings/deposit`, {
         points: parseInt(amount),
@@ -70,7 +133,7 @@
     }
   }
 
-  const getPetEmoji = (stage) => {
+  const getPetEmoji = (stage: PetStage) => {
     switch (stage) {
       case 'egg': return '🥚';
       case 'hatchling': return '🐣';
@@ -81,7 +144,7 @@
     }
   };
 
-  const PET_THRESHOLDS = {
+  const PET_THRESHOLDS: Record<PetStage, number> = {
     egg: 0,
     hatchling: 50,
     cub: 150,
@@ -89,14 +152,41 @@
     beast: 600
   };
 
-  const getNextThreshold = (stage) => {
-    const stages = ['egg', 'hatchling', 'cub', 'hero', 'beast'];
+  const getNextThreshold = (stage: PetStage) => {
+    const stages: PetStage[] = ['egg', 'hatchling', 'cub', 'hero', 'beast'];
     const idx = stages.indexOf(stage);
     if (idx < stages.length - 1) {
       return PET_THRESHOLDS[stages[idx + 1]];
     }
     return null;
   };
+
+  const getActivityLabel = (tx: LedgerTransaction) => {
+    if (tx.transaction_type === 'adjustment') {
+      return tx.points >= 0 ? 'Earned points' : 'Lost points';
+    }
+    return activityLabels[tx.transaction_type] ?? tx.transaction_type;
+  };
+
+  const getActivityTone = (tx: LedgerTransaction) => {
+    if (tx.transaction_type === 'penalty' || (tx.transaction_type === 'adjustment' && tx.points < 0)) return 'loss';
+    if (tx.transaction_type === 'redemption_hold') return 'hold';
+    if (tx.transaction_type === 'redemption_rejected') return 'release';
+    if (tx.transaction_type === 'redemption_approved') return 'spent';
+    if (tx.transaction_type === 'savings_deposit' || tx.transaction_type === 'savings_withdrawal') return 'savings';
+    return tx.points >= 0 ? 'gain' : 'loss';
+  };
+
+  const getActivityCardClass = (tx: LedgerTransaction) => {
+    const tone = getActivityTone(tx);
+    if (tone === 'savings') return 'bg-savings/5 border-savings/20 text-savings';
+    if (tone === 'hold') return 'bg-hero/5 border-hero/20 text-hero';
+    if (tone === 'release') return 'bg-slate-50 border-slate-200 text-slate-500';
+    if (tone === 'spent') return 'bg-slate-900 border-slate-900 text-white';
+    return tx.points > 0 ? 'bg-savings/5 border-savings/20 text-savings' : 'bg-penalty/5 border-penalty/20 text-penalty';
+  };
+
+  const formatPoints = (points: number) => `${points > 0 ? '+' : ''}${points}`;
 
   let nextThreshold = $derived(summary ? getNextThreshold(summary.pet_progress.current_stage) : null);
   let progressPercent = $derived(summary && nextThreshold ? Math.min(100, (summary.pet_progress.lifetime_points / nextThreshold) * 100) : 100);
@@ -223,25 +313,95 @@
       <div class="grid lg:grid-cols-3 gap-10">
         <!-- Activity Feed -->
         <div class="lg:col-span-2 space-y-8">
-          <div class="flex items-center justify-between">
-            <h2 class="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-              <History size={32} class="text-hero" /> Recent Activity
-            </h2>
+          {#if ledgerSummary}
+            <div class="grid grid-cols-2 xl:grid-cols-3 gap-3">
+              <div class="card p-4 bg-white border-none shadow-md">
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Gained</p>
+                <p class="text-2xl font-black text-slate-900">{ledgerSummary.gained}</p>
+                <p class="text-xs font-bold text-slate-500">Earned points</p>
+              </div>
+              <div class="card p-4 bg-white border-none shadow-md">
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Lost</p>
+                <p class="text-2xl font-black text-slate-900">{ledgerSummary.lost}</p>
+                <p class="text-xs font-bold text-slate-500">Penalty + negative adjustments</p>
+              </div>
+              <div class="card p-4 bg-white border-none shadow-md">
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Spent</p>
+                <p class="text-2xl font-black text-slate-900">{ledgerSummary.spent}</p>
+                <p class="text-xs font-bold text-slate-500">Finalized redemption spending</p>
+              </div>
+              <div class="card p-4 bg-white border-none shadow-md">
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Net</p>
+                <p class="text-2xl font-black text-slate-900">{ledgerSummary.net}</p>
+                <p class="text-xs font-bold text-slate-500">Gained - lost - spent</p>
+              </div>
+              <div class="card p-4 bg-white border-none shadow-md">
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Saved in</p>
+                <p class="text-2xl font-black text-slate-900">{ledgerSummary.saved_in}</p>
+                <p class="text-xs font-bold text-slate-500">Moved to savings</p>
+              </div>
+              <div class="card p-4 bg-white border-none shadow-md">
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Saved out</p>
+                <p class="text-2xl font-black text-slate-900">{ledgerSummary.saved_out}</p>
+                <p class="text-xs font-bold text-slate-500">Moved from savings</p>
+              </div>
+              <div class="card p-4 bg-white border-none shadow-md">
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Held</p>
+                <p class="text-2xl font-black text-slate-900">{ledgerSummary.held}</p>
+                <p class="text-xs font-bold text-slate-500">Held for reward</p>
+              </div>
+              <div class="card p-4 bg-white border-none shadow-md">
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Released</p>
+                <p class="text-2xl font-black text-slate-900">{ledgerSummary.released}</p>
+                <p class="text-xs font-bold text-slate-500">Hold released</p>
+              </div>
+              <div class="card p-4 bg-white border-none shadow-md">
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Transactions</p>
+                <p class="text-2xl font-black text-slate-900">{ledgerSummary.transaction_count}</p>
+                <p class="text-xs font-bold text-slate-500">Activity items in this period</p>
+              </div>
+            </div>
+          {/if}
+
+          <div class="card p-6 bg-white border-none shadow-md">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div class="flex items-center gap-3">
+                <History size={32} class="text-hero" />
+                <div>
+                  <h2 class="text-3xl font-black text-slate-900 tracking-tight">Recent Activity</h2>
+                  <p class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Filtered by calendar period</p>
+                </div>
+              </div>
+
+              <div class="inline-flex rounded-2xl bg-slate-100 p-1">
+                {#each periodOptions as option}
+                  <button
+                    type="button"
+                    onclick={() => setPeriod(option.value)}
+                    class={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-[0.2em] transition-all ${selectedPeriod === option.value ? 'bg-white text-hero shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                  >
+                    {option.label}
+                  </button>
+                {/each}
+              </div>
+            </div>
           </div>
 
           <div class="space-y-4">
             {#each ledger as tx}
               <div class="card p-6 flex items-center gap-6 bg-white hover:bg-slate-50/50 transition-all border-none shadow-md group">
-                <div class="w-16 h-16 rounded-2xl flex flex-col items-center justify-center border-2 
-                  {tx.points > 0 ? 'bg-savings/5 border-savings/20 text-savings' : 'bg-penalty/5 border-penalty/20 text-penalty'}">
-                  <span class="text-xl font-black">{tx.points > 0 ? '+' : ''}{tx.points}</span>
+                <div class={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center border-2 ${getActivityCardClass(tx)}`}>
+                  <span class="text-xl font-black">{formatPoints(tx.points)}</span>
                   <span class="text-[8px] font-black uppercase">HP</span>
                 </div>
                 <div class="flex-1">
+                  <div class="flex flex-wrap items-center gap-2 mb-2">
+                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg">{getActivityLabel(tx)}</span>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-300">{new Date(tx.created_at).toLocaleDateString()}</span>
+                  </div>
                   <p class="text-lg font-black text-slate-900 leading-none mb-2">{tx.description}</p>
                   <div class="flex items-center gap-3">
                     <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">{tx.jar} jar</span>
-                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-300">{new Date(tx.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
               </div>

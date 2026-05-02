@@ -78,12 +78,8 @@ async def approve_redemption(
     db_request.reviewed_at = datetime.utcnow()
     db_request.reviewed_by_parent_id = current_parent.id
 
-    # Points were already held during request creation.
-    # No need to deduct again. 
-    # We can optionally add an "approved" marker transaction with 0 points if needed,
-    # but the instructions say "Approved redemption should permanently deduct the held spending points."
-    # Since they are already deducted (negative points in ledger), we just leave them.
-
+    # Approval only updates the redemption request; the original hold transaction
+    # remains the single point deduction in the ledger.
     db.commit()
     db.refresh(db_request)
     
