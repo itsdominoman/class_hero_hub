@@ -67,7 +67,7 @@
           <img src="/family-hero-hub-logo.png" alt="Family Hero Hub" class="w-10 h-10 rounded-xl object-cover bg-white" />
           <span class="text-xl font-black tracking-tighter text-white uppercase">Family Hero Hub</span>
         </div>
-        <p class="text-lg leading-relaxed max-w-md">Empowering the next generation with the financial wisdom and responsibility they need to thrive.</p>
+        <p class="text-lg leading-relaxed max-w-md">Empowering the next generation with the responsibility they need to thrive.</p>
       </div>
       <div class="text-left md:text-right space-y-4">
         <p class="font-black text-white uppercase tracking-widest text-sm">Family Hero Hub</p>
