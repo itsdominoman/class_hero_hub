@@ -275,3 +275,38 @@ def test_period_filter_uses_exact_end_boundaries(db):
     day_summary = points_service.get_ledger_summary(db, child.id, period="day", now=now)
     assert day_summary["gained"] == 1
     assert day_summary["transaction_count"] == 1
+
+def test_preset_behaviour_crud(db):
+    parent = models.ParentUser(email="preset@example.com", name="Preset Parent")
+    db.add(parent)
+    db.commit()
+    db.refresh(parent)
+
+    # Create
+    preset = models.PresetBehaviour(
+        parent_id=parent.id,
+        title="Brush Teeth",
+        points=5,
+        icon="🪥"
+    )
+    db.add(preset)
+    db.commit()
+    db.refresh(preset)
+    assert preset.id is not None
+    assert preset.title == "Brush Teeth"
+    assert preset.icon == "🪥"
+
+    # Query
+    presets = db.query(models.PresetBehaviour).filter_by(parent_id=parent.id).all()
+    assert len(presets) == 1
+
+    # Update
+    preset.points = 10
+    db.commit()
+    db.refresh(preset)
+    assert preset.points == 10
+
+    # Delete
+    db.delete(preset)
+    db.commit()
+    assert db.query(models.PresetBehaviour).filter_by(parent_id=parent.id).count() == 0

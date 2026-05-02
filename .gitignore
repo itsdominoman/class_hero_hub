@@ -15,3 +15,8 @@ __pycache__/
 data/*.sqlite
 HERMES_RULES.md
 tmp/
+
+# Local database and backups
+/data/*.sqlite
+/data/*.db
+/backups/

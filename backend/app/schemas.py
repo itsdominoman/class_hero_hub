@@ -125,3 +125,21 @@ class SavingsWithdrawRequest(BaseModel):
 
 class RedemptionReviewRequest(BaseModel):
     parent_note: Optional[str] = None
+
+class PresetBehaviourBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    points: int
+    is_active: bool = True
+
+class PresetBehaviourCreate(PresetBehaviourBase):
+    pass
+
+class PresetBehaviour(PresetBehaviourBase):
+    id: int
+    parent_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

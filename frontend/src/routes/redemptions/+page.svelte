@@ -3,9 +3,9 @@
   import { api } from '$lib/api';
   import { Check, X, Clock, Trophy, ChevronLeft } from 'lucide-svelte';
 
-  let redemptions = $state([]);
+  let redemptions = $state<any[]>([]);
   let loading = $state(true);
-  let error = $state(null);
+  let error = $state<string | null>(null);
 
   async function loadRedemptions() {
     try {
@@ -20,7 +20,7 @@
 
   onMount(loadRedemptions);
 
-  async function processRedemption(id, action) {
+  async function processRedemption(id: number, action: string) {
     try {
       const note = action === 'reject' ? window.prompt('Reason for rejection?') : 'Approved';
       await api.post(`/redemptions/${id}/${action}`, {

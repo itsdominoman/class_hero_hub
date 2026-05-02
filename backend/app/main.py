@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from .database import engine, Base, get_db, settings
 from . import models, schemas, auth
-from .routes import children, ledger, redemptions, authentication
+from .routes import children, ledger, redemptions, authentication, presets
 from starlette.middleware.sessions import SessionMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
@@ -41,3 +41,4 @@ app.include_router(authentication.router, prefix="/api/auth", tags=["auth"])
 app.include_router(children.router, prefix="/api/children", tags=["children"])
 app.include_router(ledger.router, prefix="/api/children", tags=["ledger"])
 app.include_router(redemptions.router, prefix="/api", tags=["redemptions"])
+app.include_router(presets.router, prefix="/api/presets", tags=["presets"])

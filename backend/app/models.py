@@ -94,3 +94,17 @@ class PetProgress(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
 
     child = relationship("Child", back_populates="pet_progress")
+
+class PresetBehaviour(Base):
+    __tablename__ = "preset_behaviours"
+
+    id = Column(Integer, primary_key=True, index=True)
+    parent_id = Column(Integer, ForeignKey("parent_users.id"))
+    title = Column(String)
+    description = Column(String, nullable=True)
+    icon = Column(String, nullable=True)
+    points = Column(Integer)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    parent = relationship("ParentUser")

@@ -7,24 +7,32 @@
     History, TrendingUp, ChevronRight
   } from 'lucide-svelte';
 
-  let parent = $state(null);
-  let children = $state([]);
-  let redemptions = $state([]);
+  let parent = $state<any>(null);
+  let children = $state<any[]>([]);
+  let redemptions = $state<any[]>([]);
+  let presets = $state<any[]>([]);
   let loading = $state(true);
   let loadingChildren = $state(false);
-  let error = $state(null);
+  let error = $state<string | null>(null);
   let needsLogin = $state(false);
 
   // Modal State
-  let activeModal = $state(null); // { type: 'award' | 'penalty' | 'bank' | 'redeem', child: any }
+  let activeModal = $state<any>(null); // { type: 'award' | 'penalty' | 'bank' | 'redeem' | 'presets', child: any }
   let modalForm = $state({
     points: 1,
     description: '',
     title: '',
+    icon: '',
     jar: 'spending'
   });
   let modalLoading = $state(false);
-  let modalError = $state(null);
+  let modalError = $state<string | null>(null);
+  let activeTab = $state('positive');
+
+  const EMOJI_OPTIONS = ['🪥', '📚', '🛏️', '⏰', '🧹', '🧺', '🍎', '🥦', '👍', '❤️', '⭐', '👑', '🎮', '🖥️', '📱', '😴', '😡', '🚫', '🧸', '跑步', '🎒', '✏️', '🧼', '🍽️'];
+  // Correcting the emoji list to use the ones requested
+  const DEFAULT_EMOJIS = ['🪥', '📚', '🛏️', '⏰', '🧹', '🧺', '🍎', '🥦', '👍', '❤️', '⭐', '👑', '🎮', '🖥️', '📱', '😴', '😡', '🚫', '🧸', '🏃', '🎒', '✏️', '🧼', '🍽️'];
+
 
   const isAuthError = (message: string) =>
     message.toLowerCase().includes('not authenticated') ||
@@ -36,14 +44,16 @@
       loading = true;
       error = null;
       needsLogin = false;
-      const [p, c, r] = await Promise.all([
+      const [p, c, r, pr] = await Promise.all([
         api.get('/me'),
         api.get('/children/'),
-        api.get('/redemptions')
+        api.get('/redemptions'),
+        api.get('/presets/')
       ]);
       parent = p;
       children = c;
       redemptions = r;
+      presets = pr;
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Unable to load dashboard';
       if (isAuthError(message)) {
@@ -78,12 +88,14 @@
     }
   }
 
-  function openModal(type, child) {
+  function openModal(type: string, child: any) {
     activeModal = { type, child };
+    activeTab = 'positive';
     modalForm = {
       points: 1,
       description: '',
       title: '',
+      icon: '',
       jar: 'spending'
     };
     modalError = null;
@@ -99,6 +111,22 @@
     try {
       modalLoading = true;
       modalError = null;
+
+      if (activeModal.type === 'picker') return;
+
+      if (activeModal.type === 'presets') {
+        await api.post('/presets/', {
+          title: modalForm.title,
+          points: modalForm.points,
+          description: modalForm.description || '',
+          icon: modalForm.icon || null,
+          is_active: true
+        });
+        await loadDashboard();
+        closeModal();
+        return;
+      }
+
       const childId = activeModal.child.child.id;
 
       if (activeModal.type === 'award') {
@@ -135,7 +163,40 @@
     }
   }
 
-  async function processRedemption(id, action) {
+  async function applyPreset(childSummary: any, preset: any) {
+    try {
+      const childId = childSummary.child.id;
+      if (preset.points > 0) {
+        await api.post(`/children/${childId}/award`, {
+          points: preset.points,
+          description: preset.title,
+          jar: 'spending'
+        });
+      } else {
+        await api.post(`/children/${childId}/penalty`, {
+          points: Math.abs(preset.points),
+          description: preset.title,
+          jar: 'spending'
+        });
+      }
+      await loadDashboard();
+      closeModal();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to apply preset');
+    }
+  }
+
+  async function deletePreset(id: number) {
+    if (!confirm('Delete this preset?')) return;
+    try {
+      await api.delete(`/presets/${id}`);
+      await loadDashboard();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to delete preset');
+    }
+  }
+
+  async function processRedemption(id: number, action: string) {
     try {
       const note = action === 'reject' ? window.prompt('Reason for rejection? (Optional)') : 'Approved by parent';
       await api.post(`/redemptions/${id}/${action}`, {
@@ -153,7 +214,7 @@
 
   onMount(loadDashboard);
 
-  const getPetEmoji = (stage) => {
+  const getPetEmoji = (stage: string) => {
     switch (stage) {
       case 'egg': return '🥚';
       case 'hatchling': return '🐣';
@@ -224,9 +285,14 @@
           <p class="text-slate-500 font-medium">Tracking responsibility and growth across the family.</p>
         </div>
         
-        <button onclick={addChild} disabled={loadingChildren} class="btn-hero flex items-center gap-2 px-6 py-4 rounded-2xl shadow-xl shadow-hero/20 disabled:opacity-60 disabled:cursor-not-allowed">
-          <UserPlus size={20} /> {loadingChildren ? 'Adding...' : 'Add Child'}
-        </button>
+        <div class="flex items-center gap-3 self-start md:self-auto">
+          <button onclick={() => openModal('presets', null)} class="btn-secondary flex items-center gap-2 px-6 py-4 rounded-2xl">
+            <Settings size={20} /> Manage Behaviours
+          </button>
+          <button onclick={addChild} disabled={loadingChildren} class="btn-hero flex items-center gap-2 px-6 py-4 rounded-2xl shadow-xl shadow-hero/20 disabled:opacity-60 disabled:cursor-not-allowed">
+            <UserPlus size={20} /> {loadingChildren ? 'Adding...' : 'Add Child'}
+          </button>
+        </div>
       </div>
 
       {#if children.length === 0}
@@ -306,6 +372,15 @@
                     {/if}
                   </div>
                 {/if}
+              </div>
+
+              <div class="px-8 pb-4 relative z-10">
+                <button 
+                  onclick={() => openModal('picker', c)}
+                  class="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-xl shadow-slate-200 hover:scale-[1.02] active:scale-95 transition-all"
+                >
+                  <Star size={18} class="text-hero" /> Quick Action
+                </button>
               </div>
 
               <!-- Quick Actions -->
@@ -454,10 +529,14 @@
               {activeModal.type === 'award' ? 'bg-hero text-white shadow-hero/20' : 
                activeModal.type === 'penalty' ? 'bg-penalty text-white shadow-penalty/20' :
                activeModal.type === 'bank' ? 'bg-savings text-white shadow-savings/20' :
+               activeModal.type === 'presets' ? 'bg-slate-900 text-white shadow-slate-200' :
+               activeModal.type === 'picker' ? 'bg-slate-900 text-white shadow-slate-200' :
                'bg-reward text-white shadow-reward/20'}">
               {#if activeModal.type === 'award'}<Award size={32} />
               {:else if activeModal.type === 'penalty'}<Ban size={32} />
               {:else if activeModal.type === 'bank'}<PiggyBank size={32} />
+              {:else if activeModal.type === 'presets'}<Settings size={32} />
+              {:else if activeModal.type === 'picker'}<Star size={32} class="text-hero" />
               {:else}<Trophy size={32} />{/if}
             </div>
             <div>
@@ -465,10 +544,12 @@
                 {activeModal.type === 'award' ? 'Award Points' : 
                  activeModal.type === 'penalty' ? 'Apply Penalty' :
                  activeModal.type === 'bank' ? 'Bank to Savings' :
+                 activeModal.type === 'presets' ? 'Manage Behaviours' :
+                 activeModal.type === 'picker' ? 'Quick Action' :
                  'Redeem Points'}
               </h3>
               <p class="text-slate-400 font-black text-xs uppercase tracking-[0.2em]">
-                For {activeModal.child.child.display_name}
+                {activeModal.type === 'presets' ? 'Configure reusable actions' : `For ${activeModal.child?.child?.display_name}`}
               </p>
             </div>
           </div>
@@ -484,30 +565,114 @@
         {/if}
 
         <div class="space-y-6">
-          {#if activeModal.type === 'redeem'}
-            <div class="space-y-2">
-              <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Reward Name</label>
-              <input 
-                type="text" 
-                bind:value={modalForm.title}
-                placeholder="e.g., 30 mins Screen Time"
-                class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-bold text-slate-900 focus:outline-none focus:border-reward/30 transition-all"
-              />
+          {#if activeModal.type === 'picker'}
+            <!-- ClassDojo Style Picker -->
+            <div class="flex gap-2 p-1 bg-slate-100 rounded-2xl">
+              <button 
+                onclick={() => activeTab = 'positive'}
+                class="flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all
+                  {activeTab === 'positive' ? 'bg-white text-hero shadow-sm' : 'text-slate-500 hover:text-slate-700'}"
+              >
+                Positive
+              </button>
+              <button 
+                onclick={() => activeTab = 'needs-work'}
+                class="flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all
+                  {activeTab === 'needs-work' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}"
+              >
+                Needs Work
+              </button>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+              {#each presets.filter(p => p.is_active && (activeTab === 'positive' ? p.points > 0 : p.points < 0)) as p}
+                <button 
+                  onclick={() => applyPreset(activeModal.child, p)}
+                  title={p.title}
+                  class="group p-4 rounded-3xl border-2 transition-all text-center flex flex-col items-center gap-2 h-44
+                    {p.points > 0 ? 'border-slate-50 hover:border-hero/20 hover:bg-hero/5' : 'border-slate-50 hover:border-slate-900/10 hover:bg-slate-50'}"
+                >
+                  <div class="text-4xl mb-1 h-12 flex items-center justify-center">
+                    {p.icon || '✨'}
+                  </div>
+                  <div class="px-2 py-0.5 rounded-lg font-black text-xs
+                    {p.points > 0 ? 'bg-hero text-white' : 'bg-slate-900 text-white'}">
+                    {p.points > 0 ? '+' : ''}{p.points} HP
+                  </div>
+                  <div class="min-w-0 mt-1">
+                    <p class="font-bold text-slate-900 text-[11px] leading-tight uppercase tracking-tight line-clamp-2">{p.title}</p>
+                  </div>
+                </button>
+              {:else}
+                <div class="col-span-full py-12 text-center text-slate-300">
+                  <p class="font-black uppercase tracking-widest text-xs">No presets found</p>
+                  <button onclick={() => openModal('presets', null)} class="text-hero text-[10px] font-black uppercase tracking-widest mt-2 hover:underline">
+                    Add Some Now
+                  </button>
+                </div>
+              {/each}
             </div>
           {/if}
 
-          <div class="grid grid-cols-2 gap-6">
+          {#if activeModal.type === 'redeem' || activeModal.type === 'presets'}
+            <div class="space-y-2">
+              <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">
+                {activeModal.type === 'presets' ? 'Preset Title' : 'Reward Name'}
+              </label>
+              <div class="flex gap-3">
+                {#if activeModal.type === 'presets'}
+                  <div class="w-16 h-16 bg-slate-50 border-2 border-slate-100 rounded-2xl flex items-center justify-center text-2xl shadow-inner shrink-0">
+                    {modalForm.icon || '✨'}
+                  </div>
+                {/if}
+                <input 
+                  type="text" 
+                  bind:value={modalForm.title}
+                  placeholder={activeModal.type === 'presets' ? "e.g., Brushed Teeth" : "e.g., 30 mins Screen Time"}
+                  class="flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-bold text-slate-900 focus:outline-none focus:border-reward/30 transition-all"
+                />
+              </div>
+            </div>
+
+            {#if activeModal.type === 'presets'}
+              <div class="space-y-2">
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Select Visual (Optional)</label>
+                <div class="flex flex-wrap gap-2 p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
+                  <button 
+                    onclick={() => modalForm.icon = ''}
+                    class="w-10 h-10 rounded-xl flex items-center justify-center bg-white border border-slate-100 hover:border-hero/30 transition-all"
+                  >
+                    <X size={16} class="text-slate-300" />
+                  </button>
+                  {#each DEFAULT_EMOJIS as emoji}
+                    <button 
+                      onclick={() => modalForm.icon = emoji}
+                      class="w-10 h-10 rounded-xl flex items-center justify-center bg-white border transition-all text-xl
+                        {modalForm.icon === emoji ? 'border-hero shadow-sm' : 'border-slate-100 hover:border-hero/30'}"
+                    >
+                      {emoji}
+                    </button>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          {/if}
+
+          {#if activeModal.type !== 'picker'}
+            <div class="grid grid-cols-2 gap-6">
             <div class="space-y-2">
               <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Points Amount</label>
               <div class="relative">
                 <input 
                   type="number" 
                   bind:value={modalForm.points}
-                  min="1"
                   class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-black text-slate-900 focus:outline-none focus:border-hero/30 transition-all text-2xl"
                 />
                 <span class="absolute right-6 top-1/2 -translate-y-1/2 font-black text-slate-300 text-sm">HP</span>
               </div>
+              {#if activeModal.type === 'presets'}
+                <p class="text-[10px] text-slate-400 ml-2">Use negative for penalties</p>
+              {/if}
             </div>
 
             {#if activeModal.type === 'award' || activeModal.type === 'penalty'}
@@ -523,16 +688,53 @@
               </div>
             {/if}
           </div>
+        {/if}
 
-          <div class="space-y-2">
-            <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Description / Reason</label>
-            <textarea 
-              bind:value={modalForm.description}
-              placeholder="What happened? (optional)"
-              rows="3"
-              class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-medium text-slate-900 focus:outline-none focus:border-hero/30 transition-all resize-none"
-            ></textarea>
-          </div>
+          {#if activeModal.type !== 'presets' && activeModal.type !== 'picker'}
+            <div class="space-y-2">
+              <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Description / Reason</label>
+              <textarea 
+                bind:value={modalForm.description}
+                placeholder="What happened? (optional)"
+                rows="3"
+                class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-medium text-slate-900 focus:outline-none focus:border-hero/30 transition-all resize-none"
+              ></textarea>
+            </div>
+          {/if}
+
+          {#if activeModal.type === 'presets'}
+            <div class="space-y-2">
+              <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Internal Notes</label>
+              <textarea 
+                bind:value={modalForm.description}
+                placeholder="Brief description of when to use this (optional)"
+                rows="2"
+                class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-medium text-slate-900 focus:outline-none focus:border-hero/30 transition-all resize-none"
+              ></textarea>
+            </div>
+
+            {#if presets.length > 0}
+              <div class="space-y-3 pt-4 border-t border-slate-100">
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Existing Presets</label>
+                <div class="grid gap-2">
+                  {#each presets as p}
+                    <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                      <div class="flex items-center gap-3">
+                        <span class="text-xl w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm">{p.icon || '✨'}</span>
+                        <span class={p.points > 0 ? 'text-hero' : 'text-slate-900'}>
+                          {p.points > 0 ? '+' : ''}{p.points}
+                        </span>
+                        <span class="font-bold text-slate-900 uppercase tracking-tight text-xs">{p.title}</span>
+                      </div>
+                      <button onclick={() => deletePreset(p.id)} class="text-slate-300 hover:text-red-500 transition-colors">
+                        <X size={16} />
+                      </button>
+                    </div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          {/if}
 
           {#if activeModal.type === 'bank'}
             <div class="p-4 bg-savings/5 rounded-2xl border border-savings/10 flex items-start gap-3">
@@ -543,19 +745,22 @@
             </div>
           {/if}
 
-          <button 
+          {#if activeModal.type !== 'picker'}
+            <button 
             onclick={handleModalSubmit}
             disabled={modalLoading}
             class="w-full py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-sm shadow-xl transition-all active:scale-[0.98] disabled:opacity-50
               {activeModal.type === 'award' ? 'bg-hero text-white shadow-hero/30 hover:bg-hero-dark' : 
                activeModal.type === 'penalty' ? 'bg-penalty text-white shadow-penalty/30 hover:bg-penalty-dark' :
                activeModal.type === 'bank' ? 'bg-savings text-white shadow-savings/30 hover:bg-savings-dark' :
+               activeModal.type === 'presets' ? 'bg-slate-900 text-white shadow-slate-200 hover:bg-black' :
                'bg-reward text-white shadow-reward/30 hover:bg-reward-dark'}"
           >
-            {modalLoading ? 'Processing...' : 'Confirm Action'}
+            {modalLoading ? 'Processing...' : (activeModal.type === 'presets' ? 'Create Preset' : 'Confirm Action')}
           </button>
-        </div>
+        {/if}
       </div>
+    </div>
     </div>
   </div>
 {/if}
