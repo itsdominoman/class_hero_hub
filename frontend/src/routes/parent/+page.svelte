@@ -28,9 +28,8 @@
   let modalLoading = $state(false);
   let modalError = $state<string | null>(null);
   let activeTab = $state('positive');
+  let editingPresetId = $state<number | null>(null);
 
-  const EMOJI_OPTIONS = ['🪥', '📚', '🛏️', '⏰', '🧹', '🧺', '🍎', '🥦', '👍', '❤️', '⭐', '👑', '🎮', '🖥️', '📱', '😴', '😡', '🚫', '🧸', '跑步', '🎒', '✏️', '🧼', '🍽️'];
-  // Correcting the emoji list to use the ones requested
   const DEFAULT_EMOJIS = ['🪥', '📚', '🛏️', '⏰', '🧹', '🧺', '🍎', '🥦', '👍', '❤️', '⭐', '👑', '🎮', '🖥️', '📱', '😴', '😡', '🚫', '🧸', '🏃', '🎒', '✏️', '🧼', '🍽️'];
 
 
@@ -91,6 +90,7 @@
   function openModal(type: string, child: any) {
     activeModal = { type, child };
     activeTab = 'positive';
+    editingPresetId = null;
     modalForm = {
       points: 1,
       description: '',
@@ -103,6 +103,32 @@
 
   function closeModal() {
     activeModal = null;
+    editingPresetId = null;
+  }
+
+  function startEditing(preset: any) {
+    editingPresetId = preset.id;
+    modalForm = {
+      points: preset.points,
+      description: preset.description || '',
+      title: preset.title,
+      icon: preset.icon || '',
+      jar: 'spending'
+    };
+    // Scroll modal to top
+    const modalContent = document.getElementById('modal-scroll-area');
+    if (modalContent) modalContent.scrollTop = 0;
+  }
+
+  function cancelEditing() {
+    editingPresetId = null;
+    modalForm = {
+      points: 1,
+      description: '',
+      title: '',
+      icon: '',
+      jar: 'spending'
+    };
   }
 
   async function handleModalSubmit() {
@@ -115,15 +141,26 @@
       if (activeModal.type === 'picker') return;
 
       if (activeModal.type === 'presets') {
-        await api.post('/presets/', {
+        const payload = {
           title: modalForm.title,
           points: modalForm.points,
           description: modalForm.description || '',
           icon: modalForm.icon || null,
           is_active: true
-        });
+        };
+
+        if (editingPresetId) {
+          await api.patch(`/presets/${editingPresetId}`, payload);
+        } else {
+          await api.post('/presets/', payload);
+        }
+        
         await loadDashboard();
-        closeModal();
+        if (editingPresetId) {
+          cancelEditing();
+        } else {
+          closeModal();
+        }
         return;
       }
 
@@ -521,9 +558,9 @@
     ></div>
 
     <!-- Modal Content -->
-    <div class="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl relative z-10 overflow-hidden animate-in fade-in zoom-in duration-300">
-      <div class="p-8 md:p-12">
-        <div class="flex justify-between items-start mb-8">
+    <div class="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl relative z-10 overflow-hidden animate-in fade-in zoom-in duration-300 max-h-[90vh] flex flex-col">
+      <div class="p-8 md:p-12 flex flex-col h-full overflow-hidden pb-4">
+        <div class="flex justify-between items-start mb-8 shrink-0">
           <div class="flex items-center gap-4">
             <div class="w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg
               {activeModal.type === 'award' ? 'bg-hero text-white shadow-hero/20' : 
@@ -544,12 +581,12 @@
                 {activeModal.type === 'award' ? 'Award Points' : 
                  activeModal.type === 'penalty' ? 'Apply Penalty' :
                  activeModal.type === 'bank' ? 'Bank to Savings' :
-                 activeModal.type === 'presets' ? 'Manage Behaviours' :
+                 activeModal.type === 'presets' ? (editingPresetId ? 'Edit Behaviour' : 'Manage Behaviours') :
                  activeModal.type === 'picker' ? 'Quick Action' :
                  'Redeem Points'}
               </h3>
               <p class="text-slate-400 font-black text-xs uppercase tracking-[0.2em]">
-                {activeModal.type === 'presets' ? 'Configure reusable actions' : `For ${activeModal.child?.child?.display_name}`}
+                {activeModal.type === 'presets' ? (editingPresetId ? 'Update this action' : 'Configure reusable actions') : `For ${activeModal.child?.child?.display_name}`}
               </p>
             </div>
           </div>
@@ -559,15 +596,15 @@
         </div>
 
         {#if modalError}
-          <div class="p-4 bg-red-50 text-red-600 rounded-2xl font-bold text-sm mb-6 border border-red-100 flex items-center gap-2">
+          <div class="p-4 bg-red-50 text-red-600 rounded-2xl font-bold text-sm mb-6 border border-red-100 flex items-center gap-2 shrink-0">
             <Ban size={16} /> {modalError}
           </div>
         {/if}
 
-        <div class="space-y-6">
+        <div id="modal-scroll-area" class="flex-1 overflow-y-auto pr-2 -mr-2 custom-scrollbar space-y-6 pb-4">
           {#if activeModal.type === 'picker'}
             <!-- ClassDojo Style Picker -->
-            <div class="flex gap-2 p-1 bg-slate-100 rounded-2xl">
+            <div class="flex gap-2 p-1 bg-slate-100 rounded-2xl sticky top-0 z-20">
               <button 
                 onclick={() => activeTab = 'positive'}
                 class="flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all
@@ -584,7 +621,7 @@
               </button>
             </div>
 
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 pb-4">
               {#each presets.filter(p => p.is_active && (activeTab === 'positive' ? p.points > 0 : p.points < 0)) as p}
                 <button 
                   onclick={() => applyPreset(activeModal.child, p)}
@@ -660,35 +697,35 @@
 
           {#if activeModal.type !== 'picker'}
             <div class="grid grid-cols-2 gap-6">
-            <div class="space-y-2">
-              <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Points Amount</label>
-              <div class="relative">
-                <input 
-                  type="number" 
-                  bind:value={modalForm.points}
-                  class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-black text-slate-900 focus:outline-none focus:border-hero/30 transition-all text-2xl"
-                />
-                <span class="absolute right-6 top-1/2 -translate-y-1/2 font-black text-slate-300 text-sm">HP</span>
+              <div class="space-y-2">
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Points Amount</label>
+                <div class="relative">
+                  <input 
+                    type="number" 
+                    bind:value={modalForm.points}
+                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-black text-slate-900 focus:outline-none focus:border-hero/30 transition-all text-2xl"
+                  />
+                  <span class="absolute right-6 top-1/2 -translate-y-1/2 font-black text-slate-300 text-sm">HP</span>
+                </div>
+                {#if activeModal.type === 'presets'}
+                  <p class="text-[10px] text-slate-400 ml-2">Use negative for penalties</p>
+                {/if}
               </div>
-              {#if activeModal.type === 'presets'}
-                <p class="text-[10px] text-slate-400 ml-2">Use negative for penalties</p>
+
+              {#if activeModal.type === 'award' || activeModal.type === 'penalty'}
+                <div class="space-y-2">
+                  <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Target Jar</label>
+                  <select 
+                    bind:value={modalForm.jar}
+                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-bold text-slate-900 focus:outline-none focus:border-hero/30 transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="spending">Spending Jar</option>
+                    <option value="savings">Savings Jar</option>
+                  </select>
+                </div>
               {/if}
             </div>
-
-            {#if activeModal.type === 'award' || activeModal.type === 'penalty'}
-              <div class="space-y-2">
-                <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Target Jar</label>
-                <select 
-                  bind:value={modalForm.jar}
-                  class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-bold text-slate-900 focus:outline-none focus:border-hero/30 transition-all appearance-none cursor-pointer"
-                >
-                  <option value="spending">Spending Jar</option>
-                  <option value="savings">Savings Jar</option>
-                </select>
-              </div>
-            {/if}
-          </div>
-        {/if}
+          {/if}
 
           {#if activeModal.type !== 'presets' && activeModal.type !== 'picker'}
             <div class="space-y-2">
@@ -726,9 +763,14 @@
                         </span>
                         <span class="font-bold text-slate-900 uppercase tracking-tight text-xs">{p.title}</span>
                       </div>
-                      <button onclick={() => deletePreset(p.id)} class="text-slate-300 hover:text-red-500 transition-colors">
-                        <X size={16} />
-                      </button>
+                      <div class="flex items-center gap-3">
+                        <button onclick={() => startEditing(p)} class="text-slate-300 hover:text-hero transition-colors">
+                          <Settings size={16} />
+                        </button>
+                        <button onclick={() => deletePreset(p.id)} class="text-slate-300 hover:text-red-500 transition-colors">
+                          <X size={16} />
+                        </button>
+                      </div>
                     </div>
                   {/each}
                 </div>
@@ -744,27 +786,36 @@
               </p>
             </div>
           {/if}
+        </div>
 
-          {#if activeModal.type !== 'picker'}
+        {#if activeModal.type !== 'picker'}
+          <div class="pt-6 shrink-0 flex flex-col gap-3 bg-white">
             <button 
-            onclick={handleModalSubmit}
-            disabled={modalLoading}
-            class="w-full py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-sm shadow-xl transition-all active:scale-[0.98] disabled:opacity-50
-              {activeModal.type === 'award' ? 'bg-hero text-white shadow-hero/30 hover:bg-hero-dark' : 
-               activeModal.type === 'penalty' ? 'bg-penalty text-white shadow-penalty/30 hover:bg-penalty-dark' :
-               activeModal.type === 'bank' ? 'bg-savings text-white shadow-savings/30 hover:bg-savings-dark' :
-               activeModal.type === 'presets' ? 'bg-slate-900 text-white shadow-slate-200 hover:bg-black' :
-               'bg-reward text-white shadow-reward/30 hover:bg-reward-dark'}"
-          >
-            {modalLoading ? 'Processing...' : (activeModal.type === 'presets' ? 'Create Preset' : 'Confirm Action')}
-          </button>
+              onclick={handleModalSubmit}
+              disabled={modalLoading}
+              class="w-full py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-sm shadow-xl transition-all active:scale-[0.98] disabled:opacity-50
+                {activeModal.type === 'award' ? 'bg-hero text-white shadow-hero/20 hover:bg-hero-dark' : 
+                 activeModal.type === 'penalty' ? 'bg-penalty text-white shadow-penalty/30 hover:bg-penalty-dark' :
+                 activeModal.type === 'bank' ? 'bg-savings text-white shadow-savings/30 hover:bg-savings-dark' :
+                 activeModal.type === 'presets' ? 'bg-slate-900 text-white shadow-slate-200 hover:bg-black' :
+                 'bg-reward text-white shadow-reward/30 hover:bg-reward-dark'}"
+            >
+              {modalLoading ? 'Processing...' : (activeModal.type === 'presets' ? (editingPresetId ? 'Save Changes' : 'Create Preset') : 'Confirm Action')}
+            </button>
+            {#if editingPresetId}
+              <button 
+                onclick={cancelEditing}
+                class="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                Cancel Edit
+              </button>
+            {/if}
+          </div>
         {/if}
       </div>
     </div>
-    </div>
   </div>
 {/if}
-
 <style>
   :global(.card) {
     border: 1px solid rgba(0,0,0,0.05);
