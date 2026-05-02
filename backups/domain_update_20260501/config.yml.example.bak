@@ -1,0 +1,10 @@
+tunnel: YOUR_TUNNEL_ID
+credentials-file: /etc/cloudflared/YOUR_TUNNEL_ID.json
+
+ingress:
+  - hostname: family.example.com
+    path: /api
+    service: http://backend:8000
+  - hostname: family.example.com
+    service: http://frontend:5173
+  - service: http_status:404

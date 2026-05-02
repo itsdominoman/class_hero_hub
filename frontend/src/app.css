@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --hero-color: #7c3aed;
+  --savings-color: #16a34a;
+  --reward-color: #ca8a04;
+  --penalty-color: #e11d48;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 font-sans selection:bg-hero-light/30;
+  background-image: radial-gradient(circle at 2px 2px, rgba(124, 58, 237, 0.05) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+.glass {
+  @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl;
+}
+
+.card {
+  @apply bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden;
+}
+
+.btn-hero {
+  @apply px-4 py-2 bg-hero text-white rounded-xl font-bold hover:bg-hero-dark transition-all active:scale-95 shadow-lg shadow-hero/20;
+}
+
+.btn-secondary {
+  @apply px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl font-medium hover:bg-slate-50 transition-all active:scale-95;
+}

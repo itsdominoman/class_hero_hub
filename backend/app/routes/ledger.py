@@ -1,0 +1,189 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import List
+from ..database import get_db
+from .. import models, schemas, auth
+from ..services import points_service
+from datetime import datetime, timedelta
+
+router = APIRouter()
+
+@router.get("/{child_id}/ledger", response_model=List[schemas.LedgerTransaction])
+async def get_ledger(
+    child_id: int,
+    db: Session = Depends(get_db),
+    current_parent: models.ParentUser = Depends(auth.get_current_parent)
+):
+    return db.query(models.LedgerTransaction).filter(models.LedgerTransaction.child_id == child_id).order_by(models.LedgerTransaction.created_at.desc()).all()
+
+@router.post("/{child_id}/award", response_model=schemas.LedgerTransaction)
+async def award_points(
+    child_id: int,
+    req: schemas.AwardRequest,
+    db: Session = Depends(get_db),
+    current_parent: models.ParentUser = Depends(auth.get_current_parent)
+):
+    if req.points <= 0:
+        raise HTTPException(status_code=400, detail="Points must be positive")
+    
+    locked_until = None
+    if req.jar == models.JarType.savings:
+        locked_until = datetime.utcnow() + timedelta(days=30)
+
+    transaction = models.LedgerTransaction(
+        child_id=child_id,
+        jar=req.jar,
+        transaction_type=models.TransactionType.award,
+        points=req.points,
+        description=req.description,
+        locked_until=locked_until,
+        created_by_parent_id=current_parent.id
+    )
+    db.add(transaction)
+    db.commit()
+    db.refresh(transaction)
+    
+    # Update pet progress (awards increase lifetime points)
+    points_service.update_pet_progress(db, child_id, req.points, True)
+    
+    return transaction
+
+@router.post("/{child_id}/penalty", response_model=schemas.LedgerTransaction)
+async def penalty_points(
+    child_id: int,
+    req: schemas.PenaltyRequest,
+    db: Session = Depends(get_db),
+    current_parent: models.ParentUser = Depends(auth.get_current_parent)
+):
+    if req.points <= 0:
+        raise HTTPException(status_code=400, detail="Points must be positive")
+    
+    # Check balance
+    balances = points_service.calculate_balances(db, child_id)
+    current_balance = balances["spending_balance"] if req.jar == models.JarType.spending else balances["savings_balance"]
+    
+    if current_balance < req.points:
+        raise HTTPException(status_code=400, detail="Insufficient points for penalty")
+
+    transaction = models.LedgerTransaction(
+        child_id=child_id,
+        jar=req.jar,
+        transaction_type=models.TransactionType.penalty,
+        points=-req.points,
+        description=req.description,
+        created_by_parent_id=current_parent.id
+    )
+    db.add(transaction)
+    db.commit()
+    db.refresh(transaction)
+    
+    return transaction
+
+@router.post("/{child_id}/savings/deposit", response_model=List[schemas.LedgerTransaction])
+async def deposit_to_savings(
+    child_id: int,
+    req: schemas.SavingsDepositRequest,
+    db: Session = Depends(get_db),
+    current_parent: models.ParentUser = Depends(auth.get_current_parent)
+):
+    if req.points <= 0:
+        raise HTTPException(status_code=400, detail="Points must be positive")
+    
+    balances = points_service.calculate_balances(db, child_id)
+    if balances["spending_balance"] < req.points:
+        raise HTTPException(status_code=400, detail="Insufficient spending points")
+
+    # 1. Remove from spending
+    spending_tx = models.LedgerTransaction(
+        child_id=child_id,
+        jar=models.JarType.spending,
+        transaction_type=models.TransactionType.savings_deposit,
+        points=-req.points,
+        description=f"Transfer to Savings: {req.description}",
+        created_by_parent_id=current_parent.id
+    )
+    
+    # 2. Add to savings (locked for 30 days)
+    locked_until = datetime.utcnow() + timedelta(days=30)
+    savings_tx = models.LedgerTransaction(
+        child_id=child_id,
+        jar=models.JarType.savings,
+        transaction_type=models.TransactionType.savings_deposit,
+        points=req.points,
+        description=f"Transfer from Spending: {req.description}",
+        locked_until=locked_until,
+        created_by_parent_id=current_parent.id
+    )
+    
+    db.add(spending_tx)
+    db.add(savings_tx)
+    db.commit()
+    db.refresh(spending_tx)
+    db.refresh(savings_tx)
+    
+    return [spending_tx, savings_tx]
+
+@router.post("/{child_id}/savings/withdraw", response_model=List[schemas.LedgerTransaction])
+async def withdraw_from_savings(
+    child_id: int,
+    req: schemas.SavingsWithdrawRequest,
+    db: Session = Depends(get_db),
+    current_parent: models.ParentUser = Depends(auth.get_current_parent)
+):
+    if req.points <= 0:
+        raise HTTPException(status_code=400, detail="Points must be positive")
+    
+    balances = points_service.calculate_balances(db, child_id)
+    if balances["available_savings"] < req.points:
+        raise HTTPException(status_code=400, detail="Insufficient available (unlocked) savings points")
+
+    # 1. Remove from savings
+    savings_tx = models.LedgerTransaction(
+        child_id=child_id,
+        jar=models.JarType.savings,
+        transaction_type=models.TransactionType.savings_withdrawal,
+        points=-req.points,
+        description=f"Transfer to Spending: {req.description}",
+        created_by_parent_id=current_parent.id
+    )
+    
+    # 2. Add to spending
+    spending_tx = models.LedgerTransaction(
+        child_id=child_id,
+        jar=models.JarType.spending,
+        transaction_type=models.TransactionType.savings_withdrawal,
+        points=req.points,
+        description=f"Transfer from Savings: {req.description}",
+        created_by_parent_id=current_parent.id
+    )
+    
+    db.add(savings_tx)
+    db.add(spending_tx)
+    db.commit()
+    db.refresh(savings_tx)
+    db.refresh(spending_tx)
+    
+    return [savings_tx, spending_tx]
+
+@router.post("/{child_id}/adjustment", response_model=schemas.LedgerTransaction)
+async def admin_adjustment(
+    child_id: int,
+    points: int,
+    description: str,
+    jar: models.JarType,
+    db: Session = Depends(get_db),
+    current_parent: models.ParentUser = Depends(auth.get_current_parent)
+):
+    transaction = models.LedgerTransaction(
+        child_id=child_id,
+        jar=jar,
+        transaction_type=models.TransactionType.adjustment,
+        points=points,
+        description=description,
+        created_by_parent_id=current_parent.id
+    )
+    db.add(transaction)
+    db.commit()
+    db.refresh(transaction)
+    
+    return transaction

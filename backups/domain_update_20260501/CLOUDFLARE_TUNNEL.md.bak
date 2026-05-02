@@ -1,0 +1,39 @@
+# Cloudflare Tunnel Deployment
+
+This app is designed to be deployed behind a Cloudflare Tunnel using a single hostname.
+
+## Configuration
+
+1.  **Cloudflare Dashboard:**
+    - Set up a Tunnel in the Cloudflare One dashboard.
+    - Route a public hostname (e.g., `family.example.com`) to the local service `http://frontend:5173` or a reverse proxy.
+2.  **Hostname Routing:**
+    - Path `/api/*` -> `http://backend:8000/api/*`
+    - Path `/*` -> `http://frontend:5173/*`
+    - Alternatively, use a single entry point that handles routing.
+
+## Example `cloudflared` Config
+
+```yaml
+tunnel: <TUNNEL_ID>
+credentials-file: /etc/cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  - hostname: family.example.com
+    path: /api
+    service: http://backend:8000
+  - hostname: family.example.com
+    service: http://frontend:5173
+  - service: http_status:404
+```
+
+## Environment Update
+
+Update your `.env` file for production:
+```env
+PUBLIC_APP_URL=https://family.example.com
+API_BASE_URL=https://family.example.com
+GOOGLE_REDIRECT_URI=https://family.example.com/api/auth/google/callback
+CORS_ORIGINS=https://family.example.com
+DEV_AUTH_ENABLED=false
+```

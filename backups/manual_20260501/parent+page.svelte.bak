@@ -1,0 +1,155 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { api } from '$lib/api';
+  import { Plus, UserPlus, Award, Ban, PiggyBank, ArrowRight, Star, Bell, LayoutDashboard, Settings } from 'lucide-svelte';
+
+  let children = $state([]);
+  let loading = $state(true);
+  let error = $state(null);
+
+  async function loadChildren() {
+    try {
+      loading = true;
+      children = await api.get('/children');
+    } catch (e) {
+      error = e.message;
+    } finally {
+      loading = false;
+    }
+  }
+
+  onMount(loadChildren);
+
+  const getPetEmoji = (stage) => {
+    switch (stage) {
+      case 'egg': return '🥚';
+      case 'hatchling': return '🐣';
+      case 'cub': return '🦊';
+      case 'hero': return '🦸';
+      case 'beast': return '🐉';
+      default: return '🥚';
+    }
+  };
+</script>
+
+<div class="bg-slate-50 min-h-screen">
+  <!-- Dashboard Sub-Header -->
+  <div class="bg-white border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white">
+          <LayoutDashboard size={20} />
+        </div>
+        <h1 class="text-xl font-black text-slate-900 uppercase tracking-tighter">Overview</h1>
+      </div>
+      <div class="flex items-center gap-4">
+        <button class="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:text-hero transition-colors relative">
+          <Bell size={20} />
+          <span class="absolute top-0 right-0 w-3 h-3 bg-penalty rounded-full border-2 border-white"></span>
+        </button>
+        <button class="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:text-hero transition-colors">
+          <Settings size={20} />
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto px-4 py-12">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+      <div>
+        <h2 class="text-4xl font-black text-slate-900 mb-2">My Heroes</h2>
+        <p class="text-slate-500 font-medium">Tracking responsibility and growth across the family.</p>
+      </div>
+      
+      <button class="btn-hero flex items-center gap-2 px-6 py-4 rounded-2xl shadow-xl shadow-hero/20">
+        <UserPlus size={20} /> Add New Child
+      </button>
+    </div>
+
+    {#if loading}
+      <div class="flex justify-center py-20">
+        <div class="animate-spin w-12 h-12 border-4 border-hero border-t-transparent rounded-full"></div>
+      </div>
+    {:else if error}
+      <div class="card bg-red-50 border-red-100 p-8 text-center max-w-lg mx-auto">
+        <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+          <Ban size={32} />
+        </div>
+        <p class="text-red-600 font-black mb-4 uppercase tracking-widest text-sm">Failed to load data</p>
+        <p class="text-slate-600 mb-8">{error}</p>
+        <button onclick={loadChildren} class="btn-secondary w-full py-4">Try Again</button>
+      </div>
+    {:else if children.length === 0}
+      <div class="card p-16 text-center border-dashed border-4 border-slate-200 bg-white/50">
+        <div class="w-24 h-24 bg-slate-100 text-slate-400 rounded-3xl flex items-center justify-center mx-auto mb-8">
+          <UserPlus size={48} />
+        </div>
+        <h2 class="text-3xl font-black text-slate-800 mb-4 tracking-tight">Your Hero Hub is Empty</h2>
+        <p class="text-slate-500 mb-10 max-w-sm mx-auto font-medium">Add your first child to start awarding points and managing their hero journey!</p>
+        <button class="btn-hero px-12 py-5 rounded-2xl text-lg">Add Your First Child</button>
+      </div>
+    {:else}
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {#each children as c}
+          <div class="card group hover:shadow-2xl transition-all duration-500 border-none bg-white relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-hero/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700"></div>
+            
+            <div class="p-8 border-b border-slate-50 flex items-center justify-between relative z-10">
+              <div class="flex items-center gap-5">
+                <div class="w-20 h-20 bg-slate-50 group-hover:bg-hero/10 rounded-3xl flex items-center justify-center text-5xl transition-colors duration-500 shadow-inner">
+                  {getPetEmoji(c.pet_progress.current_stage)}
+                </div>
+                <div>
+                  <h3 class="text-2xl font-black text-slate-900 tracking-tight">{c.child.display_name}</h3>
+                  <div class="flex items-center gap-1.5 mt-1">
+                    <div class="w-2 h-2 rounded-full bg-hero animate-pulse"></div>
+                    <span class="text-[10px] font-black uppercase tracking-[0.2em] text-hero opacity-70">
+                      {c.pet_progress.current_stage} stage
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <a href="/child/{c.child.id}" class="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-300 group-hover:bg-hero group-hover:text-white group-hover:shadow-lg group-hover:shadow-hero/30 transition-all duration-300">
+                <ArrowRight size={24} />
+              </a>
+            </div>
+
+            <div class="p-8 grid grid-cols-2 gap-6 relative z-10">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <div class="w-6 h-6 bg-reward/10 rounded-lg flex items-center justify-center text-reward">
+                    <Star size={14} fill="currentColor" />
+                  </div>
+                  <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Spending</span>
+                </div>
+                <div class="text-3xl font-black text-slate-900">
+                  {c.spending_balance} <span class="text-xs font-bold text-slate-400 uppercase">HP</span>
+                </div>
+              </div>
+              <div class="space-y-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <div class="w-6 h-6 bg-savings/10 rounded-lg flex items-center justify-center text-savings">
+                    <PiggyBank size={14} />
+                  </div>
+                  <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Savings</span>
+                </div>
+                <div class="text-3xl font-black text-slate-900">
+                  {c.savings_balance} <span class="text-xs font-bold text-slate-400 uppercase">HP</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="px-8 pb-8 pt-2 flex items-center gap-3 relative z-10">
+              <button class="flex-[2] btn-secondary py-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:border-hero hover:text-hero transition-all">
+                <Award size={18} /> Quick Award
+              </button>
+              <button class="flex-1 btn-secondary py-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:border-penalty hover:text-penalty transition-all">
+                <Ban size={18} />
+              </button>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </div>
+</div>
