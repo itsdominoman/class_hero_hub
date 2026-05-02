@@ -15,6 +15,7 @@ The project uses a specialized agent structure to manage different aspects of th
 | **Calliope** | Content Creation | `/home/administrator/.hermes/profiles/calliope` |
 
 ## Operating Rules
+- **Mandatory Docs Check:** Before taking action on Family Hero Hub, read the project docs in `/opt/apps/family-hero-hub/docs/`. At minimum check `PROJECT_STATUS.md`, `ROADMAP.md`, and `AGENT_WORKFLOW.md`. For product, market, UX, or feature planning, also check `MARKET_RESEARCH_SUMMARY.md` and relevant PRDs such as `MISSIONS_PRD.md`. Do not rely on memory alone. Inspect docs first, then act.
 - **Zeus** is the default profile and orchestrates the team.
 - **Hercules** uses the Gemini CLI (`/usr/bin/gemini`) for coding tasks.
 - **Athena** defines the product direction and PRDs.
