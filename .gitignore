@@ -12,3 +12,4 @@ coverage/
 .idea/
 __pycache__/
 *.pyc
+data/*.sqlite
