@@ -13,3 +13,4 @@ coverage/
 __pycache__/
 *.pyc
 data/*.sqlite
+HERMES_RULES.md
