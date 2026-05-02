@@ -14,3 +14,4 @@ __pycache__/
 *.pyc
 data/*.sqlite
 HERMES_RULES.md
+tmp/

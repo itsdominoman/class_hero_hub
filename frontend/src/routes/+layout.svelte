@@ -2,7 +2,6 @@
   import '../app.css';
   import { onMount } from 'svelte';
   import { api } from '$lib/api';
-  import { ShieldCheck } from 'lucide-svelte';
 
   let { children } = $props();
   let currentParent = $state(null);
@@ -33,9 +32,7 @@
   <header class="bg-white/80 backdrop-blur-xl sticky top-0 z-50 border-b border-slate-200/50 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
       <a href="/" class="flex items-center gap-3 group">
-        <div class="w-12 h-12 bg-hero rounded-2xl flex items-center justify-center text-white shadow-xl shadow-hero/30 group-hover:rotate-6 transition-all duration-300">
-          <ShieldCheck size={28} />
-        </div>
+        <img src="/family-hero-hub-logo.png" alt="Family Hero Hub" class="w-12 h-12 rounded-2xl object-cover shadow-xl shadow-hero/30 group-hover:rotate-6 transition-all duration-300" />
         <div class="flex flex-col -space-y-1 min-w-0">
           <span class="text-xl sm:text-2xl font-black tracking-tighter text-slate-900 uppercase leading-none">Family Hero</span>
           <span class="text-xs font-black text-hero tracking-[0.22em] uppercase opacity-80 leading-none">Hub</span>
@@ -67,9 +64,7 @@
     <div class="max-w-7xl mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
       <div class="text-left">
         <div class="flex items-center gap-3 mb-6 opacity-50 grayscale">
-          <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-900">
-            <ShieldCheck size={24} />
-          </div>
+          <img src="/family-hero-hub-logo.png" alt="Family Hero Hub" class="w-10 h-10 rounded-xl object-cover bg-white" />
           <span class="text-xl font-black tracking-tighter text-white uppercase">Family Hero Hub</span>
         </div>
         <p class="text-lg leading-relaxed max-w-md">Empowering the next generation with the financial wisdom and responsibility they need to thrive.</p>
