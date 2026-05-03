@@ -11,7 +11,7 @@ This app is designed to be deployed behind a Cloudflare Tunnel using a single ho
 
 1.  **Cloudflare Dashboard:**
     - Set up a Tunnel in the Cloudflare One dashboard.
-    - Route a public hostname (e.g., `families.loginto.me`) to the local service `http://frontend:5173` or a reverse proxy.
+    - Route a public hostname (e.g., `familyherohub.com`) to the local service `http://frontend:5173` or a reverse proxy.
 2.  **Hostname Routing:**
     - Path `/api/*` -> `http://backend:8000/api/*`
     - Path `/*` -> `http://frontend:5173/*`
@@ -24,10 +24,10 @@ tunnel: <TUNNEL_ID>
 credentials-file: /etc/cloudflared/<TUNNEL_ID>.json
 
 ingress:
-  - hostname: families.loginto.me
+  - hostname: familyherohub.com
     path: /api
     service: http://backend:8000
-  - hostname: families.loginto.me
+  - hostname: familyherohub.com
     service: http://frontend:5173
   - service: http_status:404
 ```
@@ -36,9 +36,9 @@ ingress:
 
 Update your `.env` file for production:
 ```env
-PUBLIC_APP_URL=https://families.loginto.me
-API_BASE_URL=https://families.loginto.me
-GOOGLE_REDIRECT_URI=https://families.loginto.me/api/auth/google/callback
-CORS_ORIGINS=https://families.loginto.me
+PUBLIC_APP_URL=https://familyherohub.com
+API_BASE_URL=https://familyherohub.com
+GOOGLE_REDIRECT_URI=https://familyherohub.com/api/auth/google/callback
+CORS_ORIGINS=https://familyherohub.com
 DEV_AUTH_ENABLED=false
 ```

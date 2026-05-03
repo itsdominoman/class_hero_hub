@@ -121,7 +121,7 @@ class LedgerTransaction(Base):
     points = Column(Integer)
     description = Column(String)
     locked_until = Column(DateTime(timezone=True), nullable=True)
-    created_by_parent_id = Column(Integer, ForeignKey("parent_users.id"))
+    created_by_parent_id = Column(Integer, ForeignKey("parent_users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     child = relationship("Child", back_populates="transactions")
