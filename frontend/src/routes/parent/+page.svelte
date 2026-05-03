@@ -4,13 +4,15 @@
   import { 
     UserPlus, Award, Ban, PiggyBank, ArrowRight, Star, Bell, 
     LayoutDashboard, Settings, LogIn, Trophy, Clock, Check, X, 
-    History, TrendingUp, ChevronRight
+    History, TrendingUp, ChevronRight, Users
   } from 'lucide-svelte';
 
   let parent = $state<any>(null);
   let children = $state<any[]>([]);
   let redemptions = $state<any[]>([]);
   let presets = $state<any[]>([]);
+  let familyMembers = $state<any[]>([]);
+  let familyInvites = $state<any[]>([]);
   let loading = $state(true);
   let loadingChildren = $state(false);
   let error = $state<string | null>(null);
@@ -23,6 +25,7 @@
     description: '',
     title: '',
     icon: '',
+    email: '',
     jar: 'spending'
   });
   let modalLoading = $state(false);
@@ -43,16 +46,20 @@
       loading = true;
       error = null;
       needsLogin = false;
-      const [p, c, r, pr] = await Promise.all([
+      const [p, c, r, pr, fm, fi] = await Promise.all([
         api.get('/me'),
         api.get('/children/'),
         api.get('/redemptions'),
-        api.get('/presets/')
+        api.get('/presets/'),
+        api.get('/family/members'),
+        api.get('/family/invites')
       ]);
       parent = p;
       children = c;
       redemptions = r;
       presets = pr;
+      familyMembers = fm;
+      familyInvites = fi;
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Unable to load dashboard';
       if (isAuthError(message)) {
@@ -96,6 +103,7 @@
       description: '',
       title: '',
       icon: '',
+      email: '',
       jar: 'spending'
     };
     modalError = null;
@@ -113,6 +121,7 @@
       description: preset.description || '',
       title: preset.title,
       icon: preset.icon || '',
+      email: '',
       jar: 'spending'
     };
     // Scroll modal to top
@@ -127,6 +136,7 @@
       description: '',
       title: '',
       icon: '',
+      email: '',
       jar: 'spending'
     };
   }
@@ -139,6 +149,13 @@
       modalError = null;
 
       if (activeModal.type === 'picker') return;
+
+      if (activeModal.type === 'family') {
+        await api.post('/family/invites', { email: modalForm.email });
+        await loadDashboard();
+        modalForm.email = '';
+        return;
+      }
 
       if (activeModal.type === 'presets') {
         const payload = {
@@ -233,6 +250,16 @@
     }
   }
 
+  async function revokeInvite(id: number) {
+    if (!confirm('Revoke this invite?')) return;
+    try {
+      await api.patch(`/family/invites/${id}/revoke`, {});
+      await loadDashboard();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to revoke invite');
+    }
+  }
+
   async function processRedemption(id: number, action: string) {
     try {
       const note = action === 'reject' ? window.prompt('Reason for rejection? (Optional)') : 'Approved by parent';
@@ -322,7 +349,10 @@
           <p class="text-slate-500 font-medium">Tracking responsibility and growth across the family.</p>
         </div>
         
-        <div class="flex items-center gap-3 self-start md:self-auto">
+        <div class="flex items-center gap-3 self-start md:self-auto flex-wrap">
+          <button onclick={() => openModal('family', null)} class="btn-secondary flex items-center gap-2 px-6 py-4 rounded-2xl">
+            <Users size={20} /> Family Settings
+          </button>
           <button onclick={() => openModal('presets', null)} class="btn-secondary flex items-center gap-2 px-6 py-4 rounded-2xl">
             <Settings size={20} /> Manage Behaviours
           </button>
@@ -568,12 +598,14 @@
                activeModal.type === 'bank' ? 'bg-savings text-white shadow-savings/20' :
                activeModal.type === 'presets' ? 'bg-slate-900 text-white shadow-slate-200' :
                activeModal.type === 'picker' ? 'bg-slate-900 text-white shadow-slate-200' :
+               activeModal.type === 'family' ? 'bg-hero text-white shadow-hero/20' :
                'bg-reward text-white shadow-reward/20'}">
               {#if activeModal.type === 'award'}<Award size={32} />
               {:else if activeModal.type === 'penalty'}<Ban size={32} />
               {:else if activeModal.type === 'bank'}<PiggyBank size={32} />
               {:else if activeModal.type === 'presets'}<Settings size={32} />
               {:else if activeModal.type === 'picker'}<Star size={32} class="text-hero" />
+              {:else if activeModal.type === 'family'}<Users size={32} />
               {:else}<Trophy size={32} />{/if}
             </div>
             <div>
@@ -583,10 +615,13 @@
                  activeModal.type === 'bank' ? 'Bank to Savings' :
                  activeModal.type === 'presets' ? (editingPresetId ? 'Edit Behaviour' : 'Manage Behaviours') :
                  activeModal.type === 'picker' ? 'Quick Action' :
+                 activeModal.type === 'family' ? 'Family Settings' :
                  'Redeem Points'}
               </h3>
               <p class="text-slate-400 font-black text-xs uppercase tracking-[0.2em]">
-                {activeModal.type === 'presets' ? (editingPresetId ? 'Update this action' : 'Configure reusable actions') : `For ${activeModal.child?.child?.display_name}`}
+                {activeModal.type === 'presets' ? (editingPresetId ? 'Update this action' : 'Configure reusable actions') : 
+                 activeModal.type === 'family' ? 'Manage members & co-parents' :
+                 `For ${activeModal.child?.child?.display_name}`}
               </p>
             </div>
           </div>
@@ -602,6 +637,65 @@
         {/if}
 
         <div id="modal-scroll-area" class="flex-1 overflow-y-auto pr-2 -mr-2 custom-scrollbar space-y-6 pb-4">
+          {#if activeModal.type === 'family'}
+            <!-- Members List -->
+            <div class="space-y-3">
+              <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Family Members</label>
+              <div class="grid gap-2">
+                {#each familyMembers as member}
+                  <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-hero font-black shadow-sm">
+                        {member.name ? member.name[0].toUpperCase() : member.email[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <p class="font-bold text-slate-900 text-sm">{member.name || 'Parent'}</p>
+                        <p class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{member.email}</p>
+                      </div>
+                    </div>
+                    {#if member.id === parent?.id}
+                      <span class="px-3 py-1 bg-hero/10 text-hero rounded-lg text-[10px] font-black uppercase tracking-widest">You</span>
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+            </div>
+
+            <!-- Invites List -->
+            {#if familyInvites.filter(i => i.status === 'pending').length > 0}
+              <div class="space-y-3 pt-4 border-t border-slate-100">
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Pending Invites</label>
+                <div class="grid gap-2">
+                  {#each familyInvites.filter(i => i.status === 'pending') as invite}
+                    <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                      <div>
+                        <p class="font-bold text-slate-900 text-sm">{invite.email}</p>
+                        <p class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Waiting for login</p>
+                      </div>
+                      <button onclick={() => revokeInvite(invite.id)} class="text-slate-300 hover:text-red-500 transition-colors">
+                        <X size={16} />
+                      </button>
+                    </div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+
+            <!-- Invite Form -->
+            <div class="space-y-3 pt-4 border-t border-slate-100">
+              <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Invite Co-Parent</label>
+              <div class="space-y-2">
+                <input 
+                  type="email" 
+                  bind:value={modalForm.email}
+                  placeholder="co-parent@example.com"
+                  class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-bold text-slate-900 focus:outline-none focus:border-hero/30 transition-all"
+                />
+                <p class="text-[10px] text-slate-400 ml-2">They will join your family automatically when they log in with this email.</p>
+              </div>
+            </div>
+          {/if}
+
           {#if activeModal.type === 'picker'}
             <!-- ClassDojo Style Picker -->
             <div class="flex gap-2 p-1 bg-slate-100 rounded-2xl sticky top-0 z-20">
@@ -695,7 +789,7 @@
             {/if}
           {/if}
 
-          {#if activeModal.type !== 'picker'}
+          {#if activeModal.type !== 'picker' && activeModal.type !== 'family'}
             <div class="grid grid-cols-2 gap-6">
               <div class="space-y-2">
                 <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Points Amount</label>
@@ -727,7 +821,7 @@
             </div>
           {/if}
 
-          {#if activeModal.type !== 'presets' && activeModal.type !== 'picker'}
+          {#if activeModal.type !== 'presets' && activeModal.type !== 'picker' && activeModal.type !== 'family'}
             <div class="space-y-2">
               <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Description / Reason</label>
               <textarea 
@@ -800,7 +894,10 @@
                  activeModal.type === 'presets' ? 'bg-slate-900 text-white shadow-slate-200 hover:bg-black' :
                  'bg-reward text-white shadow-reward/30 hover:bg-reward-dark'}"
             >
-              {modalLoading ? 'Processing...' : (activeModal.type === 'presets' ? (editingPresetId ? 'Save Changes' : 'Create Preset') : 'Confirm Action')}
+              {modalLoading ? 'Processing...' : 
+             activeModal.type === 'presets' ? (editingPresetId ? 'Save Changes' : 'Create Preset') : 
+             activeModal.type === 'family' ? 'Send Invitation' :
+             'Confirm Action'}
             </button>
             {#if editingPresetId}
               <button 

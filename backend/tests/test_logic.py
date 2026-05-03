@@ -1,9 +1,17 @@
 import pytest
+import asyncio
+from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app import models, schemas
 from app.services import points_service
+from app.routes import children as child_routes
+from app.routes import family as family_routes
+from app.routes import ledger as ledger_routes
+from app.routes import redemptions as redemption_routes
+from app import auth
 from datetime import datetime, timedelta
 
 # Setup in-memory SQLite for tests
@@ -310,3 +318,319 @@ def test_preset_behaviour_crud(db):
     db.delete(preset)
     db.commit()
     assert db.query(models.PresetBehaviour).filter_by(parent_id=parent.id).count() == 0
+
+def test_family_support(db):
+    # Setup two families
+    f1 = models.Family()
+    f2 = models.Family()
+    db.add_all([f1, f2])
+    db.commit()
+
+    # Setup parents
+    p1 = models.ParentUser(email="p1@f1.com", name="P1", family_id=f1.id)
+    p1_coparent = models.ParentUser(email="p1_co@f1.com", name="P1 Co", family_id=f1.id)
+    p2 = models.ParentUser(email="p2@f2.com", name="P2", family_id=f2.id)
+    db.add_all([p1, p1_coparent, p2])
+    db.commit()
+
+    # Setup children
+    c1 = models.Child(display_name="C1", family_id=f1.id)
+    c2 = models.Child(display_name="C2", family_id=f2.id)
+    db.add_all([c1, c2])
+    db.commit()
+
+    # Setup presets
+    pr1 = models.PresetBehaviour(title="Pr1", points=10, family_id=f1.id, parent_id=p1.id)
+    db.add(pr1)
+    db.commit()
+
+    # Verify P1 sees C1 but not C2
+    from app.routes import children as child_routes
+    # We'd need to mock auth.get_current_parent or call routes directly
+    # For logic test, we check DB queries which routes use
+    
+    f1_children = db.query(models.Child).filter(models.Child.family_id == f1.id).all()
+    assert len(f1_children) == 1
+    assert f1_children[0].display_name == "C1"
+
+    f2_children = db.query(models.Child).filter(models.Child.family_id == f2.id).all()
+    assert len(f2_children) == 1
+    assert f2_children[0].display_name == "C2"
+
+    # Verify co-parent sees same children
+    p1_co_family_children = db.query(models.Child).filter(models.Child.family_id == p1_coparent.family_id).all()
+    assert len(p1_co_family_children) == 1
+    assert p1_co_family_children[0].display_name == "C1"
+
+    # Verify presets are shared in family
+    p1_co_family_presets = db.query(models.PresetBehaviour).filter(models.PresetBehaviour.family_id == p1_coparent.family_id).all()
+    assert len(p1_co_family_presets) == 1
+    assert p1_co_family_presets[0].title == "Pr1"
+
+def test_family_invite_flow(db):
+    # Setup first parent and family
+    f1 = models.Family()
+    db.add(f1)
+    db.commit()
+    p1 = models.ParentUser(email="p1@f1.com", name="P1", family_id=f1.id)
+    db.add(p1)
+    db.commit()
+
+    # P1 invites P2
+    p2_email = "p2@f1.com"
+    invite = models.FamilyInvite(family_id=f1.id, email=p2_email, invited_by_parent_id=p1.id)
+    db.add(invite)
+    db.commit()
+
+    # Simulate P2 registration/callback logic
+    # In a real app, this happens in authentication.py callback
+    existing_invite = db.query(models.FamilyInvite).filter(
+        models.FamilyInvite.email == p2_email,
+        models.FamilyInvite.status == "pending"
+    ).first()
+    
+    assert existing_invite is not None
+    
+    p2 = models.ParentUser(
+        email=p2_email,
+        name="P2",
+        google_sub="p2_sub",
+        family_id=existing_invite.family_id
+    )
+    existing_invite.status = "accepted"
+    existing_invite.accepted_at = models.func.now()
+    db.add(p2)
+    db.commit()
+
+    # Verify P2 is in P1's family
+    assert p2.family_id == p1.family_id
+    assert db.query(models.FamilyInvite).filter_by(email=p2_email).first().status == "accepted"
+
+
+def create_two_family_context(db):
+    f1 = models.Family()
+    f2 = models.Family()
+    db.add_all([f1, f2])
+    db.commit()
+
+    p1 = models.ParentUser(email="p1@example.com", name="P1", family_id=f1.id)
+    p2 = models.ParentUser(email="p2@example.com", name="P2", family_id=f2.id)
+    db.add_all([p1, p2])
+    db.commit()
+
+    c1 = models.Child(display_name="C1", family_id=f1.id)
+    c2 = models.Child(display_name="C2", family_id=f2.id)
+    db.add_all([c1, c2])
+    db.commit()
+    db.refresh(p1)
+    db.refresh(p2)
+    db.refresh(c1)
+    db.refresh(c2)
+    return p1, p2, c1, c2
+
+
+def test_cross_family_ledger_read_denied(db):
+    p1, _p2, _c1, c2 = create_two_family_context(db)
+    db.add(models.LedgerTransaction(
+        child_id=c2.id,
+        jar=models.JarType.spending,
+        transaction_type=models.TransactionType.award,
+        points=10,
+        description="Other family award",
+        created_by_parent_id=p1.id,
+    ))
+    db.commit()
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(ledger_routes.get_ledger(c2.id, "month", "all", db, p1))
+
+    assert exc.value.status_code == 404
+
+
+def test_cross_family_ledger_write_denied(db):
+    p1, _p2, _c1, c2 = create_two_family_context(db)
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(ledger_routes.award_points(
+            c2.id,
+            schemas.AwardRequest(points=5, description="Bad write"),
+            db,
+            p1,
+        ))
+
+    assert exc.value.status_code == 404
+    assert db.query(models.LedgerTransaction).filter_by(child_id=c2.id).count() == 0
+
+
+def test_cross_family_redemption_list_excludes_other_family(db):
+    p1, _p2, c1, c2 = create_two_family_context(db)
+    db.add_all([
+        models.RedemptionRequest(child_id=c1.id, points=5, title="Own", description="", status=models.RedemptionStatus.pending),
+        models.RedemptionRequest(child_id=c2.id, points=7, title="Other", description="", status=models.RedemptionStatus.pending),
+    ])
+    db.commit()
+
+    redemptions = asyncio.run(redemption_routes.get_all_redemptions(db, p1))
+
+    assert len(redemptions) == 1
+    assert redemptions[0].child_id == c1.id
+
+
+def test_cross_family_redemption_approve_reject_denied(db):
+    p1, _p2, _c1, c2 = create_two_family_context(db)
+    request = models.RedemptionRequest(
+        child_id=c2.id,
+        points=7,
+        title="Other",
+        description="",
+        status=models.RedemptionStatus.pending,
+    )
+    db.add(request)
+    db.commit()
+    db.refresh(request)
+
+    with pytest.raises(HTTPException) as approve_exc:
+        asyncio.run(redemption_routes.approve_redemption(
+            request.id,
+            schemas.RedemptionReviewRequest(parent_note="no"),
+            db,
+            p1,
+        ))
+    with pytest.raises(HTTPException) as reject_exc:
+        asyncio.run(redemption_routes.reject_redemption(
+            request.id,
+            schemas.RedemptionReviewRequest(parent_note="no"),
+            db,
+            p1,
+        ))
+
+    assert approve_exc.value.status_code == 404
+    assert reject_exc.value.status_code == 404
+    db.refresh(request)
+    assert request.status == models.RedemptionStatus.pending
+
+
+def test_cross_family_redemption_create_denied(db):
+    p1, _p2, _c1, c2 = create_two_family_context(db)
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(redemption_routes.request_redemption(
+            c2.id,
+            schemas.RedemptionRequestCreate(points=5, title="Other", description=""),
+            db,
+            p1,
+        ))
+
+    assert exc.value.status_code == 404
+    assert db.query(models.RedemptionRequest).filter_by(child_id=c2.id).count() == 0
+
+
+def test_invite_email_normalization_and_case_insensitive_duplicate_prevention(db):
+    family = models.Family()
+    db.add(family)
+    db.commit()
+    parent = models.ParentUser(email="parent@example.com", family_id=family.id)
+    db.add(parent)
+    db.commit()
+    db.refresh(parent)
+
+    invite = asyncio.run(family_routes.create_family_invite(
+        schemas.FamilyInviteCreate(email="CoParent@Example.COM"),
+        db,
+        parent,
+    ))
+
+    assert invite.email == "coparent@example.com"
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(family_routes.create_family_invite(
+            schemas.FamilyInviteCreate(email="coparent@example.com"),
+            db,
+            parent,
+        ))
+
+    assert exc.value.status_code == 400
+
+
+def test_self_invite_blocked(db):
+    family = models.Family()
+    db.add(family)
+    db.commit()
+    parent = models.ParentUser(email="parent@example.com", family_id=family.id)
+    db.add(parent)
+    db.commit()
+    db.refresh(parent)
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(family_routes.create_family_invite(
+            schemas.FamilyInviteCreate(email="PARENT@example.com"),
+            db,
+            parent,
+        ))
+
+    assert exc.value.status_code == 400
+
+
+def test_inviting_existing_family_member_blocked(db):
+    family = models.Family()
+    db.add(family)
+    db.commit()
+    parent = models.ParentUser(email="parent@example.com", family_id=family.id)
+    member = models.ParentUser(email="member@example.com", family_id=family.id)
+    db.add_all([parent, member])
+    db.commit()
+    db.refresh(parent)
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(family_routes.create_family_invite(
+            schemas.FamilyInviteCreate(email="MEMBER@example.com"),
+            db,
+            parent,
+        ))
+
+    assert exc.value.status_code == 400
+
+
+def test_only_pending_invites_can_be_revoked(db):
+    family = models.Family()
+    db.add(family)
+    db.commit()
+    parent = models.ParentUser(email="parent@example.com", family_id=family.id)
+    db.add(parent)
+    db.commit()
+    db.refresh(parent)
+    invite = models.FamilyInvite(
+        family_id=family.id,
+        email="accepted@example.com",
+        status="accepted",
+        invited_by_parent_id=parent.id,
+    )
+    db.add(invite)
+    db.commit()
+    db.refresh(invite)
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(family_routes.revoke_family_invite(invite.id, db, parent))
+
+    assert exc.value.status_code == 404
+
+
+def test_parent_with_null_family_id_is_repaired_and_does_not_see_null_family_children(db):
+    parent = models.ParentUser(email="null-family@example.com")
+    null_child = models.Child(display_name="Legacy Null Child")
+    db.add_all([parent, null_child])
+    db.commit()
+    db.refresh(parent)
+
+    repaired_parent = auth.ensure_parent_family(db, parent)
+    children = asyncio.run(child_routes.get_children(db, repaired_parent))
+
+    assert repaired_parent.family_id is not None
+    assert children == []
+
+
+def test_presets_reject_empty_title_and_zero_points(db):
+    with pytest.raises(ValidationError):
+        schemas.PresetBehaviourCreate(title="   ", points=5)
+
+    with pytest.raises(ValidationError):
+        schemas.PresetBehaviourCreate(title="Valid", points=0)

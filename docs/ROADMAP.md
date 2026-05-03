@@ -20,13 +20,33 @@ Transform Family Hero Hub into the family command center where kids earn progres
 - [ ] Restricted views (no parent settings access)
 - [ ] Personal dashboard for children
 
-## Priority 4: Missions
+## Priority 4: Child Calendar / Hero Planner
+Each child should have a calendar/planner where parents can add and manage events, tasks, and schedule items. Most useful once children can log in and see their own schedule.
+- **Requirements:**
+  - Calendar is per-child.
+  - Parents can create, edit, and delete calendar items.
+  - Shared family access (both parents see all child calendar events).
+  - Kid-facing view (children can see their own calendar on their dashboard).
+  - Optional rewards (some items can have points/HP values).
+  - Approval workflow (completion may require parent approval before points are awarded).
+  - Ledger integration (approved rewardable tasks create normal ledger transactions).
+  - Mission synergy (works alongside Missions, does not replace them).
+  - Event types (supports task-style items and normal life events).
+  - Recurring items (future support for weekly chores or sports practice).
+- **Examples:**
+  - Homework due dates, exam/test dates, project deadlines.
+  - Chore duty schedules, reading tasks, screen-free activities.
+  - Sports practice or matches, playdates, birthday parties, appointments, family events.
+- **Documentation:**
+  - *This feature may later deserve its own PRD: /opt/apps/family-hero-hub/docs/CHILD_CALENDAR_PRD.md*
+
+## Priority 5: Missions
 - [ ] Mission creation and assignment (to one or more kids)
 - [ ] Child completion requests
 - [ ] Parent approval workflow
 - [ ] Reward automation upon approval
 
-## Priority 5: Avatars & Pet Progression
+## Priority 6: Avatars & Pet Progression
 - [ ] Mascot/Pet system
 - [ ] Progression based on points earned/missions completed
 - [ ] Visual evolution of characters

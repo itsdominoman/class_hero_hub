@@ -4,6 +4,7 @@ from typing import List
 from ..database import get_db
 from .. import models, schemas, auth
 from ..services import points_service
+from .family_scope import get_family_child_or_404
 from datetime import datetime
 
 router = APIRouter()
@@ -13,7 +14,16 @@ async def get_all_redemptions(
     db: Session = Depends(get_db),
     current_parent: models.ParentUser = Depends(auth.get_current_parent)
 ):
-    return db.query(models.RedemptionRequest).order_by(models.RedemptionRequest.status == models.RedemptionStatus.pending, models.RedemptionRequest.created_at.desc()).all()
+    return (
+        db.query(models.RedemptionRequest)
+        .join(models.Child)
+        .filter(models.Child.family_id == current_parent.family_id)
+        .order_by(
+            models.RedemptionRequest.status == models.RedemptionStatus.pending,
+            models.RedemptionRequest.created_at.desc(),
+        )
+        .all()
+    )
 
 @router.post("/children/{child_id}/redemptions", response_model=schemas.RedemptionRequest)
 async def request_redemption(
@@ -22,20 +32,20 @@ async def request_redemption(
     db: Session = Depends(get_db),
     current_parent: models.ParentUser = Depends(auth.get_current_parent)
 ):
-    child = db.query(models.Child).filter(models.Child.id == child_id).first()
-    if not child or not child.active:
+    child = get_family_child_or_404(db, child_id, current_parent)
+    if not child.active:
         raise HTTPException(status_code=404, detail="Child not found or inactive")
 
     if req.points <= 0:
         raise HTTPException(status_code=400, detail="Points must be positive")
     
-    balances = points_service.calculate_balances(db, child_id)
+    balances = points_service.calculate_balances(db, child.id)
     if balances["spending_balance"] < req.points:
         raise HTTPException(status_code=400, detail="Insufficient spending points")
 
     # Create redemption request
     db_request = models.RedemptionRequest(
-        child_id=child_id,
+        child_id=child.id,
         points=req.points,
         title=req.title,
         description=req.description,
@@ -44,7 +54,7 @@ async def request_redemption(
     
     # Hold points immediately in the ledger
     hold_tx = models.LedgerTransaction(
-        child_id=child_id,
+        child_id=child.id,
         jar=models.JarType.spending,
         transaction_type=models.TransactionType.redemption_hold,
         points=-req.points,
@@ -66,7 +76,15 @@ async def approve_redemption(
     db: Session = Depends(get_db),
     current_parent: models.ParentUser = Depends(auth.get_current_parent)
 ):
-    db_request = db.query(models.RedemptionRequest).filter(models.RedemptionRequest.id == request_id).first()
+    db_request = (
+        db.query(models.RedemptionRequest)
+        .join(models.Child)
+        .filter(
+            models.RedemptionRequest.id == request_id,
+            models.Child.family_id == current_parent.family_id,
+        )
+        .first()
+    )
     if not db_request:
         raise HTTPException(status_code=404, detail="Redemption request not found")
     
@@ -92,7 +110,15 @@ async def reject_redemption(
     db: Session = Depends(get_db),
     current_parent: models.ParentUser = Depends(auth.get_current_parent)
 ):
-    db_request = db.query(models.RedemptionRequest).filter(models.RedemptionRequest.id == request_id).first()
+    db_request = (
+        db.query(models.RedemptionRequest)
+        .join(models.Child)
+        .filter(
+            models.RedemptionRequest.id == request_id,
+            models.Child.family_id == current_parent.family_id,
+        )
+        .first()
+    )
     if not db_request:
         raise HTTPException(status_code=404, detail="Redemption request not found")
     

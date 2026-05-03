@@ -12,7 +12,7 @@ async def get_children(
     db: Session = Depends(get_db),
     current_parent: models.ParentUser = Depends(auth.get_current_parent)
 ):
-    children = db.query(models.Child).all()
+    children = db.query(models.Child).filter(models.Child.family_id == current_parent.family_id).all()
     summaries = []
     for child in children:
         summary = points_service.get_child_summary(db, child.id)
@@ -25,7 +25,10 @@ async def create_child(
     db: Session = Depends(get_db),
     current_parent: models.ParentUser = Depends(auth.get_current_parent)
 ):
-    db_child = models.Child(**child.dict())
+    db_child = models.Child(
+        **child.dict(),
+        family_id=current_parent.family_id
+    )
     db.add(db_child)
     db.commit()
     db.refresh(db_child)
@@ -41,9 +44,14 @@ async def get_child(
     db: Session = Depends(get_db),
     current_parent: models.ParentUser = Depends(auth.get_current_parent)
 ):
-    summary = points_service.get_child_summary(db, child_id)
-    if not summary:
+    child = db.query(models.Child).filter(
+        models.Child.id == child_id,
+        models.Child.family_id == current_parent.family_id
+    ).first()
+    if not child:
         raise HTTPException(status_code=404, detail="Child not found")
+
+    summary = points_service.get_child_summary(db, child.id)
     return summary
 
 @router.patch("/{child_id}", response_model=schemas.Child)
@@ -53,7 +61,10 @@ async def update_child(
     db: Session = Depends(get_db),
     current_parent: models.ParentUser = Depends(auth.get_current_parent)
 ):
-    db_child = db.query(models.Child).filter(models.Child.id == child_id).first()
+    db_child = db.query(models.Child).filter(
+        models.Child.id == child_id,
+        models.Child.family_id == current_parent.family_id
+    ).first()
     if not db_child:
         raise HTTPException(status_code=404, detail="Child not found")
     

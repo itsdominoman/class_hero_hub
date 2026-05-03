@@ -4,6 +4,7 @@ from typing import List, Literal
 from ..database import get_db
 from .. import models, schemas, auth
 from ..services import points_service
+from .family_scope import get_family_child_or_404
 from datetime import datetime, timedelta
 
 router = APIRouter()
@@ -17,7 +18,8 @@ async def get_ledger(
     db: Session = Depends(get_db),
     current_parent: models.ParentUser = Depends(auth.get_current_parent),
 ):
-    return points_service.get_ledger_transactions(db, child_id, period=period, tx_type=tx_type)
+    child = get_family_child_or_404(db, child_id, current_parent)
+    return points_service.get_ledger_transactions(db, child.id, period=period, tx_type=tx_type)
 
 
 @router.get("/{child_id}/ledger/summary", response_model=schemas.LedgerSummary)
@@ -27,7 +29,8 @@ async def get_ledger_summary(
     db: Session = Depends(get_db),
     current_parent: models.ParentUser = Depends(auth.get_current_parent),
 ):
-    return points_service.get_ledger_summary(db, child_id, period=period)
+    child = get_family_child_or_404(db, child_id, current_parent)
+    return points_service.get_ledger_summary(db, child.id, period=period)
 
 
 @router.post("/{child_id}/award", response_model=schemas.LedgerTransaction)
@@ -40,12 +43,14 @@ async def award_points(
     if req.points <= 0:
         raise HTTPException(status_code=400, detail="Points must be positive")
 
+    child = get_family_child_or_404(db, child_id, current_parent)
+
     locked_until = None
     if req.jar == models.JarType.savings:
         locked_until = datetime.utcnow() + timedelta(days=30)
 
     transaction = models.LedgerTransaction(
-        child_id=child_id,
+        child_id=child.id,
         jar=req.jar,
         transaction_type=models.TransactionType.award,
         points=req.points,
@@ -58,7 +63,7 @@ async def award_points(
     db.refresh(transaction)
 
     # Update pet progress (awards increase lifetime points)
-    points_service.update_pet_progress(db, child_id, req.points, True)
+    points_service.update_pet_progress(db, child.id, req.points, True)
 
     return transaction
 
@@ -73,15 +78,17 @@ async def penalty_points(
     if req.points <= 0:
         raise HTTPException(status_code=400, detail="Points must be positive")
 
+    child = get_family_child_or_404(db, child_id, current_parent)
+
     # Check balance
-    balances = points_service.calculate_balances(db, child_id)
+    balances = points_service.calculate_balances(db, child.id)
     current_balance = balances["spending_balance"] if req.jar == models.JarType.spending else balances["savings_balance"]
 
     if current_balance < req.points:
         raise HTTPException(status_code=400, detail="Insufficient points for penalty")
 
     transaction = models.LedgerTransaction(
-        child_id=child_id,
+        child_id=child.id,
         jar=req.jar,
         transaction_type=models.TransactionType.penalty,
         points=-req.points,
@@ -105,13 +112,15 @@ async def deposit_to_savings(
     if req.points <= 0:
         raise HTTPException(status_code=400, detail="Points must be positive")
 
-    balances = points_service.calculate_balances(db, child_id)
+    child = get_family_child_or_404(db, child_id, current_parent)
+
+    balances = points_service.calculate_balances(db, child.id)
     if balances["spending_balance"] < req.points:
         raise HTTPException(status_code=400, detail="Insufficient spending points")
 
     # 1. Remove from spending
     spending_tx = models.LedgerTransaction(
-        child_id=child_id,
+        child_id=child.id,
         jar=models.JarType.spending,
         transaction_type=models.TransactionType.savings_deposit,
         points=-req.points,
@@ -122,7 +131,7 @@ async def deposit_to_savings(
     # 2. Add to savings (locked for 30 days)
     locked_until = datetime.utcnow() + timedelta(days=30)
     savings_tx = models.LedgerTransaction(
-        child_id=child_id,
+        child_id=child.id,
         jar=models.JarType.savings,
         transaction_type=models.TransactionType.savings_deposit,
         points=req.points,
@@ -150,13 +159,15 @@ async def withdraw_from_savings(
     if req.points <= 0:
         raise HTTPException(status_code=400, detail="Points must be positive")
 
-    balances = points_service.calculate_balances(db, child_id)
+    child = get_family_child_or_404(db, child_id, current_parent)
+
+    balances = points_service.calculate_balances(db, child.id)
     if balances["available_savings"] < req.points:
         raise HTTPException(status_code=400, detail="Insufficient available (unlocked) savings points")
 
     # 1. Remove from savings
     savings_tx = models.LedgerTransaction(
-        child_id=child_id,
+        child_id=child.id,
         jar=models.JarType.savings,
         transaction_type=models.TransactionType.savings_withdrawal,
         points=-req.points,
@@ -166,7 +177,7 @@ async def withdraw_from_savings(
 
     # 2. Add to spending
     spending_tx = models.LedgerTransaction(
-        child_id=child_id,
+        child_id=child.id,
         jar=models.JarType.spending,
         transaction_type=models.TransactionType.savings_withdrawal,
         points=req.points,
@@ -192,8 +203,10 @@ async def admin_adjustment(
     db: Session = Depends(get_db),
     current_parent: models.ParentUser = Depends(auth.get_current_parent),
 ):
+    child = get_family_child_or_404(db, child_id, current_parent)
+
     transaction = models.LedgerTransaction(
-        child_id=child_id,
+        child_id=child.id,
         jar=jar,
         transaction_type=models.TransactionType.adjustment,
         points=points,

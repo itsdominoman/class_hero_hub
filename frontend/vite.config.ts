@@ -9,6 +9,8 @@ export default defineConfig({
 		host: true,
 		allowedHosts: [
 			'families.loginto.me',
+			'familyherohub.com',
+			'www.familyherohub.com',
 			'localhost',
 			'127.0.0.1'
 		],

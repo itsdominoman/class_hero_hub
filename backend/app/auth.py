@@ -4,11 +4,27 @@ from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from .database import get_db, settings
 from . import models, schemas
 import httpx
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
+
+def normalize_email(email: str | None) -> str:
+    return (email or "").strip().lower()
+
+def ensure_parent_family(db: Session, parent: models.ParentUser) -> models.ParentUser:
+    if parent.family_id is not None:
+        return parent
+
+    family = models.Family()
+    db.add(family)
+    db.flush()
+    parent.family_id = family.id
+    db.commit()
+    db.refresh(parent)
+    return parent
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -30,15 +46,20 @@ async def get_current_parent(request: Request, db: Session = Depends(get_db)):
 
     if not token and settings.DEV_AUTH_ENABLED:
         # Fallback for development if enabled
-        parent = db.query(models.ParentUser).filter(models.ParentUser.email == settings.DEV_AUTH_PARENT_EMAIL).first()
+        dev_email = normalize_email(settings.DEV_AUTH_PARENT_EMAIL)
+        parent = db.query(models.ParentUser).filter(func.lower(models.ParentUser.email) == dev_email).first()
         if parent:
-            return parent
+            return ensure_parent_family(db, parent)
         else:
             # Create dev parent if not exists
+            family = models.Family()
+            db.add(family)
+            db.flush()
             new_parent = models.ParentUser(
-                email=settings.DEV_AUTH_PARENT_EMAIL,
+                email=dev_email,
                 name="Dev Parent",
-                google_sub="dev_sub"
+                google_sub="dev_sub",
+                family_id=family.id,
             )
             db.add(new_parent)
             db.commit()
@@ -54,22 +75,22 @@ async def get_current_parent(request: Request, db: Session = Depends(get_db)):
 
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
+        email: str = normalize_email(payload.get("sub"))
+        if not email:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-    parent = db.query(models.ParentUser).filter(models.ParentUser.email == email).first()
+    parent = db.query(models.ParentUser).filter(func.lower(models.ParentUser.email) == email).first()
     if parent is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Parent not found")
     
     # Verify allowlist
-    allowed_emails = [e.strip() for e in settings.PARENT_EMAILS.split(",")]
-    if parent.email not in allowed_emails:
+    allowed_emails = [normalize_email(e) for e in settings.PARENT_EMAILS.split(",")]
+    if normalize_email(parent.email) not in allowed_emails:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email not in allowlist")
 
-    return parent
+    return ensure_parent_family(db, parent)
 
 async def verify_google_token(token: str):
     async with httpx.AsyncClient() as client:

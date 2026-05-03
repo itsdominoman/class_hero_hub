@@ -15,8 +15,17 @@ __pycache__/
 data/*.sqlite
 HERMES_RULES.md
 tmp/
+backups/
+*.bak
+*.backup
+*.backup.*
+Caddyfile.backup*
 
 # Local database and backups
 /data/*.sqlite
 /data/*.db
 /backups/
+
+# SQLite backups
+/data/*.bak*
+/data/*.sqlite.bak*

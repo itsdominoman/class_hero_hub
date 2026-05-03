@@ -12,7 +12,7 @@ async def get_presets(
     current_parent: models.ParentUser = Depends(auth.get_current_parent)
 ):
     return db.query(models.PresetBehaviour).filter(
-        models.PresetBehaviour.parent_id == current_parent.id
+        models.PresetBehaviour.family_id == current_parent.family_id
     ).all()
 
 @router.post("/", response_model=schemas.PresetBehaviour)
@@ -23,7 +23,8 @@ async def create_preset(
 ):
     db_preset = models.PresetBehaviour(
         **preset.model_dump(),
-        parent_id=current_parent.id
+        parent_id=current_parent.id,
+        family_id=current_parent.family_id
     )
     db.add(db_preset)
     db.commit()
@@ -39,7 +40,7 @@ async def update_preset(
 ):
     db_preset = db.query(models.PresetBehaviour).filter(
         models.PresetBehaviour.id == preset_id,
-        models.PresetBehaviour.parent_id == current_parent.id
+        models.PresetBehaviour.family_id == current_parent.family_id
     ).first()
     
     if not db_preset:
@@ -60,7 +61,7 @@ async def delete_preset(
 ):
     db_preset = db.query(models.PresetBehaviour).filter(
         models.PresetBehaviour.id == preset_id,
-        models.PresetBehaviour.parent_id == current_parent.id
+        models.PresetBehaviour.family_id == current_parent.family_id
     ).first()
     
     if not db_preset:

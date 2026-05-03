@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from datetime import datetime
 from typing import Optional, List
 from .models import TransactionType, JarType, RedemptionStatus, PetStage
@@ -9,6 +9,7 @@ class ParentUserBase(BaseModel):
 
 class ParentUser(ParentUserBase):
     id: int
+    family_id: Optional[int] = None
     created_at: datetime
     last_login_at: Optional[datetime] = None
 
@@ -25,6 +26,7 @@ class ChildCreate(ChildBase):
 
 class Child(ChildBase):
     id: int
+    family_id: Optional[int] = None
     created_at: datetime
 
     class Config:
@@ -133,13 +135,51 @@ class PresetBehaviourBase(BaseModel):
     points: int
     is_active: bool = True
 
+    @field_validator("title")
+    @classmethod
+    def title_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Title cannot be empty")
+        return value
+
+    @field_validator("points")
+    @classmethod
+    def points_must_not_be_zero(cls, value: int) -> int:
+        if value == 0:
+            raise ValueError("Points cannot be zero")
+        return value
+
 class PresetBehaviourCreate(PresetBehaviourBase):
     pass
 
 class PresetBehaviour(PresetBehaviourBase):
     id: int
     parent_id: int
+    family_id: Optional[int] = None
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class FamilyMember(BaseModel):
+    id: int
+    email: str
+    name: Optional[str]
+    last_login_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+class FamilyInviteCreate(BaseModel):
+    email: EmailStr
+
+class FamilyInvite(BaseModel):
+    id: int
+    email: str
+    status: str
+    created_at: datetime
+    accepted_at: Optional[datetime]
 
     class Config:
         from_attributes = True

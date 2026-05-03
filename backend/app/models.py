@@ -37,18 +37,49 @@ class ParentUser(Base):
     email = Column(String, unique=True, index=True)
     name = Column(String)
     google_sub = Column(String, unique=True, index=True)
+    family_id = Column(Integer, ForeignKey("families.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    family = relationship("Family", back_populates="parents")
+
+class Family(Base):
+    __tablename__ = "families"
+
+    id = Column(Integer, primary_key=True, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    parents = relationship("ParentUser", back_populates="family")
+    children = relationship("Child", back_populates="family")
+    presets = relationship("PresetBehaviour", back_populates="family")
+    invites = relationship("FamilyInvite", back_populates="family")
+
+class FamilyInvite(Base):
+    __tablename__ = "family_invites"
+
+    id = Column(Integer, primary_key=True, index=True)
+    family_id = Column(Integer, ForeignKey("families.id"))
+    email = Column(String, index=True)
+    role = Column(String, default="parent")
+    status = Column(String, default="pending") # pending, accepted, revoked
+    invited_by_parent_id = Column(Integer, ForeignKey("parent_users.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    accepted_at = Column(DateTime(timezone=True), nullable=True)
+
+    family = relationship("Family", back_populates="invites")
+    invited_by = relationship("ParentUser")
 
 class Child(Base):
     __tablename__ = "children"
 
     id = Column(Integer, primary_key=True, index=True)
+    family_id = Column(Integer, ForeignKey("families.id"), nullable=True)
     display_name = Column(String)
     avatar_name = Column(String, nullable=True)
     active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    family = relationship("Family", back_populates="children")
     transactions = relationship("LedgerTransaction", back_populates="child")
     redemptions = relationship("RedemptionRequest", back_populates="child")
     pet_progress = relationship("PetProgress", back_populates="child", uselist=False)
@@ -100,6 +131,7 @@ class PresetBehaviour(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     parent_id = Column(Integer, ForeignKey("parent_users.id"))
+    family_id = Column(Integer, ForeignKey("families.id"), nullable=True)
     title = Column(String)
     description = Column(String, nullable=True)
     icon = Column(String, nullable=True)
@@ -108,3 +140,4 @@ class PresetBehaviour(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     parent = relationship("ParentUser")
+    family = relationship("Family", back_populates="presets")
