@@ -8,12 +8,13 @@ from app.database import Base
 from app import models, schemas
 from app.services import points_service
 from app.services.rewards_service import get_family_rewards
+from app.routes import child_access as child_access_routes
 from app.routes import children as child_routes
 from app.routes import family as family_routes
 from app.routes import ledger as ledger_routes
 from app.routes import rewards as reward_routes
 from app.routes import redemptions as redemption_routes
-from app import auth
+from app import auth, child_auth
 from datetime import datetime, timedelta
 
 # Setup in-memory SQLite for tests
@@ -571,6 +572,153 @@ def test_cross_family_redemption_create_denied(db):
 
     assert exc.value.status_code == 404
     assert db.query(models.RedemptionRequest).filter_by(child_id=c2.id).count() == 0
+
+
+def test_child_reward_request_surfaces_to_parent_and_respects_balance(db):
+    family = models.Family()
+    db.add(family)
+    db.commit()
+
+    parent = models.ParentUser(email="parent@example.com", name="Parent", family_id=family.id)
+    child = models.Child(display_name="Kid", family_id=family.id, active=True)
+    db.add_all([parent, child])
+    db.commit()
+    db.refresh(parent)
+    db.refresh(child)
+
+    db.add(models.LedgerTransaction(
+        child_id=child.id,
+        jar=models.JarType.spending,
+        transaction_type=models.TransactionType.award,
+        points=50,
+        description="Starting points",
+        created_by_parent_id=parent.id,
+    ))
+    db.commit()
+
+    request = asyncio.run(child_access_routes.request_my_redemption(
+        schemas.RedemptionRequestCreate(points=20, title="Movie night", description="Requested from the child dashboard"),
+        db,
+        child,
+    ))
+    assert request.status == models.RedemptionStatus.pending
+    assert request.child_id == child.id
+
+    parent_redemptions = asyncio.run(redemption_routes.get_all_redemptions(db, parent))
+    assert len(parent_redemptions) == 1
+    assert parent_redemptions[0].id == request.id
+    assert parent_redemptions[0].title == "Movie night"
+
+    balances = points_service.calculate_balances(db, child.id)
+    assert balances["spending_balance"] == 30
+
+    approved = asyncio.run(redemption_routes.approve_redemption(
+        request.id,
+        schemas.RedemptionReviewRequest(parent_note="Approved"),
+        db,
+        parent,
+    ))
+    assert approved.status == models.RedemptionStatus.approved
+
+    db.refresh(request)
+    assert request.status == models.RedemptionStatus.approved
+    balances_after_approve = points_service.calculate_balances(db, child.id)
+    assert balances_after_approve["spending_balance"] == 30
+
+    # Create a second request, then reject it and ensure the held points are released.
+    second_request = asyncio.run(child_access_routes.request_my_redemption(
+        schemas.RedemptionRequestCreate(points=10, title="Ice cream", description="Requested from the child dashboard"),
+        db,
+        child,
+    ))
+    assert second_request.status == models.RedemptionStatus.pending
+
+    balances_with_second_hold = points_service.calculate_balances(db, child.id)
+    assert balances_with_second_hold["spending_balance"] == 20
+
+    rejected = asyncio.run(redemption_routes.reject_redemption(
+        second_request.id,
+        schemas.RedemptionReviewRequest(parent_note="Not today"),
+        db,
+        parent,
+    ))
+    assert rejected.status == models.RedemptionStatus.rejected
+    balances_after_reject = points_service.calculate_balances(db, child.id)
+    assert balances_after_reject["spending_balance"] == 30
+
+
+def test_child_invite_exchange_creates_session_for_correct_child(db):
+    family = models.Family()
+    db.add(family)
+    db.commit()
+
+    parent = models.ParentUser(email="parent-device@example.com", name="Parent", family_id=family.id)
+    jackson = models.Child(display_name="Jackson", family_id=family.id, active=True)
+    leah = models.Child(display_name="Leah", family_id=family.id, active=True)
+    db.add_all([parent, jackson, leah])
+    db.commit()
+    db.refresh(parent)
+    db.refresh(jackson)
+    db.refresh(leah)
+
+    invite, raw_token = child_auth.issue_child_device_invite(db, jackson, family.id, parent.id)
+    exchanged_invite, session, session_token = child_auth.exchange_child_link(db, raw_token)
+    context = child_auth.resolve_child_session(db, session_token)
+
+    assert exchanged_invite.id == invite.id
+    assert session.child_id == jackson.id
+    assert session.family_id == family.id
+    assert context.child.id == jackson.id
+    assert context.child.id != leah.id
+
+
+def test_child_dashboard_routes_survive_rejected_child_redemption(db):
+    family = models.Family()
+    db.add(family)
+    db.commit()
+
+    parent = models.ParentUser(email="parent-redemption@example.com", name="Parent", family_id=family.id)
+    child = models.Child(display_name="Jackson", family_id=family.id, active=True)
+    db.add_all([parent, child])
+    db.commit()
+    db.refresh(parent)
+    db.refresh(child)
+
+    db.add(models.LedgerTransaction(
+        child_id=child.id,
+        jar=models.JarType.spending,
+        transaction_type=models.TransactionType.award,
+        points=25,
+        description="Starting points",
+        created_by_parent_id=parent.id,
+    ))
+    db.commit()
+
+    request = asyncio.run(child_access_routes.request_my_redemption(
+        schemas.RedemptionRequestCreate(points=5, title="Screen time", description="Requested by child"),
+        db,
+        child,
+    ))
+    rejected = asyncio.run(redemption_routes.reject_redemption(
+        request.id,
+        schemas.RedemptionReviewRequest(parent_note="Just a test"),
+        db,
+        parent,
+    ))
+    assert rejected.status == models.RedemptionStatus.rejected
+
+    dashboard = asyncio.run(child_access_routes.get_my_dashboard(db, child))
+    ledger = asyncio.run(child_access_routes.get_my_ledger("month", "all", db, child))
+    summary = asyncio.run(child_access_routes.get_my_ledger_summary("month", db, child))
+    redemptions = asyncio.run(child_access_routes.get_my_redemptions(db, child))
+
+    assert dashboard["child"].id == child.id
+    assert summary["released"] == 5
+    assert any(tx.created_by_parent_id is None for tx in ledger)
+    assert any(req.status == models.RedemptionStatus.rejected for req in redemptions)
+
+    serialized_ledger = [schemas.LedgerTransaction.model_validate(tx) for tx in ledger]
+    assert any(tx.created_by_parent_id is None for tx in serialized_ledger)
 
 
 def test_invite_email_normalization_and_case_insensitive_duplicate_prevention(db):

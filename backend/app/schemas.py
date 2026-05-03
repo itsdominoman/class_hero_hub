@@ -45,7 +45,7 @@ class LedgerTransactionCreate(LedgerTransactionBase):
 class LedgerTransaction(LedgerTransactionBase):
     id: int
     child_id: int
-    created_by_parent_id: int
+    created_by_parent_id: Optional[int] = None
     created_at: datetime
 
     class Config:

@@ -63,6 +63,8 @@
     is_active: boolean;
   };
 
+  type ErrorKind = 'not-linked' | 'wrong-child' | 'not-found' | 'server-error';
+
   let childId = $derived(page.params.id);
   let childIdNumber = $derived(Number(childId));
 
@@ -73,6 +75,8 @@
   let accessMode = $state<'parent' | 'child'>('parent');
   let loading = $state(true);
   let error = $state(null as string | null);
+  let errorKind = $state(null as ErrorKind | null);
+  let linkedChildName = $state('');
   let submitting = $state(false);
   let submittingRewardId = $state<number | null>(null);
   let statusMessage = $state('');
@@ -209,17 +213,28 @@
     message.toLowerCase().includes('invalid child session') ||
     message.toLowerCase().includes('child session missing');
 
+  const isNotFoundError = (message: string) =>
+    message.toLowerCase().includes('not found');
+
   async function loadData() {
     try {
       loading = true;
       error = null;
+      errorKind = null;
+      linkedChildName = '';
 
       try {
         const childSummary = await api.get('/child/me');
         accessMode = 'child';
 
         if (Number(childId) !== childSummary.child.id) {
-          window.location.replace(`/child/${childSummary.child.id}`);
+          linkedChildName = childSummary.child.display_name;
+          errorKind = 'wrong-child';
+          error = `This device is linked to ${childSummary.child.display_name}, not this child profile.`;
+          summary = null;
+          ledger = [];
+          redemptions = [];
+          rewards = [];
           return;
         }
 
@@ -239,20 +254,43 @@
         }
 
         accessMode = 'parent';
-        const [childSummary, activity, allRedemptions, allRewards] = await Promise.all([
-          api.get(`/children/${childId}`),
-          api.get(`/children/${childId}/ledger?period=month`),
-          api.get('/redemptions'),
-          api.get('/rewards')
-        ]);
+        try {
+          const [childSummary, activity, allRedemptions, allRewards] = await Promise.all([
+            api.get(`/children/${childId}`),
+            api.get(`/children/${childId}/ledger?period=month`),
+            api.get('/redemptions'),
+            api.get('/rewards')
+          ]);
 
-        summary = childSummary;
-        ledger = activity;
-        redemptions = allRedemptions;
-        rewards = allRewards;
+          summary = childSummary;
+          ledger = activity;
+          redemptions = allRedemptions;
+          rewards = allRewards;
+        } catch (parentError) {
+          const message = parentError instanceof Error ? parentError.message : 'Unable to load child dashboard';
+          if (isAuthError(message)) {
+            errorKind = 'not-linked';
+            error = 'This device is not linked yet.';
+          } else if (isNotFoundError(message)) {
+            errorKind = 'not-found';
+            error = 'Child profile not found.';
+          } else {
+            errorKind = 'server-error';
+            error = message;
+          }
+          summary = null;
+          ledger = [];
+          redemptions = [];
+          rewards = [];
+        }
       }
     } catch (e) {
+      errorKind = 'server-error';
       error = e instanceof Error ? e.message : 'Failed to load dashboard';
+      summary = null;
+      ledger = [];
+      redemptions = [];
+      rewards = [];
     } finally {
       loading = false;
     }
@@ -267,7 +305,10 @@
 
     try {
       submitting = true;
-      await api.post(`/children/${childId}/redemptions`, {
+      const requestPath = accessMode === 'child'
+        ? '/child/redemptions'
+        : `/children/${childId}/redemptions`;
+      await api.post(requestPath, {
         title,
         points,
         description
@@ -323,8 +364,21 @@
         <div class="w-16 h-16 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-6">
           <History size={30} />
         </div>
-        <h1 class="text-2xl md:text-3xl font-black text-slate-900 mb-2">Dashboard unavailable</h1>
+        <h1 class="text-2xl md:text-3xl font-black text-slate-900 mb-2">
+          {errorKind === 'not-linked'
+            ? 'This device is not linked yet'
+            : errorKind === 'wrong-child'
+              ? `This device is linked to ${linkedChildName || 'another child'}`
+              : errorKind === 'not-found'
+                ? 'Child profile not found'
+                : 'Dashboard unavailable'}
+        </h1>
         <p class="text-slate-600 mb-6 break-words">{error}</p>
+        {#if errorKind === 'wrong-child'}
+          <a href="/parent" class="btn-secondary inline-flex w-full items-center justify-center px-6 py-4 rounded-2xl mb-3">
+            Back to parent dashboard
+          </a>
+        {/if}
         <button type="button" class="btn-hero px-6 py-4 rounded-2xl" onclick={loadData}>Try again</button>
       </div>
     </div>
