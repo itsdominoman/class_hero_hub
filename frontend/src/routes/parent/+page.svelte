@@ -2,14 +2,15 @@
   import { onMount } from 'svelte';
   import { api } from '$lib/api';
   import { 
-    UserPlus, Award, Ban, PiggyBank, ArrowRight, Star, Bell, 
+    UserPlus, Award, Ban, PiggyBank, ArrowRight, Star, Bell, Gift,
     LayoutDashboard, Settings, LogIn, Trophy, Clock, Check, X, 
-    History, TrendingUp, ChevronRight, Users
+    History, TrendingUp, ChevronRight, Users, QrCode, Copy, RefreshCcw, Link2
   } from 'lucide-svelte';
 
   let parent = $state<any>(null);
   let children = $state<any[]>([]);
   let redemptions = $state<any[]>([]);
+  let rewards = $state<any[]>([]);
   let presets = $state<any[]>([]);
   let familyMembers = $state<any[]>([]);
   let familyInvites = $state<any[]>([]);
@@ -32,6 +33,21 @@
   let modalError = $state<string | null>(null);
   let activeTab = $state('positive');
   let editingPresetId = $state<number | null>(null);
+  let editingRewardId = $state<number | null>(null);
+  let rewardLoading = $state(false);
+  let rewardError = $state<string | null>(null);
+  let rewardForm = $state({
+    title: '',
+    description: '',
+    icon: '',
+    points: 20,
+    is_active: true
+  });
+  let childLinkInvite = $state<any>(null);
+  let childLinkQr = $state('');
+  let childLinkLoading = $state(false);
+  let childLinkError = $state<string | null>(null);
+  let childLinkCopied = $state(false);
 
   const DEFAULT_EMOJIS = ['🪥', '📚', '🛏️', '⏰', '🧹', '🧺', '🍎', '🥦', '👍', '❤️', '⭐', '👑', '🎮', '🖥️', '📱', '😴', '😡', '🚫', '🧸', '🏃', '🎒', '✏️', '🧼', '🍽️'];
 
@@ -46,10 +62,11 @@
       loading = true;
       error = null;
       needsLogin = false;
-      const [p, c, r, pr, fm, fi] = await Promise.all([
+      const [p, c, r, rw, pr, fm, fi] = await Promise.all([
         api.get('/me'),
         api.get('/children/'),
         api.get('/redemptions'),
+        api.get('/rewards'),
         api.get('/presets/'),
         api.get('/family/members'),
         api.get('/family/invites')
@@ -57,6 +74,7 @@
       parent = p;
       children = c;
       redemptions = r;
+      rewards = rw;
       presets = pr;
       familyMembers = fm;
       familyInvites = fi;
@@ -112,6 +130,135 @@
   function closeModal() {
     activeModal = null;
     editingPresetId = null;
+    childLinkInvite = null;
+    childLinkQr = '';
+    childLinkLoading = false;
+    childLinkError = null;
+    childLinkCopied = false;
+  }
+
+  function startEditingReward(reward: any) {
+    editingRewardId = reward.id;
+    rewardForm = {
+      title: reward.title,
+      description: reward.description || '',
+      icon: reward.icon || '',
+      points: reward.points,
+      is_active: reward.is_active
+    };
+  }
+
+  function cancelEditingReward() {
+    editingRewardId = null;
+    rewardForm = {
+      title: '',
+      description: '',
+      icon: '',
+      points: 20,
+      is_active: true
+    };
+  }
+
+  async function saveReward() {
+    try {
+      rewardLoading = true;
+      rewardError = null;
+      const payload = {
+        title: rewardForm.title,
+        description: rewardForm.description || '',
+        icon: rewardForm.icon || null,
+        points: rewardForm.points,
+        is_active: rewardForm.is_active
+      };
+      if (editingRewardId) {
+        await api.patch(`/rewards/${editingRewardId}`, payload);
+        cancelEditingReward();
+      } else {
+        await api.post('/rewards/', payload);
+      }
+      await loadDashboard();
+    } catch (e) {
+      rewardError = e instanceof Error ? e.message : 'Unable to save reward';
+    } finally {
+      rewardLoading = false;
+    }
+  }
+
+  async function deleteReward(id: number) {
+    if (!confirm('Delete this reward?')) return;
+    try {
+      rewardLoading = true;
+      rewardError = null;
+      await api.delete(`/rewards/${id}`);
+      if (editingRewardId === id) cancelEditingReward();
+      await loadDashboard();
+    } catch (e) {
+      rewardError = e instanceof Error ? e.message : 'Unable to delete reward';
+    } finally {
+      rewardLoading = false;
+    }
+  }
+
+  async function createChildLink(childSummary: any) {
+    try {
+      childLinkLoading = true;
+      childLinkError = null;
+      childLinkCopied = false;
+      const invite = await api.post(`/children/${childSummary.child.id}/device-invites`, {});
+      childLinkInvite = invite;
+      const { default: QRCode } = await import('qrcode');
+      childLinkQr = await QRCode.toDataURL(invite.invite_url, {
+        width: 320,
+        margin: 1,
+        errorCorrectionLevel: 'M'
+      });
+    } catch (e) {
+      childLinkError = e instanceof Error ? e.message : 'Unable to create child device link';
+      childLinkInvite = null;
+      childLinkQr = '';
+    } finally {
+      childLinkLoading = false;
+    }
+  }
+
+  function openChildLink(childSummary: any) {
+    activeModal = { type: 'child-link', child: childSummary };
+    childLinkInvite = null;
+    childLinkQr = '';
+    childLinkError = null;
+    childLinkCopied = false;
+    void createChildLink(childSummary);
+  }
+
+  async function copyChildInviteLink() {
+    if (!childLinkInvite?.invite_url) return;
+    await navigator.clipboard.writeText(childLinkInvite.invite_url);
+    childLinkCopied = true;
+    window.setTimeout(() => {
+      childLinkCopied = false;
+    }, 2000);
+  }
+
+  async function revokeChildLink() {
+    if (!activeModal?.child) return;
+    if (!confirm('Revoke all child device access for this child?')) return;
+    try {
+      childLinkLoading = true;
+      childLinkError = null;
+      await api.post(`/children/${activeModal.child.child.id}/device-invites/revoke`, {});
+      childLinkInvite = null;
+      childLinkQr = '';
+      await loadDashboard();
+    } catch (e) {
+      childLinkError = e instanceof Error ? e.message : 'Failed to revoke child device access';
+    } finally {
+      childLinkLoading = false;
+    }
+  }
+
+  async function regenerateChildLink() {
+    if (!activeModal?.child) return;
+    await createChildLink(activeModal.child);
   }
 
   function startEditing(preset: any) {
@@ -451,36 +598,164 @@
               </div>
 
               <!-- Quick Actions -->
-              <div class="px-8 pb-8 pt-2 flex flex-wrap gap-3 mt-auto relative z-10">
+              <div class="px-8 pb-8 pt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 mt-auto relative z-10 min-w-0">
                 <button 
                   onclick={() => openModal('award', c)}
-                  class="flex-1 min-w-[120px] btn-hero py-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-hero/20 hover:scale-[1.02] transition-all"
+                  class="w-full min-w-0 btn-hero py-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-hero/20 hover:scale-[1.02] transition-all"
                 >
                   <Award size={18} /> Award
                 </button>
                 <button 
                   onclick={() => openModal('penalty', c)}
-                  class="flex-1 min-w-[120px] btn-secondary py-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:border-penalty hover:text-penalty hover:bg-penalty/5 transition-all"
+                  class="w-full min-w-0 btn-secondary py-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:border-penalty hover:text-penalty hover:bg-penalty/5 transition-all"
                 >
                   <Ban size={18} /> Penalty
                 </button>
                 <button 
                   onclick={() => openModal('bank', c)}
-                  class="w-full btn-secondary py-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:border-savings hover:text-savings hover:bg-savings/5 transition-all"
+                  class="w-full min-w-0 btn-secondary py-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:border-savings hover:text-savings hover:bg-savings/5 transition-all sm:col-span-2"
                 >
                   <PiggyBank size={18} /> Bank to Savings
                 </button>
                 <button 
                   onclick={() => openModal('redeem', c)}
-                  class="w-full btn-secondary py-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:border-reward hover:text-reward hover:bg-reward/5 transition-all"
+                  class="w-full min-w-0 btn-secondary py-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:border-reward hover:text-reward hover:bg-reward/5 transition-all sm:col-span-2"
                 >
                   <Trophy size={18} /> Redeem Reward
+                </button>
+                <button 
+                  onclick={() => openChildLink(c)}
+                  class="w-full min-w-0 btn-secondary py-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:border-slate-900 hover:text-slate-900 hover:bg-slate-50 transition-all sm:col-span-2"
+                >
+                  <QrCode size={18} /> Link Child Device
                 </button>
               </div>
             </div>
           {/each}
         </div>
       {/if}
+
+      <!-- Section: Rewards -->
+      <div class="mb-20">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+          <div>
+            <h2 class="text-3xl md:text-4xl font-black text-slate-900 mb-2">Rewards</h2>
+            <p class="text-slate-500 font-medium">Actual rewards children can request from their dashboards.</p>
+          </div>
+          <button onclick={saveReward} disabled={rewardLoading || !rewardForm.title.trim() || rewardForm.points < 1} class="btn-hero flex items-center gap-2 px-6 py-4 rounded-2xl shadow-xl shadow-hero/20 disabled:opacity-60 disabled:cursor-not-allowed">
+            <Trophy size={18} />
+            {editingRewardId ? 'Save Reward' : 'Add Reward'}
+          </button>
+        </div>
+
+        {#if rewardError}
+          <div class="mb-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 break-words">
+            {rewardError}
+          </div>
+        {/if}
+
+        <div class="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <section class="card bg-white p-6 md:p-8 border border-slate-100 shadow-xl">
+            <div class="flex items-center justify-between gap-4 mb-6">
+              <div>
+                <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2">Reward editor</p>
+                <h3 class="text-2xl font-black text-slate-950">{editingRewardId ? 'Edit reward' : 'Create a reward'}</h3>
+              </div>
+              <div class="w-12 h-12 rounded-2xl bg-reward/10 text-reward flex items-center justify-center">
+                <Gift size={22} />
+              </div>
+            </div>
+
+            <div class="space-y-4">
+              <label class="block">
+                <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mb-2">Reward name</span>
+                <input
+                  type="text"
+                  bind:value={rewardForm.title}
+                  placeholder="McDonald's Happy Meal"
+                  class="w-full min-w-0 rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30"
+                />
+              </label>
+
+              <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_120px] gap-4">
+                <label class="block">
+                  <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mb-2">Description</span>
+                  <input
+                    type="text"
+                    bind:value={rewardForm.description}
+                    placeholder="Movie night, extra screen time..."
+                    class="w-full min-w-0 rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30"
+                  />
+                </label>
+
+                <label class="block">
+                  <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mb-2">Points</span>
+                  <input
+                    type="number"
+                    min="1"
+                    bind:value={rewardForm.points}
+                    class="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30"
+                  />
+                </label>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-3">
+                <button type="button" onclick={editingRewardId ? cancelEditingReward : saveReward} class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-white">
+                  {editingRewardId ? 'Cancel edit' : 'Create reward'}
+                </button>
+                <button type="button" onclick={() => rewardForm.is_active = !rewardForm.is_active} class="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-slate-700 border-2 border-slate-100">
+                  {rewardForm.is_active ? 'Active' : 'Hidden'}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section class="space-y-4">
+            {#if rewards.length > 0}
+              <div class="grid gap-4">
+                {#each rewards as reward}
+                  <div class="card bg-white p-5 border border-slate-100 shadow-xl">
+                    <div class="flex items-start justify-between gap-3 min-w-0">
+                      <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-2 mb-2">
+                          <span class="inline-flex items-center gap-1 rounded-full bg-reward/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-reward whitespace-nowrap">
+                            <Gift size={12} />
+                            Reward
+                          </span>
+                          <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 whitespace-nowrap">
+                            {reward.points} HP
+                          </span>
+                        </div>
+                        <h3 class="text-lg font-black text-slate-950 break-words">{reward.title}</h3>
+                        <p class="text-sm text-slate-600 mt-1 break-words">{reward.description || 'A reward children can request.'}</p>
+                      </div>
+                      <span class={`shrink-0 rounded-2xl px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] whitespace-nowrap ${reward.is_active ? 'bg-savings/10 text-savings' : 'bg-slate-100 text-slate-400'}`}>
+                        {reward.is_active ? 'Visible' : 'Hidden'}
+                      </span>
+                    </div>
+
+                    <div class="mt-4 flex flex-wrap gap-2">
+                      <button onclick={() => startEditingReward(reward)} class="inline-flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-700 border border-slate-100">
+                        <Settings size={14} />
+                        Edit
+                      </button>
+                      <button onclick={() => deleteReward(reward.id)} class="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-penalty border border-slate-100">
+                        <X size={14} />
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                {/each}
+              </div>
+            {:else}
+              <div class="card bg-white p-8 border border-dashed border-slate-200 text-center">
+                <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400">No rewards yet</p>
+                <p class="text-sm text-slate-500 mt-2">Add real rewards here. Children will see only these items.</p>
+              </div>
+            {/if}
+          </section>
+        </div>
+      </div>
 
       <!-- Section: Redemption Requests -->
       <div class="mb-20">
@@ -599,6 +874,7 @@
                activeModal.type === 'presets' ? 'bg-slate-900 text-white shadow-slate-200' :
                activeModal.type === 'picker' ? 'bg-slate-900 text-white shadow-slate-200' :
                activeModal.type === 'family' ? 'bg-hero text-white shadow-hero/20' :
+               activeModal.type === 'child-link' ? 'bg-slate-900 text-white shadow-slate-200' :
                'bg-reward text-white shadow-reward/20'}">
               {#if activeModal.type === 'award'}<Award size={32} />
               {:else if activeModal.type === 'penalty'}<Ban size={32} />
@@ -606,6 +882,7 @@
               {:else if activeModal.type === 'presets'}<Settings size={32} />
               {:else if activeModal.type === 'picker'}<Star size={32} class="text-hero" />
               {:else if activeModal.type === 'family'}<Users size={32} />
+              {:else if activeModal.type === 'child-link'}<QrCode size={32} />
               {:else}<Trophy size={32} />{/if}
             </div>
             <div>
@@ -616,11 +893,13 @@
                  activeModal.type === 'presets' ? (editingPresetId ? 'Edit Behaviour' : 'Manage Behaviours') :
                  activeModal.type === 'picker' ? 'Quick Action' :
                  activeModal.type === 'family' ? 'Family Settings' :
+                 activeModal.type === 'child-link' ? 'Link Child Device' :
                  'Redeem Points'}
               </h3>
               <p class="text-slate-400 font-black text-xs uppercase tracking-[0.2em]">
                 {activeModal.type === 'presets' ? (editingPresetId ? 'Update this action' : 'Configure reusable actions') : 
                  activeModal.type === 'family' ? 'Manage members & co-parents' :
+                 activeModal.type === 'child-link' ? 'Create a QR code for one specific child' :
                  `For ${activeModal.child?.child?.display_name}`}
               </p>
             </div>
@@ -637,6 +916,99 @@
         {/if}
 
         <div id="modal-scroll-area" class="flex-1 overflow-y-auto pr-2 -mr-2 custom-scrollbar space-y-6 pb-4">
+          {#if activeModal.type === 'child-link'}
+            <div class="space-y-4">
+              <div class="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-5">
+                <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Child</p>
+                <p class="mt-2 text-2xl font-black text-slate-950 break-words">{activeModal.child.child.display_name}</p>
+                <p class="mt-2 text-sm text-slate-600">This QR links one tablet or phone directly to this child profile.</p>
+              </div>
+
+              {#if childLinkLoading && !childLinkInvite}
+                <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-white p-8 text-center">
+                  <div class="mx-auto w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center animate-pulse">
+                    <QrCode size={22} class="text-slate-400" />
+                  </div>
+                  <p class="mt-4 text-sm font-black uppercase tracking-[0.22em] text-slate-400">Generating QR</p>
+                </div>
+              {:else if childLinkError}
+                <div class="rounded-[1.75rem] border border-red-100 bg-red-50 p-5 text-red-700 font-bold break-words">
+                  {childLinkError}
+                </div>
+              {:else if childLinkInvite}
+                <div class="rounded-[1.75rem] border border-slate-100 bg-white p-5 space-y-5">
+              <div class="flex flex-col items-center gap-4">
+                <div class="rounded-[1.5rem] border border-slate-100 bg-white p-4 shadow-sm w-full max-w-[18rem] sm:max-w-[20rem] flex justify-center">
+                  {#if childLinkQr}
+                    <img src={childLinkQr} alt="QR code for child device link" class="w-full h-auto rounded-2xl" />
+                  {/if}
+                </div>
+                    <div class="text-center">
+                      <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Expires</p>
+                      <p class="text-lg font-black text-slate-950 break-words">{new Date(childLinkInvite.expires_at).toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  <div class="space-y-2">
+                    <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 ml-1">Fallback link</p>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                      <input
+                        readonly
+                        value={childLinkInvite.invite_url}
+                        class="min-w-0 flex-1 rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 break-all"
+                      />
+                      <button
+                        type="button"
+                        onclick={copyChildInviteLink}
+                        class="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-white shrink-0"
+                      >
+                        <Copy size={14} />
+                        {childLinkCopied ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-col sm:flex-row gap-3">
+                    <button
+                      type="button"
+                      onclick={regenerateChildLink}
+                      class="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-hero px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-hero/20"
+                    >
+                      <RefreshCcw size={14} />
+                      Regenerate QR
+                    </button>
+                    <button
+                      type="button"
+                      onclick={revokeChildLink}
+                      class="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-slate-700 border-2 border-slate-100"
+                    >
+                      <Link2 size={14} />
+                      Revoke access
+                    </button>
+                  </div>
+                </div>
+              {:else}
+                <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-white p-8 text-center space-y-4">
+                  <div class="mx-auto w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
+                    <QrCode size={22} class="text-slate-400" />
+                  </div>
+                  <div>
+                    <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400">No active QR</p>
+                    <p class="text-sm text-slate-500 mt-2">Generate a fresh link to connect a tablet or phone.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onclick={regenerateChildLink}
+                    class="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-hero px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-hero/20"
+                  >
+                    <RefreshCcw size={14} />
+                    Generate QR
+                  </button>
+                </div>
+              {/if}
+            </div>
+          {/if}
+
           {#if activeModal.type === 'family'}
             <!-- Members List -->
             <div class="space-y-3">
@@ -882,33 +1254,33 @@
           {/if}
         </div>
 
-        {#if activeModal.type !== 'picker'}
-          <div class="pt-6 shrink-0 flex flex-col gap-3 bg-white">
-            <button 
-              onclick={handleModalSubmit}
-              disabled={modalLoading}
-              class="w-full py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-sm shadow-xl transition-all active:scale-[0.98] disabled:opacity-50
+          {#if activeModal.type !== 'picker' && activeModal.type !== 'child-link'}
+            <div class="pt-6 shrink-0 flex flex-col gap-3 bg-white">
+              <button 
+                onclick={handleModalSubmit}
+                disabled={modalLoading}
+                class="w-full py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-sm shadow-xl transition-all active:scale-[0.98] disabled:opacity-50
                 {activeModal.type === 'award' ? 'bg-hero text-white shadow-hero/20 hover:bg-hero-dark' : 
                  activeModal.type === 'penalty' ? 'bg-penalty text-white shadow-penalty/30 hover:bg-penalty-dark' :
                  activeModal.type === 'bank' ? 'bg-savings text-white shadow-savings/30 hover:bg-savings-dark' :
                  activeModal.type === 'presets' ? 'bg-slate-900 text-white shadow-slate-200 hover:bg-black' :
                  'bg-reward text-white shadow-reward/30 hover:bg-reward-dark'}"
-            >
-              {modalLoading ? 'Processing...' : 
+              >
+                {modalLoading ? 'Processing...' : 
              activeModal.type === 'presets' ? (editingPresetId ? 'Save Changes' : 'Create Preset') : 
              activeModal.type === 'family' ? 'Send Invitation' :
              'Confirm Action'}
-            </button>
-            {#if editingPresetId}
-              <button 
-                onclick={cancelEditing}
-                class="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                Cancel Edit
               </button>
-            {/if}
-          </div>
-        {/if}
+              {#if editingPresetId}
+                <button 
+                  onclick={cancelEditing}
+                  class="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  Cancel Edit
+                </button>
+              {/if}
+            </div>
+          {/if}
       </div>
     </div>
   </div>
@@ -936,7 +1308,6 @@
   .text-hero { color: #FF5A5F; }
   .bg-hero { background: #FF5A5F; }
   .shadow-hero\/20 { box-shadow: 0 10px 20px -5px rgba(255, 90, 95, 0.2); }
-  .shadow-hero\/30 { box-shadow: 0 10px 25px -5px rgba(255, 90, 95, 0.3); }
   
   .text-savings { color: #00A699; }
   .text-savings-dark { color: #008489; }

@@ -7,9 +7,11 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app import models, schemas
 from app.services import points_service
+from app.services.rewards_service import get_family_rewards
 from app.routes import children as child_routes
 from app.routes import family as family_routes
 from app.routes import ledger as ledger_routes
+from app.routes import rewards as reward_routes
 from app.routes import redemptions as redemption_routes
 from app import auth
 from datetime import datetime, timedelta
@@ -318,6 +320,52 @@ def test_preset_behaviour_crud(db):
     db.delete(preset)
     db.commit()
     assert db.query(models.PresetBehaviour).filter_by(parent_id=parent.id).count() == 0
+
+def test_reward_crud_and_family_scope(db):
+    family = models.Family()
+    other_family = models.Family()
+    db.add_all([family, other_family])
+    db.commit()
+
+    parent = models.ParentUser(email="reward@example.com", name="Reward Parent", family_id=family.id)
+    other_parent = models.ParentUser(email="other-reward@example.com", name="Other Parent", family_id=other_family.id)
+    db.add_all([parent, other_parent])
+    db.commit()
+    db.refresh(parent)
+    db.refresh(other_parent)
+
+    created = asyncio.run(reward_routes.create_reward(
+        schemas.RewardCreate(title="Movie night", points=30, description="Family movie"),
+        db,
+        parent,
+    ))
+    assert created.title == "Movie night"
+    assert created.points == 30
+
+    other_created = asyncio.run(reward_routes.create_reward(
+        schemas.RewardCreate(title="Other family reward", points=20, description=""),
+        db,
+        other_parent,
+    ))
+    assert other_created.family_id == other_family.id
+
+    rewards = get_family_rewards(db, family.id)
+    assert len(rewards) == 1
+    assert rewards[0].title == "Movie night"
+
+    updated = asyncio.run(reward_routes.update_reward(
+        created.id,
+        schemas.RewardCreate(title="Movie night+", points=35, description="Updated", is_active=False),
+        db,
+        parent,
+    ))
+    assert updated.title == "Movie night+"
+    assert updated.points == 35
+    assert updated.is_active is False
+
+    asyncio.run(reward_routes.delete_reward(created.id, db, parent))
+    assert db.query(models.Reward).filter_by(family_id=family.id).count() == 0
+    assert db.query(models.Reward).filter_by(family_id=other_family.id).count() == 1
 
 def test_family_support(db):
     # Setup two families

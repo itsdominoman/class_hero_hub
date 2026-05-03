@@ -36,8 +36,9 @@
     "@sveltejs/vite-plugin-svelte": "^4.0.0-next.6"
   },
   "dependencies": {
-    "lucide-svelte": "^0.378.0",
     "clsx": "^2.1.1",
+    "lucide-svelte": "^0.378.0",
+    "qrcode": "^1.5.4",
     "tailwind-merge": "^2.3.0"
   }
 }

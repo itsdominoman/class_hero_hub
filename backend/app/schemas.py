@@ -85,6 +85,25 @@ class RedemptionRequest(RedemptionRequestBase):
     class Config:
         from_attributes = True
 
+class ChildDeviceInviteCreateResponse(BaseModel):
+    id: int
+    child_id: int
+    child_name: str
+    invite_token: str
+    invite_url: str
+    expires_at: datetime
+
+class ChildDeviceInviteRevokeResponse(BaseModel):
+    revoked_invites: int
+    revoked_sessions: int
+
+class ChildLinkExchangeRequest(BaseModel):
+    token: str
+
+class ChildLinkExchangeResponse(BaseModel):
+    child: Child
+    session_expires_at: datetime
+
 class PetProgressBase(BaseModel):
     lifetime_points: int
     current_stage: PetStage
@@ -154,6 +173,40 @@ class PresetBehaviourCreate(PresetBehaviourBase):
     pass
 
 class PresetBehaviour(PresetBehaviourBase):
+    id: int
+    parent_id: int
+    family_id: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class RewardBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    points: int
+    is_active: bool = True
+
+    @field_validator("title")
+    @classmethod
+    def reward_title_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Title cannot be empty")
+        return value
+
+    @field_validator("points")
+    @classmethod
+    def reward_points_must_be_positive(cls, value: int) -> int:
+        if value <= 0:
+            raise ValueError("Points must be positive")
+        return value
+
+class RewardCreate(RewardBase):
+    pass
+
+class Reward(RewardBase):
     id: int
     parent_id: int
     family_id: Optional[int] = None
