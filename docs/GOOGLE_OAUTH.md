@@ -12,7 +12,7 @@
     - Create "OAuth 2.0 Client IDs" for a "Web application".
     - Authorized Redirect URIs:
         - `http://localhost:8000/api/auth/google/callback` (Local Development)
-        - `https://families.loginto.me/api/auth/google/callback` (Production)
+        - `https://familyherohub.com/api/auth/google/callback` (Production)
 4.  **Environment Variables:**
     - Copy the Client ID and Client Secret into your `.env` file.
     - Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI`.

@@ -1,58 +1,82 @@
-# Roadmap: Family Hero Hub
+# Family Hero Hub – Roadmap
 
-## Strategic Direction
-Transform Family Hero Hub into the family command center where kids earn progress, parents stay in control, and household responsibility feels like a shared adventure.
+## 🎯 Phase 1 – MVP (COMPLETED)
+- Parent authentication (Google OAuth)
+- Child profiles
+- Behaviour tracking (points system)
+- Rewards system (parent-defined rewards)
+- Child dashboard
+- QR-based child device linking
+- Secure child sessions
 
-## Priority 1: Core Ledger & History (In Progress)
-- [x] Point history and ledger transactions
-- [x] Day/Week/Month filtering
-- [x] Activity summaries
-- [ ] Advanced ledger reporting
+---
 
-## Priority 2: Preset Behaviours (Next)
-- [ ] Parent creation of reusable behaviours (Title, Points, Category)
-- [ ] Dashboard quick-award buttons
-- [ ] Integration with ledger and recent activity
-- [ ] Support for both positive (awards) and negative (penalties) points
+## 🔥 Phase 2 – Engagement & Retention (NEXT)
 
-## Priority 3: Child Logins
-- [ ] Unique credentials/access for children
-- [ ] Restricted views (no parent settings access)
-- [ ] Personal dashboard for children
+### 👶 Child Experience
+- Pet system fully visible (avatar evolution)
+- Animations for earning points
+- Reward unlock feedback (visual dopamine hit)
 
-## Priority 4: Child Calendar / Hero Planner
-Each child should have a calendar/planner where parents can add and manage events, tasks, and schedule items. Most useful once children can log in and see their own schedule.
-- **Requirements:**
-  - Calendar is per-child.
-  - Parents can create, edit, and delete calendar items.
-  - Shared family access (both parents see all child calendar events).
-  - Kid-facing view (children can see their own calendar on their dashboard).
-  - Optional rewards (some items can have points/HP values).
-  - Approval workflow (completion may require parent approval before points are awarded).
-  - Ledger integration (approved rewardable tasks create normal ledger transactions).
-  - Mission synergy (works alongside Missions, does not replace them).
-  - Event types (supports task-style items and normal life events).
-  - Recurring items (future support for weekly chores or sports practice).
-- **Examples:**
-  - Homework due dates, exam/test dates, project deadlines.
-  - Chore duty schedules, reading tasks, screen-free activities.
-  - Sports practice or matches, playdates, birthday parties, appointments, family events.
-- **Documentation:**
-  - *This feature may later deserve its own PRD: /opt/apps/family-hero-hub/docs/CHILD_CALENDAR_PRD.md*
+### 🔐 Access Improvements
+- Optional child PIN unlock (device-level, not public login)
+- Device/session management (parent can revoke child devices)
 
-## Priority 5: Missions
-- [ ] Mission creation and assignment (to one or more kids)
-- [ ] Child completion requests
-- [ ] Parent approval workflow
-- [ ] Reward automation upon approval
+### 🎁 Rewards System
+- Reward approval UX improvements
+- Reward history (child + parent view)
+- Expiry or cooldown for rewards
 
-## Priority 6: Avatars & Pet Progression
-- [ ] Mascot/Pet system
-- [ ] Progression based on points earned/missions completed
-- [ ] Visual evolution of characters
+---
 
-## Future Vision
-- Multi-parent access
-- Savings / Banking-style learning modules
-- Subscription monetization
-- Mobile App (APK) distribution
+## 📅 Phase 3 – Structure & Habit Building
+
+### 📆 Calendar System
+- Homework tracking
+- Chore scheduling
+- Events (sports, playdates, exams)
+- Reward triggers from completed tasks
+
+### ⚙️ Parent Productivity
+- Preset behaviour templates
+- One-click daily routines
+- Batch reward/penalty assignment
+
+---
+
+## 🤖 Phase 4 – Automation & Intelligence
+
+- Smart suggestions (AI-assisted reward ideas)
+- Behaviour insights ("most consistent habits")
+- Notifications (Telegram / mobile push)
+- Weekly summaries for parents
+
+---
+
+## 📱 Phase 5 – Platform Expansion
+
+- Mobile apps (Android APK first)
+- Tablet-first UI polish
+- Offline-friendly child mode
+
+---
+
+## 💰 Phase 6 – Monetization
+
+- Free tier (basic families)
+- Paid tier:
+  - multiple parents
+  - advanced analytics
+  - AI features
+  - extended storage/history
+
+---
+
+## 🧠 Long-Term Vision
+
+A full **family operating system**:
+- behaviour tracking
+- education support
+- gamified growth
+- shared family calendar
+- AI-assisted parenting tools

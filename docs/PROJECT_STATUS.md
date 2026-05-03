@@ -1,44 +1,80 @@
-# Project Status: Family Hero Hub
+# Family Hero Hub – Current Status
 
-**Date:** May 2, 2026
-**Status:** Active Development (Phase: Core Features)
+## ✅ Completed Features
 
-## Project Overview
-Family Hero Hub is a parent/kids rewards, responsibility, allowance, chores, and gamified behaviour app. It aims to be the "family command center" where household responsibility feels like a shared adventure.
+### Authentication & Access
+- Google OAuth for parent accounts
+- Family-based data scoping
+- Child device linking via QR code
+- Child-specific sessions (separate from parent auth)
+- Secure token-based invite system (hashed, expiring, scoped)
 
-## Tech Stack
-- **Frontend:** SvelteKit (TypeScript, TailwindCSS)
-- **Backend:** FastAPI (Python)
-- **Database:** SQLite
-- **Infrastructure:** Docker Compose
-- **Deployment:** Custom deploy script (`/usr/local/bin/family-hero-deploy`)
-- **Gateway:** Hermes/Zeus Telegram gateway
+### Child System
+- Child profiles linked to parent/family
+- Child dashboard (kid-friendly UI)
+- Child-scoped API endpoints
+- Device-based persistent sessions (no email required)
 
-## Current Database Schema (SQLite)
-**Location:** `/opt/apps/family-hero-hub/data/family_hero_hub.sqlite`
+### Rewards System
+- Parent-created rewards with custom point values
+- Rewards displayed correctly to children
+- Reward request flow implemented
+- Pending reward requests visible to parents
 
-### Tables
-- `parent_users`: Parent account information.
-- `children`: Child profiles linked to parents.
-- `ledger_transactions`: The source of truth for all point movements.
-  - `id`, `child_id`, `jar`, `transaction_type`, `points`, `description`, `locked_until`, `created_by_parent_id`, `created_at`
-- `redemption_requests`: Tracks child requests to spend points.
-- `pet_progress`: Data for the gamified avatar/pet system.
+### Behaviour System
+- Quick-tap behaviour presets (points/penalties)
+- Separated from rewards (no longer mixed)
 
-## Recently Completed Work
-1.  **Logo & Branding:**
-    - Logo asset integrated at `/opt/apps/family-hero-hub/frontend/static/family-hero-hub-logo.png`.
-    - Branding applied to header, footer, and login page.
-2.  **Footer Update:**
-    - Tagline updated to: "Empowering the next generation with the responsibility they need to thrive."
-3.  **Point Summary & Recent Activity:**
-    - Period filtering (Day/Week/Month) added to child ledger.
-    - Summary cards implemented (gained, lost, spent, net, saved, etc.).
-    - Backend endpoints extended and verified with tests.
-4.  **Redemption Logic Decision:**
-    - Option B selected: `redemption_hold` is the single deduction. Approval updates status only to avoid double-counting.
+### UI / UX
+- Responsive layout (tablet + mobile)
+- QR linking UI for child devices
+- Reward cards fixed (no overflow issues)
+- Improved contrast and readability
+- Child-friendly dashboard experience
 
-## Known Configuration
-- **App Path:** `/opt/apps/family-hero-hub`
-- **Server User:** `administrator`
-- **GitHub:** `https://github.com/itsdominoman/family-hero-hub`
+### Infrastructure
+- Dockerized deployment
+- Caddy reverse proxy with HTTPS
+- Domain: https://familyherohub.com
+- Backend tests passing (21 tests)
+- Frontend builds clean
+
+---
+
+## 🧪 Verified Working
+- Child device linking (QR + link)
+- Child session persistence
+- Rewards creation → child visibility → request flow
+- Parent dashboard + child dashboard interaction
+- Multi-child support (e.g., Jackson, Leah)
+
+---
+
+## ⚠️ Known Gaps / Not Yet Implemented
+
+### Authentication Enhancements
+- Child PIN unlock (optional)
+- Device management (view/revoke sessions UI)
+
+### Rewards System
+- Reward approval UX polish
+- Reward history tracking
+- Notifications for reward requests
+
+### Gamification
+- Pet visuals / evolution system (partially implemented)
+- Level progression feedback
+- Animations / engagement elements
+
+### Productivity Features
+- Calendar / tasks / chores system
+- Scheduled rewards / recurring behaviours
+
+---
+
+## 🚀 Current State
+
+This is now a **functional MVP product**, not a prototype.
+
+Core loop works:
+Parent sets rewards → child earns points → child requests reward → parent approves
