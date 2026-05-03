@@ -1,34 +1,95 @@
-# Family Hero Hub V1.2
+# Family Hero Hub
 
-Gamified financial education platform for children.
+Gamified family management system designed to build positive habits in children using points, rewards, and real-world incentives.
 
-## Quick Start
+---
 
-1.  **Configure Environment:**
-    ```bash
-    cp .env.example .env
-    # Edit .env with your Google OAuth credentials and parent emails
-    ```
+## 🚀 Overview
 
-2.  **Start the App:**
-    ```bash
-    docker compose up -d --build
-    ```
+Family Hero Hub allows parents to:
 
-3.  **Access the App:**
-    - Frontend: [http://localhost:5173](http://localhost:5173)
-    - Backend Health: [http://localhost:8000/api/health](http://localhost:8000/api/health)
+- Track behaviour using points
+- Create meaningful rewards
+- Encourage consistency and responsibility
 
-## Core Commands
+Children can:
 
-- **Stop:** `docker compose down`
-- **Logs:** `docker compose logs -f`
-- **Backup Database:** `./scripts/backup_sqlite.sh`
-- **Run Backend Tests:** `docker compose exec backend pytest`
+- Earn points for positive behaviour
+- View their progress on a kid-friendly dashboard
+- Request rewards
+- Use their own device via QR login (no email required)
 
-## Documentation
+---
 
-- [Google OAuth Setup](docs/GOOGLE_OAUTH.md)
-- [Cloudflare Tunnel Deployment](docs/CLOUDFLARE_TUNNEL.md)
-- [Future APK (Capacitor) Guide](docs/APK_FUTURE.md)
-- [Security Checklist](SECURITY_CHECKLIST.md)
+## 🌐 Live App
+
+https://familyherohub.com
+
+---
+
+## 🔑 Core Features
+
+### 👨‍👩‍👧‍👦 Parent System
+- Google OAuth login
+- Family-based account system
+- Multiple children per family
+- Behaviour presets (quick point assignment)
+- Reward creation with custom point values
+- Reward approval workflow
+
+---
+
+### 👶 Child System
+- Child profiles linked to parent accounts
+- QR-based device linking (no email required)
+- Persistent child sessions (no shared parent login)
+- Kid-friendly dashboard UI
+- Reward request system
+
+---
+
+### 🎯 Rewards System
+- Fully separate from behaviour presets
+- Parent-defined rewards (e.g. "Happy Meal – 20 points")
+- Children can request rewards
+- Parents approve or reject requests
+
+---
+
+### ⚡ Behaviour System
+- Quick-tap behaviour presets
+- Positive and negative point assignment
+- Designed for fast daily use by parents
+
+---
+
+### 🔐 Security Model
+- Family-scoped data isolation
+- Child sessions separate from parent authentication
+- QR invite tokens:
+  - High entropy
+  - Hashed in storage
+  - Expiring and revocable
+- Child accounts have restricted permissions (no admin actions)
+
+---
+
+## 🧱 Tech Stack
+
+- **Backend:** FastAPI (Python)
+- **Frontend:** SvelteKit
+- **Database:** PostgreSQL
+- **Infrastructure:** Docker + Caddy (HTTPS)
+
+---
+
+## ⚙️ Quick Start
+
+### 1. Configure Environment
+
+```bash
+cp .env.example .env
+# Edit .env with:
+# - Google OAuth credentials
+# - Allowed parent emails
+# - Database settings
