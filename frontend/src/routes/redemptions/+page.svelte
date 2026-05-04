@@ -121,7 +121,6 @@
   }
   .text-hero { color: #FF5A5F; }
   .text-savings { color: #00A699; }
-  .bg-hero { background: #FF5A5F; }
   .bg-savings { background: #00A699; }
   .text-reward { color: #FC642D; }
 </style>

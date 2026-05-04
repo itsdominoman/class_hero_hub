@@ -1012,7 +1012,7 @@
           {#if activeModal.type === 'family'}
             <!-- Members List -->
             <div class="space-y-3">
-              <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Family Members</label>
+              <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Family Members</span>
               <div class="grid gap-2">
                 {#each familyMembers as member}
                   <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
@@ -1036,7 +1036,7 @@
             <!-- Invites List -->
             {#if familyInvites.filter(i => i.status === 'pending').length > 0}
               <div class="space-y-3 pt-4 border-t border-slate-100">
-                <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Pending Invites</label>
+                <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Pending Invites</span>
                 <div class="grid gap-2">
                   {#each familyInvites.filter(i => i.status === 'pending') as invite}
                     <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
@@ -1055,9 +1055,10 @@
 
             <!-- Invite Form -->
             <div class="space-y-3 pt-4 border-t border-slate-100">
-              <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Invite Co-Parent</label>
+              <label for="co-parent-email" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Invite Co-Parent</label>
               <div class="space-y-2">
                 <input 
+                  id="co-parent-email"
                   type="email" 
                   bind:value={modalForm.email}
                   placeholder="co-parent@example.com"
@@ -1119,7 +1120,7 @@
 
           {#if activeModal.type === 'redeem' || activeModal.type === 'presets'}
             <div class="space-y-2">
-              <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">
+              <label for="modal-title" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">
                 {activeModal.type === 'presets' ? 'Preset Title' : 'Reward Name'}
               </label>
               <div class="flex gap-3">
@@ -1129,6 +1130,7 @@
                   </div>
                 {/if}
                 <input 
+                  id="modal-title"
                   type="text" 
                   bind:value={modalForm.title}
                   placeholder={activeModal.type === 'presets' ? "e.g., Brushed Teeth" : "e.g., 30 mins Screen Time"}
@@ -1139,7 +1141,7 @@
 
             {#if activeModal.type === 'presets'}
               <div class="space-y-2">
-                <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Select Visual (Optional)</label>
+                <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Select Visual (Optional)</span>
                 <div class="flex flex-wrap gap-2 p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
                   <button 
                     onclick={() => modalForm.icon = ''}
@@ -1164,9 +1166,10 @@
           {#if activeModal.type !== 'picker' && activeModal.type !== 'family'}
             <div class="grid grid-cols-2 gap-6">
               <div class="space-y-2">
-                <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Points Amount</label>
+                <label for="points-amount" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Points Amount</label>
                 <div class="relative">
                   <input 
+                    id="points-amount"
                     type="number" 
                     bind:value={modalForm.points}
                     class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-black text-slate-900 focus:outline-none focus:border-hero/30 transition-all text-2xl"
@@ -1180,8 +1183,9 @@
 
               {#if activeModal.type === 'award' || activeModal.type === 'penalty'}
                 <div class="space-y-2">
-                  <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Target Jar</label>
+                  <label for="target-jar" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Target Jar</label>
                   <select 
+                    id="target-jar"
                     bind:value={modalForm.jar}
                     class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-bold text-slate-900 focus:outline-none focus:border-hero/30 transition-all appearance-none cursor-pointer"
                   >
@@ -1195,8 +1199,9 @@
 
           {#if activeModal.type !== 'presets' && activeModal.type !== 'picker' && activeModal.type !== 'family'}
             <div class="space-y-2">
-              <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Description / Reason</label>
+              <label for="modal-description" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Description / Reason</label>
               <textarea 
+                id="modal-description"
                 bind:value={modalForm.description}
                 placeholder="What happened? (optional)"
                 rows="3"
@@ -1207,8 +1212,9 @@
 
           {#if activeModal.type === 'presets'}
             <div class="space-y-2">
-              <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Internal Notes</label>
+              <label for="internal-notes" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Internal Notes</label>
               <textarea 
+                id="internal-notes"
                 bind:value={modalForm.description}
                 placeholder="Brief description of when to use this (optional)"
                 rows="2"
@@ -1218,7 +1224,7 @@
 
             {#if presets.length > 0}
               <div class="space-y-3 pt-4 border-t border-slate-100">
-                <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Existing Presets</label>
+                <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Existing Presets</span>
                 <div class="grid gap-2">
                   {#each presets as p}
                     <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
