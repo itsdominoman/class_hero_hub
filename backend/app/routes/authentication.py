@@ -112,9 +112,11 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         secure=settings.COOKIE_SECURE,
         path="/"
     )
+    auth.set_csrf_cookie(response, auth.create_csrf_token())
     return response
 
 @router.post("/logout")
 async def logout(response: Response):
     response.delete_cookie("access_token", path="/")
+    auth.clear_csrf_cookie(response)
     return {"message": "Logged out"}

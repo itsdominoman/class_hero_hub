@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from .. import models, schemas
+from .. import models, schemas, auth
 from ..child_auth import exchange_child_link, register_exchange_attempt, set_child_session_cookie
 
 router = APIRouter()
@@ -24,6 +24,7 @@ async def exchange_link_token(
     if not child:
         raise HTTPException(status_code=401, detail="Invalid or expired child link")
     set_child_session_cookie(response, session_raw_token, session.expires_at)
+    auth.set_csrf_cookie(response, auth.create_csrf_token())
     return schemas.ChildLinkExchangeResponse(
         child=child,
         session_expires_at=session.expires_at,

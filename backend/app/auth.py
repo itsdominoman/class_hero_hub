@@ -8,6 +8,8 @@ from sqlalchemy import func
 from .database import get_db, settings
 from . import models, schemas
 import httpx
+import secrets
+import hmac
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
@@ -98,3 +100,70 @@ async def verify_google_token(token: str):
         if response.status_code != 200:
             return None
         return response.json()
+
+
+CSRF_COOKIE_NAME = "csrf_token"
+CSRF_HEADER_NAME = "x-csrf-token"
+
+
+def create_csrf_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def set_csrf_cookie(response, token: str):
+    response.set_cookie(
+        key=CSRF_COOKIE_NAME,
+        value=token,
+        httponly=False,
+        max_age=1800,
+        expires=1800,
+        samesite="lax",
+        secure=settings.COOKIE_SECURE,
+        path="/",
+    )
+
+
+def clear_csrf_cookie(response):
+    response.delete_cookie(CSRF_COOKIE_NAME, path="/")
+
+
+def validate_csrf_request(request: Request):
+    """
+    Double-submit CSRF protection for cookie-authenticated unsafe requests.
+
+    Browser attackers can cause a victim's cookies to be sent, but they cannot
+    read our csrf_token cookie from another site and mirror it into X-CSRF-Token.
+    """
+    if request.method.upper() in {"GET", "HEAD", "OPTIONS", "TRACE"}:
+        return
+
+    exempt_paths = {
+        "/api/child-link/exchange",
+    }
+
+    if request.url.path in exempt_paths:
+        return
+
+    # Only enforce when one of our auth cookies is present.
+    # This avoids changing behavior for unauthenticated bad requests.
+    has_auth_cookie = bool(
+        request.cookies.get("access_token")
+        or request.cookies.get("child_session")
+    )
+    if not has_auth_cookie:
+        return
+
+    cookie_token = request.cookies.get(CSRF_COOKIE_NAME)
+    header_token = request.headers.get(CSRF_HEADER_NAME)
+
+    if not cookie_token or not header_token:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Missing CSRF token",
+        )
+
+    if not hmac.compare_digest(cookie_token, header_token):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid CSRF token",
+        )

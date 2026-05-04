@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from .database import engine, Base, get_db, settings
@@ -27,6 +28,20 @@ app.add_middleware(
 
 # Sessions for Google OAuth
 app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET)
+
+
+@app.middleware("http")
+async def csrf_protection_middleware(request: Request, call_next):
+    try:
+        auth.validate_csrf_request(request)
+    except HTTPException as exc:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+            headers=getattr(exc, "headers", None),
+        )
+
+    return await call_next(request)
 
 @app.get("/api/health")
 def health_check():
