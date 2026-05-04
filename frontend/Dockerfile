@@ -1,16 +1,21 @@
-FROM node:20-slim
+FROM node:20-slim AS build
 
 WORKDIR /app
 
 COPY package*.json ./
-# Use --legacy-peer-deps to handle Svelte 5 peer dependency conflicts
 RUN npm install --legacy-peer-deps
 
 COPY . .
 
-# Ensure .svelte-kit is generated
 RUN npx svelte-kit sync
+RUN npm run build
+
+
+FROM nginx:1.27-alpine
+
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/build /usr/share/nginx/html
 
 EXPOSE 5173
 
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+CMD ["nginx", "-g", "daemon off;"]
