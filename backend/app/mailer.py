@@ -98,3 +98,79 @@ The Family Hero Hub Team
     except Exception as e:
         logger.error(f"Failed to send invite email to {to_email}: {e}")
         return False
+
+def send_registration_notification(request_details: dict):
+    """
+    Sends a notification to support about a new registration request.
+    """
+    if not settings.SMTP_PASSWORD:
+        logger.warning("SMTP_PASSWORD not set, skipping registration notification")
+        return False
+
+    msg = EmailMessage()
+    msg['Subject'] = "New Family Hero Hub Registration Request"
+    msg['From'] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
+    msg['To'] = "support@familyherohub.com"
+
+    content = f"""
+New registration request received:
+
+Name: {request_details.get('name')}
+Email: {request_details.get('email')}
+Family Name: {request_details.get('family_name')}
+Message: {request_details.get('message', 'N/A')}
+
+Review this request in the admin dashboard:
+{settings.PUBLIC_APP_URL.rstrip('/')}/admin/registration-requests
+"""
+    msg.set_content(content)
+
+    try:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+            if settings.SMTP_USE_STARTTLS:
+                server.starttls()
+            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send registration notification: {e}")
+        return False
+
+def send_approval_email(to_email: str, name: str):
+    """
+    Sends an approval email to the user.
+    """
+    if not settings.SMTP_PASSWORD:
+        logger.warning("SMTP_PASSWORD not set, skipping approval email")
+        return False
+
+    msg = EmailMessage()
+    msg['Subject'] = "Your Family Hero Hub access has been approved!"
+    msg['From'] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
+    msg['To'] = to_email
+
+    text_content = f"""
+Hello {name}!
+
+Great news! Your request for access to Family Hero Hub has been approved.
+
+You can now log in using your Google account at:
+{settings.PUBLIC_APP_URL.rstrip('/')}/login
+
+We're excited to have you on board!
+
+Best,
+The Family Hero Hub Team
+"""
+    msg.set_content(text_content)
+
+    try:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+            if settings.SMTP_USE_STARTTLS:
+                server.starttls()
+            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send approval email to {to_email}: {e}")
+        return False

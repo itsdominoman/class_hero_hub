@@ -81,16 +81,23 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
                 detail="Invite email does not match Google account",
             )
 
-    # 2. Check allowlist if not invited
+    # 2. Check allowlist or database approvals if not invited
     allowed_emails = [auth.normalize_email(e) for e in settings.PARENT_EMAILS.split(",")]
-    is_in_allowlist = email in allowed_emails
+    is_in_bootstrap = email in allowed_emails
+    
+    # Check for DB-based approval
+    db_approval = db.query(models.ApprovedParentEmail).filter(
+        models.ApprovedParentEmail.normalized_email == email,
+        models.ApprovedParentEmail.status == "active"
+    ).first()
+    is_db_approved = db_approval is not None
 
     parent = db.query(models.ParentUser).filter(func.lower(models.ParentUser.email) == email).first()
 
     if not parent:
-        # New user: must be invited OR in allowlist
-        if not invite and not is_in_allowlist:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email not in allowlist and no valid invite found")
+        # New user: must be invited OR in bootstrap OR DB approved
+        if not invite and not is_in_bootstrap and not is_db_approved:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email not approved and no valid invite found")
 
         family_id = None
         if invite:
@@ -98,7 +105,7 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
             invite.status = "accepted"
             invite.accepted_at = datetime.now(timezone.utc)
         else:
-            # Bootstrap: Create new family for allowlisted user
+            # Bootstrap or DB Approved: Create new family
             new_family = models.Family()
             db.add(new_family)
             db.commit()
@@ -134,13 +141,13 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
             invite.accepted_by_parent_id = parent.id
 
         elif parent.family_id is None:
-            if is_in_allowlist:
+            if is_in_bootstrap or is_db_approved:
                 new_family = models.Family()
                 db.add(new_family)
                 db.flush()
                 parent.family_id = new_family.id
             else:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Parent has no family and no valid invite found")
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Parent has no family and no valid approval found")
         
         parent.email = email
         parent.google_sub = google_sub

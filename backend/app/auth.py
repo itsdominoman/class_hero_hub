@@ -97,6 +97,21 @@ async def get_current_parent(request: Request, db: Session = Depends(get_db)):
 
     return ensure_parent_family(db, parent)
 
+def is_admin(parent: models.ParentUser) -> bool:
+    """
+    Check if a parent is an admin based on the bootstrap PARENT_EMAILS list.
+    """
+    allowed_emails = [normalize_email(e) for e in settings.PARENT_EMAILS.split(",")]
+    return normalize_email(parent.email) in allowed_emails
+
+async def get_current_admin(current_parent: models.ParentUser = Depends(get_current_parent)):
+    if not is_admin(current_parent):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return current_parent
+
 async def verify_google_token(token: str):
     async with httpx.AsyncClient() as client:
         response = await client.get(f"https://oauth2.googleapis.com/tokeninfo?id_token={token}")

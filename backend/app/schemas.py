@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, field_validator
-from datetime import datetime
+from datetime import datetime, date, time
 from typing import Optional, List
 from .models import TransactionType, JarType, RedemptionStatus, PetStage
 
@@ -10,8 +10,20 @@ class ParentUserBase(BaseModel):
 class ParentUser(ParentUserBase):
     id: int
     family_id: Optional[int] = None
+    is_admin: bool = False
     created_at: datetime
     last_login_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class FamilyBase(BaseModel):
+    timezone: str = "Asia/Muscat"
+    week_start_day: int = 6
+
+class Family(FamilyBase):
+    id: int
+    created_at: datetime
 
     class Config:
         from_attributes = True
@@ -27,6 +39,73 @@ class ChildCreate(ChildBase):
 class Child(ChildBase):
     id: int
     family_id: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class CalendarEntryBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    entry_type: str = "task"
+    is_rewardable: bool = False
+    points_value: Optional[int] = None
+    recurrence_type: str = "none"
+    recurrence_days: Optional[str] = None
+    start_date: date
+    start_time: Optional[time] = None
+    duration_minutes: Optional[int] = None
+    is_active: bool = True
+
+class CalendarEntryCreate(CalendarEntryBase):
+    child_id: int
+
+class CalendarEntry(CalendarEntryBase):
+    id: int
+    family_id: int
+    child_id: int
+    created_by_parent_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class CalendarCompletionBase(BaseModel):
+    entry_id: int
+    child_id: int
+    occurrence_date: date
+    status: str = "pending"
+
+class CalendarCompletionCreate(CalendarCompletionBase):
+    pass
+
+class CalendarCompletion(CalendarCompletionBase):
+    id: int
+    completed_at: Optional[datetime] = None
+    reviewed_at: Optional[datetime] = None
+    reviewed_by_parent_id: Optional[int] = None
+    base_points: Optional[int] = None
+    bonus_multiplier_applied: float = 1.0
+    points_awarded: Optional[int] = None
+    transaction_id: Optional[int] = None
+    streak_source_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+class WeeklyStreakBase(BaseModel):
+    child_id: int
+    week_start_date: date
+    week_end_date: date
+    bonus_date: date
+    required_task_count: int
+    completed_task_count: int
+    streak_earned: bool = False
+    bonus_multiplier: float = 2.0
+
+class WeeklyStreak(WeeklyStreakBase):
+    id: int
+    family_id: int
     created_at: datetime
 
     class Config:
@@ -234,6 +313,38 @@ class FamilyInvite(BaseModel):
     created_at: datetime
     expires_at: Optional[datetime]
     accepted_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+class RegistrationRequestBase(BaseModel):
+    email: EmailStr
+    name: str
+    family_name: str
+    message: Optional[str] = None
+
+class RegistrationRequestCreate(RegistrationRequestBase):
+    pass
+
+class RegistrationRequest(RegistrationRequestBase):
+    id: int
+    status: str
+    created_at: datetime
+    approved_at: Optional[datetime]
+    rejected_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+class RegistrationRequestReview(BaseModel):
+    rejection_reason: Optional[str] = None
+
+class ApprovedParentEmail(BaseModel):
+    id: int
+    email: str
+    source: str
+    status: str
+    approved_at: datetime
 
     class Config:
         from_attributes = True

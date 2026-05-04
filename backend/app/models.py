@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum, Date, Time, Float, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
@@ -13,6 +13,7 @@ class TransactionType(enum.Enum):
     redemption_approved = "redemption_approved"
     redemption_rejected = "redemption_rejected"
     adjustment = "adjustment"
+    calendar_task = "calendar_task"
 
 class JarType(enum.Enum):
     spending = "spending"
@@ -43,10 +44,19 @@ class ParentUser(Base):
 
     family = relationship("Family", back_populates="parents")
 
+    @property
+    def is_admin(self) -> bool:
+        from .database import settings
+        from .auth import normalize_email
+        allowed_emails = [normalize_email(e) for e in settings.PARENT_EMAILS.split(",")]
+        return normalize_email(self.email) in allowed_emails
+
 class Family(Base):
     __tablename__ = "families"
 
     id = Column(Integer, primary_key=True, index=True)
+    timezone = Column(String, default="Asia/Muscat")
+    week_start_day = Column(Integer, default=6) # 0=Monday, 6=Sunday
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     parents = relationship("ParentUser", back_populates="family")
@@ -54,6 +64,8 @@ class Family(Base):
     presets = relationship("PresetBehaviour", back_populates="family")
     rewards = relationship("Reward", back_populates="family")
     invites = relationship("FamilyInvite", back_populates="family")
+    calendar_entries = relationship("CalendarEntry", back_populates="family")
+    weekly_streaks = relationship("WeeklyStreak", back_populates="family")
 
 class FamilyInvite(Base):
     __tablename__ = "family_invites"
@@ -115,6 +127,87 @@ class Child(Base):
     transactions = relationship("LedgerTransaction", back_populates="child")
     redemptions = relationship("RedemptionRequest", back_populates="child")
     pet_progress = relationship("PetProgress", back_populates="child", uselist=False)
+    calendar_entries = relationship("CalendarEntry", back_populates="child")
+    calendar_completions = relationship("CalendarCompletion", back_populates="child")
+    weekly_streaks = relationship("WeeklyStreak", back_populates="child")
+
+class CalendarEntry(Base):
+    __tablename__ = "calendar_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    family_id = Column(Integer, ForeignKey("families.id"))
+    child_id = Column(Integer, ForeignKey("children.id"))
+    created_by_parent_id = Column(Integer, ForeignKey("parent_users.id"))
+    title = Column(String)
+    description = Column(String, nullable=True)
+    entry_type = Column(String, default="task") # "event" or "task"
+    is_rewardable = Column(Boolean, default=False)
+    points_value = Column(Integer, nullable=True)
+    
+    # Recurrence
+    recurrence_type = Column(String, default="none") # "none", "daily", "weekly"
+    recurrence_days = Column(String, nullable=True) # e.g., "0,2,4" for Mon, Wed, Fri
+    
+    # Timing (Local Family Time)
+    start_date = Column(Date)
+    start_time = Column(Time, nullable=True)
+    duration_minutes = Column(Integer, nullable=True)
+    
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    family = relationship("Family", back_populates="calendar_entries")
+    child = relationship("Child", back_populates="calendar_entries")
+    created_by = relationship("ParentUser")
+    completions = relationship("CalendarCompletion", back_populates="entry")
+
+class CalendarCompletion(Base):
+    __tablename__ = "calendar_task_completions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    entry_id = Column(Integer, ForeignKey("calendar_entries.id"))
+    child_id = Column(Integer, ForeignKey("children.id"))
+    occurrence_date = Column(Date) # The local family date this was for
+    
+    status = Column(String, default="pending") # "pending", "approved", "rejected"
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    reviewed_by_parent_id = Column(Integer, ForeignKey("parent_users.id"), nullable=True)
+    
+    # Audit trail
+    base_points = Column(Integer, nullable=True)
+    bonus_multiplier_applied = Column(Float, default=1.0)
+    points_awarded = Column(Integer, nullable=True)
+    transaction_id = Column(Integer, ForeignKey("ledger_transactions.id"), nullable=True)
+    streak_source_id = Column(Integer, ForeignKey("weekly_streaks.id"), nullable=True)
+
+    entry = relationship("CalendarEntry", back_populates="completions")
+    child = relationship("Child", back_populates="calendar_completions")
+    reviewed_by = relationship("ParentUser")
+
+    __table_args__ = (UniqueConstraint('entry_id', 'child_id', 'occurrence_date', name='_task_occurrence_uc'),)
+
+class WeeklyStreak(Base):
+    __tablename__ = "weekly_streaks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    family_id = Column(Integer, ForeignKey("families.id"))
+    child_id = Column(Integer, ForeignKey("children.id"))
+    week_start_date = Column(Date)
+    week_end_date = Column(Date)
+    bonus_date = Column(Date)
+    
+    required_task_count = Column(Integer, default=0)
+    completed_task_count = Column(Integer, default=0)
+    streak_earned = Column(Boolean, default=False)
+    
+    bonus_multiplier = Column(Float, default=2.0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    family = relationship("Family", back_populates="weekly_streaks")
+    child = relationship("Child", back_populates="weekly_streaks")
+
+    __table_args__ = (UniqueConstraint('child_id', 'week_start_date', name='_child_week_streak_uc'),)
 
 class LedgerTransaction(Base):
     __tablename__ = "ledger_transactions"
@@ -189,3 +282,32 @@ class Reward(Base):
 
     parent = relationship("ParentUser")
     family = relationship("Family", back_populates="rewards")
+
+class RegistrationRequest(Base):
+    __tablename__ = "registration_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, index=True)
+    normalized_email = Column(String, index=True)
+    name = Column(String)
+    family_name = Column(String)
+    message = Column(String, nullable=True)
+    status = Column(String, default="pending") # pending, approved, rejected, expired
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    rejected_at = Column(DateTime(timezone=True), nullable=True)
+    approved_by_parent_id = Column(Integer, ForeignKey("parent_users.id"), nullable=True)
+    rejection_reason = Column(String, nullable=True)
+
+class ApprovedParentEmail(Base):
+    __tablename__ = "approved_parent_emails"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, index=True)
+    normalized_email = Column(String, unique=True, index=True)
+    approved_by_parent_id = Column(Integer, ForeignKey("parent_users.id"), nullable=True)
+    approved_at = Column(DateTime(timezone=True), server_default=func.now())
+    source = Column(String, default="registration_request") # bootstrap, registration_request, invite, manual_admin
+    status = Column(String, default="active") # active, revoked
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

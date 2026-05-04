@@ -29,3 +29,6 @@ Caddyfile.backup*
 # SQLite backups
 /data/*.bak*
 /data/*.sqlite.bak*
+
+# Local test virtual environment
+test_venv/

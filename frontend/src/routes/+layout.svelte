@@ -43,6 +43,11 @@
         <a href={dashboardHref} class="text-sm font-black text-slate-500 hover:text-hero uppercase tracking-widest transition-colors">
           {currentParent ? 'Parent Dashboard' : 'Login'}
         </a>
+        {#if currentParent && currentParent.is_admin}
+          <a href="/admin/registration-requests" class="text-sm font-black text-slate-500 hover:text-hero uppercase tracking-widest transition-colors">
+            Admin
+          </a>
+        {/if}
         {#if currentParent}
           <button onclick={handleLogout} class="btn-hero px-6 py-3 rounded-2xl text-sm uppercase tracking-widest">Logout</button>
         {/if}
@@ -73,9 +78,9 @@
         <p class="font-black text-white uppercase tracking-widest text-sm">Family Hero Hub</p>
         <p class="text-sm">Built with ❤️ for families everywhere.</p>
         <div class="flex md:justify-end gap-6 text-xs font-black uppercase tracking-tighter">
-          <a href="/#privacy" class="hover:text-hero transition-colors">Privacy Policy</a>
-          <a href="/#terms" class="hover:text-hero transition-colors">Terms of Service</a>
-          <a href="/#support" class="hover:text-hero transition-colors">Support</a>
+          <a href="/privacy" class="hover:text-hero transition-colors">Privacy Policy</a>
+          <a href="/terms" class="hover:text-hero transition-colors">Terms of Service</a>
+          <a href="/contact" class="hover:text-hero transition-colors">Contact</a>
         </div>
       </div>
     </div>

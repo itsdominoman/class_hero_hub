@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from .database import engine, Base, get_db, settings
 from . import models, schemas, auth
-from .routes import children, ledger, redemptions, authentication, presets, rewards, family, child_devices, child_access, child_link
+from .routes import children, ledger, redemptions, authentication, presets, rewards, family, child_devices, child_access, child_link, registration, admin, calendar, child_calendar
 from starlette.middleware.sessions import SessionMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
@@ -62,3 +62,7 @@ app.include_router(family.router, prefix="/api/family", tags=["family"])
 app.include_router(child_devices.router, prefix="/api", tags=["child-devices"])
 app.include_router(child_link.router, prefix="/api/child-link", tags=["child-link"])
 app.include_router(child_access.router, prefix="/api/child", tags=["child"])
+app.include_router(registration.router, prefix="/api/registration-requests", tags=["registration"])
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
+app.include_router(calendar.router, prefix="/api/calendar", tags=["calendar"])
+app.include_router(child_calendar.router, prefix="/api/child/calendar", tags=["child-calendar"])

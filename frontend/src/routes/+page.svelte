@@ -198,6 +198,15 @@
       <div class="relative z-10 text-center">
         <h2 class="text-4xl md:text-5xl font-black mb-4 leading-tight">Everything you need for a <span class="text-hero">happier household</span></h2>
         <p class="text-slate-400 font-bold uppercase tracking-widest text-sm mb-12">Helping families build better habits, one small win at a time.</p>
+        
+        <div class="bg-white/5 border border-white/10 p-8 rounded-3xl mb-16 text-left max-w-3xl mx-auto">
+          <p class="text-slate-300 leading-relaxed">
+            Family Hero Hub is a family rewards and responsibility app for parents and children. 
+            Parents create child profiles, children earn points for positive actions, and rewards can be requested and approved. 
+            Login is handled securely through <strong>Google OAuth</strong>. We never ask for or store your Google password.
+          </p>
+        </div>
+
         <div class="grid md:grid-cols-3 gap-12 text-left mb-16">
           <div class="flex gap-4">
             <div class="text-hero shrink-0"><Lock size={24} /></div>
