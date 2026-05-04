@@ -14,13 +14,20 @@
 ## 🔥 Phase 2 – Engagement & Retention (NEXT)
 
 ### 👶 Child Experience
-- Pet system fully visible (avatar evolution)
+- Pet system visuals integrated (dragon evolution stages)
 - Animations for earning points
+- Level-up/evolution feedback
 - Reward unlock feedback (visual dopamine hit)
+- Image optimization for pet assets
 
 ### 🔐 Access Improvements
+- Completed: Parent `last_login_at` now updates on first and returning Google OAuth logins
 - Optional child PIN unlock (device-level, not public login)
 - Device/session management (parent can revoke child devices)
+
+### 🧾 Audit & Observability
+- Dedicated `audit_logs` table for login, invite, child session, points, and reward events
+- Parent-facing activity/audit view for important family events
 
 ### 🎁 Rewards System
 - Reward approval UX improvements
@@ -80,3 +87,4 @@ A full **family operating system**:
 - gamified growth
 - shared family calendar
 - AI-assisted parenting tools
+- full parent visibility and audit trail for all family events

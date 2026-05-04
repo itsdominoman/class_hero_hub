@@ -4,6 +4,7 @@
 
 ### Authentication & Access
 - Google OAuth for parent accounts
+- Parent `last_login_at` tracking (updates on first-time and returning Google OAuth logins)
 - Family-based data scoping
 - Child device linking via QR code
 - Child-specific sessions (separate from parent auth)
@@ -12,6 +13,7 @@
 ### Child System
 - Child profiles linked to parent/family
 - Child dashboard (kid-friendly UI)
+- Dragon pet evolution visuals (displayed on homepage, parent dashboard, and child dashboard)
 - Child-scoped API endpoints
 - Device-based persistent sessions (no email required)
 
@@ -37,7 +39,7 @@
 - Caddy reverse proxy with HTTPS
 - Domain: https://familyherohub.com
 - Backend tests passing (21 tests)
-- Frontend builds clean
+- Frontend production build passes cleanly with no Svelte warnings
 
 ---
 
@@ -62,13 +64,17 @@
 - Notifications for reward requests
 
 ### Gamification
-- Pet visuals / evolution system (partially implemented)
+- Pet evolution visuals added; remaining work: animations, level-up feedback, image optimization, and deeper progression polish.
 - Level progression feedback
 - Animations / engagement elements
 
 ### Productivity Features
 - Calendar / tasks / chores system
 - Scheduled rewards / recurring behaviours
+
+### Technical Debt / Polish
+- Dragon image assets require optimization/compression before production scaling.
+- Dedicated `audit_logs` table for login, invite, child session, points, and reward events.
 
 ---
 
