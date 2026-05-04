@@ -62,13 +62,18 @@ class FamilyInvite(Base):
     family_id = Column(Integer, ForeignKey("families.id"))
     email = Column(String, index=True)
     role = Column(String, default="parent")
-    status = Column(String, default="pending") # pending, accepted, revoked
+    status = Column(String, default="pending") # pending, accepted, revoked, expired
+    token_hash = Column(String, unique=True, index=True, nullable=True)
     invited_by_parent_id = Column(Integer, ForeignKey("parent_users.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
     accepted_at = Column(DateTime(timezone=True), nullable=True)
+    accepted_by_parent_id = Column(Integer, ForeignKey("parent_users.id"), nullable=True)
 
     family = relationship("Family", back_populates="invites")
-    invited_by = relationship("ParentUser")
+    invited_by = relationship("ParentUser", foreign_keys=[invited_by_parent_id])
+    accepted_by = relationship("ParentUser", foreign_keys=[accepted_by_parent_id])
 
 class ChildDeviceInvite(Base):
     __tablename__ = "child_device_invites"

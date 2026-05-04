@@ -87,9 +87,12 @@ async def get_current_parent(request: Request, db: Session = Depends(get_db)):
     if parent is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Parent not found")
     
-    # Verify allowlist
+    # Verify allowlist or family membership
     allowed_emails = [normalize_email(e) for e in settings.PARENT_EMAILS.split(",")]
-    if normalize_email(parent.email) not in allowed_emails:
+    is_allowed = normalize_email(parent.email) in allowed_emails
+    
+    # If not in bootstrap allowlist, they must already have a family assigned (via invite)
+    if not is_allowed and parent.family_id is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email not in allowlist")
 
     return ensure_parent_family(db, parent)
@@ -104,6 +107,7 @@ async def verify_google_token(token: str):
 
 CSRF_COOKIE_NAME = "csrf_token"
 CSRF_HEADER_NAME = "x-csrf-token"
+INVITE_COOKIE_NAME = "invite_token"
 
 
 def create_csrf_token() -> str:

@@ -20,6 +20,17 @@ class Settings(BaseSettings):
     DEV_AUTH_PARENT_EMAIL: str = "parent@example.com"
     CORS_ORIGINS: str = "https://families.loginto.me,http://localhost:5173,http://localhost:8000"
 
+    # SMTP Settings
+    SMTP_HOST: str = "mail.familyherohub.com"
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = "noreply@familyherohub.com"
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = "noreply@familyherohub.com"
+    SMTP_FROM_NAME: str = "Family Hero Hub"
+    SMTP_USE_STARTTLS: bool = True
+    SMTP_USE_SSL: bool = False
+    INVITE_EXPIRY_DAYS: int = 7
+
     @property
     def COOKIE_SECURE(self) -> bool:
         return self.APP_ENV == "production"

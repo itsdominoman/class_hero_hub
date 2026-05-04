@@ -2,8 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List
-from ..database import get_db
-from .. import models, schemas, auth
+from ..database import get_db, settings
+from .. import models, schemas, auth, mailer
+import secrets
+import hashlib
+from datetime import datetime, timedelta, timezone
 
 router = APIRouter()
 
@@ -50,16 +53,45 @@ async def create_family_invite(
         models.FamilyInvite.status == "pending"
     ).first()
     if existing_invite:
-        raise HTTPException(status_code=400, detail="Invite already pending for this email")
+        # Check if expired
+        if existing_invite.expires_at and existing_invite.expires_at < datetime.now(timezone.utc):
+            existing_invite.status = "expired"
+            db.commit()
+        else:
+            raise HTTPException(status_code=400, detail="Invite already pending for this email")
+
+    # Generate secure token
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.INVITE_EXPIRY_DAYS)
 
     db_invite = models.FamilyInvite(
         family_id=current_parent.family_id,
         email=invite_email,
-        invited_by_parent_id=current_parent.id
+        invited_by_parent_id=current_parent.id,
+        token_hash=token_hash,
+        expires_at=expires_at,
+        status="pending"
     )
     db.add(db_invite)
     db.commit()
     db.refresh(db_invite)
+
+    # Send email. If sending fails, keep the pending invite row for audit/debug,
+    # but return a clean error so the UI/user does not think the email was sent.
+    invite_url = f"{settings.PUBLIC_APP_URL.rstrip('/')}/family-invite/{raw_token}"
+    email_sent = mailer.send_invite_email(
+        to_email=invite_email,
+        inviter_name=current_parent.name or current_parent.email,
+        invite_url=invite_url
+    )
+
+    if not email_sent:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Invite created but email could not be sent. Check SMTP settings.",
+        )
+
     return db_invite
 
 @router.patch("/invites/{invite_id}/revoke", response_model=schemas.FamilyInvite)
@@ -78,6 +110,7 @@ async def revoke_family_invite(
         raise HTTPException(status_code=404, detail="Invite not found")
     
     db_invite.status = "revoked"
+    db_invite.revoked_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_invite)
     return db_invite

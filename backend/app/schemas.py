@@ -232,6 +232,7 @@ class FamilyInvite(BaseModel):
     email: str
     status: str
     created_at: datetime
+    expires_at: Optional[datetime]
     accepted_at: Optional[datetime]
 
     class Config:

@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from ..database import get_db, settings
 from .. import models, schemas, auth
 from authlib.integrations.starlette_client import OAuth
 import time
+import hashlib
 from datetime import datetime, timezone
 
 router = APIRouter()
@@ -44,24 +46,59 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
     name = user_info.get('name')
     google_sub = user_info.get('sub')
 
-    # Verify allowlist
+    # 1. Check for invite token in cookie.
+    # Invite token is optional for normal bootstrap/returning login,
+    # but if present it must be valid, pending, unexpired, unrevoked,
+    # and must match the Google email exactly.
+    invite_token = request.cookies.get(auth.INVITE_COOKIE_NAME)
+    invite = None
+    if invite_token:
+        token_hash = hashlib.sha256(invite_token.encode()).hexdigest()
+        invite = db.query(models.FamilyInvite).filter(
+            models.FamilyInvite.token_hash == token_hash,
+            models.FamilyInvite.status == "pending",
+            models.FamilyInvite.revoked_at.is_(None),
+            models.FamilyInvite.accepted_at.is_(None),
+        ).first()
+
+        if not invite:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invite not found or already used",
+            )
+
+        if invite.expires_at and invite.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+            invite.status = "expired"
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invite expired",
+            )
+
+        if auth.normalize_email(invite.email) != email:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invite email does not match Google account",
+            )
+
+    # 2. Check allowlist if not invited
     allowed_emails = [auth.normalize_email(e) for e in settings.PARENT_EMAILS.split(",")]
-    if email not in allowed_emails:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email not in allowlist")
+    is_in_allowlist = email in allowed_emails
 
     parent = db.query(models.ParentUser).filter(func.lower(models.ParentUser.email) == email).first()
-    invite = db.query(models.FamilyInvite).filter(
-        func.lower(models.FamilyInvite.email) == email,
-        models.FamilyInvite.status == "pending"
-    ).first()
 
     if not parent:
+        # New user: must be invited OR in allowlist
+        if not invite and not is_in_allowlist:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email not in allowlist and no valid invite found")
+
+        family_id = None
         if invite:
             family_id = invite.family_id
             invite.status = "accepted"
-            invite.accepted_at = models.func.now()
+            invite.accepted_at = datetime.now(timezone.utc)
         else:
-            # Create new family for new parent
+            # Bootstrap: Create new family for allowlisted user
             new_family = models.Family()
             db.add(new_family)
             db.commit()
@@ -78,17 +115,33 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         db.add(parent)
         db.commit()
         db.refresh(parent)
+        
+        if invite:
+            invite.accepted_by_parent_id = parent.id
+            db.commit()
     else:
-        if parent.family_id is None:
-            if invite:
-                parent.family_id = invite.family_id
-                invite.status = "accepted"
-                invite.accepted_at = models.func.now()
-            else:
+        # Existing user
+        if invite:
+            if parent.family_id is not None and parent.family_id != invite.family_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This Google account already belongs to another family",
+                )
+
+            parent.family_id = invite.family_id
+            invite.status = "accepted"
+            invite.accepted_at = datetime.now(timezone.utc)
+            invite.accepted_by_parent_id = parent.id
+
+        elif parent.family_id is None:
+            if is_in_allowlist:
                 new_family = models.Family()
                 db.add(new_family)
                 db.flush()
                 parent.family_id = new_family.id
+            else:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Parent has no family and no valid invite found")
+        
         parent.email = email
         parent.google_sub = google_sub
         parent.name = name
@@ -113,6 +166,39 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         path="/"
     )
     auth.set_csrf_cookie(response, auth.create_csrf_token())
+    # Clear invite token cookie
+    response.delete_cookie(auth.INVITE_COOKIE_NAME, path="/")
+    return response
+
+@router.get("/invite/verify/{token}")
+async def verify_invite_token(token: str, db: Session = Depends(get_db)):
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    invite = db.query(models.FamilyInvite).filter(
+        models.FamilyInvite.token_hash == token_hash,
+        models.FamilyInvite.status == "pending"
+    ).first()
+
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invite not found or already used")
+    
+    if invite.expires_at and invite.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        invite.status = "expired"
+        db.commit()
+        raise HTTPException(status_code=400, detail="Invite expired")
+    
+    # Set short-lived invite cookie used by the Google OAuth callback.
+    # IMPORTANT: return the response object that has the cookie attached.
+    response = JSONResponse(content={"email": invite.email})
+    response.set_cookie(
+        key=auth.INVITE_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        max_age=3600,  # 1 hour
+        expires=3600,
+        samesite="lax",
+        secure=settings.COOKIE_SECURE,
+        path="/"
+    )
     return response
 
 @router.post("/logout")
