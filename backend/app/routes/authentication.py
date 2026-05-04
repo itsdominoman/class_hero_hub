@@ -5,6 +5,7 @@ from ..database import get_db, settings
 from .. import models, schemas, auth
 from authlib.integrations.starlette_client import OAuth
 import time
+from datetime import datetime, timezone
 
 router = APIRouter()
 
@@ -71,7 +72,8 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
             email=email, 
             name=name, 
             google_sub=google_sub,
-            family_id=family_id
+            family_id=family_id,
+            last_login_at=datetime.now(timezone.utc)
         )
         db.add(parent)
         db.commit()
@@ -90,7 +92,7 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         parent.email = email
         parent.google_sub = google_sub
         parent.name = name
-        parent.last_login_at = models.func.now()
+        parent.last_login_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(parent)
 
