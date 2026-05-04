@@ -55,8 +55,7 @@
 ## ⚠️ Known Gaps / Not Yet Implemented
 
 ### Authentication Enhancements
-- Child PIN unlock (optional)
-- Device management (view/revoke sessions UI)
+- Device management (view/revoke sessions UI - backend done, needs dedicated UI page)
 
 ### Rewards System
 - Reward approval UX polish
@@ -71,10 +70,6 @@
 ### Productivity Features
 - Calendar / tasks / chores system
 - Scheduled rewards / recurring behaviours
-
-### Technical Debt / Polish
-- Dragon image assets require optimization/compression before production scaling.
-- Dedicated `audit_logs` table for login, invite, child session, points, and reward events.
 
 ---
 

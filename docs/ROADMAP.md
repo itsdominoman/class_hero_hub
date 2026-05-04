@@ -22,12 +22,7 @@
 
 ### 🔐 Access Improvements
 - Completed: Parent `last_login_at` now updates on first and returning Google OAuth logins
-- Optional child PIN unlock (device-level, not public login)
-- Device/session management (parent can revoke child devices)
-
-### 🧾 Audit & Observability
-- Dedicated `audit_logs` table for login, invite, child session, points, and reward events
-- Parent-facing activity/audit view for important family events
+- Device/session management (parent can revoke child devices - backend done)
 
 ### 🎁 Rewards System
 - Reward approval UX improvements

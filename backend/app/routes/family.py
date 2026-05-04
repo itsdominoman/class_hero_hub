@@ -54,7 +54,11 @@ async def create_family_invite(
     ).first()
     if existing_invite:
         # Check if expired
-        if existing_invite.expires_at and existing_invite.expires_at < datetime.now(timezone.utc):
+        expires_at = existing_invite.expires_at
+        if expires_at and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+            
+        if expires_at and expires_at < datetime.now(timezone.utc):
             existing_invite.status = "expired"
             db.commit()
         else:
@@ -113,4 +117,5 @@ async def revoke_family_invite(
     db_invite.revoked_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_invite)
+
     return db_invite
