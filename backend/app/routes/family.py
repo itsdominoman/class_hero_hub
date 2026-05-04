@@ -6,9 +6,11 @@ from ..database import get_db, settings
 from .. import models, schemas, auth, mailer
 import secrets
 import hashlib
+import logging
 from datetime import datetime, timedelta, timezone
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.get("/members", response_model=List[schemas.FamilyMember])
 async def get_family_members(
@@ -91,10 +93,7 @@ async def create_family_invite(
     )
 
     if not email_sent:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Invite created but email could not be sent. Check SMTP settings.",
-        )
+        logger.warning("Invite created for %s but email delivery was unavailable", invite_email)
 
     return db_invite
 
