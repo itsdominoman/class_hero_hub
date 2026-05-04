@@ -31,10 +31,10 @@
           <span class="uppercase tracking-widest">Family goals made simple</span>
         </div>
         <h1 class="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black text-slate-900 mb-8 leading-[0.92] tracking-tighter break-words">
-          Turn Responsibility into <span class="text-hero text-transparent bg-clip-text bg-gradient-to-r from-hero to-hero-light">Superpowers!</span>
+          Turn Responsibility into <span class="text-hero text-transparent bg-clip-text bg-gradient-to-r from-hero to-hero-light">Superpowers.</span>
         </h1>
         <p class="text-lg sm:text-xl md:text-2xl text-slate-600 mb-12 max-w-xl leading-relaxed">
-          The fun way for kids to learn money skills. Earn <span class="font-bold text-slate-800 underline decoration-hero/30">Hero Points</span>, save in jars, and evolve your legendary pet!
+          A fun family app where kids earn <span class="font-bold text-slate-800 underline decoration-hero/30">Hero Points</span>, build better habits, save toward goals, and request real rewards — all with parent approval.
         </p>
         
         <div class="flex flex-col sm:flex-row gap-4">
@@ -42,7 +42,7 @@
             {primaryCtaLabel} <ArrowRight size={24} />
           </a>
           <a href="#features" class="btn-secondary px-8 sm:px-10 py-4 sm:py-5 text-lg sm:text-xl rounded-2xl flex items-center justify-center">
-            How it Works
+            See How it Works
           </a>
         </div>
       </div>
@@ -54,10 +54,12 @@
         
         <div class="card p-8 rotate-2 hover:rotate-0 transition-transform duration-500 relative z-10 border-2 border-white shadow-2xl">
           <div class="flex items-center gap-4 mb-8">
-            <div class="w-20 h-20 bg-hero/10 rounded-3xl flex items-center justify-center text-5xl">🦊</div>
+            <div class="w-20 h-20 bg-hero/10 rounded-3xl flex items-center justify-center overflow-hidden">
+              <img src="/pets/dragon-1/young-dragon.png" alt="Young Dragon" class="w-16 h-16 object-contain" />
+            </div>
             <div>
               <h3 class="text-2xl font-black text-slate-900">Hero Alex</h3>
-              <span class="px-3 py-1 bg-hero text-white text-xs font-black uppercase rounded-full tracking-widest">Cub Stage</span>
+              <span class="px-3 py-1 bg-hero text-white text-xs font-black uppercase rounded-full tracking-widest">Young Dragon</span>
             </div>
           </div>
           
@@ -96,8 +98,8 @@
   <section id="features" class="py-24 bg-white relative">
     <div class="max-w-7xl mx-auto px-4">
       <div class="text-center mb-20">
-        <h2 class="text-4xl md:text-5xl font-black text-slate-900 mb-4">Built for the <span class="text-hero underline decoration-hero/20">Modern Family</span></h2>
-        <p class="text-xl text-slate-600 max-w-2xl mx-auto">A powerful tool for parents, an exciting game for kids. Everyone wins!</p>
+        <h2 class="text-4xl md:text-5xl font-black text-slate-900 mb-4">Built for <span class="text-hero underline decoration-hero/20">busy families</span></h2>
+        <p class="text-xl text-slate-600 max-w-2xl mx-auto">A simple system for parents. A fun progress dashboard for kids.</p>
       </div>
 
       <div class="grid md:grid-cols-4 gap-8">
@@ -105,32 +107,32 @@
           <div class="w-16 h-16 bg-hero/10 text-hero rounded-3xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
             <Trophy size={32} />
           </div>
-          <h3 class="text-2xl font-black mb-4">Earn Points</h3>
-          <p class="text-slate-600 leading-relaxed">Reward chores, good behavior, and milestones with instant Hero Points.</p>
+          <h3 class="text-2xl font-black mb-4">Earn Hero Points</h3>
+          <p class="text-slate-600 leading-relaxed">Reward chores, good behaviour, routines, and milestones with instant points.</p>
+        </div>
+
+        <div class="card p-8 group hover:-translate-y-2 transition-all duration-300 border-b-8 border-hero-dark">
+          <div class="w-16 h-16 bg-hero-dark/10 text-hero-dark rounded-3xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
+            <Star size={32} />
+          </div>
+          <h3 class="text-2xl font-black mb-4">Better Habits</h3>
+          <p class="text-slate-600 leading-relaxed">Use quick actions and rewards to make daily routines easier to follow.</p>
         </div>
 
         <div class="card p-8 group hover:-translate-y-2 transition-all duration-300 border-b-8 border-savings">
           <div class="w-16 h-16 bg-savings/10 text-savings rounded-3xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
             <PiggyBank size={32} />
           </div>
-          <h3 class="text-2xl font-black mb-4">Save Smart</h3>
-          <p class="text-slate-600 leading-relaxed">Teach long-term thinking with a Savings Jar that locks points for 30 days.</p>
+          <h3 class="text-2xl font-black mb-4">Save Toward Goals</h3>
+          <p class="text-slate-600 leading-relaxed">Help kids learn patience by setting points aside in a savings jar.</p>
         </div>
 
         <div class="card p-8 group hover:-translate-y-2 transition-all duration-300 border-b-8 border-reward">
           <div class="w-16 h-16 bg-reward/10 text-reward rounded-3xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
             <Coins size={32} />
           </div>
-          <h3 class="text-2xl font-black mb-4">Redeem Rewards</h3>
-          <p class="text-slate-600 leading-relaxed">Kids request rewards; parents approve. Real-world value for digital points.</p>
-        </div>
-
-        <div class="card p-8 group hover:-translate-y-2 transition-all duration-300 border-b-8 border-hero-dark">
-          <div class="w-16 h-16 bg-hero-dark/10 text-hero-dark rounded-3xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
-            <ShieldCheck size={32} />
-          </div>
-          <h3 class="text-2xl font-black mb-4">Grow Your Pet</h3>
-          <p class="text-slate-600 leading-relaxed">Every point earned helps a unique Hero Pet evolve. Motivation at its finest!</p>
+          <h3 class="text-2xl font-black mb-4">Request Rewards</h3>
+          <p class="text-slate-600 leading-relaxed">Kids choose rewards they can afford. Parents approve or reject requests.</p>
         </div>
       </div>
     </div>
@@ -141,7 +143,7 @@
     <div class="max-w-7xl mx-auto px-4">
       <div class="text-center mb-16">
         <h2 class="text-4xl font-black text-slate-900 mb-4 uppercase tracking-tighter">The Path of a Hero</h2>
-        <p class="text-slate-600 font-bold uppercase tracking-widest text-sm">Watch your pet evolve as you earn points</p>
+        <p class="text-slate-600 font-bold uppercase tracking-widest text-sm">Watch their pet grow and evolve as they earn points</p>
       </div>
 
       <div class="relative">
@@ -150,39 +152,39 @@
         
         <div class="grid md:grid-cols-5 gap-8 relative z-10">
           <div class="text-center">
-            <div class="w-24 h-24 bg-white rounded-full border-4 border-slate-200 flex items-center justify-center text-4xl mx-auto mb-4 relative">
-              🥚
-              <div class="absolute -bottom-2 -right-2 bg-slate-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase">0 HP</div>
+            <div class="w-24 h-24 bg-white rounded-full border-4 border-slate-200 flex items-center justify-center p-4 mx-auto mb-4 relative shadow-xl">
+              <img src="/pets/dragon-1/egg.png" alt="Egg" class="w-full h-full object-contain" />
+              <div class="absolute -bottom-2 -right-2 bg-slate-700 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase z-10 border-2 border-white shadow-sm">0 HP</div>
             </div>
             <p class="font-black text-slate-900 uppercase tracking-widest text-xs">Egg</p>
           </div>
           <div class="text-center">
-            <div class="w-24 h-24 bg-white rounded-full border-4 border-hero/30 flex items-center justify-center text-4xl mx-auto mb-4 relative shadow-lg shadow-hero/10">
-              🐣
-              <div class="absolute -bottom-2 -right-2 bg-hero text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase">50 HP</div>
+            <div class="w-24 h-24 bg-white rounded-full border-4 border-hero/30 flex items-center justify-center p-4 mx-auto mb-4 relative shadow-xl shadow-hero/10">
+              <img src="/pets/dragon-1/hatchling.png" alt="Hatchling" class="w-full h-full object-contain" />
+              <div class="absolute -bottom-2 -right-2 bg-hero text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase z-10 border-2 border-white shadow-sm">50 HP</div>
             </div>
             <p class="font-black text-hero uppercase tracking-widest text-xs">Hatchling</p>
           </div>
           <div class="text-center">
-            <div class="w-24 h-24 bg-white rounded-full border-4 border-slate-200 flex items-center justify-center text-4xl mx-auto mb-4 relative">
-              🦊
-              <div class="absolute -bottom-2 -right-2 bg-slate-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase">150 HP</div>
+            <div class="w-24 h-24 bg-white rounded-full border-4 border-slate-200 flex items-center justify-center p-4 mx-auto mb-4 relative shadow-xl">
+              <img src="/pets/dragon-1/young-dragon.png" alt="Young Dragon" class="w-full h-full object-contain" />
+              <div class="absolute -bottom-2 -right-2 bg-slate-700 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase z-10 border-2 border-white shadow-sm">150 HP</div>
             </div>
-            <p class="font-black text-slate-900 uppercase tracking-widest text-xs">Cub</p>
+            <p class="font-black text-slate-900 uppercase tracking-widest text-xs">Young Dragon</p>
           </div>
           <div class="text-center">
-            <div class="w-24 h-24 bg-white rounded-full border-4 border-slate-200 flex items-center justify-center text-4xl mx-auto mb-4 relative">
-              🦸
-              <div class="absolute -bottom-2 -right-2 bg-slate-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase">300 HP</div>
+            <div class="w-24 h-24 bg-white rounded-full border-4 border-slate-200 flex items-center justify-center p-4 mx-auto mb-4 relative shadow-xl">
+              <img src="/pets/dragon-1/hero-dragon.png" alt="Hero Dragon" class="w-full h-full object-contain" />
+              <div class="absolute -bottom-2 -right-2 bg-slate-700 text-white text-[100px] font-black px-2 py-0.5 rounded-full uppercase z-10 border-2 border-white shadow-sm" style="font-size: 10px;">300 HP</div>
             </div>
-            <p class="font-black text-slate-900 uppercase tracking-widest text-xs">Hero</p>
+            <p class="font-black text-slate-900 uppercase tracking-widest text-xs">Hero Dragon</p>
           </div>
           <div class="text-center">
-            <div class="w-24 h-24 bg-white rounded-full border-4 border-slate-200 flex items-center justify-center text-4xl mx-auto mb-4 relative">
-              🐉
-              <div class="absolute -bottom-2 -right-2 bg-slate-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase">600 HP</div>
+            <div class="w-24 h-24 bg-white rounded-full border-4 border-slate-200 flex items-center justify-center p-4 mx-auto mb-4 relative shadow-xl">
+              <img src="/pets/dragon-1/legendary-dragon.png" alt="Legendary Dragon" class="w-full h-full object-contain" />
+              <div class="absolute -bottom-2 -right-2 bg-slate-700 text-white text-[100px] font-black px-2 py-0.5 rounded-full uppercase z-10 border-2 border-white shadow-sm" style="font-size: 10px;">600 HP</div>
             </div>
-            <p class="font-black text-slate-900 uppercase tracking-widest text-xs">Beast</p>
+            <p class="font-black text-slate-900 uppercase tracking-widest text-xs">Legendary Dragon</p>
           </div>
         </div>
       </div>
@@ -191,30 +193,31 @@
 
   <!-- Parent Trust Section -->
   <section class="py-24 px-4">
-    <div class="max-w-5xl mx-auto card p-12 md:p-20 bg-slate-900 text-white relative overflow-hidden">
+    <div class="max-w-5xl mx-auto card p-12 md:p-20 !bg-slate-900 text-white relative overflow-hidden">
       <div class="absolute top-0 right-0 w-96 h-96 bg-hero/10 rounded-full blur-[120px]"></div>
       <div class="relative z-10 text-center">
-        <h2 class="text-4xl md:text-5xl font-black mb-8 leading-tight">Peace of Mind for <span class="text-hero">Parents</span></h2>
+        <h2 class="text-4xl md:text-5xl font-black mb-4 leading-tight">Everything you need for a <span class="text-hero">happier household</span></h2>
+        <p class="text-slate-400 font-bold uppercase tracking-widest text-sm mb-12">Helping families build better habits, one small win at a time.</p>
         <div class="grid md:grid-cols-3 gap-12 text-left mb-16">
           <div class="flex gap-4">
             <div class="text-hero shrink-0"><Lock size={24} /></div>
             <div>
-              <h4 class="font-bold text-lg mb-2">Google Login</h4>
-              <p class="text-slate-400 text-sm">Secure OAuth authentication for parent access only.</p>
+              <h4 class="font-bold text-lg mb-2">Secure Login</h4>
+              <p class="text-slate-300 text-sm font-medium">Quick and safe access for parents via Google OAuth.</p>
             </div>
           </div>
           <div class="flex gap-4">
             <div class="text-hero shrink-0"><Heart size={24} /></div>
             <div>
               <h4 class="font-bold text-lg mb-2">Full Control</h4>
-              <p class="text-slate-400 text-sm">Approve rewards and manage points with simple controls.</p>
+              <p class="text-slate-300 text-sm font-medium">You decide how many points to award and which rewards to approve.</p>
             </div>
           </div>
           <div class="flex gap-4">
             <div class="text-hero shrink-0"><ShieldCheck size={24} /></div>
             <div>
-              <h4 class="font-bold text-lg mb-2">History Log</h4>
-              <p class="text-slate-400 text-sm">Transparent ledger for every point earned or spent.</p>
+              <h4 class="font-bold text-lg mb-2">Clear History</h4>
+              <p class="text-slate-300 text-sm font-medium">A transparent log of every point earned, saved, or requested.</p>
             </div>
           </div>
         </div>

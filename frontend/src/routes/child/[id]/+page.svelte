@@ -84,12 +84,12 @@
   let customRewardTitle = $state('');
   let customRewardPoints = $state(1);
 
-  const PET_STAGES: Record<PetStage, { label: string; emoji: string }> = {
-    egg: { label: 'Egg', emoji: '🥚' },
-    hatchling: { label: 'Hatchling', emoji: '🐣' },
-    cub: { label: 'Cub', emoji: '🦊' },
-    hero: { label: 'Hero', emoji: '🦸' },
-    beast: { label: 'Beast', emoji: '🐉' }
+  const PET_STAGES: Record<PetStage, { label: string; image: string }> = {
+    egg: { label: 'Egg', image: '/pets/dragon-1/egg.png' },
+    hatchling: { label: 'Hatchling', image: '/pets/dragon-1/hatchling.png' },
+    cub: { label: 'Young Dragon', image: '/pets/dragon-1/young-dragon.png' },
+    hero: { label: 'Hero Dragon', image: '/pets/dragon-1/hero-dragon.png' },
+    beast: { label: 'Legendary Dragon', image: '/pets/dragon-1/legendary-dragon.png' }
   };
 
   const ACTIVITY_LABELS: Record<string, string> = {
@@ -131,7 +131,7 @@
   );
 
   const avatarLabel = $derived(summary?.child.avatar_name?.trim() || '');
-  const stageIcon = $derived(summary ? PET_STAGES[summary.pet_progress.current_stage].emoji : PET_STAGES.egg.emoji);
+  const stageImage = $derived(summary ? PET_STAGES[summary.pet_progress.current_stage].image : PET_STAGES.egg.image);
   const stageInfo = $derived(summary ? PET_STAGES[summary.pet_progress.current_stage] : PET_STAGES.egg);
   const progressToNextStage = $derived(summary
     ? (() => {
@@ -394,11 +394,8 @@
 
             <div class="flex flex-col sm:flex-row sm:items-center gap-5">
                 <div class="w-24 h-24 md:w-28 md:h-28 rounded-[2rem] bg-white border-4 border-white shadow-[0_16px_40px_-18px_rgba(0,0,0,0.35)] flex items-center justify-center text-slate-900 overflow-hidden">
-                  <div class="w-full h-full bg-gradient-to-br from-[#ffe7cb] via-[#fff] to-[#dff7ee] flex flex-col items-center justify-center text-slate-900">
-                    <div class="text-4xl md:text-5xl leading-none">{stageIcon}</div>
-                    <div class="mt-1 px-2 text-center text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 break-words">
-                      {stageInfo.label}
-                    </div>
+                  <div class="w-full h-full bg-gradient-to-br from-[#ffe7cb] via-[#fff] to-[#dff7ee] flex flex-col items-center justify-center text-slate-900 p-4">
+                    <img src={stageImage} alt={stageInfo.label} class="w-full h-full object-contain" />
                   </div>
                 </div>
 

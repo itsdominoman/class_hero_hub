@@ -425,16 +425,16 @@
 
   onMount(loadDashboard);
 
-  const getPetEmoji = (stage: string) => {
-    switch (stage) {
-      case 'egg': return '🥚';
-      case 'hatchling': return '🐣';
-      case 'cub': return '🦊';
-      case 'hero': return '🦸';
-      case 'beast': return '🐉';
-      default: return '🥚';
-    }
+  const PET_STAGES_ASSETS: Record<string, { label: string; image: string }> = {
+    egg: { label: 'Egg', image: '/pets/dragon-1/egg.png' },
+    hatchling: { label: 'Hatchling', image: '/pets/dragon-1/hatchling.png' },
+    cub: { label: 'Young Dragon', image: '/pets/dragon-1/young-dragon.png' },
+    hero: { label: 'Hero Dragon', image: '/pets/dragon-1/hero-dragon.png' },
+    beast: { label: 'Legendary Dragon', image: '/pets/dragon-1/legendary-dragon.png' }
   };
+
+  const getPetImage = (stage: string) => (PET_STAGES_ASSETS[stage] || PET_STAGES_ASSETS.egg).image;
+  const getPetLabel = (stage: string) => (PET_STAGES_ASSETS[stage] || PET_STAGES_ASSETS.egg).label;
 </script>
 
 <div class="bg-slate-50 min-h-screen">
@@ -527,15 +527,15 @@
               <!-- Card Header -->
               <div class="p-8 border-b border-slate-50 flex items-center justify-between relative z-10">
                 <div class="flex items-center gap-5 min-w-0">
-                  <div class="w-20 h-20 bg-slate-50 group-hover:bg-hero/10 rounded-3xl flex items-center justify-center text-5xl transition-colors duration-500 shadow-inner shrink-0">
-                    {getPetEmoji(c.pet_progress.current_stage)}
+                  <div class="w-20 h-20 bg-slate-50 group-hover:bg-hero/10 rounded-3xl flex items-center justify-center p-3 transition-colors duration-500 shadow-inner shrink-0 overflow-hidden">
+                    <img src={getPetImage(c.pet_progress.current_stage)} alt={getPetLabel(c.pet_progress.current_stage)} class="w-full h-full object-contain" />
                   </div>
                   <div class="min-w-0">
                     <h3 class="text-2xl font-black text-slate-900 tracking-tight truncate">{c.child.display_name}</h3>
                     <div class="flex items-center gap-1.5 mt-1">
                       <div class="w-2 h-2 rounded-full bg-hero animate-pulse"></div>
-                      <span class="text-[10px] font-black uppercase tracking-[0.2em] text-hero opacity-70">
-                        {c.pet_progress.current_stage} stage • {c.pet_progress.lifetime_points} Lifetime
+                      <span class="text-[10px] font-black uppercase tracking-[0.2em] text-hero">
+                        {getPetLabel(c.pet_progress.current_stage)} stage • {c.pet_progress.lifetime_points} Lifetime
                       </span>
                     </div>
                   </div>
@@ -792,8 +792,8 @@
                   
                   <div class="flex items-center gap-6">
                     <div class="flex items-center gap-2">
-                      <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500 font-black text-sm">
-                        {getPetEmoji(child?.pet_progress.current_stage || 'egg')}
+                      <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center p-1 overflow-hidden">
+                        <img src={getPetImage(child?.pet_progress.current_stage || 'egg')} alt="" class="w-full h-full object-contain" />
                       </div>
                       <span class="text-sm font-black text-slate-700">{child?.child.display_name}</span>
                     </div>
