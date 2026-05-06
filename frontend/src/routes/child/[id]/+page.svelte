@@ -6,9 +6,11 @@
     ArrowRight,
     BadgeCheck,
     Clock3,
+    Check,
     Gift,
     History,
     PiggyBank,
+    Repeat2,
     Sparkles,
     Star,
     Trophy
@@ -65,6 +67,26 @@
 
   type ErrorKind = 'not-linked' | 'wrong-child' | 'not-found' | 'server-error';
 
+  type DayCalendarOccurrence = {
+    entry: {
+      id: number;
+      title: string;
+      description: string | null;
+      entry_type: 'task' | 'event' | string;
+      is_rewardable: boolean;
+      points_value: number | null;
+      recurrence_type: 'none' | 'daily' | 'weekly' | string;
+      recurrence_days: string | null;
+      start_time: string | null;
+    };
+    occurrence_date: string;
+    completion: {
+      id: number;
+      status: 'pending' | 'approved' | 'rejected' | string;
+      points_awarded: number | null;
+    } | null;
+  };
+
   let childId = $derived(page.params.id);
   let childIdNumber = $derived(Number(childId));
 
@@ -79,6 +101,10 @@
   let linkedChildName = $state('');
   let submitting = $state(false);
   let submittingRewardId = $state<number | null>(null);
+  let dayLoading = $state(false);
+  let dayError = $state<string | null>(null);
+  let dayItems = $state<DayCalendarOccurrence[]>([]);
+  let daySubmittingId = $state<number | null>(null);
   let statusMessage = $state('');
   let statusTone = $state<'success' | 'error' | 'info'>('success');
   let customRewardTitle = $state('');
@@ -176,6 +202,93 @@
     });
   }
 
+  function getLocalDateValue(reference = new Date()) {
+    const year = reference.getFullYear();
+    const month = `${reference.getMonth() + 1}`.padStart(2, '0');
+    const day = `${reference.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function formatCalendarTime(value: string | null) {
+    if (!value) return 'All day';
+    const [hours, minutes] = value.slice(0, 5).split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return date.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  }
+
+  function recurrenceLabel(item: DayCalendarOccurrence) {
+    if (item.entry.recurrence_type === 'daily') return 'Repeats daily';
+    if (item.entry.recurrence_type === 'weekly') return 'Repeats weekly';
+    return 'One time';
+  }
+
+  function statusLabel(status: string) {
+    if (status === 'pending') return 'Waiting for parent';
+    if (status === 'approved') return 'Completed';
+    if (status === 'rejected') return 'Not approved';
+    return status;
+  }
+
+  function statusClass(status: string) {
+    if (status === 'pending') return 'bg-amber-100 text-amber-700 border-amber-200';
+    if (status === 'approved') return 'bg-savings/10 text-savings border-savings/20';
+    if (status === 'rejected') return 'bg-rose-100 text-rose-700 border-rose-200';
+    return 'bg-slate-100 text-slate-500 border-slate-200';
+  }
+
+  function typeClass(type: string) {
+    return type === 'event'
+      ? 'bg-sky-100 text-sky-700 border-sky-200'
+      : 'bg-emerald-100 text-emerald-700 border-emerald-200';
+  }
+
+  function recurrenceClass(item: DayCalendarOccurrence) {
+    if (item.entry.recurrence_type === 'weekly') return 'bg-indigo-100 text-indigo-700 border-indigo-200';
+    if (item.entry.recurrence_type === 'daily') return 'bg-slate-100 text-slate-600 border-slate-200';
+    return 'bg-slate-100 text-slate-500 border-slate-200';
+  }
+
+  async function loadMyDay() {
+    const today = getLocalDateValue();
+    const query = `from_date=${today}&to_date=${today}`;
+    dayLoading = true;
+    dayError = null;
+    try {
+      const response = accessMode === 'child'
+        ? await api.get(`/child/calendar?${query}`)
+        : await api.get(`/calendar?child_id=${childIdNumber}&${query}`);
+      dayItems = Array.isArray(response) ? response : [];
+    } catch (e) {
+      dayItems = [];
+      dayError = e instanceof Error ? e.message : 'Unable to load today’s schedule';
+    } finally {
+      dayLoading = false;
+    }
+  }
+
+  async function refreshMyDay() {
+    await loadMyDay();
+  }
+
+  async function completeTodayItem(item: DayCalendarOccurrence) {
+    if (item.entry.entry_type !== 'task') return;
+
+    try {
+      daySubmittingId = item.entry.id;
+      const today = getLocalDateValue();
+      await api.post(`/child/calendar/${item.entry.id}/complete?occurrence_date=${today}`, {});
+      await refreshMyDay();
+    } catch (e) {
+      dayError = e instanceof Error ? e.message : 'Unable to mark task done';
+    } finally {
+      daySubmittingId = null;
+    }
+  }
+
   function getActivityTone(tx: LedgerTransaction) {
     if (tx.transaction_type === 'award') return 'gain';
     if (tx.transaction_type === 'penalty') return 'loss';
@@ -248,6 +361,7 @@
         ledger = activity;
         redemptions = childRedemptions;
         rewards = childRewards;
+        await loadMyDay();
       } catch (childError) {
         if (!(childError instanceof Error) || !isAuthError(childError.message)) {
           throw childError;
@@ -266,6 +380,7 @@
           ledger = activity;
           redemptions = allRedemptions;
           rewards = allRewards;
+          await loadMyDay();
         } catch (parentError) {
           const message = parentError instanceof Error ? parentError.message : 'Unable to load child dashboard';
           if (isAuthError(message)) {
@@ -621,6 +736,91 @@
         </div>
 
         <aside class="space-y-8">
+          <section class="card bg-white p-6 md:p-8 border border-slate-100 shadow-xl">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+              <div>
+                <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2">My Day</p>
+                <h2 class="text-2xl font-black text-slate-950">Today’s schedule</h2>
+                <p class="mt-1 text-sm text-slate-500">{getLocalDateValue() ? new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }) : ''}</p>
+              </div>
+              <div class="w-12 h-12 rounded-2xl bg-hero/10 text-hero flex items-center justify-center">
+                <Sparkles size={22} />
+              </div>
+            </div>
+
+            {#if dayLoading}
+              <div class="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400">Loading today’s schedule</p>
+              </div>
+            {:else if dayError}
+              <div class="rounded-[1.5rem] border border-red-100 bg-red-50 p-5 text-red-700 font-bold break-words">
+                {dayError}
+              </div>
+            {:else if dayItems.length === 0}
+              <div class="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400">No tasks or events today.</p>
+              </div>
+            {:else}
+              <div class="space-y-3">
+                {#each dayItems as item}
+                  <article class="min-w-0 rounded-[1.5rem] border border-slate-100 bg-[#fffefb] p-4 shadow-sm">
+                    <div class="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div class="min-w-0 flex-1">
+                        <div class="mb-3 flex flex-wrap items-center gap-2">
+                          <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${typeClass(item.entry.entry_type)}`}>
+                            {item.entry.entry_type === 'event' ? 'Event' : 'Task'}
+                          </span>
+                          {#if item.entry.is_rewardable && item.entry.points_value}
+                            <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-amber-700 sm:tracking-[0.18em]">
+                              {item.entry.points_value} points
+                            </span>
+                          {/if}
+                          <span class={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${recurrenceClass(item)}`}>
+                            <Repeat2 size={12} />
+                            {recurrenceLabel(item)}
+                          </span>
+                          {#if item.completion}
+                            <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${statusClass(item.completion.status)}`}>
+                              {statusLabel(item.completion.status)}
+                            </span>
+                          {/if}
+                        </div>
+
+                        <h3 class="text-lg font-black text-slate-950 break-words">{item.entry.title}</h3>
+                        {#if item.entry.description}
+                          <p class="mt-2 text-sm text-slate-600 break-words leading-6">{item.entry.description}</p>
+                        {/if}
+
+                        <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+                          <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+                            <Clock3 size={12} />
+                            {formatCalendarTime(item.entry.start_time)}
+                          </span>
+                          <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+                            <Sparkles size={12} />
+                            {item.entry.is_rewardable ? 'Reward task' : 'Task'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {#if accessMode === 'child' && item.entry.entry_type === 'task' && !item.completion}
+                        <button
+                          type="button"
+                          class="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white shadow-sm disabled:opacity-60 sm:w-auto sm:tracking-[0.18em]"
+                          disabled={daySubmittingId === item.entry.id}
+                          onclick={() => completeTodayItem(item)}
+                        >
+                          <Check size={16} />
+                          {daySubmittingId === item.entry.id ? 'Saving...' : 'Mark done'}
+                        </button>
+                      {/if}
+                    </div>
+                  </article>
+                {/each}
+              </div>
+            {/if}
+          </section>
+
           <section class="card bg-white p-6 md:p-8 border border-slate-100 shadow-xl">
             <div class="flex items-center justify-between gap-4 mb-6">
               <div>

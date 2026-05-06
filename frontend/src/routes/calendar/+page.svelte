@@ -1,0 +1,1205 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { api } from '$lib/api';
+  import {
+    ArrowLeft,
+    ArrowRight,
+    BadgeCheck,
+    CalendarDays,
+    Check,
+    ChevronLeft,
+    ChevronRight,
+    Clock3,
+    PencilLine,
+    Plus,
+    Repeat2,
+    Sparkles,
+    Trash2,
+    X
+  } from 'lucide-svelte';
+
+  type ChildOption = {
+    child: {
+      id: number;
+      display_name: string;
+      avatar_name: string | null;
+    };
+  };
+
+  type CalendarEntry = {
+    id: number;
+    family_id: number;
+    child_id: number;
+    created_by_parent_id: number;
+    title: string;
+    description: string | null;
+    entry_type: 'task' | 'event' | string;
+    is_rewardable: boolean;
+    points_value: number | null;
+    recurrence_type: 'none' | 'daily' | 'weekly' | string;
+    recurrence_days: string | null;
+    start_date: string;
+    start_time: string | null;
+    duration_minutes: number | null;
+    is_active: boolean;
+    created_at: string;
+  };
+
+  type CalendarCompletion = {
+    id: number;
+    entry_id: number;
+    child_id: number;
+    occurrence_date: string;
+    status: 'pending' | 'approved' | 'rejected' | string;
+    completed_at: string | null;
+    reviewed_at: string | null;
+    reviewed_by_parent_id: number | null;
+    base_points: number | null;
+    bonus_multiplier_applied: number;
+    points_awarded: number | null;
+    transaction_id: number | null;
+    streak_source_id: number | null;
+  };
+
+  type CalendarOccurrence = {
+    entry: CalendarEntry;
+    occurrence_date: string;
+    completion: CalendarCompletion | null;
+  };
+
+  type FormState = {
+    child_id: string;
+    title: string;
+    description: string;
+    entry_type: 'task' | 'event';
+    start_date: string;
+    start_time: string;
+    duration_minutes: string;
+    recurrence_type: 'none' | 'daily' | 'weekly';
+    recurrence_days: number[];
+    is_rewardable: boolean;
+    points_value: string | number;
+  };
+
+  const WEEKDAY_OPTIONS = [
+    { label: 'Mon', value: 0 },
+    { label: 'Tue', value: 1 },
+    { label: 'Wed', value: 2 },
+    { label: 'Thu', value: 3 },
+    { label: 'Fri', value: 4 },
+    { label: 'Sat', value: 5 },
+    { label: 'Sun', value: 6 }
+  ];
+
+  let children = $state<ChildOption[]>([]);
+  let selectedChildId = $state('');
+  let selectedDate = $state(dateToInputValue(new Date()));
+  let viewMode = $state<'today' | 'week'>('week');
+  let calendarItems = $state<CalendarOccurrence[]>([]);
+  let loading = $state(true);
+  let loadingCalendar = $state(false);
+  let error = $state<string | null>(null);
+  let formError = $state<string | null>(null);
+  let modalOpen = $state(false);
+  let saving = $state(false);
+  let editingEntryId = $state<number | null>(null);
+  let form = $state<FormState>(defaultForm());
+
+  function dateToInputValue(value: Date) {
+    const year = value.getFullYear();
+    const month = `${value.getMonth() + 1}`.padStart(2, '0');
+    const day = `${value.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function parseDateInput(value: string) {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  function addDays(value: string, days: number) {
+    const date = parseDateInput(value);
+    date.setDate(date.getDate() + days);
+    return dateToInputValue(date);
+  }
+
+  function getWeekDates(referenceDate: string) {
+    const start = parseDateInput(referenceDate);
+    const offset = start.getDay();
+    start.setDate(start.getDate() - offset);
+
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      return dateToInputValue(date);
+    });
+  }
+
+  function formatLongDate(value: string) {
+    return parseDateInput(value).toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric'
+    });
+  }
+
+  function formatShortDate(value: string) {
+    return parseDateInput(value).toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    });
+  }
+
+  function formatWeekday(value: string) {
+    return parseDateInput(value).toLocaleDateString(undefined, {
+      weekday: 'short'
+    });
+  }
+
+  function isToday(value: string) {
+    return value === dateToInputValue(new Date());
+  }
+
+  function formatTime(value: string | null) {
+    if (!value) return 'All day';
+    const trimmed = value.slice(0, 5);
+    const [hours, minutes] = trimmed.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return date.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  }
+
+  function formatDuration(minutes: number | null) {
+    if (!minutes || minutes <= 0) return '';
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    return remainder > 0 ? `${hours}h ${remainder}m` : `${hours}h`;
+  }
+
+  function recurrenceLabel(entry: CalendarEntry) {
+    if (entry.recurrence_type === 'daily') return 'Repeats daily';
+    if (entry.recurrence_type === 'weekly') {
+      const days = (entry.recurrence_days || '')
+        .split(',')
+        .map((value) => Number(value))
+        .filter((value) => !Number.isNaN(value));
+      if (days.length === 0) return 'Repeats weekly';
+      const labels = WEEKDAY_OPTIONS.filter((option) => days.includes(option.value)).map((option) => option.label);
+      return `Repeats weekly: ${labels.join(' ')}`;
+    }
+    return 'One time';
+  }
+
+  function recurrenceBadgeClass(entry: CalendarEntry) {
+    if (entry.recurrence_type === 'weekly') return 'bg-indigo-100 text-indigo-700 border-indigo-200';
+    if (entry.recurrence_type === 'daily') return 'bg-sky-100 text-sky-700 border-sky-200';
+    return 'bg-slate-100 text-slate-500 border-slate-200';
+  }
+
+  function typeBadgeClass(type: string) {
+    if (type === 'event') return 'bg-sky-100 text-sky-700 border-sky-200';
+    return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+  }
+
+  function statusBadgeClass(status: string) {
+    if (status === 'approved') return 'bg-slate-900 text-white border-slate-900';
+    if (status === 'pending') return 'bg-amber-100 text-amber-700 border-amber-200';
+    if (status === 'rejected') return 'bg-rose-100 text-rose-700 border-rose-200';
+    return 'bg-slate-100 text-slate-500 border-slate-200';
+  }
+
+  function statusLabel(status: string) {
+    if (status === 'approved') return 'Completed';
+    if (status === 'pending') return 'Pending approval';
+    if (status === 'rejected') return 'Rejected';
+    return status;
+  }
+
+  function entryPointsLabel(entry: CalendarEntry) {
+    if (!entry.is_rewardable || !entry.points_value) return '';
+    return `${entry.points_value} points`;
+  }
+
+  function getSelectedChildLabel() {
+    return children.find((child) => child.child.id.toString() === selectedChildId)?.child.display_name || 'Choose a child';
+  }
+
+  function normalizePointsValue(raw: string | number) {
+    const text = typeof raw === 'number' ? `${raw}` : raw.trim();
+    if (!text) return null;
+
+    const value = Number(text);
+    if (!Number.isInteger(value) || value < 1) return null;
+    return value;
+  }
+
+  function defaultForm(childId = selectedChildId): FormState {
+    return {
+      child_id: childId || '',
+      title: '',
+      description: '',
+      entry_type: 'task',
+      start_date: selectedDate,
+      start_time: '',
+      duration_minutes: '',
+      recurrence_type: 'none',
+      recurrence_days: [],
+      is_rewardable: false,
+      points_value: ''
+    };
+  }
+
+  function parseRecurrenceDays(value: string | null) {
+    if (!value) return [];
+    return value
+      .split(',')
+      .map((item) => Number(item))
+      .filter((item) => Number.isInteger(item) && item >= 0 && item <= 6);
+  }
+
+  function clearModal() {
+    modalOpen = false;
+    editingEntryId = null;
+    formError = null;
+    form = defaultForm();
+  }
+
+  function openCreateModal() {
+    const childId = selectedChildId || children[0]?.child.id?.toString() || '';
+    form = defaultForm(childId);
+    form.start_date = selectedDate;
+    modalOpen = true;
+    editingEntryId = null;
+    formError = null;
+  }
+
+  function openEditModal(item: CalendarOccurrence) {
+    editingEntryId = item.entry.id;
+    form = {
+      child_id: item.entry.child_id.toString(),
+      title: item.entry.title,
+      description: item.entry.description || '',
+      entry_type: item.entry.entry_type === 'event' ? 'event' : 'task',
+      start_date: item.entry.start_date,
+      start_time: item.entry.start_time ? item.entry.start_time.slice(0, 5) : '',
+      duration_minutes: item.entry.duration_minutes ? item.entry.duration_minutes.toString() : '',
+      recurrence_type:
+        item.entry.recurrence_type === 'daily' || item.entry.recurrence_type === 'weekly'
+          ? item.entry.recurrence_type
+          : 'none',
+      recurrence_days: parseRecurrenceDays(item.entry.recurrence_days),
+      is_rewardable: item.entry.is_rewardable,
+      points_value: item.entry.points_value ? item.entry.points_value.toString() : ''
+    };
+    modalOpen = true;
+    formError = null;
+  }
+
+  async function loadChildren() {
+    const response = await api.get('/children/');
+    children = Array.isArray(response) ? response : [];
+
+    if (!selectedChildId && children.length > 0) {
+      selectedChildId = children[0].child.id.toString();
+    }
+  }
+
+  async function loadCalendar() {
+    if (!selectedChildId) {
+      calendarItems = [];
+      return;
+    }
+
+    const weekDates = getWeekDates(selectedDate);
+    const fromDate = weekDates[0];
+    const toDate = weekDates[weekDates.length - 1];
+
+    const query = new URLSearchParams({
+      child_id: selectedChildId,
+      from_date: fromDate,
+      to_date: toDate
+    });
+
+    loadingCalendar = true;
+    try {
+      const response = await api.get(`/calendar?${query.toString()}`);
+      calendarItems = Array.isArray(response) ? response : [];
+    } finally {
+      loadingCalendar = false;
+    }
+  }
+
+  async function loadPage() {
+    try {
+      loading = true;
+      error = null;
+      await loadChildren();
+      await loadCalendar();
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Unable to load calendar';
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function refreshCalendar() {
+    if (!selectedChildId) {
+      calendarItems = [];
+      return;
+    }
+
+    try {
+      await loadCalendar();
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Unable to load calendar';
+    }
+  }
+
+  async function changeSelectedDate(offset: number) {
+    selectedDate = addDays(selectedDate, offset);
+    await refreshCalendar();
+  }
+
+  async function setToday() {
+    selectedDate = dateToInputValue(new Date());
+    viewMode = 'today';
+    await refreshCalendar();
+  }
+
+  async function handleChildChange(event: Event) {
+    const target = event.currentTarget as HTMLSelectElement;
+    selectedChildId = target.value;
+    await refreshCalendar();
+  }
+
+  async function saveEntry(event: SubmitEvent) {
+    event.preventDefault();
+    formError = null;
+
+    const title = form.title.trim();
+    const description = form.description.trim();
+    const childId = Number(form.child_id);
+    const duration = form.duration_minutes.trim() ? Number(form.duration_minutes) : null;
+    const points = normalizePointsValue(form.points_value);
+
+    if (!selectedChildId && !childId) {
+      formError = 'Select a child first.';
+      return;
+    }
+
+    if (!title) {
+      formError = 'Title is required.';
+      return;
+    }
+
+    if (!form.start_date) {
+      formError = 'Start date is required.';
+      return;
+    }
+
+    if (duration !== null && (!Number.isInteger(duration) || duration <= 0)) {
+      formError = 'Duration must be a positive number of minutes.';
+      return;
+    }
+
+    if (form.entry_type === 'task' && form.is_rewardable && points === null) {
+      formError = 'Points are required for reward tasks.';
+      return;
+    }
+
+    if (form.recurrence_type === 'weekly' && form.recurrence_days.length === 0) {
+      formError = 'Weekly recurrence needs at least one weekday.';
+      return;
+    }
+
+    const payload = {
+      title,
+      description: description || null,
+      entry_type: form.entry_type,
+      start_date: form.start_date,
+      start_time: form.start_time || null,
+      duration_minutes: duration,
+      recurrence_type: form.recurrence_type,
+      recurrence_days: form.recurrence_type === 'weekly' ? [...form.recurrence_days].sort((a, b) => a - b).join(',') : null,
+      is_rewardable: form.entry_type === 'task' ? form.is_rewardable : false,
+      points_value: form.entry_type === 'task' && form.is_rewardable ? points : null,
+      is_active: true,
+      child_id: childId || Number(selectedChildId)
+    };
+
+    try {
+      saving = true;
+      if (editingEntryId) {
+        const updatePayload = { ...payload };
+        delete (updatePayload as Record<string, unknown>).child_id;
+        await api.patch(`/calendar/${editingEntryId}`, updatePayload);
+      } else {
+        await api.post('/calendar', payload);
+      }
+
+      await refreshCalendar();
+      clearModal();
+    } catch (e) {
+      formError = e instanceof Error ? e.message : 'Unable to save calendar item';
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function disableEntry(item: CalendarOccurrence) {
+    if (!confirm(`Disable "${item.entry.title}"?`)) return;
+
+    try {
+      await api.delete(`/calendar/${item.entry.id}`);
+      if (editingEntryId === item.entry.id) {
+        clearModal();
+      }
+      await refreshCalendar();
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Unable to disable item';
+    }
+  }
+
+  async function completeEntry(item: CalendarOccurrence) {
+    try {
+      await api.post(`/calendar/${item.entry.id}/complete?occurrence_date=${item.occurrence_date}`, {});
+      await refreshCalendar();
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Unable to mark item complete';
+    }
+  }
+
+  async function approveCompletion(item: CalendarOccurrence) {
+    if (!item.completion) return;
+    try {
+      await api.post(`/calendar/completions/${item.completion.id}/approve`, {});
+      await refreshCalendar();
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Unable to approve completion';
+    }
+  }
+
+  async function rejectCompletion(item: CalendarOccurrence) {
+    if (!item.completion) return;
+    try {
+      await api.post(`/calendar/completions/${item.completion.id}/reject`, {});
+      await refreshCalendar();
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Unable to reject completion';
+    }
+  }
+
+  function toggleWeekday(day: number) {
+    if (form.recurrence_days.includes(day)) {
+      form.recurrence_days = form.recurrence_days.filter((value) => value !== day);
+      return;
+    }
+
+    form.recurrence_days = [...form.recurrence_days, day].sort((a, b) => a - b);
+  }
+
+  function toggleRewardable(nextType: string) {
+    form.entry_type = nextType === 'event' ? 'event' : 'task';
+    if (form.entry_type === 'event') {
+      form.is_rewardable = false;
+      form.points_value = '';
+    }
+    formError = null;
+  }
+
+  function setRewardable(enabled: boolean) {
+    form.is_rewardable = enabled;
+    if (!enabled) {
+      form.points_value = '';
+    }
+    formError = null;
+  }
+
+  function visibleDates() {
+    return viewMode === 'today' ? [selectedDate] : getWeekDates(selectedDate);
+  }
+
+  function itemsForDate(date: string) {
+    return calendarItems.filter((item) => item.occurrence_date === date);
+  }
+
+  function pendingItems() {
+    return calendarItems.filter((item) => item.completion?.status === 'pending');
+  }
+
+  onMount(() => {
+    void loadPage();
+  });
+</script>
+
+<svelte:head>
+  <title>Family Calendar</title>
+</svelte:head>
+
+<div class="min-h-screen max-w-full overflow-x-hidden bg-slate-50 pb-16">
+  {#if loading}
+    <div class="flex justify-center py-24">
+      <div class="flex flex-col items-center gap-4">
+        <div class="w-12 h-12 animate-spin rounded-full border-4 border-slate-300 border-t-hero"></div>
+        <p class="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Loading calendar</p>
+      </div>
+    </div>
+  {:else if error}
+    <div class="mx-auto max-w-xl px-4 py-20">
+      <div class="card border border-rose-100 bg-white p-8 text-center shadow-xl">
+        <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
+          <CalendarDays size={32} />
+        </div>
+        <h1 class="text-2xl font-black text-slate-950">Calendar unavailable</h1>
+        <p class="mt-3 break-words text-slate-600">{error}</p>
+        <button type="button" class="btn-hero mt-8 w-full rounded-2xl px-6 py-4" onclick={loadPage}>Try again</button>
+      </div>
+    </div>
+  {:else}
+    <section class="border-b border-slate-200 bg-white">
+      <div class="mx-auto max-w-7xl px-3 py-5 sm:px-4 md:px-6 md:py-8">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div class="min-w-0">
+            <div class="mb-3 inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 sm:tracking-[0.24em]">
+              <CalendarDays size={14} />
+              Family Calendar
+            </div>
+            <h1 class="break-words text-3xl font-black tracking-tight text-slate-950 md:text-5xl">Plan the week with the family.</h1>
+            <p class="mt-3 max-w-2xl text-sm font-medium leading-6 text-slate-500 md:text-base">
+              Schedule chores, school events, and reward tasks in one agenda-first view.
+            </p>
+          </div>
+
+          <div class="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto lg:justify-end">
+            <a href="/parent" class="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm transition hover:border-slate-300 hover:shadow-md sm:w-auto sm:tracking-[0.18em]">
+              <ArrowLeft size={16} />
+              Back to dashboard
+            </a>
+            <div class="grid w-full grid-cols-2 rounded-2xl border border-slate-200 bg-slate-50 p-1 sm:w-auto">
+              <button
+                type="button"
+                class={`rounded-xl px-4 py-3 text-xs font-black uppercase tracking-[0.14em] transition sm:tracking-[0.18em] ${viewMode === 'today' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                onclick={() => (viewMode = 'today')}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                class={`rounded-xl px-4 py-3 text-xs font-black uppercase tracking-[0.14em] transition sm:tracking-[0.18em] ${viewMode === 'week' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                onclick={() => (viewMode = 'week')}
+              >
+                Week
+              </button>
+            </div>
+            <button
+              type="button"
+              class="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-4 text-xs font-black uppercase tracking-[0.14em] text-white shadow-lg shadow-slate-200 transition hover:-translate-y-0.5 hover:shadow-xl sm:w-auto sm:tracking-[0.2em]"
+              onclick={openCreateModal}
+            >
+              <Plus size={16} />
+              Add Schedule Item
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
+          <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5">
+            <div class="flex flex-col gap-4 md:flex-row md:flex-wrap md:items-end md:justify-between">
+              <div class="min-w-0 md:flex-1">
+                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Child</p>
+                <div class="mt-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                  <select
+                    class="w-full min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none"
+                    bind:value={selectedChildId}
+                    onchange={handleChildChange}
+                    disabled={children.length === 0}
+                  >
+                    {#if children.length === 0}
+                      <option value="">No children available</option>
+                    {:else}
+                      {#each children as child}
+                        <option value={child.child.id.toString()}>{child.child.display_name}</option>
+                      {/each}
+                    {/if}
+                  </select>
+                  <div class="inline-flex max-w-full items-center gap-2 overflow-hidden rounded-full bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600 shadow-sm sm:shrink-0 sm:tracking-[0.18em]">
+                    <Sparkles size={12} />
+                    <span class="min-w-0 truncate">{getSelectedChildLabel()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="min-w-0 md:flex-1">
+                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Selected date</p>
+                <div class="mt-2 grid min-w-0 grid-cols-[48px_minmax(0,1fr)_48px] items-center gap-2">
+                  <button type="button" class="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm" aria-label="Previous day" onclick={() => changeSelectedDate(-1)}>
+                    <ChevronLeft size={18} />
+                  </button>
+                  <input
+                    type="date"
+                    bind:value={selectedDate}
+                    onchange={refreshCalendar}
+                    class="w-full min-w-0 rounded-2xl border border-slate-200 bg-white px-2 py-3 text-sm font-bold text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none sm:px-4"
+                  />
+                  <button type="button" class="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm" aria-label="Next day" onclick={() => changeSelectedDate(1)}>
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                class="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm transition hover:border-slate-300 md:w-auto md:tracking-[0.18em]"
+                onclick={setToday}
+              >
+                <Sparkles size={16} />
+                Jump to today
+              </button>
+            </div>
+          </div>
+
+          <div class="rounded-3xl border border-slate-200 bg-white p-4 md:p-5">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Selected week</p>
+                <p class="mt-2 text-base font-black text-slate-950">{formatShortDate(selectedDate)}</p>
+              </div>
+              <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                {calendarItems.length} items
+              </span>
+            </div>
+            <p class="mt-3 text-sm font-medium text-slate-500">
+              {viewMode === 'today' ? 'Showing the selected day.' : 'Showing the full weekly agenda.'}
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <main class="mx-auto max-w-full px-3 py-6 sm:px-4 md:max-w-7xl md:px-6 md:py-8">
+      {#if children.length === 0}
+        <div class="rounded-[2rem] border border-dashed border-slate-200 bg-white p-8 text-center shadow-sm md:p-12">
+          <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+            <CalendarDays size={30} />
+          </div>
+          <h2 class="mt-5 text-2xl font-black text-slate-950">No children yet</h2>
+          <p class="mx-auto mt-3 max-w-xl text-sm font-medium leading-6 text-slate-500">
+            Add a child from the parent dashboard before scheduling events or chores.
+          </p>
+          <a href="/parent" class="mt-8 inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-white">
+            Go to parent dashboard
+          </a>
+        </div>
+      {:else}
+        <div class="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <section class="min-w-0 space-y-6">
+            <div class="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+              <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="min-w-0">
+                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Weekly strip</p>
+                  <h2 class="mt-1 text-xl font-black text-slate-950">Move through the week</h2>
+                </div>
+                <span class="w-fit rounded-full bg-slate-100 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                  Sunday start
+                </span>
+              </div>
+
+              <div class="grid grid-cols-7 gap-1 sm:gap-2">
+                {#each getWeekDates(selectedDate) as weekDate}
+                  {@const dayItems = itemsForDate(weekDate)}
+                  <button
+                    type="button"
+                    class={`min-w-0 rounded-2xl border px-1.5 py-2 text-center transition sm:px-3 sm:py-3 ${weekDate === selectedDate ? 'border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-200' : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-white'}`}
+                    onclick={async () => {
+                      selectedDate = weekDate;
+                      await refreshCalendar();
+                    }}
+                  >
+                    <div class="truncate text-[10px] font-black uppercase tracking-normal opacity-70 sm:tracking-[0.16em]">{formatWeekday(weekDate)}</div>
+                    <div class="mt-1 text-lg font-black leading-none sm:mt-2">{parseDateInput(weekDate).getDate()}</div>
+                    <div class="mt-2 flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-normal text-current sm:text-[10px]">
+                      <span class={`h-1.5 w-1.5 rounded-full ${dayItems.length > 0 ? 'bg-current' : 'bg-transparent'}`}></span>
+                      <span>{dayItems.length}</span>
+                      {#if dayItems.some((item) => item.completion?.status === 'pending')}
+                        <span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
+                      {/if}
+                    </div>
+                    {#if isToday(weekDate)}
+                      <div class={`mx-auto mt-1 h-1 w-5 rounded-full ${weekDate === selectedDate ? 'bg-white/60' : 'bg-slate-900/30'}`}></div>
+                    {/if}
+                  </button>
+                {/each}
+              </div>
+            </div>
+
+            {#if pendingItems().length > 0}
+              <section class="rounded-[2rem] border border-amber-200 bg-amber-50/70 p-4 shadow-sm md:p-5">
+                <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div class="min-w-0">
+                    <p class="text-[10px] font-black uppercase tracking-[0.24em] text-amber-600">Pending approvals</p>
+                    <h2 class="mt-1 text-xl font-black text-slate-950">{pendingItems().length} waiting for review</h2>
+                  </div>
+                  <div class="rounded-full bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
+                    Parent review
+                  </div>
+                </div>
+
+                <div class="space-y-3">
+                  {#each pendingItems() as item}
+                    <article class="rounded-[1.75rem] border border-amber-200 bg-white p-4 md:p-5 shadow-sm">
+                      <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                        <div class="min-w-0 flex-1">
+                          <div class="mb-3 flex flex-wrap items-center gap-2">
+                            <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${typeBadgeClass(item.entry.entry_type)}`}>
+                              {item.entry.entry_type === 'event' ? 'Event' : 'Task'}
+                            </span>
+                            {#if item.entry.is_rewardable && item.entry.entry_type === 'task'}
+                              <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
+                                {entryPointsLabel(item.entry)}
+                              </span>
+                            {/if}
+                            <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${statusBadgeClass(item.completion?.status || '')}`}>
+                              {statusLabel(item.completion?.status || '')}
+                            </span>
+                          </div>
+
+                          <h3 class="text-lg font-black text-slate-950 break-words">{item.entry.title}</h3>
+                          {#if item.entry.description}
+                            <p class="mt-2 text-sm font-medium leading-6 text-slate-600 break-words">{item.entry.description}</p>
+                          {/if}
+
+                          <div class="mt-3 flex flex-wrap gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+                            <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+                              <Clock3 size={12} />
+                              {formatShortDate(item.occurrence_date)}
+                            </span>
+                            <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+                              <Repeat2 size={12} />
+                              {recurrenceLabel(item.entry)}
+                            </span>
+                            {#if item.entry.start_time || item.entry.duration_minutes}
+                              <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+                                {formatTime(item.entry.start_time)}
+                                {#if formatDuration(item.entry.duration_minutes)}
+                                  <span class="opacity-60">•</span>
+                                  {formatDuration(item.entry.duration_minutes)}
+                                {/if}
+                              </span>
+                            {/if}
+                          </div>
+                        </div>
+
+                        <div class="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-2 md:flex md:shrink-0 md:flex-wrap">
+                          <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white shadow-sm sm:tracking-[0.18em]" onclick={() => approveCompletion(item)}>
+                            <Check size={16} />
+                            Approve
+                          </button>
+                          <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-rose-700 shadow-sm sm:tracking-[0.18em]" onclick={() => rejectCompletion(item)}>
+                            <X size={16} />
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  {/each}
+                </div>
+              </section>
+            {/if}
+
+            <section class="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+              <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="min-w-0">
+                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Agenda</p>
+                  <h2 class="mt-1 text-xl font-black text-slate-950">
+                    {viewMode === 'today' ? 'Today' : 'This week'}
+                  </h2>
+                </div>
+                <div class="flex w-fit items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 sm:tracking-[0.18em]">
+                  <BadgeCheck size={14} />
+                  {loadingCalendar ? 'Refreshing' : `${calendarItems.length} occurrences`}
+                </div>
+              </div>
+
+              <div class="space-y-4">
+                {#each visibleDates() as day}
+                  {@const dayItems = itemsForDate(day)}
+                  <article class="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-slate-50">
+                    <div class="flex flex-col gap-3 border-b border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between md:px-5">
+                      <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-2">
+                          <h3 class="break-words text-lg font-black text-slate-950">{formatLongDate(day)}</h3>
+                          {#if day === selectedDate}
+                            <span class="rounded-full bg-slate-900 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white">Selected</span>
+                          {/if}
+                        </div>
+                        <p class="mt-1 text-sm font-medium text-slate-500">
+                          {dayItems.length === 0 ? 'Nothing scheduled' : `${dayItems.length} scheduled item${dayItems.length === 1 ? '' : 's'}`}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm sm:w-auto sm:tracking-[0.18em]"
+                        onclick={() => {
+                          selectedDate = day;
+                          viewMode = 'today';
+                        }}
+                      >
+                        <Sparkles size={16} />
+                        Focus day
+                      </button>
+                    </div>
+
+                    <div class="space-y-3 p-4 md:p-5">
+                      {#if dayItems.length === 0}
+                        <div class="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center">
+                          <p class="text-sm font-black uppercase tracking-[0.2em] text-slate-400">No items yet</p>
+                          <p class="mt-2 text-sm font-medium text-slate-500">Add a schedule item for this day when you are ready.</p>
+                        </div>
+                      {:else}
+                        {#each dayItems as item}
+                          <article class="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
+                            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                              <div class="min-w-0 flex-1">
+                                <div class="mb-3 flex flex-wrap items-center gap-2">
+                                  <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${typeBadgeClass(item.entry.entry_type)}`}>
+                                    {item.entry.entry_type === 'event' ? 'Event' : 'Task'}
+                                  </span>
+                                  {#if item.entry.is_rewardable && item.entry.entry_type === 'task'}
+                                    <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
+                                      Reward task
+                                    </span>
+                                  {/if}
+                                  {#if item.entry.is_rewardable && item.entry.points_value}
+                                    <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
+                                      {item.entry.points_value} points
+                                    </span>
+                                  {/if}
+                                  <span class={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${recurrenceBadgeClass(item.entry)} sm:tracking-[0.18em]`}>
+                                    <Repeat2 size={12} />
+                                    {item.entry.recurrence_type === 'none' ? 'One time' : item.entry.recurrence_type === 'daily' ? 'Daily' : 'Weekly'}
+                                  </span>
+                                  {#if item.completion}
+                                    <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${statusBadgeClass(item.completion.status)}`}>
+                                      {statusLabel(item.completion.status)}
+                                    </span>
+                                  {/if}
+                                </div>
+
+                                <h4 class="text-xl font-black text-slate-950 break-words">{item.entry.title}</h4>
+                                {#if item.entry.description}
+                                  <p class="mt-2 max-w-3xl text-sm font-medium leading-6 text-slate-600 break-words">{item.entry.description}</p>
+                                {/if}
+
+                                <div class="mt-4 flex flex-wrap gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+                                  <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+                                    <Clock3 size={12} />
+                                    {formatTime(item.entry.start_time)}
+                                    {#if formatDuration(item.entry.duration_minutes)}
+                                      <span class="opacity-60">•</span>
+                                      {formatDuration(item.entry.duration_minutes)}
+                                    {/if}
+                                  </span>
+                                  <span class="inline-flex min-w-0 items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+                                    <Repeat2 size={12} />
+                                    <span class="min-w-0 break-words">{recurrenceLabel(item.entry)}</span>
+                                  </span>
+                                  <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+                                    <Sparkles size={12} />
+                                    {formatShortDate(item.entry.start_date)}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div class="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 lg:w-auto lg:min-w-[260px] lg:justify-end">
+                                {#if !item.completion}
+                                  <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white shadow-sm sm:tracking-[0.18em]" onclick={() => completeEntry(item)}>
+                                    <Check size={16} />
+                                    Complete
+                                  </button>
+                                {/if}
+                                <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm sm:tracking-[0.18em]" onclick={() => openEditModal(item)}>
+                                  <PencilLine size={16} />
+                                  Edit
+                                </button>
+                                <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-rose-700 shadow-sm sm:tracking-[0.18em]" onclick={() => disableEntry(item)}>
+                                  <Trash2 size={16} />
+                                  Disable
+                                </button>
+                              </div>
+                            </div>
+                          </article>
+                        {/each}
+                      {/if}
+                    </div>
+                  </article>
+                {/each}
+              </div>
+            </section>
+          </section>
+
+          <aside class="space-y-6">
+            <div class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Parent view</p>
+                  <h2 class="mt-1 text-xl font-black text-slate-950">Calendar overview</h2>
+                </div>
+                <div class="rounded-2xl bg-slate-900 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white">
+                  {getSelectedChildLabel()}
+                </div>
+              </div>
+              <div class="mt-4 space-y-3 text-sm text-slate-600">
+                <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                  <span class="font-bold text-slate-500">Visible occurrences</span>
+                  <span class="font-black text-slate-950">{calendarItems.length}</span>
+                </div>
+                <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                  <span class="font-bold text-slate-500">Pending approvals</span>
+                  <span class="font-black text-slate-950">{pendingItems().length}</span>
+                </div>
+                <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                  <span class="font-bold text-slate-500">Week mode</span>
+                  <span class="font-black text-slate-950">{viewMode === 'today' ? 'Day' : 'Week'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-[2rem] border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm">
+              <div class="flex items-center gap-3">
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                  <Repeat2 size={20} />
+                </div>
+                <div>
+                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Streaks</p>
+                  <h3 class="text-lg font-black text-slate-950">Coming soon</h3>
+                </div>
+              </div>
+              <p class="mt-3 text-sm font-medium leading-6 text-slate-500">
+                The backend can already track weekly streak bonuses, and the first calendar UI keeps that detail lightweight for now.
+              </p>
+            </div>
+          </aside>
+        </div>
+      {/if}
+    </main>
+  {/if}
+</div>
+
+{#if modalOpen}
+  <div class="fixed inset-0 z-[100] flex items-end justify-center bg-slate-900/60 p-0 md:items-center md:p-4">
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="absolute inset-0 backdrop-blur-sm" onclick={clearModal}></div>
+
+    <div class="relative z-10 flex h-[calc(100dvh-0px)] w-full flex-col overflow-hidden bg-white shadow-2xl md:h-auto md:max-h-[92vh] md:max-w-3xl md:rounded-[2rem]">
+      <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-4 md:px-6 md:py-5">
+        <div class="min-w-0">
+          <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Schedule item</p>
+          <h2 class="mt-1 text-2xl font-black text-slate-950">{editingEntryId ? 'Edit schedule item' : 'Add schedule item'}</h2>
+          <p class="mt-2 text-sm font-medium text-slate-500">Create tasks, events, and rewardable chores for the selected child.</p>
+        </div>
+        <button type="button" class="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 transition hover:bg-slate-200" onclick={clearModal}>
+          <X size={18} />
+        </button>
+      </div>
+
+      <form class="flex min-h-0 flex-1 flex-col" onsubmit={saveEntry}>
+        <div class="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
+          {#if formError}
+            <div class="mb-5 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+              {formError}
+            </div>
+          {/if}
+
+          <div class="grid gap-5 md:grid-cols-2">
+            <label class="block">
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Child</span>
+              <select
+                bind:value={form.child_id}
+                class="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-sm font-bold text-slate-900 focus:border-slate-400 focus:outline-none disabled:opacity-60"
+                disabled={editingEntryId !== null}
+              >
+                <option value="">Select child</option>
+                {#each children as child}
+                  <option value={child.child.id}>{child.child.display_name}</option>
+                {/each}
+              </select>
+              {#if editingEntryId !== null}
+                <p class="mt-2 text-xs font-medium text-slate-400">Child changes are not available after a schedule item is created.</p>
+              {/if}
+            </label>
+
+            <label class="block">
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Title</span>
+              <input
+                bind:value={form.title}
+                type="text"
+                placeholder="Brush teeth"
+                class="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-sm font-bold text-slate-900 focus:border-slate-400 focus:outline-none"
+              />
+            </label>
+
+            <label class="block md:col-span-2">
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Description</span>
+              <textarea
+                bind:value={form.description}
+                rows="3"
+                placeholder="Optional details, instructions, or context"
+                class="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-sm font-medium text-slate-900 focus:border-slate-400 focus:outline-none"
+              ></textarea>
+            </label>
+
+            <div class="md:col-span-2">
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Type</span>
+              <div class="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  class={`rounded-2xl border px-4 py-4 text-sm font-black uppercase tracking-[0.18em] transition ${form.entry_type === 'task' ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+                  onclick={() => toggleRewardable('task')}
+                >
+                  Task
+                </button>
+                <button
+                  type="button"
+                  class={`rounded-2xl border px-4 py-4 text-sm font-black uppercase tracking-[0.18em] transition ${form.entry_type === 'event' ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+                  onclick={() => toggleRewardable('event')}
+                >
+                  Event
+                </button>
+              </div>
+            </div>
+
+            <label class="block">
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Start date</span>
+              <input
+                bind:value={form.start_date}
+                type="date"
+                class="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-sm font-bold text-slate-900 focus:border-slate-400 focus:outline-none"
+              />
+            </label>
+
+            <label class="block">
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Start time</span>
+              <input
+                bind:value={form.start_time}
+                type="time"
+                class="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-sm font-bold text-slate-900 focus:border-slate-400 focus:outline-none"
+              />
+            </label>
+
+            <label class="block">
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Duration in minutes</span>
+              <input
+                bind:value={form.duration_minutes}
+                type="number"
+                min="1"
+                placeholder="30"
+                class="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-sm font-bold text-slate-900 focus:border-slate-400 focus:outline-none"
+              />
+            </label>
+
+            <div>
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Recurrence</span>
+              <div class="grid grid-cols-3 gap-3">
+                <button
+                  type="button"
+                  class={`rounded-2xl border px-4 py-4 text-xs font-black uppercase tracking-[0.18em] transition ${form.recurrence_type === 'none' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+                  onclick={() => (form.recurrence_type = 'none')}
+                >
+                  None
+                </button>
+                <button
+                  type="button"
+                  class={`rounded-2xl border px-4 py-4 text-xs font-black uppercase tracking-[0.18em] transition ${form.recurrence_type === 'daily' ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+                  onclick={() => (form.recurrence_type = 'daily')}
+                >
+                  Daily
+                </button>
+                <button
+                  type="button"
+                  class={`rounded-2xl border px-4 py-4 text-xs font-black uppercase tracking-[0.18em] transition ${form.recurrence_type === 'weekly' ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+                  onclick={() => (form.recurrence_type = 'weekly')}
+                >
+                  Weekly
+                </button>
+              </div>
+            </div>
+
+            <div class="md:col-span-2">
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Weekdays</span>
+              <div class="grid grid-cols-4 gap-2 md:grid-cols-7">
+                {#each WEEKDAY_OPTIONS as day}
+                  <button
+                    type="button"
+                    class={`rounded-2xl border px-2 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition ${form.recurrence_days.includes(day.value) ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+                    onclick={() => toggleWeekday(day.value)}
+                    disabled={form.recurrence_type !== 'weekly'}
+                  >
+                    {day.label}
+                  </button>
+                {/each}
+              </div>
+              {#if form.recurrence_type !== 'weekly'}
+                <p class="mt-2 text-xs font-medium text-slate-400">Choose weekly recurrence to enable weekday selection.</p>
+              {/if}
+            </div>
+
+            <div class="md:col-span-2">
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Reward settings</span>
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                {#if form.entry_type === 'task'}
+                  <label class="flex items-center justify-between gap-4">
+                    <div class="min-w-0">
+                      <p class="text-sm font-black text-slate-900">Rewardable task</p>
+                      <p class="mt-1 text-xs font-medium leading-5 text-slate-500">Reward tasks award points when completed or approved.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={form.is_rewardable}
+                      onchange={(event) => setRewardable((event.currentTarget as HTMLInputElement).checked)}
+                      class="h-5 w-5 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                    />
+                  </label>
+
+                  {#if form.is_rewardable}
+                    <label class="mt-4 block">
+                      <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Points</span>
+                      <input
+                        bind:value={form.points_value}
+                        type="number"
+                        min="1"
+                        placeholder="5"
+                        class="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-4 text-sm font-bold text-slate-900 focus:border-slate-400 focus:outline-none"
+                      />
+                    </label>
+                  {/if}
+                {:else}
+                  <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-500">
+                    Events do not use points in this phase.
+                  </div>
+                {/if}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="border-t border-slate-100 bg-white px-4 py-4 md:px-6">
+          <div class="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-slate-700" onclick={clearModal}>
+              Cancel
+            </button>
+            <button type="submit" disabled={saving} class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-white disabled:opacity-60">
+              <Plus size={16} />
+              {saving ? 'Saving...' : editingEntryId ? 'Save changes' : 'Create item'}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+{/if}

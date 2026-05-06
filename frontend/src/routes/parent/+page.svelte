@@ -4,7 +4,7 @@
   import { 
     UserPlus, Award, Ban, PiggyBank, ArrowRight, Star, Bell, Gift,
     LayoutDashboard, Settings, LogIn, Trophy, Clock, Check, X, 
-    History, TrendingUp, ChevronRight, Users, QrCode, Copy, RefreshCcw, Link2
+    History, TrendingUp, ChevronRight, Users, QrCode, Copy, RefreshCcw, Link2, CalendarDays
   } from 'lucide-svelte';
 
   let parent = $state<any>(null);
@@ -529,6 +529,25 @@
           </button>
         </div>
       </div>
+
+      <a href="/calendar" class="card mb-10 block max-w-full overflow-hidden border border-slate-100 bg-white p-6 md:p-8 transition-transform duration-300 hover:-translate-y-0.5 hover:shadow-2xl">
+        <div class="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div class="flex items-start gap-4 min-w-0">
+            <div class="w-14 h-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center shrink-0">
+              <CalendarDays size={26} />
+            </div>
+            <div class="min-w-0">
+              <p class="text-[10px] font-black uppercase tracking-[0.28em] text-slate-400 mb-2">Family Calendar</p>
+              <h3 class="text-2xl font-black text-slate-950 break-words">Plan chores, school events, activities, and reward tasks.</h3>
+              <p class="mt-2 text-sm font-medium text-slate-500 break-words">Open the agenda-first calendar to schedule items for any child.</p>
+            </div>
+          </div>
+          <span class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-4 text-xs font-black uppercase tracking-[0.14em] text-white sm:w-auto sm:tracking-[0.2em]">
+            Open Calendar
+            <ArrowRight size={16} />
+          </span>
+        </div>
+      </a>
 
       {#if children.length === 0}
         <div class="card p-16 text-center border-dashed border-4 border-slate-200 bg-white/50 max-w-2xl mx-auto">
