@@ -39,6 +39,8 @@ https://familyherohub.com
 - Behaviour presets (quick point assignment)
 - Reward creation with custom point values
 - Reward approval workflow
+- Registration request approval flow
+- Admin user and family access management
 
 ---
 
@@ -85,6 +87,10 @@ https://familyherohub.com
 
 ### 🔐 Security Model
 - Family-scoped data isolation
+- Admin-only registration and access management
+- Parent access can be revoked without deleting family data
+- Family accounts can be suspended and restored without deleting children, rewards, points, calendar, or history
+- Bootstrap admins are protected from revoke actions
 - Child sessions separate from parent authentication
 - QR invite tokens:
   - High entropy

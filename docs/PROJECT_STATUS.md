@@ -9,6 +9,15 @@
 - Child device linking via QR code
 - Child-specific sessions (separate from parent auth)
 - Secure token-based invite system (hashed, expiring, scoped)
+- Admin registration approval flow
+- Admin user-management page at `/admin/users`
+- Admin user search, filtering, pagination, revoke, and restore
+- Admin family suspension and restoration
+- Bootstrap admin protection: `PARENT_EMAILS` is bootstrap/admin only, not a normal user registry
+- Legacy bootstrap users migrated to database-approved access with `source=legacy_bootstrap_migration`
+- Last-parent protection prevents revoking the only active parent in an active family
+- Suspended families block parent and child access without deleting family data
+- Revoked parents are hidden from normal parent-facing family member lists while remaining visible to admins
 
 ### Child System
 - Child profiles linked to parent/family
@@ -77,6 +86,13 @@
 - Parent calendar event/task creation, editing, deletion, recurrence, and rewardable tasks
 - Mobile calendar layout visually tested and improved
 - School Bag and School Prep today/tomorrow school item flows
+- Admin registration request approval
+- Admin users page search/filter/pagination
+- Parent revoke/restore access controls
+- Family suspend/restore controls
+- Revoked parent login/session blocking
+- Suspended family parent and child blocking
+- Bootstrap admin revoke protection
 
 ---
 

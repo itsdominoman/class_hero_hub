@@ -38,3 +38,11 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 ## Notes
 
 Before changing deployment, inspect the real Caddy/server configuration first.
+
+## Access Management Notes
+
+- `PARENT_EMAILS` is the bootstrap/root admin allowlist only.
+- Do not use `PARENT_EMAILS` as a growing parent-user registry.
+- Normal parent access should be managed through registration approval, family invites, and `/admin/users`.
+- Bootstrap admins cannot be revoked through the admin UI/API.
+- Suspending a family blocks parent and child access without deleting family, child, rewards, points, calendar, or history data.

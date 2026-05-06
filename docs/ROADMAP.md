@@ -22,6 +22,12 @@
 
 ### 🔐 Access Improvements
 - Completed: Parent `last_login_at` now updates on first and returning Google OAuth logins
+- Completed: Registration request approval flow
+- Completed: Admin users page with search, filters, pagination, revoke/restore, and family suspend/restore
+- Completed: Bootstrap admin protection; `PARENT_EMAILS` is now bootstrap/admin only
+- Completed: Legacy bootstrap users migrated to database-approved access
+- Completed: Last-parent revoke protection
+- Completed: Parent-facing family member lists hide revoked parents
 - Device/session management (parent can revoke child devices - backend done)
 
 ### 🎁 Rewards System
