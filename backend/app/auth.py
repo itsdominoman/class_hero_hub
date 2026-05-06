@@ -16,6 +16,45 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 def normalize_email(email: str | None) -> str:
     return (email or "").strip().lower()
 
+
+def is_bootstrap_admin_email(email: str | None) -> bool:
+    allowed_emails = [normalize_email(e) for e in settings.PARENT_EMAILS.split(",")]
+    return normalize_email(email) in allowed_emails
+
+
+def is_parent_revoked(parent: models.ParentUser) -> bool:
+    return (parent.status or "active").lower() == "revoked"
+
+
+def is_family_suspended(family: models.Family | None) -> bool:
+    if not family:
+        return False
+    return (family.status or "active").lower() == "suspended"
+
+
+def count_active_parents_in_family(
+    db: Session,
+    family_id: int,
+    exclude_parent_id: int | None = None,
+) -> int:
+    query = db.query(func.count(models.ParentUser.id)).filter(
+        models.ParentUser.family_id == family_id,
+        func.coalesce(models.ParentUser.status, "active") == "active",
+    )
+    if exclude_parent_id is not None:
+        query = query.filter(models.ParentUser.id != exclude_parent_id)
+    return query.scalar() or 0
+
+
+def is_family_orphaned(
+    db: Session,
+    family: models.Family | None,
+    exclude_parent_id: int | None = None,
+) -> bool:
+    if not family:
+        return False
+    return count_active_parents_in_family(db, family.id, exclude_parent_id=exclude_parent_id) == 0
+
 def ensure_parent_family(db: Session, parent: models.ParentUser) -> models.ParentUser:
     if parent.family_id is not None:
         return parent
@@ -51,6 +90,13 @@ async def get_current_parent(request: Request, db: Session = Depends(get_db)):
         dev_email = normalize_email(settings.DEV_AUTH_PARENT_EMAIL)
         parent = db.query(models.ParentUser).filter(func.lower(models.ParentUser.email) == dev_email).first()
         if parent:
+            if is_parent_revoked(parent):
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been revoked")
+            if not is_admin(parent) and is_family_suspended(parent.family):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This family account is currently suspended. Please contact support@familyherohub.com.",
+                )
             return ensure_parent_family(db, parent)
         else:
             # Create dev parent if not exists
@@ -86,14 +132,22 @@ async def get_current_parent(request: Request, db: Session = Depends(get_db)):
     parent = db.query(models.ParentUser).filter(func.lower(models.ParentUser.email) == email).first()
     if parent is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Parent not found")
+
+    if is_parent_revoked(parent):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been revoked")
     
     # Verify allowlist or family membership
-    allowed_emails = [normalize_email(e) for e in settings.PARENT_EMAILS.split(",")]
-    is_allowed = normalize_email(parent.email) in allowed_emails
+    is_allowed = is_bootstrap_admin_email(parent.email)
     
     # If not in bootstrap allowlist, they must already have a family assigned (via invite)
     if not is_allowed and parent.family_id is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email not in allowlist")
+
+    if not is_allowed and is_family_suspended(parent.family):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This family account is currently suspended. Please contact support@familyherohub.com.",
+        )
 
     return ensure_parent_family(db, parent)
 
@@ -101,8 +155,23 @@ def is_admin(parent: models.ParentUser) -> bool:
     """
     Check if a parent is an admin based on the bootstrap PARENT_EMAILS list.
     """
-    allowed_emails = [normalize_email(e) for e in settings.PARENT_EMAILS.split(",")]
-    return normalize_email(parent.email) in allowed_emails
+    return is_bootstrap_admin_email(parent.email)
+
+
+def get_parent_by_email(db: Session, email: str | None) -> models.ParentUser | None:
+    normalized_email = normalize_email(email)
+    if not normalized_email:
+        return None
+    return db.query(models.ParentUser).filter(func.lower(models.ParentUser.email) == normalized_email).first()
+
+
+def get_approval_by_email(db: Session, email: str | None) -> models.ApprovedParentEmail | None:
+    normalized_email = normalize_email(email)
+    if not normalized_email:
+        return None
+    return db.query(models.ApprovedParentEmail).filter(
+        models.ApprovedParentEmail.normalized_email == normalized_email
+    ).first()
 
 async def get_current_admin(current_parent: models.ParentUser = Depends(get_current_parent)):
     if not is_admin(current_parent):

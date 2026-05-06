@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_, and_
 from typing import List
 from ..database import get_db, settings
 from .. import models, schemas, auth, mailer
@@ -18,8 +18,15 @@ async def get_family_members(
     current_parent: models.ParentUser = Depends(auth.get_current_parent)
 ):
     return db.query(models.ParentUser).filter(
-        models.ParentUser.family_id == current_parent.family_id
-    ).all()
+        models.ParentUser.family_id == current_parent.family_id,
+        or_(
+            models.ParentUser.status == "active",
+            and_(
+                models.ParentUser.status.is_(None),
+                models.ParentUser.revoked_at.is_(None),
+            ),
+        ),
+    ).order_by(models.ParentUser.created_at.asc()).all()
 
 @router.get("/invites", response_model=List[schemas.FamilyInvite])
 async def get_family_invites(

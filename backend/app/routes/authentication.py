@@ -45,6 +45,7 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
     email = auth.normalize_email(user_info.get('email'))
     name = user_info.get('name')
     google_sub = user_info.get('sub')
+    is_bootstrap_admin = auth.is_bootstrap_admin_email(email)
 
     # 1. Check for invite token in cookie.
     # Invite token is optional for normal bootstrap/returning login,
@@ -81,18 +82,33 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
                 detail="Invite email does not match Google account",
             )
 
+        invite_family = db.query(models.Family).filter(models.Family.id == invite.family_id).first()
+        if invite_family and auth.is_family_suspended(invite_family) and not is_bootstrap_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This family account is currently suspended. Please contact support@familyherohub.com.",
+            )
+
     # 2. Check allowlist or database approvals if not invited
-    allowed_emails = [auth.normalize_email(e) for e in settings.PARENT_EMAILS.split(",")]
-    is_in_bootstrap = email in allowed_emails
+    is_in_bootstrap = is_bootstrap_admin
     
     # Check for DB-based approval
-    db_approval = db.query(models.ApprovedParentEmail).filter(
-        models.ApprovedParentEmail.normalized_email == email,
-        models.ApprovedParentEmail.status == "active"
-    ).first()
+    approval_record = auth.get_approval_by_email(db, email)
+    if approval_record and approval_record.status == "revoked":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been revoked")
+
+    db_approval = approval_record if approval_record and approval_record.status == "active" else None
     is_db_approved = db_approval is not None
 
     parent = db.query(models.ParentUser).filter(func.lower(models.ParentUser.email) == email).first()
+    if parent and auth.is_parent_revoked(parent):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been revoked")
+
+    if parent and parent.family and auth.is_family_suspended(parent.family) and not is_bootstrap_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This family account is currently suspended. Please contact support@familyherohub.com.",
+        )
 
     if not parent:
         # New user: must be invited OR in bootstrap OR DB approved
@@ -133,6 +149,13 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="This Google account already belongs to another family",
+                )
+
+            invite_family = db.query(models.Family).filter(models.Family.id == invite.family_id).first()
+            if invite_family and auth.is_family_suspended(invite_family) and not is_bootstrap_admin:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This family account is currently suspended. Please contact support@familyherohub.com.",
                 )
 
             parent.family_id = invite.family_id

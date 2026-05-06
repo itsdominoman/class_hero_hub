@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from .database import engine, Base, get_db, settings
+from .database import engine, Base, get_db, settings, ensure_runtime_schema
 from . import models, schemas, auth
 from .routes import children, ledger, redemptions, authentication, presets, rewards, family, child_devices, child_access, child_link, registration, admin, calendar, child_calendar
 from starlette.middleware.sessions import SessionMiddleware
@@ -10,6 +10,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+ensure_runtime_schema()
 
 app = FastAPI(title=settings.APP_NAME if hasattr(settings, 'APP_NAME') else "Family Hero Hub")
 

@@ -2,7 +2,7 @@ import pytest
 import asyncio
 from fastapi import HTTPException
 from pydantic import ValidationError
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app import models, schemas
@@ -454,6 +454,61 @@ def test_family_invite_flow(db):
     # Verify P2 is in P1's family
     assert p2.family_id == p1.family_id
     assert db.query(models.FamilyInvite).filter_by(email=p2_email).first().status == "accepted"
+
+
+def test_family_members_hide_revoked_parents_but_keep_active_coparents(db):
+    family = models.Family()
+    db.add(family)
+    db.commit()
+
+    active_parent = models.ParentUser(
+        email="active@example.com",
+        name="Active Parent",
+        google_sub="sub-active",
+        family_id=family.id,
+        status="active",
+    )
+    revoked_parent = models.ParentUser(
+        email="revoked@example.com",
+        name="Revoked Parent",
+        google_sub="sub-revoked",
+        family_id=family.id,
+        status="revoked",
+    )
+    db.add_all([active_parent, revoked_parent])
+    db.commit()
+    db.refresh(active_parent)
+    db.refresh(revoked_parent)
+
+    members = asyncio.run(family_routes.get_family_members(db, active_parent))
+
+    emails = {member.email for member in members}
+    assert active_parent.email in emails
+    assert revoked_parent.email not in emails
+    assert len(members) == 1
+
+
+def test_family_members_include_restored_active_parent_with_revoked_timestamp(db):
+    family = models.Family()
+    db.add(family)
+    db.commit()
+
+    restored_parent = models.ParentUser(
+        email="restored@example.com",
+        name="Restored Parent",
+        google_sub="sub-restored",
+        family_id=family.id,
+        status="active",
+        revoked_at=datetime.utcnow(),
+    )
+    db.add(restored_parent)
+    db.commit()
+    db.refresh(restored_parent)
+
+    members = asyncio.run(family_routes.get_family_members(db, restored_parent))
+
+    assert len(members) == 1
+    assert members[0].email == restored_parent.email
 
 
 def create_two_family_context(db):

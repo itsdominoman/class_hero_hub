@@ -8,7 +8,7 @@ from fastapi import Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from .database import get_db, settings
-from . import models
+from . import auth, models
 
 CHILD_SESSION_COOKIE = "child_session"
 CHILD_SESSION_TTL = timedelta(days=30)
@@ -40,6 +40,20 @@ def generate_token() -> str:
 def _cookie_max_age(expires_at: datetime) -> int:
     remaining = int((expires_at - now_utc()).total_seconds())
     return max(0, remaining)
+
+
+def _ensure_child_family_active(db: Session, child: models.Child) -> None:
+    family = child.family
+    if family and (family.status or "active").lower() == "suspended":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This family account is currently suspended. Please contact support@familyherohub.com.",
+        )
+    if family and auth.count_active_parents_in_family(db, family.id) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This family account currently has no active parent. Please contact support@familyherohub.com.",
+        )
 
 
 def set_child_session_cookie(response: Response, raw_token: str, expires_at: datetime) -> None:
@@ -158,6 +172,7 @@ def exchange_child_link(db: Session, raw_token: str) -> tuple[models.ChildDevice
     ).first()
     if not child:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired child link")
+    _ensure_child_family_active(db, child)
 
     invite.used_at = current
     session_raw_token = generate_token()
@@ -198,6 +213,7 @@ def resolve_child_session(db: Session, raw_token: str) -> ChildSessionContext:
     ).first()
     if not child:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid child session")
+    _ensure_child_family_active(db, child)
 
     session.last_seen_at = current
     db.commit()

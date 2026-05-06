@@ -16,6 +16,7 @@
   let familyInvites = $state<any[]>([]);
   let loading = $state(true);
   let loadingChildren = $state(false);
+  let loadingFamilySettings = $state(false);
   let error = $state<string | null>(null);
   let needsLogin = $state(false);
 
@@ -92,6 +93,22 @@
     }
   }
 
+  async function loadFamilySettings() {
+    try {
+      loadingFamilySettings = true;
+      familyMembers = [];
+      familyInvites = [];
+      const [fm, fi] = await Promise.all([
+        api.get('/family/members'),
+        api.get('/family/invites')
+      ]);
+      familyMembers = fm;
+      familyInvites = fi;
+    } finally {
+      loadingFamilySettings = false;
+    }
+  }
+
   async function addChild() {
     const childName = window.prompt('Enter your child\'s display name');
     if (!childName || !childName.trim()) return;
@@ -125,6 +142,10 @@
       jar: 'spending'
     };
     modalError = null;
+
+    if (type === 'family') {
+      void loadFamilySettings();
+    }
   }
 
   function closeModal() {
@@ -1010,6 +1031,13 @@
           {/if}
 
           {#if activeModal.type === 'family'}
+            {#if loadingFamilySettings}
+              <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                <div class="mx-auto mb-4 w-10 h-10 animate-spin rounded-full border-4 border-hero border-t-transparent"></div>
+                <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400">Refreshing family members</p>
+              </div>
+            {/if}
+
             <!-- Members List -->
             <div class="space-y-3">
               <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Family Members</span>

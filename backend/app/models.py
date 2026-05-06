@@ -39,10 +39,16 @@ class ParentUser(Base):
     name = Column(String)
     google_sub = Column(String, unique=True, index=True)
     family_id = Column(Integer, ForeignKey("families.id"), nullable=True)
+    status = Column(String, default="active")
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_by_parent_id = Column(Integer, ForeignKey("parent_users.id"), nullable=True)
+    revoke_reason = Column(String, nullable=True)
+    restored_at = Column(DateTime(timezone=True), nullable=True)
+    restored_by_parent_id = Column(Integer, ForeignKey("parent_users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    family = relationship("Family", back_populates="parents")
+    family = relationship("Family", back_populates="parents", foreign_keys=[family_id])
 
     @property
     def is_admin(self) -> bool:
@@ -57,9 +63,15 @@ class Family(Base):
     id = Column(Integer, primary_key=True, index=True)
     timezone = Column(String, default="Asia/Muscat")
     week_start_day = Column(Integer, default=6) # 0=Monday, 6=Sunday
+    status = Column(String, default="active")
+    suspended_at = Column(DateTime(timezone=True), nullable=True)
+    suspended_by_parent_id = Column(Integer, ForeignKey("parent_users.id"), nullable=True)
+    suspend_reason = Column(String, nullable=True)
+    restored_at = Column(DateTime(timezone=True), nullable=True)
+    restored_by_parent_id = Column(Integer, ForeignKey("parent_users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    parents = relationship("ParentUser", back_populates="family")
+    parents = relationship("ParentUser", back_populates="family", foreign_keys="ParentUser.family_id")
     children = relationship("Child", back_populates="family")
     presets = relationship("PresetBehaviour", back_populates="family")
     rewards = relationship("Reward", back_populates="family")
@@ -310,4 +322,9 @@ class ApprovedParentEmail(Base):
     approved_at = Column(DateTime(timezone=True), server_default=func.now())
     source = Column(String, default="registration_request") # bootstrap, registration_request, invite, manual_admin
     status = Column(String, default="active") # active, revoked
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_by_parent_id = Column(Integer, ForeignKey("parent_users.id"), nullable=True)
+    revoke_reason = Column(String, nullable=True)
+    restored_at = Column(DateTime(timezone=True), nullable=True)
+    restored_by_parent_id = Column(Integer, ForeignKey("parent_users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

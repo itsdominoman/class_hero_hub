@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from pydantic_settings import BaseSettings
@@ -54,3 +54,80 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def ensure_runtime_schema():
+    """
+    Backfill additive columns for the live SQLite database.
+
+    The production app ships without a migration framework, so new nullable
+    access-management fields need to be added in place without dropping data.
+    """
+
+    if not settings.DATABASE_URL.startswith("sqlite"):
+        return
+
+    def get_table_columns(connection, table_name: str) -> set[str]:
+        rows = connection.exec_driver_sql(f"PRAGMA table_info({table_name})").fetchall()
+        return {row[1] for row in rows}
+
+    table_columns = {
+        "parent_users": {
+            "status": "TEXT DEFAULT 'active'",
+            "revoked_at": "DATETIME",
+            "revoked_by_parent_id": "INTEGER",
+            "revoke_reason": "TEXT",
+            "restored_at": "DATETIME",
+            "restored_by_parent_id": "INTEGER",
+        },
+        "approved_parent_emails": {
+            "revoked_at": "DATETIME",
+            "revoked_by_parent_id": "INTEGER",
+            "revoke_reason": "TEXT",
+            "restored_at": "DATETIME",
+            "restored_by_parent_id": "INTEGER",
+        },
+        "families": {
+            "timezone": "TEXT DEFAULT 'Asia/Muscat'",
+            "week_start_day": "INTEGER DEFAULT 6",
+            "status": "TEXT DEFAULT 'active'",
+            "suspended_at": "DATETIME",
+            "suspended_by_parent_id": "INTEGER",
+            "suspend_reason": "TEXT",
+            "restored_at": "DATETIME",
+            "restored_by_parent_id": "INTEGER",
+        },
+    }
+
+    with engine.begin() as connection:
+        for table_name, columns in table_columns.items():
+            existing_tables = {
+                row[0]
+                for row in connection.exec_driver_sql(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            if table_name not in existing_tables:
+                continue
+
+            current_columns = get_table_columns(connection, table_name)
+            for column_name, ddl in columns.items():
+                if column_name in current_columns:
+                    continue
+                connection.execute(
+                    text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {ddl}")
+                )
+                current_columns.add(column_name)
+
+        connection.execute(
+            text("UPDATE parent_users SET status = COALESCE(status, 'active')")
+        )
+        connection.execute(
+            text("UPDATE families SET timezone = COALESCE(timezone, 'Asia/Muscat')")
+        )
+        connection.execute(
+            text("UPDATE families SET week_start_day = COALESCE(week_start_day, 6)")
+        )
+        connection.execute(
+            text("UPDATE families SET status = COALESCE(status, 'active')")
+        )

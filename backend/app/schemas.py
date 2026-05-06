@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, field_validator
 from datetime import datetime, date, time
-from typing import Optional, List
+from typing import Optional, List, Literal
 from .models import TransactionType, JarType, RedemptionStatus, PetStage
 
 class ParentUserBase(BaseModel):
@@ -11,6 +11,12 @@ class ParentUser(ParentUserBase):
     id: int
     family_id: Optional[int] = None
     is_admin: bool = False
+    status: str = "active"
+    revoked_at: Optional[datetime] = None
+    revoked_by_parent_id: Optional[int] = None
+    revoke_reason: Optional[str] = None
+    restored_at: Optional[datetime] = None
+    restored_by_parent_id: Optional[int] = None
     created_at: datetime
     last_login_at: Optional[datetime] = None
 
@@ -23,6 +29,12 @@ class FamilyBase(BaseModel):
 
 class Family(FamilyBase):
     id: int
+    status: str = "active"
+    suspended_at: Optional[datetime] = None
+    suspended_by_parent_id: Optional[int] = None
+    suspend_reason: Optional[str] = None
+    restored_at: Optional[datetime] = None
+    restored_by_parent_id: Optional[int] = None
     created_at: datetime
 
     class Config:
@@ -345,6 +357,81 @@ class ApprovedParentEmail(BaseModel):
     source: str
     status: str
     approved_at: datetime
+    revoked_at: Optional[datetime] = None
+    revoked_by_parent_id: Optional[int] = None
+    revoke_reason: Optional[str] = None
+    restored_at: Optional[datetime] = None
+    restored_by_parent_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AdminAccessActionRequest(BaseModel):
+    revoke_reason: Optional[str] = None
+
+
+class AdminFamilyActionRequest(BaseModel):
+    suspend_reason: Optional[str] = None
+
+
+class AdminUserRecord(BaseModel):
+    normalized_email: str
+    email: Optional[str] = None
+    parent_user_id: Optional[int] = None
+    name: Optional[str] = None
+    family_id: Optional[int] = None
+    family_status: Optional[str] = None
+    family_suspended_at: Optional[datetime] = None
+    family_suspend_reason: Optional[str] = None
+    user_status: str
+    approval_status: Optional[str] = None
+    source: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
+    restored_at: Optional[datetime] = None
+    last_login_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    children_count: int = 0
+    coparents_count: int = 0
+    family_orphaned: bool = False
+    registration_request_id: Optional[int] = None
+    registration_request_status: Optional[str] = None
+    registration_request_family_name: Optional[str] = None
+    registration_request_message: Optional[str] = None
+    is_bootstrap_admin: bool = False
+    can_revoke: bool = False
+    can_revoke_reason: Optional[str] = None
+    can_restore: bool = False
+    can_suspend_family: bool = False
+    can_restore_family: bool = False
+    google_sub_masked: Optional[str] = None
+    restored_by_parent_id: Optional[int] = None
+    family_restored_at: Optional[datetime] = None
+    family_restored_by_parent_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AdminUsersResponse(BaseModel):
+    items: List[AdminUserRecord]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class AdminFamilySummary(BaseModel):
+    family_id: int
+    status: str
+    suspended_at: Optional[datetime] = None
+    suspend_reason: Optional[str] = None
+    restored_at: Optional[datetime] = None
+    restored_by_parent_id: Optional[int] = None
+    parent_count: int
+    active_parent_count: int
+    child_count: int
 
     class Config:
         from_attributes = True
