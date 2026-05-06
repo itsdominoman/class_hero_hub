@@ -78,6 +78,7 @@ class Family(Base):
     invites = relationship("FamilyInvite", back_populates="family")
     calendar_entries = relationship("CalendarEntry", back_populates="family")
     weekly_streaks = relationship("WeeklyStreak", back_populates="family")
+    school_items = relationship("SchoolItem", back_populates="family")
 
 class FamilyInvite(Base):
     __tablename__ = "family_invites"
@@ -142,6 +143,7 @@ class Child(Base):
     calendar_entries = relationship("CalendarEntry", back_populates="child")
     calendar_completions = relationship("CalendarCompletion", back_populates="child")
     weekly_streaks = relationship("WeeklyStreak", back_populates="child")
+    school_items = relationship("SchoolItem", back_populates="child")
 
 class CalendarEntry(Base):
     __tablename__ = "calendar_entries"
@@ -172,6 +174,25 @@ class CalendarEntry(Base):
     child = relationship("Child", back_populates="calendar_entries")
     created_by = relationship("ParentUser")
     completions = relationship("CalendarCompletion", back_populates="entry")
+
+class SchoolItem(Base):
+    __tablename__ = "school_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    family_id = Column(Integer, ForeignKey("families.id"))
+    child_id = Column(Integer, ForeignKey("children.id"))
+    weekday = Column(Integer) # 0 = Monday, 6 = Sunday
+    class_name = Column(String)
+    needed_item = Column(String, nullable=True)
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_by_parent_id = Column(Integer, ForeignKey("parent_users.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    family = relationship("Family", back_populates="school_items")
+    child = relationship("Child", back_populates="school_items")
+    created_by = relationship("ParentUser")
 
 class CalendarCompletion(Base):
     __tablename__ = "calendar_task_completions"

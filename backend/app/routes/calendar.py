@@ -7,6 +7,11 @@ from .. import models, schemas, auth
 from ..services import calendar_service, points_service
 
 router = APIRouter()
+LEGACY_SCHOOL_MARKER = "[[school-item]]"
+
+
+def _is_legacy_school_entry(entry: models.CalendarEntry) -> bool:
+    return bool(entry.description and entry.description.startswith(LEGACY_SCHOOL_MARKER))
 
 @router.get("/", response_model=List[dict])
 async def get_calendar(
@@ -28,6 +33,7 @@ async def get_calendar(
         models.CalendarEntry.child_id == child_id,
         models.CalendarEntry.is_active == True
     ).all()
+    entries = [entry for entry in entries if not _is_legacy_school_entry(entry)]
 
     resolved = []
     for entry in entries:

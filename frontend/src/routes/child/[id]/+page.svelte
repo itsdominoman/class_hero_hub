@@ -87,6 +87,20 @@
     } | null;
   };
 
+  type SchoolItem = {
+    id: number;
+    family_id: number;
+    child_id: number;
+    weekday: number;
+    class_name: string;
+    needed_item: string | null;
+    sort_order: number;
+    is_active: boolean;
+    created_by_parent_id: number;
+    created_at: string;
+    updated_at: string | null;
+  };
+
   let childId = $derived(page.params.id);
   let childIdNumber = $derived(Number(childId));
 
@@ -104,6 +118,8 @@
   let dayLoading = $state(false);
   let dayError = $state<string | null>(null);
   let dayItems = $state<DayCalendarOccurrence[]>([]);
+  let schoolItems = $state<SchoolItem[]>([]);
+  let schoolDayError = $state<string | null>(null);
   let daySubmittingId = $state<number | null>(null);
   let statusMessage = $state('');
   let statusTone = $state<'success' | 'error' | 'info'>('success');
@@ -252,22 +268,59 @@
     return 'bg-slate-100 text-slate-500 border-slate-200';
   }
 
+  function cleanCalendarDescription(item: DayCalendarOccurrence) {
+    return item.entry.description || '';
+  }
+
+  function schoolNeedLabel(item: SchoolItem) {
+    const listedItem = item.needed_item?.trim();
+    if (listedItem) return listedItem;
+    if (/p\.?\s*e\.?/i.test(item.class_name)) return 'Gym clothes';
+    return `${item.class_name} book`;
+  }
+
+  function schoolItemsToday() {
+    return schoolItems;
+  }
+
+  function tasksToday() {
+    return dayItems.filter((item) => item.entry.entry_type === 'task');
+  }
+
+  function eventsToday() {
+    return dayItems.filter((item) => item.entry.entry_type === 'event');
+  }
+
   async function loadMyDay() {
     const today = getLocalDateValue();
     const query = `from_date=${today}&to_date=${today}`;
     dayLoading = true;
     dayError = null;
-    try {
-      const response = accessMode === 'child'
-        ? await api.get(`/child/calendar?${query}`)
-        : await api.get(`/calendar?child_id=${childIdNumber}&${query}`);
-      dayItems = Array.isArray(response) ? response : [];
-    } catch (e) {
+    schoolDayError = null;
+    const [calendarResult, schoolResult] = await Promise.allSettled([
+      accessMode === 'child'
+        ? api.get(`/child/calendar?${query}`)
+        : api.get(`/calendar?child_id=${childIdNumber}&${query}`),
+      accessMode === 'child'
+        ? api.get('/child/school-items/today')
+        : api.get(`/school-items/today?child_id=${childIdNumber}`)
+    ]);
+
+    if (calendarResult.status === 'fulfilled') {
+      dayItems = Array.isArray(calendarResult.value) ? calendarResult.value : [];
+    } else {
       dayItems = [];
-      dayError = e instanceof Error ? e.message : 'Unable to load today’s schedule';
-    } finally {
-      dayLoading = false;
+      dayError = calendarResult.reason instanceof Error ? calendarResult.reason.message : 'Unable to load today’s schedule';
     }
+
+    if (schoolResult.status === 'fulfilled') {
+      schoolItems = Array.isArray(schoolResult.value) ? schoolResult.value : [];
+    } else {
+      schoolItems = [];
+      schoolDayError = schoolResult.reason instanceof Error ? schoolResult.reason.message : 'Unable to load school items';
+    }
+
+    dayLoading = false;
   }
 
   async function refreshMyDay() {
@@ -596,7 +649,7 @@
 
     <main class="max-w-7xl mx-auto px-4 pt-8 md:pt-10">
       <div class="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-        <div class="space-y-8">
+        <div class="order-2 space-y-8 lg:order-1">
           <section class="card bg-white p-6 md:p-8 border border-slate-100 shadow-xl">
             <div class="flex items-center justify-between gap-4 mb-6">
               <div>
@@ -735,7 +788,7 @@
           </section>
         </div>
 
-        <aside class="space-y-8">
+        <aside class="order-1 space-y-8 lg:order-2">
           <section class="card bg-white p-6 md:p-8 border border-slate-100 shadow-xl">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
               <div>
@@ -753,70 +806,188 @@
                 <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400">Loading today’s schedule</p>
               </div>
             {:else if dayError}
-              <div class="rounded-[1.5rem] border border-red-100 bg-red-50 p-5 text-red-700 font-bold break-words">
-                {dayError}
-              </div>
-            {:else if dayItems.length === 0}
-              <div class="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400">No tasks or events today.</p>
+              <div class="space-y-5">
+                <div class="rounded-[1.5rem] border border-red-100 bg-red-50 p-5 text-red-700 font-bold break-words">
+                  {dayError}
+                </div>
+
+                <div class="rounded-[1.5rem] border border-sky-100 bg-sky-50/70 p-4">
+                  <div class="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-600">Needed for school today</p>
+                      <h3 class="mt-1 text-lg font-black text-slate-950">Books and items</h3>
+                    </div>
+                    <span class="rounded-full bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-sky-700">
+                      {schoolItemsToday().length}
+                    </span>
+                  </div>
+
+                  {#if schoolDayError}
+                    <div class="rounded-2xl border border-rose-100 bg-white p-4 text-sm font-bold text-rose-700 break-words">
+                      {schoolDayError}
+                    </div>
+                  {:else if schoolItemsToday().length > 0}
+                    <div class="space-y-2">
+                      {#each schoolItemsToday() as item}
+                        <div class="flex items-start gap-3 rounded-2xl border border-sky-100 bg-white px-3 py-3">
+                          <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700">
+                            <Check size={13} />
+                          </span>
+                          <div class="min-w-0">
+                            <p class="font-black text-slate-950 break-words">{schoolNeedLabel(item)}</p>
+                            <p class="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-400 break-words">{item.class_name}</p>
+                          </div>
+                        </div>
+                      {/each}
+                    </div>
+                  {:else}
+                    <div class="rounded-2xl border border-dashed border-sky-100 bg-white/70 p-4 text-center">
+                      <p class="text-sm font-bold text-slate-500">No school items listed for today.</p>
+                    </div>
+                  {/if}
+                </div>
               </div>
             {:else}
-              <div class="space-y-3">
-                {#each dayItems as item}
-                  <article class="min-w-0 rounded-[1.5rem] border border-slate-100 bg-[#fffefb] p-4 shadow-sm">
-                    <div class="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div class="min-w-0 flex-1">
-                        <div class="mb-3 flex flex-wrap items-center gap-2">
-                          <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${typeClass(item.entry.entry_type)}`}>
-                            {item.entry.entry_type === 'event' ? 'Event' : 'Task'}
-                          </span>
-                          {#if item.entry.is_rewardable && item.entry.points_value}
-                            <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-amber-700 sm:tracking-[0.18em]">
-                              {item.entry.points_value} points
-                            </span>
-                          {/if}
-                          <span class={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${recurrenceClass(item)}`}>
-                            <Repeat2 size={12} />
-                            {recurrenceLabel(item)}
-                          </span>
-                          {#if item.completion}
-                            <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${statusClass(item.completion.status)}`}>
-                              {statusLabel(item.completion.status)}
-                            </span>
-                          {/if}
-                        </div>
-
-                        <h3 class="text-lg font-black text-slate-950 break-words">{item.entry.title}</h3>
-                        {#if item.entry.description}
-                          <p class="mt-2 text-sm text-slate-600 break-words leading-6">{item.entry.description}</p>
-                        {/if}
-
-                        <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
-                          <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
-                            <Clock3 size={12} />
-                            {formatCalendarTime(item.entry.start_time)}
-                          </span>
-                          <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
-                            <Sparkles size={12} />
-                            {item.entry.is_rewardable ? 'Reward task' : 'Task'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {#if accessMode === 'child' && item.entry.entry_type === 'task' && !item.completion}
-                        <button
-                          type="button"
-                          class="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white shadow-sm disabled:opacity-60 sm:w-auto sm:tracking-[0.18em]"
-                          disabled={daySubmittingId === item.entry.id}
-                          onclick={() => completeTodayItem(item)}
-                        >
-                          <Check size={16} />
-                          {daySubmittingId === item.entry.id ? 'Saving...' : 'Mark done'}
-                        </button>
-                      {/if}
+              <div class="space-y-5">
+                <div class="rounded-[1.5rem] border border-sky-100 bg-sky-50/70 p-4">
+                  <div class="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-600">Needed for school today</p>
+                      <h3 class="mt-1 text-lg font-black text-slate-950">Books and items</h3>
                     </div>
-                  </article>
-                {/each}
+                    <span class="rounded-full bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-sky-700">
+                      {schoolItemsToday().length}
+                    </span>
+                  </div>
+
+                  {#if schoolDayError}
+                    <div class="rounded-2xl border border-rose-100 bg-white p-4 text-sm font-bold text-rose-700 break-words">
+                      {schoolDayError}
+                    </div>
+                  {:else if schoolItemsToday().length > 0}
+                    <div class="space-y-2">
+                      {#each schoolItemsToday() as item}
+                        <div class="flex items-start gap-3 rounded-2xl border border-sky-100 bg-white px-3 py-3">
+                          <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700">
+                            <Check size={13} />
+                          </span>
+                          <div class="min-w-0">
+                            <p class="font-black text-slate-950 break-words">{schoolNeedLabel(item)}</p>
+                            <p class="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-400 break-words">{item.class_name}</p>
+                          </div>
+                        </div>
+                      {/each}
+                    </div>
+                  {:else}
+                    <div class="rounded-2xl border border-dashed border-sky-100 bg-white/70 p-4 text-center">
+                      <p class="text-sm font-bold text-slate-500">No school items listed for today.</p>
+                    </div>
+                  {/if}
+                </div>
+
+                <div>
+                  <div class="mb-3 flex items-center justify-between gap-3">
+                    <h3 class="text-lg font-black text-slate-950">Tasks today</h3>
+                    <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{tasksToday().length}</span>
+                  </div>
+                  {#if tasksToday().length > 0}
+                    <div class="space-y-3">
+                      {#each tasksToday() as item}
+                        <article class="min-w-0 rounded-[1.5rem] border border-slate-100 bg-[#fffefb] p-4 shadow-sm">
+                          <div class="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div class="min-w-0 flex-1">
+                              <div class="mb-3 flex flex-wrap items-center gap-2">
+                                <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${typeClass(item.entry.entry_type)}`}>
+                                  Task
+                                </span>
+                                {#if item.entry.is_rewardable && item.entry.points_value}
+                                  <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-amber-700 sm:tracking-[0.18em]">
+                                    {item.entry.points_value} points
+                                  </span>
+                                {/if}
+                                {#if item.completion}
+                                  <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${statusClass(item.completion.status)}`}>
+                                    {statusLabel(item.completion.status)}
+                                  </span>
+                                {/if}
+                              </div>
+
+                              <h4 class="text-lg font-black text-slate-950 break-words">{item.entry.title}</h4>
+                              {#if cleanCalendarDescription(item)}
+                                <p class="mt-2 text-sm text-slate-600 break-words leading-6">{cleanCalendarDescription(item)}</p>
+                              {/if}
+
+                              <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+                                <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+                                  <Clock3 size={12} />
+                                  {formatCalendarTime(item.entry.start_time)}
+                                </span>
+                                <span class={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 ${recurrenceClass(item)}`}>
+                                  <Repeat2 size={12} />
+                                  {recurrenceLabel(item)}
+                                </span>
+                              </div>
+                            </div>
+
+                            {#if accessMode === 'child' && !item.completion}
+                              <button
+                                type="button"
+                                class="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white shadow-sm disabled:opacity-60 sm:w-auto sm:tracking-[0.18em]"
+                                disabled={daySubmittingId === item.entry.id}
+                                onclick={() => completeTodayItem(item)}
+                              >
+                                <Check size={16} />
+                                {daySubmittingId === item.entry.id ? 'Saving...' : 'Mark done'}
+                              </button>
+                            {/if}
+                          </div>
+                        </article>
+                      {/each}
+                    </div>
+                  {:else}
+                    <div class="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-5 text-center">
+                      <p class="text-sm font-black uppercase tracking-[0.18em] text-slate-400">No tasks today.</p>
+                    </div>
+                  {/if}
+                </div>
+
+                <div>
+                  <div class="mb-3 flex items-center justify-between gap-3">
+                    <h3 class="text-lg font-black text-slate-950">Events today</h3>
+                    <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{eventsToday().length}</span>
+                  </div>
+                  {#if eventsToday().length > 0}
+                    <div class="space-y-3">
+                      {#each eventsToday() as item}
+                        <article class="min-w-0 rounded-[1.5rem] border border-slate-100 bg-white p-4 shadow-sm">
+                          <div class="mb-3 flex flex-wrap items-center gap-2">
+                            <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${typeClass(item.entry.entry_type)}`}>
+                              Event
+                            </span>
+                            <span class={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${recurrenceClass(item)}`}>
+                              <Repeat2 size={12} />
+                              {recurrenceLabel(item)}
+                            </span>
+                          </div>
+                          <h4 class="text-lg font-black text-slate-950 break-words">{item.entry.title}</h4>
+                          {#if cleanCalendarDescription(item)}
+                            <p class="mt-2 text-sm text-slate-600 break-words leading-6">{cleanCalendarDescription(item)}</p>
+                          {/if}
+                          <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+                            <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
+                              <Clock3 size={12} />
+                              {formatCalendarTime(item.entry.start_time)}
+                            </span>
+                          </div>
+                        </article>
+                      {/each}
+                    </div>
+                  {:else}
+                    <div class="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-5 text-center">
+                      <p class="text-sm font-black uppercase tracking-[0.18em] text-slate-400">No events today.</p>
+                    </div>
+                  {/if}
+                </div>
               </div>
             {/if}
           </section>

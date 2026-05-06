@@ -67,6 +67,20 @@
     completion: CalendarCompletion | null;
   };
 
+  type SchoolItem = {
+    id: number;
+    family_id: number;
+    child_id: number;
+    weekday: number;
+    class_name: string;
+    needed_item: string | null;
+    sort_order: number;
+    is_active: boolean;
+    created_by_parent_id: number;
+    created_at: string;
+    updated_at: string | null;
+  };
+
   type FormState = {
     child_id: string;
     title: string;
@@ -81,6 +95,13 @@
     points_value: string | number;
   };
 
+  type SchoolRow = {
+    key: string;
+    id: number | null;
+    class_name: string;
+    needed_item: string;
+  };
+
   const WEEKDAY_OPTIONS = [
     { label: 'Mon', value: 0 },
     { label: 'Tue', value: 1 },
@@ -91,6 +112,16 @@
     { label: 'Sun', value: 6 }
   ];
 
+  const SCHOOL_WEEKDAY_OPTIONS = [
+    { label: 'S', name: 'Sunday', value: 6 },
+    { label: 'M', name: 'Monday', value: 0 },
+    { label: 'T', name: 'Tuesday', value: 1 },
+    { label: 'W', name: 'Wednesday', value: 2 },
+    { label: 'T', name: 'Thursday', value: 3 },
+    { label: 'F', name: 'Friday', value: 4 },
+    { label: 'S', name: 'Saturday', value: 5 }
+  ];
+
   let children = $state<ChildOption[]>([]);
   let selectedChildId = $state('');
   let selectedDate = $state(dateToInputValue(new Date()));
@@ -99,11 +130,21 @@
   let loading = $state(true);
   let loadingCalendar = $state(false);
   let error = $state<string | null>(null);
+  let calendarNotice = $state<string | null>(null);
   let formError = $state<string | null>(null);
   let modalOpen = $state(false);
   let saving = $state(false);
   let editingEntryId = $state<number | null>(null);
   let form = $state<FormState>(defaultForm());
+  let schoolModalOpen = $state(false);
+  let schoolSaving = $state(false);
+  let schoolError = $state<string | null>(null);
+  let schoolChildId = $state('');
+  let schoolWeekday = $state(0);
+  let schoolRows = $state<SchoolRow[]>([]);
+  let schoolExistingRows = $state<SchoolRow[]>([]);
+  let schoolLoading = $state(false);
+  let nextSchoolRowKey = $state(1);
 
   function dateToInputValue(value: Date) {
     const year = value.getFullYear();
@@ -155,6 +196,10 @@
     return parseDateInput(value).toLocaleDateString(undefined, {
       weekday: 'short'
     });
+  }
+
+  function formatWeekdayLetter(value: string) {
+    return formatWeekday(value).slice(0, 1);
   }
 
   function isToday(value: string) {
@@ -225,6 +270,10 @@
     return `${entry.points_value} points`;
   }
 
+  function cleanDescription(entry: CalendarEntry) {
+    return entry.description || '';
+  }
+
   function getSelectedChildLabel() {
     return children.find((child) => child.child.id.toString() === selectedChildId)?.child.display_name || 'Choose a child';
   }
@@ -262,6 +311,12 @@
       .filter((item) => Number.isInteger(item) && item >= 0 && item <= 6);
   }
 
+  function getErrorStatus(error: unknown) {
+    if (!error || typeof error !== 'object') return null;
+    const status = (error as { status?: unknown }).status;
+    return typeof status === 'number' ? status : null;
+  }
+
   function clearModal() {
     modalOpen = false;
     editingEntryId = null;
@@ -283,7 +338,7 @@
     form = {
       child_id: item.entry.child_id.toString(),
       title: item.entry.title,
-      description: item.entry.description || '',
+      description: cleanDescription(item.entry),
       entry_type: item.entry.entry_type === 'event' ? 'event' : 'task',
       start_date: item.entry.start_date,
       start_time: item.entry.start_time ? item.entry.start_time.slice(0, 5) : '',
@@ -298,6 +353,150 @@
     };
     modalOpen = true;
     formError = null;
+  }
+
+  function selectedWeekdayValue() {
+    const day = parseDateInput(selectedDate).getDay();
+    return day === 0 ? 6 : day - 1;
+  }
+
+  function dateForWeekday(weekdayValue: number) {
+    const match = getWeekDates(selectedDate).find((weekDate) => {
+      const day = parseDateInput(weekDate).getDay();
+      return (day === 0 ? 6 : day - 1) === weekdayValue;
+    });
+    return match || selectedDate;
+  }
+
+  function newSchoolRow(seed: Partial<SchoolRow> = {}): SchoolRow {
+    const key = `school-row-${nextSchoolRowKey}`;
+    nextSchoolRowKey += 1;
+    return {
+      key,
+      id: seed.id ?? null,
+      class_name: seed.class_name ?? '',
+      needed_item: seed.needed_item ?? ''
+    };
+  }
+
+  function schoolRowsFromItems(items: SchoolItem[]) {
+    return items
+      .slice()
+      .sort((a, b) => a.sort_order - b.sort_order || a.id - b.id)
+      .map((item) => ({
+        key: `school-item-${item.id}`,
+        id: item.id,
+        class_name: item.class_name,
+        needed_item: item.needed_item || ''
+      }));
+  }
+
+  async function fetchSchoolItems(childId: string, weekdayValue: number) {
+    if (!childId) return [];
+    const query = new URLSearchParams({
+      child_id: childId,
+      weekday: weekdayValue.toString()
+    });
+    const response = await api.get(`/school-items?${query.toString()}`);
+    return Array.isArray(response) ? response : [];
+  }
+
+  function applySchoolRows(items: SchoolItem[]) {
+    schoolExistingRows = schoolRowsFromItems(items);
+    schoolRows = schoolExistingRows.length > 0
+      ? schoolExistingRows.map((row) => ({ ...row }))
+      : [newSchoolRow()];
+  }
+
+  async function loadSchoolRows() {
+    schoolError = null;
+    schoolLoading = true;
+    try {
+      const items = await fetchSchoolItems(schoolChildId, schoolWeekday);
+      applySchoolRows(items);
+    } catch (e) {
+      schoolExistingRows = [];
+      schoolRows = [newSchoolRow()];
+      schoolError = e instanceof Error ? e.message : 'Unable to load school items';
+    } finally {
+      schoolLoading = false;
+    }
+  }
+
+  async function openSchoolModal() {
+    schoolChildId = selectedChildId || children[0]?.child.id?.toString() || '';
+    schoolWeekday = selectedWeekdayValue();
+    schoolError = null;
+    schoolModalOpen = true;
+    await loadSchoolRows();
+  }
+
+  function closeSchoolModal() {
+    schoolModalOpen = false;
+    schoolSaving = false;
+    schoolError = null;
+    schoolLoading = false;
+    schoolRows = [];
+    schoolExistingRows = [];
+  }
+
+  function addSchoolRow() {
+    const row = newSchoolRow();
+    schoolRows = [...schoolRows, row];
+    requestAnimationFrame(() => {
+      document.getElementById(`${row.key}-class`)?.focus();
+    });
+  }
+
+  function removeSchoolRow(key: string) {
+    schoolRows = schoolRows.filter((row) => row.key !== key);
+    if (schoolRows.length === 0) {
+      schoolRows = [newSchoolRow()];
+    }
+  }
+
+  function updateSchoolRow(key: string, field: 'class_name' | 'needed_item', value: string) {
+    schoolRows = schoolRows.map((row) => (row.key === key ? { ...row, [field]: value } : row));
+  }
+
+  async function saveSchoolRows(event: SubmitEvent) {
+    event.preventDefault();
+    schoolError = null;
+
+    if (!schoolChildId) {
+      schoolError = 'Select a child first.';
+      return;
+    }
+
+    const rowsToSave = schoolRows
+      .map((row) => ({
+        id: row.id,
+        class_name: row.class_name.trim(),
+        needed_item: row.needed_item.trim()
+      }))
+      .filter((row) => row.class_name || row.needed_item);
+
+    if (rowsToSave.some((row) => !row.class_name)) {
+      schoolError = 'Each row needs a class name.';
+      return;
+    }
+
+    try {
+      schoolSaving = true;
+      const savedItems = await api.put(`/school-items?child_id=${schoolChildId}&weekday=${schoolWeekday}`, rowsToSave);
+      applySchoolRows(Array.isArray(savedItems) ? savedItems : []);
+      closeSchoolModal();
+      calendarNotice = 'School items saved.';
+    } catch (e) {
+      if (e instanceof Error && getErrorStatus(e) === 401) {
+        schoolError = 'Your session expired. Please sign in again.';
+        calendarNotice = 'Your session expired. Please sign in again.';
+      } else {
+        schoolError = e instanceof Error ? e.message : 'Unable to save school items';
+      }
+    } finally {
+      schoolSaving = false;
+    }
   }
 
   async function loadChildren() {
@@ -356,7 +555,7 @@
     try {
       await loadCalendar();
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Unable to load calendar';
+      calendarNotice = e instanceof Error ? e.message : 'Unable to load calendar';
     }
   }
 
@@ -375,6 +574,17 @@
     const target = event.currentTarget as HTMLSelectElement;
     selectedChildId = target.value;
     await refreshCalendar();
+  }
+
+  async function handleSchoolChildChange(event: Event) {
+    const target = event.currentTarget as HTMLSelectElement;
+    schoolChildId = target.value;
+    await loadSchoolRows();
+  }
+
+  async function handleSchoolWeekdayChange(value: number) {
+    schoolWeekday = value;
+    await loadSchoolRows();
   }
 
   async function saveEntry(event: SubmitEvent) {
@@ -445,7 +655,12 @@
       await refreshCalendar();
       clearModal();
     } catch (e) {
-      formError = e instanceof Error ? e.message : 'Unable to save calendar item';
+      if (e instanceof Error && getErrorStatus(e) === 401) {
+        formError = 'Your session expired. Please sign in again.';
+        calendarNotice = 'Your session expired. Please sign in again.';
+      } else {
+        formError = e instanceof Error ? e.message : 'Unable to save calendar item';
+      }
     } finally {
       saving = false;
     }
@@ -461,7 +676,15 @@
       }
       await refreshCalendar();
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Unable to disable item';
+      const status = e instanceof Error ? getErrorStatus(e) : null;
+      if (status === 401) {
+        calendarNotice = 'Your session expired. Please sign in again.';
+      } else if (status === 404) {
+        calendarNotice = 'That item was already removed.';
+        await refreshCalendar();
+      } else {
+        calendarNotice = e instanceof Error ? e.message : 'Unable to disable item';
+      }
     }
   }
 
@@ -470,7 +693,15 @@
       await api.post(`/calendar/${item.entry.id}/complete?occurrence_date=${item.occurrence_date}`, {});
       await refreshCalendar();
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Unable to mark item complete';
+      const status = e instanceof Error ? getErrorStatus(e) : null;
+      if (status === 401) {
+        calendarNotice = 'Your session expired. Please sign in again.';
+      } else if (status === 404) {
+        calendarNotice = 'That item is no longer available.';
+        await refreshCalendar();
+      } else {
+        calendarNotice = e instanceof Error ? e.message : 'Unable to mark item complete';
+      }
     }
   }
 
@@ -480,7 +711,15 @@
       await api.post(`/calendar/completions/${item.completion.id}/approve`, {});
       await refreshCalendar();
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Unable to approve completion';
+      const status = e instanceof Error ? getErrorStatus(e) : null;
+      if (status === 401) {
+        calendarNotice = 'Your session expired. Please sign in again.';
+      } else if (status === 404) {
+        calendarNotice = 'That completion was already handled.';
+        await refreshCalendar();
+      } else {
+        calendarNotice = e instanceof Error ? e.message : 'Unable to approve completion';
+      }
     }
   }
 
@@ -490,7 +729,15 @@
       await api.post(`/calendar/completions/${item.completion.id}/reject`, {});
       await refreshCalendar();
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Unable to reject completion';
+      const status = e instanceof Error ? getErrorStatus(e) : null;
+      if (status === 401) {
+        calendarNotice = 'Your session expired. Please sign in again.';
+      } else if (status === 404) {
+        calendarNotice = 'That completion was already handled.';
+        await refreshCalendar();
+      } else {
+        calendarNotice = e instanceof Error ? e.message : 'Unable to reject completion';
+      }
     }
   }
 
@@ -604,6 +851,14 @@
               <Plus size={16} />
               Add Schedule Item
             </button>
+            <button
+              type="button"
+              class="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm transition hover:border-slate-300 hover:shadow-md sm:w-auto sm:tracking-[0.18em]"
+              onclick={openSchoolModal}
+            >
+              <CalendarDays size={16} />
+              School Books & Classes
+            </button>
           </div>
         </div>
 
@@ -681,6 +936,17 @@
       </div>
     </section>
 
+    {#if calendarNotice}
+      <div class="mx-auto max-w-7xl px-3 pt-4 sm:px-4 md:px-6">
+        <div class="flex items-start justify-between gap-3 rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm">
+          <p class="min-w-0 break-words">{calendarNotice}</p>
+          <button type="button" class="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500" onclick={() => (calendarNotice = null)}>
+            Dismiss
+          </button>
+        </div>
+      </div>
+    {/if}
+
     <main class="mx-auto max-w-full px-3 py-6 sm:px-4 md:max-w-7xl md:px-6 md:py-8">
       {#if children.length === 0}
         <div class="rounded-[2rem] border border-dashed border-slate-200 bg-white p-8 text-center shadow-sm md:p-12">
@@ -720,7 +986,7 @@
                       await refreshCalendar();
                     }}
                   >
-                    <div class="truncate text-[10px] font-black uppercase tracking-normal opacity-70 sm:tracking-[0.16em]">{formatWeekday(weekDate)}</div>
+                    <div class="text-[10px] font-black uppercase tracking-normal opacity-70 sm:tracking-[0.16em]">{formatWeekdayLetter(weekDate)}</div>
                     <div class="mt-1 text-lg font-black leading-none sm:mt-2">{parseDateInput(weekDate).getDate()}</div>
                     <div class="mt-2 flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-normal text-current sm:text-[10px]">
                       <span class={`h-1.5 w-1.5 rounded-full ${dayItems.length > 0 ? 'bg-current' : 'bg-transparent'}`}></span>
@@ -769,8 +1035,8 @@
                           </div>
 
                           <h3 class="text-lg font-black text-slate-950 break-words">{item.entry.title}</h3>
-                          {#if item.entry.description}
-                            <p class="mt-2 text-sm font-medium leading-6 text-slate-600 break-words">{item.entry.description}</p>
+                          {#if cleanDescription(item.entry)}
+                            <p class="mt-2 text-sm font-medium leading-6 text-slate-600 break-words">{cleanDescription(item.entry)}</p>
                           {/if}
 
                           <div class="mt-3 flex flex-wrap gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
@@ -891,8 +1157,8 @@
                                 </div>
 
                                 <h4 class="text-xl font-black text-slate-950 break-words">{item.entry.title}</h4>
-                                {#if item.entry.description}
-                                  <p class="mt-2 max-w-3xl text-sm font-medium leading-6 text-slate-600 break-words">{item.entry.description}</p>
+                                {#if cleanDescription(item.entry)}
+                                  <p class="mt-2 max-w-3xl text-sm font-medium leading-6 text-slate-600 break-words">{cleanDescription(item.entry)}</p>
                                 {/if}
 
                                 <div class="mt-4 flex flex-wrap gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
@@ -969,26 +1235,134 @@
               </div>
             </div>
 
-            <div class="rounded-[2rem] border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm">
-              <div class="flex items-center gap-3">
-                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
-                  <Repeat2 size={20} />
-                </div>
-                <div>
-                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Streaks</p>
-                  <h3 class="text-lg font-black text-slate-950">Coming soon</h3>
-                </div>
-              </div>
-              <p class="mt-3 text-sm font-medium leading-6 text-slate-500">
-                The backend can already track weekly streak bonuses, and the first calendar UI keeps that detail lightweight for now.
-              </p>
-            </div>
           </aside>
         </div>
       {/if}
     </main>
   {/if}
 </div>
+
+{#if schoolModalOpen}
+  <div class="fixed inset-0 z-[100] flex items-end justify-center bg-slate-900/60 p-0 md:items-center md:p-4">
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="absolute inset-0 backdrop-blur-sm" onclick={closeSchoolModal}></div>
+
+    <div class="relative z-10 flex max-h-[92dvh] w-full flex-col overflow-hidden bg-white shadow-2xl md:max-w-2xl md:rounded-[2rem]">
+      <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-4 md:px-6 md:py-5">
+        <div class="min-w-0">
+          <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">School Books & Classes</p>
+          <h2 class="mt-1 text-2xl font-black text-slate-950">Set what school needs today</h2>
+          <p class="mt-2 text-sm font-medium leading-6 text-slate-500">
+            Add classes and the books or items your child should pack for each weekday.
+          </p>
+        </div>
+        <button type="button" class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 transition hover:bg-slate-200" onclick={closeSchoolModal}>
+          <X size={18} />
+        </button>
+      </div>
+
+      <form class="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6" onsubmit={saveSchoolRows}>
+        {#if schoolError}
+          <div class="mb-5 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+            {schoolError}
+          </div>
+        {/if}
+
+        <div class="grid gap-4 sm:grid-cols-2">
+          <label class="block min-w-0">
+            <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Child</span>
+            <select
+              class="w-full min-w-0 rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-sm font-bold text-slate-900 focus:border-slate-400 focus:outline-none"
+              bind:value={schoolChildId}
+              onchange={handleSchoolChildChange}
+            >
+              {#each children as child}
+                <option value={child.child.id.toString()}>{child.child.display_name}</option>
+              {/each}
+            </select>
+          </label>
+
+          <div class="min-w-0">
+            <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Weekday</span>
+            <div class="grid grid-cols-7 gap-1">
+              {#each SCHOOL_WEEKDAY_OPTIONS as day}
+                <button
+                  type="button"
+                  class={`min-w-0 rounded-2xl border px-2 py-3 text-xs font-black uppercase transition ${schoolWeekday === day.value ? 'border-slate-900 bg-slate-900 text-white shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+                  title={day.name}
+                  onclick={() => handleSchoolWeekdayChange(day.value)}
+                >
+                  {day.label}
+                </button>
+              {/each}
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 rounded-[1.75rem] border border-slate-200 bg-slate-50 p-3 md:p-4">
+          <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p class="text-sm font-black text-slate-950">Classes and items</p>
+              <p class="mt-1 text-xs font-medium text-slate-500">Examples: Math + Math book, P.E. + Gym clothes.</p>
+            </div>
+            <button type="button" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-slate-700 sm:w-auto" onclick={addSchoolRow}>
+              <Plus size={14} />
+              Add row
+            </button>
+          </div>
+
+          <div class="space-y-3">
+            {#if schoolLoading && schoolRows.length === 0}
+              <div class="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center">
+                <p class="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Loading school items</p>
+              </div>
+            {/if}
+
+            {#each schoolRows as row}
+              <div class="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto]">
+                <label class="block min-w-0">
+                  <span class="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Class</span>
+                  <input
+                    id={`${row.key}-class`}
+                    type="text"
+                    value={row.class_name}
+                    placeholder="Math"
+                    class="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-bold text-slate-900 focus:border-slate-400 focus:outline-none"
+                    oninput={(event) => updateSchoolRow(row.key, 'class_name', (event.currentTarget as HTMLInputElement).value)}
+                  />
+                </label>
+                <label class="block min-w-0">
+                  <span class="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Needed item</span>
+                  <input
+                    type="text"
+                    value={row.needed_item}
+                    placeholder="Math book"
+                    class="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-bold text-slate-900 focus:border-slate-400 focus:outline-none"
+                    oninput={(event) => updateSchoolRow(row.key, 'needed_item', (event.currentTarget as HTMLInputElement).value)}
+                  />
+                </label>
+                <button type="button" class="inline-flex h-12 items-center justify-center rounded-xl border border-rose-200 bg-white px-3 text-xs font-black uppercase tracking-[0.14em] text-rose-700 sm:self-end" onclick={() => removeSchoolRow(row.key)}>
+                  Remove
+                </button>
+              </div>
+            {/each}
+          </div>
+        </div>
+
+        <div class="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button type="button" class="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-slate-700" onclick={closeSchoolModal}>
+            Cancel
+          </button>
+          <button type="submit" disabled={schoolSaving} class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-white disabled:opacity-60">
+            <Check size={16} />
+            {schoolSaving ? 'Saving...' : 'Save school day'}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{/if}
 
 {#if modalOpen}
   <div class="fixed inset-0 z-[100] flex items-end justify-center bg-slate-900/60 p-0 md:items-center md:p-4">

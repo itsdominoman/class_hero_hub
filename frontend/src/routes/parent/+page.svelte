@@ -17,6 +17,8 @@
   let loading = $state(true);
   let loadingChildren = $state(false);
   let loadingFamilySettings = $state(false);
+  let loadingSchoolToday = $state(false);
+  let schoolTodayByChild = $state<Record<number, SchoolItem[]>>({});
   let error = $state<string | null>(null);
   let needsLogin = $state(false);
 
@@ -52,11 +54,65 @@
 
   const DEFAULT_EMOJIS = ['🪥', '📚', '🛏️', '⏰', '🧹', '🧺', '🍎', '🥦', '👍', '❤️', '⭐', '👑', '🎮', '🖥️', '📱', '😴', '😡', '🚫', '🧸', '🏃', '🎒', '✏️', '🧼', '🍽️'];
 
+  type SchoolItem = {
+    id: number;
+    family_id: number;
+    child_id: number;
+    weekday: number;
+    class_name: string;
+    needed_item: string | null;
+    sort_order: number;
+    is_active: boolean;
+    created_by_parent_id: number;
+    created_at: string;
+    updated_at: string | null;
+  };
 
   const isAuthError = (message: string) =>
     message.toLowerCase().includes('not authenticated') ||
     message.toLowerCase().includes('invalid token') ||
     message.toLowerCase().includes('parent not found');
+
+  function getLocalDateValue(reference = new Date()) {
+    const year = reference.getFullYear();
+    const month = `${reference.getMonth() + 1}`.padStart(2, '0');
+    const day = `${reference.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function schoolNeedLabel(item: SchoolItem) {
+    const listedItem = (item?.needed_item || '').trim();
+    if (listedItem) return listedItem;
+    const title = item?.class_name || 'School item';
+    if (/p\.?\s*e\.?/i.test(title)) return 'Gym clothes';
+    return `${title} book`;
+  }
+
+  async function loadSchoolToday(childSummaries = children) {
+    const nextSchoolItems: Record<number, SchoolItem[]> = {};
+    if (!childSummaries.length) {
+      schoolTodayByChild = {};
+      return;
+    }
+
+    try {
+      loadingSchoolToday = true;
+      await Promise.all(
+        childSummaries.map(async (childSummary: any) => {
+          const childId = childSummary.child.id;
+          try {
+            const response = await api.get(`/school-items/today?child_id=${childId}`);
+            nextSchoolItems[childId] = Array.isArray(response) ? response : [];
+          } catch {
+            nextSchoolItems[childId] = [];
+          }
+        })
+      );
+      schoolTodayByChild = nextSchoolItems;
+    } finally {
+      loadingSchoolToday = false;
+    }
+  }
 
   async function loadDashboard() {
     try {
@@ -79,6 +135,7 @@
       presets = pr;
       familyMembers = fm;
       familyInvites = fi;
+      await loadSchoolToday(c);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Unable to load dashboard';
       if (isAuthError(message)) {
@@ -548,6 +605,62 @@
           </span>
         </div>
       </a>
+
+      {#if children.length > 0}
+        <section class="card mb-10 border border-slate-100 bg-white p-6 md:p-8 shadow-xl">
+          <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2">School Today</p>
+              <h3 class="text-2xl font-black text-slate-950">Needed for school today</h3>
+            </div>
+            <a href="/calendar" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white sm:w-auto">
+              <CalendarDays size={14} />
+              Edit
+            </a>
+          </div>
+
+          {#if loadingSchoolToday}
+            <div class="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+              <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400">Loading school items</p>
+            </div>
+          {:else}
+            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {#each children as childSummary}
+                {@const schoolItems = schoolTodayByChild[childSummary.child.id] || []}
+                <article class="rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4">
+                  <div class="mb-3 flex items-center gap-3">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm">
+                      <CalendarDays size={18} />
+                    </div>
+                    <div class="min-w-0">
+                      <h4 class="font-black text-slate-950 truncate">{childSummary.child.display_name}</h4>
+                      <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{schoolItems.length} item{schoolItems.length === 1 ? '' : 's'}</p>
+                    </div>
+                  </div>
+
+                  {#if schoolItems.length > 0}
+                    <div class="space-y-2">
+                      {#each schoolItems as item}
+                        <div class="flex items-start gap-2 rounded-2xl bg-white px-3 py-2 text-sm font-bold text-slate-700">
+                          <Check size={14} class="mt-0.5 shrink-0 text-savings" />
+                          <span class="min-w-0 break-words">
+                            {schoolNeedLabel(item)}
+                            <span class="block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{item.class_name}</span>
+                          </span>
+                        </div>
+                      {/each}
+                    </div>
+                  {:else}
+                    <div class="rounded-2xl border border-dashed border-slate-200 bg-white px-3 py-4 text-center">
+                      <p class="text-sm font-bold text-slate-500">No school items set for today</p>
+                    </div>
+                  {/if}
+                </article>
+              {/each}
+            </div>
+          {/if}
+        </section>
+      {/if}
 
       {#if children.length === 0}
         <div class="card p-16 text-center border-dashed border-4 border-slate-200 bg-white/50 max-w-2xl mx-auto">

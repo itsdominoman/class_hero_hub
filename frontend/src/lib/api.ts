@@ -62,11 +62,15 @@ async function request(path: string, options: RequestInit = {}) {
 
     if (contentType.includes('application/json')) {
       const error = await res.json().catch(() => ({ detail: 'Request failed' }));
-      throw new Error(error.detail || 'Request failed');
+      const requestError = new Error(error.detail || 'Request failed') as Error & { status?: number };
+      requestError.status = res.status;
+      throw requestError;
     }
 
     const text = await res.text().catch(() => '');
-    throw new Error(text || `Request failed with status ${res.status}`);
+    const requestError = new Error(text || `Request failed with status ${res.status}`) as Error & { status?: number };
+    requestError.status = res.status;
+    throw requestError;
   }
 
   if (res.status === 204) {
@@ -85,6 +89,7 @@ async function request(path: string, options: RequestInit = {}) {
 export const api = {
   get: (path: string) => request(path),
   post: (path: string, body: any = {}) => request(path, { method: 'POST', body: JSON.stringify(body) }),
+  put: (path: string, body: any = {}) => request(path, { method: 'PUT', body: JSON.stringify(body) }),
   patch: (path: string, body: any = {}) => request(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: (path: string) => request(path, { method: 'DELETE' })
 };

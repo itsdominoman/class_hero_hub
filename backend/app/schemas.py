@@ -105,6 +105,27 @@ class CalendarCompletion(CalendarCompletionBase):
     class Config:
         from_attributes = True
 
+class SchoolItemBase(BaseModel):
+    class_name: str
+    needed_item: Optional[str] = None
+    sort_order: int = 0
+    is_active: bool = True
+
+class SchoolItemUpsert(SchoolItemBase):
+    id: Optional[int] = None
+
+class SchoolItem(SchoolItemBase):
+    id: int
+    family_id: int
+    child_id: int
+    weekday: int
+    created_by_parent_id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
 class WeeklyStreakBase(BaseModel):
     child_id: int
     week_start_date: date
