@@ -17,8 +17,9 @@
   let loading = $state(true);
   let loadingChildren = $state(false);
   let loadingFamilySettings = $state(false);
-  let loadingSchoolToday = $state(false);
+  let loadingSchoolPrep = $state(false);
   let schoolTodayByChild = $state<Record<number, SchoolItem[]>>({});
+  let schoolTomorrowByChild = $state<Record<number, SchoolItem[]>>({});
   let error = $state<string | null>(null);
   let needsLogin = $state(false);
 
@@ -88,29 +89,37 @@
     return `${title} book`;
   }
 
-  async function loadSchoolToday(childSummaries = children) {
-    const nextSchoolItems: Record<number, SchoolItem[]> = {};
+  async function loadSchoolPrep(childSummaries = children) {
+    const nextSchoolItemsToday: Record<number, SchoolItem[]> = {};
+    const nextSchoolItemsTomorrow: Record<number, SchoolItem[]> = {};
     if (!childSummaries.length) {
       schoolTodayByChild = {};
+      schoolTomorrowByChild = {};
       return;
     }
 
     try {
-      loadingSchoolToday = true;
+      loadingSchoolPrep = true;
       await Promise.all(
         childSummaries.map(async (childSummary: any) => {
           const childId = childSummary.child.id;
           try {
-            const response = await api.get(`/school-items/today?child_id=${childId}`);
-            nextSchoolItems[childId] = Array.isArray(response) ? response : [];
+            const [todayResponse, tomorrowResponse] = await Promise.all([
+              api.get(`/school-items/today?child_id=${childId}&offset=0`),
+              api.get(`/school-items/today?child_id=${childId}&offset=1`)
+            ]);
+            nextSchoolItemsToday[childId] = Array.isArray(todayResponse) ? todayResponse : [];
+            nextSchoolItemsTomorrow[childId] = Array.isArray(tomorrowResponse) ? tomorrowResponse : [];
           } catch {
-            nextSchoolItems[childId] = [];
+            nextSchoolItemsToday[childId] = [];
+            nextSchoolItemsTomorrow[childId] = [];
           }
         })
       );
-      schoolTodayByChild = nextSchoolItems;
+      schoolTodayByChild = nextSchoolItemsToday;
+      schoolTomorrowByChild = nextSchoolItemsTomorrow;
     } finally {
-      loadingSchoolToday = false;
+      loadingSchoolPrep = false;
     }
   }
 
@@ -135,7 +144,7 @@
       presets = pr;
       familyMembers = fm;
       familyInvites = fi;
-      await loadSchoolToday(c);
+      await loadSchoolPrep(c);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Unable to load dashboard';
       if (isAuthError(message)) {
@@ -606,62 +615,6 @@
         </div>
       </a>
 
-      {#if children.length > 0}
-        <section class="card mb-10 border border-slate-100 bg-white p-6 md:p-8 shadow-xl">
-          <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2">School Today</p>
-              <h3 class="text-2xl font-black text-slate-950">Needed for school today</h3>
-            </div>
-            <a href="/calendar" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white sm:w-auto">
-              <CalendarDays size={14} />
-              Edit
-            </a>
-          </div>
-
-          {#if loadingSchoolToday}
-            <div class="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-              <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400">Loading school items</p>
-            </div>
-          {:else}
-            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {#each children as childSummary}
-                {@const schoolItems = schoolTodayByChild[childSummary.child.id] || []}
-                <article class="rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4">
-                  <div class="mb-3 flex items-center gap-3">
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm">
-                      <CalendarDays size={18} />
-                    </div>
-                    <div class="min-w-0">
-                      <h4 class="font-black text-slate-950 truncate">{childSummary.child.display_name}</h4>
-                      <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{schoolItems.length} item{schoolItems.length === 1 ? '' : 's'}</p>
-                    </div>
-                  </div>
-
-                  {#if schoolItems.length > 0}
-                    <div class="space-y-2">
-                      {#each schoolItems as item}
-                        <div class="flex items-start gap-2 rounded-2xl bg-white px-3 py-2 text-sm font-bold text-slate-700">
-                          <Check size={14} class="mt-0.5 shrink-0 text-savings" />
-                          <span class="min-w-0 break-words">
-                            {schoolNeedLabel(item)}
-                            <span class="block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{item.class_name}</span>
-                          </span>
-                        </div>
-                      {/each}
-                    </div>
-                  {:else}
-                    <div class="rounded-2xl border border-dashed border-slate-200 bg-white px-3 py-4 text-center">
-                      <p class="text-sm font-bold text-slate-500">No school items set for today</p>
-                    </div>
-                  {/if}
-                </article>
-              {/each}
-            </div>
-          {/if}
-        </section>
-      {/if}
-
       {#if children.length === 0}
         <div class="card p-16 text-center border-dashed border-4 border-slate-200 bg-white/50 max-w-2xl mx-auto">
           <div class="w-24 h-24 bg-slate-100 text-slate-400 rounded-3xl flex items-center justify-center mx-auto mb-8">
@@ -788,6 +741,172 @@
         </div>
       {/if}
 
+      <!-- Section: Redemption Requests -->
+      <div class="mb-20">
+        <div class="flex items-center gap-4 mb-8">
+          <div class="w-12 h-12 bg-reward/10 text-reward rounded-2xl flex items-center justify-center">
+            <Trophy size={24} />
+          </div>
+          <div>
+            <h2 class="text-3xl font-black text-slate-900 tracking-tight">Reward Requests</h2>
+            <p class="text-slate-500 font-medium">Approve or reject pending requests from your heroes.</p>
+          </div>
+        </div>
+
+        {#if redemptions.filter(r => r.status === 'pending').length === 0}
+          <div class="card p-12 text-center bg-slate-50 border-dashed border-2 border-slate-200">
+            <p class="text-slate-400 font-black uppercase tracking-widest text-sm">No pending requests</p>
+          </div>
+        {:else}
+          <div class="grid lg:grid-cols-2 gap-6">
+            {#each redemptions.filter(r => r.status === 'pending') as r}
+              {@const child = children.find(ch => ch.child.id === r.child_id)}
+              <div class="card p-8 flex flex-col md:flex-row gap-8 items-start bg-white border-l-8 border-hero shadow-xl hover:shadow-2xl transition-all duration-300">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-3 mb-3">
+                    <span class="text-xs font-black bg-hero/10 text-hero px-3 py-1 rounded-full uppercase tracking-widest">
+                      Pending
+                    </span>
+                    <span class="text-xs font-bold text-slate-400 flex items-center gap-1">
+                      <Clock size={14} /> {new Date(r.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <h3 class="text-2xl font-black text-slate-900 mb-1">{r.title}</h3>
+                  <p class="text-slate-600 mb-6 font-medium line-clamp-2">{r.description || 'No description provided.'}</p>
+                  
+                  <div class="flex items-center gap-6">
+                    <div class="flex items-center gap-2">
+                      <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center p-1 overflow-hidden">
+                        <img src={getPetImage(child?.pet_progress.current_stage || 'egg')} alt="" class="w-full h-full object-contain" />
+                      </div>
+                      <span class="text-sm font-black text-slate-700">{child?.child.display_name}</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-hero">
+                      <Trophy size={18} />
+                      <span class="text-xl font-black">{r.points} HP</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex flex-row md:flex-col gap-3 w-full md:w-auto shrink-0 pt-2">
+                  <button 
+                    onclick={() => processRedemption(r.id, 'approve')}
+                    class="flex-1 md:w-40 py-4 bg-savings text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-lg shadow-savings/20 hover:scale-[1.02] active:scale-95 transition-all"
+                  >
+                    <Check size={18} /> Approve
+                  </button>
+                  <button 
+                    onclick={() => processRedemption(r.id, 'reject')}
+                    class="flex-1 md:w-40 py-4 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:border-penalty hover:text-penalty transition-all"
+                  >
+                    <X size={18} /> Reject
+                  </button>
+                </div>
+              </div>
+            {/each}
+          </div>
+        {/if}
+
+        {#if redemptions.filter(r => r.status !== 'pending').length > 0}
+          <details class="mt-8 group">
+            <summary class="flex items-center gap-2 cursor-pointer text-slate-400 font-black uppercase tracking-widest text-[10px] hover:text-slate-600 transition-colors list-none">
+              <ChevronRight size={14} class="group-open:rotate-90 transition-transform" />
+              View Redemption History
+            </summary>
+            <div class="mt-4 space-y-3 opacity-60">
+              {#each redemptions.filter(r => r.status !== 'pending').slice(0, 5) as r}
+                {@const child = children.find(ch => ch.child.id === r.child_id)}
+                <div class="card p-4 flex items-center justify-between bg-white text-xs font-bold border-none">
+                  <div class="flex items-center gap-4">
+                    <span class={r.status === 'approved' ? 'text-savings' : 'text-penalty'}>
+                      {r.status === 'approved' ? '✓' : '✗'}
+                    </span>
+                    <span class="text-slate-900">{r.title}</span>
+                    <span class="text-slate-400">• {child?.child.display_name}</span>
+                  </div>
+                  <div class="text-slate-400">{r.points} HP</div>
+                </div>
+              {/each}
+            </div>
+          </details>
+        {/if}
+      </div>
+      {#if children.length > 0}
+        <section class="card mb-10 border border-slate-100 bg-white p-6 md:p-8 shadow-xl">
+          <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2">School Prep</p>
+              <h3 class="text-2xl font-black text-slate-950">Pack for today and tomorrow</h3>
+            </div>
+            <a href="/calendar" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white sm:w-auto">
+              <CalendarDays size={14} />
+              Edit
+            </a>
+          </div>
+
+          {#if loadingSchoolPrep}
+            <div class="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+              <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400">Loading school prep</p>
+            </div>
+          {:else}
+            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {#each children as childSummary}
+                {@const todayItems = schoolTodayByChild[childSummary.child.id] || []}
+                {@const tomorrowItems = schoolTomorrowByChild[childSummary.child.id] || []}
+                <article class="rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4">
+                  <div class="mb-3 flex items-center gap-3">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm">
+                      <CalendarDays size={18} />
+                    </div>
+                    <div class="min-w-0">
+                      <h4 class="font-black text-slate-950 truncate">{childSummary.child.display_name}</h4>
+                    </div>
+                  </div>
+
+                  <div class="space-y-3">
+                    <div class="rounded-2xl border border-slate-100 bg-white px-3 py-3">
+                      <div class="mb-2 flex items-center justify-between gap-3">
+                        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Today</p>
+                        <span class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{todayItems.length} item{todayItems.length === 1 ? '' : 's'}</span>
+                      </div>
+                      {#if todayItems.length > 0}
+                        <div class="flex flex-wrap gap-2">
+                          {#each todayItems as item}
+                            <span class="inline-flex max-w-full rounded-full bg-slate-100 px-3 py-2 text-sm font-bold text-slate-700 break-words">
+                              {schoolNeedLabel(item)}
+                            </span>
+                          {/each}
+                        </div>
+                      {:else}
+                        <p class="text-sm font-bold text-slate-500">Nothing set.</p>
+                      {/if}
+                    </div>
+
+                    <div class="rounded-2xl border border-amber-100 bg-amber-50 px-3 py-3">
+                      <div class="mb-2 flex items-center justify-between gap-3">
+                        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">Tomorrow</p>
+                        <span class="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">{tomorrowItems.length} item{tomorrowItems.length === 1 ? '' : 's'}</span>
+                      </div>
+                      {#if tomorrowItems.length > 0}
+                        <div class="flex flex-wrap gap-2">
+                          {#each tomorrowItems as item}
+                            <span class="inline-flex max-w-full rounded-full bg-white px-3 py-2 text-sm font-bold text-slate-700 break-words shadow-sm">
+                              {schoolNeedLabel(item)}
+                            </span>
+                          {/each}
+                        </div>
+                      {:else}
+                        <p class="text-sm font-bold text-slate-500">Nothing set.</p>
+                      {/if}
+                    </div>
+                  </div>
+                </article>
+              {/each}
+            </div>
+          {/if}
+        </section>
+      {/if}
+
       <!-- Section: Rewards -->
       <div class="mb-20">
         <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
@@ -910,96 +1029,7 @@
         </div>
       </div>
 
-      <!-- Section: Redemption Requests -->
-      <div class="mb-20">
-        <div class="flex items-center gap-4 mb-8">
-          <div class="w-12 h-12 bg-reward/10 text-reward rounded-2xl flex items-center justify-center">
-            <Trophy size={24} />
-          </div>
-          <div>
-            <h2 class="text-3xl font-black text-slate-900 tracking-tight">Reward Requests</h2>
-            <p class="text-slate-500 font-medium">Approve or reject pending requests from your heroes.</p>
-          </div>
-        </div>
 
-        {#if redemptions.filter(r => r.status === 'pending').length === 0}
-          <div class="card p-12 text-center bg-slate-50 border-dashed border-2 border-slate-200">
-            <p class="text-slate-400 font-black uppercase tracking-widest text-sm">No pending requests</p>
-          </div>
-        {:else}
-          <div class="grid lg:grid-cols-2 gap-6">
-            {#each redemptions.filter(r => r.status === 'pending') as r}
-              {@const child = children.find(ch => ch.child.id === r.child_id)}
-              <div class="card p-8 flex flex-col md:flex-row gap-8 items-start bg-white border-l-8 border-hero shadow-xl hover:shadow-2xl transition-all duration-300">
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-3 mb-3">
-                    <span class="text-xs font-black bg-hero/10 text-hero px-3 py-1 rounded-full uppercase tracking-widest">
-                      Pending
-                    </span>
-                    <span class="text-xs font-bold text-slate-400 flex items-center gap-1">
-                      <Clock size={14} /> {new Date(r.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <h3 class="text-2xl font-black text-slate-900 mb-1">{r.title}</h3>
-                  <p class="text-slate-600 mb-6 font-medium line-clamp-2">{r.description || 'No description provided.'}</p>
-                  
-                  <div class="flex items-center gap-6">
-                    <div class="flex items-center gap-2">
-                      <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center p-1 overflow-hidden">
-                        <img src={getPetImage(child?.pet_progress.current_stage || 'egg')} alt="" class="w-full h-full object-contain" />
-                      </div>
-                      <span class="text-sm font-black text-slate-700">{child?.child.display_name}</span>
-                    </div>
-                    <div class="flex items-center gap-2 text-hero">
-                      <Trophy size={18} />
-                      <span class="text-xl font-black">{r.points} HP</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="flex flex-row md:flex-col gap-3 w-full md:w-auto shrink-0 pt-2">
-                  <button 
-                    onclick={() => processRedemption(r.id, 'approve')}
-                    class="flex-1 md:w-40 py-4 bg-savings text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-lg shadow-savings/20 hover:scale-[1.02] active:scale-95 transition-all"
-                  >
-                    <Check size={18} /> Approve
-                  </button>
-                  <button 
-                    onclick={() => processRedemption(r.id, 'reject')}
-                    class="flex-1 md:w-40 py-4 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:border-penalty hover:text-penalty transition-all"
-                  >
-                    <X size={18} /> Reject
-                  </button>
-                </div>
-              </div>
-            {/each}
-          </div>
-        {/if}
-
-        {#if redemptions.filter(r => r.status !== 'pending').length > 0}
-          <details class="mt-8 group">
-            <summary class="flex items-center gap-2 cursor-pointer text-slate-400 font-black uppercase tracking-widest text-[10px] hover:text-slate-600 transition-colors list-none">
-              <ChevronRight size={14} class="group-open:rotate-90 transition-transform" />
-              View Redemption History
-            </summary>
-            <div class="mt-4 space-y-3 opacity-60">
-              {#each redemptions.filter(r => r.status !== 'pending').slice(0, 5) as r}
-                {@const child = children.find(ch => ch.child.id === r.child_id)}
-                <div class="card p-4 flex items-center justify-between bg-white text-xs font-bold border-none">
-                  <div class="flex items-center gap-4">
-                    <span class={r.status === 'approved' ? 'text-savings' : 'text-penalty'}>
-                      {r.status === 'approved' ? '✓' : '✗'}
-                    </span>
-                    <span class="text-slate-900">{r.title}</span>
-                    <span class="text-slate-400">• {child?.child.display_name}</span>
-                  </div>
-                  <div class="text-slate-400">{r.points} HP</div>
-                </div>
-              {/each}
-            </div>
-          </details>
-        {/if}
-      </div>
     </div>
   {/if}
 </div>

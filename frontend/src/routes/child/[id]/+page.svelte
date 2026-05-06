@@ -118,8 +118,10 @@
   let dayLoading = $state(false);
   let dayError = $state<string | null>(null);
   let dayItems = $state<DayCalendarOccurrence[]>([]);
-  let schoolItems = $state<SchoolItem[]>([]);
-  let schoolDayError = $state<string | null>(null);
+  let schoolTodayItems = $state<SchoolItem[]>([]);
+  let schoolTomorrowItems = $state<SchoolItem[]>([]);
+  let schoolTodayError = $state<string | null>(null);
+  let schoolTomorrowError = $state<string | null>(null);
   let daySubmittingId = $state<number | null>(null);
   let statusMessage = $state('');
   let statusTone = $state<'success' | 'error' | 'info'>('success');
@@ -280,7 +282,11 @@
   }
 
   function schoolItemsToday() {
-    return schoolItems;
+    return schoolTodayItems;
+  }
+
+  function schoolItemsTomorrow() {
+    return schoolTomorrowItems;
   }
 
   function tasksToday() {
@@ -296,14 +302,18 @@
     const query = `from_date=${today}&to_date=${today}`;
     dayLoading = true;
     dayError = null;
-    schoolDayError = null;
-    const [calendarResult, schoolResult] = await Promise.allSettled([
+    schoolTodayError = null;
+    schoolTomorrowError = null;
+    const [calendarResult, schoolTodayResult, schoolTomorrowResult] = await Promise.allSettled([
       accessMode === 'child'
         ? api.get(`/child/calendar?${query}`)
         : api.get(`/calendar?child_id=${childIdNumber}&${query}`),
       accessMode === 'child'
-        ? api.get('/child/school-items/today')
-        : api.get(`/school-items/today?child_id=${childIdNumber}`)
+        ? api.get('/child/school-items/today?offset=0')
+        : api.get(`/school-items/today?child_id=${childIdNumber}&offset=0`),
+      accessMode === 'child'
+        ? api.get('/child/school-items/today?offset=1')
+        : api.get(`/school-items/today?child_id=${childIdNumber}&offset=1`)
     ]);
 
     if (calendarResult.status === 'fulfilled') {
@@ -313,11 +323,18 @@
       dayError = calendarResult.reason instanceof Error ? calendarResult.reason.message : 'Unable to load today’s schedule';
     }
 
-    if (schoolResult.status === 'fulfilled') {
-      schoolItems = Array.isArray(schoolResult.value) ? schoolResult.value : [];
+    if (schoolTodayResult.status === 'fulfilled') {
+      schoolTodayItems = Array.isArray(schoolTodayResult.value) ? schoolTodayResult.value : [];
     } else {
-      schoolItems = [];
-      schoolDayError = schoolResult.reason instanceof Error ? schoolResult.reason.message : 'Unable to load school items';
+      schoolTodayItems = [];
+      schoolTodayError = schoolTodayResult.reason instanceof Error ? schoolTodayResult.reason.message : 'Unable to load school items';
+    }
+
+    if (schoolTomorrowResult.status === 'fulfilled') {
+      schoolTomorrowItems = Array.isArray(schoolTomorrowResult.value) ? schoolTomorrowResult.value : [];
+    } else {
+      schoolTomorrowItems = [];
+      schoolTomorrowError = schoolTomorrowResult.reason instanceof Error ? schoolTomorrowResult.reason.message : 'Unable to load school items';
     }
 
     dayLoading = false;
@@ -811,26 +828,29 @@
                   {dayError}
                 </div>
 
-                <div class="rounded-[1.5rem] border border-sky-100 bg-sky-50/70 p-4">
-                  <div class="mb-3 flex items-center justify-between gap-3">
+                <div class="rounded-[1.75rem] border border-slate-100 bg-white p-4 shadow-sm">
+                  <div class="mb-4 flex items-center justify-between gap-3">
                     <div>
-                      <p class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-600">Needed for school today</p>
-                      <h3 class="mt-1 text-lg font-black text-slate-950">Books and items</h3>
+                      <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">School Bag</p>
+                      <h3 class="mt-1 text-lg font-black text-slate-950">Pack for tomorrow</h3>
                     </div>
-                    <span class="rounded-full bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-sky-700">
-                      {schoolItemsToday().length}
+                    <span class="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-amber-700">
+                      {schoolItemsTomorrow().length}
                     </span>
                   </div>
+                  <p class="mb-4 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                    Check stationery
+                  </p>
 
-                  {#if schoolDayError}
-                    <div class="rounded-2xl border border-rose-100 bg-white p-4 text-sm font-bold text-rose-700 break-words">
-                      {schoolDayError}
+                  {#if schoolTomorrowError}
+                    <div class="rounded-2xl border border-rose-100 bg-rose-50 p-4 text-sm font-bold text-rose-700 break-words">
+                      {schoolTomorrowError}
                     </div>
-                  {:else if schoolItemsToday().length > 0}
+                  {:else if schoolItemsTomorrow().length > 0}
                     <div class="space-y-2">
-                      {#each schoolItemsToday() as item}
-                        <div class="flex items-start gap-3 rounded-2xl border border-sky-100 bg-white px-3 py-3">
-                          <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700">
+                      {#each schoolItemsTomorrow() as item}
+                        <div class="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50/80 px-3 py-3">
+                          <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
                             <Check size={13} />
                           </span>
                           <div class="min-w-0">
@@ -841,34 +861,73 @@
                       {/each}
                     </div>
                   {:else}
-                    <div class="rounded-2xl border border-dashed border-sky-100 bg-white/70 p-4 text-center">
-                      <p class="text-sm font-bold text-slate-500">No school items listed for today.</p>
+                    <div class="rounded-2xl border border-dashed border-amber-100 bg-amber-50/40 p-4 text-center">
+                      <p class="text-sm font-bold text-slate-500">Nothing set for tomorrow.</p>
                     </div>
                   {/if}
+
+                  <div class="mt-5 border-t border-slate-100 pt-4">
+                    <div class="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-600">Needed today</p>
+                        <h4 class="mt-1 text-base font-black text-slate-950">What is still needed now</h4>
+                      </div>
+                      <span class="rounded-full bg-sky-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-sky-700">
+                        {schoolItemsToday().length}
+                      </span>
+                    </div>
+
+                    {#if schoolTodayError}
+                      <div class="rounded-2xl border border-rose-100 bg-white p-4 text-sm font-bold text-rose-700 break-words">
+                        {schoolTodayError}
+                      </div>
+                    {:else if schoolItemsToday().length > 0}
+                      <div class="space-y-2">
+                        {#each schoolItemsToday() as item}
+                          <div class="flex items-start gap-3 rounded-2xl border border-sky-100 bg-sky-50/60 px-3 py-3">
+                            <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700">
+                              <Check size={13} />
+                            </span>
+                            <div class="min-w-0">
+                              <p class="font-black text-slate-950 break-words">{schoolNeedLabel(item)}</p>
+                              <p class="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-400 break-words">{item.class_name}</p>
+                            </div>
+                          </div>
+                        {/each}
+                      </div>
+                    {:else}
+                      <div class="rounded-2xl border border-dashed border-sky-100 bg-sky-50/30 p-4 text-center">
+                        <p class="text-sm font-bold text-slate-500">Nothing set for today.</p>
+                      </div>
+                    {/if}
+                  </div>
                 </div>
               </div>
             {:else}
               <div class="space-y-5">
-                <div class="rounded-[1.5rem] border border-sky-100 bg-sky-50/70 p-4">
-                  <div class="mb-3 flex items-center justify-between gap-3">
+                <div class="rounded-[1.75rem] border border-slate-100 bg-white p-4 shadow-sm">
+                  <div class="mb-4 flex items-center justify-between gap-3">
                     <div>
-                      <p class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-600">Needed for school today</p>
-                      <h3 class="mt-1 text-lg font-black text-slate-950">Books and items</h3>
+                      <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">School Bag</p>
+                      <h3 class="mt-1 text-lg font-black text-slate-950">Pack for tomorrow</h3>
                     </div>
-                    <span class="rounded-full bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-sky-700">
-                      {schoolItemsToday().length}
+                    <span class="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-amber-700">
+                      {schoolItemsTomorrow().length}
                     </span>
                   </div>
+                  <p class="mb-4 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                    Check stationery
+                  </p>
 
-                  {#if schoolDayError}
-                    <div class="rounded-2xl border border-rose-100 bg-white p-4 text-sm font-bold text-rose-700 break-words">
-                      {schoolDayError}
+                  {#if schoolTomorrowError}
+                    <div class="rounded-2xl border border-rose-100 bg-rose-50 p-4 text-sm font-bold text-rose-700 break-words">
+                      {schoolTomorrowError}
                     </div>
-                  {:else if schoolItemsToday().length > 0}
+                  {:else if schoolItemsTomorrow().length > 0}
                     <div class="space-y-2">
-                      {#each schoolItemsToday() as item}
-                        <div class="flex items-start gap-3 rounded-2xl border border-sky-100 bg-white px-3 py-3">
-                          <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700">
+                      {#each schoolItemsTomorrow() as item}
+                        <div class="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50/80 px-3 py-3">
+                          <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
                             <Check size={13} />
                           </span>
                           <div class="min-w-0">
@@ -879,10 +938,46 @@
                       {/each}
                     </div>
                   {:else}
-                    <div class="rounded-2xl border border-dashed border-sky-100 bg-white/70 p-4 text-center">
-                      <p class="text-sm font-bold text-slate-500">No school items listed for today.</p>
+                    <div class="rounded-2xl border border-dashed border-amber-100 bg-amber-50/40 p-4 text-center">
+                      <p class="text-sm font-bold text-slate-500">Nothing set for tomorrow.</p>
                     </div>
                   {/if}
+
+                  <div class="mt-5 border-t border-slate-100 pt-4">
+                    <div class="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-600">Needed today</p>
+                        <h4 class="mt-1 text-base font-black text-slate-950">What is still needed now</h4>
+                      </div>
+                      <span class="rounded-full bg-sky-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-sky-700">
+                        {schoolItemsToday().length}
+                      </span>
+                    </div>
+
+                    {#if schoolTodayError}
+                      <div class="rounded-2xl border border-rose-100 bg-white p-4 text-sm font-bold text-rose-700 break-words">
+                        {schoolTodayError}
+                      </div>
+                    {:else if schoolItemsToday().length > 0}
+                      <div class="space-y-2">
+                        {#each schoolItemsToday() as item}
+                          <div class="flex items-start gap-3 rounded-2xl border border-sky-100 bg-sky-50/60 px-3 py-3">
+                            <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700">
+                              <Check size={13} />
+                            </span>
+                            <div class="min-w-0">
+                              <p class="font-black text-slate-950 break-words">{schoolNeedLabel(item)}</p>
+                              <p class="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-400 break-words">{item.class_name}</p>
+                            </div>
+                          </div>
+                        {/each}
+                      </div>
+                    {:else}
+                      <div class="rounded-2xl border border-dashed border-sky-100 bg-sky-50/30 p-4 text-center">
+                        <p class="text-sm font-bold text-slate-500">Nothing set for today.</p>
+                      </div>
+                    {/if}
+                  </div>
                 </div>
 
                 <div>

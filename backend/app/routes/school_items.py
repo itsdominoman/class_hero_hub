@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -136,6 +136,11 @@ def _serialize_school_items(items: list[models.SchoolItem]) -> list[schemas.Scho
     return [schemas.SchoolItem.model_validate(item) for item in items]
 
 
+def _school_items_for_date(db: Session, child: models.Child, target_date: date) -> list[schemas.SchoolItem]:
+    _migrate_legacy_school_items_for_child(db, child)
+    return _serialize_school_items(_school_items_query(db, child.id, target_date.weekday()).all())
+
+
 @router.get("/", response_model=List[schemas.SchoolItem])
 async def get_school_items(
     child_id: int = Query(...),
@@ -209,29 +214,29 @@ async def replace_school_items(
 @router.get("/today", response_model=List[schemas.SchoolItem])
 async def get_school_items_today(
     child_id: int = Query(...),
+    offset: int = Query(0, ge=0, le=1),
     db: Session = Depends(get_db),
     current_parent: models.ParentUser = Depends(auth.get_current_parent),
 ):
     child = _require_child_for_parent(db, current_parent, child_id)
-    _migrate_legacy_school_items_for_child(db, child)
     family = child.family
     if not family:
         return []
 
-    today = calendar_service.get_family_today(family.timezone)
-    return _serialize_school_items(_school_items_query(db, child.id, today.weekday()).all())
+    target_date = calendar_service.get_family_today(family.timezone) + timedelta(days=offset)
+    return _school_items_for_date(db, child, target_date)
 
 
 @child_router.get("/today", response_model=List[schemas.SchoolItem])
 async def get_my_school_items_today(
+    offset: int = Query(0, ge=0, le=1),
     db: Session = Depends(get_db),
     current_child: models.Child = Depends(child_auth.get_current_child),
 ):
     child = current_child
-    _migrate_legacy_school_items_for_child(db, child)
     family = child.family
     if not family:
         return []
 
-    today = calendar_service.get_family_today(family.timezone)
-    return _serialize_school_items(_school_items_query(db, child.id, today.weekday()).all())
+    target_date = calendar_service.get_family_today(family.timezone) + timedelta(days=offset)
+    return _school_items_for_date(db, child, target_date)

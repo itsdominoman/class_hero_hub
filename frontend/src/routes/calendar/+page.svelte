@@ -1252,9 +1252,9 @@
       <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-4 md:px-6 md:py-5">
         <div class="min-w-0">
           <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">School Books & Classes</p>
-          <h2 class="mt-1 text-2xl font-black text-slate-950">Set what school needs today</h2>
+          <h2 class="mt-1 text-2xl font-black text-slate-950">Set what your child needs for each school day</h2>
           <p class="mt-2 text-sm font-medium leading-6 text-slate-500">
-            Add classes and the books or items your child should pack for each weekday.
+            These items appear in School Bag and School Prep.
           </p>
         </div>
         <button type="button" class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 transition hover:bg-slate-200" onclick={closeSchoolModal}>

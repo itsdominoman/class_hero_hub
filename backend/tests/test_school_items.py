@@ -149,6 +149,15 @@ def test_today_endpoints_use_family_timezone(db, client, monkeypatch):
         sort_order=0,
         created_by_parent_id=parent.id,
     ))
+    db.add(models.SchoolItem(
+        family_id=family.id,
+        child_id=child.id,
+        weekday=3,
+        class_name="Science",
+        needed_item="Science book",
+        sort_order=1,
+        created_by_parent_id=parent.id,
+    ))
     db.commit()
 
     called = {}
@@ -164,15 +173,43 @@ def test_today_endpoints_use_family_timezone(db, client, monkeypatch):
     app.dependency_overrides[get_current_parent] = lambda: parent
     app.dependency_overrides[get_current_child] = lambda: child
 
-    parent_resp = client.get(f"/api/school-items/today?child_id={child.id}")
+    parent_resp = client.get(f"/api/school-items/today?child_id={child.id}&offset=0")
     assert parent_resp.status_code == 200
     assert parent_resp.json()[0]["class_name"] == "Math"
     assert called["timezone"] == family.timezone
 
-    child_resp = client.get("/api/child/school-items/today")
+    parent_tomorrow_resp = client.get(f"/api/school-items/today?child_id={child.id}&offset=1")
+    assert parent_tomorrow_resp.status_code == 200
+    assert parent_tomorrow_resp.json()[0]["class_name"] == "Science"
+    assert called["timezone"] == family.timezone
+
+    child_resp = client.get("/api/child/school-items/today?offset=0")
     assert child_resp.status_code == 200
     assert child_resp.json()[0]["class_name"] == "Math"
     assert called["timezone"] == family.timezone
+
+    child_tomorrow_resp = client.get("/api/child/school-items/today?offset=1")
+    assert child_tomorrow_resp.status_code == 200
+    assert child_tomorrow_resp.json()[0]["class_name"] == "Science"
+    assert called["timezone"] == family.timezone
+
+    del app.dependency_overrides[get_current_parent]
+    del app.dependency_overrides[get_current_child]
+
+
+def test_today_endpoints_reject_invalid_offset(db, client):
+    family, parent, child = _create_family_with_parent_and_child(db)
+
+    from app.auth import get_current_parent
+    from app.child_auth import get_current_child
+    app.dependency_overrides[get_current_parent] = lambda: parent
+    app.dependency_overrides[get_current_child] = lambda: child
+
+    parent_resp = client.get(f"/api/school-items/today?child_id={child.id}&offset=2")
+    assert parent_resp.status_code == 422
+
+    child_resp = client.get("/api/child/school-items/today?offset=-1")
+    assert child_resp.status_code == 422
 
     del app.dependency_overrides[get_current_parent]
     del app.dependency_overrides[get_current_child]
