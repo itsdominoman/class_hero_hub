@@ -788,7 +788,7 @@
   <title>Family Calendar</title>
 </svelte:head>
 
-<div class="min-h-screen max-w-full overflow-x-hidden bg-slate-50 pb-16">
+<div class="min-h-dvh max-w-full overflow-x-hidden bg-slate-50 pb-[calc(4rem+var(--safe-bottom))]">
   {#if loading}
     <div class="flex justify-center py-24">
       <div class="flex flex-col items-center gap-4">
@@ -1248,7 +1248,7 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="absolute inset-0 backdrop-blur-sm" onclick={closeSchoolModal}></div>
 
-    <div class="relative z-10 flex max-h-[92dvh] w-full flex-col overflow-hidden bg-white shadow-2xl md:max-w-2xl md:rounded-[2rem]">
+    <div class="relative z-10 flex max-h-[calc(100dvh-var(--safe-top))] w-full flex-col overflow-hidden bg-white shadow-2xl md:max-h-[92dvh] md:max-w-2xl md:rounded-[2rem]">
       <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-4 md:px-6 md:py-5">
         <div class="min-w-0">
           <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">School Books & Classes</p>
@@ -1262,7 +1262,7 @@
         </button>
       </div>
 
-      <form class="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6" onsubmit={saveSchoolRows}>
+      <form class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 pb-[calc(1.25rem+var(--safe-bottom))] md:px-6 md:pb-5" onsubmit={saveSchoolRows}>
         {#if schoolError}
           <div class="mb-5 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
             {schoolError}
@@ -1370,7 +1370,7 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="absolute inset-0 backdrop-blur-sm" onclick={clearModal}></div>
 
-    <div class="relative z-10 flex h-[calc(100dvh-0px)] w-full flex-col overflow-hidden bg-white shadow-2xl md:h-auto md:max-h-[92vh] md:max-w-3xl md:rounded-[2rem]">
+    <div class="relative z-10 flex h-[100dvh] max-h-[calc(100dvh-var(--safe-top))] w-full flex-col overflow-hidden bg-white shadow-2xl md:h-auto md:max-h-[92dvh] md:max-w-3xl md:rounded-[2rem]">
       <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-4 md:px-6 md:py-5">
         <div class="min-w-0">
           <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Schedule item</p>
@@ -1383,7 +1383,7 @@
       </div>
 
       <form class="flex min-h-0 flex-1 flex-col" onsubmit={saveEntry}>
-        <div class="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
+        <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 md:px-6">
           {#if formError}
             <div class="mb-5 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
               {formError}
@@ -1562,7 +1562,7 @@
           </div>
         </div>
 
-        <div class="border-t border-slate-100 bg-white px-4 py-4 md:px-6">
+        <div class="border-t border-slate-100 bg-white px-4 py-4 pb-[calc(1rem+var(--safe-bottom))] md:px-6 md:pb-4">
           <div class="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
             <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-slate-700" onclick={clearModal}>
               Cancel

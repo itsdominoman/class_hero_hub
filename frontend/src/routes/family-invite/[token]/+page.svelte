@@ -29,9 +29,9 @@
   onMount(verifyInvite);
 </script>
 
-<div class="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+<div class="min-h-dvh bg-slate-50 flex items-center justify-center px-3 sm:px-4 py-[calc(2rem+var(--safe-top))] pb-[calc(2rem+var(--safe-bottom))]">
   <div class="max-w-md w-full">
-    <div class="bg-white rounded-[2.5rem] shadow-2xl p-8 md:p-12 text-center border border-slate-100">
+    <div class="bg-white rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl p-6 sm:p-8 md:p-12 text-center border border-slate-100">
       {#if loading}
         <div class="flex flex-col items-center gap-6 py-8">
           <div class="relative">
@@ -64,7 +64,7 @@
             <UserPlus size={40} />
           </div>
           <div>
-            <h1 class="text-3xl font-black text-slate-900 uppercase tracking-tight">You're Invited!</h1>
+            <h1 class="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tight">You're Invited!</h1>
             <p class="text-slate-600 font-medium mt-3">
               You've been invited to join a family on <strong>Family Hero Hub</strong>.
             </p>
@@ -77,7 +77,7 @@
           </div>
 
           <div class="space-y-4 w-full pt-4">
-            <button onclick={goToLogin} class="btn-hero w-full py-5 rounded-2xl flex items-center justify-center gap-3 text-lg shadow-xl shadow-hero/20 hover:scale-[1.02] active:scale-95 transition-all">
+            <button onclick={goToLogin} class="btn-hero w-full py-5 rounded-2xl flex items-center justify-center gap-3 text-base sm:text-lg shadow-xl shadow-hero/20 hover:scale-[1.02] active:scale-95 transition-all">
               <LogIn size={24} /> Login with Google
             </button>
             <p class="text-xs text-slate-400 font-medium">
@@ -112,5 +112,4 @@
 
   .text-hero { color: #FF5A5F; }
   .text-savings { color: #00A699; }
-  .bg-hero { background: #FF5A5F; }
 </style>

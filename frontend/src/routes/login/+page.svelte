@@ -16,9 +16,9 @@
   });
 </script>
 
-<div class="min-h-[80vh] flex items-center justify-center px-4">
+<div class="min-h-[calc(100dvh-5rem)] flex items-center justify-center px-3 sm:px-4 py-8">
   <div class="max-w-md w-full">
-    <div class="card p-8 md:p-12 text-center relative overflow-hidden">
+    <div class="card p-6 sm:p-8 md:p-12 text-center relative overflow-hidden">
       <!-- Decorative background -->
       <div class="absolute -top-24 -right-24 w-48 h-48 bg-hero/5 rounded-full blur-3xl"></div>
       <div class="absolute -bottom-24 -left-24 w-48 h-48 bg-savings/5 rounded-full blur-3xl"></div>
@@ -30,7 +30,7 @@
       <h1 class="text-3xl font-black text-slate-900 mb-2">Welcome Back</h1>
       <p class="text-slate-600 mb-8">Sign in with Google to open your parent dashboard and manage points.</p>
 
-      <div class="bg-slate-50 border-2 border-slate-100 p-6 rounded-2xl mb-8 text-sm text-slate-600 leading-relaxed">
+      <div class="bg-slate-50 border-2 border-slate-100 p-4 sm:p-6 rounded-2xl mb-8 text-sm text-slate-600 leading-relaxed">
         <p>Family Hero Hub never asks for or stores your Google password. You will be redirected to <strong>accounts.google.com</strong> to sign in securely.</p>
       </div>
 

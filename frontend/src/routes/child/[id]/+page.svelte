@@ -535,7 +535,7 @@
   onMount(loadData);
 </script>
 
-<div class="min-h-screen bg-[#fffaf4] pb-16 overflow-x-hidden">
+<div class="min-h-dvh max-w-full bg-[#fffaf4] pb-[calc(4rem+var(--safe-bottom))] overflow-x-hidden">
   {#if loading}
     <div class="flex justify-center py-40">
       <div class="flex flex-col items-center gap-4">
@@ -569,10 +569,10 @@
     </div>
   {:else if summary}
     <section class="border-b border-[#f0e4d7] bg-[linear-gradient(180deg,#fffaf4_0%,#ffffff_100%)]">
-      <div class="max-w-7xl mx-auto px-4 py-10 md:py-12">
+      <div class="max-w-7xl mx-auto px-3 sm:px-4 py-8 md:py-12">
         <div class="grid gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)] items-center">
           <div class="space-y-6">
-            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-hero/10 text-hero border border-hero/20 text-xs font-black uppercase tracking-[0.22em]">
+            <div class="inline-flex max-w-full items-center gap-2 px-4 py-2 rounded-full bg-hero/10 text-hero border border-hero/20 text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.22em]">
               <Sparkles size={14} />
               Kid dashboard
             </div>
@@ -585,23 +585,23 @@
                 </div>
 
               <div class="min-w-0">
-                <h1 class="text-4xl md:text-6xl font-black text-slate-950 tracking-tight break-words">
+                <h1 class="text-3xl sm:text-4xl md:text-6xl font-black text-slate-950 tracking-tight break-words">
                   {summary.child.display_name}
                 </h1>
                 <p class="text-slate-600 font-medium mt-2 max-w-2xl">
                   Keep earning points, pick rewards you can afford, and watch your hero grow.
                 </p>
                 <div class="mt-4 flex flex-wrap gap-3">
-                  <span class="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-slate-900 text-white text-xs font-black uppercase tracking-[0.2em]">
+                  <span class="inline-flex max-w-full items-center gap-2 px-3 py-2 rounded-full bg-slate-900 text-white text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.2em]">
                     <BadgeCheck size={14} />
-                    {stageInfo.label} stage
+                    <span class="min-w-0 break-words">{stageInfo.label} stage</span>
                   </span>
-                  <span class="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-white text-slate-700 border border-slate-200 text-xs font-black uppercase tracking-[0.2em]">
+                  <span class="inline-flex max-w-full items-center gap-2 px-3 py-2 rounded-full bg-white text-slate-700 border border-slate-200 text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.2em]">
                     {accessMode === 'child' ? 'Child session' : 'Parent preview'}
                   </span>
                   {#if avatarLabel}
-                    <span class="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-white text-slate-700 border border-slate-200 text-xs font-black uppercase tracking-[0.2em]">
-                      Avatar: {avatarLabel}
+                    <span class="inline-flex max-w-full items-center gap-2 px-3 py-2 rounded-full bg-white text-slate-700 border border-slate-200 text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.2em]">
+                      <span class="min-w-0 break-words">Avatar: {avatarLabel}</span>
                     </span>
                   {/if}
                 </div>
@@ -664,16 +664,16 @@
       </div>
     </section>
 
-    <main class="max-w-7xl mx-auto px-4 pt-8 md:pt-10">
+    <main class="max-w-7xl mx-auto px-3 sm:px-4 pt-8 md:pt-10">
       <div class="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
         <div class="order-2 space-y-8 lg:order-1">
           <section class="card bg-white p-6 md:p-8 border border-slate-100 shadow-xl">
-            <div class="flex items-center justify-between gap-4 mb-6">
-              <div>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 mb-6">
+              <div class="min-w-0">
                 <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2">Reward ideas</p>
                 <h2 class="text-2xl md:text-3xl font-black text-slate-950">Choose a reward</h2>
               </div>
-              <div class="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-slate-100 text-slate-700 text-xs font-black uppercase tracking-[0.22em]">
+              <div class="inline-flex w-fit items-center gap-2 px-3 py-2 rounded-full bg-slate-100 text-slate-700 text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.22em]">
                 <Gift size={14} />
                 {rewardOptions.length} available
               </div>
@@ -689,20 +689,20 @@
                         <h3 class="text-lg font-black text-slate-950 break-words">{reward.title}</h3>
                         <p class="text-sm text-slate-600 mt-1 break-words line-clamp-2">{reward.description || 'A reward your parents can approve.'}</p>
                       </div>
-                      <div class={`shrink-0 rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.15em] border whitespace-nowrap leading-none ${affordable ? 'bg-savings/10 text-savings border-savings/20' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
+                      <div class={`shrink-0 rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.12em] sm:tracking-[0.15em] border whitespace-nowrap leading-none ${affordable ? 'bg-savings/10 text-savings border-savings/20' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
                         {reward.points} HP
                       </div>
                     </div>
 
                     <div class="flex flex-col gap-2">
-                      <span class="inline-flex w-fit items-center rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] leading-none whitespace-nowrap bg-slate-100 text-slate-500">
+                      <span class="inline-flex w-fit max-w-full items-center rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] sm:tracking-[0.16em] leading-none bg-slate-100 text-slate-500">
                         {affordable ? 'Affordable now' : `Need ${rewardShortfall(reward.points)} more`}
                       </span>
                       <button
                         type="button"
                         disabled={!affordable || submittingRewardId === reward.id}
                         onclick={() => requestPresetReward(reward)}
-                        class="inline-flex w-full max-w-full justify-center items-center gap-2 rounded-2xl px-3 py-2.5 text-[10px] sm:text-xs font-black uppercase tracking-[0.18em] bg-hero text-white shadow-lg shadow-hero/20 disabled:opacity-50 disabled:shadow-none shrink-0"
+                        class="inline-flex w-full max-w-full justify-center items-center gap-2 rounded-2xl px-3 py-3 text-[10px] sm:text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] bg-hero text-white shadow-lg shadow-hero/20 disabled:opacity-50 disabled:shadow-none shrink-0"
                       >
                         {submittingRewardId === reward.id ? 'Sending...' : 'Request'}
                         <ArrowRight size={12} />
@@ -720,8 +720,8 @@
           </section>
 
           <section class="card bg-white p-6 md:p-8 border border-slate-100 shadow-xl">
-            <div class="flex items-center justify-between gap-4 mb-6">
-              <div>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 mb-6">
+              <div class="min-w-0">
                 <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2">Custom request</p>
                 <h2 class="text-2xl md:text-3xl font-black text-slate-950">Ask for something else</h2>
               </div>
@@ -755,7 +755,7 @@
               <button
                 type="submit"
                 disabled={submitting || !customRewardTitle.trim() || customRewardPoints < 1 || customRewardPoints > summary.available_spending}
-                class="inline-flex w-full justify-center items-center gap-2 rounded-2xl bg-hero px-5 py-4 text-white font-black uppercase tracking-[0.22em] shadow-lg shadow-hero/20 disabled:opacity-50 md:w-auto"
+                class="inline-flex w-full justify-center items-center gap-2 rounded-2xl bg-hero px-5 py-4 text-white font-black uppercase tracking-[0.14em] sm:tracking-[0.22em] shadow-lg shadow-hero/20 disabled:opacity-50 md:w-auto"
               >
                 {submitting ? 'Sending...' : 'Send'}
                 <ArrowRight size={16} />
@@ -764,12 +764,12 @@
           </section>
 
           <section class="card bg-white p-6 md:p-8 border border-slate-100 shadow-xl">
-            <div class="flex items-center justify-between gap-4 mb-6">
-              <div>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 mb-6">
+              <div class="min-w-0">
                 <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2">Recent activity</p>
                 <h2 class="text-2xl md:text-3xl font-black text-slate-950">Points log</h2>
               </div>
-              <div class="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-slate-100 text-slate-700 text-xs font-black uppercase tracking-[0.22em]">
+              <div class="inline-flex w-fit items-center gap-2 px-3 py-2 rounded-full bg-slate-100 text-slate-700 text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.22em]">
                 <Clock3 size={14} />
                 Latest entries
               </div>
@@ -1088,8 +1088,8 @@
           </section>
 
           <section class="card bg-white p-6 md:p-8 border border-slate-100 shadow-xl">
-            <div class="flex items-center justify-between gap-4 mb-6">
-              <div>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 mb-6">
+              <div class="min-w-0">
                 <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2">Pending</p>
                 <h2 class="text-2xl font-black text-slate-950">Waiting requests</h2>
               </div>
@@ -1102,12 +1102,12 @@
               <div class="space-y-3">
                 {#each pendingRequests as request}
                   <div class="rounded-[1.5rem] border border-hero/20 bg-hero/5 p-4">
-                    <div class="flex items-start justify-between gap-3">
+                    <div class="flex items-start justify-between gap-3 min-w-0">
                       <div class="min-w-0">
                         <h3 class="font-black text-slate-950 break-words">{request.title}</h3>
                         <p class="text-sm text-slate-600 mt-1 break-words">{request.description || 'Waiting for approval.'}</p>
                       </div>
-                      <span class="shrink-0 rounded-2xl bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.2em] text-hero border border-hero/20">
+                      <span class="shrink-0 rounded-2xl bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.12em] sm:tracking-[0.2em] text-hero border border-hero/20">
                         {request.points} HP
                       </span>
                     </div>
@@ -1128,11 +1128,11 @@
           <section class="card bg-gradient-to-br from-[#f3efff] via-[#eef2ff] to-[#f8f8ff] text-slate-900 p-6 md:p-8 shadow-2xl relative overflow-hidden border border-slate-200">
             <div class="absolute inset-0 bg-gradient-to-br from-hero/20 via-transparent to-transparent"></div>
             <div class="relative z-10">
-              <div class="flex items-center gap-3 mb-5">
+              <div class="flex items-center gap-3 mb-5 min-w-0">
                 <div class="w-12 h-12 rounded-2xl bg-white/80 border border-slate-200 flex items-center justify-center text-slate-700">
                   <PiggyBank size={22} />
                 </div>
-                <div>
+                <div class="min-w-0">
                   <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-600">Bank</p>
                   <h2 class="text-2xl font-black text-slate-950">Savings snapshot</h2>
                 </div>

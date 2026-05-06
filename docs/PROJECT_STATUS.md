@@ -63,6 +63,8 @@
 
 ### UI / UX
 - Responsive layout (tablet + mobile)
+- Mobile UI consistency pass completed across common phone widths for parent dashboard, child dashboard, rewards, auth/linking pages, and calendar modals
+- Global mobile viewport safeguards added for dynamic viewport height, safe-area insets, horizontal overflow, tap targets, and mobile form font sizing
 - QR linking UI for child devices
 - Reward cards fixed (no overflow issues)
 - Improved contrast and readability
@@ -85,6 +87,8 @@
 - Multi-child support (e.g., Jackson, Leah)
 - Parent calendar event/task creation, editing, deletion, recurrence, and rewardable tasks
 - Mobile calendar layout visually tested and improved
+- Mobile consistency viewport sweep completed against production frontend build at 320, 360, 375, 390, 412, 430, 768, and 1365 px widths using mocked app data; no horizontal page scrolling or non-decorative element overflow found
+- Parent dashboard child cards, quick actions, School Prep cards, rewards UI, child detail/log sections, login/request access, child/family invite pages, and parent/calendar modals were included in the mobile consistency pass
 - School Bag and School Prep today/tomorrow school item flows
 - Admin registration request approval
 - Admin users page search/filter/pagination
@@ -120,6 +124,10 @@
 - Warning cleanup / backend deprecation cleanup
 - Optional future school timetable improvements
 - Scheduled rewards / recurring behaviours
+
+### Mobile Follow-Up
+- Real-device Android Chrome and iPhone Safari checks are still recommended before Capacitor packaging; current verification used Chromium mobile emulation with mocked API data.
+- Device/session management UI remains a future mobile workflow once the dedicated page is added.
 
 ---
 

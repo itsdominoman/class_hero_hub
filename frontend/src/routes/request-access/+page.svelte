@@ -30,9 +30,9 @@
   }
 </script>
 
-<div class="min-h-[80vh] flex items-center justify-center px-4 py-12">
+<div class="min-h-[calc(100dvh-5rem)] flex items-center justify-center px-3 sm:px-4 py-8 md:py-12">
   <div class="max-w-xl w-full">
-    <div class="card p-8 md:p-12 relative overflow-hidden">
+    <div class="card p-6 sm:p-8 md:p-12 relative overflow-hidden">
       <div class="absolute -top-24 -right-24 w-48 h-48 bg-hero/5 rounded-full blur-3xl"></div>
 
       {#if success}
@@ -41,7 +41,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
           </div>
           <h1 class="text-3xl font-black text-slate-900 mb-4">Request Received!</h1>
-          <p class="text-slate-600 mb-8 text-lg">
+          <p class="text-slate-600 mb-8 text-base sm:text-lg break-words">
             We've received your request to join Family Hero Hub. We'll review it and get back to you at <strong>{email}</strong> once your access is approved.
           </p>
           <a href="/login" class="btn-secondary inline-block">Return to Login</a>
@@ -51,13 +51,13 @@
           <h1 class="text-3xl font-black text-slate-900 mb-2">Request Access</h1>
           <p class="text-slate-600 mb-6">Family Hero Hub is currently in limited release. Request access below to start your family's hero journey.</p>
           
-          <div class="bg-slate-50 border-2 border-slate-100 p-6 rounded-2xl text-sm text-slate-600 leading-relaxed text-left">
+          <div class="bg-slate-50 border-2 border-slate-100 p-4 sm:p-6 rounded-2xl text-sm text-slate-600 leading-relaxed text-left">
             <p><strong>Note:</strong> This form does not create an account immediately. After approval, you will sign in using <strong>Google OAuth</strong>. Family Hero Hub never asks for your Google password.</p>
           </div>
         </div>
 
         {#if error}
-          <div class="bg-rose-50 border-2 border-rose-100 text-rose-600 p-4 rounded-2xl mb-8 font-medium text-sm flex items-center gap-3">
+          <div class="bg-rose-50 border-2 border-rose-100 text-rose-600 p-4 rounded-2xl mb-8 font-medium text-sm flex items-start gap-3 break-words">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             {error}
           </div>

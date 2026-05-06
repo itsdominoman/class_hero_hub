@@ -36,6 +36,7 @@ https://familyherohub.com
 - Google OAuth login
 - Family-based account system
 - Multiple children per family
+- Mobile-consistent parent dashboard cards and quick actions across common phone widths
 - Behaviour presets (quick point assignment)
 - Reward creation with custom point values
 - Reward approval workflow
@@ -48,7 +49,7 @@ https://familyherohub.com
 - Child profiles linked to parent accounts
 - QR-based device linking (no email required)
 - Persistent child sessions (no shared parent login)
-- Kid-friendly dashboard UI
+- Kid-friendly dashboard UI with mobile-safe reward, points log, My Day, and School Bag sections
 - Reward request system
 
 ---

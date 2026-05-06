@@ -21,27 +21,27 @@
   let primaryCtaLabel = $derived(sessionLoaded && authenticated ? 'Go to Dashboard' : 'Start Your Journey');
 </script>
 
-<div class="relative overflow-hidden bg-hero-pattern">
+<div class="relative max-w-full overflow-hidden bg-hero-pattern">
   <!-- Hero Section -->
-  <section class="py-20 lg:py-32 px-4 relative">
+  <section class="py-16 sm:py-20 lg:py-32 px-3 sm:px-4 relative">
     <div class="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
       <div class="text-left relative z-10">
-        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-hero/10 text-hero text-sm font-black mb-8 animate-pulse border border-hero/20">
+        <div class="inline-flex max-w-full items-center gap-2 px-4 py-2 rounded-full bg-hero/10 text-hero text-sm font-black mb-8 animate-pulse border border-hero/20">
           <Sparkles size={16} />
-          <span class="uppercase tracking-widest">Family goals made simple</span>
+          <span class="uppercase tracking-[0.12em] sm:tracking-widest">Family goals made simple</span>
         </div>
-        <h1 class="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black text-slate-900 mb-8 leading-[0.92] tracking-tighter break-words">
+        <h1 class="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black text-slate-900 mb-8 leading-[0.98] sm:leading-[0.92] tracking-tighter break-words">
           Turn Responsibility into <span class="text-hero text-transparent bg-clip-text bg-gradient-to-r from-hero to-hero-light">Superpowers.</span>
         </h1>
         <p class="text-lg sm:text-xl md:text-2xl text-slate-600 mb-12 max-w-xl leading-relaxed">
-          A fun family app where kids earn <span class="font-bold text-slate-800 underline decoration-hero/30">Hero Points</span>, build better habits, save toward goals, and request real rewards — all with parent approval.
+          A fun family app where kids earn <span class="font-bold text-slate-800 underline decoration-hero/30">Hero Points</span>, build better habits, save toward goals, and request real rewards, all with parent approval.
         </p>
         
         <div class="flex flex-col sm:flex-row gap-4">
-          <a href={primaryCtaHref} class="btn-hero px-8 sm:px-10 py-4 sm:py-5 text-lg sm:text-xl flex items-center justify-center gap-3 rounded-2xl">
+          <a href={primaryCtaHref} class="btn-hero px-5 sm:px-10 py-4 sm:py-5 text-base sm:text-xl flex items-center justify-center gap-3 rounded-2xl">
             {primaryCtaLabel} <ArrowRight size={24} />
           </a>
-          <a href="#features" class="btn-secondary px-8 sm:px-10 py-4 sm:py-5 text-lg sm:text-xl rounded-2xl flex items-center justify-center">
+          <a href="#features" class="btn-secondary px-5 sm:px-10 py-4 sm:py-5 text-base sm:text-xl rounded-2xl flex items-center justify-center">
             See How it Works
           </a>
         </div>
@@ -95,15 +95,15 @@
   </section>
 
   <!-- Feature Cards -->
-  <section id="features" class="py-24 bg-white relative">
-    <div class="max-w-7xl mx-auto px-4">
-      <div class="text-center mb-20">
+  <section id="features" class="py-16 md:py-24 bg-white relative">
+    <div class="max-w-7xl mx-auto px-3 sm:px-4">
+      <div class="text-center mb-12 md:mb-20">
         <h2 class="text-4xl md:text-5xl font-black text-slate-900 mb-4">Built for <span class="text-hero underline decoration-hero/20">busy families</span></h2>
         <p class="text-xl text-slate-600 max-w-2xl mx-auto">A simple system for parents. A fun progress dashboard for kids.</p>
       </div>
 
-      <div class="grid md:grid-cols-4 gap-8">
-        <div class="card p-8 group hover:-translate-y-2 transition-all duration-300 border-b-8 border-hero">
+      <div class="grid md:grid-cols-4 gap-5 md:gap-8">
+        <div class="card p-6 md:p-8 group hover:-translate-y-2 transition-all duration-300 border-b-8 border-hero">
           <div class="w-16 h-16 bg-hero/10 text-hero rounded-3xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
             <Trophy size={32} />
           </div>
@@ -111,7 +111,7 @@
           <p class="text-slate-600 leading-relaxed">Reward chores, good behaviour, routines, and milestones with instant points.</p>
         </div>
 
-        <div class="card p-8 group hover:-translate-y-2 transition-all duration-300 border-b-8 border-hero-dark">
+        <div class="card p-6 md:p-8 group hover:-translate-y-2 transition-all duration-300 border-b-8 border-hero-dark">
           <div class="w-16 h-16 bg-hero-dark/10 text-hero-dark rounded-3xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
             <Star size={32} />
           </div>
@@ -119,7 +119,7 @@
           <p class="text-slate-600 leading-relaxed">Use quick actions and rewards to make daily routines easier to follow.</p>
         </div>
 
-        <div class="card p-8 group hover:-translate-y-2 transition-all duration-300 border-b-8 border-savings">
+        <div class="card p-6 md:p-8 group hover:-translate-y-2 transition-all duration-300 border-b-8 border-savings">
           <div class="w-16 h-16 bg-savings/10 text-savings rounded-3xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
             <PiggyBank size={32} />
           </div>
@@ -127,7 +127,7 @@
           <p class="text-slate-600 leading-relaxed">Help kids learn patience by setting points aside in a savings jar.</p>
         </div>
 
-        <div class="card p-8 group hover:-translate-y-2 transition-all duration-300 border-b-8 border-reward">
+        <div class="card p-6 md:p-8 group hover:-translate-y-2 transition-all duration-300 border-b-8 border-reward">
           <div class="w-16 h-16 bg-reward/10 text-reward rounded-3xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
             <Coins size={32} />
           </div>
@@ -139,8 +139,8 @@
   </section>
 
   <!-- Pet Evolution Visual -->
-  <section class="py-24 bg-slate-50 border-y border-slate-200 overflow-hidden">
-    <div class="max-w-7xl mx-auto px-4">
+  <section class="py-16 md:py-24 bg-slate-50 border-y border-slate-200 overflow-hidden">
+    <div class="max-w-7xl mx-auto px-3 sm:px-4">
       <div class="text-center mb-16">
         <h2 class="text-4xl font-black text-slate-900 mb-4 uppercase tracking-tighter">The Path of a Hero</h2>
         <p class="text-slate-600 font-bold uppercase tracking-widest text-sm">Watch their pet grow and evolve as they earn points</p>
@@ -192,14 +192,14 @@
   </section>
 
   <!-- Parent Trust Section -->
-  <section class="py-24 px-4">
-    <div class="max-w-5xl mx-auto card p-12 md:p-20 !bg-slate-900 text-white relative overflow-hidden">
+  <section class="py-16 md:py-24 px-3 sm:px-4">
+    <div class="max-w-5xl mx-auto card p-6 sm:p-10 md:p-20 !bg-slate-900 text-white relative overflow-hidden">
       <div class="absolute top-0 right-0 w-96 h-96 bg-hero/10 rounded-full blur-[120px]"></div>
       <div class="relative z-10 text-center">
         <h2 class="text-4xl md:text-5xl font-black mb-4 leading-tight">Everything you need for a <span class="text-hero">happier household</span></h2>
         <p class="text-slate-400 font-bold uppercase tracking-widest text-sm mb-12">Helping families build better habits, one small win at a time.</p>
         
-        <div class="bg-white/5 border border-white/10 p-8 rounded-3xl mb-16 text-left max-w-3xl mx-auto">
+        <div class="bg-white/5 border border-white/10 p-5 sm:p-8 rounded-3xl mb-12 md:mb-16 text-left max-w-3xl mx-auto">
           <p class="text-slate-300 leading-relaxed">
             Family Hero Hub is a family rewards and responsibility app for parents and children. 
             Parents create child profiles, children earn points for positive actions, and rewards can be requested and approved. 
@@ -230,7 +230,7 @@
             </div>
           </div>
         </div>
-        <a href={primaryCtaHref} class="btn-hero inline-flex items-center gap-2 px-12 py-5 text-xl">
+        <a href={primaryCtaHref} class="btn-hero inline-flex w-full items-center justify-center gap-2 px-6 sm:px-12 py-5 text-lg sm:text-xl sm:w-auto">
           {primaryCtaLabel} <ArrowRight size={24} />
         </a>
       </div>

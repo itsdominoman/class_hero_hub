@@ -82,9 +82,12 @@
 
 ## 📱 Phase 5 – Platform Expansion
 
+- Completed: Web mobile consistency pass for common Android/iPhone viewport widths before app wrapper work
+- Completed: Dynamic viewport height, safe-area inset, tap-target, form font-size, and overflow safeguards for future WebView/Capacitor shells
 - Mobile apps (Android APK first)
 - Tablet-first UI polish
 - Offline-friendly child mode
+- Future: Real-device Android/iPhone QA pass before store submission
 
 ---
 
