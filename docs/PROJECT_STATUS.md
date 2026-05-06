@@ -23,6 +23,31 @@
 - Reward request flow implemented
 - Pending reward requests visible to parents
 
+### Family Calendar
+- Parent-facing calendar page is implemented
+- Parents can create, edit, and delete child calendar entries
+- Supports normal events and task entries
+- Supports rewardable tasks tied to the points system
+- Supports simple recurrence:
+  - none
+  - daily
+  - weekly
+- Mobile calendar layout is responsive with no horizontal page scrolling
+- Mobile week picker uses a compact `S M T W T F S` strip
+- Child dashboard shows today's tasks and events through the My Day/calendar integration
+
+### School Bag / School Prep
+- Dedicated `school_items` backend is implemented
+- School items are stored separately from calendar events and tasks
+- Parents can configure school books/classes per child and weekday
+- School items do not appear in the normal calendar agenda or week view
+- Child dashboard School Bag shows:
+  - Pack for tomorrow
+  - Needed today
+  - Check stationery
+- Parent dashboard School Prep shows today/tomorrow school items per child
+- Today/tomorrow lookup uses the family's timezone
+
 ### Behaviour System
 - Quick-tap behaviour presets (points/penalties)
 - Separated from rewards (no longer mixed)
@@ -38,8 +63,8 @@
 - Dockerized deployment
 - Caddy reverse proxy with HTTPS
 - Domain: https://familyherohub.com
-- Backend tests passing (21 tests)
-- Frontend production build passes cleanly with no Svelte warnings
+- Backend tests passing (54 tests)
+- Frontend production build passes
 
 ---
 
@@ -49,6 +74,9 @@
 - Rewards creation → child visibility → request flow
 - Parent dashboard + child dashboard interaction
 - Multi-child support (e.g., Jackson, Leah)
+- Parent calendar event/task creation, editing, deletion, recurrence, and rewardable tasks
+- Mobile calendar layout visually tested and improved
+- School Bag and School Prep today/tomorrow school item flows
 
 ---
 
@@ -66,9 +94,15 @@
 - Pet evolution visuals added; remaining work: animations, level-up feedback, image optimization, and deeper progression polish.
 - Level progression feedback
 - Animations / engagement elements
+- Automatic weekly streak generation
+- Polished streak and bonus UI
 
 ### Productivity Features
-- Calendar / tasks / chores system
+- Full monthly calendar view
+- Drag-and-drop calendar editing
+- Notification/reminder system
+- Warning cleanup / backend deprecation cleanup
+- Optional future school timetable improvements
 - Scheduled rewards / recurring behaviours
 
 ---

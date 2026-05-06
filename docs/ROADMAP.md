@@ -31,18 +31,37 @@
 
 ---
 
-## 📅 Phase 3 – Structure & Habit Building
+## 📅 Phase 3 – Structure & Habit Building (IN PROGRESS)
 
-### 📆 Calendar System
-- Homework tracking
-- Chore scheduling
-- Events (sports, playdates, exams)
-- Reward triggers from completed tasks
+### 📆 Family Calendar
+- Completed: Parent-facing calendar page
+- Completed: Normal events
+- Completed: Task entries
+- Completed: Rewardable tasks
+- Completed: Simple recurrence (`none`, `daily`, `weekly`)
+- Completed: Mobile-responsive calendar layout with compact week strip
+- Completed: Child My Day integration for today's tasks/events
+- Future: Full monthly calendar view
+- Future: Drag-and-drop calendar editing
+- Future: Notification/reminder system
+- Future: Calendar warning cleanup and backend deprecation cleanup
+
+### 🎒 School Bag / School Prep
+- Completed: Dedicated `school_items` backend separate from calendar events/tasks
+- Completed: Parents can configure school books/classes per child and weekday
+- Completed: Child School Bag shows Pack for tomorrow, Needed today, and Check stationery
+- Completed: Parent School Prep shows today/tomorrow items per child
+- Completed: Family timezone-aware today/tomorrow lookup
+- Future: Optional school timetable improvements
 
 ### ⚙️ Parent Productivity
 - Preset behaviour templates
 - One-click daily routines
 - Batch reward/penalty assignment
+
+### 🔥 Streaks & Bonuses
+- Future: Automatic weekly streak generation
+- Future: Polished streak and bonus UI
 
 ---
 

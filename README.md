@@ -11,12 +11,15 @@ Family Hero Hub allows parents to:
 - Track behaviour using points
 - Create meaningful rewards
 - Encourage consistency and responsibility
+- Manage child calendar events, tasks, and rewardable tasks
+- Configure school books/classes for each child by weekday
 
 Children can:
 
 - Earn points for positive behaviour
 - View their progress on a kid-friendly dashboard
 - Request rewards
+- See today's tasks/events and school bag reminders
 - Use their own device via QR login (no email required)
 
 ---
@@ -53,6 +56,23 @@ https://familyherohub.com
 - Parent-defined rewards (e.g. "Happy Meal – 20 points")
 - Children can request rewards
 - Parents approve or reject requests
+
+---
+
+### 📅 Family Calendar
+- Parent-facing calendar for child events and tasks
+- Supports normal events, tasks, rewardable tasks, and simple recurrence
+- Mobile-responsive week layout with compact day strip
+- Child dashboard shows today's calendar tasks/events in My Day
+
+---
+
+### 🎒 School Bag / School Prep
+- Dedicated school item storage separate from calendar events/tasks
+- Parents configure books/classes per child and weekday
+- Child dashboard shows Pack for tomorrow, Needed today, and Check stationery
+- Parent dashboard shows today/tomorrow school prep per child
+- Today/tomorrow lookup uses the family timezone
 
 ---
 
