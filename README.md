@@ -36,8 +36,10 @@ https://familyherohub.com
 - Google OAuth login
 - Family-based account system
 - Multiple children per family
-- Mobile-consistent parent dashboard cards and quick actions across common phone widths
+- Mobile-first parent launcher with children first, House Points / Reward Requests summaries, and grouped Parent Tools
+- Parent Tools access for rewards, family settings, behaviour presets, calendar, pending requests, adding children, and child device linking
 - Behaviour presets (quick point assignment)
+- Positive, negative, and custom one-off point actions
 - Reward creation with custom point values
 - Reward approval workflow
 - Registration request approval flow
@@ -74,7 +76,6 @@ https://familyherohub.com
 - Dedicated school item storage separate from calendar events/tasks
 - Parents configure books/classes per child and weekday
 - Child dashboard shows Pack for tomorrow, Needed today, and Check stationery
-- Parent dashboard shows today/tomorrow school prep per child
 - Today/tomorrow lookup uses the family timezone
 
 ---
@@ -82,6 +83,8 @@ https://familyherohub.com
 ### ⚡ Behaviour System
 - Quick-tap behaviour presets
 - Positive and negative point assignment
+- Custom one-off point awards and penalties without creating presets
+- Short positive/negative feedback sounds after successful point changes
 - Designed for fast daily use by parents
 
 ---

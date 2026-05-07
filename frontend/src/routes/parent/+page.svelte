@@ -52,6 +52,8 @@
   let childLinkLoading = $state(false);
   let childLinkError = $state<string | null>(null);
   let childLinkCopied = $state(false);
+  let parentToolsSection = $state<HTMLElement | null>(null);
+  let pointAudioContext: AudioContext | null = null;
 
   const DEFAULT_EMOJIS = ['🪥', '📚', '🛏️', '⏰', '🧹', '🧺', '🍎', '🥦', '👍', '❤️', '⭐', '👑', '🎮', '🖥️', '📱', '😴', '😡', '🚫', '🧸', '🏃', '🎒', '✏️', '🧼', '🍽️'];
 
@@ -73,6 +75,79 @@
     message.toLowerCase().includes('not authenticated') ||
     message.toLowerCase().includes('invalid token') ||
     message.toLowerCase().includes('parent not found');
+
+  function scrollToParentTools() {
+    parentToolsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function getPointAudioContext() {
+    if (typeof window === 'undefined') return null;
+
+    const AudioContextConstructor = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextConstructor) return null;
+
+    if (!pointAudioContext) {
+      pointAudioContext = new AudioContextConstructor();
+    }
+
+    return pointAudioContext;
+  }
+
+  function preparePointSound() {
+    try {
+      const context = getPointAudioContext();
+      if (context?.state === 'suspended') {
+        void context.resume().catch(() => {});
+      }
+    } catch {
+      // Audio is optional and must never block point actions.
+    }
+  }
+
+  function playTone(
+    frequency: number,
+    durationSeconds: number,
+    type: OscillatorType = 'sine',
+    gainValue = 0.035,
+    endFrequency?: number
+  ) {
+    try {
+      const context = getPointAudioContext();
+      if (!context) return;
+      if (context.state === 'suspended') {
+        void context.resume().catch(() => {});
+      }
+
+      const startTime = context.currentTime;
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, startTime);
+      if (endFrequency) {
+        oscillator.frequency.linearRampToValueAtTime(endFrequency, startTime + durationSeconds);
+      }
+
+      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.exponentialRampToValueAtTime(gainValue, startTime + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + durationSeconds);
+
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start(startTime);
+      oscillator.stop(startTime + durationSeconds + 0.03);
+    } catch {
+      // Ignore unavailable or blocked audio.
+    }
+  }
+
+  function playPositiveSound() {
+    playTone(880, 0.16, 'sine', 0.25);
+    window.setTimeout(() => playTone(1175, 0.12, 'sine', 0.25), 70);
+  }
+
+  function playNegativeSound() {
+    playTone(165, 0.24, 'sawtooth', 0.25, 110);
+  }
 
   function getLocalDateValue(reference = new Date()) {
     const year = reference.getFullYear();
@@ -144,7 +219,9 @@
       presets = pr;
       familyMembers = fm;
       familyInvites = fi;
-      await loadSchoolPrep(c);
+      void loadSchoolPrep(c).catch((error) => {
+        console.warn('Failed to load school prep', error);
+      });
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Unable to load dashboard';
       if (isAuthError(message)) {
@@ -451,7 +528,50 @@
     }
   }
 
+  async function submitCustomPoints(direction: 'award' | 'penalty') {
+    if (!activeModal?.child) return;
+
+    const points = Math.abs(Number(modalForm.points) || 0);
+    if (points < 1) {
+      modalError = 'Enter at least 1 point';
+      return;
+    }
+
+    preparePointSound();
+
+    try {
+      modalLoading = true;
+      modalError = null;
+      const childId = activeModal.child.child.id;
+
+      if (direction === 'award') {
+        await api.post(`/children/${childId}/award`, {
+          points,
+          description: modalForm.description || 'Parent Award',
+          jar: modalForm.jar
+        });
+        playPositiveSound();
+      } else {
+        await api.post(`/children/${childId}/penalty`, {
+          points,
+          description: modalForm.description || 'Parent Penalty',
+          jar: modalForm.jar
+        });
+        playNegativeSound();
+      }
+
+      await loadDashboard();
+      closeModal();
+    } catch (e) {
+      modalError = e instanceof Error ? e.message : 'Action failed';
+    } finally {
+      modalLoading = false;
+    }
+  }
+
   async function applyPreset(childSummary: any, preset: any) {
+    preparePointSound();
+
     try {
       const childId = childSummary.child.id;
       if (preset.points > 0) {
@@ -460,12 +580,14 @@
           description: preset.title,
           jar: 'spending'
         });
+        playPositiveSound();
       } else {
         await api.post(`/children/${childId}/penalty`, {
           points: Math.abs(preset.points),
           description: preset.title,
           jar: 'spending'
         });
+        playNegativeSound();
       }
       await loadDashboard();
       closeModal();
@@ -510,6 +632,20 @@
     window.location.href = '/login';
   }
 
+  function childAvatarLabel(childSummary: any) {
+    const avatarName = childSummary?.child?.avatar_name?.trim();
+    if (avatarName) return avatarName.slice(0, 2).toUpperCase();
+
+    const displayName = childSummary?.child?.display_name?.trim() || '?';
+    return displayName.slice(0, 1).toUpperCase();
+  }
+
+  function childAvatarDescription(childSummary: any) {
+    const avatarName = childSummary?.child?.avatar_name?.trim();
+    if (avatarName) return `Avatar: ${avatarName}`;
+    return 'No avatar chosen yet';
+  }
+
   onMount(loadDashboard);
 
   const PET_STAGES_ASSETS: Record<string, { label: string; image: string }> = {
@@ -519,6 +655,9 @@
     hero: { label: 'Hero Dragon', image: '/pets/dragon-1/hero-dragon.png' },
     beast: { label: 'Legendary Dragon', image: '/pets/dragon-1/legendary-dragon.png' }
   };
+
+  const housePoints = $derived(children.reduce((sum, child) => sum + (child.spending_balance || 0), 0));
+  const pendingRedemptions = $derived(redemptions.filter((request) => request.status === 'pending'));
 
   const getPetImage = (stage: string) => (PET_STAGES_ASSETS[stage] || PET_STAGES_ASSETS.egg).image;
   const getPetLabel = (stage: string) => (PET_STAGES_ASSETS[stage] || PET_STAGES_ASSETS.egg).label;
@@ -552,488 +691,188 @@
       </div>
     </div>
   {:else}
-    <!-- Header -->
-    <div class="bg-white border-b border-slate-200">
-      <div class="max-w-7xl mx-auto px-4 py-5 flex flex-col gap-4 md:h-20 md:flex-row md:items-center md:justify-between">
-        <div class="flex items-center gap-3 min-w-0">
-          <div class="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white shrink-0">
-            <LayoutDashboard size={20} />
-          </div>
-          <div class="min-w-0">
-            <h1 class="text-xl font-black text-slate-900 uppercase tracking-tighter">Overview</h1>
-            <p class="text-sm text-slate-500 truncate">Signed in as {parent?.name || parent?.email}</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-3 self-start md:self-auto">
-          <div class="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-full border border-slate-100">
-            <TrendingUp size={16} class="text-hero" />
-            <span class="text-xs font-black text-slate-600 uppercase tracking-widest">
-              Family Hub Active
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="max-w-7xl mx-auto px-3 sm:px-4 py-8 md:py-12">
-      <!-- Section: My Heroes -->
-      <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 md:mb-12">
-        <div class="min-w-0">
-          <h2 class="text-3xl sm:text-4xl font-black text-slate-900 mb-2">My Heroes</h2>
-          <p class="text-slate-500 font-medium">Tracking responsibility and growth across the family.</p>
-        </div>
-        
-        <div class="grid w-full grid-cols-1 gap-3 sm:w-auto sm:grid-cols-2 md:flex md:items-center md:self-auto md:flex-wrap">
-          <button onclick={() => openModal('family', null)} class="btn-secondary flex min-w-0 items-center justify-center gap-2 px-4 sm:px-6 py-4 rounded-2xl text-xs sm:text-sm">
-            <Users size={20} /> Family Settings
-          </button>
-          <button onclick={() => openModal('presets', null)} class="btn-secondary flex min-w-0 items-center justify-center gap-2 px-4 sm:px-6 py-4 rounded-2xl text-xs sm:text-sm">
-            <Settings size={20} /> Manage Behaviours
-          </button>
-          <button onclick={addChild} disabled={loadingChildren} class="btn-hero flex min-w-0 items-center justify-center gap-2 px-4 sm:px-6 py-4 rounded-2xl shadow-xl shadow-hero/20 disabled:opacity-60 disabled:cursor-not-allowed sm:col-span-2 md:col-span-1">
-            <UserPlus size={20} /> {loadingChildren ? 'Adding...' : 'Add Child'}
-          </button>
-        </div>
-      </div>
-
-      <a href="/calendar" class="card mb-10 block max-w-full overflow-hidden border border-slate-100 bg-white p-6 md:p-8 transition-transform duration-300 hover:-translate-y-0.5 hover:shadow-2xl">
-        <div class="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-          <div class="flex items-start gap-4 min-w-0">
-            <div class="w-14 h-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center shrink-0">
-              <CalendarDays size={26} />
-            </div>
+    <div class="bg-slate-50 min-h-dvh max-w-full overflow-x-hidden pb-[calc(5rem+var(--safe-bottom))]">
+      <div class="bg-white border-b border-slate-200/70">
+        <div class="max-w-5xl mx-auto px-3 sm:px-4 py-5 md:py-6">
+          <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div class="min-w-0">
-              <p class="text-[10px] font-black uppercase tracking-[0.28em] text-slate-400 mb-2">Family Calendar</p>
-              <h3 class="text-2xl font-black text-slate-950 break-words">Plan chores, school events, activities, and reward tasks.</h3>
-              <p class="mt-2 text-sm font-medium text-slate-500 break-words">Open the agenda-first calendar to schedule items for any child.</p>
+              <h1 class="text-3xl sm:text-4xl font-black text-slate-950 tracking-tight break-words">My Family</h1>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onclick={scrollToParentTools}
+                class="inline-flex w-full max-w-full items-center justify-center gap-2 rounded-full bg-hero px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-hero/20 transition hover:bg-hero-dark sm:w-auto"
+              >
+                <Settings size={14} />
+                Manage
+              </button>
+              <div class="inline-flex max-w-full items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-white">
+                <TrendingUp size={14} />
+                {children.length} children
+              </div>
+              {#if parent}
+                <div class="inline-flex max-w-full items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-700">
+                  {parent.name || parent.email}
+                </div>
+              {/if}
             </div>
           </div>
-          <span class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-4 text-xs font-black uppercase tracking-[0.14em] text-white sm:w-auto sm:tracking-[0.2em]">
-            Open Calendar
-            <ArrowRight size={16} />
-          </span>
         </div>
-      </a>
-
-      {#if children.length === 0}
-        <div class="card p-16 text-center border-dashed border-4 border-slate-200 bg-white/50 max-w-2xl mx-auto">
-          <div class="w-24 h-24 bg-slate-100 text-slate-400 rounded-3xl flex items-center justify-center mx-auto mb-8">
-            <UserPlus size={48} />
-          </div>
-          <h2 class="text-3xl font-black text-slate-800 mb-4 tracking-tight">Your Hero Hub is Empty</h2>
-          <p class="text-slate-500 mb-10 max-w-sm mx-auto font-medium">Add your first child to start awarding points and managing their hero journey.</p>
-          <button onclick={addChild} class="btn-hero px-12 py-5 rounded-2xl text-lg">Add Your First Child</button>
-        </div>
-      {:else}
-        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-8 mb-16 md:mb-20">
-          {#each children as c}
-            <div class="card group hover:shadow-2xl transition-all duration-500 border-none bg-white relative overflow-hidden flex flex-col h-full">
-              <div class="absolute top-0 right-0 w-32 h-32 bg-hero/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700"></div>
-              
-              <!-- Card Header -->
-              <div class="p-5 sm:p-6 md:p-8 border-b border-slate-50 flex items-center justify-between gap-3 relative z-10">
-                <div class="flex items-center gap-4 md:gap-5 min-w-0">
-                  <div class="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 group-hover:bg-hero/10 rounded-3xl flex items-center justify-center p-3 transition-colors duration-500 shadow-inner shrink-0 overflow-hidden">
-                    <img src={getPetImage(c.pet_progress.current_stage)} alt={getPetLabel(c.pet_progress.current_stage)} class="w-full h-full object-contain" />
-                  </div>
-                  <div class="min-w-0">
-                    <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight truncate">{c.child.display_name}</h3>
-                    <div class="flex items-start gap-1.5 mt-1 min-w-0">
-                      <div class="mt-1 w-2 h-2 rounded-full bg-hero animate-pulse shrink-0"></div>
-                      <span class="min-w-0 text-[10px] font-black uppercase tracking-[0.12em] sm:tracking-[0.2em] text-hero break-words leading-snug">
-                        {getPetLabel(c.pet_progress.current_stage)} stage • {c.pet_progress.lifetime_points} Lifetime
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <a href={`/child/${c.child.id}`} class="w-11 h-11 sm:w-12 sm:h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-300 hover:bg-hero hover:text-white transition-all duration-300 shrink-0">
-                  <ArrowRight size={24} />
-                </a>
-              </div>
-
-              <!-- Stats Grid -->
-              <div class="p-5 sm:p-6 md:p-8 grid grid-cols-2 gap-4 md:gap-6 relative z-10">
-                <div class="space-y-1">
-                  <div class="flex flex-wrap items-center gap-2 mb-1 min-w-0">
-                    <div class="w-6 h-6 bg-reward/10 rounded-lg flex items-center justify-center text-reward">
-                      <Star size={14} fill="currentColor" />
-                    </div>
-                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em] sm:tracking-widest">Spending</span>
-                  </div>
-                  <div class="text-2xl sm:text-3xl font-black text-slate-900 flex items-baseline gap-1 min-w-0">
-                    {c.spending_balance}
-                    <span class="text-[10px] font-bold text-slate-400 uppercase">HP</span>
-                  </div>
-                </div>
-                <div class="space-y-1">
-                  <div class="flex flex-wrap items-center gap-2 mb-1 min-w-0">
-                    <div class="w-6 h-6 bg-savings/10 rounded-lg flex items-center justify-center text-savings">
-                      <PiggyBank size={14} />
-                    </div>
-                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em] sm:tracking-widest">Savings</span>
-                  </div>
-                  <div class="text-2xl sm:text-3xl font-black text-slate-900 flex items-baseline gap-1 min-w-0">
-                    {c.savings_balance}
-                    <span class="text-[10px] font-bold text-slate-400 uppercase">HP</span>
-                  </div>
-                </div>
-                
-                {#if c.locked_savings > 0 || c.pending_redemptions > 0}
-                  <div class="col-span-2 pt-4 border-t border-slate-50 grid grid-cols-2 gap-4">
-                    {#if c.locked_savings > 0}
-                      <div class="text-[10px] font-bold text-slate-400">
-                        <span class="text-savings-dark">{c.locked_savings} HP</span> locked
-                      </div>
-                    {/if}
-                    {#if c.pending_redemptions > 0}
-                      <div class="text-[10px] font-bold text-slate-400">
-                        <span class="text-hero">{c.pending_redemptions} HP</span> pending
-                      </div>
-                    {/if}
-                  </div>
-                {/if}
-              </div>
-
-              <div class="px-5 sm:px-6 md:px-8 pb-4 relative z-10">
-                <button 
-                  onclick={() => openModal('picker', c)}
-                  class="w-full py-4 sm:py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-[0.14em] sm:tracking-widest text-xs flex items-center justify-center gap-2 shadow-xl shadow-slate-200 hover:scale-[1.02] active:scale-95 transition-all"
-                >
-                  <Star size={18} class="text-hero" /> Quick Action
-                </button>
-              </div>
-
-              <!-- Quick Actions -->
-              <div class="px-5 sm:px-6 md:px-8 pb-6 md:pb-8 pt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 mt-auto relative z-10 min-w-0">
-                <button 
-                  onclick={() => openModal('award', c)}
-                  class="w-full min-w-0 btn-hero py-4 rounded-xl text-xs font-black uppercase tracking-[0.14em] sm:tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-hero/20 hover:scale-[1.02] transition-all"
-                >
-                  <Award size={18} /> Award
-                </button>
-                <button 
-                  onclick={() => openModal('penalty', c)}
-                  class="w-full min-w-0 btn-secondary py-4 rounded-xl text-xs font-black uppercase tracking-[0.14em] sm:tracking-widest flex items-center justify-center gap-2 hover:border-penalty hover:text-penalty hover:bg-penalty/5 transition-all"
-                >
-                  <Ban size={18} /> Penalty
-                </button>
-                <button 
-                  onclick={() => openModal('bank', c)}
-                  class="w-full min-w-0 btn-secondary py-4 rounded-xl text-xs font-black uppercase tracking-[0.14em] sm:tracking-widest flex items-center justify-center gap-2 hover:border-savings hover:text-savings hover:bg-savings/5 transition-all sm:col-span-2"
-                >
-                  <PiggyBank size={18} /> Bank to Savings
-                </button>
-                <button 
-                  onclick={() => openModal('redeem', c)}
-                  class="w-full min-w-0 btn-secondary py-4 rounded-xl text-xs font-black uppercase tracking-[0.14em] sm:tracking-widest flex items-center justify-center gap-2 hover:border-reward hover:text-reward hover:bg-reward/5 transition-all sm:col-span-2"
-                >
-                  <Trophy size={18} /> Redeem Reward
-                </button>
-                <button 
-                  onclick={() => openChildLink(c)}
-                  class="w-full min-w-0 btn-secondary py-4 rounded-xl text-xs font-black uppercase tracking-[0.14em] sm:tracking-widest flex items-center justify-center gap-2 hover:border-slate-900 hover:text-slate-900 hover:bg-slate-50 transition-all sm:col-span-2"
-                >
-                  <QrCode size={18} /> Link Child Device
-                </button>
-              </div>
-            </div>
-          {/each}
-        </div>
-      {/if}
-
-      <!-- Section: Redemption Requests -->
-      <div class="mb-20">
-        <div class="flex items-center gap-4 mb-8">
-          <div class="w-12 h-12 bg-reward/10 text-reward rounded-2xl flex items-center justify-center">
-            <Trophy size={24} />
-          </div>
-          <div>
-            <h2 class="text-3xl font-black text-slate-900 tracking-tight">Reward Requests</h2>
-            <p class="text-slate-500 font-medium">Approve or reject pending requests from your heroes.</p>
-          </div>
-        </div>
-
-        {#if redemptions.filter(r => r.status === 'pending').length === 0}
-          <div class="card p-8 md:p-12 text-center bg-slate-50 border-dashed border-2 border-slate-200">
-            <p class="text-slate-400 font-black uppercase tracking-widest text-sm">No pending requests</p>
-          </div>
-        {:else}
-          <div class="grid lg:grid-cols-2 gap-6">
-            {#each redemptions.filter(r => r.status === 'pending') as r}
-              {@const child = children.find(ch => ch.child.id === r.child_id)}
-              <div class="card p-5 sm:p-6 md:p-8 flex flex-col md:flex-row gap-5 md:gap-8 items-start bg-white border-l-8 border-hero shadow-xl hover:shadow-2xl transition-all duration-300">
-                <div class="flex-1 min-w-0">
-                  <div class="flex flex-wrap items-center gap-3 mb-3">
-                    <span class="text-xs font-black bg-hero/10 text-hero px-3 py-1 rounded-full uppercase tracking-widest">
-                      Pending
-                    </span>
-                    <span class="text-xs font-bold text-slate-400 flex items-center gap-1">
-                      <Clock size={14} /> {new Date(r.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <h3 class="text-xl sm:text-2xl font-black text-slate-900 mb-1 break-words">{r.title}</h3>
-                  <p class="text-slate-600 mb-6 font-medium line-clamp-2">{r.description || 'No description provided.'}</p>
-                  
-                  <div class="flex flex-wrap items-center gap-4 sm:gap-6">
-                    <div class="flex items-center gap-2">
-                      <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center p-1 overflow-hidden">
-                        <img src={getPetImage(child?.pet_progress.current_stage || 'egg')} alt="" class="w-full h-full object-contain" />
-                      </div>
-                      <span class="text-sm font-black text-slate-700">{child?.child.display_name}</span>
-                    </div>
-                    <div class="flex items-center gap-2 text-hero">
-                      <Trophy size={18} />
-                      <span class="text-xl font-black">{r.points} HP</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:flex md:flex-col gap-3 w-full md:w-auto shrink-0 pt-2">
-                  <button 
-                    onclick={() => processRedemption(r.id, 'approve')}
-                    class="w-full md:w-40 py-4 bg-savings text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-lg shadow-savings/20 hover:scale-[1.02] active:scale-95 transition-all"
-                  >
-                    <Check size={18} /> Approve
-                  </button>
-                  <button 
-                    onclick={() => processRedemption(r.id, 'reject')}
-                    class="w-full md:w-40 py-4 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:border-penalty hover:text-penalty transition-all"
-                  >
-                    <X size={18} /> Reject
-                  </button>
-                </div>
-              </div>
-            {/each}
-          </div>
-        {/if}
-
-        {#if redemptions.filter(r => r.status !== 'pending').length > 0}
-          <details class="mt-8 group">
-            <summary class="flex items-center gap-2 cursor-pointer text-slate-400 font-black uppercase tracking-widest text-[10px] hover:text-slate-600 transition-colors list-none">
-              <ChevronRight size={14} class="group-open:rotate-90 transition-transform" />
-              View Redemption History
-            </summary>
-            <div class="mt-4 space-y-3 opacity-60">
-              {#each redemptions.filter(r => r.status !== 'pending').slice(0, 5) as r}
-                {@const child = children.find(ch => ch.child.id === r.child_id)}
-                <div class="card p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-white text-xs font-bold border-none">
-                  <div class="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">
-                    <span class={r.status === 'approved' ? 'text-savings' : 'text-penalty'}>
-                      {r.status === 'approved' ? '✓' : '✗'}
-                    </span>
-                    <span class="text-slate-900 break-words">{r.title}</span>
-                    <span class="text-slate-400 break-words">• {child?.child.display_name}</span>
-                  </div>
-                  <div class="text-slate-400">{r.points} HP</div>
-                </div>
-              {/each}
-            </div>
-          </details>
-        {/if}
       </div>
-      {#if children.length > 0}
-        <section class="card mb-10 border border-slate-100 bg-white p-6 md:p-8 shadow-xl">
-          <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2">School Prep</p>
-              <h3 class="text-2xl font-black text-slate-950">Pack for today and tomorrow</h3>
+
+      <div class="max-w-5xl mx-auto px-3 sm:px-4 py-6 md:py-8 space-y-6">
+        <section class="space-y-4">
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <h2 class="text-2xl sm:text-3xl font-black text-slate-950">Children</h2>
             </div>
-            <a href="/calendar" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white sm:w-auto">
-              <CalendarDays size={14} />
-              Edit
-            </a>
           </div>
 
-          {#if loadingSchoolPrep}
-            <div class="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-              <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400">Loading school prep</p>
+          {#if children.length === 0}
+            <div class="card overflow-hidden border-dashed border-2 border-slate-200 bg-white p-8 sm:p-10 text-center shadow-none">
+              <div class="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[1.75rem] bg-slate-100 text-slate-400">
+                <UserPlus size={36} />
+              </div>
+              <h3 class="text-2xl font-black text-slate-900">Your family is empty</h3>
+              <p class="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-500">
+                Add a child to start tracking points, rewards, and daily routines.
+              </p>
             </div>
           {:else}
-            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {#each children as childSummary}
-                {@const todayItems = schoolTodayByChild[childSummary.child.id] || []}
-                {@const tomorrowItems = schoolTomorrowByChild[childSummary.child.id] || []}
-                <article class="min-w-0 max-w-full overflow-hidden rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4">
-                  <div class="mb-3 flex min-w-0 items-center gap-3">
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm">
-                      <CalendarDays size={18} />
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {#each children as c}
+                <article class="card flex min-w-0 flex-col overflow-hidden border-slate-100 bg-white p-5 sm:p-6 shadow-xl">
+                  <div class="flex min-w-0 items-start gap-4">
+                    <div class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-900 text-white shadow-sm">
+                      <span class="text-lg font-black tracking-tight">{childAvatarLabel(c)}</span>
                     </div>
-                    <div class="min-w-0">
-                      <h4 class="font-black text-slate-950 truncate">{childSummary.child.display_name}</h4>
+
+                    <div class="min-w-0 flex-1">
+                      <h3 class="truncate text-xl font-black text-slate-950">{c.child.display_name}</h3>
+                      <p class="mt-1 truncate text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                        {childAvatarDescription(c)}
+                      </p>
+
+                      <div class="mt-3 flex flex-wrap items-center gap-2">
+                        <span class="inline-flex items-center gap-2 rounded-full bg-hero/10 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-hero">
+                          <Star size={13} fill="currentColor" />
+                          {c.spending_balance || 0} HP
+                        </span>
+                        <span class="inline-flex items-center gap-2 rounded-full bg-savings/10 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-savings">
+                          <PiggyBank size={13} />
+                          {c.savings_balance || 0} saved
+                        </span>
+                        {#if c.pending_redemptions > 0}
+                          <span class="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-amber-700">
+                            <Clock size={13} />
+                            {c.pending_redemptions} pending
+                          </span>
+                        {/if}
+                      </div>
                     </div>
                   </div>
 
-                  <div class="space-y-3">
-                    <div class="rounded-2xl border border-slate-100 bg-white px-3 py-3">
-                      <div class="mb-2 flex items-center justify-between gap-3">
-                        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Today</p>
-                        <span class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{todayItems.length} item{todayItems.length === 1 ? '' : 's'}</span>
-                      </div>
-                      {#if todayItems.length > 0}
-                        <div class="flex flex-wrap gap-2">
-                          {#each todayItems as item}
-                            <span class="inline-flex min-w-0 max-w-full rounded-full bg-slate-100 px-3 py-2 text-sm font-bold text-slate-700 break-words">
-                              {schoolNeedLabel(item)}
-                            </span>
-                          {/each}
-                        </div>
-                      {:else}
-                        <p class="text-sm font-bold text-slate-500">Nothing set.</p>
-                      {/if}
-                    </div>
-
-                    <div class="rounded-2xl border border-amber-100 bg-amber-50 px-3 py-3">
-                      <div class="mb-2 flex items-center justify-between gap-3">
-                        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">Tomorrow</p>
-                        <span class="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">{tomorrowItems.length} item{tomorrowItems.length === 1 ? '' : 's'}</span>
-                      </div>
-                      {#if tomorrowItems.length > 0}
-                        <div class="flex flex-wrap gap-2">
-                          {#each tomorrowItems as item}
-                            <span class="inline-flex min-w-0 max-w-full rounded-full bg-white px-3 py-2 text-sm font-bold text-slate-700 break-words shadow-sm">
-                              {schoolNeedLabel(item)}
-                            </span>
-                          {/each}
-                        </div>
-                      {:else}
-                        <p class="text-sm font-bold text-slate-500">Nothing set.</p>
-                      {/if}
-                    </div>
+                  <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <a href={`/child/${c.child.id}`} class="btn-hero inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-4 text-xs font-black uppercase tracking-[0.16em] shadow-xl shadow-hero/20">
+                      Open child
+                      <ArrowRight size={16} />
+                    </a>
+                    <button
+                      type="button"
+                      onclick={() => openModal('picker', c)}
+                      class="btn-secondary inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-4 text-xs font-black uppercase tracking-[0.16em]"
+                    >
+                      <Star size={16} />
+                      Points
+                    </button>
                   </div>
                 </article>
               {/each}
             </div>
           {/if}
         </section>
-      {/if}
 
-      <!-- Section: Rewards -->
-      <div class="mb-20">
-        <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
-          <div>
-            <h2 class="text-3xl md:text-4xl font-black text-slate-900 mb-2">Rewards</h2>
-            <p class="text-slate-500 font-medium">Actual rewards children can request from their dashboards.</p>
-          </div>
-          <button onclick={saveReward} disabled={rewardLoading || !rewardForm.title.trim() || rewardForm.points < 1} class="btn-hero flex w-full items-center justify-center gap-2 px-6 py-4 rounded-2xl shadow-xl shadow-hero/20 disabled:opacity-60 disabled:cursor-not-allowed sm:w-auto">
-            <Trophy size={18} />
-            {editingRewardId ? 'Save Reward' : 'Add Reward'}
-          </button>
-        </div>
-
-        {#if rewardError}
-          <div class="mb-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 break-words">
-            {rewardError}
-          </div>
-        {/if}
-
-        <div class="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <section class="card bg-white p-6 md:p-8 border border-slate-100 shadow-xl">
-              <div class="flex items-center justify-between gap-4 mb-6">
+        <section class="grid gap-4 md:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+          <div class="card overflow-hidden border-slate-100 bg-white p-5 sm:p-6 shadow-xl">
+            <div class="flex items-start justify-between gap-4 min-w-0">
               <div class="min-w-0">
-                <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2">Reward editor</p>
-                <h3 class="text-2xl font-black text-slate-950">{editingRewardId ? 'Edit reward' : 'Create a reward'}</h3>
+                <h2 class="text-2xl font-black text-slate-950">House Points</h2>
               </div>
-              <div class="w-12 h-12 rounded-2xl bg-reward/10 text-reward flex items-center justify-center">
-                <Gift size={22} />
+              <div class="shrink-0 rounded-2xl bg-hero/10 px-3 py-3 text-hero">
+                <Star size={22} fill="currentColor" />
+              </div>
+            </div>
+
+            <div class="mt-5 flex items-end gap-3">
+              <div class="text-4xl font-black tracking-tight text-slate-950">{housePoints}</div>
+              <div class="pb-1 text-xs font-black uppercase tracking-[0.18em] text-slate-400">HP</div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onclick={() => openModal('requests', null)}
+            class="card flex min-w-0 flex-col justify-between overflow-hidden border-slate-100 bg-white p-5 sm:p-6 text-left shadow-xl transition hover:-translate-y-0.5 hover:shadow-2xl"
+          >
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <h2 class="text-2xl font-black text-slate-950">Reward Requests</h2>
+              </div>
+              <div class={`shrink-0 rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.18em] ${pendingRedemptions.length > 0 ? 'bg-hero/10 text-hero' : 'bg-slate-100 text-slate-400'}`}>
+                {pendingRedemptions.length}
               </div>
             </div>
 
-            <div class="space-y-4">
-              <label class="block">
-                <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mb-2">Reward name</span>
-                <input
-                  type="text"
-                  bind:value={rewardForm.title}
-                  placeholder="McDonald's Happy Meal"
-                  class="w-full min-w-0 rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30"
-                />
-              </label>
-
-              <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_120px] gap-4">
-                <label class="block">
-                  <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mb-2">Description</span>
-                  <input
-                    type="text"
-                    bind:value={rewardForm.description}
-                    placeholder="Movie night, extra screen time..."
-                    class="w-full min-w-0 rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30"
-                  />
-                </label>
-
-                <label class="block">
-                  <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mb-2">Points</span>
-                  <input
-                    type="number"
-                    min="1"
-                    bind:value={rewardForm.points}
-                    class="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30"
-                  />
-                </label>
-              </div>
-
-              <div class="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center">
-                <button type="button" onclick={editingRewardId ? cancelEditingReward : saveReward} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] sm:tracking-[0.2em] text-white sm:w-auto">
-                  {editingRewardId ? 'Cancel edit' : 'Create reward'}
-                </button>
-                <button type="button" onclick={() => rewardForm.is_active = !rewardForm.is_active} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.16em] sm:tracking-[0.2em] text-slate-700 border-2 border-slate-100 sm:w-auto">
-                  {rewardForm.is_active ? 'Active' : 'Hidden'}
-                </button>
-              </div>
+            <div class="mt-4 inline-flex w-fit items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">
+              <Clock size={13} />
+              {pendingRedemptions.length > 0 ? `${pendingRedemptions.length} pending` : 'No pending requests'}
             </div>
-          </section>
+          </button>
+        </section>
 
-          <section class="space-y-4">
-            {#if rewards.length > 0}
-              <div class="grid gap-4">
-                {#each rewards as reward}
-                  <div class="card bg-white p-5 border border-slate-100 shadow-xl">
-                    <div class="flex flex-col gap-3 min-w-0 sm:flex-row sm:items-start sm:justify-between">
-                      <div class="min-w-0 flex-1">
-                        <div class="flex flex-wrap items-center gap-2 mb-2">
-                          <span class="inline-flex items-center gap-1 rounded-full bg-reward/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-reward whitespace-nowrap">
-                            <Gift size={12} />
-                            Reward
-                          </span>
-                          <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 whitespace-nowrap">
-                            {reward.points} HP
-                          </span>
-                        </div>
-                        <h3 class="text-lg font-black text-slate-950 break-words">{reward.title}</h3>
-                        <p class="text-sm text-slate-600 mt-1 break-words">{reward.description || 'A reward children can request.'}</p>
-                      </div>
-                      <span class={`w-fit shrink-0 rounded-2xl px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] whitespace-nowrap ${reward.is_active ? 'bg-savings/10 text-savings' : 'bg-slate-100 text-slate-400'}`}>
-                        {reward.is_active ? 'Visible' : 'Hidden'}
-                      </span>
-                    </div>
+        <section bind:this={parentToolsSection} class="card scroll-mt-6 overflow-hidden border-slate-100 bg-white p-5 sm:p-6 shadow-xl">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div class="min-w-0">
+              <h2 class="text-2xl font-black text-slate-950">Parent Tools</h2>
+            </div>
+          </div>
 
-                    <div class="mt-4 flex flex-wrap gap-2">
-                      <button onclick={() => startEditingReward(reward)} class="inline-flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-700 border border-slate-100">
-                        <Settings size={14} />
-                        Edit
-                      </button>
-                      <button onclick={() => deleteReward(reward.id)} class="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-penalty border border-slate-100">
-                        <X size={14} />
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                {/each}
-              </div>
-            {:else}
-              <div class="card bg-white p-8 border border-dashed border-slate-200 text-center">
-                <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400">No rewards yet</p>
-                <p class="text-sm text-slate-500 mt-2">Add real rewards here. Children will see only these items.</p>
-              </div>
-            {/if}
-          </section>
-        </div>
+          <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <button type="button" onclick={() => openModal('rewards', null)} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
+              <Gift size={16} />
+              Manage rewards
+            </button>
+            <button type="button" onclick={() => openModal('family', null)} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
+              <Users size={16} />
+              Family settings
+            </button>
+            <button type="button" onclick={() => openModal('presets', null)} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
+              <Settings size={16} />
+              Manage behaviours
+            </button>
+            <a href="/calendar" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
+              <CalendarDays size={16} />
+              Open calendar
+            </a>
+            <button type="button" onclick={() => openModal('requests', null)} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
+              <Check size={16} />
+              View pending requests
+            </button>
+            <button type="button" onclick={addChild} disabled={loadingChildren} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero disabled:opacity-60 disabled:cursor-not-allowed">
+              <UserPlus size={16} />
+              Add child
+            </button>
+            <button type="button" onclick={() => openModal('child-link-select', null)} disabled={children.length === 0} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero disabled:cursor-not-allowed disabled:opacity-60">
+              <QrCode size={16} />
+              Link child device
+            </button>
+          </div>
+        </section>
       </div>
-
-
     </div>
   {/if}
-</div>
-
 <!-- Modals -->
 {#if activeModal}
   <div class="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-4">
@@ -1058,6 +897,9 @@
                activeModal.type === 'picker' ? 'bg-slate-900 text-white shadow-slate-200' :
                activeModal.type === 'family' ? 'bg-hero text-white shadow-hero/20' :
                activeModal.type === 'child-link' ? 'bg-slate-900 text-white shadow-slate-200' :
+               activeModal.type === 'child-link-select' ? 'bg-slate-900 text-white shadow-slate-200' :
+               activeModal.type === 'rewards' ? 'bg-reward text-white shadow-reward/20' :
+               activeModal.type === 'requests' ? 'bg-savings text-white shadow-savings/20' :
                'bg-reward text-white shadow-reward/20'}">
               {#if activeModal.type === 'award'}<Award size={32} />
               {:else if activeModal.type === 'penalty'}<Ban size={32} />
@@ -1066,6 +908,9 @@
               {:else if activeModal.type === 'picker'}<Star size={32} class="text-hero" />
               {:else if activeModal.type === 'family'}<Users size={32} />
               {:else if activeModal.type === 'child-link'}<QrCode size={32} />
+              {:else if activeModal.type === 'child-link-select'}<QrCode size={32} />
+              {:else if activeModal.type === 'rewards'}<Gift size={32} />
+              {:else if activeModal.type === 'requests'}<Check size={32} />
               {:else}<Trophy size={32} />{/if}
             </div>
             <div class="min-w-0">
@@ -1073,16 +918,22 @@
                 {activeModal.type === 'award' ? 'Award Points' : 
                  activeModal.type === 'penalty' ? 'Apply Penalty' :
                  activeModal.type === 'bank' ? 'Bank to Savings' :
-                 activeModal.type === 'presets' ? (editingPresetId ? 'Edit Behaviour' : 'Manage Behaviours') :
-                 activeModal.type === 'picker' ? 'Quick Action' :
+                activeModal.type === 'presets' ? (editingPresetId ? 'Edit Behaviour' : 'Manage Behaviours') :
+                activeModal.type === 'picker' ? 'Points' :
                  activeModal.type === 'family' ? 'Family Settings' :
                  activeModal.type === 'child-link' ? 'Link Child Device' :
+                 activeModal.type === 'child-link-select' ? 'Link Child Device' :
+                 activeModal.type === 'rewards' ? 'Manage Rewards' :
+                 activeModal.type === 'requests' ? 'Reward Approvals' :
                  'Redeem Points'}
               </h3>
               <p class="text-slate-400 font-black text-[10px] sm:text-xs uppercase tracking-[0.14em] sm:tracking-[0.2em] break-words">
                 {activeModal.type === 'presets' ? (editingPresetId ? 'Update this action' : 'Configure reusable actions') : 
                  activeModal.type === 'family' ? 'Manage members & co-parents' :
-                 activeModal.type === 'child-link' ? 'Create a QR code for one specific child' :
+                 activeModal.type === 'child-link' ? 'Child device link' :
+                 activeModal.type === 'child-link-select' ? 'Choose a child first' :
+                 activeModal.type === 'rewards' ? 'Family rewards' :
+                 activeModal.type === 'requests' ? 'Requests' :
                  `For ${activeModal.child?.child?.display_name}`}
               </p>
             </div>
@@ -1192,6 +1043,161 @@
             </div>
           {/if}
 
+          {#if activeModal.type === 'child-link-select'}
+            <div class="space-y-3">
+              {#if children.length === 0}
+                <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                  <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400">No children yet</p>
+                </div>
+              {:else}
+                {#each children as childSummary}
+                  <button
+                    type="button"
+                    onclick={() => openChildLink(childSummary)}
+                    class="inline-flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left font-black text-slate-800 transition hover:border-hero hover:text-hero"
+                  >
+                    <span class="min-w-0 truncate">{childSummary.child.display_name}</span>
+                    <QrCode size={16} class="shrink-0" />
+                  </button>
+                {/each}
+              {/if}
+            </div>
+          {/if}
+
+          {#if activeModal.type === 'rewards'}
+            <div class="space-y-5">
+              {#if rewardError}
+                <div class="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 break-words">
+                  {rewardError}
+                </div>
+              {/if}
+
+              <section class="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-5">
+                <div class="flex items-center justify-between gap-4 mb-5">
+                  <div class="min-w-0">
+                    <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mb-2">Reward editor</p>
+                    <h4 class="text-xl font-black text-slate-950">{editingRewardId ? 'Edit reward' : 'Create a reward'}</h4>
+                  </div>
+                  <Gift size={20} class="shrink-0 text-reward" />
+                </div>
+
+                <div class="space-y-4">
+                  <label class="block">
+                    <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mb-2">Reward name</span>
+                    <input type="text" bind:value={rewardForm.title} placeholder="Movie night" class="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30" />
+                  </label>
+
+                  <label class="block">
+                    <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mb-2">Description</span>
+                    <input type="text" bind:value={rewardForm.description} placeholder="Extra screen time" class="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30" />
+                  </label>
+
+                  <label class="block">
+                    <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mb-2">Points</span>
+                    <input type="number" min="1" bind:value={rewardForm.points} class="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30" />
+                  </label>
+
+                  <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <button type="button" onclick={saveReward} disabled={rewardLoading || !rewardForm.title.trim() || rewardForm.points < 1} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white disabled:cursor-not-allowed disabled:opacity-60">
+                      {editingRewardId ? 'Save reward' : 'Create reward'}
+                    </button>
+                    <button type="button" onclick={() => rewardForm.is_active = !rewardForm.is_active} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700">
+                      {rewardForm.is_active ? 'Active' : 'Hidden'}
+                    </button>
+                  </div>
+                  {#if editingRewardId}
+                    <button type="button" onclick={cancelEditingReward} class="w-full rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-slate-400 transition hover:text-slate-700">
+                      Cancel edit
+                    </button>
+                  {/if}
+                </div>
+              </section>
+
+              <section class="space-y-3">
+                <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 ml-1">Current rewards</p>
+                {#if rewards.length > 0}
+                  {#each rewards as reward}
+                    <div class="rounded-[1.5rem] border border-slate-100 bg-white p-4">
+                      <div class="flex min-w-0 items-start justify-between gap-3">
+                        <div class="min-w-0">
+                          <h4 class="font-black text-slate-950 break-words">{reward.title}</h4>
+                          <p class="mt-1 text-sm text-slate-500 break-words">{reward.description || 'No description.'}</p>
+                          <div class="mt-3 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-600">
+                            <Trophy size={13} />
+                            {reward.points} HP
+                          </div>
+                        </div>
+                        <span class={`shrink-0 rounded-2xl px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] ${reward.is_active ? 'bg-savings/10 text-savings' : 'bg-slate-100 text-slate-400'}`}>
+                          {reward.is_active ? 'Visible' : 'Hidden'}
+                        </span>
+                      </div>
+                      <div class="mt-4 flex flex-wrap gap-2">
+                        <button onclick={() => startEditingReward(reward)} class="inline-flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-700 border border-slate-100">
+                          <Settings size={14} />
+                          Edit
+                        </button>
+                        <button onclick={() => deleteReward(reward.id)} class="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-penalty border border-slate-100">
+                          <X size={14} />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  {/each}
+                {:else}
+                  <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                    <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400">No rewards yet</p>
+                  </div>
+                {/if}
+              </section>
+            </div>
+          {/if}
+
+          {#if activeModal.type === 'requests'}
+            <div class="space-y-4">
+              <div class="flex items-center justify-between gap-3 rounded-[1.75rem] border border-slate-100 bg-slate-50 p-4">
+                <span class="text-sm font-black uppercase tracking-[0.18em] text-slate-500">Pending</span>
+                <span class="rounded-2xl bg-hero/10 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-hero">{pendingRedemptions.length}</span>
+              </div>
+
+              {#if pendingRedemptions.length === 0}
+                <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                  <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400">No pending requests</p>
+                </div>
+              {:else}
+                {#each pendingRedemptions as r}
+                  {@const child = children.find((ch) => ch.child.id === r.child_id)}
+                  <div class="rounded-[1.5rem] border border-slate-100 bg-white p-4">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="inline-flex items-center rounded-full bg-hero/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-hero">Pending</span>
+                      <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{new Date(r.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <h4 class="mt-3 font-black text-slate-950 break-words">{r.title}</h4>
+                    <p class="mt-2 text-sm text-slate-600 break-words">{r.description || 'No description provided.'}</p>
+                    <div class="mt-4 flex flex-wrap items-center gap-2">
+                      <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-700">
+                        {child?.child.display_name || 'Unknown child'}
+                      </span>
+                      <span class="inline-flex items-center gap-2 rounded-full bg-hero/10 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-hero">
+                        <Trophy size={13} />
+                        {r.points} HP
+                      </span>
+                    </div>
+                    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <button onclick={() => processRedemption(r.id, 'approve')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-savings/20">
+                        <Check size={16} />
+                        Approve
+                      </button>
+                      <button onclick={() => processRedemption(r.id, 'reject')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700">
+                        <X size={16} />
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                {/each}
+              {/if}
+            </div>
+          {/if}
+
           {#if activeModal.type === 'family'}
             {#if loadingFamilySettings}
               <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
@@ -1260,52 +1266,123 @@
           {/if}
 
           {#if activeModal.type === 'picker'}
-            <!-- ClassDojo Style Picker -->
+            <!-- Child action picker -->
             <div class="flex gap-2 p-1 bg-slate-100 rounded-2xl sticky top-0 z-20">
-              <button 
+              <button
                 onclick={() => activeTab = 'positive'}
                 class="flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all
                   {activeTab === 'positive' ? 'bg-white text-hero shadow-sm' : 'text-slate-500 hover:text-slate-700'}"
               >
                 Positive
               </button>
-              <button 
-                onclick={() => activeTab = 'needs-work'}
+              <button
+                onclick={() => activeTab = 'negative'}
                 class="flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all
-                  {activeTab === 'needs-work' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}"
+                  {activeTab === 'negative' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}"
               >
-                Needs Work
+                Negative
+              </button>
+              <button 
+                onclick={() => activeTab = 'other'}
+                class="flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all
+                  {activeTab === 'other' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}"
+              >
+                Other
               </button>
             </div>
 
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 pb-4">
-              {#each presets.filter(p => p.is_active && (activeTab === 'positive' ? p.points > 0 : p.points < 0)) as p}
-                <button 
-                  onclick={() => applyPreset(activeModal.child, p)}
-                  title={p.title}
-                  class="group p-3 sm:p-4 rounded-3xl border-2 transition-all text-center flex flex-col items-center gap-2 min-h-40 sm:min-h-44
-                    {p.points > 0 ? 'border-slate-50 hover:border-hero/20 hover:bg-hero/5' : 'border-slate-50 hover:border-slate-900/10 hover:bg-slate-50'}"
-                >
-                  <div class="text-4xl mb-1 h-12 flex items-center justify-center">
-                    {p.icon || '✨'}
+            {#if activeTab === 'other'}
+              <div class="space-y-4 pb-4">
+                <div class="space-y-2">
+                  <label for="custom-points-description" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Reason</label>
+                  <textarea
+                    id="custom-points-description"
+                    bind:value={modalForm.description}
+                    placeholder="What happened?"
+                    rows="3"
+                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 font-medium text-slate-900 focus:outline-none focus:border-hero/30 transition-all resize-none"
+                  ></textarea>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div class="space-y-2">
+                    <label for="custom-points-amount" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Points</label>
+                    <div class="relative">
+                      <input
+                        id="custom-points-amount"
+                        type="number"
+                        min="1"
+                        bind:value={modalForm.points}
+                        class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 pr-12 font-black text-slate-900 focus:outline-none focus:border-hero/30 transition-all text-2xl"
+                      />
+                      <span class="absolute right-5 top-1/2 -translate-y-1/2 font-black text-slate-300 text-sm">HP</span>
+                    </div>
                   </div>
-                  <div class="px-2 py-0.5 rounded-lg font-black text-xs
-                    {p.points > 0 ? 'bg-hero text-white' : 'bg-slate-900 text-white'}">
-                    {p.points > 0 ? '+' : ''}{p.points} HP
+
+                  <div class="space-y-2">
+                    <label for="custom-points-jar" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Jar</label>
+                    <select
+                      id="custom-points-jar"
+                      bind:value={modalForm.jar}
+                      class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 font-bold text-slate-900 focus:outline-none focus:border-hero/30 transition-all appearance-none cursor-pointer"
+                    >
+                      <option value="spending">Spending</option>
+                      <option value="savings">Savings</option>
+                    </select>
                   </div>
-                  <div class="min-w-0 mt-1">
-                    <p class="font-bold text-slate-900 text-[11px] leading-tight uppercase tracking-tight line-clamp-2">{p.title}</p>
-                  </div>
-                </button>
-              {:else}
-                <div class="col-span-full py-12 text-center text-slate-300">
-                  <p class="font-black uppercase tracking-widest text-xs">No presets found</p>
-                  <button onclick={() => openModal('presets', null)} class="text-hero text-[10px] font-black uppercase tracking-widest mt-2 hover:underline">
-                    Add Some Now
+                </div>
+
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onclick={() => submitCustomPoints('award')}
+                    disabled={modalLoading || Math.abs(Number(modalForm.points) || 0) < 1}
+                    class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-hero px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-hero/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Award size={16} />
+                    Add points
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => submitCustomPoints('penalty')}
+                    disabled={modalLoading || Math.abs(Number(modalForm.points) || 0) < 1}
+                    class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Ban size={16} />
+                    Subtract points
                   </button>
                 </div>
-              {/each}
-            </div>
+              </div>
+            {:else}
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 pb-4">
+                {#each presets.filter(p => p.is_active && (activeTab === 'positive' ? p.points > 0 : p.points < 0)) as p}
+                  <button
+                    onclick={() => applyPreset(activeModal.child, p)}
+                    title={p.title}
+                    class="group p-3 sm:p-4 rounded-3xl border-2 transition-all text-center flex flex-col items-center gap-2 min-h-40 sm:min-h-44
+                      {p.points > 0 ? 'border-slate-50 hover:border-hero/20 hover:bg-hero/5' : 'border-slate-50 hover:border-slate-900/10 hover:bg-slate-50'}"
+                  >
+                    <div class="text-4xl mb-1 h-12 flex items-center justify-center">
+                      {p.icon || '✨'}
+                    </div>
+                    <div class="px-2 py-0.5 rounded-lg font-black text-xs
+                      {p.points > 0 ? 'bg-hero text-white' : 'bg-slate-900 text-white'}">
+                      {p.points > 0 ? '+' : ''}{p.points} HP
+                    </div>
+                    <div class="min-w-0 mt-1">
+                      <p class="font-bold text-slate-900 text-[11px] leading-tight uppercase tracking-tight line-clamp-2">{p.title}</p>
+                    </div>
+                  </button>
+                {:else}
+                  <div class="col-span-full py-12 text-center text-slate-300">
+                    <p class="font-black uppercase tracking-widest text-xs">No presets found</p>
+                    <button onclick={() => openModal('presets', null)} class="text-hero text-[10px] font-black uppercase tracking-widest mt-2 hover:underline">
+                      Add preset
+                    </button>
+                  </div>
+                {/each}
+              </div>
+            {/if}
           {/if}
 
           {#if activeModal.type === 'redeem' || activeModal.type === 'presets'}
@@ -1353,7 +1430,7 @@
             {/if}
           {/if}
 
-          {#if activeModal.type !== 'picker' && activeModal.type !== 'family'}
+          {#if activeModal.type !== 'picker' && activeModal.type !== 'family' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests'}
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
               <div class="space-y-2">
                 <label for="points-amount" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Points Amount</label>
@@ -1387,7 +1464,7 @@
             </div>
           {/if}
 
-          {#if activeModal.type !== 'presets' && activeModal.type !== 'picker' && activeModal.type !== 'family'}
+          {#if activeModal.type !== 'presets' && activeModal.type !== 'picker' && activeModal.type !== 'family' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests'}
             <div class="space-y-2">
               <label for="modal-description" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Description / Reason</label>
               <textarea 
@@ -1450,7 +1527,7 @@
           {/if}
         </div>
 
-          {#if activeModal.type !== 'picker' && activeModal.type !== 'child-link'}
+          {#if activeModal.type !== 'picker' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests'}
             <div class="pt-6 shrink-0 flex flex-col gap-3 bg-white">
               <button 
                 onclick={handleModalSubmit}
@@ -1481,6 +1558,7 @@
     </div>
   </div>
 {/if}
+</div>
 <style>
   :global(.card) {
     border: 1px solid rgba(0,0,0,0.05);

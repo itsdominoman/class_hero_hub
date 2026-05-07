@@ -62,6 +62,9 @@
 ### Behaviour System
 - Quick-tap behaviour presets (points/penalties)
 - Separated from rewards (no longer mixed)
+- Parent Points modal supports Positive, Negative, and Other/custom point actions
+- Custom one-off point awards and penalties are available without creating a preset
+- Positive point awards and negative penalties provide short Web Audio feedback sounds
 
 ### UI / UX
 - Responsive layout (tablet + mobile)
@@ -71,6 +74,12 @@
 - Reward cards fixed (no overflow issues)
 - Improved contrast and readability
 - Child-friendly dashboard experience
+- Parent dashboard redesigned into a family-first, mobile-first launcher instead of a dense control-room layout
+- Children now appear first on the parent dashboard with balanced child cards, saved balance shown consistently, and `Points` as the child card point-action entry
+- House Points and Reward Requests now use compact summary cards
+- Parent Tools are grouped in a dedicated section with a top `Manage` button that smoothly scrolls to the tools area
+- Manage Rewards, View Pending Requests, and Link Child Device use modal flows instead of large inline dashboard sections
+- Parent dashboard copy was reduced to remove duplicate headings and development-style explanatory filler
 
 ### Infrastructure
 - Dockerized deployment
@@ -92,6 +101,10 @@
 - Reward approval finalizes points
 - Parent dashboard + child dashboard interaction
 - Multi-child support (e.g., Jackson, Leah)
+- Parent dashboard launcher redesign visually approved after mobile review
+- Parent dashboard launcher layout tested at 320, 360, 375, 390, 412, 430, 768, and desktop widths
+- Parent Points modal positive/negative presets and custom one-off point awards/penalties
+- Parent Tools modal access for rewards, pending reward requests, family settings, behaviour presets, calendar, add child, and child device linking
 - Parent calendar event/task creation, editing, deletion, recurrence, and rewardable tasks
 - Mobile calendar layout visually tested and improved
 - Mobile consistency viewport sweep completed against production frontend build at 320, 360, 375, 390, 412, 430, 768, and 1365 px widths using mocked app data; no horizontal page scrolling or non-decorative element overflow found
@@ -126,12 +139,16 @@
 - Polished streak and bonus UI
 
 ### Productivity Features
+- Dedicated child management route/shell for child-specific Points, Rewards, Calendar, School Bag, Profile, and device sections
+- Component extraction/refactor for the large parent dashboard page
 - Full monthly calendar view
 - Drag-and-drop calendar editing
 - Notification/reminder system
 - Warning cleanup / backend deprecation cleanup
 - Optional future school timetable improvements
 - Scheduled rewards / recurring behaviours
+- Shared family goals / house rewards
+- Avatar or character customization
 
 ### Mobile Follow-Up
 - Real-device Android Chrome and iPhone Safari checks are still recommended before Capacitor packaging; current verification used Chromium mobile emulation with mocked API data.

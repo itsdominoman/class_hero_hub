@@ -37,6 +37,7 @@
 - Reward history (child + parent view)
 - Expiry or cooldown for rewards
 - Reward request flow uses CSRF protection and automatic cookie recovery for valid child sessions
+- Completed: Parent reward management and pending reward requests are available through modal flows from Parent Tools
 
 ---
 
@@ -64,9 +65,23 @@
 - Future: Optional school timetable improvements
 
 ### ⚙️ Parent Productivity
+- Completed: Parent dashboard simplified into a family-first, mobile-first launcher
+- Completed: Children appear first, followed by House Points / Reward Requests summary cards and Parent Tools
+- Completed: Duplicate Add Child entry removed from the child card area
+- Completed: Child cards consistently show saved balance, including `0 saved`
+- Completed: Child card point entry renamed from Actions to Points
+- Completed: Points modal supports Positive, Negative, and Other/custom point actions
+- Completed: Custom one-off point awards and penalties restored without requiring new presets
+- Completed: Manage Rewards, View Pending Requests, and Link Child Device use modal flows
+- Completed: Header Manage button smoothly scrolls to Parent Tools
+- Completed: Short positive/negative Web Audio feedback sounds for successful point awards/penalties, with gain adjusted to 0.25
 - Preset behaviour templates
 - One-click daily routines
 - Batch reward/penalty assignment
+- Future: Dedicated child management route/shell
+- Future: Avatar/character customization
+- Future: Shared family goals / house rewards
+- Future: Component extraction from the large parent dashboard page
 
 ### 🔥 Streaks & Bonuses
 - Future: Automatic weekly streak generation
