@@ -16,4 +16,6 @@
 4.  **Environment Variables:**
     - Copy the Client ID and Client Secret into your `.env` file.
     - Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI`.
-    - Add authorized parent emails to `PARENT_EMAILS` (comma-separated).
+    - Use `PARENT_EMAILS` only for bootstrap/root-admin emails (comma-separated).
+    - Do not use `PARENT_EMAILS` for normal parent onboarding.
+    - Normal parent access is handled through registration approval, family invites, and `/admin/users`.

@@ -76,7 +76,7 @@
 - Dockerized deployment
 - Caddy reverse proxy with HTTPS
 - Domain: https://familyherohub.com
-- Backend tests passing (54 tests)
+- Backend tests passing (60 tests)
 - Frontend production build passes
 
 ---

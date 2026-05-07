@@ -21,6 +21,8 @@ The project uses a specialized agent structure to manage different aspects of th
 - **Athena** defines the product direction and PRDs.
 - **Hermes** manages deployments and infrastructure.
 - **Ares** ensures quality through automated and manual testing.
+- `HERMES_RULES.md` at `/opt/apps/family-hero-hub/HERMES_RULES.md` is a local-only rules file and is intentionally excluded from GitHub.
+- `tmp/` is ignored and may contain local agent logs or drafts.
 
 ## Model Policy
 - Use **Gemini 2.5 Flash Lite** for non-coding agents where possible to save tokens.

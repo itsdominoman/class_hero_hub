@@ -105,7 +105,7 @@ https://familyherohub.com
 
 - **Backend:** FastAPI (Python)
 - **Frontend:** SvelteKit
-- **Database:** PostgreSQL
+- **Database:** SQLite
 - **Infrastructure:** Docker + Caddy (HTTPS)
 
 ---
@@ -118,5 +118,5 @@ https://familyherohub.com
 cp .env.example .env
 # Edit .env with:
 # - Google OAuth credentials
-# - Allowed parent emails
+# - Bootstrap/root-admin emails only (`PARENT_EMAILS`)
 # - Database settings
