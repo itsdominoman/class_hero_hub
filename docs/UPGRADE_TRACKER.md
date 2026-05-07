@@ -1,5 +1,28 @@
 # Family Hero Hub - Upgrade Tracker
 
+# 2026-05-07 - Europe Dev VPS Baseline Setup
+
+### Scope
+- Set up a new Europe-based development/testing VPS for Family Hero Hub at `dev.familyherohub.com`.
+- Verified the stack on Ubuntu 24.04.4 LTS with Docker, Docker Compose, Node/npm, Codex CLI, and Gemini CLI installed and working.
+- Cloned the repo to `/opt/apps/family-hero-hub` on branch `main` and kept production DNS and mail on the US server.
+- Left PostgreSQL, mail migration, and production cutover work for later.
+
+### Verification
+- `https://dev.familyherohub.com` returned HTTP/2 200.
+- `https://dev.familyherohub.com/api/health` returned `{"status":"ok"}`.
+- Backend and frontend containers were running.
+- Google OAuth login/callback worked on dev.
+- Parent dashboard loaded on dev.
+- Admin registration requests page loaded on dev.
+- Git status was clean.
+- Baseline backup created: `/opt/apps/family-hero-hub-europe-dev-baseline-20260507_201438.tar.gz`.
+
+### Notes
+- Only `dev.familyherohub.com` points to the Europe VPS.
+- Mail remains US-only.
+- The Europe server is prepared for future Hermes use, but Hermes itself is not installed yet.
+
 # 2026-05-07 - Child Reward Request CSRF Recovery
 
 ### Scope

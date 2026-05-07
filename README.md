@@ -30,6 +30,14 @@ https://familyherohub.com
 
 ---
 
+## 🧪 Dev/Test Environment
+
+Development and testing now run at https://dev.familyherohub.com.
+
+Production remains at https://familyherohub.com.
+
+---
+
 ## 🔑 Core Features
 
 ### 👨‍👩‍👧‍👦 Parent System

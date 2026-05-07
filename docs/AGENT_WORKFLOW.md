@@ -17,16 +17,17 @@ The project uses a specialized agent structure to manage different aspects of th
 ## Operating Rules
 - **Mandatory Docs Check:** Before taking action on Family Hero Hub, read the project docs in `/opt/apps/family-hero-hub/docs/`. At minimum check `PROJECT_STATUS.md`, `ROADMAP.md`, and `AGENT_WORKFLOW.md`. For product, market, UX, or feature planning, also check `MARKET_RESEARCH_SUMMARY.md` and relevant PRDs such as `MISSIONS_PRD.md`. Do not rely on memory alone. Inspect docs first, then act.
 - **Zeus** is the default profile and orchestrates the team.
-- **Hercules** uses the Gemini CLI (`/usr/bin/gemini`) for coding tasks.
+- **Hercules** uses the Gemini CLI (`/usr/bin/gemini`) version `0.41.2` for coding tasks.
+- Codex CLI is available at `/usr/bin/codex` version `0.128.0`.
 - **Athena** defines the product direction and PRDs.
-- **Hermes** manages deployments and infrastructure.
+- **Hermes** manages deployments and infrastructure. The Europe dev VPS is intended to become the future main Hermes server, but Hermes is not installed there yet.
 - **Ares** ensures quality through automated and manual testing.
 - `HERMES_RULES.md` at `/opt/apps/family-hero-hub/HERMES_RULES.md` is a local-only rules file and is intentionally excluded from GitHub.
 - `tmp/` is ignored and may contain local agent logs or drafts.
 
 ## Model Policy
 - Use **Gemini 2.5 Flash Lite** for non-coding agents where possible to save tokens.
-- **Hercules** (Developer) uses Gemini CLI 0.40.1 directly.
+- **Hercules** (Developer) uses Gemini CLI 0.41.2 directly.
 - **Zeus** should not default to gpt-5.4-mini.
 - OpenAI fallback (gpt-4o-mini) only with explicit approval.
 

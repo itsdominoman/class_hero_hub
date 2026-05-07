@@ -96,6 +96,13 @@
 - Notifications (Telegram / mobile push)
 - Weekly summaries for parents
 
+## 🧭 Infrastructure & Migration Planning
+
+- Future: WireGuard private link between the US and Europe servers for private rsync, backups, PostgreSQL migration/replication, mail migration prep, and private admin/internal traffic
+- Future: PostgreSQL migration from SQLite when the database move is actually needed
+- Future: Hermes migration onto the Europe server once that environment is ready for the main agent role
+- Future: production cutover planning for a future Europe-based main server, with DNS and mail handling reviewed separately
+
 ---
 
 ## 📱 Phase 5 – Platform Expansion

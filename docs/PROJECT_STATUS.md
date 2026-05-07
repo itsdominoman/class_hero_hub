@@ -85,6 +85,10 @@
 - Dockerized deployment
 - Caddy reverse proxy with HTTPS
 - Domain: https://familyherohub.com
+- Europe dev VPS setup completed for development/testing at https://dev.familyherohub.com
+- Europe dev stack verified: Ubuntu 24.04.4 LTS, Docker, Docker Compose, Node/npm, Codex CLI, Gemini CLI
+- Europe dev deployment verified with Caddy routing to local Docker ports and SQLite still in use
+- Mail remains on the US server only; production DNS records were not changed
 - Backend tests passing (60 tests)
 - Frontend production build passes
 
@@ -106,6 +110,10 @@
 - Parent Points modal positive/negative presets and custom one-off point awards/penalties
 - Parent Tools modal access for rewards, pending reward requests, family settings, behaviour presets, calendar, add child, and child device linking
 - Parent calendar event/task creation, editing, deletion, recurrence, and rewardable tasks
+- Dev OAuth login and callback working at https://dev.familyherohub.com
+- Dev health check verified at `https://dev.familyherohub.com/api/health` returning `{"status":"ok"}`
+- Parent dashboard loaded successfully on dev
+- Admin registration requests page loaded successfully on dev
 - Mobile calendar layout visually tested and improved
 - Mobile consistency viewport sweep completed against production frontend build at 320, 360, 375, 390, 412, 430, 768, and 1365 px widths using mocked app data; no horizontal page scrolling or non-decorative element overflow found
 - Parent dashboard child cards, quick actions, School Prep cards, rewards UI, child detail/log sections, login/request access, child/family invite pages, and parent/calendar modals were included in the mobile consistency pass
