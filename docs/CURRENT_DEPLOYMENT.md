@@ -26,6 +26,12 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 
 `sudo /usr/local/bin/family-hero-deploy`
 
+## Recent Production Fixes
+
+- Child reward requests now recover CSRF automatically for existing linked child devices when `/api/child/me` is loaded and the `csrf_token` cookie is missing.
+- Child dashboards show a clearer relink message for expired or invalid child sessions.
+- Reward POSTs remain CSRF-protected; `/api/child/redemptions` was not exempted.
+
 ## Deployment Rules
 
 - Inspect first, edit second.

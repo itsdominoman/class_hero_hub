@@ -19,6 +19,7 @@
 - Level-up/evolution feedback
 - Reward unlock feedback (visual dopamine hit)
 - Image optimization for pet assets
+- Clear relink messaging for expired or invalid child-device links
 
 ### 🔐 Access Improvements
 - Completed: Parent `last_login_at` now updates on first and returning Google OAuth logins
@@ -29,11 +30,13 @@
 - Completed: Last-parent revoke protection
 - Completed: Parent-facing family member lists hide revoked parents
 - Device/session management (parent can revoke child devices - backend done)
+- Child reward-request CSRF recovery for existing linked devices now happens through `/api/child/me`
 
 ### 🎁 Rewards System
 - Reward approval UX improvements
 - Reward history (child + parent view)
 - Expiry or cooldown for rewards
+- Reward request flow uses CSRF protection and automatic cookie recovery for valid child sessions
 
 ---
 

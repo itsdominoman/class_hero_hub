@@ -31,6 +31,8 @@
 - Rewards displayed correctly to children
 - Reward request flow implemented
 - Pending reward requests visible to parents
+- Existing child devices recover reward-request CSRF automatically when `/api/child/me` is loaded and the `csrf_token` cookie is missing
+- Reward POSTs remain CSRF-protected; `/api/child/redemptions` is not exempted
 
 ### Family Calendar
 - Parent-facing calendar page is implemented
@@ -83,6 +85,11 @@
 - Child device linking (QR + link)
 - Child session persistence
 - Rewards creation → child visibility → request flow
+- Child reward request CSRF recovery for existing linked devices
+- Parent pending reward request card receives child requests
+- Reward request hold/reserve behavior is enforced by the existing redemption hold ledger flow
+- Reward rejection releases held points
+- Reward approval finalizes points
 - Parent dashboard + child dashboard interaction
 - Multi-child support (e.g., Jackson, Leah)
 - Parent calendar event/task creation, editing, deletion, recurrence, and rewardable tasks
@@ -104,6 +111,7 @@
 
 ### Authentication Enhancements
 - Device management (view/revoke sessions UI - backend done, needs dedicated UI page)
+- Longer-lived parent-managed child device sessions are a future improvement; current child links still expire and now show clearer relink messaging
 
 ### Rewards System
 - Reward approval UX polish

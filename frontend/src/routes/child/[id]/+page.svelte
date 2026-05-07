@@ -65,7 +65,7 @@
     is_active: boolean;
   };
 
-  type ErrorKind = 'not-linked' | 'wrong-child' | 'not-found' | 'server-error';
+  type ErrorKind = 'not-linked' | 'link-expired' | 'wrong-child' | 'not-found' | 'server-error';
 
   type DayCalendarOccurrence = {
     entry: {
@@ -396,6 +396,10 @@
     message.toLowerCase().includes('invalid child session') ||
     message.toLowerCase().includes('child session missing');
 
+  const isExpiredChildLinkError = (message: string) =>
+    message.toLowerCase().includes('child session expired') ||
+    message.toLowerCase().includes('invalid child session');
+
   const isNotFoundError = (message: string) =>
     message.toLowerCase().includes('not found');
 
@@ -438,6 +442,7 @@
         }
 
         accessMode = 'parent';
+        const childAuthMessage = childError.message;
         try {
           const [childSummary, activity, allRedemptions, allRewards] = await Promise.all([
             api.get(`/children/${childId}`),
@@ -454,8 +459,13 @@
         } catch (parentError) {
           const message = parentError instanceof Error ? parentError.message : 'Unable to load child dashboard';
           if (isAuthError(message)) {
-            errorKind = 'not-linked';
-            error = 'This device is not linked yet.';
+            if (isExpiredChildLinkError(childAuthMessage)) {
+              errorKind = 'link-expired';
+              error = 'This child device link has expired or is no longer valid. Ask your parent to link this device again.';
+            } else {
+              errorKind = 'not-linked';
+              error = 'This device is not linked yet.';
+            }
           } else if (isNotFoundError(message)) {
             errorKind = 'not-found';
             error = 'Child profile not found.';
@@ -552,6 +562,8 @@
         <h1 class="text-2xl md:text-3xl font-black text-slate-900 mb-2">
           {errorKind === 'not-linked'
             ? 'This device is not linked yet'
+            : errorKind === 'link-expired'
+              ? 'This child device link has expired'
             : errorKind === 'wrong-child'
               ? `This device is linked to ${linkedChildName || 'another child'}`
               : errorKind === 'not-found'

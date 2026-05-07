@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 from typing import List, Literal
 
@@ -15,10 +15,16 @@ router = APIRouter()
 async def get_my_dashboard(
     db: Session = Depends(get_db),
     current_child: models.Child = Depends(get_current_child),
+    request: Request = None,
+    response: Response = None,
 ):
     summary = points_service.get_child_summary(db, current_child.id)
     if not summary:
         raise HTTPException(status_code=404, detail="Child not found")
+
+    if request is not None and response is not None and not request.cookies.get(auth.CSRF_COOKIE_NAME):
+        auth.set_csrf_cookie(response, auth.create_csrf_token())
+
     return summary
 
 
