@@ -11,6 +11,7 @@
 ### Verification
 - `https://dev.familyherohub.com` returned HTTP/2 200.
 - `https://dev.familyherohub.com/api/health` returned `{"status":"ok"}`.
+- External verification from another Ubuntu host confirmed `curl -I https://dev.familyherohub.com` returned HTTP/2 200 and `curl -sS https://dev.familyherohub.com/api/health` returned `{"status":"ok"}`.
 - Backend and frontend containers were running.
 - Google OAuth login/callback worked on dev.
 - Parent dashboard loaded on dev.
@@ -20,6 +21,7 @@
 
 ### Notes
 - Only `dev.familyherohub.com` points to the Europe VPS.
+- Forward and reverse DNS are aligned for `dev.familyherohub.com` and `213.199.61.244`.
 - Mail remains US-only.
 - The Europe server is prepared for future Hermes use, but Hermes itself is not installed yet.
 

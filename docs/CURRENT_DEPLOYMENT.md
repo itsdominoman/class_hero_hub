@@ -29,6 +29,7 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 - Caddy routing: `/api/*` to `127.0.0.1:8000`, everything else to `127.0.0.1:5173`
 - Docker container ports: `family-hero-hub-backend` bound to `127.0.0.1:8000`, `family-hero-hub-frontend` bound to `127.0.0.1:5173`
 - Mail: remains on the US server only
+- DNS: `dev.familyherohub.com` now resolves to `213.199.61.244`, and `213.199.61.244` PTR maps back to `dev.familyherohub.com`
 - Notes: only `dev.familyherohub.com` points to the Europe VPS
 
 ## App Location

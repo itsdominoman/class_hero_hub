@@ -88,6 +88,7 @@
 - Europe dev VPS setup completed for development/testing at https://dev.familyherohub.com
 - Europe dev stack verified: Ubuntu 24.04.4 LTS, Docker, Docker Compose, Node/npm, Codex CLI, Gemini CLI
 - Europe dev deployment verified with Caddy routing to local Docker ports and SQLite still in use
+- DNS is aligned for dev: `dev.familyherohub.com` -> `213.199.61.244` and PTR `213.199.61.244` -> `dev.familyherohub.com`
 - Mail remains on the US server only; production DNS records were not changed
 - Backend tests passing (60 tests)
 - Frontend production build passes
@@ -112,6 +113,7 @@
 - Parent calendar event/task creation, editing, deletion, recurrence, and rewardable tasks
 - Dev OAuth login and callback working at https://dev.familyherohub.com
 - Dev health check verified at `https://dev.familyherohub.com/api/health` returning `{"status":"ok"}`
+- External verification from another Ubuntu host confirmed `curl -I https://dev.familyherohub.com` returned HTTP/2 200 and `curl -sS https://dev.familyherohub.com/api/health` returned `{"status":"ok"}`
 - Parent dashboard loaded successfully on dev
 - Admin registration requests page loaded successfully on dev
 - Mobile calendar layout visually tested and improved
