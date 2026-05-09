@@ -4,6 +4,13 @@
 
 The market for family management and financial tools is substantial and growing, yet fragmented. Two major buyer needs define the landscape: parents seek reduced household chaos, less nagging, and greater consistency, while children desire immediate feedback, visible progress, and a sense of ownership. The category broadly splits into "money-first" family fintech (allowance, savings, cards) and "behavior-first" family systems (chores, routines, rewards). Family Hero Hub should strategically position itself not as "just another chore app," but as a comprehensive "family command center plus kids hero journey." The strongest opportunity lies in a reward and responsibility system integrating chores, allowance, motivation, parent controls, simple money learning, and playful identity elements like avatars or a mascot.
 
+## Recent competitor-review follow-up (2026-05-09)
+
+- The latest read-only competitor review suggests Family Hero Hub is a promising startup, not a hobby project, but still not a polished commercial app.
+- ClassDojo and Greenlight appeared more polished and trust-rich in the captured pages.
+- The clearest product gaps remain mobile hero layout, trust/privacy reassurance, onboarding clarity, and parent-facing conversion hierarchy.
+- Some competitor captures were limited by 404s, login walls, Cloudflare gates, or placeholder/loading screens, so conclusions should stay evidence-based and conservative.
+
 ## 2. Market Demand: What Parents and Kids Want
 
 ### Parent Needs:

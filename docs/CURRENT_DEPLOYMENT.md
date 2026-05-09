@@ -66,6 +66,8 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 - US `wg-easy`: `http://10.250.50.2:51821`
 - UK `wg-easy`: `http://10.250.50.3:51821`
 - Hermes dashboard: `http://10.250.50.1:9119`
+- Competitor review viewer: `http://10.250.50.1:8765`
+- Docs viewer/editor: `http://10.250.50.1:8766`
 - These URLs are mesh/VPN only and must not be exposed publicly
 
 ## Access and Security Notes
@@ -76,6 +78,9 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 - OAuth still works from trusted IPs or VPN because the browser can reach `dev.familyherohub.com`
 - SQLite is still in use; PostgreSQL remains planned/future only
 - Do not assume Cloudflare Tunnel is active just because the file exists elsewhere in docs
+- Europe personal VPN runs through Docker `wg-easy`; the host may see container or bridge source addresses for that traffic.
+- Private routing and firewall access on reboot are restored by `/usr/local/sbin/fhh-private-network-rules.sh` and `fhh-private-network-rules.service`.
+- That private rules service preserves return routing for `10.60.0.0/24`, private service access, and site-mesh forwarding.
 
 ## App Location
 

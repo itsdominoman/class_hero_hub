@@ -96,6 +96,9 @@
 - UK personal VPN is working on `10.70.0.0/24`
 - Hermes migrated to the Europe/France VPS and now runs there as the active Hermes host
 - Hermes dashboard is available privately at `http://10.250.50.1:9119`
+- Internal competitor review tooling is available privately at `http://10.250.50.1:8765`
+- Internal docs viewer/editor is available privately at `http://10.250.50.1:8766`
+- Europe private routing/firewall access is restored on reboot by `fhh-private-network-rules.service`
 - US Hermes was removed from active runtime and archived at `/opt/apps/hermes-removed-from-us/`
 - Ubuntu office box uses `wg-quick` with a split tunnel that routes only `10.250.50.0/24` through the Europe VPN
 - Backend tests passing (60 tests)
@@ -152,6 +155,7 @@
 - Reward approval UX polish
 - Reward history tracking
 - Notifications for reward requests
+- Clearer trust/privacy wording around parent approval and child safety
 
 ### Gamification
 - Pet evolution visuals added; remaining work: animations, level-up feedback, image optimization, and deeper progression polish.
@@ -159,6 +163,7 @@
 - Animations / engagement elements
 - Automatic weekly streak generation
 - Polished streak and bonus UI
+- More rewarding child-facing excitement and retention loops
 
 ### Productivity Features
 - Dedicated child management route/shell for child-specific Points, Rewards, Calendar, School Bag, Profile, and device sections
@@ -171,6 +176,11 @@
 - Scheduled rewards / recurring behaviours
 - Shared family goals / house rewards
 - Avatar or character customization
+- Backup and restore validation automation
+- CI/test gate before deploy
+- PostgreSQL migration planning and runtime schema strategy review
+- Real-device mobile QA on Android Chrome and iPhone Safari
+- Onboarding simplification and clearer family-safe wording
 
 ### Mobile Follow-Up
 - Real-device Android Chrome and iPhone Safari checks are still recommended before Capacitor packaging; current verification used Chromium mobile emulation with mocked API data.

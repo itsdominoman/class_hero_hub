@@ -103,15 +103,26 @@
 - Completed: UK personal VPN on `10.70.0.0/24`
 - Completed: Hermes migration to the Europe/France server
 - Completed: Private Hermes dashboard on the mesh-only URL
+- Completed: Internal competitor review viewer on the private mesh
+- Completed: Internal docs viewer/editor on the private mesh
+- Completed: Persistent private network rules service for Europe reboot recovery
 - Completed: Dev access lockdown with Caddy allowlisting for trusted IPs/VPN paths
 - Future: PostgreSQL migration from SQLite when the database move is actually needed
 - Future: production cutover planning for any future hosting change, with DNS and mail handling reviewed separately
 - Future: mail migration planning
 - Future: SSH lockdown after all trusted/VPN access has been proven
 - Future: backup automation over the private mesh
+- Future: backup and restore validation automation
+- Future: CI/test gate before deploy
+- Future: operational runbooks for private dashboards and VPN recovery
 - Future: formal US personal VPN cleanup/recreation to `10.80.0.0/24`
 - Future: optional office site mesh spoke at `10.250.50.10`
 - Future: narrow sudo permissions for Hermes if needed
+- Future: real-device mobile QA on Android Chrome and iPhone Safari
+- Future: trust/privacy copy improvements and clearer family-safe wording
+- Future: onboarding simplification and stronger parent-facing conversion flow
+- Future: reward history, reminders, and longer-term retention loops
+- Future: replace runtime schema mutation with a clearer migration strategy
 
 ---
 

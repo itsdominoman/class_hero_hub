@@ -1,5 +1,24 @@
 # Family Hero Hub - Upgrade Tracker
 
+# 2026-05-09 - Internal Hermes Review Tooling and Private Access Hardening
+
+### Scope
+- Ran a read-only seven-agent review with Zeus, Athena, Hercules, Hermes, Apollo, Aphrodite, and Ares using situational model selection for orchestration, review, and summarization.
+- Created and used internal/private review workspaces under `/opt/apps/family-hero-hub/tmp/competitor-review/` and `/opt/apps/family-hero-hub/tmp/docs-viewer/`.
+- Added private dashboard access for the competitor review viewer at `http://10.250.50.1:8765` and the docs viewer/editor at `http://10.250.50.1:8766`.
+- Persisted Europe private routing/firewall access with `fhh-private-network-rules.service` and `/usr/local/sbin/fhh-private-network-rules.sh`.
+- Confirmed the Europe wg-easy Docker/NAT return-route behavior for private VPN traffic and documented it as an operational note.
+
+### Verification
+- Internal dashboards remained private/VPN-only and were not wired into the production frontend.
+- `tmp/` is ignored by git and no tracked files were added under `tmp/`.
+- No production app, runtime, deployment, database, or secret files were changed.
+- Hermes dashboard and private mesh access were verified over the Europe VPN path.
+
+### Notes
+- The review found Family Hero Hub to be a promising startup with clear strengths, but still short of a polished commercial app.
+- Main follow-up areas remain mobile hero layout, trust/privacy messaging, onboarding clarity, child engagement polish, and conversion hierarchy.
+
 # 2026-05-09 - Europe Hermes Migration, WireGuard Renumbering, and Dev Lockdown
 
 ### Scope
