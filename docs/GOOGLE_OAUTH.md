@@ -14,6 +14,7 @@
         - `http://localhost:8000/api/auth/google/callback` (Local Development)
         - `https://dev.familyherohub.com/api/auth/google/callback` (Europe Dev/Test)
         - `https://familyherohub.com/api/auth/google/callback` (Production)
+    - Dev access note: `dev.familyherohub.com` is restricted to trusted IPs and VPN paths, so the browser must be on an allowed network path for the dev OAuth redirect/callback to complete.
     - Authorized JavaScript Origins:
         - `https://dev.familyherohub.com` (Europe Dev/Test)
         - `https://familyherohub.com` (Production)

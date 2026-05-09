@@ -1,5 +1,24 @@
 # Family Hero Hub - Upgrade Tracker
 
+# 2026-05-09 - Europe Hermes Migration, WireGuard Renumbering, and Dev Lockdown
+
+### Scope
+- Renumbered the site WireGuard mesh to `10.250.50.0/24` after `10.50.0.0/24` was abandoned because it conflicted with office/local routing.
+- Moved Hermes from the US production runtime to the Europe/France VPS and kept the US archive at `/opt/apps/hermes-removed-from-us/`.
+- Restricted `dev.familyherohub.com` at the Caddy layer so only trusted IPs and VPN paths can reach the dev app.
+
+### Verification
+- Site mesh connectivity was confirmed between Europe (`10.250.50.1`), US (`10.250.50.2`), and UK (`10.250.50.3`).
+- All three servers could reach the private `wg-easy` admin panels at `http://10.250.50.1:51821`, `http://10.250.50.2:51821`, and `http://10.250.50.3:51821`.
+- The Europe Hermes gateway and dashboard services were active, and the dashboard was reachable at `http://10.250.50.1:9119`.
+- Telegram Zeus traffic was confirmed on the Europe Hermes host through live `gateway.log` entries.
+- Off-VPN access to `dev.familyherohub.com` returned HTTP 403, while trusted IP/VPN access worked and OAuth still completed through the allowed path.
+
+### Notes
+- The UK server now remains an infrastructure/VPN node rather than app hosting.
+- The office box uses `wg-quick` with a split tunnel that routes only `10.250.50.0/24` through the Europe VPN.
+- PostgreSQL, mail migration, and any future SSH tightening remain separate follow-up items.
+
 # 2026-05-07 - Europe Dev VPS Baseline Setup
 
 ### Scope

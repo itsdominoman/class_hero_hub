@@ -20,7 +20,11 @@ The project uses a specialized agent structure to manage different aspects of th
 - **Hercules** uses the Gemini CLI (`/usr/bin/gemini`) version `0.41.2` for coding tasks.
 - Codex CLI is available at `/usr/bin/codex` version `0.128.0`.
 - **Athena** defines the product direction and PRDs.
-- **Hermes** manages deployments and infrastructure. The Europe dev VPS is intended to become the future main Hermes server, but Hermes is not installed there yet.
+- **Hermes** manages deployments and infrastructure. Hermes now runs on the Europe/France VPS (`vmi3285205`, `213.199.61.244`) with `hermes-gateway.service` and `hermes-dashboard.service` active and the private dashboard at `http://10.250.50.1:9119`.
+- Hermes lives at `/opt/apps/hermes-agent` with home `/home/administrator/.hermes`.
+- Hermes currently has sudo disabled. Keep any future privilege changes narrow and explicit.
+- Do not expose Hermes publicly; use the private WireGuard mesh only.
+- Verify Hermes host identity from `hostname`, IP, and logs when needed rather than relying on model memory.
 - **Ares** ensures quality through automated and manual testing.
 - `HERMES_RULES.md` at `/opt/apps/family-hero-hub/HERMES_RULES.md` is a local-only rules file and is intentionally excluded from GitHub.
 - `tmp/` is ignored and may contain local agent logs or drafts.

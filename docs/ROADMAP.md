@@ -98,10 +98,20 @@
 
 ## 🧭 Infrastructure & Migration Planning
 
-- Future: WireGuard private link between the US and Europe servers for private rsync, backups, PostgreSQL migration/replication, mail migration prep, and private admin/internal traffic
+- Completed: US-Europe-UK WireGuard site mesh baseline on `10.250.50.0/24`
+- Completed: Europe personal VPN on `10.60.0.0/24`
+- Completed: UK personal VPN on `10.70.0.0/24`
+- Completed: Hermes migration to the Europe/France server
+- Completed: Private Hermes dashboard on the mesh-only URL
+- Completed: Dev access lockdown with Caddy allowlisting for trusted IPs/VPN paths
 - Future: PostgreSQL migration from SQLite when the database move is actually needed
-- Future: Hermes migration onto the Europe server once that environment is ready for the main agent role
-- Future: production cutover planning for a future Europe-based main server, with DNS and mail handling reviewed separately
+- Future: production cutover planning for any future hosting change, with DNS and mail handling reviewed separately
+- Future: mail migration planning
+- Future: SSH lockdown after all trusted/VPN access has been proven
+- Future: backup automation over the private mesh
+- Future: formal US personal VPN cleanup/recreation to `10.80.0.0/24`
+- Future: optional office site mesh spoke at `10.250.50.10`
+- Future: narrow sudo permissions for Hermes if needed
 
 ---
 

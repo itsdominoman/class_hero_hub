@@ -90,6 +90,14 @@
 - Europe dev deployment verified with Caddy routing to local Docker ports and SQLite still in use
 - DNS is aligned for dev: `dev.familyherohub.com` -> `213.199.61.244` and PTR `213.199.61.244` -> `dev.familyherohub.com`
 - Mail remains on the US server only; production DNS records were not changed
+- Dev access is locked down at Caddy with `remote_ip` allowlisting; off-VPN/untrusted clients receive HTTP 403
+- WireGuard site mesh is live on `10.250.50.0/24` with Europe as hub, US as spoke, and UK as spoke
+- Europe personal VPN is working on `10.60.0.0/24`
+- UK personal VPN is working on `10.70.0.0/24`
+- Hermes migrated to the Europe/France VPS and now runs there as the active Hermes host
+- Hermes dashboard is available privately at `http://10.250.50.1:9119`
+- US Hermes was removed from active runtime and archived at `/opt/apps/hermes-removed-from-us/`
+- Ubuntu office box uses `wg-quick` with a split tunnel that routes only `10.250.50.0/24` through the Europe VPN
 - Backend tests passing (60 tests)
 - Frontend production build passes
 
@@ -114,8 +122,12 @@
 - Dev OAuth login and callback working at https://dev.familyherohub.com
 - Dev health check verified at `https://dev.familyherohub.com/api/health` returning `{"status":"ok"}`
 - External verification from another Ubuntu host confirmed `curl -I https://dev.familyherohub.com` returned HTTP/2 200 and `curl -sS https://dev.familyherohub.com/api/health` returned `{"status":"ok"}`
+- Dev access on an untrusted client returns HTTP 403, while trusted IPs and VPN access work
 - Parent dashboard loaded successfully on dev
 - Admin registration requests page loaded successfully on dev
+- Hermes gateway and dashboard are active on Europe, and the private dashboard is reachable over the mesh/VPN path
+- Telegram Zeus gateway handling was confirmed by live `gateway.log` entries on the Europe Hermes host
+- All three servers can reach the `wg-easy` admin panels over the mesh at `10.250.50.1:51821`, `10.250.50.2:51821`, and `10.250.50.3:51821`
 - Mobile calendar layout visually tested and improved
 - Mobile consistency viewport sweep completed against production frontend build at 320, 360, 375, 390, 412, 430, 768, and 1365 px widths using mocked app data; no horizontal page scrolling or non-decorative element overflow found
 - Parent dashboard child cards, quick actions, School Prep cards, rewards UI, child detail/log sections, login/request access, child/family invite pages, and parent/calendar modals were included in the mobile consistency pass

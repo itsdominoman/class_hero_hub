@@ -32,9 +32,16 @@ https://familyherohub.com
 
 ## 🧪 Dev/Test Environment
 
-Development and testing now run at https://dev.familyherohub.com.
+Development and testing run at https://dev.familyherohub.com on the Europe/France VPS.
 
-Production remains at https://familyherohub.com.
+Production remains at https://familyherohub.com on the US VPS.
+
+## 🧭 Infrastructure Notes
+
+- Production: US server only
+- Dev and Hermes: Europe/France server (`dev.familyherohub.com`)
+- Private site mesh: `10.250.50.0/24`
+- Workflow: test in Europe, then commit/push there; US production pulls tested commits only
 
 ---
 

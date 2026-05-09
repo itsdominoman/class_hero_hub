@@ -3,6 +3,8 @@
 > **Current status:** Family Hero Hub currently uses **Caddy**, not Cloudflare Tunnel.
 >
 > This document is retained only as a future/optional deployment reference. Do not treat it as the current production setup.
+>
+> Private admin and Hermes access use the WireGuard mesh, not Cloudflare Tunnel.
 
 
 This app is designed to be deployed behind a Cloudflare Tunnel using a single hostname.
