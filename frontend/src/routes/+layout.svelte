@@ -78,6 +78,7 @@
         <p class="font-black text-white uppercase tracking-widest text-sm">Family Hero Hub</p>
         <p class="text-sm">Built with ❤️ for families everywhere.</p>
         <div class="flex flex-wrap md:justify-end gap-x-6 gap-y-3 text-xs font-black uppercase tracking-tighter">
+          <a href="/faq" class="hover:text-hero transition-colors">FAQ</a>
           <a href="/privacy" class="hover:text-hero transition-colors">Privacy Policy</a>
           <a href="/terms" class="hover:text-hero transition-colors">Terms of Service</a>
           <a href="/contact" class="hover:text-hero transition-colors">Contact</a>
