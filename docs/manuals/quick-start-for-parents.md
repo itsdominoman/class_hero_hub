@@ -1,0 +1,124 @@
+# Quick Start for Parents
+
+
+## 10-minute setup checklist
+
+- Sign in with Google
+- Check or add your child profile
+- Review point actions: Positive, Negative, Other
+- Create one simple reward
+- Link the child device
+- Award first points
+- Ask the child to request the reward
+- Approve or reject the reward request
+- Add one calendar item
+- Check School Prep / School Bag
+
+## 1) Sign in
+
+1. Open the login page.
+   - You will see **Continue with Google**.
+2. Choose **Continue with Google**.
+   - Google opens its secure sign-in page.
+3. Sign in with your parent Google account.
+   - You are ready for the next step when you land on the parent dashboard.
+
+## 2) Add or check your child
+
+1. Open the parent dashboard.
+   - You will see **My Family**, **Children**, **House Points**, **Reward Requests**, and **Parent Tools**.
+2. Find your child card.
+   - You can see the child name, HP, and saved balance.
+3. Check the name and current points.
+   - You know the child is in the right family when the details look right.
+4. Add another child if needed.
+   - The new child appears in **Children**.
+
+## 3) Review point actions
+
+1. Open the child’s **Points** action.
+   - This opens the points screen.
+2. Choose **Positive**, **Negative**, or **Other**.
+   - The screen is now set for the type of point action you want.
+3. Enter a small point amount.
+   - Now you can enter the amount you want.
+4. Add a short reason.
+   - The points log will keep the reason clear later.
+5. Save.
+   - The child’s HP updates, and you may hear a sound if audio is on.
+
+## 4) Create first reward
+
+1. Open **Manage Rewards**.
+   - This opens the reward screen.
+2. Create a simple reward.
+   - You are ready to save a new reward.
+3. Give it a title.
+   - The reward is easy for your child to understand.
+4. Set a point cost.
+   - The reward now has a clear HP price.
+5. Save and keep it visible.
+   - Your child can see the reward in their dashboard.
+
+Example reward: “Choose movie night”
+
+## 5) Link the child device
+
+1. Open **Link Child Device**.
+   - This opens the QR code and link screen.
+2. Generate the QR code or fallback link.
+   - You see a fresh link with an expiry time.
+3. Have the child open it on their device.
+   - The child dashboard opens.
+4. Confirm the child dashboard loads.
+   - You are ready for the next step when the child is connected to the right profile.
+
+## 6) Award first points
+
+1. Open the child’s **Points** action again.
+   - This is where you add the first points after the reward is ready.
+2. Choose **Positive**.
+   - The screen is set to add points.
+3. Enter a small point amount.
+   - Now you can enter the amount you want.
+4. Add a short reason.
+   - The points log will keep the reason clear later.
+5. Save.
+   - The child’s HP goes up, and you may hear a success sound if audio is on.
+
+## 7) Test a reward request
+
+1. Ask the child to choose a reward.
+   - A request is sent from the child dashboard.
+2. Watch for a pending request.
+   - The request appears in **Reward Requests**.
+3. Open pending requests.
+   - You can review the request in **View pending requests** or **Reward Approvals**.
+
+## 8) Approve or reject
+
+- Click **Approve** if the child earned it.
+  - The reward is approved and the points stay spent.
+- Click **Reject** if you want to return the held points.
+  - The held points return to the child’s spending balance.
+
+## 9) Use calendar and School Bag basics
+
+- Add one task or event to the calendar.
+  - The item appears in the child’s day view.
+- Check whether it is rewardable.
+  - The task can award points when completed and approved.
+- Add school items for today or tomorrow.
+  - **School Prep** and **School Bag** show the right items.
+- Confirm the child can see School Bag.
+  - The child sees “Pack for tomorrow,” “Needed today,” or “Check stationery.”
+
+
+## You are done when...
+
+- You can sign in with Google.
+- Your child appears in **Children**.
+- The child can open their device link.
+- You can give points and create rewards.
+- A reward request can be approved or rejected.
+- The calendar and School Bag show the right items.
