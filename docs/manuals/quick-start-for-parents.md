@@ -17,16 +17,16 @@
 ## 1) Sign in
 
 1. Open the login page.
-   - You will see **Continue with Google**.
+   - You should see **Continue with Google**.
 2. Choose **Continue with Google**.
-   - Google opens its secure sign-in page.
+   - This opens Google’s secure sign-in page.
 3. Sign in with your parent Google account.
-   - You are ready for the next step when you land on the parent dashboard.
+   - You’re ready for the next step when you land on the parent dashboard.
 
 ## 2) Add or check your child
 
 1. Open the parent dashboard.
-   - You will see **Children** cards.
+   - You should see **Children** cards.
 2. Find your child card.
    - You can see the child name, HP, and saved balance.
 3. Check the name and current points.
@@ -37,20 +37,20 @@
 ## 3) Award first points
 
 1. Open the child’s **Points** action.
-   - This opens the points screen.
+   - This opens the points modal.
 2. Choose **Positive**.
-   - The screen is now set to add points.
+   - The modal is now set to add points.
 3. Enter a small point amount.
-   - Now you can enter the amount you want.
+   - Now you can add the amount you want.
 4. Add a short reason.
-   - The points log will keep the reason clear later.
+   - The points log will make sense later.
 5. Save.
-   - The child’s HP goes up, and you may hear a success sound if audio is on.
+   - The child’s HP goes up and you hear the success sound if audio is on.
 
 ## 4) Create first reward
 
 1. Open **Manage Rewards**.
-   - This opens the reward screen.
+   - This opens the reward editor.
 2. Create a simple reward.
    - You are ready to save a new reward.
 3. Give it a title.
@@ -65,13 +65,13 @@ Example reward: “Choose movie night”
 ## 5) Link the child device
 
 1. Open **Link Child Device**.
-   - This opens the QR code and link screen.
+   - This opens the QR/link screen.
 2. Generate the QR code or fallback link.
    - You see a fresh link with an expiry time.
 3. Have the child open it on their device.
    - The child dashboard opens.
 4. Confirm the child dashboard loads.
-   - You are ready for the next step when the child is connected to the right profile.
+   - You’re ready for the next step when the child is connected to the right profile.
 
 ## 6) Test a reward request
 

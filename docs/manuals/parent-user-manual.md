@@ -65,13 +65,10 @@ The parent dashboard is your family control center. When you sign in, this is th
 
 You will see:
 
-- **My Family**
 - **Children** cards
 - **House Points** summary
 - **Reward Requests** summary
 - **Parent Tools**
-
-You may also see labels and buttons such as **Manage**, **Points**, **Manage rewards**, **Family settings**, **Manage behaviours**, **View pending requests**, **Add child**, and **Link child device**.
 
 ### What the child cards show
 
@@ -217,8 +214,6 @@ When you reject a request:
 
 The calendar is for family tasks and events.
 
-On the calendar page you may see labels like **Plan the week with the family.**, **Move through the week**, **This week**, **Add Schedule Item**, and **School Books & Classes**.
-
 You can create:
 
 - tasks
@@ -302,7 +297,7 @@ Common tools include:
 - view pending reward requests
 - link child device
 - family settings or member controls
-- school prep or other tools
+- school prep or other family tools
 - child and point actions
 
 ## 18) Logging out

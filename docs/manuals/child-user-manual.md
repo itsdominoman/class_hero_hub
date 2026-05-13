@@ -140,6 +140,6 @@ If you are not sure what to do, ask your parent for help.
 That is always the safest choice.
 
 
-## Quick reminder
+## 15) Quick reminder
 
 If you get stuck, ask your parent.
