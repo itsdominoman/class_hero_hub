@@ -99,6 +99,8 @@
 - US production has now been cut over successfully to PostgreSQL using the verified backup set at `/opt/backups/family-hero-hub/prod-cutover-20260513-083225`
 - The freeze-time rollback snapshot used for the cutover is `/opt/backups/family-hero-hub/prod-cutover-20260513-083225/family_hero_hub_freeze.sqlite`
 - US PostgreSQL is Docker Compose internal only and was not publicly exposed during cutover
+- US pgBackRest is initialized and healthy, with first full backup `20260513-094837F` completed successfully and WAL archiving active
+- The Europe off-server pgBackRest mirror was created at `/opt/backups/family-hero-hub/pgbackrest/us-prod/` and checksum-verified
 - The production cutover branch intentionally excludes dev-only QA login, browser QA tooling, customer FAQ/manual UI changes, scheduled notification/reporting scripts, and Europe-specific UK backup sync automation.
 - DNS is aligned for dev: `dev.familyherohub.com` -> `213.199.61.244` and PTR `213.199.61.244` -> `dev.familyherohub.com`
 - Mail remains on the US server only; production DNS records were not changed
@@ -197,8 +199,8 @@
 - Controlled ETL dry-run passed and the actual SQLite-to-PostgreSQL import completed successfully on Europe dev
 - Runtime switch to PostgreSQL completed on Europe dev after import validation
 - Next gate is continuing validation on PostgreSQL runtime and keeping the SQLite rollback copy available
-- Production PostgreSQL backup strategy still needs pgBackRest plus WAL archiving with a tested restore path, not just `pg_dump`
-- Production still requires a rehearsal using a production SQLite backup imported into a temporary PostgreSQL database before any US runtime cutover.
+- Production backup strategy now needs a scheduled backup/mirror/restore-test policy and retention review, not just `pg_dump`
+- Production still requires follow-up restoration drills and mirror retention hardening, even though the US cutover itself is complete.
 - Real-device mobile QA on Android Chrome and iPhone Safari
 - Onboarding simplification and clearer family-safe wording
 - Warning cleanup remains pending for SQLAlchemy FK cycle/drop_all warnings around `families`/`parent_users` and Pydantic/SQLAlchemy deprecation warnings

@@ -15,9 +15,12 @@
 - Backend `DATABASE_URL` is PostgreSQL.
 - Freeze-time SQLite row counts and PostgreSQL row counts matched exactly.
 - Manual production smoke testing passed for parent dashboard, children visibility, positive/negative points, reward request/approval, calendar, school prep/school bag, and admin users page.
+- US pgBackRest is initialized and healthy, with first full backup `20260513-094837F` completed successfully and WAL archiving active.
+- The Europe off-server pgBackRest mirror at `/opt/backups/family-hero-hub/pgbackrest/us-prod/` was checksum-verified.
 
 ### Notes
-- The PostgreSQL logs still show a pgBackRest archive warning about missing `archive.info` / `archive.info.copy` in the repository; this is a follow-up backup-hardening item and did not block the cutover.
+- The initial pgBackRest archive warnings about missing `archive.info` / `archive.info.copy` were resolved during backup hardening.
+- The next follow-up is a recurring backup/mirror/restore-test policy and retention plan.
 - Any new PostgreSQL writes after cutover are not represented in the old SQLite rollback backup.
 - Do not treat the narrow production branch preparation as the live state anymore; production is now PostgreSQL-backed.
 
@@ -27,11 +30,13 @@
 - Created local Europe branch `prod/postgres-cutover-20260513` from production `main` at `258289c0f0283c764af76dbfe0bbbffaecfa77b1`.
 - Included only the PostgreSQL cutover path: Docker Compose PostgreSQL service, pgBackRest-capable PostgreSQL image/config, Alembic baseline, PostgreSQL runtime safety changes, enum compatibility, SQLite-to-PostgreSQL ETL tooling, and the child-session timezone fix needed for PostgreSQL datetime behavior.
 - Hardened production defaults so the example PostgreSQL database name is `family_hero_hub`, the password remains a placeholder, and the ETL script requires `--confirm-production-cutover` for the production database.
+- The approved production cutover branch was later deployed to US production and the live runtime is now PostgreSQL-backed.
 
 ### Verification
 - This branch is prepared on Europe only and is not deployed to US production.
 - Production remains SQLite until an approved backup, rehearsal, cutover, verification, and rollback window is run.
 - PostgreSQL remains internal-only in Compose: no public `5432` port mapping is defined.
+- The Europe off-server pgBackRest mirror exists at `/opt/backups/family-hero-hub/pgbackrest/us-prod/` and is checksum-verified.
 
 ### Exclusions
 - Dev-only QA login code was excluded.

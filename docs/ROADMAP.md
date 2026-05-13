@@ -116,12 +116,14 @@
 - Completed: Europe dev PostgreSQL backup system implemented with pgBackRest + WAL archiving and restore rehearsal
 - Completed: Narrow production cutover branch `prod/postgres-cutover-20260513` prepared on Europe from production `main` without unrelated dev-only QA, Playwright, FAQ/manual UI, notification, or Europe backup-sync tooling
 - Completed: US production PostgreSQL cutover finished successfully using the verified backup set at `/opt/backups/family-hero-hub/prod-cutover-20260513-083225`
-- Future: post-cutover PostgreSQL backup hardening, including pgBackRest/WAL warning cleanup and restore validation on US production
+- Completed: US pgBackRest initialized and healthy, with first full backup `20260513-094837F` completed successfully
+- Completed: Europe off-server mirror of the US pgBackRest repo created and checksum-verified at `/opt/backups/family-hero-hub/pgbackrest/us-prod/`
+- Future: post-cutover PostgreSQL backup hardening, including scheduled backup/mirror/restore-test policy and retention review for US production
 - Future: production cutover planning for any future hosting change, with DNS and mail handling reviewed separately
 - Future: mail migration planning
 - Future: SSH lockdown after all trusted/VPN access has been proven
 - Future: backup automation over the private mesh
-- Future: production PostgreSQL backup design using pgBackRest with WAL archiving and a tested restore, not `pg_dump` alone
+- Future: production PostgreSQL backup design using pgBackRest with WAL archiving, tested restore cadence, and off-server mirror retention, not `pg_dump` alone
 - Future: CI/test gate before deploy
 - Future: operational runbooks for private dashboards and VPN recovery
 - Future: formal US personal VPN cleanup/recreation to `10.80.0.0/24`
