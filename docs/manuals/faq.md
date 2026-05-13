@@ -20,6 +20,10 @@ Parents sign in with **Continue with Google** and use the Google account that be
 
 Sign in, check or add your child profile, create one simple reward, and link the child device.
 
+### Can I use Family Hero Hub from a phone browser?
+
+Yes. Open it in your phone browser and use the same website.
+
 ### What if my access has not been approved yet?
 
 Choose **Request Access** and submit your details. If you already requested access, wait for approval and try signing in again later.
@@ -41,6 +45,10 @@ It means your account is waiting to be approved before you can use the app.
 ### Can another parent use the app too?
 
 Yes, if they have access to the family account and sign in with their own approved Google account.
+
+### Can children spend points without parent approval?
+
+No. Children can ask for rewards, but a parent still has to approve the request.
 
 ## Children and child devices
 
@@ -82,6 +90,10 @@ It is points set aside for later.
 
 They are points temporarily set aside while a reward request is waiting for a parent to decide.
 
+### What is the difference between HP, saved points, and held points?
+
+HP is the child’s spending balance, saved points are set aside for later, and held points are waiting on a reward decision.
+
 ### Why did my child’s points change?
 
 Points can change after a positive action, a penalty, a saved balance change, or a reward request.
@@ -120,9 +132,9 @@ The request is rejected and the held points go back to the child’s spending ba
 
 Use **View pending requests** or the reward approvals area on the parent dashboard.
 
-### What is Redemption Requests?
+### What does the reward approvals area do?
 
-It is the area where reward requests are reviewed and approved or rejected.
+It is where you review reward requests and decide whether to approve or reject them.
 
 ## Calendar, School Prep, and School Bag
 
@@ -142,6 +154,10 @@ School Prep is the parent view for today and tomorrow’s school items.
 
 School Bag is the child view that shows school items to remember.
 
+### What is the difference between School Prep and School Bag?
+
+School Prep is for parents. School Bag is for children.
+
 ### What does “Pack for tomorrow” mean?
 
 It is a School Bag item that reminds the child to get ready for the next day.
@@ -153,6 +169,10 @@ It shows school items that are needed for today.
 ### What does “Check stationery” mean?
 
 It reminds the child to check school supplies such as pens, pencils, and other stationery.
+
+### What should I do if the wrong school items appear?
+
+Check the child, the weekday, and the school items entered in School Prep.
 
 ## Child dashboard
 
@@ -209,25 +229,3 @@ Check the child, the weekday, and the school items entered in School Prep.
 ### The page looks strange on my phone. What should I try?
 
 Refresh the page, try a different browser, or rotate your phone and try again.
-
-## Features not currently covered as live
-
-### Are missions or quests available?
-
-These are not documented as current live features in this manual set.
-
-### Is there a full monthly calendar?
-
-These are not documented as current live features in this manual set.
-
-### Are reminders or notifications available?
-
-These are not documented as current live features in this manual set.
-
-### Is there a mobile app yet?
-
-These are not documented as current live features in this manual set.
-
-### Does the app work offline?
-
-These are not documented as current live features in this manual set.
