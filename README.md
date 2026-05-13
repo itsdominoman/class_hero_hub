@@ -28,6 +28,8 @@ Children can:
 
 https://familyherohub.com
 
+The live US production runtime is PostgreSQL-backed after the 2026-05-13 cutover.
+
 ---
 
 ## 🧪 Dev/Test Environment
@@ -123,7 +125,7 @@ Production remains at https://familyherohub.com on the US VPS.
 
 - **Backend:** FastAPI (Python)
 - **Frontend:** SvelteKit
-- **Database:** SQLite
+- **Database:** PostgreSQL in production, with SQLite rollback and local/dev use retained where needed
 - **Infrastructure:** Docker + Caddy (HTTPS)
 
 ---

@@ -13,9 +13,15 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 - Mail: `https://mail.familyherohub.com`
 - Public IP: `204.12.209.190`
 - Host role: production source of truth
-- Stack: Ubuntu server, Docker Compose, Caddy, SQLite, FastAPI backend, SvelteKit frontend
-- Note: production PostgreSQL has not been introduced yet; any future production move should include tested pgBackRest/WAL backup and restore procedures
-- Production cutover preparation branch: `prod/postgres-cutover-20260513` is a narrow Europe-prepared branch based on production `main` at `258289c0f0283c764af76dbfe0bbbffaecfa77b1`; it is not deployed and must not be treated as live production state.
+- Stack: Ubuntu server, Docker Compose, Caddy, PostgreSQL, FastAPI backend, SvelteKit frontend
+- Production database: PostgreSQL is now the live US production runtime database
+- Verified cutover backup: `/opt/backups/family-hero-hub/prod-cutover-20260513-083225`
+- Freeze-time backup: `/opt/backups/family-hero-hub/prod-cutover-20260513-083225/family_hero_hub_freeze.sqlite`
+- Production rollback backup: the original SQLite backup remains available inside the verified cutover backup set
+- Production cutover branch: `prod/postgres-cutover-20260513` was the narrow Europe-prepared branch based on production `main` at `258289c0f0283c764af76dbfe0bbbffaecfa77b1`; it has now been cut over on US production and is the current production release branch
+- PostgreSQL is Docker Compose internal only; no public `5432` port is exposed
+- Cutover coordination did not change Mailcow, DNS, or Caddy
+- pgBackRest/WAL archive warnings are still present in PostgreSQL logs and remain a follow-up hardening item
 - Mail: remains on the US server only
 - Hermes: removed from active US runtime and archived at `/opt/apps/hermes-removed-from-us/`
 - Notes: US is pull/deploy only; normal feature work should happen on Europe/France first

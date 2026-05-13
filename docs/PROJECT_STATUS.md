@@ -96,6 +96,9 @@
 - Europe dev runtime is now PostgreSQL-backed, but this remains a Europe-only change
 - Europe dev PostgreSQL backup now uses pgBackRest with WAL archiving, and a separate restore rehearsal verified the backup can be restored cleanly
 - A narrow production release branch, `prod/postgres-cutover-20260513`, has been prepared on Europe from production `main` at `258289c0f0283c764af76dbfe0bbbffaecfa77b1`; it is not deployed and does not mean production has moved to PostgreSQL.
+- US production has now been cut over successfully to PostgreSQL using the verified backup set at `/opt/backups/family-hero-hub/prod-cutover-20260513-083225`
+- The freeze-time rollback snapshot used for the cutover is `/opt/backups/family-hero-hub/prod-cutover-20260513-083225/family_hero_hub_freeze.sqlite`
+- US PostgreSQL is Docker Compose internal only and was not publicly exposed during cutover
 - The production cutover branch intentionally excludes dev-only QA login, browser QA tooling, customer FAQ/manual UI changes, scheduled notification/reporting scripts, and Europe-specific UK backup sync automation.
 - DNS is aligned for dev: `dev.familyherohub.com` -> `213.199.61.244` and PTR `213.199.61.244` -> `dev.familyherohub.com`
 - Mail remains on the US server only; production DNS records were not changed
@@ -113,6 +116,7 @@
 - Backend tests passing (60 tests)
 - Frontend production build passes
 - Europe PostgreSQL runtime smoke test now handles expired child-device links cleanly with HTTP 401 instead of a 500
+- US production smoke tests and manual verification passed after the PostgreSQL cutover
 
 ---
 

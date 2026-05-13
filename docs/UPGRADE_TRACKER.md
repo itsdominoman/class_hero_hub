@@ -1,5 +1,26 @@
 # Family Hero Hub - Upgrade Tracker
 
+# 2026-05-13 - US Production PostgreSQL Cutover Completed
+
+### Scope
+- Cut US production over from SQLite to PostgreSQL using the verified backup set at `/opt/backups/family-hero-hub/prod-cutover-20260513-083225`.
+- Used the freeze-time rollback snapshot at `/opt/backups/family-hero-hub/prod-cutover-20260513-083225/family_hero_hub_freeze.sqlite` for the actual import.
+- Kept PostgreSQL private to Docker Compose networking and did not expose `5432` publicly.
+- Left Mailcow, DNS, and Caddy unchanged during the cutover.
+
+### Verification
+- Backend/frontend/postgres are running on US production.
+- Local `/api/health` and public `https://familyherohub.com/api/health` returned `{"status":"ok"}`.
+- Public homepage, login, and request-access pages returned HTTP 200.
+- Backend `DATABASE_URL` is PostgreSQL.
+- Freeze-time SQLite row counts and PostgreSQL row counts matched exactly.
+- Manual production smoke testing passed for parent dashboard, children visibility, positive/negative points, reward request/approval, calendar, school prep/school bag, and admin users page.
+
+### Notes
+- The PostgreSQL logs still show a pgBackRest archive warning about missing `archive.info` / `archive.info.copy` in the repository; this is a follow-up backup-hardening item and did not block the cutover.
+- Any new PostgreSQL writes after cutover are not represented in the old SQLite rollback backup.
+- Do not treat the narrow production branch preparation as the live state anymore; production is now PostgreSQL-backed.
+
 # 2026-05-13 - Narrow Production PostgreSQL Cutover Branch Prepared
 
 ### Scope
