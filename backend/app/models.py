@@ -31,6 +31,9 @@ class PetStage(enum.Enum):
     hero = "hero"
     beast = "beast"
 
+def string_enum(enum_class):
+    return Enum(enum_class, native_enum=False)
+
 class ParentUser(Base):
     __tablename__ = "parent_users"
 
@@ -247,8 +250,8 @@ class LedgerTransaction(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     child_id = Column(Integer, ForeignKey("children.id"))
-    jar = Column(Enum(JarType))
-    transaction_type = Column(Enum(TransactionType))
+    jar = Column(string_enum(JarType))
+    transaction_type = Column(string_enum(TransactionType))
     points = Column(Integer)
     description = Column(String)
     locked_until = Column(DateTime(timezone=True), nullable=True)
@@ -265,7 +268,7 @@ class RedemptionRequest(Base):
     points = Column(Integer)
     title = Column(String)
     description = Column(String)
-    status = Column(Enum(RedemptionStatus), default=RedemptionStatus.pending)
+    status = Column(string_enum(RedemptionStatus), default=RedemptionStatus.pending)
     parent_note = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
@@ -279,7 +282,7 @@ class PetProgress(Base):
     id = Column(Integer, primary_key=True, index=True)
     child_id = Column(Integer, ForeignKey("children.id"), unique=True)
     lifetime_points = Column(Integer, default=0)
-    current_stage = Column(Enum(PetStage), default=PetStage.egg)
+    current_stage = Column(string_enum(PetStage), default=PetStage.egg)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
 
     child = relationship("Child", back_populates="pet_progress")

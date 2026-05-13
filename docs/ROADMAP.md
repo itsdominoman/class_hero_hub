@@ -38,6 +38,7 @@
 - Expiry or cooldown for rewards
 - Reward request flow uses CSRF protection and automatic cookie recovery for valid child sessions
 - Completed: Parent reward management and pending reward requests are available through modal flows from Parent Tools
+- Follow-up: confirm whether child-side completion of rewardable tasks should be supported as a real child UX path or remain parent-only for now
 
 ---
 
@@ -107,12 +108,21 @@
 - Completed: Internal docs viewer/editor on the private mesh
 - Completed: Persistent private network rules service for Europe reboot recovery
 - Completed: Dev access lockdown with Caddy allowlisting for trusted IPs/VPN paths
-- Future: PostgreSQL migration from SQLite when the database move is actually needed
+- Completed: Internal PostgreSQL 16 service added to Europe dev for migration testing only
+- Completed: Alembic baseline schema migration applied to the empty Europe PostgreSQL database
+- Completed: Controlled SQLite-to-PostgreSQL ETL dry-run tool added and validated against the empty Europe PostgreSQL target
+- Completed: Actual SQLite-to-PostgreSQL ETL import ran on Europe dev with row-count validation matching the source
+- Completed: Europe dev runtime switched to PostgreSQL after import validation
+- Completed: Europe dev PostgreSQL backup system implemented with pgBackRest + WAL archiving and restore rehearsal
+- Completed: Narrow production cutover branch `prod/postgres-cutover-20260513` prepared on Europe from production `main` without unrelated dev-only QA, Playwright, FAQ/manual UI, notification, or Europe backup-sync tooling
+- Future: continue PostgreSQL runtime validation and keep the SQLite rollback copy available
+- Future: rehearse the US production SQLite import into a temporary PostgreSQL database before touching the US production runtime
 - Future: production cutover planning for any future hosting change, with DNS and mail handling reviewed separately
 - Future: mail migration planning
 - Future: SSH lockdown after all trusted/VPN access has been proven
 - Future: backup automation over the private mesh
-- Future: backup and restore validation automation
+- Future: production PostgreSQL backup design using pgBackRest with WAL archiving and a tested restore, not `pg_dump` alone
+- Future: complete the pgBackRest/WAL design and restore rehearsal before any production PostgreSQL cutover
 - Future: CI/test gate before deploy
 - Future: operational runbooks for private dashboards and VPN recovery
 - Future: formal US personal VPN cleanup/recreation to `10.80.0.0/24`

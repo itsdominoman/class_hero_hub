@@ -14,6 +14,8 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 - Public IP: `204.12.209.190`
 - Host role: production source of truth
 - Stack: Ubuntu server, Docker Compose, Caddy, SQLite, FastAPI backend, SvelteKit frontend
+- Note: production PostgreSQL has not been introduced yet; any future production move should include tested pgBackRest/WAL backup and restore procedures
+- Production cutover preparation branch: `prod/postgres-cutover-20260513` is a narrow Europe-prepared branch based on production `main` at `258289c0f0283c764af76dbfe0bbbffaecfa77b1`; it is not deployed and must not be treated as live production state.
 - Mail: remains on the US server only
 - Hermes: removed from active US runtime and archived at `/opt/apps/hermes-removed-from-us/`
 - Notes: US is pull/deploy only; normal feature work should happen on Europe/France first
@@ -27,6 +29,13 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 - Domain: `https://dev.familyherohub.com`
 - PTR/rDNS: `213.199.61.244` -> `dev.familyherohub.com`
 - Stack: Ubuntu 24.04.4 LTS, Docker, Docker Compose, Node/npm, SQLite, FastAPI backend, SvelteKit frontend
+- Runtime database: PostgreSQL is now the live Europe dev app DB via Docker Compose
+- Expired child-device link exchange now returns a clean 401/"Child link expired" response on Europe PostgreSQL instead of an internal server error
+- SQLite rollback copy remains available at `/opt/apps/family-hero-hub/tmp/runtime-db-switch/sqlite_before_postgres_switch_20260509_164727.sqlite`
+- Europe dev PostgreSQL backups now use pgBackRest with WAL archiving; a first full backup and a separate restore rehearsal both completed successfully
+- Internal PostgreSQL 16 runs in Docker Compose with no public port exposed and now serves the live Europe dev runtime
+- Alembic: baseline schema migration was applied before import, and the database now contains imported dev data
+- ETL tool: `backend/scripts/migrate_sqlite_to_postgres.py` exists for controlled SQLite-to-PostgreSQL migration work; dry-run validation passed and the Europe dev SQLite data has now been imported into PostgreSQL
 - Tooling: Codex CLI at `/usr/bin/codex` version `0.128.0`; Gemini CLI at `/usr/bin/gemini` version `0.41.2`
 - Repo: `/opt/apps/family-hero-hub`
 - Git remote: `git@github.com:itsdominoman/family-hero-hub.git`
@@ -76,7 +85,9 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 - Trusted access includes `96.9.135.3` (office/current admin), `45.155.44.72` (work/trusted admin), `204.12.209.190` (US), `213.199.61.244` (Europe), `87.106.54.49` (UK primary), `217.154.52.123` (UK secondary), and trusted WireGuard/VPN paths
 - Off-VPN or untrusted clients receive HTTP 403 on dev
 - OAuth still works from trusted IPs or VPN because the browser can reach `dev.familyherohub.com`
-- SQLite is still in use; PostgreSQL remains planned/future only
+- SQLite is no longer the live runtime on Europe dev, but the backup remains for rollback
+- The current PostgreSQL database contains imported dev app data and now serves the Europe dev runtime
+- The pgBackRest repo lives in a private named Docker volume and is not publicly exposed
 - Do not assume Cloudflare Tunnel is active just because the file exists elsewhere in docs
 - Europe personal VPN runs through Docker `wg-easy`; the host may see container or bridge source addresses for that traffic.
 - Private routing and firewall access on reboot are restored by `/usr/local/sbin/fhh-private-network-rules.sh` and `fhh-private-network-rules.service`.
@@ -94,7 +105,7 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 
 - Frontend: SvelteKit
 - Backend: FastAPI
-- Database: SQLite
+- Database: PostgreSQL for the live Europe dev runtime, with SQLite rollback backup retained locally
 - Runtime/deployment: Docker Compose
 - Public access / reverse proxy: Caddy
 
@@ -119,6 +130,14 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 ## Notes
 
 Before changing deployment, inspect the real Caddy/server configuration first.
+
+## PostgreSQL Cutover Preparation
+
+- Branch `prod/postgres-cutover-20260513` contains the minimum PostgreSQL cutover code path prepared from the Europe validation work.
+- Included scope: PostgreSQL Docker service, pgBackRest-capable image/config, Alembic baseline, SQLite-to-PostgreSQL ETL script, PostgreSQL-safe runtime initialization, enum compatibility, and the child-session timezone fix observed during Europe PostgreSQL validation.
+- Excluded scope: dev-only QA login, Playwright browser QA tooling, customer FAQ/manual frontend changes, scheduled reporting wrappers, Telegram/Email reporting scripts, and Europe-to-UK backup sync automation.
+- Production remains on SQLite until an approved backup, rehearsal, deploy, migration, verification, and rollback window is executed.
+- PostgreSQL must stay private to Docker networking or localhost/private paths only; do not publish `5432` publicly.
 
 ## Access Management Notes
 

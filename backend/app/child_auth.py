@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import hashlib
 import secrets
 from collections import defaultdict, deque
@@ -26,7 +26,15 @@ class ChildSessionContext:
 
 
 def now_utc() -> datetime:
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
+
+
+def _as_utc_aware(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 def hash_token(token: str) -> str:
@@ -38,7 +46,10 @@ def generate_token() -> str:
 
 
 def _cookie_max_age(expires_at: datetime) -> int:
-    remaining = int((expires_at - now_utc()).total_seconds())
+    aware_expires_at = _as_utc_aware(expires_at)
+    if aware_expires_at is None:
+        return 0
+    remaining = int((aware_expires_at - now_utc()).total_seconds())
     return max(0, remaining)
 
 
@@ -162,7 +173,8 @@ def exchange_child_link(db: Session, raw_token: str) -> tuple[models.ChildDevice
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired child link")
     if invite.used_at is not None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Child link already used")
-    if invite.expires_at <= current:
+    invite_expires_at = _as_utc_aware(invite.expires_at)
+    if invite_expires_at is None or invite_expires_at <= current:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Child link expired")
 
     child = db.query(models.Child).filter(
@@ -203,7 +215,8 @@ def resolve_child_session(db: Session, raw_token: str) -> ChildSessionContext:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid child session")
     if session.revoked_at is not None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid child session")
-    if session.expires_at <= current:
+    session_expires_at = _as_utc_aware(session.expires_at)
+    if session_expires_at is None or session_expires_at <= current:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Child session expired")
 
     child = db.query(models.Child).filter(

@@ -1,8 +1,8 @@
 import os
 from datetime import datetime, timedelta
 
-os.environ.setdefault("DATABASE_URL", "sqlite://")
-os.environ.setdefault("APP_ENV", "test")
+os.environ["DATABASE_URL"] = "sqlite://"
+os.environ["APP_ENV"] = "test"
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -245,6 +245,37 @@ def test_child_redemption_invalid_csrf_fails():
                 .count()
                 == 0
             )
+        finally:
+            check_db.close()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_child_link_exchange_rejects_expired_invite_cleanly():
+    client = make_client()
+    try:
+        db = TestingSessionLocal()
+        try:
+            family = create_family(db)
+            parent = create_parent(db, family, "expired-link-parent@example.com", "Parent", "sub-expired-link")
+            child = create_child(db, family)
+            invite, raw_token = child_auth.issue_child_device_invite(db, child, family.id, parent.id)
+            invite_id = invite.id
+            invite.expires_at = datetime.utcnow() - timedelta(minutes=1)
+            db.commit()
+        finally:
+            db.close()
+
+        response = client.post("/api/child-link/exchange", json={"token": raw_token})
+
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Child link expired"
+
+        check_db = TestingSessionLocal()
+        try:
+            assert check_db.query(models.ChildDeviceSession).count() == 0
+            refreshed_invite = check_db.query(models.ChildDeviceInvite).filter_by(id=invite_id).one()
+            assert refreshed_invite.used_at is None
         finally:
             check_db.close()
     finally:

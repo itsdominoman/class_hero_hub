@@ -2,8 +2,9 @@ import os
 from datetime import date, datetime, timedelta, timezone
 from urllib.parse import quote
 
-os.environ.setdefault("DATABASE_URL", "sqlite://")
-os.environ.setdefault("APP_ENV", "test")
+os.environ["DATABASE_URL"] = "sqlite://"
+os.environ["APP_ENV"] = "test"
+os.environ["PARENT_EMAILS"] = "parent@example.com"
 
 import pytest
 from fastapi.testclient import TestClient

@@ -41,8 +41,14 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+connect_args = (
+    {"check_same_thread": False}
+    if settings.DATABASE_URL.startswith("sqlite")
+    else {}
+)
+
 engine = create_engine(
-    settings.DATABASE_URL, connect_args={"check_same_thread": False}
+    settings.DATABASE_URL, connect_args=connect_args
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -60,8 +66,8 @@ def ensure_runtime_schema():
     """
     Backfill additive columns for the live SQLite database.
 
-    The production app ships without a migration framework, so new nullable
-    access-management fields need to be added in place without dropping data.
+    Legacy compatibility for SQLite only. PostgreSQL schema is managed by
+    Alembic and must not execute SQLite-specific inspection or DDL here.
     """
 
     if not settings.DATABASE_URL.startswith("sqlite"):

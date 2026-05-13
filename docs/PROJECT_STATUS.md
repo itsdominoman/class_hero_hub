@@ -87,7 +87,16 @@
 - Domain: https://familyherohub.com
 - Europe dev VPS setup completed for development/testing at https://dev.familyherohub.com
 - Europe dev stack verified: Ubuntu 24.04.4 LTS, Docker, Docker Compose, Node/npm, Codex CLI, Gemini CLI
-- Europe dev deployment verified with Caddy routing to local Docker ports and SQLite still in use
+- Europe dev deployment verified with Caddy routing to local Docker ports; runtime DATABASE_URL has now been switched to PostgreSQL on Europe dev
+- Internal PostgreSQL 16 service added to Europe dev via Docker Compose for migration testing only, with no public port exposed
+- Alembic initial schema migration was applied to the empty Europe PostgreSQL database
+- Controlled SQLite-to-PostgreSQL ETL tooling now exists at `backend/scripts/migrate_sqlite_to_postgres.py`; dry-run validation completed cleanly before import
+- Europe PostgreSQL now contains imported app data from the copied SQLite DB, and row-count validation matched source counts
+- SQLite backup remains available under `tmp/runtime-db-switch/` for rollback
+- Europe dev runtime is now PostgreSQL-backed, but this remains a Europe-only change
+- Europe dev PostgreSQL backup now uses pgBackRest with WAL archiving, and a separate restore rehearsal verified the backup can be restored cleanly
+- A narrow production release branch, `prod/postgres-cutover-20260513`, has been prepared on Europe from production `main` at `258289c0f0283c764af76dbfe0bbbffaecfa77b1`; it is not deployed and does not mean production has moved to PostgreSQL.
+- The production cutover branch intentionally excludes dev-only QA login, browser QA tooling, customer FAQ/manual UI changes, scheduled notification/reporting scripts, and Europe-specific UK backup sync automation.
 - DNS is aligned for dev: `dev.familyherohub.com` -> `213.199.61.244` and PTR `213.199.61.244` -> `dev.familyherohub.com`
 - Mail remains on the US server only; production DNS records were not changed
 - Dev access is locked down at Caddy with `remote_ip` allowlisting; off-VPN/untrusted clients receive HTTP 403
@@ -103,6 +112,7 @@
 - Ubuntu office box uses `wg-quick` with a split tunnel that routes only `10.250.50.0/24` through the Europe VPN
 - Backend tests passing (60 tests)
 - Frontend production build passes
+- Europe PostgreSQL runtime smoke test now handles expired child-device links cleanly with HTTP 401 instead of a 500
 
 ---
 
@@ -156,6 +166,7 @@
 - Reward history tracking
 - Notifications for reward requests
 - Clearer trust/privacy wording around parent approval and child safety
+- Child-side completion of rewardable tasks is a separate follow-up/UX review if it remains intentionally unsupported
 
 ### Gamification
 - Pet evolution visuals added; remaining work: animations, level-up feedback, image optimization, and deeper progression polish.
@@ -179,8 +190,14 @@
 - Backup and restore validation automation
 - CI/test gate before deploy
 - PostgreSQL migration planning and runtime schema strategy review
+- Controlled ETL dry-run passed and the actual SQLite-to-PostgreSQL import completed successfully on Europe dev
+- Runtime switch to PostgreSQL completed on Europe dev after import validation
+- Next gate is continuing validation on PostgreSQL runtime and keeping the SQLite rollback copy available
+- Production PostgreSQL backup strategy still needs pgBackRest plus WAL archiving with a tested restore path, not just `pg_dump`
+- Production still requires a rehearsal using a production SQLite backup imported into a temporary PostgreSQL database before any US runtime cutover.
 - Real-device mobile QA on Android Chrome and iPhone Safari
 - Onboarding simplification and clearer family-safe wording
+- Warning cleanup remains pending for SQLAlchemy FK cycle/drop_all warnings around `families`/`parent_users` and Pydantic/SQLAlchemy deprecation warnings
 
 ### Mobile Follow-Up
 - Real-device Android Chrome and iPhone Safari checks are still recommended before Capacitor packaging; current verification used Chromium mobile emulation with mocked API data.
