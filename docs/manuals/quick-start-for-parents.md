@@ -26,7 +26,7 @@
 ## 2) Add or check your child
 
 1. Open the parent dashboard.
-   - You will see **My Family**, **Children**, **House Points**, **Reward Requests**, and **Parent Tools**.
+   - You will see **Children** cards.
 2. Find your child card.
    - You can see the child name, HP, and saved balance.
 3. Check the name and current points.
@@ -34,18 +34,18 @@
 4. Add another child if needed.
    - The new child appears in **Children**.
 
-## 3) Review point actions
+## 3) Award first points
 
 1. Open the child’s **Points** action.
    - This opens the points screen.
-2. Choose **Positive**, **Negative**, or **Other**.
-   - The screen is now set for the type of point action you want.
+2. Choose **Positive**.
+   - The screen is now set to add points.
 3. Enter a small point amount.
    - Now you can enter the amount you want.
 4. Add a short reason.
    - The points log will keep the reason clear later.
 5. Save.
-   - The child’s HP updates, and you may hear a sound if audio is on.
+   - The child’s HP goes up, and you may hear a success sound if audio is on.
 
 ## 4) Create first reward
 
@@ -73,20 +73,7 @@ Example reward: “Choose movie night”
 4. Confirm the child dashboard loads.
    - You are ready for the next step when the child is connected to the right profile.
 
-## 6) Award first points
-
-1. Open the child’s **Points** action again.
-   - This is where you add the first points after the reward is ready.
-2. Choose **Positive**.
-   - The screen is set to add points.
-3. Enter a small point amount.
-   - Now you can enter the amount you want.
-4. Add a short reason.
-   - The points log will keep the reason clear later.
-5. Save.
-   - The child’s HP goes up, and you may hear a success sound if audio is on.
-
-## 7) Test a reward request
+## 6) Test a reward request
 
 1. Ask the child to choose a reward.
    - A request is sent from the child dashboard.
@@ -95,14 +82,14 @@ Example reward: “Choose movie night”
 3. Open pending requests.
    - You can review the request in **View pending requests** or **Reward Approvals**.
 
-## 8) Approve or reject
+## 7) Approve or reject
 
 - Click **Approve** if the child earned it.
   - The reward is approved and the points stay spent.
 - Click **Reject** if you want to return the held points.
   - The held points return to the child’s spending balance.
 
-## 9) Use calendar and School Bag basics
+## 8) Use calendar and School Bag basics
 
 - Add one task or event to the calendar.
   - The item appears in the child’s day view.
