@@ -180,7 +180,7 @@
 - Backend HTTP tests added for missing CSRF failure, CSRF recovery via `/api/child/me`, successful redemption after recovery, invalid CSRF rejection, unauthenticated `/api/child/me`, and expired/invalid child-session rejection.
 - Backend tests passed.
 - Frontend production build passed.
-- Live visual testing confirmed the child can request a reward, the parent sees the pending request, held points behave as expected, and approval/rejection still finalize or release points.
+- Live visual testing confirmed the child can request a reward, the parent sees the pending request, points on hold behave as expected, and approval/rejection still finalize or release points.
 - Expired child-link UX is covered by backend tests and frontend build verification; it was not manually forced in production because that would require mutating production session data.
 
 ### Notes

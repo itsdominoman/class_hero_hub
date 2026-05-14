@@ -1,17 +1,14 @@
 # Parent User Manual
 
-
 ## Who this is for
-
 Parents and guardians who use Family Hero Hub to manage children, points, rewards, the calendar, school prep, and child device access.
 
 ## What this manual covers
-
 - Signing in with Google
 - Requesting access if needed
 - Understanding the parent dashboard
 - Adding and managing children
-- Awarding points and applying penalties
+- Adding and removing points
 - Creating and managing rewards
 - Reviewing reward requests
 - Using the calendar
@@ -27,8 +24,8 @@ Family Hero Hub helps your family keep track of responsibilities, points, reward
 In simple terms:
 
 - you set up children
-- you award points for good choices or completed tasks
-- you can apply penalties when needed
+- you add points for good choices or completed tasks
+- you remove points when needed
 - children can request rewards with their points
 - you review and approve or reject those requests
 - you can also manage calendar items and school prep
@@ -51,7 +48,7 @@ In simple terms:
 
 If your account is not approved yet:
 
-1. Go to **Request Access**.
+1. Go to **Request access**.
 2. Enter your name, email, family name, and optional message.
 3. Submit the request.
 4. Wait for approval.
@@ -61,48 +58,48 @@ If the app says your email is not approved, that means you need to request acces
 
 ## 4) Parent dashboard overview
 
-The parent dashboard is your family control center. When you sign in, this is the page you use to manage your children, points, rewards, calendar items, and child device links.
+The parent dashboard is your family control center. When you sign in, this is the page you use to manage your children, points, rewards, calendar items, and child dashboard links.
 
 You will see:
 
 - **Children** cards
-- **House Points** summary
-- **Reward Requests** summary
-- **Parent Tools**
+- **Total available points** or another family summary label, depending on the card value shown
+- **Reward requests** summary
+- **Family tools**
 
 ### What the child cards show
 
 Each child card shows:
 
 - the child name
-- avatar or pet progress
-- **HP** for the child’s spending balance
-- **saved** for saved balance
-- a **Points** button for quick actions
-- an **Open child** button to view the child dashboard
+- avatar or dragon progress
+- **Available points** for the child’s spending balance
+- **Saved points** for saved balance
+- an **Add / remove points** button for quick actions
+- a **View child dashboard** button to view the child dashboard
 
 ## 5) Adding and managing children
 
-Use the **Children** cards and **Parent Tools** to manage your family. From there you can:
+Use the **Children** cards and **Family tools** to manage your family. From there you can:
 
 - add a child profile
-- open a child’s dashboard
-- award or remove points
+- view a child’s dashboard
+- add or remove points
 - manage rewards
 - link a child device
 - send family invites
 
-## 6) Awarding points and applying penalties
+## 6) Adding and removing points
 
 Open the points action for a child.
 
 You can choose:
 
-- **Positive**: add points for helpful actions
-- **Negative**: remove points for misbehavior or missed responsibilities
-- **Other**: use a custom one-time action
+- **Add points**: add points for helpful actions
+- **Remove points**: remove points for missed responsibilities or unwanted behaviour
+- **Custom**: use a custom one-time action
 
-### Positive points
+### Add points
 
 Use this when a child does something helpful, kind, or responsible.
 
@@ -112,7 +109,7 @@ Example reasons:
 - “Finished homework”
 - “Helped with dinner”
 
-### Penalties
+### Remove points
 
 Use this when you need to remove points.
 
@@ -121,29 +118,29 @@ Example reasons:
 - “Ignored homework reminder”
 - “Treated sibling badly”
 
-### Other / custom point actions
+### Custom point actions
 
-Use **Other** when the action does not fit the preset buttons.
+Use **Custom** when the action does not fit the preset buttons.
 
 Write a short reason so the record is clear later.
 
-## 7) Points balance, spending balance, and saved balance
+## 7) Points balance, saved points, and points on hold
 
 The app shows three point balances for each child:
 
-- **Spending balance**: points the child can use right now
-- **Saved balance**: points set aside for later
-- **Held / reserved points**: points temporarily set aside while a reward request waits for your decision
+- **Available points**: points the child can use right now
+- **Saved points**: points set aside for later
+- **Points on hold**: points temporarily set aside while a reward request waits for your decision. Points on hold are already removed from available points while a reward request waits for review.
 
-The points log shows the history of awards, penalties, savings changes, and reward requests.
+The points log shows the history of point changes, saved points changes, and reward requests.
 
 ### Reward lifecycle
 
 1. Your child requests a reward.
-2. The points are held from the spending balance.
+2. The points are put on hold from the available balance.
 3. You approve or reject the request.
 4. If you approve it, the reward is completed and the points stay used.
-5. If you reject it, the held points return to the child’s spending balance.
+5. If you reject it, the points on hold return to the child’s available points.
 
 ## 8) Rewards overview
 
@@ -161,7 +158,7 @@ Parents create rewards, and children can see the active rewards that are availab
 
 ## 9) Creating and managing rewards
 
-From the parent tools area, open **Manage Rewards**.
+From the family tools area, open **Manage rewards**.
 
 You can:
 
@@ -180,7 +177,7 @@ Good reward examples:
 
 ## 10) Viewing reward requests
 
-Open **View Pending Requests** or the Reward Approvals screen.
+Open **Review reward requests**.
 
 You will see:
 
@@ -194,9 +191,9 @@ You will see:
 
 When you approve a request:
 
-1. Open **View Pending Requests** or **Reward Approvals**.
+1. Open **Review reward requests**.
 2. Review the child, the reward, and the point cost.
-3. Click **Approve**.
+3. Click **Approve request**.
 4. The request moves to approved.
 5. The child’s points stay spent for that reward.
 
@@ -204,11 +201,11 @@ When you approve a request:
 
 When you reject a request:
 
-1. Open **View Pending Requests** or **Reward Approvals**.
-2. Click **Reject**.
+1. Open **Review reward requests**.
+2. Click **Reject request**.
 3. Add a short reason if asked.
 4. The request moves to rejected.
-5. The held points return to the child’s spending balance.
+5. The points on hold return to the child’s available points.
 
 ## 13) Calendar overview
 
@@ -273,8 +270,8 @@ Use it to keep track of books, clothes, and other school needs.
 
 To give a child their own dashboard:
 
-1. Open the parent tools area.
-2. Choose **Link Child Device**.
+1. Open the family tools area.
+2. Choose **Link child device**.
 3. Generate the QR code or fallback link.
 4. Have the child open it on their device.
 5. The child dashboard opens for that child.
@@ -287,14 +284,14 @@ If the child sees an expired link message:
 2. Generate a fresh child link.
 3. Ask the child to scan or open the new link.
 
-## 17) Parent tools
+## 17) Family tools
 
-Parent tools are the main action shortcuts for adults.
+Family tools are the main action shortcuts for adults.
 
 Common tools include:
 
 - manage rewards
-- view pending reward requests
+- review reward requests
 - link child device
 - family settings or member controls
 - school prep or other family tools
@@ -318,46 +315,4 @@ This is useful on shared devices.
 
 - wait for approval
 - check that you used the correct email
-- contact support if it has been a long time
-
-### My child link expired
-
-- generate a new QR code or link from the parent dashboard
-
-### My reward request is missing
-
-- refresh the page
-- check that you opened the pending requests area
-- confirm the child requested the reward from the correct child device
-
-### My child’s points look wrong
-
-- check the recent activity or ledger
-- look for recent awards, penalties, or reward holds
-- confirm whether a reward request was approved or rejected
-
-### A calendar item is missing
-
-- check the selected child
-- check whether the item is active
-- confirm whether it is on the right date or recurring schedule
-
-### School Bag looks wrong
-
-- check the child and weekday
-- confirm the school item is active
-- update the school prep entry if needed
-
-### The page looks bad on my phone
-
-- refresh the page
-- try a different mobile browser
-- try landscape and portrait if needed
-
-
-## Best practices
-
-- Keep rewards simple and easy to understand.
-- Use clear reasons when you add or remove points.
-- Review pending requests regularly.
-- Refresh child links when they expire.
+- try again later if needed

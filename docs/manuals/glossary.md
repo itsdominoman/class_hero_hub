@@ -1,82 +1,34 @@
 # Glossary
 
-
 ## Points
+The score a child earns or loses in Family Hero Hub.
 
-The score a child earns or loses in Family Hero Hub. For kids, points are the stars or HP they can build up.
+## Hero Points
+The branded/fun name for points when Family Hero Hub uses the hero theme.
 
-## Penalty
+## Available points
+Points a child can use right now.
 
-A negative point action used when points should be removed. For kids, this means points were taken away.
+## Saved points
+Points set aside for later.
 
-## Reward
-
-Something a child can earn or request with points. A reward is the good thing a child wants to trade points for.
+## Points on hold
+Points temporarily set aside while a reward request is waiting for a parent decision. Points on hold are already removed from available points while a reward request waits for review.
 
 ## Reward request
+A child’s request to use points for a reward.
 
-A child’s request to use points for a reward. This is what the child sends when they tap **Request**.
-
-## Pending
-
-Waiting for a parent to decide. It means “not answered yet.”
-
-## Approved
-
-Accepted by the parent. The answer is yes.
-
-## Rejected
-
-Denied by the parent. The answer is no.
-
-## Held / reserved points
-
-Points that are temporarily set aside while a reward request is pending. Think of them as points on pause.
-
-## Child device link
-
-The QR code or link a parent uses to connect a child’s device to the child dashboard. It is the path that opens the child page on that device.
-
-## QR code
-
-A square code a device can scan to open the child link. A parent can show it to the child.
-
-## Calendar task
-
-A task in the family calendar, such as homework or a chore. It is something a child can do or check off.
-
-## Rewardable task
-
-A task that can be connected to points. If the parent uses this feature, finishing the task can lead to points.
-
-## School Bag
-
-The child view that shows school items to remember. It helps kids pack what they need.
-
-## School Prep
-
-The parent view that shows school items for today and tomorrow. It helps parents check what their child needs.
-
-## Parent dashboard
-
-The main page for adults in Family Hero Hub. It is where parents manage the family.
+## Parent approval
+When a parent says yes to a reward request.
 
 ## Child dashboard
+The child’s private page for points, rewards, tasks, and dragon progress.
 
-The main page for children in Family Hero Hub. It is where kids see points, rewards, tasks, and School Bag.
+## Child dashboard link
+The QR code or link that opens a child’s dashboard on a device.
 
-## House Points
+## Dragon progress
+The fun visual progress system that shows the dragon growing as points are earned.
 
-A family summary label on the parent dashboard for points-related information. It shows the family’s total points summary.
-
-## Savings / saved balance
-
-Points that are shown as saved rather than available to spend. Saved points are set aside for later.
-
-## Reward approval
-
-When a parent says yes to a reward request. The reward is granted and the points stay spent.
-
-## Reward rejection
-
-When a parent says no to a reward request. The held points go back to the child’s spending balance.
+## Allowance through points
+An optional setup where points help determine how much allowance a child earns.

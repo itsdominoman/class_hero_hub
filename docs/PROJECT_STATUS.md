@@ -62,9 +62,9 @@
 ### Behaviour System
 - Quick-tap behaviour presets (points/penalties)
 - Separated from rewards (no longer mixed)
-- Parent Points modal supports Positive, Negative, and Other/custom point actions
+- Parent points modal supports Add points, Remove points, and Custom point actions
 - Custom one-off point awards and penalties are available without creating a preset
-- Positive point awards and negative penalties provide short Web Audio feedback sounds
+- Adding and removing points provide short Web Audio feedback sounds
 
 ### UI / UX
 - Responsive layout (tablet + mobile)
@@ -76,9 +76,9 @@
 - Child-friendly dashboard experience
 - Parent dashboard redesigned into a family-first, mobile-first launcher instead of a dense control-room layout
 - Children now appear first on the parent dashboard with balanced child cards, saved balance shown consistently, and `Points` as the child card point-action entry
-- House Points and Reward Requests now use compact summary cards
+- Total available points and reward requests now use compact summary cards
 - Parent Tools are grouped in a dedicated section with a top `Manage` button that smoothly scrolls to the tools area
-- Manage Rewards, View Pending Requests, and Link Child Device use modal flows instead of large inline dashboard sections
+- Manage Rewards, View Pending Requests, and Link child device use modal flows instead of large inline dashboard sections
 - Parent dashboard copy was reduced to remove duplicate headings and development-style explanatory filler
 
 ### Infrastructure
@@ -129,14 +129,14 @@
 - Child reward request CSRF recovery for existing linked devices
 - Parent pending reward request card receives child requests
 - Reward request hold/reserve behavior is enforced by the existing redemption hold ledger flow
-- Reward rejection releases held points
+- Reward rejection releases points on hold
 - Reward approval finalizes points
 - Parent dashboard + child dashboard interaction
 - Multi-child support (e.g., Jackson, Leah)
 - Parent dashboard launcher redesign visually approved after mobile review
 - Parent dashboard launcher layout tested at 320, 360, 375, 390, 412, 430, 768, and desktop widths
 - Parent Points modal positive/negative presets and custom one-off point awards/penalties
-- Parent Tools modal access for rewards, pending reward requests, family settings, behaviour presets, calendar, add child, and child device linking
+- Parent Tools modal access for rewards, pending reward requests, family settings, behaviour presets, calendar, add child, and child dashboard links
 - Parent calendar event/task creation, editing, deletion, recurrence, and rewardable tasks
 - Dev OAuth login and callback working at https://dev.familyherohub.com
 - Dev health check verified at `https://dev.familyherohub.com/api/health` returning `{"status":"ok"}`

@@ -461,7 +461,7 @@
           if (isAuthError(message)) {
             if (isExpiredChildLinkError(childAuthMessage)) {
               errorKind = 'link-expired';
-              error = 'This child device link has expired or is no longer valid. Ask your parent to link this device again.';
+              error = 'This child dashboard link has expired. Ask your parent for a new one.';
             } else {
               errorKind = 'not-linked';
               error = 'This device is not linked yet.';
@@ -563,7 +563,7 @@
           {errorKind === 'not-linked'
             ? 'This device is not linked yet'
             : errorKind === 'link-expired'
-              ? 'This child device link has expired'
+              ? 'This child dashboard link has expired. Ask your parent for a new one.'
             : errorKind === 'wrong-child'
               ? `This device is linked to ${linkedChildName || 'another child'}`
               : errorKind === 'not-found'
@@ -630,7 +630,7 @@
           <div class="card bg-white p-6 md:p-8 shadow-xl border border-slate-100">
             <div class="flex items-center justify-between mb-5">
               <div>
-                <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Current points</p>
+                <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Available points</p>
                 <p class="text-4xl md:text-5xl font-black text-slate-950 mt-1">{summary.spending_balance}</p>
               </div>
               <div class="w-14 h-14 rounded-2xl bg-hero/10 text-hero flex items-center justify-center">
@@ -641,8 +641,8 @@
             <div class="space-y-4">
               <div>
                 <div class="flex items-center justify-between text-xs font-black uppercase tracking-[0.22em] text-slate-400 mb-2">
-                  <span>Next stage</span>
-                  <span>{summary.pet_progress.lifetime_points} lifetime</span>
+                  <span>Next dragon stage</span>
+                  <span>{summary.pet_progress.lifetime_points} earned</span>
                 </div>
                 <div class="h-4 rounded-full bg-slate-100 overflow-hidden">
                   <div class="h-full rounded-full bg-gradient-to-r from-hero to-[#ff8d59]" style={`width: ${progressToNextStage}%`}></div>
@@ -651,7 +651,7 @@
 
               <div class="grid grid-cols-2 gap-3">
                 <div class="rounded-2xl bg-[#fff8e9] border border-[#f4e3b2] p-4">
-                  <p class="text-[10px] font-black uppercase tracking-[0.22em] text-[#b98612]">Savings</p>
+                  <p class="text-[10px] font-black uppercase tracking-[0.22em] text-[#b98612]">Saved points</p>
                   <p class="text-2xl font-black text-slate-950 mt-1">{summary.savings_balance}</p>
                 </div>
                 <div class="rounded-2xl bg-[#f0fbf7] border border-[#cdeee2] p-4">
@@ -662,11 +662,11 @@
 
               <div class="grid grid-cols-2 gap-3">
                 <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4">
-                  <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Locked savings</p>
+                  <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Locked saved points</p>
                   <p class="text-xl font-black text-slate-950 mt-1">{summary.locked_savings}</p>
                 </div>
                 <div class="rounded-2xl bg-[#fff1f1] border border-[#f0c6c6] p-4">
-                  <p class="text-[10px] font-black uppercase tracking-[0.22em] text-penalty">Pending HP</p>
+                  <p class="text-[10px] font-black uppercase tracking-[0.22em] text-penalty">Points on hold</p>
                   <p class="text-xl font-black text-slate-950 mt-1">{summary.pending_redemptions}</p>
                 </div>
               </div>
@@ -702,7 +702,7 @@
                         <p class="text-sm text-slate-600 mt-1 break-words line-clamp-2">{reward.description || 'A reward your parents can approve.'}</p>
                       </div>
                       <div class={`shrink-0 rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.12em] sm:tracking-[0.15em] border whitespace-nowrap leading-none ${affordable ? 'bg-savings/10 text-savings border-savings/20' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
-                        {reward.points} HP
+                        {reward.points} points
                       </div>
                     </div>
 
@@ -793,7 +793,7 @@
                   <div class="rounded-[1.5rem] border p-4 md:p-5 flex flex-col sm:flex-row sm:items-start gap-4 min-w-0 bg-[#fffefb]">
                     <div class={`shrink-0 w-14 h-14 rounded-2xl border flex flex-col items-center justify-center text-xs font-black uppercase tracking-[0.15em] ${getActivityBadgeClass(tx)}`}>
                       <span class="text-base leading-none">{formatPoints(tx.points)}</span>
-                      <span>HP</span>
+                      <span>pts</span>
                     </div>
                     <div class="min-w-0 flex-1">
                       <div class="flex flex-wrap items-center gap-2 mb-2">
@@ -1120,7 +1120,7 @@
                         <p class="text-sm text-slate-600 mt-1 break-words">{request.description || 'Waiting for approval.'}</p>
                       </div>
                       <span class="shrink-0 rounded-2xl bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.12em] sm:tracking-[0.2em] text-hero border border-hero/20">
-                        {request.points} HP
+                        {request.points} points
                       </span>
                     </div>
                     <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mt-3 break-words">

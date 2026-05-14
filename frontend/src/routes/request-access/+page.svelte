@@ -40,19 +40,19 @@
           <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
           </div>
-          <h1 class="text-3xl font-black text-slate-900 mb-4">Request Received!</h1>
+          <h1 class="text-3xl font-black text-slate-900 mb-4">Request received</h1>
           <p class="text-slate-600 mb-8 text-base sm:text-lg break-words">
-            We've received your request to join Family Hero Hub. We'll review it and get back to you at <strong>{email}</strong> once your access is approved.
+            We’ve received your request to join Family Hero Hub. We’ll review it and email <strong>{email}</strong> once access is approved. After approval, you can sign in with Google.
           </p>
-          <a href="/login" class="btn-secondary inline-block">Return to Login</a>
+          <a href="/login" class="btn-secondary inline-block">Return to login</a>
         </div>
       {:else}
         <div class="mb-10 text-center">
-          <h1 class="text-3xl font-black text-slate-900 mb-2">Request Access</h1>
-          <p class="text-slate-600 mb-6">Family Hero Hub is currently in limited release. Request access below to start your family's hero journey.</p>
+          <h1 class="text-3xl font-black text-slate-900 mb-2">Request access</h1>
+          <p class="text-slate-600 mb-6">Family Hero Hub is in limited release. Request access and we’ll review your details before sign-in is approved.</p>
           
           <div class="bg-slate-50 border-2 border-slate-100 p-4 sm:p-6 rounded-2xl text-sm text-slate-600 leading-relaxed text-left">
-            <p><strong>Note:</strong> This form does not create an account immediately. After approval, you will sign in using <strong>Google OAuth</strong>. Family Hero Hub never asks for your Google password.</p>
+            <p><strong>Note:</strong> This form does not create an account yet. After approval, you’ll sign in with Google. Family Hero Hub never asks for or stores your Google password. Children do not need Google accounts.</p>
           </div>
         </div>
 

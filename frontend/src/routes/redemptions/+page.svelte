@@ -80,7 +80,7 @@
               <p class="text-slate-600 font-medium mb-4 break-words">{r.description || 'No description provided.'}</p>
               
               <div class="flex items-center gap-2 text-hero font-black text-xl">
-                <Trophy size={20} /> {r.points} HP
+                <Trophy size={20} /> {r.points} points
               </div>
             </div>
 

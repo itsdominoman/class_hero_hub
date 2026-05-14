@@ -377,7 +377,7 @@
         errorCorrectionLevel: 'M'
       });
     } catch (e) {
-      childLinkError = e instanceof Error ? e.message : 'Unable to create child device link';
+      childLinkError = e instanceof Error ? e.message : 'Unable to create child dashboard link';
       childLinkInvite = null;
       childLinkQr = '';
     } finally {
@@ -758,7 +758,7 @@
                       <div class="mt-3 flex flex-wrap items-center gap-2">
                         <span class="inline-flex items-center gap-2 rounded-full bg-hero/10 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-hero">
                           <Star size={13} fill="currentColor" />
-                          {c.spending_balance || 0} HP
+                          {c.spending_balance || 0} available
                         </span>
                         <span class="inline-flex items-center gap-2 rounded-full bg-savings/10 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-savings">
                           <PiggyBank size={13} />
@@ -776,7 +776,7 @@
 
                   <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <a href={`/child/${c.child.id}`} class="btn-hero inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-4 text-xs font-black uppercase tracking-[0.16em] shadow-xl shadow-hero/20">
-                      Open child
+                      View child dashboard
                       <ArrowRight size={16} />
                     </a>
                     <button
@@ -785,7 +785,7 @@
                       class="btn-secondary inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-4 text-xs font-black uppercase tracking-[0.16em]"
                     >
                       <Star size={16} />
-                      Points
+                      Add / remove points
                     </button>
                   </div>
                 </article>
@@ -798,7 +798,7 @@
           <div class="card overflow-hidden border-slate-100 bg-white p-5 sm:p-6 shadow-xl">
             <div class="flex items-start justify-between gap-4 min-w-0">
               <div class="min-w-0">
-                <h2 class="text-2xl font-black text-slate-950">House Points</h2>
+                <h2 class="text-2xl font-black text-slate-950">Total available points</h2>
               </div>
               <div class="shrink-0 rounded-2xl bg-hero/10 px-3 py-3 text-hero">
                 <Star size={22} fill="currentColor" />
@@ -807,7 +807,7 @@
 
             <div class="mt-5 flex items-end gap-3">
               <div class="text-4xl font-black tracking-tight text-slate-950">{housePoints}</div>
-              <div class="pb-1 text-xs font-black uppercase tracking-[0.18em] text-slate-400">HP</div>
+              <div class="pb-1 text-xs font-black uppercase tracking-[0.18em] text-slate-400">points</div>
             </div>
           </div>
 
@@ -915,22 +915,22 @@
             </div>
             <div class="min-w-0">
               <h3 class="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tight break-words leading-tight">
-                {activeModal.type === 'award' ? 'Award Points' : 
-                 activeModal.type === 'penalty' ? 'Apply Penalty' :
-                 activeModal.type === 'bank' ? 'Bank to Savings' :
+                {activeModal.type === 'award' ? 'Add points' : 
+                 activeModal.type === 'penalty' ? 'Remove points' :
+                 activeModal.type === 'bank' ? 'Move to saved points' :
                 activeModal.type === 'presets' ? (editingPresetId ? 'Edit Behaviour' : 'Manage Behaviours') :
-                activeModal.type === 'picker' ? 'Points' :
+                activeModal.type === 'picker' ? 'Add / remove points' :
                  activeModal.type === 'family' ? 'Family Settings' :
-                 activeModal.type === 'child-link' ? 'Link Child Device' :
-                 activeModal.type === 'child-link-select' ? 'Link Child Device' :
+                 activeModal.type === 'child-link' ? 'Link child device' :
+                 activeModal.type === 'child-link-select' ? 'Link child device' :
                  activeModal.type === 'rewards' ? 'Manage Rewards' :
-                 activeModal.type === 'requests' ? 'Reward Approvals' :
+                 activeModal.type === 'requests' ? 'Review reward requests' :
                  'Redeem Points'}
               </h3>
               <p class="text-slate-400 font-black text-[10px] sm:text-xs uppercase tracking-[0.14em] sm:tracking-[0.2em] break-words">
                 {activeModal.type === 'presets' ? (editingPresetId ? 'Update this action' : 'Configure reusable actions') : 
                  activeModal.type === 'family' ? 'Manage members & co-parents' :
-                 activeModal.type === 'child-link' ? 'Child device link' :
+                 activeModal.type === 'child-link' ? 'Child dashboard link' :
                  activeModal.type === 'child-link-select' ? 'Choose a child first' :
                  activeModal.type === 'rewards' ? 'Family rewards' :
                  activeModal.type === 'requests' ? 'Requests' :
@@ -974,7 +974,7 @@
               <div class="flex flex-col items-center gap-4">
                 <div class="rounded-[1.5rem] border border-slate-100 bg-white p-4 shadow-sm w-full max-w-[18rem] sm:max-w-[20rem] flex justify-center">
                   {#if childLinkQr}
-                    <img src={childLinkQr} alt="QR code for child device link" class="w-full h-auto rounded-2xl" />
+                    <img src={childLinkQr} alt="QR code for child dashboard link" class="w-full h-auto rounded-2xl" />
                   {/if}
                 </div>
                     <div class="text-center">
@@ -1124,7 +1124,7 @@
                           <p class="mt-1 text-sm text-slate-500 break-words">{reward.description || 'No description.'}</p>
                           <div class="mt-3 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-600">
                             <Trophy size={13} />
-                            {reward.points} HP
+                            {reward.points} points
                           </div>
                         </div>
                         <span class={`shrink-0 rounded-2xl px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] ${reward.is_active ? 'bg-savings/10 text-savings' : 'bg-slate-100 text-slate-400'}`}>
@@ -1179,7 +1179,7 @@
                       </span>
                       <span class="inline-flex items-center gap-2 rounded-full bg-hero/10 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-hero">
                         <Trophy size={13} />
-                        {r.points} HP
+                        {r.points} points
                       </span>
                     </div>
                     <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1273,21 +1273,21 @@
                 class="flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all
                   {activeTab === 'positive' ? 'bg-white text-hero shadow-sm' : 'text-slate-500 hover:text-slate-700'}"
               >
-                Positive
+                Add points
               </button>
               <button
                 onclick={() => activeTab = 'negative'}
                 class="flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all
                   {activeTab === 'negative' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}"
               >
-                Negative
+                Remove points
               </button>
               <button 
                 onclick={() => activeTab = 'other'}
                 class="flex-1 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all
                   {activeTab === 'other' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}"
               >
-                Other
+                Custom
               </button>
             </div>
 
@@ -1315,7 +1315,7 @@
                         bind:value={modalForm.points}
                         class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 pr-12 font-black text-slate-900 focus:outline-none focus:border-hero/30 transition-all text-2xl"
                       />
-                      <span class="absolute right-5 top-1/2 -translate-y-1/2 font-black text-slate-300 text-sm">HP</span>
+                      <span class="absolute right-5 top-1/2 -translate-y-1/2 font-black text-slate-300 text-sm">pts</span>
                     </div>
                   </div>
 
@@ -1326,8 +1326,8 @@
                       bind:value={modalForm.jar}
                       class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 font-bold text-slate-900 focus:outline-none focus:border-hero/30 transition-all appearance-none cursor-pointer"
                     >
-                      <option value="spending">Spending</option>
-                      <option value="savings">Savings</option>
+                      <option value="spending">Available points</option>
+                      <option value="savings">Saved points</option>
                     </select>
                   </div>
                 </div>
@@ -1349,7 +1349,7 @@
                     class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Ban size={16} />
-                    Subtract points
+                    Remove points
                   </button>
                 </div>
               </div>
@@ -1367,7 +1367,7 @@
                     </div>
                     <div class="px-2 py-0.5 rounded-lg font-black text-xs
                       {p.points > 0 ? 'bg-hero text-white' : 'bg-slate-900 text-white'}">
-                      {p.points > 0 ? '+' : ''}{p.points} HP
+                      {p.points > 0 ? '+' : ''}{p.points} pts
                     </div>
                     <div class="min-w-0 mt-1">
                       <p class="font-bold text-slate-900 text-[11px] leading-tight uppercase tracking-tight line-clamp-2">{p.title}</p>
@@ -1441,23 +1441,23 @@
                     bind:value={modalForm.points}
                     class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 sm:px-6 py-4 font-black text-slate-900 focus:outline-none focus:border-hero/30 transition-all text-2xl"
                   />
-                  <span class="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 font-black text-slate-300 text-sm">HP</span>
+                  <span class="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 font-black text-slate-300 text-sm">pts</span>
                 </div>
                 {#if activeModal.type === 'presets'}
-                  <p class="text-[10px] text-slate-400 ml-2">Use negative for penalties</p>
+                  <p class="text-[10px] text-slate-400 ml-2">Use negative numbers to remove points</p>
                 {/if}
               </div>
 
               {#if activeModal.type === 'award' || activeModal.type === 'penalty'}
                 <div class="space-y-2">
-                  <label for="target-jar" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Target Jar</label>
+                  <label for="target-jar" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Point destination</label>
                   <select 
                     id="target-jar"
                     bind:value={modalForm.jar}
                     class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 sm:px-6 py-4 font-bold text-slate-900 focus:outline-none focus:border-hero/30 transition-all appearance-none cursor-pointer"
                   >
-                    <option value="spending">Spending Jar</option>
-                    <option value="savings">Savings Jar</option>
+                    <option value="spending">Available points</option>
+                    <option value="savings">Saved points</option>
                   </select>
                 </div>
               {/if}

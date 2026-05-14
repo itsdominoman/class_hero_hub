@@ -53,10 +53,10 @@ Production remains at https://familyherohub.com on the US VPS.
 - Google OAuth login
 - Family-based account system
 - Multiple children per family
-- Mobile-first parent launcher with children first, House Points / Reward Requests summaries, and grouped Parent Tools
-- Parent Tools access for rewards, family settings, behaviour presets, calendar, pending requests, adding children, and child device linking
+- Mobile-first parent launcher with children first, total available points / reward requests summaries, and grouped Parent Tools
+- Parent Tools access for rewards, family settings, behaviour presets, calendar, pending requests, adding children, and child dashboard links
 - Behaviour presets (quick point assignment)
-- Positive, negative, and custom one-off point actions
+- Add points, remove points, and custom one-off point actions
 - Reward creation with custom point values
 - Reward approval workflow
 - Registration request approval flow
@@ -99,7 +99,7 @@ Production remains at https://familyherohub.com on the US VPS.
 
 ### ⚡ Behaviour System
 - Quick-tap behaviour presets
-- Positive and negative point assignment
+- Add and remove point assignment
 - Custom one-off point awards and penalties without creating presets
 - Short positive/negative feedback sounds after successful point changes
 - Designed for fast daily use by parents

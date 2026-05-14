@@ -90,12 +90,12 @@
           answer: 'The parent gives the child a link or QR code. The child opens it on their device and goes to their dashboard.'
         },
         {
-          question: 'What is a child device link?',
-          answer: 'It is the link or QR code that connects a child’s device to the child dashboard.'
+          question: 'What is a child dashboard link?',
+          answer: 'It is the link or QR code that opens the child dashboard on a child’s device.'
         },
         {
           question: 'What should I do if the child link expires?',
-          answer: 'Generate a fresh child link from the parent dashboard and open the new one on the child device.'
+          answer: 'Generate a fresh child dashboard link from the parent dashboard and open the new one on the child device.'
         },
         {
           question: 'Does my child need a Google account?',
@@ -107,14 +107,14 @@
       id: 'points-balances',
       label: 'Points and balances',
       icon: Coins,
-      description: 'What HP means and why balances change.',
+      description: 'What points mean and why balances change.',
       items: [
         {
-          question: 'What are points or HP?',
-          answer: 'Points are the family score children earn or lose. HP is the spending balance shown for a child.'
+          question: 'What are points?',
+          answer: 'Points are the family score children earn, save, use for rewards, or lose.'
         },
         {
-          question: 'What is the spending balance?',
+          question: 'What are available points?',
           answer: 'It is the amount a child can use right now for rewards.'
         },
         {
@@ -122,20 +122,20 @@
           answer: 'It is points set aside for later.'
         },
         {
-          question: 'What are held or reserved points?',
-          answer: 'They are points temporarily set aside while a reward request is waiting for a parent to decide.'
+          question: 'What are points on hold?',
+          answer: 'They are points temporarily set aside while a reward request is waiting for a parent to decide. Points on hold are already removed from available points while a reward request waits for review.'
         },
         {
-          question: 'What is the difference between HP, saved points, and held points?',
-          answer: 'HP is the child’s spending balance, saved points are set aside for later, and held points are waiting on a reward decision.'
+          question: 'What is the difference between available points, saved points, and points on hold?',
+          answer: 'Available points can be used right now, saved points are set aside for later, and points on hold are waiting on a reward decision.'
         },
         {
           question: 'Why did my child’s points change?',
-          answer: 'Points can change after a positive action, a penalty, a saved balance change, or a reward request.'
+          answer: 'Points can change after points are added, points are removed, saved points change, or a reward request is made.'
         },
         {
-          question: 'What are Positive, Negative, and Other point actions?',
-          answer: 'Positive adds points, Negative removes points, and Other lets a parent enter a custom point action.'
+          question: 'What are Add points, Remove points, and Custom actions?',
+          answer: 'Add points gives points, Remove points takes points away, and Custom lets a parent enter a one-off point action.'
         }
       ]
     },
@@ -167,14 +167,14 @@
         },
         {
           question: 'What happens when I reject a reward request?',
-          answer: 'The request is rejected and the held points go back to the child’s spending balance.'
+          answer: 'The request is rejected and the points on hold go back to the child’s available points.'
         },
         {
           question: 'Where do I view pending requests?',
-          answer: 'Use View pending requests or the reward approvals area on the parent dashboard.'
+          answer: 'Use View pending requests or the reward requests area on the parent dashboard.'
         },
         {
-          question: 'What does the reward approvals area do?',
+          question: 'What does the reward requests area do?',
           answer: 'It is where you review reward requests and decide whether to approve or reject them.'
         }
       ]
@@ -231,7 +231,7 @@
       items: [
         {
           question: 'What can children see?',
-          answer: 'Children can see points, rewards, My Day, School Bag, and their pet or dragon progress if it is shown on their dashboard.'
+          answer: 'Children can see points, rewards, My Day, School Bag, and their dragon progress if it is shown on their dashboard.'
         },
         {
           question: 'What is My Day?',

@@ -6,7 +6,7 @@
 - Behaviour tracking (points system)
 - Rewards system (parent-defined rewards)
 - Child dashboard
-- QR-based child device linking
+- QR-based child dashboard links
 - Secure child sessions
 
 ---
@@ -67,18 +67,18 @@
 
 ### ⚙️ Parent Productivity
 - Completed: Parent dashboard simplified into a family-first, mobile-first launcher
-- Completed: Children appear first, followed by House Points / Reward Requests summary cards and Parent Tools
+- Completed: Children appear first, followed by total available points / reward requests summary cards and Parent Tools
 - Completed: Duplicate Add Child entry removed from the child card area
 - Completed: Child cards consistently show saved balance, including `0 saved`
 - Completed: Child card point entry renamed from Actions to Points
-- Completed: Points modal supports Positive, Negative, and Other/custom point actions
+- Completed: Points modal supports Add points, Remove points, and Custom point actions
 - Completed: Custom one-off point awards and penalties restored without requiring new presets
-- Completed: Manage Rewards, View Pending Requests, and Link Child Device use modal flows
+- Completed: Manage Rewards, View Pending Requests, and Link child device use modal flows
 - Completed: Header Manage button smoothly scrolls to Parent Tools
 - Completed: Short positive/negative Web Audio feedback sounds for successful point awards/penalties, with gain adjusted to 0.25
 - Preset behaviour templates
 - One-click daily routines
-- Batch reward/penalty assignment
+- Batch reward/add-or-remove-points assignment
 - Future: Dedicated child management route/shell
 - Future: Avatar/character customization
 - Future: Shared family goals / house rewards

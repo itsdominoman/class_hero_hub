@@ -1,14 +1,12 @@
 # Quick Start for Parents
 
-
 ## 10-minute setup checklist
-
 - Sign in with Google
 - Check or add your child profile
-- Review point actions: Positive, Negative, Other
+- Review point actions: Add points, Remove points, Custom
 - Create one simple reward
 - Link the child device
-- Award first points
+- Give first points
 - Ask the child to request the reward
 - Approve or reject the reward request
 - Add one calendar item
@@ -28,35 +26,35 @@
 1. Open the parent dashboard.
    - You should see **Children** cards.
 2. Find your child card.
-   - You can see the child name, HP, and saved balance.
+   - You can see the child name, available points, and saved points.
 3. Check the name and current points.
    - You know the child is in the right family when the details look right.
 4. Add another child if needed.
    - The new child appears in **Children**.
 
-## 3) Award first points
+## 3) Give first points
 
-1. Open the child’s **Points** action.
+1. Open the child’s **Add / remove points** action.
    - This opens the points modal.
-2. Choose **Positive**.
+2. Choose **Add points**.
    - The modal is now set to add points.
 3. Enter a small point amount.
    - Now you can add the amount you want.
 4. Add a short reason.
    - The points log will make sense later.
 5. Save.
-   - The child’s HP goes up and you hear the success sound if audio is on.
+   - The child’s available points go up and you hear the success sound if audio is on.
 
 ## 4) Create first reward
 
-1. Open **Manage Rewards**.
+1. Open **Manage rewards**.
    - This opens the reward editor.
 2. Create a simple reward.
    - You are ready to save a new reward.
 3. Give it a title.
    - The reward is easy for your child to understand.
 4. Set a point cost.
-   - The reward now has a clear HP price.
+   - The reward now has a clear points cost.
 5. Save and keep it visible.
    - Your child can see the reward in their dashboard.
 
@@ -64,7 +62,7 @@ Example reward: “Choose movie night”
 
 ## 5) Link the child device
 
-1. Open **Link Child Device**.
+1. Open **Link child device**.
    - This opens the QR/link screen.
 2. Generate the QR code or fallback link.
    - You see a fresh link with an expiry time.
@@ -78,16 +76,16 @@ Example reward: “Choose movie night”
 1. Ask the child to choose a reward.
    - A request is sent from the child dashboard.
 2. Watch for a pending request.
-   - The request appears in **Reward Requests**.
+   - The request appears in **Reward requests**.
 3. Open pending requests.
-   - You can review the request in **View pending requests** or **Reward Approvals**.
+   - You can review the request in **Review reward requests**.
 
 ## 7) Approve or reject
 
-- Click **Approve** if the child earned it.
+- Click **Approve request** if the child earned it.
   - The reward is approved and the points stay spent.
-- Click **Reject** if you want to return the held points.
-  - The held points return to the child’s spending balance.
+- Click **Reject request** if you want to return the points on hold.
+  - The points on hold return to the child’s available points.
 
 ## 8) Use calendar and School Bag basics
 
@@ -99,7 +97,6 @@ Example reward: “Choose movie night”
   - **School Prep** and **School Bag** show the right items.
 - Confirm the child can see School Bag.
   - The child sees “Pack for tomorrow,” “Needed today,” or “Check stationery.”
-
 
 ## You are done when...
 

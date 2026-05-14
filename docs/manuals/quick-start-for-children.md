@@ -1,8 +1,6 @@
 # Quick Start for Children
 
-
 ## What to do first
-
 1. Open your child dashboard.
 2. Look at your points.
 3. Check your rewards.
@@ -28,7 +26,6 @@
 - Ask your parent.
 - Ask for a new link if the device stops working.
 - Refresh the page if it looks frozen.
-
 
 ## Quick reminder
 

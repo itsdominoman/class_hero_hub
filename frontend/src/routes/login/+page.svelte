@@ -27,11 +27,11 @@
         <img src="/family-hero-hub-logo.png" alt="Family Hero Hub" class="w-full h-full object-cover" />
       </div>
 
-      <h1 class="text-3xl font-black text-slate-900 mb-2">Welcome Back</h1>
-      <p class="text-slate-600 mb-8">Sign in with Google to open your parent dashboard and manage points.</p>
+      <h1 class="text-3xl font-black text-slate-900 mb-2">Parent sign-in</h1>
+      <p class="text-slate-600 mb-8">Sign in with Google to open your parent dashboard.</p>
 
       <div class="bg-slate-50 border-2 border-slate-100 p-4 sm:p-6 rounded-2xl mb-8 text-sm text-slate-600 leading-relaxed">
-        <p>Family Hero Hub never asks for or stores your Google password. You will be redirected to <strong>accounts.google.com</strong> to sign in securely.</p>
+        <p>Family Hero Hub never asks for or stores your Google password. Google handles the secure sign-in screen.</p>
       </div>
 
       <button 
@@ -44,13 +44,13 @@
 
       <div class="mt-6 text-center">
         <p class="text-slate-500 text-sm">
-          Don't have an account? <a href="/request-access" class="text-hero font-bold hover:underline">Request Access</a>
+          Don’t have access yet? <a href="/request-access" class="text-hero font-bold hover:underline">Request access</a>
         </p>
       </div>
 
       <div class="mt-10 pt-8 border-t border-slate-100">
-        <p class="text-xs text-slate-400 uppercase tracking-widest font-bold mb-4">Parent Access Only</p>
-        <p class="text-sm text-slate-500 italic">"Teaching children the value of a point today, prepares them for the value of a dollar tomorrow."</p>
+        <p class="text-xs text-slate-400 uppercase tracking-widest font-bold mb-4">Parent access only</p>
+        <p class="text-sm text-slate-500 italic">Children use a linked dashboard on their own device and do not need Google accounts.</p>
       </div>
     </div>
   </div>

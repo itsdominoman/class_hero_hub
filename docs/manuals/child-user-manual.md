@@ -1,12 +1,9 @@
 # Child User Manual
 
-
 ## Who this is for
-
 Kids who use Family Hero Hub on their own device.
 
 ## What this manual covers
-
 - Opening your child dashboard
 - What points mean
 - Rewards
@@ -17,7 +14,7 @@ Kids who use Family Hero Hub on their own device.
 
 ## 1) What Family Hero Hub is for kids
 
-Family Hero Hub helps you see your points, rewards, tasks, School Bag items, and your pet or dragon.
+Family Hero Hub helps you see your points, rewards, tasks, School Bag items, and your dragon.
 
 It is made to help you know what you have done and what you can earn next.
 
@@ -70,7 +67,7 @@ Pending means:
 
 - you asked for the reward
 - your parent has not answered yet
-- the points are held while they decide
+- the points are on hold while they decide
 
 ## 7) If your parent says yes
 
@@ -85,7 +82,7 @@ If your parent approves your request:
 If your parent rejects your request:
 
 - the request becomes rejected
-- the held points go back to your score
+- the points on hold go back to your score
 - you can try again later
 
 ## 9) My Day / calendar tasks
@@ -113,16 +110,16 @@ You see:
 
 Use it before school or bedtime.
 
-## 11) Pet / dragon progress
+## 11) Dragon progress
 
-Some child dashboards show a dragon or pet.
+Your child dashboard shows a dragon.
 
 It grows as you earn points.
 
 That means:
 
 - more points = more progress
-- your pet can look different at each stage
+- your dragon can look different at each stage
 - it is a fun way to see your progress
 
 ## 12) If the link stops working
@@ -139,7 +136,6 @@ If you are not sure what to do, ask your parent for help.
 
 That is always the safest choice.
 
-
-## 15) Quick reminder
+## 14) Quick reminder
 
 If you get stuck, ask your parent.
