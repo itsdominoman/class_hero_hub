@@ -106,7 +106,7 @@
           <p class="text-slate-500 text-base md:text-lg max-w-2xl mx-auto">Family Hero Hub brings points, rewards, routines, calendar, School Prep, and dragon progress into one private family space.</p>
       </div>
 
-      <div class="grid md:grid-cols-4 gap-5 md:gap-8">
+      <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-5 md:gap-8">
         <div class="card p-6 md:p-8 group hover:-translate-y-2 transition-all duration-300 border-b-8 border-hero">
           <div class="w-16 h-16 bg-hero/10 text-hero rounded-3xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
             <Trophy size={32} />
@@ -138,25 +138,13 @@
           <h3 class="text-2xl font-black mb-4">Request rewards</h3>
           <p class="text-slate-600 leading-relaxed">Kids request rewards. Parents approve or reject them.</p>
         </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Allowance Section -->
-  <section class="py-12 md:py-16 px-3 sm:px-4">
-    <div class="max-w-5xl mx-auto card p-6 sm:p-8 md:p-10 bg-white border border-slate-100 shadow-xl">
-      <div class="flex items-start gap-4">
-        <div class="shrink-0 w-12 h-12 rounded-2xl bg-hero/10 text-hero flex items-center justify-center">
-          <Coins size={24} />
-        </div>
-        <div class="min-w-0">
-          <h2 class="text-2xl md:text-3xl font-black text-slate-950 mb-3">Optional allowance</h2>
-          <p class="text-slate-600 text-base md:text-lg leading-relaxed max-w-3xl">
-            Tie allowance to points if you want. Full goal, full allowance. Part goal, part allowance.
-          </p>
-          <p class="mt-4 text-slate-600 text-base md:text-lg leading-relaxed max-w-3xl">
-            You stay in control.
-          </p>
+        <div class="card p-6 md:p-8 group hover:-translate-y-2 transition-all duration-300 border-b-8 border-savings">
+          <div class="w-16 h-16 bg-savings/10 text-savings rounded-3xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
+            <Coins size={32} />
+          </div>
+          <h3 class="text-2xl font-black mb-4">Optional allowance</h3>
+          <p class="text-slate-600 leading-relaxed">Tie allowance to points if you want. Full goal, full allowance. Part goal, part allowance.</p>
+          <p class="text-slate-600 leading-relaxed mt-4">You stay in control.</p>
         </div>
       </div>
     </div>
