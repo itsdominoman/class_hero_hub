@@ -45,6 +45,9 @@
             See how it works
           </a>
         </div>
+        <p class="mt-5 max-w-xl text-sm sm:text-base font-medium text-slate-500 leading-relaxed">
+          Parent-approved access. Google sign-in for parents. No Google account needed for children.
+        </p>
       </div>
 
       <!-- Sample Hero Card -->
@@ -134,6 +137,26 @@
           </div>
           <h3 class="text-2xl font-black mb-4">Request rewards</h3>
           <p class="text-slate-600 leading-relaxed">Kids request rewards. Parents approve or reject them.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Allowance Section -->
+  <section class="py-12 md:py-16 px-3 sm:px-4">
+    <div class="max-w-5xl mx-auto card p-6 sm:p-8 md:p-10 bg-white border border-slate-100 shadow-xl">
+      <div class="flex items-start gap-4">
+        <div class="shrink-0 w-12 h-12 rounded-2xl bg-hero/10 text-hero flex items-center justify-center">
+          <Coins size={24} />
+        </div>
+        <div class="min-w-0">
+          <h2 class="text-2xl md:text-3xl font-black text-slate-950 mb-3">Optional allowance through points</h2>
+          <p class="text-slate-600 text-base md:text-lg leading-relaxed max-w-3xl">
+            Some families use points to help manage allowance. For example, you can set 100 points = $10. If your child earns 100 points, they get $10. If they earn 80 points, they get $8.
+          </p>
+          <p class="mt-4 text-slate-600 text-base md:text-lg leading-relaxed max-w-3xl">
+            You stay in control of the goal, the reward, and whether allowance is used at all.
+          </p>
         </div>
       </div>
     </div>
