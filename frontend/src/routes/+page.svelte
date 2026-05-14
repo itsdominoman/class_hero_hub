@@ -150,12 +150,12 @@
           <Coins size={24} />
         </div>
         <div class="min-w-0">
-          <h2 class="text-2xl md:text-3xl font-black text-slate-950 mb-3">Optional allowance through points</h2>
+          <h2 class="text-2xl md:text-3xl font-black text-slate-950 mb-3">Optional allowance</h2>
           <p class="text-slate-600 text-base md:text-lg leading-relaxed max-w-3xl">
-            Some families use points to help manage allowance. For example, you can set 100 points = $10. If your child earns 100 points, they get $10. If they earn 80 points, they get $8.
+            Tie allowance to points if you want. Full goal, full allowance. Part goal, part allowance.
           </p>
           <p class="mt-4 text-slate-600 text-base md:text-lg leading-relaxed max-w-3xl">
-            You stay in control of the goal, the reward, and whether allowance is used at all.
+            You stay in control.
           </p>
         </div>
       </div>
