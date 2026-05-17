@@ -39,6 +39,10 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 - Stack: Ubuntu 24.04.4 LTS, Docker, Docker Compose, Node/npm, SQLite, FastAPI backend, SvelteKit frontend
 - Runtime database: PostgreSQL is now the live Europe dev app DB via Docker Compose
 - Expired child-device link exchange now returns a clean 401/"Child link expired" response on Europe PostgreSQL instead of an internal server error
+- Europe dev/Hermes daily QA uses `/opt/apps/family-hero-hub/scripts/qa/europe-dev-qa.sh` in read-only daily mode; it runs backend pytest, frontend build, Playwright read-only E2E, and smoke checks.
+- The daily QA harness loads `/home/administrator/.hermes/fhh-qa.env`.
+- `POST /api/dev/qa-login` is the token-based dev QA login helper. It requires `QA_LOGIN_TOKEN`, must not log the token, and must stay blocked in production and on production/public domains.
+- Stateful QA stays separate and must remain backup-gated before restoration or use.
 - SQLite rollback copy remains available at `/opt/apps/family-hero-hub/tmp/runtime-db-switch/sqlite_before_postgres_switch_20260509_164727.sqlite`
 - Europe dev PostgreSQL backups now use pgBackRest with WAL archiving; a first full backup and a separate restore rehearsal both completed successfully
 - Internal PostgreSQL 16 runs in Docker Compose with no public port exposed and now serves the live Europe dev runtime
@@ -95,6 +99,7 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 - OAuth still works from trusted IPs or VPN because the browser can reach `dev.familyherohub.com`
 - SQLite is no longer the live runtime on Europe dev, but the backup remains for rollback
 - The current PostgreSQL database contains imported dev app data and now serves the Europe dev runtime
+- Failed QA runs must not show stale PASS reports; the current report directory must reflect the latest run.
 - The pgBackRest repo lives in a private named Docker volume and is not publicly exposed
 - Do not assume Cloudflare Tunnel is active just because the file exists elsewhere in docs
 - Europe personal VPN runs through Docker `wg-easy`; the host may see container or bridge source addresses for that traffic.
@@ -146,6 +151,7 @@ Before changing deployment, inspect the real Caddy/server configuration first.
 - Excluded scope: dev-only QA login, Playwright browser QA tooling, customer FAQ/manual frontend changes, scheduled reporting wrappers, Telegram/Email reporting scripts, and Europe-to-UK backup sync automation.
 - Production remains on SQLite until an approved backup, rehearsal, deploy, migration, verification, and rollback window is executed.
 - PostgreSQL must stay private to Docker networking or localhost/private paths only; do not publish `5432` publicly.
+- Production cutover branches may exclude dev-only QA tooling, but Europe dev/Hermes operations must retain the Europe dev QA harness.
 
 ## Access Management Notes
 

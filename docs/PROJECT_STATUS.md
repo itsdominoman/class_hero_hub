@@ -95,6 +95,7 @@
 - Caddy reverse proxy with HTTPS
 - Domain: https://familyherohub.com
 - Europe dev VPS setup completed for development/testing at https://dev.familyherohub.com
+- Europe dev/Hermes retains the read-only daily QA harness at `scripts/qa/europe-dev-qa.sh`; it runs backend pytest, frontend build, Playwright read-only E2E, and smoke checks, and it loads `/home/administrator/.hermes/fhh-qa.env`.
 - Europe dev stack verified: Ubuntu 24.04.4 LTS, Docker, Docker Compose, Node/npm, Codex CLI, Gemini CLI
 - Europe dev deployment verified with Caddy routing to local Docker ports; runtime DATABASE_URL has now been switched to PostgreSQL on Europe dev
 - Internal PostgreSQL 16 service added to Europe dev via Docker Compose for migration testing only, with no public port exposed
@@ -124,8 +125,9 @@
 - Europe private routing/firewall access is restored on reboot by `fhh-private-network-rules.service`
 - US Hermes was removed from active runtime and archived at `/opt/apps/hermes-removed-from-us/`
 - Ubuntu office box uses `wg-quick` with a split tunnel that routes only `10.250.50.0/24` through the Europe VPN
-- Backend tests passing (60 tests)
+- Backend tests passing (76 tests)
 - Frontend production build passes
+- Europe dev daily QA Phase A passes with backend pytest, frontend build, Playwright read-only E2E, and smoke checks
 - Europe PostgreSQL runtime smoke test now handles expired child-device links cleanly with HTTP 401 instead of a 500
 - US production smoke tests and manual verification passed after the PostgreSQL cutover
 
@@ -209,6 +211,7 @@
 - Controlled ETL dry-run passed and the actual SQLite-to-PostgreSQL import completed successfully on Europe dev
 - Runtime switch to PostgreSQL completed on Europe dev after import validation
 - Next gate is continuing validation on PostgreSQL runtime and keeping the SQLite rollback copy available
+- Failed QA runs must not reuse stale PASS reports; current daily runs should always point to the newest report directory
 - Production backup strategy now needs a scheduled backup/mirror/restore-test policy and retention review, not just `pg_dump`
 - Production still requires follow-up restoration drills and mirror retention hardening, even though the US cutover itself is complete.
 - Real-device mobile QA on Android Chrome and iPhone Safari

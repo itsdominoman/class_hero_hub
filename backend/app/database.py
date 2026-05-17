@@ -14,10 +14,15 @@ class Settings(BaseSettings):
     PUBLIC_APP_URL: str = "http://localhost:5173"
     API_BASE_URL: str = "http://localhost:8000"
     APP_ENV: str = "development"
+    ENVIRONMENT: str = ""
     PARENT_EMAILS: str = "parent@example.com"
     SESSION_SECRET: str = "session_secret"
     DEV_AUTH_ENABLED: bool = False
     DEV_AUTH_PARENT_EMAIL: str = "parent@example.com"
+    QA_LOGIN_ENABLED: bool = False
+    QA_LOGIN_TOKEN: str = ""
+    QA_LOGIN_EMAIL: str = "qa-parent@dev.familyherohub.com"
+    QA_LOGIN_NAME: str = "QA Parent"
     CORS_ORIGINS: str = "https://families.loginto.me,http://localhost:5173,http://localhost:8000"
 
     # SMTP Settings

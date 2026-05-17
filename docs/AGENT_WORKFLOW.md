@@ -16,6 +16,10 @@ The project uses a specialized agent structure to manage different aspects of th
 
 ## Operating Rules
 - **Mandatory Docs Check:** Before taking action on Family Hero Hub, read the project docs in `/opt/apps/family-hero-hub/docs/`. At minimum check `PROJECT_STATUS.md`, `ROADMAP.md`, and `AGENT_WORKFLOW.md`. For product, market, UX, or feature planning, also check `MARKET_RESEARCH_SUMMARY.md` and relevant PRDs such as `MISSIONS_PRD.md`. Do not rely on memory alone. Inspect docs first, then act.
+- Europe dev/Hermes daily QA must keep the read-only `/qa-daily` harness intact. It runs backend pytest, frontend build, Playwright read-only E2E, and smoke checks from `/opt/apps/family-hero-hub/scripts/qa/europe-dev-qa.sh` and loads `/home/administrator/.hermes/fhh-qa.env`.
+- Token-based QA login is `POST /api/dev/qa-login`; it must require `QA_LOGIN_TOKEN`, must not log the token, and must stay blocked in production and on production/public domains.
+- Stateful QA remains separate and backup-gated. Do not restore or use it until the backup gate is explicitly satisfied.
+- Do not remove the Europe dev QA files from main or Europe dev unless an equivalent documented runner replaces them.
 - If an agent claims the repo or docs are missing, verify `/opt/apps/family-hero-hub`, `/opt/apps/family-hero-hub/docs`, and `family-hero-hub/` when working inside a profile workspace before concluding the files are unavailable.
 - If an agent appears stuck in stale context, start a fresh session rather than guessing from memory.
 - **Zeus** is the default profile and orchestrates the team.

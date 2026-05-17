@@ -1,5 +1,21 @@
 # Family Hero Hub - Upgrade Tracker
 
+# 2026-05-17 - Europe Dev Daily QA Phase A Restored
+
+### Scope
+- Restored the read-only Europe dev `/qa-daily` harness so it runs backend pytest, frontend build, Playwright read-only E2E, and smoke checks.
+- Restored token-based dev QA login at `POST /api/dev/qa-login` and kept it blocked in production and on production/public domains.
+- Kept stateful QA and reporting/notification wrappers out of scope.
+
+### Verification
+- Daily QA uses `/home/administrator/.hermes/fhh-qa.env`.
+- The daily run completed with backend pytest PASS, frontend build PASS, Playwright read-only E2E PASS, and smoke PASS.
+- The latest report directory is `/opt/apps/family-hero-hub/tmp/qa-runs/20260517-091715-daily`.
+
+### Notes
+- Failed QA runs must not display stale PASS reports.
+- Production cutover branches may omit dev-only QA tooling, but Europe dev/Hermes operations must retain the Europe dev QA harness.
+
 # 2026-05-17 - Parent Allowance Setup UI
 
 ### Scope
