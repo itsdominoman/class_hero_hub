@@ -1,6 +1,6 @@
 # Family Hero Hub FAQ
 
-Last reviewed: 2026-05-13
+Last reviewed: 2026-05-17
 
 ## Getting started
 ### What is Family Hero Hub?
@@ -106,6 +106,15 @@ Yes, optionally. Some families connect points to allowance so progress can help 
 
 ### How does allowance through points work?
 You choose the allowance amount and the point goal. When your child reaches the goal, they earn the full allowance. If they reach part of the goal, they earn part of it.
+
+### Where do I set up allowance?
+Use **Allowance setup** from the parent dashboard Family tools area.
+
+### Does the app automatically pay allowance?
+No. Allowance is an estimate linked to points. Parents still decide what to do outside the app.
+
+### Do reward requests reduce allowance progress?
+No. Reward requests, points on hold, reward approvals or rejections, and saved-point transfers stay separate from allowance progress.
 
 ## Calendar, School Prep, and School Bag
 ### What is the calendar for?

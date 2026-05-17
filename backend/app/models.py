@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum, Date, Time, Float, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum, Date, Time, Float, UniqueConstraint, CheckConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
@@ -82,6 +82,7 @@ class Family(Base):
     calendar_entries = relationship("CalendarEntry", back_populates="family")
     weekly_streaks = relationship("WeeklyStreak", back_populates="family")
     school_items = relationship("SchoolItem", back_populates="family")
+    allowance_settings = relationship("ChildAllowanceSetting", back_populates="family")
 
 class FamilyInvite(Base):
     __tablename__ = "family_invites"
@@ -147,6 +148,36 @@ class Child(Base):
     calendar_completions = relationship("CalendarCompletion", back_populates="child")
     weekly_streaks = relationship("WeeklyStreak", back_populates="child")
     school_items = relationship("SchoolItem", back_populates="child")
+    allowance_setting = relationship("ChildAllowanceSetting", back_populates="child", uselist=False)
+
+class ChildAllowanceSetting(Base):
+    __tablename__ = "child_allowance_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    family_id = Column(Integer, ForeignKey("families.id"), nullable=False)
+    child_id = Column(Integer, ForeignKey("children.id"), nullable=False, unique=True)
+    is_enabled = Column(Boolean, nullable=False, default=False)
+    currency = Column(String(3), nullable=False, default="OMR")
+    allowance_amount_minor = Column(Integer, nullable=False, default=0)
+    currency_exponent = Column(Integer, nullable=False, default=3)
+    period = Column(String(16), nullable=False, default="weekly")
+    point_goal = Column(Integer, nullable=False)
+    created_by_parent_id = Column(Integer, ForeignKey("parent_users.id"), nullable=True)
+    updated_by_parent_id = Column(Integer, ForeignKey("parent_users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    family = relationship("Family", back_populates="allowance_settings")
+    child = relationship("Child", back_populates="allowance_setting")
+    created_by = relationship("ParentUser", foreign_keys=[created_by_parent_id])
+    updated_by = relationship("ParentUser", foreign_keys=[updated_by_parent_id])
+
+    __table_args__ = (
+        CheckConstraint("period IN ('weekly', 'monthly')", name="ck_child_allowance_period"),
+        CheckConstraint("point_goal > 0", name="ck_child_allowance_point_goal_positive"),
+        CheckConstraint("allowance_amount_minor >= 0", name="ck_child_allowance_amount_nonnegative"),
+        CheckConstraint("length(currency) = 3 AND currency = upper(currency)", name="ck_child_allowance_currency_code"),
+    )
 
 class CalendarEntry(Base):
     __tablename__ = "calendar_entries"

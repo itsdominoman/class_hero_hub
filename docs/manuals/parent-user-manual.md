@@ -11,6 +11,7 @@ Parents and guardians who use Family Hero Hub to manage children, points, reward
 - Adding and removing points
 - Creating and managing rewards
 - Reviewing reward requests
+- Setting up optional allowance through points
 - Using the calendar
 - Using School Prep / School Bag
 - Linking a child device
@@ -28,6 +29,7 @@ In simple terms:
 - you remove points when needed
 - children can request rewards with their points
 - you review and approve or reject those requests
+- you can optionally connect points to an allowance estimate
 - you can also manage calendar items and school prep
 
 ## 2) How parents sign in
@@ -207,7 +209,35 @@ When you reject a request:
 4. The request moves to rejected.
 5. The points on hold return to the child’s available points.
 
-## 13) Calendar overview
+## 13) Allowance setup
+
+Allowance setup is optional. It lets you connect points to an allowance estimate for each child.
+
+Rewards still work separately. Reward requests, reward holds, reward approvals or rejections, and saved-point transfers do not reduce allowance progress.
+
+The app does not automatically pay money. Parents stay in control.
+
+To set it up:
+
+1. Open **Allowance setup** from Family tools.
+2. Choose a child.
+3. Turn allowance on or off for that child.
+4. Choose the currency.
+5. Enter the allowance amount, such as `10.000 OMR` or `10.00 USD`.
+6. Choose weekly or monthly.
+7. Enter the point goal.
+8. Save the settings.
+
+The preview shows:
+
+- current period
+- eligible points this period
+- allowance goal
+- progress percentage
+- estimated allowance earned
+- maximum allowance amount
+
+## 14) Calendar overview
 
 The calendar is for family tasks and events.
 
@@ -227,7 +257,7 @@ That means:
 - the task still appears like a normal calendar item
 - it can award points when it is completed and approved
 
-## 14) Creating calendar items
+## 15) Creating calendar items
 
 On the calendar page, choose a child and add a new item.
 
@@ -252,7 +282,7 @@ Examples:
 - “Soccer practice”
 - “Pack school bag”
 
-## 15) School Bag / School Prep
+## 16) School Bag / School Prep
 
 School Prep helps parents track school items.
 
@@ -266,7 +296,7 @@ Parent-facing **School Prep** shows today and tomorrow school items for each chi
 
 Use it to keep track of books, clothes, and other school needs.
 
-## 16) Linking a child device
+## 17) Linking a child device
 
 To give a child their own dashboard:
 
@@ -284,26 +314,27 @@ If the child sees an expired link message:
 2. Generate a fresh child link.
 3. Ask the child to scan or open the new link.
 
-## 17) Family tools
+## 18) Family tools
 
 Family tools are the main action shortcuts for adults.
 
 Common tools include:
 
 - manage rewards
+- allowance setup
 - review reward requests
 - link child device
 - family settings or member controls
 - school prep or other family tools
 - child and point actions
 
-## 18) Logging out
+## 19) Logging out
 
 Use the account or menu area and choose **Log out** when you are done.
 
 This is useful on shared devices.
 
-## 19) Common parent issues
+## 20) Common parent issues
 
 ### I cannot sign in
 

@@ -844,6 +844,10 @@
               <Gift size={16} />
               Manage rewards
             </button>
+            <a href="/allowance" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
+              <PiggyBank size={16} />
+              Allowance setup
+            </a>
             <button type="button" onclick={() => openModal('family', null)} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
               <Users size={16} />
               Family settings

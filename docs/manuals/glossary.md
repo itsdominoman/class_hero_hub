@@ -32,3 +32,9 @@ The fun visual progress system that shows the dragon growing as points are earne
 
 ## Allowance through points
 An optional setup where points help determine how much allowance a child earns.
+
+## Allowance settings
+The optional per-child setup for currency, allowance amount, allowance period, and point goal.
+
+## Allowance preview
+A calculation that estimates allowance from eligible points in the current weekly or monthly period. Reward requests, points on hold, reward approvals or rejections, and saved-point transfers do not count toward allowance preview.

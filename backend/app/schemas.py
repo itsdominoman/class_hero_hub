@@ -56,6 +56,74 @@ class Child(ChildBase):
     class Config:
         from_attributes = True
 
+SUPPORTED_ALLOWANCE_CURRENCIES = {
+    "OMR": 3,
+    "USD": 2,
+    "GBP": 2,
+    "EUR": 2,
+}
+
+class AllowanceSettingsBase(BaseModel):
+    is_enabled: bool = False
+    currency: str = "OMR"
+    allowance_amount_minor: int = 0
+    period: Literal["weekly", "monthly"] = "weekly"
+    point_goal: int = 100
+
+    @field_validator("currency")
+    @classmethod
+    def allowance_currency_supported(cls, value: str) -> str:
+        value = value.strip().upper()
+        if value not in SUPPORTED_ALLOWANCE_CURRENCIES:
+            raise ValueError("Currency is not supported")
+        return value
+
+    @field_validator("allowance_amount_minor")
+    @classmethod
+    def allowance_amount_nonnegative(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError("Allowance amount must be non-negative")
+        return value
+
+    @field_validator("point_goal")
+    @classmethod
+    def allowance_point_goal_positive(cls, value: int) -> int:
+        if value <= 0:
+            raise ValueError("Point goal must be positive")
+        return value
+
+class AllowanceSettingsUpsert(AllowanceSettingsBase):
+    pass
+
+class AllowanceSettings(AllowanceSettingsBase):
+    id: Optional[int] = None
+    family_id: int
+    child_id: int
+    currency_exponent: int
+    created_by_parent_id: Optional[int] = None
+    updated_by_parent_id: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class AllowancePreview(BaseModel):
+    settings: AllowanceSettings
+    period_start: date
+    period_end: date
+    eligible_points: int
+    raw_eligible_points: int
+    point_goal: int
+    progress_ratio: float
+    earned_amount_minor: int
+    max_amount_minor: int
+    currency: str
+    currency_exponent: int
+    display_amount: str
+    display_max_amount: str
+    included_transaction_count: int
+
 class CalendarEntryBase(BaseModel):
     title: str
     description: Optional[str] = None

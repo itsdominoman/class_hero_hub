@@ -1,5 +1,41 @@
 # Family Hero Hub - Upgrade Tracker
 
+# 2026-05-17 - Parent Allowance Setup UI
+
+### Scope
+- Added the parent-facing Allowance setup page at `/allowance`.
+- Added a Parent Tools link from the parent dashboard to Allowance setup.
+- Parents can select a child, enable or disable allowance, choose OMR/USD/GBP/EUR, enter a human-readable allowance amount, choose weekly/monthly period, set a point goal, save settings, and view current-period preview.
+- Kept rewards, redemptions, child dashboard display, and automatic payout behavior unchanged.
+
+### Verification
+- Frontend uses the existing authenticated API helper for `/api/allowance` settings and preview endpoints.
+- Amount entry is converted to backend minor units before saving.
+- Preview remains based on backend period ledger aggregation, not current point balances.
+
+### Notes
+- Child-facing allowance progress display remains a follow-up.
+- The app still does not automatically pay children; allowance is an estimate for parents.
+
+# 2026-05-17 - Backend Child Allowance Settings API
+
+### Scope
+- Added backend support for optional child-level allowance settings in `child_allowance_settings`.
+- Added parent-authenticated allowance settings and preview endpoints under `/api/allowance`.
+- Stored allowance amounts in integer minor units and derived the currency exponent from supported currencies: OMR, USD, GBP, and EUR.
+- Kept rewards independent from allowance; no reward behavior, frontend allowance UI, child dashboard display, or automatic payouts were implemented.
+
+### Verification
+- Allowance preview uses current period ledger aggregation rather than current point balances.
+- Eligible allowance points include awards, calendar task points, adjustments, and penalties.
+- Reward holds/releases/approvals and savings transfers are excluded from allowance preview calculations.
+- Backend allowance tests passed.
+- Full backend test suite passed.
+
+### Notes
+- Parent and child-facing frontend allowance setup/display remains a follow-up.
+- Applying the new Alembic migration is required before using these endpoints against a PostgreSQL runtime database.
+
 # 2026-05-13 - US Production PostgreSQL Cutover Completed
 
 ### Scope

@@ -66,6 +66,15 @@
 - Custom one-off point awards and penalties are available without creating a preset
 - Adding and removing points provide short Web Audio feedback sounds
 
+### Allowance System
+- Backend support exists for optional child-level allowance settings
+- Parents can store allowance currency, amount, weekly/monthly period, and point goal per child through API endpoints
+- Allowance preview uses period ledger aggregation, not current point balances
+- Rewards remain independent from allowance; reward holds, reward releases, and savings transfers are excluded from allowance preview calculations
+- Parent-facing Allowance setup page exists at `/allowance`
+- Parents can select a child, enable/disable allowance, choose OMR/USD/GBP/EUR, set weekly/monthly allowance goals, save settings, and view current-period allowance preview
+- No child dashboard allowance display or automatic payouts are implemented yet
+
 ### UI / UX
 - Responsive layout (tablet + mobile)
 - Mobile UI consistency pass completed across common phone widths for parent dashboard, child dashboard, rewards, auth/linking pages, and calendar modals
@@ -136,7 +145,7 @@
 - Parent dashboard launcher redesign visually approved after mobile review
 - Parent dashboard launcher layout tested at 320, 360, 375, 390, 412, 430, 768, and desktop widths
 - Parent Points modal positive/negative presets and custom one-off point awards/penalties
-- Parent Tools modal access for rewards, pending reward requests, family settings, behaviour presets, calendar, add child, and child dashboard links
+- Parent Tools access for rewards, allowance setup, pending reward requests, family settings, behaviour presets, calendar, add child, and child dashboard links
 - Parent calendar event/task creation, editing, deletion, recurrence, and rewardable tasks
 - Dev OAuth login and callback working at https://dev.familyherohub.com
 - Dev health check verified at `https://dev.familyherohub.com/api/health` returning `{"status":"ok"}`
@@ -185,6 +194,7 @@
 ### Productivity Features
 - Dedicated child management route/shell for child-specific Points, Rewards, Calendar, School Bag, Profile, and device sections
 - Component extraction/refactor for the large parent dashboard page
+- Child-facing allowance progress display
 - Full monthly calendar view
 - Drag-and-drop calendar editing
 - Notification/reminder system

@@ -76,9 +76,12 @@
 - Completed: Manage Rewards, View Pending Requests, and Link child device use modal flows
 - Completed: Header Manage button smoothly scrolls to Parent Tools
 - Completed: Short positive/negative Web Audio feedback sounds for successful point awards/penalties, with gain adjusted to 0.25
+- Completed: Backend allowance settings and preview API for optional child-level allowance through points
+- Completed: Parent-facing Allowance setup UI at `/allowance`
 - Preset behaviour templates
 - One-click daily routines
 - Batch reward/add-or-remove-points assignment
+- Future: Child-facing allowance progress display
 - Future: Dedicated child management route/shell
 - Future: Avatar/character customization
 - Future: Shared family goals / house rewards
