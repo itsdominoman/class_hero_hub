@@ -53,5 +53,15 @@ test.describe('Europe dev authenticated QA login', () => {
 
     await expect(page.getByRole('heading', { name: 'My Family' })).toBeVisible();
     await expect(page.getByText('QA Parent', { exact: false })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Allowance setup' })).toBeVisible();
+
+    await page.getByRole('link', { name: 'Allowance setup' }).click();
+    await expect(page).toHaveURL(/\/allowance$/);
+    await expect(page.getByRole('heading', { name: 'Allowance setup' })).toBeVisible();
+    await expect(page.getByText('Optional family setup', { exact: false })).toBeVisible();
+    await expect(page.getByText('Rewards still work separately', { exact: false })).toBeVisible();
+    await expect(page.locator('#child-select')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Current period' })).toBeVisible();
+    await expect(page.getByText('Enable allowance estimate', { exact: false })).toBeVisible();
   });
 });
