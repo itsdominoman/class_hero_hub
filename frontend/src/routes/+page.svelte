@@ -142,8 +142,8 @@
           <div class="w-16 h-16 bg-savings/10 text-savings rounded-3xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
             <Coins size={32} />
           </div>
-          <h3 class="text-2xl font-black mb-4">Optional allowance</h3>
-          <p class="text-slate-600 leading-relaxed">Tie allowance to points if you want. Full goal, full allowance. Part goal, part allowance.</p>
+          <h3 class="text-2xl font-black mb-4">Earn allowance</h3>
+          <p class="text-slate-600 leading-relaxed">Connect points to allowance if you want. Kids see progress while learning that effort leads to rewards.</p>
           <p class="text-slate-600 leading-relaxed mt-4">You stay in control.</p>
         </div>
       </div>
