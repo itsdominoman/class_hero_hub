@@ -38,7 +38,14 @@ This matrix is meant to keep the Europe dev QA surface practical: read-only by d
 
 ## Notes
 
-- `frontend/e2e/authenticated-qa-login.spec.ts` now explicitly verifies the header "Login" vs "Parent Dashboard" vs "Admin" state.
+- **Authentication Source of Truth:** Authenticated header state is sourced exclusively from `/api/me`.
+- **Admin Security:** The Admin navigation link is strictly gated by the `is_admin` property of the `currentParent` object.
+- **Header QA Coverage:** `frontend/e2e/authenticated-qa-login.spec.ts` now explicitly verifies the header state:
+  - Anonymous users see the "Login" link only.
+  - Logged-in parents see "Parent Dashboard" and "Logout" (Login is hidden).
+  - Logged-in admins see "Parent Dashboard", "Admin", and "Logout".
+  - The "Admin" link is verified to be hidden for non-admin users.
+- **Layout Consistency:** QA coverage now includes reward card value visibility, custom request form alignment, and parent child-card button alignment.
 - `frontend/e2e/public-pages.spec.ts` now covers `/faq` and checks safe internal links.
 - `frontend/e2e/visual-layout.spec.ts` saves screenshots under `tmp/qa-runs/YYYYMMDD-HHMMSS-visual-layout/`.
 - The child dashboard is now exercised through a deterministic seeded child session in visual QA.

@@ -41,11 +41,16 @@ The full read-only daily harness remains:
 bash scripts/qa/europe-dev-qa.sh daily
 ```
 
-That wrapper loads `/home/administrator/.hermes/fhh-qa.env` automatically and runs the real seeded child visual checks through the standard Europe-dev QA flow after the backend/frontend dev services are rebuilt on the standard ports.
+That wrapper loads `/home/administrator/.hermes/fhh-qa.env` automatically and runs:
+- Backend health and tests
+- Public frontend pages and internal link integrity
+- Authenticated header checks (anonymous, parent, admin states)
+- Seeded child visual QA through the real dashboard route
+- DOM-level layout consistency checks for common regressions
 
 ## Screenshot artifacts
 
-- Visual QA screenshots are written to `tmp/qa-runs/YYYYMMDD-HHMMSS-<mode>/`
+- Visual QA screenshots are written to timestamped directories: `tmp/qa-runs/YYYYMMDD-HHMMSS-<mode>/`
 - The directory is ignored by git
 - Screenshots are artifact-only; do not commit generated files unless a future baseline policy says otherwise
 - Real seeded child visual QA uses `QA_CHILD_LOGIN_TOKEN` plus the dev-only child login helper when available

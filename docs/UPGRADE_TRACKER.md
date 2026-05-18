@@ -86,7 +86,7 @@
 ### Verification
 - Daily QA uses `/home/administrator/.hermes/fhh-qa.env`.
 - The daily run completed with backend pytest PASS, frontend build PASS, Playwright read-only E2E PASS, and smoke PASS.
-- The latest report directory is `/opt/apps/family-hero-hub/tmp/qa-runs/20260517-091715-daily`.
+- Example report directory from the 2026-05-17 run was `/opt/apps/family-hero-hub/tmp/qa-runs/20260517-091715-daily`.
 
 ### Notes
 - Failed QA runs must not display stale PASS reports.

@@ -46,7 +46,7 @@
 - Mobile calendar layout is responsive with no horizontal page scrolling
 - Mobile Week Picker uses a compact `S M T W T F S` strip
 - Child dashboard shows today's tasks and events through the My Day/calendar integration
-- Authenticated header handles `HttpOnly` cookies correctly by using `/api/me` as the source of truth
+- Authenticated header handles `HttpOnly` cookies correctly by using `/api/me` as the source of truth and shows correct Parent Dashboard / Admin / Logout behavior.
 
 ### School Bag / School Prep
 - Dedicated `school_items` backend is implemented

@@ -52,7 +52,7 @@ The `access_token` issued by the backend is `HttpOnly`. The Playwright test harn
 
 - The visual QA flow now uses a real seeded child session for the child dashboard route
 - The child seed is deterministic and idempotent for the QA family
-- Parent-preview remains a fallback option if the child fixture is unavailable in a future environment
+- Current visual QA uses a real seeded child session. Parent-preview is no longer the primary visual QA path and should only be treated as an emergency fallback if the seeded child fixture is unavailable.
 - The child visual run covers the real child route at `320`, `360`, `375`, `390`, `430`, and `768` widths, plus a parent desktop alignment check at `1024`
 - Zeus/daily QA does not need a separate child token export when `QA_CHILD_LOGIN_TOKEN` is unset because the helper falls back to `QA_LOGIN_TOKEN`
 - The helper should remain dev-only and read-only unless a separate stateful plan explicitly approves more
