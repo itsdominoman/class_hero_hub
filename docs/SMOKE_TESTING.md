@@ -8,6 +8,7 @@ The Europe dev smoke script is still the read-only baseline for fast checks. It 
 
 - Backend health
 - Public frontend pages
+- Header authentication state (anonymous)
 - Unauthenticated API access behavior
 - Public dev URL reachability checks for information only
 
@@ -40,7 +41,7 @@ The full read-only daily harness remains:
 bash scripts/qa/europe-dev-qa.sh daily
 ```
 
-That wrapper loads `/home/administrator/.hermes/fhh-qa.env` and runs the real seeded child visual checks automatically after the backend/frontend dev services are rebuilt on the standard Europe-dev ports.
+That wrapper loads `/home/administrator/.hermes/fhh-qa.env` automatically and runs the real seeded child visual checks through the standard Europe-dev QA flow after the backend/frontend dev services are rebuilt on the standard ports.
 
 ## Screenshot artifacts
 
@@ -48,6 +49,7 @@ That wrapper loads `/home/administrator/.hermes/fhh-qa.env` and runs the real se
 - The directory is ignored by git
 - Screenshots are artifact-only; do not commit generated files unless a future baseline policy says otherwise
 - Real seeded child visual QA uses `QA_CHILD_LOGIN_TOKEN` plus the dev-only child login helper when available
+- The read-only smoke mode itself does not run the child visual suite; that lives in the daily/full visual QA path
 
 ## Safety assumptions
 

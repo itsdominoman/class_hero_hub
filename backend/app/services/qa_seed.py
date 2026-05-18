@@ -18,6 +18,28 @@ QA_CHILD_ALLOWANCE_CURRENCY = "USD"
 QA_CHILD_ALLOWANCE_AMOUNT_MINOR = 2500
 QA_CHILD_ALLOWANCE_POINT_GOAL = 50
 QA_CHILD_SESSION_SEED = "qa-child-session"
+QA_PARENT_CARD_SPECS = [
+    {
+        "display_name": "Jackson",
+        "avatar_name": "robot",
+        "spending_points": 58,
+        "savings_points": 30,
+        "pending_requests": [
+            {
+                "title": "Jackson wants game time",
+                "description": "QA pending request used to keep the parent child-card row visible.",
+                "points": 5,
+            }
+        ],
+    },
+    {
+        "display_name": "Leah",
+        "avatar_name": "hero",
+        "spending_points": 42,
+        "savings_points": 18,
+        "pending_requests": [],
+    },
+]
 
 QA_REWARD_SPECS = [
     {
@@ -129,6 +151,19 @@ def _reset_child_seed_rows(db: Session, child_id: int, family_id: int) -> None:
     db.query(models.ChildDeviceInvite).filter(models.ChildDeviceInvite.child_id == child_id).delete(synchronize_session=False)
     db.query(models.ChildDeviceSession).filter(models.ChildDeviceSession.child_id == child_id).delete(synchronize_session=False)
     db.query(models.Reward).filter(models.Reward.family_id == family_id).delete(synchronize_session=False)
+
+
+def _reset_parent_child_rows(db: Session, child_id: int) -> None:
+    db.query(models.CalendarCompletion).filter(models.CalendarCompletion.child_id == child_id).delete(synchronize_session=False)
+    db.query(models.CalendarEntry).filter(models.CalendarEntry.child_id == child_id).delete(synchronize_session=False)
+    db.query(models.RedemptionRequest).filter(models.RedemptionRequest.child_id == child_id).delete(synchronize_session=False)
+    db.query(models.LedgerTransaction).filter(models.LedgerTransaction.child_id == child_id).delete(synchronize_session=False)
+    db.query(models.SchoolItem).filter(models.SchoolItem.child_id == child_id).delete(synchronize_session=False)
+    db.query(models.ChildAllowanceSetting).filter(models.ChildAllowanceSetting.child_id == child_id).delete(synchronize_session=False)
+    db.query(models.WeeklyStreak).filter(models.WeeklyStreak.child_id == child_id).delete(synchronize_session=False)
+    db.query(models.PetProgress).filter(models.PetProgress.child_id == child_id).delete(synchronize_session=False)
+    db.query(models.ChildDeviceInvite).filter(models.ChildDeviceInvite.child_id == child_id).delete(synchronize_session=False)
+    db.query(models.ChildDeviceSession).filter(models.ChildDeviceSession.child_id == child_id).delete(synchronize_session=False)
 
 
 def _get_or_create_parent(db: Session) -> tuple[models.ParentUser, models.Family, bool]:
@@ -420,6 +455,108 @@ def _seed_pet_progress(db: Session, child: models.Child) -> None:
             current_stage=models.PetStage.cub,
         )
     )
+
+
+def _seed_parent_child_dashboard(db: Session, family: models.Family, parent_id: int, spec: dict, child: models.Child) -> None:
+    now = _current_utc()
+    db.add_all(
+        [
+            models.LedgerTransaction(
+                child_id=child.id,
+                jar=models.JarType.spending,
+                transaction_type=models.TransactionType.award,
+                points=spec["spending_points"],
+                description=f"QA Parent Seed Spending for {spec['display_name']}",
+                created_by_parent_id=parent_id,
+                created_at=now - timedelta(hours=4),
+            ),
+            models.LedgerTransaction(
+                child_id=child.id,
+                jar=models.JarType.savings,
+                transaction_type=models.TransactionType.savings_deposit,
+                points=spec["savings_points"],
+                description=f"QA Parent Seed Savings for {spec['display_name']}",
+                created_by_parent_id=parent_id,
+                created_at=now - timedelta(hours=3),
+            ),
+        ]
+    )
+
+    for index, request_spec in enumerate(spec.get("pending_requests", [])):
+        request_created_at = now - timedelta(minutes=25 - (index * 2))
+        db.add(
+            models.RedemptionRequest(
+                child_id=child.id,
+                points=request_spec["points"],
+                title=request_spec["title"],
+                description=request_spec["description"],
+                status=models.RedemptionStatus.pending,
+                created_at=request_created_at,
+            )
+        )
+        db.add(
+            models.LedgerTransaction(
+                child_id=child.id,
+                jar=models.JarType.spending,
+                transaction_type=models.TransactionType.redemption_hold,
+                points=-request_spec["points"],
+                description=f"QA Parent Seed Hold: {request_spec['title']}",
+                created_by_parent_id=parent_id,
+                created_at=request_created_at,
+            )
+        )
+
+
+def seed_qa_parent_dashboard(db: Session, parent: models.ParentUser) -> list[models.Child]:
+    family = parent.family
+    if family is None:
+        family = db.query(models.Family).filter(models.Family.id == parent.family_id).first()
+    if family is None:
+        family = models.Family(timezone=QA_CHILD_FAMILY_TIMEZONE, week_start_day=6)
+        db.add(family)
+        db.flush()
+        parent.family_id = family.id
+        parent.family = family
+
+    children = (
+        db.query(models.Child)
+        .filter(models.Child.family_id == family.id)
+        .order_by(models.Child.id.asc())
+        .all()
+    )
+
+    desired_children: list[models.Child] = []
+    for spec in QA_PARENT_CARD_SPECS:
+        child = next((item for item in children if item.display_name == spec["display_name"]), None)
+        if child is None:
+            child = models.Child(
+                display_name=spec["display_name"],
+                family_id=family.id,
+                avatar_name=spec["avatar_name"],
+                active=True,
+            )
+            db.add(child)
+            db.flush()
+        else:
+            child.family_id = family.id
+            child.display_name = spec["display_name"]
+            child.avatar_name = spec["avatar_name"]
+            child.active = True
+            db.flush()
+
+        _reset_parent_child_rows(db, child.id)
+        _seed_parent_child_dashboard(db, family, parent.id, spec, child)
+        desired_children.append(child)
+
+    extra_children = [child for child in children if child.display_name not in {spec["display_name"] for spec in QA_PARENT_CARD_SPECS}]
+    for extra_child in extra_children:
+        _reset_parent_child_rows(db, extra_child.id)
+        db.delete(extra_child)
+
+    db.commit()
+    for child in desired_children:
+        db.refresh(child)
+    return desired_children
 
 
 def seed_qa_child_dashboard(db: Session) -> QAChildSeedResult:

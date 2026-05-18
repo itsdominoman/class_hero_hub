@@ -23,11 +23,27 @@ This matrix is meant to keep the Europe dev QA surface practical: read-only by d
 | `/admin/registration-requests` | admin | smoke only via status check | authenticated admin + manual review | yes | yes | yes | yes | yes | high | manual-only |
 | `/admin/users` | admin | smoke only via status check | authenticated admin + manual review | yes | yes | yes | yes | yes | high | manual-only |
 
+## Global UI Components
+
+| component | auth type | current test coverage | recommended test coverage | screenshot needed |
+| --- | --- | --- | --- | --- |
+| Header (Parent) | mixed | `e2e/authenticated-qa-login.spec.ts` | anonymous vs parent vs admin | yes |
+| Header (Child) | child | `e2e/visual-layout.spec.ts` | child dashboard specific | yes |
+
+## Visual Regression Surface
+
+- **Custom Request Form:** Verified 1-point conversion text, total value readability, and field alignment (mobile/desktop).
+- **Parent Child Cards:** Verified "Dashboard" and "Points" button labels fit without bleeding, and buttons align across cards at desktop widths.
+- **Reward Cards:** Verified value sits below title and is not clipped by card boundaries.
+
 ## Notes
 
+- `frontend/e2e/authenticated-qa-login.spec.ts` now explicitly verifies the header "Login" vs "Parent Dashboard" vs "Admin" state.
 - `frontend/e2e/public-pages.spec.ts` now covers `/faq` and checks safe internal links.
 - `frontend/e2e/visual-layout.spec.ts` saves screenshots under `tmp/qa-runs/YYYYMMDD-HHMMSS-visual-layout/`.
 - The child dashboard is now exercised through a deterministic seeded child session in visual QA.
+- The child visual checks cover reward cards, the custom request form, pending requests, tasks, events, savings snapshot values, and points history.
+- The parent visual check includes a desktop/laptop alignment assertion at `1024px` for child-card buttons, while mobile widths keep the safer stacked layout checks.
 - `frontend/e2e/authenticated-child-pages.spec.ts` covers the seeded child route directly.
 - Visual checks are intentionally focused on obvious layout explosions: horizontal overflow, narrow/over-tall text blocks, crushed headings, and buttons that stop fitting their containers.
 - Mutation-heavy surfaces remain out of the default read-only harness unless a future stateful fixture is explicitly approved.

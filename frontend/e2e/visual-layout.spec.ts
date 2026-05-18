@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { join } from 'node:path';
@@ -23,6 +23,7 @@ type VisualCase = {
 };
 
 const STANDARD_VIEWPORTS = [320, 375, 390, 430];
+const PARENT_DESKTOP_VIEWPORTS = [1024];
 const CHILD_VIEWPORTS = [320, 360, 375, 390, 430, 768];
 
 const PUBLIC_CASES: VisualCase[] = [
@@ -31,14 +32,16 @@ const PUBLIC_CASES: VisualCase[] = [
     heading: 'Less nagging. Clearer routines. Rewards kids can actually earn.',
     headingLevel: 'h1',
     auth: 'public',
-    screenshotName: 'home-public'
+    screenshotName: 'home-public',
+    ignoredConsoleErrorSnippets: ['the server responded with a status of 401']
   },
   {
     path: '/faq',
     heading: 'Clear answers for parents and children.',
     headingLevel: 'h1',
     auth: 'public',
-    screenshotName: 'faq-public'
+    screenshotName: 'faq-public',
+    ignoredConsoleErrorSnippets: ['the server responded with a status of 401']
   }
 ];
 
@@ -48,7 +51,10 @@ const PARENT_CASES: VisualCase[] = [
     heading: 'My Family',
     headingLevel: 'h1',
     auth: 'parent',
-    screenshotName: 'parent-auth'
+    screenshotName: 'parent-auth',
+    extraChecks: async (page) => {
+      await assertParentChildCardLayout(page);
+    }
   },
   {
     path: '/allowance',
@@ -83,9 +89,192 @@ const CHILD_REWARD_TITLES = [
 const CHILD_REWARD_LONG_DESCRIPTION =
   'This reward description is intentionally long so the child reward cards, helper badges, and mobile spacing all get exercised together without needing a brittle pixel snapshot.';
 
+type BoxMetrics = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  right: number;
+  bottom: number;
+  clientWidth: number;
+  scrollWidth: number;
+  text: string;
+};
+
+async function readBox(locator: Locator): Promise<BoxMetrics> {
+  return locator.first().evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      x: rect.x,
+      y: rect.y,
+      width: rect.width,
+      height: rect.height,
+      right: rect.right,
+      bottom: rect.bottom,
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      text: (element.textContent || '').replace(/\s+/g, ' ').trim()
+    };
+  });
+}
+
+async function assertRewardCardLayout(page: Page) {
+  for (const rewardTitle of CHILD_REWARD_TITLES) {
+    const title = page.getByRole('heading', { name: rewardTitle });
+    const card = title.locator('xpath=ancestor::div[contains(@class,"rounded-[1.75rem]")][1]');
+    const value = card.getByText(/^\s*\d+\s+points\b/i);
+    const requestButton = card.getByRole('button', { name: 'Request' });
+
+    await expect(title).toBeVisible();
+    await expect(value).toBeVisible();
+    await expect(requestButton).toBeVisible();
+
+    const [cardBox, titleBox, valueBox, buttonBox] = await Promise.all([
+      readBox(card),
+      readBox(title),
+      readBox(value),
+      readBox(requestButton)
+    ]);
+
+    expect(
+      titleBox.bottom,
+      `reward title should sit above its value for "${titleBox.text}"`
+    ).toBeLessThanOrEqual(valueBox.y + 2);
+    expect(
+      valueBox.right,
+      `reward value should stay inside the card for "${titleBox.text}"`
+    ).toBeLessThanOrEqual(cardBox.right + 2);
+    expect(
+      valueBox.scrollWidth,
+      `reward value text should not be clipped for "${titleBox.text}"`
+    ).toBeLessThanOrEqual(valueBox.clientWidth + 2);
+    expect(
+      valueBox.width,
+      `reward value should have room below the title for "${titleBox.text}"`
+    ).toBeGreaterThanOrEqual(92);
+    expect(
+      buttonBox.width,
+      `reward request button should remain full width for "${titleBox.text}"`
+    ).toBeGreaterThanOrEqual(cardBox.width - 44);
+    expect(
+      buttonBox.y,
+      `reward request button should sit below the value for "${titleBox.text}"`
+    ).toBeGreaterThanOrEqual(valueBox.bottom - 2);
+  }
+}
+
+async function assertChildCustomRequestLayout(page: Page, viewport: number) {
+  const form = page.locator('form').filter({ has: page.getByRole('textbox', { name: 'Request name' }) });
+  const nameInput = form.getByRole('textbox', { name: 'Request name' });
+  const pointsInput = form.getByRole('spinbutton', { name: 'Points' });
+  const nameContainer = nameInput.locator('xpath=ancestor::*[contains(@class,"space-y-2")][1]');
+  const pointsContainer = pointsInput.locator('xpath=ancestor::*[contains(@class,"space-y-2")][1]');
+  const submitButton = form.locator('button[type="submit"]');
+  const valueLabel = page.locator('[data-qa="child-custom-request-value"]');
+  const conversionLabel = page.locator('[data-qa="child-custom-request-conversion"]');
+
+  await expect(nameInput).toBeVisible();
+  await expect(pointsInput).toBeVisible();
+  await expect(submitButton).toBeVisible();
+  await expect(valueLabel).toBeVisible();
+  await expect(conversionLabel).toBeVisible();
+
+  const [nameBox, pointsBox, submitBox, valueBox, nameContainerBox, pointsContainerBox] = await Promise.all([
+    readBox(nameInput),
+    readBox(pointsInput),
+    readBox(submitButton),
+    readBox(valueLabel),
+    readBox(nameContainer),
+    readBox(pointsContainer)
+  ]);
+
+  if (viewport < 768) {
+    expect(Math.abs(nameBox.x - pointsBox.x), 'custom request fields should align on mobile').toBeLessThanOrEqual(6);
+    expect(Math.abs(nameBox.x - submitBox.x), 'custom request button should align on mobile').toBeLessThanOrEqual(6);
+    expect(pointsBox.y, 'custom request points field should sit below the name field on mobile').toBeGreaterThanOrEqual(nameBox.bottom - 2);
+    expect(submitBox.y, 'custom request button should sit below the points field on mobile').toBeGreaterThanOrEqual(pointsBox.bottom - 2);
+  } else {
+    // Top alignment of inputs
+    expect(Math.abs(nameBox.y - pointsBox.y), 'custom request inputs should align at top on desktop').toBeLessThanOrEqual(6);
+    // Bottom alignment of inputs
+    expect(Math.abs(nameBox.bottom - pointsBox.bottom), 'custom request inputs should align at bottom on desktop').toBeLessThanOrEqual(6);
+    // Button alignment with input row
+    expect(Math.abs(submitBox.bottom - nameBox.bottom), 'custom request button should align with input bottom on desktop').toBeLessThanOrEqual(6);
+    // Container/Label alignment
+    expect(Math.abs(nameContainerBox.y - pointsContainerBox.y), 'custom request form containers should align top on desktop').toBeLessThanOrEqual(6);
+  }
+
+  // Value text should be below the form grid
+  const formBox = await readBox(form);
+  expect(valueBox.y, 'custom request value text should sit below the form grid row').toBeGreaterThanOrEqual(formBox.bottom - 2);
+
+  expect(valueBox.scrollWidth, 'custom request value should not be clipped').toBeLessThanOrEqual(valueBox.clientWidth + 2);
+  expect(submitBox.width, 'custom request button should not be cramped').toBeGreaterThanOrEqual(100);
+  expect(submitBox.height, 'custom request button should not wrap awkwardly').toBeLessThanOrEqual(64);
+}
+
+async function assertParentChildCardLayout(page: Page) {
+  const jacksonTitle = page.getByRole('heading', { name: 'Jackson' });
+  const leahTitle = page.getByRole('heading', { name: 'Leah' });
+  await expect(jacksonTitle).toBeVisible();
+  await expect(leahTitle).toBeVisible();
+  await expect(page.getByText('0 pending', { exact: false })).toBeVisible();
+  await expect(page.getByText('5 pending', { exact: false })).toBeVisible();
+
+  for (const title of [jacksonTitle, leahTitle]) {
+    const card = title.locator('xpath=ancestor::article[1]');
+    const dashboardButton = card.getByRole('link', { name: /Dashboard/i });
+    const pointsButton = card.getByRole('button', { name: /Points/i });
+
+    await expect(dashboardButton).toBeVisible();
+    await expect(pointsButton).toBeVisible();
+    await expect(card.getByText(/pending/)).toBeVisible();
+    await expect(dashboardButton, 'dashboard button should stay readable').toHaveText(/Dashboard/i);
+    await expect(pointsButton, 'points button should stay readable').toHaveText(/Points/i);
+  }
+}
+
+async function assertParentChildCardAlignment(page: Page) {
+  const jacksonTitle = page.getByRole('heading', { name: 'Jackson' });
+  const leahTitle = page.getByRole('heading', { name: 'Leah' });
+  const dashboardButtons: BoxMetrics[] = [];
+  const pointsButtons: BoxMetrics[] = [];
+
+  for (const title of [jacksonTitle, leahTitle]) {
+    const card = title.locator('xpath=ancestor::article[1]');
+    const dashboardButton = card.getByRole('link', { name: /Dashboard/i });
+    const pointsButton = card.getByRole('button', { name: /Points/i });
+
+    await expect(dashboardButton).toBeVisible();
+    await expect(pointsButton).toBeVisible();
+    await expect(card.getByText(/pending/)).toBeVisible();
+
+    dashboardButtons.push(await readBox(dashboardButton));
+    pointsButtons.push(await readBox(pointsButton));
+
+    await expect(dashboardButton, 'dashboard button should stay readable').toHaveText(/Dashboard/i);
+    await expect(pointsButton, 'points button should stay readable').toHaveText(/Points/i);
+  }
+
+  expect(
+    Math.abs(dashboardButtons[0].y - dashboardButtons[1].y),
+    'dashboard buttons should align across cards'
+  ).toBeLessThanOrEqual(10);
+  expect(
+    Math.abs(pointsButtons[0].y - pointsButtons[1].y),
+    'points buttons should align across cards'
+  ).toBeLessThanOrEqual(10);
+
+  for (const box of [...dashboardButtons, ...pointsButtons]) {
+    expect(box.height, 'parent card action buttons should not wrap').toBeLessThanOrEqual(64);
+    expect(box.width, 'parent card action buttons should remain wide enough').toBeGreaterThanOrEqual(100);
+  }
+}
+
 async function writeScreenshot(page: Page, screenshotName: string, viewport: number) {
   const artifactRoot = process.env.QA_ARTIFACT_ROOT?.trim() || resolve(process.cwd(), '..', 'tmp', 'qa-runs');
-  const outputDir = join(artifactRoot, process.env.QA_RUN_ID || 'visual-layout');
+  const runId = process.env.QA_RUN_ID || `${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}-visual-layout`;
+  const outputDir = join(artifactRoot, runId);
   mkdirSync(outputDir, { recursive: true });
   await page.screenshot({
     path: join(outputDir, `${screenshotName}-${viewport}.png`),
@@ -110,6 +299,10 @@ async function assertVisualCase(page: Page, visualCase: VisualCase, viewport: nu
     await visualCase.extraChecks(page);
   }
 
+  if (visualCase.path === '/parent' && viewport >= 1024) {
+    await assertParentChildCardAlignment(page);
+  }
+
   await assertNoHorizontalOverflow(page);
   const layoutViolations = await findLayoutViolations(page);
 
@@ -122,6 +315,7 @@ async function assertVisualCase(page: Page, visualCase: VisualCase, viewport: nu
 
 async function assertChildVisualCase(page: Page, childSession: QaChildSession, viewport: number) {
   const tracker = createBrowserIssueTracker(page);
+  tracker.ignoreConsoleErrorSnippet('the server responded with a status of 401');
   await page.setViewportSize({ width: viewport, height: 1600 });
   await page.goto(childSession.childRoute, { waitUntil: 'networkidle' });
   await page.waitForTimeout(250);
@@ -193,14 +387,6 @@ async function assertChildVisualCase(page: Page, childSession: QaChildSession, v
     minCharsPerLine: 4
   });
 
-  await assertReadableElement(page.locator('form button[type="submit"]'), {
-    label: 'custom request submit button',
-    minWidth: 90,
-    maxHeight: 90,
-    maxLines: 3,
-    minCharsPerLine: 4
-  });
-
   await assertReadableElement(page.getByRole('heading', { name: 'QA Task Pack Bag' }), {
     label: 'task title QA Task Pack Bag',
     minWidth: 100,
@@ -249,6 +435,9 @@ async function assertChildVisualCase(page: Page, childSession: QaChildSession, v
     minCharsPerLine: 4
   });
 
+  await assertRewardCardLayout(page);
+  await assertChildCustomRequestLayout(page, viewport);
+
   await assertNoHorizontalOverflow(page);
   const layoutViolations = await findLayoutViolations(page);
 
@@ -276,7 +465,11 @@ test.describe('Europe dev visual layout checks', () => {
     });
 
     for (const visualCase of PARENT_CASES) {
-      for (const viewport of STANDARD_VIEWPORTS) {
+      const viewports = visualCase.path === '/parent'
+        ? [...STANDARD_VIEWPORTS, ...PARENT_DESKTOP_VIEWPORTS]
+        : STANDARD_VIEWPORTS;
+
+      for (const viewport of viewports) {
         test(`${visualCase.screenshotName} ${viewport}px`, async ({ page }) => {
           await assertVisualCase(page, visualCase, viewport);
         });

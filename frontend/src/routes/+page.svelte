@@ -7,12 +7,6 @@
   let sessionLoaded = $state(false);
 
   onMount(async () => {
-    if (typeof document !== 'undefined' && !document.cookie.includes('access_token=')) {
-      authenticated = false;
-      sessionLoaded = true;
-      return;
-    }
-
     try {
       await api.get('/me');
       authenticated = true;

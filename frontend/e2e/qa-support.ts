@@ -85,8 +85,15 @@ async function routeBackendApis(page: Page) {
   await page.route('**/api/**', async (route) => {
     const requestUrl = new URL(route.request().url());
     const backendUrl = new URL(`${requestUrl.pathname}${requestUrl.search}`, backendBaseUrl);
-    const backendResponse = await route.fetch({ url: backendUrl.toString() });
-    await route.fulfill({ response: backendResponse });
+    try {
+      const backendResponse = await route.fetch({ url: backendUrl.toString() });
+      await route.fulfill({ response: backendResponse });
+    } catch (e) {
+      // Catch "Fetch response has been disposed" if navigation happens during fetch
+      if (!route.request().isNavigationRequest()) {
+        try { await route.abort(); } catch { /* ignore */ }
+      }
+    }
   });
   ROUTED_PAGES.add(page);
 }
@@ -94,14 +101,22 @@ async function routeBackendApis(page: Page) {
 function extractCookies(headersArray: Array<{ name: string; value: string }>) {
   return headersArray
     .filter((header) => header.name.toLowerCase() === 'set-cookie')
-    .map((header) => header.value)
-    .map((cookieHeader) => cookieHeader.split(';', 1)[0])
-    .map((cookiePair) => {
-      const separatorIndex = cookiePair.indexOf('=');
-      return {
-        name: cookiePair.slice(0, separatorIndex),
-        value: cookiePair.slice(separatorIndex + 1)
-      };
+    .map((header) => {
+      const cookieHeader = header.value;
+      const parts = cookieHeader.split(';').map(p => p.trim());
+      const [nameValue, ...attributes] = parts;
+      const [name, value] = nameValue.split('=');
+
+      const cookie: any = { name, value };
+
+      for (const attr of attributes) {
+        const [attrName] = attr.split('=');
+        if (attrName.toLowerCase() === 'httponly') {
+          cookie.httpOnly = true;
+        }
+      }
+
+      return cookie;
     });
 }
 

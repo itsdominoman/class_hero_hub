@@ -155,5 +155,15 @@ def test_qa_login_creates_reuses_qa_user_and_preserves_csrf(client, monkeypatch,
         assert parent.google_sub == "qa-login:qa-parent@dev.familyherohub.com"
         assert parent.family_id == 1
         assert parent.last_login_at is not None
+        children = (
+            check_db.query(models.Child)
+            .filter(models.Child.family_id == parent.family_id)
+            .order_by(models.Child.id.asc())
+            .all()
+        )
+        assert [child.display_name for child in children] == ["Jackson", "Leah"]
+        assert check_db.query(models.RedemptionRequest).filter(models.RedemptionRequest.child_id == children[0].id).count() == 1
+        assert check_db.query(models.RedemptionRequest).filter(models.RedemptionRequest.child_id == children[1].id).count() == 0
+        assert check_db.query(models.RedemptionRequest).count() == 1
     finally:
         check_db.close()

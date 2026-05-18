@@ -777,19 +777,19 @@
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                 {#each rewardOptions as reward}
                   {@const affordable = reward.points <= summary.available_spending}
-                  <div class={`rounded-[1.75rem] border p-4 md:p-5 flex flex-col gap-4 min-w-0 ${affordable ? 'border-slate-200 bg-[#fffefb]' : 'border-slate-200 bg-slate-50 opacity-80'}`}>
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div class="min-w-0 flex-1">
-                        <h3 class="text-lg font-black text-slate-950 break-words">{reward.title}</h3>
-                        <p class="text-sm text-slate-600 mt-1 break-words line-clamp-2">{reward.description || 'A reward your parents can approve.'}</p>
+                  <div data-qa="child-reward-card" class={`rounded-[1.75rem] border p-4 md:p-5 flex flex-col gap-4 min-w-0 ${affordable ? 'border-slate-200 bg-[#fffefb]' : 'border-slate-200 bg-slate-50 opacity-80'}`}>
+                    <div class="flex flex-col gap-3">
+                      <div class="min-w-0">
+                        <h3 data-qa="child-reward-title" class="text-lg font-black text-slate-950 break-words">{reward.title}</h3>
                       </div>
-                      <div class={`shrink-0 rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.12em] sm:tracking-[0.15em] border leading-none max-w-full sm:max-w-[45%] whitespace-normal sm:whitespace-nowrap ${affordable ? 'bg-savings/10 text-savings border-savings/20' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
+                      <div data-qa="child-reward-value" class={`inline-flex w-fit max-w-full rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.12em] sm:tracking-[0.15em] border leading-snug whitespace-normal break-words ${affordable ? 'bg-savings/10 text-savings border-savings/20' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
                         {#if allowanceActive}
                           {reward.points} points / {formatMinorAmount(rewardValueMinor(reward.points) || 0, allowanceActive.currency, allowanceActive.currency_exponent)}
                         {:else}
                           {reward.points} points
                         {/if}
                       </div>
+                      <p class="text-sm text-slate-600 break-words line-clamp-2">{reward.description || 'A reward your parents can approve.'}</p>
                     </div>
 
                     <div class="flex flex-col gap-2">
@@ -822,48 +822,62 @@
               <div class="min-w-0">
                 <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2">Custom request</p>
                 <h2 class="text-2xl md:text-3xl font-black text-slate-950">Ask to spend your points</h2>
+                {#if allowanceActive}
+                  <p data-qa="child-custom-request-conversion" class="mt-2 text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-50 w-fit px-3 py-1.5 rounded-full border border-slate-200/60 shadow-sm">
+                    1 point = {formatMinorAmount(Math.floor(allowanceActive.settings.allowance_amount_minor / allowanceActive.settings.point_goal), allowanceActive.currency, allowanceActive.currency_exponent)}
+                  </p>
+                {/if}
               </div>
-              <div class="w-12 h-12 rounded-2xl bg-reward/10 text-reward flex items-center justify-center">
+              <div class="w-12 h-12 rounded-2xl bg-reward/10 text-reward flex items-center justify-center shrink-0">
                 <Trophy size={22} />
               </div>
             </div>
 
-            <form class="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,120px)_auto] items-end" onsubmit={submitCustomRequest}>
-              <label class="block min-w-0">
-                <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mb-2">Request name</span>
+            <form data-qa="child-custom-request-form" class="grid grid-cols-1 md:grid-cols-[1fr_140px_auto] gap-4 md:items-start" onsubmit={submitCustomRequest}>
+              <label class="block space-y-2 min-w-0">
+                <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 ml-1">Request name</span>
                 <input
                   type="text"
                   bind:value={customRewardTitle}
-                  placeholder="Movie night, extra screen time, dessert..."
-                  class="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30"
+                  placeholder="Movie night, dessert..."
+                  class="h-14 w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30 transition-all"
                 />
               </label>
 
-              <label class="block">
-                <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mb-2">Points</span>
-                <input
-                  type="number"
-                  min="1"
-                  max={Math.max(1, summary.available_spending)}
-                  bind:value={customRewardPoints}
-                  class="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30"
-                />
-                {#if allowanceActive}
-                  <p class="mt-2 text-xs font-bold text-slate-500">
-                    {formatMinorAmount(rewardValueMinor(customRewardPoints) || 0, allowanceActive.currency, allowanceActive.currency_exponent)}
-                  </p>
-                {/if}
+              <label class="block space-y-2 min-w-0">
+                <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 ml-1">Points</span>
+                <div class="relative">
+                  <input
+                    type="number"
+                    min="1"
+                    max={Math.max(1, summary.available_spending)}
+                    bind:value={customRewardPoints}
+                    class="h-14 w-full rounded-2xl border-2 border-slate-200 bg-slate-50 pl-4 pr-12 text-slate-900 font-bold focus:outline-none focus:border-hero/30 transition-all"
+                  />
+                  <span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black uppercase text-slate-300">pts</span>
+                </div>
               </label>
 
-              <button
-                type="submit"
-                disabled={submitting || !customRewardTitle.trim() || customRewardPoints < 1 || customRewardPoints > summary.available_spending}
-                class="inline-flex w-full justify-center items-center gap-2 rounded-2xl bg-hero px-5 py-4 text-white font-black uppercase tracking-[0.14em] sm:tracking-[0.22em] shadow-lg shadow-hero/20 disabled:opacity-50 md:w-auto"
-              >
-                {submitting ? 'Sending...' : 'Request'}
-                <ArrowRight size={16} />
-              </button>
+              <div class="space-y-2">
+                <span class="hidden md:block text-[10px] font-black uppercase tracking-[0.22em] text-transparent select-none">Action</span>
+                <button
+                  type="submit"
+                  disabled={submitting || !customRewardTitle.trim() || customRewardPoints < 1 || customRewardPoints > summary.available_spending}
+                  class="btn-hero h-14 px-8 w-full md:w-auto rounded-2xl flex items-center justify-center gap-2 text-sm uppercase tracking-widest shadow-xl shadow-hero/20 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {submitting ? 'Sending...' : 'Request'}
+                  <ArrowRight size={18} />
+                </button>
+              </div>
             </form>
+
+            {#if allowanceActive}
+              <div class="mt-4 flex flex-col sm:flex-row items-center justify-center md:justify-start gap-2">
+                <p data-qa="child-custom-request-value" class="text-[10px] font-black uppercase tracking-wider text-slate-500 bg-slate-100/50 px-3 py-1.5 rounded-full border border-slate-200/40">
+                  Calculated Value: {formatMinorAmount(rewardValueMinor(customRewardPoints) || 0, allowanceActive.currency, allowanceActive.currency_exponent)}
+                </p>
+              </div>
+            {/if}
           </section>
 
           <section class="card bg-white p-6 md:p-8 border border-slate-100 shadow-xl">

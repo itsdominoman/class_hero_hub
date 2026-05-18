@@ -44,8 +44,9 @@
   - daily
   - weekly
 - Mobile calendar layout is responsive with no horizontal page scrolling
-- Mobile week picker uses a compact `S M T W T F S` strip
+- Mobile Week Picker uses a compact `S M T W T F S` strip
 - Child dashboard shows today's tasks and events through the My Day/calendar integration
+- Authenticated header handles `HttpOnly` cookies correctly by using `/api/me` as the source of truth
 
 ### School Bag / School Prep
 - Dedicated `school_items` backend is implemented
@@ -131,6 +132,7 @@
 - Europe dev daily QA Phase A passes with backend pytest, frontend build, Playwright read-only E2E, and smoke checks
 - Playwright coverage now includes `/faq`, route inventory, authenticated parent visual layout checks, and mobile screenshot artifacts for the most important parent/child surfaces
 - Dev-only child QA login and seeded child visual coverage are now part of the Europe dev daily QA flow, and the full visual suite passes on the standard dev ports after rebuilding the dev containers
+- The child visual suite now covers the real seeded child route, reward cards, custom request form, pending requests, tasks, events, savings snapshot, and points log, with a 1024px parent alignment check for child dashboard cards
 - Europe PostgreSQL runtime smoke test now handles expired child-device links cleanly with HTTP 401 instead of a 500
 - US production smoke tests and manual verification passed after the PostgreSQL cutover
 

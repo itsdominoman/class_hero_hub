@@ -7,6 +7,16 @@ FRONTEND_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PLAYWRIGHT_IMAGE="${PLAYWRIGHT_IMAGE:-mcr.microsoft.com/playwright:v1.59.1-jammy}"
 MODE="${1:-daily}"
+QA_ENV_FILE="${QA_ENV_FILE:-/home/administrator/.hermes/fhh-qa.env}"
+
+if [[ -f "$QA_ENV_FILE" ]]; then
+  # Load the standard Europe/dev QA environment so direct frontend QA commands
+  # work the same way as the daily wrapper.
+  # shellcheck disable=SC1090
+  set -a
+  source "$QA_ENV_FILE"
+  set +a
+fi
 
 case "$MODE" in
   daily|stateful|public|auth|visual|child) ;;

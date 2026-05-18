@@ -1,5 +1,43 @@
 # Family Hero Hub - Upgrade Tracker
 
+# 2026-05-18 - Visual Layout Improvements (Child Custom Request & Parent Dashboard)
+
+### Scope
+- Improved child custom request form: added "1 point = X" conversion text and "Value: X" calculated total.
+- Fixed child custom request form alignment: fields and buttons now align cleanly on both mobile and desktop.
+- Fixed parent dashboard child-card layout: shortened action buttons to "Dashboard" and "Points" to prevent overlap and bleeding.
+- Standardized button heights to `h-14` for consistent cross-card alignment on the parent dashboard.
+- Ensured "0 pending" remains visible on parent child cards.
+
+### Verification
+- Updated `frontend/e2e/visual-layout.spec.ts` with strengthened assertions for:
+  - Custom request conversion text visibility.
+  - Custom request readable value text.
+  - Field and button alignment for the request form.
+  - Shorter button labels and cross-card alignment for parent dashboard.
+- Verified all 31 visual layout tests pass across 320px to 1024px viewports.
+- Verified full daily QA suite passes.
+
+### Notes
+- "Dashboard" and "Points" labels provide a much safer layout margin for mobile and small tablets compared to the previous long labels.
+
+# 2026-05-18 - Authenticated Header Fix (HttpOnly compatibility)
+
+### Scope
+- Removed `document.cookie.includes('access_token=')` prechecks from `+layout.svelte`, `+page.svelte`, and `login/+page.svelte`.
+- Transitioned frontend to rely exclusively on `/api/me` for authentication state hydration.
+- Fixed header regression where "Login" was shown instead of "Parent Dashboard" due to `access_token` being `HttpOnly`.
+- Improved Playwright `extractCookies` helper in `e2e/qa-support.ts` to preserve `HttpOnly` attributes during test session setup.
+
+### Verification
+- Added `frontend/e2e/header-regression.spec.ts` (reproduction case).
+- Expanded `frontend/e2e/authenticated-qa-login.spec.ts` with header visibility assertions for anonymous, parent, and admin states.
+- Rebuilt frontend Docker container and verified tests pass with `access_token` correctly hidden from `document.cookie`.
+- Verified Admin link remains restricted to `is_admin: true` users.
+
+### Notes
+- The frontend no longer attempts to "guess" auth status via `document.cookie` for the main access token.
+
 # 2026-05-18 - QA Coverage Expansion for Mobile Layout Regressions
 
 ### Scope
@@ -15,6 +53,7 @@
 - The child dashboard is exercised through a deterministic QA seed, not a parent-preview fallback.
 - The Europe dev daily QA wrapper passes on the standard `8000/5173` dev services after rebuilding the dev containers.
 - The child reward cards and waiting-request cards now use mobile-safe stacking on narrow widths, and the generic layout heuristic no longer flags form labels as false positives.
+- The child custom request form uses block-level alignment checks on desktop/tablet widths, and the parent child-card alignment check is enforced at `1024px`.
 
 ### Notes
 - The new coverage is designed to catch obvious layout explosions such as one-letter vertical wrapping, cramped reward cards, and horizontal overflow without relying on brittle pixel diffs.

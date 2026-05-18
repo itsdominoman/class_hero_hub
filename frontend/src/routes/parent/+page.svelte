@@ -804,7 +804,7 @@
           {:else}
             <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {#each children as c}
-                <article class="card flex min-w-0 flex-col overflow-hidden border-slate-100 bg-white p-5 sm:p-6 shadow-xl">
+                <article data-qa="parent-child-card" class="card flex h-full min-w-0 flex-col overflow-hidden border-slate-100 bg-white p-5 sm:p-6 shadow-xl">
                   <div class="flex min-w-0 items-start gap-4">
                     <div class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-900 text-white shadow-sm">
                       <span class="text-lg font-black tracking-tight">{childAvatarLabel(c)}</span>
@@ -831,28 +831,27 @@
                             {formatAllowanceMinorAmount(allowanceSummaries[c.child.id].available_allowance_minor, allowanceSummaries[c.child.id].currency, allowanceSummaries[c.child.id].currency_exponent)} available
                           </span>
                         {/if}
-                        {#if c.pending_redemptions > 0}
-                          <span class="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-amber-700">
-                            <Clock size={13} />
-                            {c.pending_redemptions} pending
-                          </span>
-                        {/if}
+                        <span data-qa="parent-child-pending-row" class={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.14em] ${c.pending_redemptions > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-400'}`}>
+                          <Clock size={13} />
+                          {c.pending_redemptions} pending
+                        </span>
                       </div>
                     </div>
                   </div>
 
-                  <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <a href={`/child/${c.child.id}`} class="btn-hero inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-4 text-xs font-black uppercase tracking-[0.16em] shadow-xl shadow-hero/20">
-                      View child dashboard
-                      <ArrowRight size={16} />
+                  <div class="mt-auto grid grid-cols-1 gap-3 pt-6 sm:grid-cols-2">
+                    <a href={`/child/${c.child.id}`} data-qa="parent-child-dashboard-link" class="btn-hero flex h-14 items-center justify-center gap-2 rounded-2xl px-4 text-[10px] font-black uppercase tracking-[0.18em] shadow-lg shadow-hero/20 whitespace-nowrap">
+                      Dashboard
+                      <ArrowRight size={14} />
                     </a>
                     <button
                       type="button"
                       onclick={() => openModal('picker', c)}
-                      class="btn-secondary inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-4 text-xs font-black uppercase tracking-[0.16em]"
+                      data-qa="parent-child-points-button"
+                      class="btn-secondary flex h-14 items-center justify-center gap-2 rounded-2xl px-4 text-[10px] font-black uppercase tracking-[0.18em] whitespace-nowrap"
                     >
-                      <Star size={16} />
-                      Add / remove points
+                      <Star size={14} />
+                      Points
                     </button>
                   </div>
                 </article>

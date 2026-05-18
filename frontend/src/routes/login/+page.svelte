@@ -7,10 +7,6 @@
   };
 
   onMount(async () => {
-    if (typeof document !== 'undefined' && !document.cookie.includes('access_token=')) {
-      return;
-    }
-
     try {
       await api.get('/me');
       window.location.href = '/parent';

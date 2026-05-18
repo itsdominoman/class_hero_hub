@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from .. import auth, models
 from .. import child_auth
 from ..database import get_db, settings
-from ..services.qa_seed import ensure_qa_child_session, seed_qa_child_dashboard
+from ..services.qa_seed import ensure_qa_child_session, seed_qa_child_dashboard, seed_qa_parent_dashboard
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -111,6 +111,9 @@ async def _qa_login_from_request(request: Request, db: Session) -> JSONResponse:
         db.commit()
         db.refresh(parent)
         reused = True
+
+    seed_qa_parent_dashboard(db, parent)
+    db.refresh(parent)
 
     access_token = auth.create_access_token(data={"sub": parent.email})
     response = JSONResponse(content={
