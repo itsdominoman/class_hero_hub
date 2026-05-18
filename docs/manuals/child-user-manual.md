@@ -160,7 +160,7 @@ If your parent turns on allowance for you:
 - saved points stay separate from points you can spend now
 - points on hold are waiting for a parent to decide
 - your parent still has to approve every request
-- Family Hero Hub does not pay money automatically
+- Parents approve requests and provide the real-world reward or purchase.
 - if your parent turns allowance on after you already had points, those current points also get allowance value
 
 ## 15) Quick reminder

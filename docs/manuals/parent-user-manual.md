@@ -215,7 +215,7 @@ Allowance setup is optional. When you turn it on for a child, the child’s curr
 
 Families without allowance enabled stay points-only.
 
-Reward requests, reward holds, reward approvals or rejections, and saved-point transfers reduce the child’s available balance. The app does not automatically pay money.
+Reward requests, reward holds, reward approvals or rejections, and saved-point transfers reduce the child’s available balance. Family Hero Hub tracks allowance value. Parents approve requests and provide the real-world reward or purchase.
 
 The app warns you before turning allowance on because the child’s current points will gain allowance value.
 You can adjust the child’s points before enabling allowance if needed.

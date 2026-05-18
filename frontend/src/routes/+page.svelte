@@ -143,7 +143,7 @@
             <Coins size={32} />
           </div>
           <h3 class="text-2xl font-black mb-4">Earn allowance value</h3>
-          <p class="text-slate-600 leading-relaxed">Connect points to allowance-linked value if you want. Kids can see how effort turns into spendable value without automatic payout.</p>
+          <p class="text-slate-600 leading-relaxed">Connect points to allowance-linked value if you want. Kids can see how effort turns into spendable value.</p>
           <p class="text-slate-600 leading-relaxed mt-4">You stay in control.</p>
         </div>
       </div>

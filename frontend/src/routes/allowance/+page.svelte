@@ -322,7 +322,7 @@
                 Allowance setup
               </h1>
               <p class="mt-5 max-w-xl text-base font-medium leading-relaxed text-slate-700 sm:text-lg">
-                Allowance is optional. Pick a child, choose an amount, and set the point goal. Turning on allowance gives your child’s current points an allowance value. You can adjust their points before enabling allowance if needed. Rewards and custom requests spend the same available balance, and nothing is paid automatically.
+                Allowance is optional. Pick a child, choose an amount, and set the point goal. Turning on allowance gives your child’s current points an allowance value. You can adjust their points before enabling allowance if needed. Rewards and custom requests spend the same available balance. Parents stay in control of what is approved and how the real-world purchase is handled.
               </p>
               <p class="mt-4 max-w-xl text-sm font-medium leading-relaxed text-slate-600">
                 Start with the child selector on the right. Then set the allowance amount, currency, period, and point goal.
@@ -348,7 +348,7 @@
                 <PiggyBank class="mt-0.5 shrink-0 text-reward" size={22} />
                 <div>
                   <p class="text-sm font-black text-slate-900">Parent controlled</p>
-                  <p class="mt-1 text-sm font-medium leading-relaxed text-slate-600">Parents stay in control, and no money is paid automatically.</p>
+                  <p class="mt-1 text-sm font-medium leading-relaxed text-slate-600">Parents stay in control of what is approved and how the real-world purchase is handled.</p>
                 </div>
               </div>
             </div>
@@ -450,7 +450,7 @@
                     />
                     <span>
                       <span class="block text-sm font-black text-slate-900">Enable allowance-linked points</span>
-                      <span class="mt-1 block text-sm font-medium leading-relaxed text-slate-600">Optional per child. No money is sent by the app.</span>
+                      <span class="mt-1 block text-sm font-medium leading-relaxed text-slate-600">Optional per child. Family Hero Hub tracks allowance value; parents approve requests and provide the real-world reward or purchase.</span>
                       <span class="mt-2 block text-sm font-bold leading-relaxed text-amber-700">Turning on allowance gives your child’s current points an allowance value. You can adjust their points before enabling allowance if needed.</span>
                     </span>
                   </label>
@@ -648,7 +648,7 @@
                   </div>
 
                   <div class="mt-5 rounded-[1.5rem] border border-amber-100 bg-amber-50 p-4 text-sm font-medium leading-relaxed text-amber-900">
-                    Allowance is linked to points. Rewards and custom requests spend the same available balance, and the app does not automatically pay the child.
+                    Allowance is linked to points. Rewards and custom requests spend the same available balance. Parents stay in control of what is approved and how the real-world purchase is handled.
                   </div>
                 </div>
               </div>

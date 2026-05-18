@@ -1660,7 +1660,7 @@
             <div class="p-4 bg-savings/5 rounded-2xl border border-savings/10 flex items-start gap-3">
               <Clock size={16} class="text-savings mt-0.5" />
               <p class="text-[10px] font-bold text-savings-dark leading-relaxed uppercase tracking-widest">
-                Banked points are locked for 30 days and cannot be spent or withdrawn until unlocked.
+                Banked points are locked for 30 days and cannot be used until unlocked.
               </p>
             </div>
           {/if}

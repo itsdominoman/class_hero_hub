@@ -117,7 +117,7 @@ You choose the allowance amount, the point goal, and the allowance period. When 
 Use **Allowance setup** from the parent dashboard Family tools area.
 
 ### Does the app automatically pay allowance?
-No. Family Hero Hub does not automatically pay money.
+No. Family Hero Hub tracks allowance value. Parents approve requests and provide the real-world reward or purchase.
 
 ### Do reward requests reduce allowance progress?
 Yes. Reward requests, points on hold, reward approvals or rejections, and saved-point transfers reduce the available allowance balance while keeping earned history visible.
