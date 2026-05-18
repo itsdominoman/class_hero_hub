@@ -1,5 +1,22 @@
 # Family Hero Hub - Upgrade Tracker
 
+# 2026-05-18 - QA Coverage Expansion for Mobile Layout Regressions
+
+### Scope
+- Added a route inventory helper at `scripts/qa/list-sveltekit-routes.mjs`.
+- Added a QA coverage matrix at `docs/QA_COVERAGE_MATRIX.md` to track public, parent, child, admin, and tokenized routes.
+- Expanded public Playwright coverage to include `/faq` and to verify safe internal links.
+- Added `frontend/e2e/visual-layout.spec.ts` with mobile-width screenshot capture and DOM-level overflow/crushed-text checks.
+- Added a skipped child-session QA placeholder because there is still no approved child QA login fixture.
+- Added screenshot artifact output under `frontend/test-results/visual-layout/`.
+
+### Verification
+- The visual coverage is intentionally read-only.
+- The child dashboard is exercised through the safe parent-preview route for now.
+
+### Notes
+- The new coverage is designed to catch obvious layout explosions such as one-letter vertical wrapping, cramped reward cards, and horizontal overflow without relying on brittle pixel diffs.
+
 # 2026-05-18 - Allowance-Linked Points Model
 
 ### Scope

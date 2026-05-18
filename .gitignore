@@ -32,3 +32,4 @@ Caddyfile.backup*
 
 # Local test virtual environment
 test_venv/
+frontend/test-results/

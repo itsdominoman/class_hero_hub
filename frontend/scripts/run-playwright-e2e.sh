@@ -8,10 +8,10 @@ PLAYWRIGHT_IMAGE="${PLAYWRIGHT_IMAGE:-mcr.microsoft.com/playwright:v1.59.1-jammy
 MODE="${1:-daily}"
 
 case "$MODE" in
-  daily|stateful) ;;
+  daily|stateful|public|auth|visual|child) ;;
   *)
     echo "Unknown mode: $MODE" >&2
-    echo "Usage: bash ./scripts/run-playwright-e2e.sh [daily|stateful]" >&2
+    echo "Usage: bash ./scripts/run-playwright-e2e.sh [daily|stateful|public|auth|visual|child]" >&2
     exit 2
     ;;
 esac
@@ -38,4 +38,24 @@ exec docker run --rm \
   -v "${FRONTEND_DIR}:/work" \
   -w /work \
   "${PLAYWRIGHT_IMAGE}" \
-  bash -lc "if [[ '$MODE' == 'stateful' ]]; then npm run test:e2e:stateful:local; else npm run test:e2e:local; fi"
+  bash -lc "
+    case '$MODE' in
+      stateful)
+        npm run test:e2e:stateful:local
+        ;;
+      public)
+        npm run test:e2e:local -- e2e/public-pages.spec.ts
+        ;;
+      auth)
+        npm run test:e2e:local -- e2e/authenticated-qa-login.spec.ts
+        ;;
+      visual)
+        npm run test:e2e:local -- e2e/visual-layout.spec.ts
+        ;;
+      child)
+        npm run test:e2e:local -- e2e/authenticated-child-pages.spec.ts
+        ;;
+      *)
+        npm run test:e2e:local
+        ;;
+    esac"
