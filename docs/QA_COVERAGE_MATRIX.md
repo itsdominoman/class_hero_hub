@@ -26,7 +26,7 @@ This matrix is meant to keep the Europe dev QA surface practical: read-only by d
 ## Notes
 
 - `frontend/e2e/public-pages.spec.ts` now covers `/faq` and checks safe internal links.
-- `frontend/e2e/visual-layout.spec.ts` saves screenshots under `frontend/test-results/visual-layout/`.
+- `frontend/e2e/visual-layout.spec.ts` saves screenshots under `tmp/qa-runs/YYYYMMDD-HHMMSS-visual-layout/`.
 - The child dashboard is currently exercised through a safe parent-preview route in visual QA because there is no dedicated child QA login fixture yet.
 - Visual checks are intentionally focused on obvious layout explosions: horizontal overflow, narrow/over-tall text blocks, crushed headings, and buttons that stop fitting their containers.
 - Mutation-heavy surfaces remain out of the default read-only harness unless a future stateful fixture is explicitly approved.

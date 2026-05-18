@@ -86,7 +86,7 @@ const PARENT_CASES: VisualCase[] = [
 ];
 
 async function writeScreenshot(page: Page, screenshotName: string, viewport: number) {
-  const outputDir = join(process.cwd(), 'test-results', 'visual-layout');
+  const outputDir = join(process.cwd(), '..', 'tmp', 'qa-runs', `${process.env.QA_RUN_ID || 'visual-layout'}`);
   mkdirSync(outputDir, { recursive: true });
   await page.screenshot({
     path: join(outputDir, `${screenshotName}-${viewport}.png`),

@@ -41,7 +41,7 @@ bash scripts/qa/europe-dev-qa.sh daily
 
 ## Screenshot artifacts
 
-- Visual QA screenshots are written to `frontend/test-results/visual-layout/`
+- Visual QA screenshots are written to `tmp/qa-runs/YYYYMMDD-HHMMSS-<mode>/`
 - The directory is ignored by git
 - Screenshots are artifact-only; do not commit generated files unless a future baseline policy says otherwise
 
