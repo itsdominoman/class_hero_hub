@@ -227,6 +227,8 @@ def validate_csrf_request(request: Request):
 
     exempt_paths = {
         "/api/child-link/exchange",
+        "/api/dev/qa-login",
+        "/api/dev/qa-child-login",
     }
 
     if request.url.path in exempt_paths:

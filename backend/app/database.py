@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     QA_LOGIN_TOKEN: str = ""
     QA_LOGIN_EMAIL: str = "qa-parent@dev.familyherohub.com"
     QA_LOGIN_NAME: str = "QA Parent"
+    QA_CHILD_LOGIN_ENABLED: bool = False
+    QA_CHILD_LOGIN_TOKEN: str = ""
     CORS_ORIGINS: str = "https://families.loginto.me,http://localhost:5173,http://localhost:8000"
 
     # SMTP Settings

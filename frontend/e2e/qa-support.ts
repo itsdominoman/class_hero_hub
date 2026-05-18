@@ -1,6 +1,4 @@
-import { expect, type Page } from '@playwright/test';
-
-const DEFAULT_QA_LOGIN_BASE_URL = process.env.QA_LOGIN_API_BASE_URL?.trim() || 'http://127.0.0.1:8000';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 type BrowserIssues = {
   consoleErrors: string[];
@@ -18,6 +16,35 @@ type InternalLink = {
   text: string;
 };
 
+type QaLoginKind = 'parent' | 'child';
+
+type ReadableElementOptions = {
+  label: string;
+  minWidth?: number;
+  maxHeight?: number;
+  maxLines?: number;
+  minCharsPerLine?: number;
+};
+
+export type QaChildSession = {
+  childId: number;
+  childName: string;
+  childRoute: string;
+  familyId: number;
+  reused: boolean;
+  parentEmail: string;
+};
+
+type QaChildLoginResponse = {
+  status: string;
+  parent_email: string;
+  family_id: number;
+  child_id: number;
+  child_name: string;
+  child_route: string;
+  reused: boolean;
+};
+
 const DEFAULT_LAYOUT_SELECTORS = [
   'main h1',
   'main h2',
@@ -26,9 +53,115 @@ const DEFAULT_LAYOUT_SELECTORS = [
   'main button',
   'main a',
   'main [role="button"]',
-  'main label',
-  'main span'
+  'main span',
+  'main input',
+  'main textarea',
+  'main select'
 ].join(', ');
+
+const ROUTED_PAGES = new WeakSet<Page>();
+
+function resolveQaLoginToken(kind: QaLoginKind) {
+  if (kind === 'child') {
+    return (process.env.QA_CHILD_LOGIN_TOKEN?.trim() || process.env.QA_LOGIN_TOKEN?.trim() || '');
+  }
+  return process.env.QA_LOGIN_TOKEN?.trim() || '';
+}
+
+function resolveQaLoginBaseUrl() {
+  return process.env.QA_LOGIN_API_BASE_URL?.trim() || 'http://127.0.0.1:8000';
+}
+
+function resolveFrontendBaseUrl() {
+  return process.env.PLAYWRIGHT_BASE_URL?.trim() || 'http://127.0.0.1:5173';
+}
+
+async function routeBackendApis(page: Page) {
+  if (ROUTED_PAGES.has(page)) {
+    return;
+  }
+
+  const backendBaseUrl = resolveQaLoginBaseUrl();
+  await page.route('**/api/**', async (route) => {
+    const requestUrl = new URL(route.request().url());
+    const backendUrl = new URL(`${requestUrl.pathname}${requestUrl.search}`, backendBaseUrl);
+    const backendResponse = await route.fetch({ url: backendUrl.toString() });
+    await route.fulfill({ response: backendResponse });
+  });
+  ROUTED_PAGES.add(page);
+}
+
+function extractCookies(headersArray: Array<{ name: string; value: string }>) {
+  return headersArray
+    .filter((header) => header.name.toLowerCase() === 'set-cookie')
+    .map((header) => header.value)
+    .map((cookieHeader) => cookieHeader.split(';', 1)[0])
+    .map((cookiePair) => {
+      const separatorIndex = cookiePair.indexOf('=');
+      return {
+        name: cookiePair.slice(0, separatorIndex),
+        value: cookiePair.slice(separatorIndex + 1)
+      };
+    });
+}
+
+async function applySessionCookies(page: Page, loginResponse: { headersArray: () => Array<{ name: string; value: string }> }) {
+  const loginCookies = extractCookies(loginResponse.headersArray());
+  if (loginCookies.length === 0) {
+    return;
+  }
+
+  const cookieUrls = Array.from(new Set([resolveQaLoginBaseUrl(), resolveFrontendBaseUrl()]));
+
+  await page.context().addCookies(
+    cookieUrls.flatMap((url) =>
+      loginCookies.map((cookie) => ({
+        ...cookie,
+        url
+      }))
+    )
+  );
+}
+
+async function assertElementReadable(locator: Locator, options: ReadableElementOptions) {
+  const target = locator.first();
+  await expect(target, `${options.label} visible`).toBeVisible();
+
+  const metrics = await target.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const computed = window.getComputedStyle(element);
+    const lineHeight = Number.parseFloat(computed.lineHeight);
+    const fontSize = Number.parseFloat(computed.fontSize);
+    const effectiveLineHeight = Number.isFinite(lineHeight) ? lineHeight : (Number.isFinite(fontSize) ? fontSize * 1.2 : 16);
+    const text = (element.textContent || '').replace(/\s+/g, ' ').trim();
+    const estimatedLines = Math.max(1, rect.height / Math.max(1, effectiveLineHeight));
+    const charsPerLine = text.length / estimatedLines;
+
+    return {
+      tagName: element.tagName.toLowerCase(),
+      width: rect.width,
+      height: rect.height,
+      text,
+      estimatedLines,
+      charsPerLine
+    };
+  });
+
+  const minWidth = options.minWidth ?? 80;
+  const maxHeight = options.maxHeight ?? 220;
+  const maxLines = options.maxLines ?? 4;
+  const minCharsPerLine = options.minCharsPerLine ?? 4;
+  const isFormControl = ['input', 'textarea', 'select'].includes(metrics.tagName);
+
+  expect(metrics.width, `${options.label} width`).toBeGreaterThanOrEqual(minWidth);
+  expect(metrics.height, `${options.label} height`).toBeLessThanOrEqual(maxHeight);
+  if (!isFormControl && metrics.text.length > 0) {
+    expect(metrics.estimatedLines, `${options.label} line count`).toBeLessThanOrEqual(maxLines);
+  }
+  if (!isFormControl && metrics.text.length >= 10) {
+    expect(metrics.charsPerLine, `${options.label} chars per line`).toBeGreaterThanOrEqual(minCharsPerLine);
+  }
+}
 
 export function createBrowserIssueTracker(page: Page) {
   const ignoredConsoleErrorSnippets: string[] = [];
@@ -64,12 +197,12 @@ export function createBrowserIssueTracker(page: Page) {
 }
 
 export async function setupQaParentSession(page: Page) {
-  const qaToken = process.env.QA_LOGIN_TOKEN?.trim();
+  const qaToken = resolveQaLoginToken('parent');
   if (!qaToken) {
     throw new Error('QA_LOGIN_TOKEN is required for authenticated browser QA');
   }
 
-  const loginUrl = new URL('/api/dev/qa-login', DEFAULT_QA_LOGIN_BASE_URL);
+  const loginUrl = new URL('/api/dev/qa-login', resolveQaLoginBaseUrl());
   const loginResponse = await page.request.post(loginUrl.toString(), {
     data: { token: qaToken }
   });
@@ -79,32 +212,38 @@ export async function setupQaParentSession(page: Page) {
   expect(loginBody).toContain('"status":"ok"');
   expect(loginBody).toContain('"email":"qa-parent@dev.familyherohub.com"');
 
-  const loginCookies = loginResponse
-    .headersArray()
-    .filter((header) => header.name.toLowerCase() === 'set-cookie')
-    .map((header) => header.value)
-    .map((cookieHeader) => cookieHeader.split(';', 1)[0])
-    .map((cookiePair) => {
-      const separatorIndex = cookiePair.indexOf('=');
-      return {
-        name: cookiePair.slice(0, separatorIndex),
-        value: cookiePair.slice(separatorIndex + 1)
-      };
-    });
+  await applySessionCookies(page, loginResponse);
+  await routeBackendApis(page);
+}
 
-  await page.context().addCookies(
-    loginCookies.map((cookie) => ({
-      ...cookie,
-      url: DEFAULT_QA_LOGIN_BASE_URL
-    }))
-  );
+export async function setupQaChildSession(page: Page): Promise<QaChildSession> {
+  const qaToken = resolveQaLoginToken('child');
+  if (!qaToken) {
+    throw new Error('QA_CHILD_LOGIN_TOKEN or QA_LOGIN_TOKEN is required for child browser QA');
+  }
 
-  await page.route('**/api/**', async (route) => {
-    const requestUrl = new URL(route.request().url());
-    const backendUrl = new URL(`${requestUrl.pathname}${requestUrl.search}`, DEFAULT_QA_LOGIN_BASE_URL);
-    const backendResponse = await route.fetch({ url: backendUrl.toString() });
-    await route.fulfill({ response: backendResponse });
+  const loginUrl = new URL('/api/dev/qa-child-login', resolveQaLoginBaseUrl());
+  const loginResponse = await page.request.post(loginUrl.toString(), {
+    data: { token: qaToken }
   });
+
+  expect(loginResponse.status()).toBe(200);
+  const loginBody = await loginResponse.text();
+  expect(loginBody).toContain('"status":"ok"');
+  expect(loginBody).toContain('"child_name":"QA Seed Child"');
+
+  await applySessionCookies(page, loginResponse);
+  await routeBackendApis(page);
+
+  const payload = JSON.parse(loginBody) as QaChildLoginResponse;
+  return {
+    childId: payload.child_id,
+    childName: payload.child_name,
+    childRoute: payload.child_route,
+    familyId: payload.family_id,
+    reused: payload.reused,
+    parentEmail: payload.parent_email
+  };
 }
 
 export async function collectInternalLinks(page: Page): Promise<InternalLink[]> {
@@ -181,7 +320,7 @@ export async function findLayoutViolations(page: Page, selectors = DEFAULT_LAYOU
       const className = typeof element.className === 'string' ? element.className : '';
       const tagName = element.tagName.toLowerCase();
       const looksLikeChip = /rounded|uppercase|tracking|text-xs|text-\[10px\]|whitespace-nowrap|badge|pill|chip/i.test(className);
-      const isInteractive = tagName === 'button' || tagName === 'a' || element.getAttribute('role') === 'button' || tagName === 'label';
+      const isInteractive = tagName === 'button' || tagName === 'a' || element.getAttribute('role') === 'button';
       const shouldInspect = tagName.startsWith('h') || isInteractive || looksLikeChip || tagName === 'span';
 
       if (!shouldInspect) continue;
@@ -229,6 +368,10 @@ export async function findLayoutViolations(page: Page, selectors = DEFAULT_LAYOU
 
     return violations;
   }, selectors);
+}
+
+export async function assertReadableElement(locator: Locator, options: ReadableElementOptions) {
+  await assertElementReadable(locator, options);
 }
 
 export function routeSlug(route: string) {

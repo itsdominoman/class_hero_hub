@@ -7,12 +7,14 @@
 - Added a QA coverage matrix at `docs/QA_COVERAGE_MATRIX.md` to track public, parent, child, admin, and tokenized routes.
 - Expanded public Playwright coverage to include `/faq` and to verify safe internal links.
 - Added `frontend/e2e/visual-layout.spec.ts` with mobile-width screenshot capture and DOM-level overflow/crushed-text checks.
-- Added a skipped child-session QA placeholder because there is still no approved child QA login fixture.
-- Added screenshot artifact output under `frontend/test-results/visual-layout/`.
+- Added a dev-only seeded child QA login helper and a real child visual test path.
+- Added screenshot artifact output under `tmp/qa-runs/YYYYMMDD-HHMMSS-visual-layout/`.
 
 ### Verification
 - The visual coverage is intentionally read-only.
-- The child dashboard is exercised through the safe parent-preview route for now.
+- The child dashboard is exercised through a deterministic QA seed, not a parent-preview fallback.
+- The Europe dev daily QA wrapper passes on the standard `8000/5173` dev services after rebuilding the dev containers.
+- The child reward cards and waiting-request cards now use mobile-safe stacking on narrow widths, and the generic layout heuristic no longer flags form labels as false positives.
 
 ### Notes
 - The new coverage is designed to catch obvious layout explosions such as one-letter vertical wrapping, cramped reward cards, and horizontal overflow without relying on brittle pixel diffs.

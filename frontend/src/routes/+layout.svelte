@@ -7,6 +7,11 @@
   let currentParent = $state(null);
 
   async function loadSession() {
+    if (typeof document !== 'undefined' && !document.cookie.includes('access_token=')) {
+      currentParent = null;
+      return;
+    }
+
     try {
       currentParent = await api.get('/me');
     } catch {

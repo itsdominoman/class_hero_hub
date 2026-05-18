@@ -778,12 +778,12 @@
                 {#each rewardOptions as reward}
                   {@const affordable = reward.points <= summary.available_spending}
                   <div class={`rounded-[1.75rem] border p-4 md:p-5 flex flex-col gap-4 min-w-0 ${affordable ? 'border-slate-200 bg-[#fffefb]' : 'border-slate-200 bg-slate-50 opacity-80'}`}>
-                    <div class="flex items-start justify-between gap-3">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div class="min-w-0 flex-1">
                         <h3 class="text-lg font-black text-slate-950 break-words">{reward.title}</h3>
                         <p class="text-sm text-slate-600 mt-1 break-words line-clamp-2">{reward.description || 'A reward your parents can approve.'}</p>
                       </div>
-                      <div class={`shrink-0 rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.12em] sm:tracking-[0.15em] border whitespace-nowrap leading-none ${affordable ? 'bg-savings/10 text-savings border-savings/20' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
+                      <div class={`shrink-0 rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.12em] sm:tracking-[0.15em] border leading-none max-w-full sm:max-w-[45%] whitespace-normal sm:whitespace-nowrap ${affordable ? 'bg-savings/10 text-savings border-savings/20' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
                         {#if allowanceActive}
                           {reward.points} points / {formatMinorAmount(rewardValueMinor(reward.points) || 0, allowanceActive.currency, allowanceActive.currency_exponent)}
                         {:else}
@@ -1205,12 +1205,12 @@
               <div class="space-y-3">
                 {#each pendingRequests as request}
                   <div class="rounded-[1.5rem] border border-hero/20 bg-hero/5 p-4">
-                    <div class="flex items-start justify-between gap-3 min-w-0">
-                      <div class="min-w-0">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div class="min-w-0 flex-1">
                         <h3 class="font-black text-slate-950 break-words">{request.title}</h3>
                         <p class="text-sm text-slate-600 mt-1 break-words">{request.description || 'Waiting for approval.'}</p>
                       </div>
-                      <span class="shrink-0 rounded-2xl bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.12em] sm:tracking-[0.2em] text-hero border border-hero/20">
+                      <span class="shrink-0 rounded-2xl bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.12em] sm:tracking-[0.2em] text-hero border border-hero/20 max-w-full sm:max-w-[45%] whitespace-normal sm:whitespace-nowrap">
                         {#if allowanceActive}
                           {request.points} points / {formatMinorAmount(rewardValueMinor(request.points) || 0, allowanceActive.currency, allowanceActive.currency_exponent)}
                         {:else}

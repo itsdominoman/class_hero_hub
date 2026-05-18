@@ -10,7 +10,9 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import auth, models
+from .. import child_auth
 from ..database import get_db, settings
+from ..services.qa_seed import ensure_qa_child_session, seed_qa_child_dashboard
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -136,3 +138,60 @@ async def _qa_login_from_request(request: Request, db: Session) -> JSONResponse:
 @router.post("/qa-login")
 async def qa_login(request: Request, db: Session = Depends(get_db)):
     return await _qa_login_from_request(request, db)
+
+
+def _qa_child_login_enabled() -> bool:
+    return bool(settings.QA_CHILD_LOGIN_ENABLED or settings.QA_LOGIN_ENABLED)
+
+
+def _qa_child_login_token() -> str:
+    return (settings.QA_CHILD_LOGIN_TOKEN or settings.QA_LOGIN_TOKEN or "").strip()
+
+
+async def _qa_child_login_from_request(request: Request, db: Session) -> JSONResponse:
+    if _runtime_environment() == "production":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+
+    if not _qa_child_login_enabled():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+
+    configured_token = _qa_child_login_token()
+    if not configured_token:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+
+    if _is_production_context(request):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="QA child login refused")
+
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+
+    provided_token = (payload.get("token") or "").strip()
+    if not provided_token or provided_token != configured_token:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="QA child login refused")
+
+    try:
+        seed = seed_qa_child_dashboard(db)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+    session, raw_token = ensure_qa_child_session(db, seed.child)
+
+    response = JSONResponse(content={
+        "status": "ok",
+        "parent_email": seed.parent.email,
+        "family_id": seed.family.id,
+        "child_id": seed.child.id,
+        "child_name": seed.child.display_name,
+        "child_route": seed.child_route,
+        "reused": seed.reused,
+    })
+    child_auth.set_child_session_cookie(response, raw_token, session.expires_at)
+    logger.info("QA child login issued for %s child=%s", seed.parent.email, seed.child.id)
+    return response
+
+
+@router.post("/qa-child-login")
+async def qa_child_login(request: Request, db: Session = Depends(get_db)):
+    return await _qa_child_login_from_request(request, db)

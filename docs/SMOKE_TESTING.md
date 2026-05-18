@@ -24,6 +24,7 @@ bash scripts/qa/europe-dev-qa.sh smoke
 cd frontend
 npm run test:e2e:public
 npm run test:e2e:auth
+npm run test:e2e:child
 npm run test:e2e:visual
 ```
 
@@ -39,11 +40,14 @@ The full read-only daily harness remains:
 bash scripts/qa/europe-dev-qa.sh daily
 ```
 
+That wrapper loads `/home/administrator/.hermes/fhh-qa.env` and runs the real seeded child visual checks automatically after the backend/frontend dev services are rebuilt on the standard Europe-dev ports.
+
 ## Screenshot artifacts
 
 - Visual QA screenshots are written to `tmp/qa-runs/YYYYMMDD-HHMMSS-<mode>/`
 - The directory is ignored by git
 - Screenshots are artifact-only; do not commit generated files unless a future baseline policy says otherwise
+- Real seeded child visual QA uses `QA_CHILD_LOGIN_TOKEN` plus the dev-only child login helper when available
 
 ## Safety assumptions
 
@@ -55,5 +59,6 @@ bash scripts/qa/europe-dev-qa.sh daily
 ## Known limitations
 
 - Smoke does not prove the child dashboard session flow by itself
+- Smoke does not replace the real seeded child visual QA run
 - Smoke does not replace mobile visual QA
 - Tokenized routes such as child-link and family-invite are discovered, but not deeply exercised by smoke

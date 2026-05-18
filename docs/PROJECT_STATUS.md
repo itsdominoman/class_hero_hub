@@ -130,6 +130,7 @@
 - Frontend production build passes
 - Europe dev daily QA Phase A passes with backend pytest, frontend build, Playwright read-only E2E, and smoke checks
 - Playwright coverage now includes `/faq`, route inventory, authenticated parent visual layout checks, and mobile screenshot artifacts for the most important parent/child surfaces
+- Dev-only child QA login and seeded child visual coverage are now part of the Europe dev daily QA flow, and the full visual suite passes on the standard dev ports after rebuilding the dev containers
 - Europe PostgreSQL runtime smoke test now handles expired child-device links cleanly with HTTP 401 instead of a 500
 - US production smoke tests and manual verification passed after the PostgreSQL cutover
 
