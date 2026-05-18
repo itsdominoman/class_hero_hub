@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { api } from '$lib/api';
   import { 
-    UserPlus, Award, Ban, PiggyBank, ArrowRight, Star, Bell, Gift,
+    UserPlus, Award, Ban, PiggyBank, ArrowRight, Star, Bell, Gift, Coins,
     LayoutDashboard, Settings, LogIn, Trophy, Clock, Check, X, 
     History, TrendingUp, ChevronRight, Users, QrCode, Copy, RefreshCcw, Link2, CalendarDays
   } from 'lucide-svelte';
@@ -11,6 +11,7 @@
   let children = $state<any[]>([]);
   let redemptions = $state<any[]>([]);
   let rewards = $state<any[]>([]);
+  let allowanceSummaries = $state<Record<number, AllowanceSummary>>({});
   let presets = $state<any[]>([]);
   let familyMembers = $state<any[]>([]);
   let familyInvites = $state<any[]>([]);
@@ -69,6 +70,44 @@
     created_by_parent_id: number;
     created_at: string;
     updated_at: string | null;
+  };
+
+  type AllowanceSummary = {
+    is_enabled: boolean;
+    currency: string;
+    currency_exponent: number;
+    period: 'weekly' | 'monthly' | string;
+    period_start: string;
+    period_end: string;
+    next_reset_at: string;
+    allowance_enabled_at: string | null;
+    point_value_display: string;
+    point_goal: number;
+    progress_ratio: number;
+    progress_percent: number;
+    maxed_for_period: boolean;
+    raw_eligible_points: number;
+    eligible_points: number;
+    raw_earned_points_period: number;
+    earned_points_period: number;
+    earned_amount_minor: number;
+    earned_allowance_minor_period: number;
+    spent_points_period: number;
+    spent_allowance_minor_period: number;
+    pending_points: number;
+    pending_allowance_minor: number;
+    carried_over_points: number;
+    carried_over_allowance_minor: number;
+    available_points: number;
+    available_allowance_minor: number;
+    saved_points: number;
+    saved_allowance_minor: number;
+    locked_saved_points: number;
+    locked_saved_allowance_minor: number;
+    max_amount_minor: number;
+    display_amount: string;
+    display_max_amount: string;
+    included_transaction_count: number;
   };
 
   const isAuthError = (message: string) =>
@@ -164,6 +203,14 @@
     return `${title} book`;
   }
 
+  function formatAllowanceMinorAmount(minor: number, currency: string, exponent: number) {
+    const safeMinor = Math.max(0, Math.trunc(minor || 0));
+    const scale = 10 ** exponent;
+    const whole = Math.floor(safeMinor / scale);
+    const fraction = String(safeMinor % scale).padStart(exponent, '0');
+    return exponent > 0 ? `${whole}.${fraction} ${currency}` : `${whole} ${currency}`;
+  }
+
   async function loadSchoolPrep(childSummaries = children) {
     const nextSchoolItemsToday: Record<number, SchoolItem[]> = {};
     const nextSchoolItemsTomorrow: Record<number, SchoolItem[]> = {};
@@ -219,6 +266,17 @@
       presets = pr;
       familyMembers = fm;
       familyInvites = fi;
+      const allowanceEntries = await Promise.all(
+        c.map(async (childSummary: any) => {
+          try {
+            const summary = await api.get(`/allowance/children/${childSummary.child.id}/summary`);
+            return [childSummary.child.id, summary] as const;
+          } catch {
+            return [childSummary.child.id, null] as const;
+          }
+        })
+      );
+      allowanceSummaries = Object.fromEntries(allowanceEntries.filter((entry) => entry[1] !== null)) as Record<number, AllowanceSummary>;
       void loadSchoolPrep(c).catch((error) => {
         console.warn('Failed to load school prep', error);
       });
@@ -658,6 +716,9 @@
 
   const housePoints = $derived(children.reduce((sum, child) => sum + (child.spending_balance || 0), 0));
   const pendingRedemptions = $derived(redemptions.filter((request) => request.status === 'pending'));
+  const allowanceEnabledChildren = $derived(
+    children.filter((child) => allowanceSummaries[child.child.id]?.is_enabled)
+  );
 
   const getPetImage = (stage: string) => (PET_STAGES_ASSETS[stage] || PET_STAGES_ASSETS.egg).image;
   const getPetLabel = (stage: string) => (PET_STAGES_ASSETS[stage] || PET_STAGES_ASSETS.egg).label;
@@ -764,6 +825,12 @@
                           <PiggyBank size={13} />
                           {c.savings_balance || 0} saved
                         </span>
+                        {#if allowanceSummaries[c.child.id]?.is_enabled}
+                          <span class="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-amber-700">
+                            <Coins size={13} />
+                            {formatAllowanceMinorAmount(allowanceSummaries[c.child.id].available_allowance_minor, allowanceSummaries[c.child.id].currency, allowanceSummaries[c.child.id].currency_exponent)} available
+                          </span>
+                        {/if}
                         {#if c.pending_redemptions > 0}
                           <span class="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-amber-700">
                             <Clock size={13} />
@@ -831,6 +898,75 @@
             </div>
           </button>
         </section>
+
+        {#if allowanceEnabledChildren.length > 0}
+          <section class="card overflow-hidden border-slate-100 bg-white p-5 sm:p-6 shadow-xl">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div class="min-w-0">
+                <h2 class="text-2xl font-black text-slate-950">Allowance snapshots</h2>
+                <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">
+                  Only children with allowance enabled appear here. Points stay the source of truth, and the money equivalent follows available points.
+                </p>
+              </div>
+              <div class="inline-flex w-fit items-center gap-2 rounded-full bg-amber-100 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-amber-700">
+                <Coins size={13} />
+                Linked balances
+              </div>
+            </div>
+
+            <div class="mt-5 grid gap-4 md:grid-cols-2">
+              {#each allowanceEnabledChildren as c}
+                {@const allowance = allowanceSummaries[c.child.id]}
+                <article class="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-4 sm:p-5">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <h3 class="truncate text-lg font-black text-slate-950">{c.child.display_name}</h3>
+                      <p class="mt-1 text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                        {allowance.allowance_enabled_at ? `Enabled on ${new Date(allowance.allowance_enabled_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : 'Allowance enabled'}
+                      </p>
+                    </div>
+                    <span class="rounded-full bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
+                      {allowance.period}
+                    </span>
+                  </div>
+
+                  <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div class="rounded-2xl bg-white p-4">
+                      <p class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Available to spend</p>
+                      <p class="mt-2 text-2xl font-black text-slate-950">{formatAllowanceMinorAmount(allowance.available_allowance_minor, allowance.currency, allowance.currency_exponent)}</p>
+                      <p class="mt-1 text-sm font-medium text-slate-500">{allowance.available_points} points</p>
+                    </div>
+                    <div class="rounded-2xl bg-white p-4">
+                      <p class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Earned this period</p>
+                      <p class="mt-2 text-2xl font-black text-slate-950">{formatAllowanceMinorAmount(allowance.earned_allowance_minor_period, allowance.currency, allowance.currency_exponent)}</p>
+                      <p class="mt-1 text-sm font-medium text-slate-500">{allowance.earned_points_period} points</p>
+                    </div>
+                    <div class="rounded-2xl bg-white p-4">
+                      <p class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Spent this period</p>
+                      <p class="mt-2 text-2xl font-black text-slate-950">{formatAllowanceMinorAmount(allowance.spent_allowance_minor_period, allowance.currency, allowance.currency_exponent)}</p>
+                      <p class="mt-1 text-sm font-medium text-slate-500">{allowance.spent_points_period} points</p>
+                    </div>
+                    <div class="rounded-2xl bg-white p-4">
+                      <p class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Carried over</p>
+                      <p class="mt-2 text-2xl font-black text-slate-950">{formatAllowanceMinorAmount(allowance.carried_over_allowance_minor, allowance.currency, allowance.currency_exponent)}</p>
+                      <p class="mt-1 text-sm font-medium text-slate-500">{allowance.carried_over_points} points</p>
+                    </div>
+                    <div class="rounded-2xl bg-white p-4">
+                      <p class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Points on hold</p>
+                      <p class="mt-2 text-2xl font-black text-slate-950">{formatAllowanceMinorAmount(allowance.pending_allowance_minor, allowance.currency, allowance.currency_exponent)}</p>
+                      <p class="mt-1 text-sm font-medium text-slate-500">{allowance.pending_points} points</p>
+                    </div>
+                    <div class="rounded-2xl bg-white p-4">
+                      <p class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Saved</p>
+                      <p class="mt-2 text-2xl font-black text-slate-950">{formatAllowanceMinorAmount(allowance.saved_allowance_minor, allowance.currency, allowance.currency_exponent)}</p>
+                      <p class="mt-1 text-sm font-medium text-slate-500">{allowance.saved_points} points</p>
+                    </div>
+                  </div>
+                </article>
+              {/each}
+            </div>
+          </section>
+        {/if}
 
         <section bind:this={parentToolsSection} class="card scroll-mt-6 overflow-hidden border-slate-100 bg-white p-5 sm:p-6 shadow-xl">
           <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

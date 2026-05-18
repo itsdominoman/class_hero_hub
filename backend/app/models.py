@@ -162,6 +162,7 @@ class ChildAllowanceSetting(Base):
     currency_exponent = Column(Integer, nullable=False, default=3)
     period = Column(String(16), nullable=False, default="weekly")
     point_goal = Column(Integer, nullable=False)
+    allowance_enabled_at = Column(DateTime(timezone=True), nullable=True)
     created_by_parent_id = Column(Integer, ForeignKey("parent_users.id"), nullable=True)
     updated_by_parent_id = Column(Integer, ForeignKey("parent_users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

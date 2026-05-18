@@ -319,3 +319,86 @@ def test_expired_child_session_is_rejected_without_csrf():
         assert "csrf_token" not in (response.headers.get("set-cookie") or "")
     finally:
         app.dependency_overrides.clear()
+
+
+def test_child_allowance_endpoint_returns_points_only_when_disabled():
+    client = make_client()
+    try:
+        db = TestingSessionLocal()
+        try:
+            family = create_family(db)
+            parent = create_parent(db, family, "child-allowance-parent@example.com", "Parent", "sub-child-allowance")
+            child = create_child(db, family)
+            _, _, session_token = create_child_session(db, child, parent)
+        finally:
+            db.close()
+
+        client.cookies.clear()
+        client.cookies.set("child_session", session_token)
+
+        response = client.get("/api/child/allowance")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["settings"]["is_enabled"] is False
+        assert payload["available_allowance_minor"] == 0
+        assert payload["saved_allowance_minor"] == 0
+        assert payload["pending_allowance_minor"] == 0
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_child_allowance_endpoint_counts_current_points_when_enabled():
+    client = make_client()
+    try:
+        db = TestingSessionLocal()
+        try:
+            family = create_family(db)
+            parent = create_parent(db, family, "child-allowance-parent-enabled@example.com", "Parent", "sub-child-allowance-enabled")
+            child = create_child(db, family)
+            _, _, session_token = create_child_session(db, child, parent)
+            setting = models.ChildAllowanceSetting(
+                family_id=family.id,
+                child_id=child.id,
+                is_enabled=True,
+                currency="OMR",
+                allowance_amount_minor=10000,
+                currency_exponent=3,
+                period="weekly",
+                point_goal=100,
+                created_by_parent_id=parent.id,
+                updated_by_parent_id=parent.id,
+                allowance_enabled_at=datetime.utcnow() - timedelta(days=1),
+            )
+            db.add(setting)
+            db.add(
+                models.LedgerTransaction(
+                    child_id=child.id,
+                    jar=models.JarType.spending,
+                    transaction_type=models.TransactionType.award,
+                    points=80,
+                    description="Current points",
+                    created_at=datetime.utcnow() - timedelta(hours=12),
+                    created_by_parent_id=parent.id,
+                )
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        client.cookies.clear()
+        client.cookies.set("child_session", session_token)
+
+        response = client.get("/api/child/allowance")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["settings"]["is_enabled"] is True
+        assert payload["available_points"] == 80
+        assert payload["available_allowance_minor"] == 8000
+        assert payload["earned_points_period"] == 80
+        assert payload["earned_allowance_minor_period"] == 8000
+        assert payload["saved_allowance_minor"] == 0
+        assert payload["pending_allowance_minor"] == 0
+    finally:
+        app.dependency_overrides.clear()

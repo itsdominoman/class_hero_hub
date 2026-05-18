@@ -65,6 +65,41 @@
     is_active: boolean;
   };
 
+  type AllowanceSummary = {
+    settings: {
+      is_enabled: boolean;
+      currency: string;
+      currency_exponent: number;
+      period: 'weekly' | 'monthly' | string;
+      point_goal: number;
+      allowance_amount_minor: number;
+      allowance_enabled_at: string | null;
+    };
+    allowance_enabled_at: string | null;
+    point_value_display: string;
+    period_start: string;
+    period_end: string;
+    next_reset_at: string;
+    earned_points_period: number;
+    earned_allowance_minor_period: number;
+    spent_points_period: number;
+    spent_allowance_minor_period: number;
+    pending_points: number;
+    pending_allowance_minor: number;
+    carried_over_points: number;
+    carried_over_allowance_minor: number;
+    available_points: number;
+    available_allowance_minor: number;
+    saved_points: number;
+    saved_allowance_minor: number;
+    locked_saved_points: number;
+    locked_saved_allowance_minor: number;
+    progress_percent: number;
+    maxed_for_period: boolean;
+    currency: string;
+    currency_exponent: number;
+  };
+
   type ErrorKind = 'not-linked' | 'link-expired' | 'wrong-child' | 'not-found' | 'server-error';
 
   type DayCalendarOccurrence = {
@@ -108,6 +143,7 @@
   let ledger = $state([] as LedgerTransaction[]);
   let redemptions = $state([] as RedemptionRequest[]);
   let rewards = $state([] as Reward[]);
+  let allowanceSummary = $state<AllowanceSummary | null>(null);
   let accessMode = $state<'parent' | 'child'>('parent');
   let loading = $state(true);
   let error = $state(null as string | null);
@@ -177,6 +213,7 @@
   const avatarLabel = $derived(summary?.child.avatar_name?.trim() || '');
   const stageImage = $derived(summary ? PET_STAGES[summary.pet_progress.current_stage].image : PET_STAGES.egg.image);
   const stageInfo = $derived(summary ? PET_STAGES[summary.pet_progress.current_stage] : PET_STAGES.egg);
+  const allowanceActive = $derived(allowanceSummary?.settings?.is_enabled ? allowanceSummary : null);
   const progressToNextStage = $derived(summary
     ? (() => {
         const thresholds: Record<PetStage, number> = {
@@ -218,6 +255,14 @@
       hour: 'numeric',
       minute: '2-digit'
     });
+  }
+
+  function formatMinorAmount(minor: number, currency: string, exponent: number) {
+    const safeMinor = Math.max(0, Math.trunc(minor || 0));
+    const scale = 10 ** exponent;
+    const whole = Math.floor(safeMinor / scale);
+    const fraction = String(safeMinor % scale).padStart(exponent, '0');
+    return exponent > 0 ? `${whole}.${fraction} ${currency}` : `${whole} ${currency}`;
   }
 
   function getLocalDateValue(reference = new Date()) {
@@ -389,6 +434,11 @@
     return Math.max(0, points - summary.available_spending);
   }
 
+  function rewardValueMinor(points: number) {
+    if (!allowanceActive) return null;
+    return Math.floor((Math.max(0, points) * allowanceActive.settings.allowance_amount_minor) / allowanceActive.settings.point_goal);
+  }
+
   const isAuthError = (message: string) =>
     message.toLowerCase().includes('not authenticated') ||
     message.toLowerCase().includes('invalid token') ||
@@ -422,6 +472,7 @@
           ledger = [];
           redemptions = [];
           rewards = [];
+          allowanceSummary = null;
           return;
         }
 
@@ -430,11 +481,13 @@
           api.get('/child/redemptions'),
           api.get('/child/rewards')
         ]);
+        const childAllowance = await api.get('/child/allowance').catch(() => null);
 
         summary = childSummary;
         ledger = activity;
         redemptions = childRedemptions;
         rewards = childRewards;
+        allowanceSummary = childAllowance;
         await loadMyDay();
       } catch (childError) {
         if (!(childError instanceof Error) || !isAuthError(childError.message)) {
@@ -450,11 +503,13 @@
             api.get('/redemptions'),
             api.get('/rewards')
           ]);
+          const parentAllowance = await api.get(`/allowance/children/${childId}/summary`).catch(() => null);
 
           summary = childSummary;
           ledger = activity;
           redemptions = allRedemptions;
           rewards = allRewards;
+          allowanceSummary = parentAllowance;
           await loadMyDay();
         } catch (parentError) {
           const message = parentError instanceof Error ? parentError.message : 'Unable to load child dashboard';
@@ -477,6 +532,7 @@
           ledger = [];
           redemptions = [];
           rewards = [];
+          allowanceSummary = null;
         }
       }
     } catch (e) {
@@ -486,6 +542,7 @@
       ledger = [];
       redemptions = [];
       rewards = [];
+      allowanceSummary = null;
     } finally {
       loading = false;
     }
@@ -632,6 +689,11 @@
               <div>
                 <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Available points</p>
                 <p class="text-4xl md:text-5xl font-black text-slate-950 mt-1">{summary.spending_balance}</p>
+                {#if allowanceActive}
+                  <p class="mt-2 text-sm font-bold text-slate-600">
+                    Your current points are worth {formatMinorAmount(allowanceActive.available_allowance_minor, allowanceActive.currency, allowanceActive.currency_exponent)}.
+                  </p>
+                {/if}
               </div>
               <div class="w-14 h-14 rounded-2xl bg-hero/10 text-hero flex items-center justify-center">
                 <Star size={28} fill="currentColor" />
@@ -653,10 +715,20 @@
                 <div class="rounded-2xl bg-[#fff8e9] border border-[#f4e3b2] p-4">
                   <p class="text-[10px] font-black uppercase tracking-[0.22em] text-[#b98612]">Saved points</p>
                   <p class="text-2xl font-black text-slate-950 mt-1">{summary.savings_balance}</p>
+                  {#if allowanceActive}
+                    <p class="mt-1 text-xs font-bold text-slate-500">
+                      {formatMinorAmount(allowanceActive.saved_allowance_minor, allowanceActive.currency, allowanceActive.currency_exponent)}
+                    </p>
+                  {/if}
                 </div>
                 <div class="rounded-2xl bg-[#f0fbf7] border border-[#cdeee2] p-4">
-                  <p class="text-[10px] font-black uppercase tracking-[0.22em] text-savings">Available</p>
+                  <p class="text-[10px] font-black uppercase tracking-[0.22em] text-savings">Available to spend</p>
                   <p class="text-2xl font-black text-slate-950 mt-1">{summary.available_spending}</p>
+                  {#if allowanceActive}
+                    <p class="mt-1 text-xs font-bold text-slate-500">
+                      {formatMinorAmount(allowanceActive.available_allowance_minor, allowanceActive.currency, allowanceActive.currency_exponent)}
+                    </p>
+                  {/if}
                 </div>
               </div>
 
@@ -664,10 +736,20 @@
                 <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4">
                   <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Locked saved points</p>
                   <p class="text-xl font-black text-slate-950 mt-1">{summary.locked_savings}</p>
+                  {#if allowanceActive}
+                    <p class="mt-1 text-xs font-bold text-slate-500">
+                      {formatMinorAmount(allowanceActive.locked_saved_allowance_minor, allowanceActive.currency, allowanceActive.currency_exponent)}
+                    </p>
+                  {/if}
                 </div>
                 <div class="rounded-2xl bg-[#fff1f1] border border-[#f0c6c6] p-4">
                   <p class="text-[10px] font-black uppercase tracking-[0.22em] text-penalty">Points on hold</p>
                   <p class="text-xl font-black text-slate-950 mt-1">{summary.pending_redemptions}</p>
+                  {#if allowanceActive}
+                    <p class="mt-1 text-xs font-bold text-slate-500">
+                      {formatMinorAmount(allowanceActive.pending_allowance_minor, allowanceActive.currency, allowanceActive.currency_exponent)}
+                    </p>
+                  {/if}
                 </div>
               </div>
             </div>
@@ -702,7 +784,11 @@
                         <p class="text-sm text-slate-600 mt-1 break-words line-clamp-2">{reward.description || 'A reward your parents can approve.'}</p>
                       </div>
                       <div class={`shrink-0 rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.12em] sm:tracking-[0.15em] border whitespace-nowrap leading-none ${affordable ? 'bg-savings/10 text-savings border-savings/20' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
-                        {reward.points} points
+                        {#if allowanceActive}
+                          {reward.points} points / {formatMinorAmount(rewardValueMinor(reward.points) || 0, allowanceActive.currency, allowanceActive.currency_exponent)}
+                        {:else}
+                          {reward.points} points
+                        {/if}
                       </div>
                     </div>
 
@@ -726,7 +812,7 @@
             {:else}
               <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
                 <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400">No rewards yet</p>
-                <p class="text-sm text-slate-500 mt-2">You can still ask for a custom reward below.</p>
+                <p class="text-sm text-slate-500 mt-2">You can still ask to spend your points below.</p>
               </div>
             {/if}
           </section>
@@ -735,7 +821,7 @@
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 mb-6">
               <div class="min-w-0">
                 <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2">Custom request</p>
-                <h2 class="text-2xl md:text-3xl font-black text-slate-950">Ask for something else</h2>
+                <h2 class="text-2xl md:text-3xl font-black text-slate-950">Ask to spend your points</h2>
               </div>
               <div class="w-12 h-12 rounded-2xl bg-reward/10 text-reward flex items-center justify-center">
                 <Trophy size={22} />
@@ -744,7 +830,7 @@
 
             <form class="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,120px)_auto] items-end" onsubmit={submitCustomRequest}>
               <label class="block min-w-0">
-                <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mb-2">Reward name</span>
+                <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mb-2">Request name</span>
                 <input
                   type="text"
                   bind:value={customRewardTitle}
@@ -762,6 +848,11 @@
                   bind:value={customRewardPoints}
                   class="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30"
                 />
+                {#if allowanceActive}
+                  <p class="mt-2 text-xs font-bold text-slate-500">
+                    {formatMinorAmount(rewardValueMinor(customRewardPoints) || 0, allowanceActive.currency, allowanceActive.currency_exponent)}
+                  </p>
+                {/if}
               </label>
 
               <button
@@ -769,7 +860,7 @@
                 disabled={submitting || !customRewardTitle.trim() || customRewardPoints < 1 || customRewardPoints > summary.available_spending}
                 class="inline-flex w-full justify-center items-center gap-2 rounded-2xl bg-hero px-5 py-4 text-white font-black uppercase tracking-[0.14em] sm:tracking-[0.22em] shadow-lg shadow-hero/20 disabled:opacity-50 md:w-auto"
               >
-                {submitting ? 'Sending...' : 'Send'}
+                {submitting ? 'Sending...' : 'Request'}
                 <ArrowRight size={16} />
               </button>
             </form>
@@ -1120,7 +1211,11 @@
                         <p class="text-sm text-slate-600 mt-1 break-words">{request.description || 'Waiting for approval.'}</p>
                       </div>
                       <span class="shrink-0 rounded-2xl bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.12em] sm:tracking-[0.2em] text-hero border border-hero/20">
-                        {request.points} points
+                        {#if allowanceActive}
+                          {request.points} points / {formatMinorAmount(rewardValueMinor(request.points) || 0, allowanceActive.currency, allowanceActive.currency_exponent)}
+                        {:else}
+                          {request.points} points
+                        {/if}
                       </span>
                     </div>
                     <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mt-3 break-words">
@@ -1151,16 +1246,26 @@
               </div>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div class="rounded-2xl bg-white/80 border border-slate-200 p-4">
-                  <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">Total saved</p>
+                  <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">Saved</p>
                   <p class="text-3xl font-black mt-1 text-slate-950">{summary.savings_balance}</p>
+                  {#if allowanceActive}
+                    <p class="mt-1 text-sm font-bold text-slate-600">
+                      {formatMinorAmount(allowanceActive.saved_allowance_minor, allowanceActive.currency, allowanceActive.currency_exponent)}
+                    </p>
+                  {/if}
                 </div>
                 <div class="rounded-2xl bg-white/80 border border-slate-200 p-4">
-                  <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">Unlocked</p>
+                  <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">Available to spend</p>
                   <p class="text-3xl font-black mt-1 text-slate-950">{summary.available_savings}</p>
+                  {#if allowanceActive}
+                    <p class="mt-1 text-sm font-bold text-slate-600">
+                      {formatMinorAmount(allowanceActive.available_allowance_minor, allowanceActive.currency, allowanceActive.currency_exponent)}
+                    </p>
+                  {/if}
                 </div>
               </div>
               <p class="text-sm text-slate-700 mt-5 leading-relaxed">
-                Keep earning points to unlock more choices for future rewards.
+                Keep earning points to unlock more choices for future rewards. Parents still approve every request.
               </p>
             </div>
           </section>

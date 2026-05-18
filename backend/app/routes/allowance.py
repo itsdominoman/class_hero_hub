@@ -50,4 +50,15 @@ async def get_child_allowance_preview(
 ):
     child = get_family_child_or_404(db, child_id, current_parent)
     settings = allowance_service.get_settings_response(db, child)
-    return allowance_service.preview_allowance(db, child, settings)
+    return allowance_service.get_allowance_summary(db, child, settings, reveal_preview_when_disabled=True)
+
+
+@router.get("/children/{child_id}/summary", response_model=schemas.AllowancePreview)
+async def get_child_allowance_summary(
+    child_id: int,
+    db: Session = Depends(get_db),
+    current_parent: models.ParentUser = Depends(auth.get_current_parent),
+):
+    child = get_family_child_or_404(db, child_id, current_parent)
+    settings = allowance_service.get_settings_response(db, child)
+    return allowance_service.get_allowance_summary(db, child, settings, reveal_preview_when_disabled=True)

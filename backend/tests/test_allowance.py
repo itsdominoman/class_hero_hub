@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
@@ -150,6 +150,7 @@ def test_parent_can_enable_save_and_update_allowance_settings(db, client):
     assert created["currency_exponent"] == 2
     assert created["allowance_amount_minor"] == 2500
     assert created["point_goal"] == 50
+    assert created["allowance_enabled_at"] is not None
     assert created["created_by_parent_id"] == parent.id
     assert created["updated_by_parent_id"] == parent.id
 
@@ -166,6 +167,7 @@ def test_parent_can_enable_save_and_update_allowance_settings(db, client):
     assert updated["currency_exponent"] == 2
     assert updated["period"] == "monthly"
     assert updated["point_goal"] == 200
+    assert updated["allowance_enabled_at"] is not None
 
 
 def test_parent_can_disable_and_delete_allowance_settings(db, client):
@@ -189,6 +191,141 @@ def test_parent_can_disable_and_delete_allowance_settings(db, client):
     assert default_response.status_code == 200
     assert default_response.json()["id"] is None
     assert default_response.json()["is_enabled"] is False
+
+
+def test_disabling_allowance_preserves_enable_timestamp_for_history(db, client):
+    family = create_family(db)
+    parent = create_parent(db, family)
+    child = create_child(db, family)
+    headers = authenticate(client, parent)
+
+    enabled_response = client.put(
+        f"/api/allowance/children/{child.id}/settings",
+        headers=headers,
+        json=valid_payload(is_enabled=True),
+    )
+    assert enabled_response.status_code == 200
+    enabled_payload = enabled_response.json()
+    assert enabled_payload["allowance_enabled_at"] is not None
+
+    disabled_response = client.put(
+        f"/api/allowance/children/{child.id}/settings",
+        headers=headers,
+        json=valid_payload(is_enabled=False),
+    )
+    assert disabled_response.status_code == 200
+    disabled_payload = disabled_response.json()
+    assert disabled_payload["is_enabled"] is False
+    assert disabled_payload["allowance_enabled_at"] is not None
+
+
+def test_allowance_summary_uses_current_points_for_available_allowance_value(db, client):
+    family = create_family(db, timezone="UTC", week_start_day=0)
+    parent = create_parent(db, family)
+    child = create_child(db, family)
+    headers = authenticate(client, parent)
+
+    response = client.put(
+        f"/api/allowance/children/{child.id}/settings",
+        headers=headers,
+        json=valid_payload(period="monthly", point_goal=100, allowance_amount_minor=10000),
+    )
+    assert response.status_code == 200
+
+    setting = db.query(models.ChildAllowanceSetting).filter_by(child_id=child.id).first()
+    assert setting is not None
+    now = datetime.utcnow().replace(microsecond=0)
+    enabled_at = now - timedelta(days=2)
+    setting.allowance_enabled_at = enabled_at
+    db.commit()
+
+    db.add_all([
+        models.LedgerTransaction(
+            child_id=child.id,
+            jar=models.JarType.spending,
+            transaction_type=models.TransactionType.award,
+            points=80,
+            description="Before allowance",
+            created_at=now - timedelta(days=4),
+            created_by_parent_id=parent.id,
+        ),
+    ])
+    db.commit()
+
+    summary_response = client.get(f"/api/allowance/children/{child.id}/summary", headers=headers)
+    assert summary_response.status_code == 200
+    payload = summary_response.json()
+
+    assert payload["allowance_enabled_at"] is not None
+    assert payload["available_points"] == 80
+    assert payload["available_allowance_minor"] == 8000
+    assert payload["earned_points_period"] == 80
+    assert payload["earned_allowance_minor_period"] == 8000
+    assert payload["carried_over_points"] == 0
+
+
+def test_reward_hold_and_rejection_update_allowance_balance(db, client):
+    family = create_family(db, timezone="UTC", week_start_day=0)
+    parent = create_parent(db, family)
+    child = create_child(db, family)
+    headers = authenticate(client, parent)
+
+    response = client.put(
+        f"/api/allowance/children/{child.id}/settings",
+        headers=headers,
+        json=valid_payload(period="monthly", point_goal=100, allowance_amount_minor=10000),
+    )
+    assert response.status_code == 200
+
+    setting = db.query(models.ChildAllowanceSetting).filter_by(child_id=child.id).first()
+    assert setting is not None
+    setting.allowance_enabled_at = datetime.utcnow().replace(microsecond=0) - timedelta(days=2)
+    db.commit()
+
+    db.add(
+        models.LedgerTransaction(
+            child_id=child.id,
+            jar=models.JarType.spending,
+            transaction_type=models.TransactionType.award,
+            points=100,
+            description="Allowance points",
+            created_at=datetime.utcnow().replace(microsecond=0) - timedelta(days=1),
+            created_by_parent_id=parent.id,
+        )
+    )
+    db.commit()
+
+    reward_request = client.post(
+        f"/api/children/{child.id}/redemptions",
+        headers=headers,
+        json={"title": "Robux", "points": 30, "description": "Spend points"},
+    )
+    assert reward_request.status_code == 200
+
+    summary_response = client.get(f"/api/allowance/children/{child.id}/summary", headers=headers)
+    assert summary_response.status_code == 200
+    payload = summary_response.json()
+    assert payload["pending_points"] == 30
+    assert payload["pending_allowance_minor"] == 3000
+    assert payload["available_allowance_minor"] == 7000
+    assert payload["earned_points_period"] == 100
+    assert payload["earned_allowance_minor_period"] == 10000
+
+    redemption_id = reward_request.json()["id"]
+    reject_response = client.post(
+        f"/api/redemptions/{redemption_id}/reject",
+        headers=headers,
+        json={"parent_note": "Not yet"},
+    )
+    assert reject_response.status_code == 200
+
+    summary_response = client.get(f"/api/allowance/children/{child.id}/summary", headers=headers)
+    assert summary_response.status_code == 200
+    payload = summary_response.json()
+    assert payload["pending_points"] == 0
+    assert payload["available_allowance_minor"] == 10000
+    assert payload["earned_points_period"] == 100
+    assert payload["earned_allowance_minor_period"] == 10000
 
 
 @pytest.mark.parametrize(

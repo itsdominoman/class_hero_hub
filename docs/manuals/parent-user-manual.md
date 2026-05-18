@@ -211,11 +211,14 @@ When you reject a request:
 
 ## 13) Allowance setup
 
-Allowance setup is optional. It lets you connect points to an allowance estimate for each child.
+Allowance setup is optional. When you turn it on for a child, the child’s current points gain allowance value and the app shows the allowance value beside the points.
 
-Rewards still work separately. Reward requests, reward holds, reward approvals or rejections, and saved-point transfers do not reduce allowance progress.
+Families without allowance enabled stay points-only.
 
-The app does not automatically pay money. Parents stay in control.
+Reward requests, reward holds, reward approvals or rejections, and saved-point transfers reduce the child’s available balance. The app does not automatically pay money.
+
+The app warns you before turning allowance on because the child’s current points will gain allowance value.
+You can adjust the child’s points before enabling allowance if needed.
 
 To set it up:
 
@@ -228,14 +231,19 @@ To set it up:
 7. Enter the point goal.
 8. Save the settings.
 
-The preview shows:
+The allowance summary shows:
 
 - current period
-- eligible points this period
-- allowance goal
-- progress percentage
-- estimated allowance earned
-- maximum allowance amount
+- allowance enabled date for history/context
+- earned this period
+- spent this period
+- carried over
+- available allowance balance
+- points on hold
+- saved points
+- points first, money equivalent second
+
+Children can see a read-only allowance view when allowance is enabled. They do not see setup controls.
 
 ## 14) Calendar overview
 

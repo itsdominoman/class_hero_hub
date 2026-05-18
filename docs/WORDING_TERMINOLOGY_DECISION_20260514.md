@@ -13,6 +13,8 @@
 - Remove public **HP** unless there is a very strong compact UI reason and it is explained.
 - Remove **House Points** from public wording.
 - Use **Available points**, **Saved points**, and **Points on hold**.
+- When allowance is enabled, show the money equivalent beside points and keep points first.
+- When allowance is enabled, current points gain allowance value; do not split old and new points for the available balance.
 - Replace **Positive / Negative / Other** with **Add points / Remove points / Custom**.
 - Replace **Open child** with **View child dashboard**.
 - Replace **Points** button with **Add / remove points**.
@@ -28,6 +30,9 @@
   - **Locked saved points** if genuinely locked
   - **Points on hold** if reserved during a reward request
   - **Saved for later** for child-friendly savings language
+- Do not use **owed**, **withdraw**, **cash out**, **payment**, or **salary payment** in child-facing allowance copy.
+- Do not imply Family Hero Hub directly pays money.
+- Treat allowance start timestamps as history/context, not as a cutoff for available allowance value.
 - Use sentence case for user-facing headings and CTAs where possible.
 
 ## 4. Approved homepage direction

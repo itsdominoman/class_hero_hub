@@ -1,6 +1,6 @@
 # Family Hero Hub FAQ
 
-Last reviewed: 2026-05-17
+Last reviewed: 2026-05-18
 
 ## Getting started
 ### What is Family Hero Hub?
@@ -69,6 +69,12 @@ They are points temporarily set aside while a reward request is waiting for a pa
 ### What is the difference between available points, saved points, and points on hold?
 Available points can be used now, saved points are set aside for later, and points on hold are waiting on a reward decision.
 
+### What happens when allowance is enabled?
+Children see their points with a money equivalent beside them. When allowance is enabled, the child’s current points gain allowance value.
+
+### What are available allowance balance and remaining allowance?
+They are the allowance value that is still available after rewards, points on hold, and saved points are shown separately. The enable date is kept for history, not as a cutoff.
+
 ### Why did my child’s points change?
 Points can change after an add points action, a remove points action, a saved points change, or a reward request.
 
@@ -77,7 +83,7 @@ Add points adds points, Remove points removes points, and Custom lets a parent e
 
 ## Rewards and requests
 ### How do rewards work?
-Parents create rewards, and children can request them with points.
+Parents create rewards, and children can request them with points. If allowance is enabled, the reward cards also show the money equivalent.
 
 ### How do I create a reward?
 Open **Manage rewards**, add a title, choose a point cost, and keep the reward visible if you want children to see it.
@@ -102,19 +108,19 @@ It is where you review reward requests and decide whether to approve or reject t
 
 ## Allowance through points
 ### Can points be used for allowance?
-Yes, optionally. Some families connect points to allowance so progress can help decide how much allowance a child earns.
+Yes, optionally. Some families turn on allowance-linked points so the child sees a money equivalent beside the points.
 
 ### How does allowance through points work?
-You choose the allowance amount and the point goal. When your child reaches the goal, they earn the full allowance. If they reach part of the goal, they earn part of it.
+You choose the allowance amount, the point goal, and the allowance period. When allowance is enabled, your child’s current points gain allowance value. When they spend points on rewards, their available allowance balance goes down, but their earned history stays visible.
 
 ### Where do I set up allowance?
 Use **Allowance setup** from the parent dashboard Family tools area.
 
 ### Does the app automatically pay allowance?
-No. Allowance is an estimate linked to points. Parents still decide what to do outside the app.
+No. Family Hero Hub does not automatically pay money.
 
 ### Do reward requests reduce allowance progress?
-No. Reward requests, points on hold, reward approvals or rejections, and saved-point transfers stay separate from allowance progress.
+Yes. Reward requests, points on hold, reward approvals or rejections, and saved-point transfers reduce the available allowance balance while keeping earned history visible.
 
 ## Calendar, School Prep, and School Bag
 ### What is the calendar for?

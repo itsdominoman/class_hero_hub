@@ -140,6 +140,34 @@
       ]
     },
     {
+      id: 'allowance',
+      label: 'Allowance',
+      icon: Coins,
+      description: 'How allowance-linked points work when a family turns allowance on.',
+      items: [
+        {
+          question: 'Can points be used for allowance?',
+          answer: 'Yes. When allowance is enabled for a child, the child’s current points gain an allowance value and points are shown with a money equivalent beside them.'
+        },
+        {
+          question: 'How does allowance work?',
+          answer: 'You choose the allowance amount, point goal, and weekly or monthly period. The child’s current points have allowance value when allowance is enabled, and spending points reduces what is still available without rewriting earned history.'
+        },
+        {
+          question: 'Does the app automatically pay allowance?',
+          answer: 'No. Family Hero Hub does not automatically pay money.'
+        },
+        {
+          question: 'Do reward requests reduce allowance?',
+          answer: 'Yes. Reward requests, points on hold, approvals or rejections, and saved points reduce the available allowance balance while earned history stays visible.'
+        },
+        {
+          question: 'What happens to points earned before allowance was turned on?',
+          answer: 'They stay as points until allowance is enabled. When allowance is enabled, the child’s current points gain allowance value.'
+        }
+      ]
+    },
+    {
       id: 'rewards-requests',
       label: 'Rewards and requests',
       icon: HeartHandshake,
@@ -147,7 +175,7 @@
       items: [
         {
           question: 'How do rewards work?',
-          answer: 'Parents create rewards, and children can request them with points.'
+          answer: 'Parents create rewards, and children can request them with points. When allowance is enabled, reward cards also show the money equivalent.'
         },
         {
           question: 'How do I create a reward?',
@@ -231,7 +259,7 @@
       items: [
         {
           question: 'What can children see?',
-          answer: 'Children can see points, rewards, My Day, School Bag, and their dragon progress if it is shown on their dashboard.'
+          answer: 'Children can see points, rewards, My Day, School Bag, and their dragon progress if it is shown on their dashboard. When allowance is enabled, they also see the money equivalent beside their points.'
         },
         {
           question: 'What is My Day?',
@@ -239,7 +267,7 @@
         },
         {
           question: 'What can children do with rewards?',
-          answer: 'They can view available rewards and request one from their dashboard.'
+          answer: 'They can view available rewards and request one from their dashboard. If allowance is enabled, the reward cards show both points and allowance value.'
         },
         {
           question: 'What does the pet or dragon mean?',
@@ -334,7 +362,7 @@
               </a>
             </div>
 
-            <p class="mt-6 text-xs font-black uppercase tracking-[0.2em] text-slate-400">Last reviewed: 2026-05-13</p>
+            <p class="mt-6 text-xs font-black uppercase tracking-[0.2em] text-slate-400">Last reviewed: 2026-05-18</p>
           </div>
         </div>
 

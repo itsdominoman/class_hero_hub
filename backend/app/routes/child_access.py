@@ -5,7 +5,7 @@ from typing import List, Literal
 from ..database import get_db
 from .. import models, schemas, auth
 from ..child_auth import get_current_child, clear_child_session_cookie
-from ..services import points_service
+from ..services import allowance_service, points_service
 from ..services.rewards_service import get_family_rewards
 
 router = APIRouter()
@@ -34,6 +34,20 @@ async def get_my_rewards(
     current_child: models.Child = Depends(get_current_child),
 ):
     return get_family_rewards(db, current_child.family_id)
+
+
+@router.get("/allowance", response_model=schemas.AllowancePreview)
+async def get_my_allowance(
+    db: Session = Depends(get_db),
+    current_child: models.Child = Depends(get_current_child),
+):
+    settings = allowance_service.get_settings_response(db, current_child)
+    return allowance_service.get_allowance_summary(
+        db,
+        current_child,
+        settings,
+        reveal_preview_when_disabled=False,
+    )
 
 
 @router.get("/ledger", response_model=List[schemas.LedgerTransaction])

@@ -58,10 +58,15 @@ test.describe('Europe dev authenticated QA login', () => {
     await page.getByRole('link', { name: 'Allowance setup' }).click();
     await expect(page).toHaveURL(/\/allowance$/);
     await expect(page.getByRole('heading', { name: 'Allowance setup' })).toBeVisible();
-    await expect(page.getByText('Optional family setup', { exact: false })).toBeVisible();
-    await expect(page.getByText('Rewards still work separately', { exact: false })).toBeVisible();
+    await expect(
+      page.getByText('Allowance is optional. Pick a child, choose an amount, and set the point goal. Turning on allowance gives your child’s current points an allowance value. You can adjust their points before enabling allowance if needed. Rewards and custom requests spend the same available balance, and nothing is paid automatically.', {
+        exact: true
+      })
+    ).toBeVisible();
+    await expect(page.getByText('Rewards and custom requests spend the same available balance', { exact: false })).toBeVisible();
     await expect(page.locator('#child-select')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Current period' })).toBeVisible();
-    await expect(page.getByText('Enable allowance estimate', { exact: false })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Available allowance balance' })).toBeVisible();
+    await expect(page.getByText('current points an allowance value', { exact: false })).toBeVisible();
+    await expect(page.getByText('Enable allowance-linked points', { exact: false })).toBeVisible();
   });
 });

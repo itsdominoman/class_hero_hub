@@ -34,21 +34,42 @@
     currency_exponent: number;
     period: 'weekly' | 'monthly' | string;
     point_goal: number;
+    allowance_enabled_at: string | null;
     created_by_parent_id: number | null;
     updated_by_parent_id: number | null;
     created_at: string | null;
     updated_at: string | null;
   };
 
-  type AllowancePreview = {
+  type AllowanceSummary = {
     settings: AllowanceSettings;
     period_start: string;
     period_end: string;
+    next_reset_at: string;
+    allowance_enabled_at: string | null;
+    point_value_display: string;
+    progress_percent: number;
+    maxed_for_period: boolean;
     eligible_points: number;
     raw_eligible_points: number;
     point_goal: number;
     progress_ratio: number;
     earned_amount_minor: number;
+    raw_earned_points_period: number;
+    earned_points_period: number;
+    earned_allowance_minor_period: number;
+    spent_points_period: number;
+    spent_allowance_minor_period: number;
+    pending_points: number;
+    pending_allowance_minor: number;
+    carried_over_points: number;
+    carried_over_allowance_minor: number;
+    available_points: number;
+    available_allowance_minor: number;
+    saved_points: number;
+    saved_allowance_minor: number;
+    locked_saved_points: number;
+    locked_saved_allowance_minor: number;
     max_amount_minor: number;
     currency: string;
     currency_exponent: number;
@@ -69,7 +90,7 @@
   let children = $state<ChildSummary[]>([]);
   let selectedChildId = $state('');
   let settings = $state<AllowanceSettings | null>(null);
-  let preview = $state<AllowancePreview | null>(null);
+  let preview = $state<AllowanceSummary | null>(null);
   let loading = $state(true);
   let childLoading = $state(false);
   let saving = $state(false);
@@ -87,7 +108,7 @@
 
   const selectedChild = $derived(children.find((child) => String(child.child.id) === selectedChildId) || null);
   const activeExponent = $derived(CURRENCY_EXPONENTS[form.currency] ?? settings?.currency_exponent ?? 2);
-  const previewProgress = $derived(preview ? Math.round(preview.progress_ratio * 100) : 0);
+  const previewProgress = $derived(preview ? Math.round(preview.progress_percent) : 0);
   const previewBarWidth = $derived(`${Math.max(0, Math.min(100, previewProgress))}%`);
   const amountMinorForExamples = $derived(parseAmountToMinor(form.allowance_amount, activeExponent));
   const exampleRows = $derived(buildExampleRows());
@@ -176,7 +197,7 @@
       statusMessage = null;
       const [settingsResponse, previewResponse] = await Promise.all([
         api.get(`/allowance/children/${childId}/settings`),
-        api.get(`/allowance/children/${childId}/preview`)
+        api.get(`/allowance/children/${childId}/summary`)
       ]);
 
       applySettingsToForm(settingsResponse);
@@ -290,39 +311,45 @@
       </div>
 
       <div class="grid gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
-        <section class="card relative overflow-hidden border-slate-100 bg-slate-950 p-6 text-white shadow-2xl sm:p-8 lg:min-h-[560px]">
-          <div class="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-savings/30 blur-3xl"></div>
-          <div class="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-hero/25 blur-3xl"></div>
-
-          <div class="relative z-10 flex h-full flex-col justify-between gap-10">
+        <section class="card h-fit overflow-hidden border-slate-200 bg-white p-6 text-slate-950 shadow-xl sm:p-8">
+          <div class="space-y-5">
             <div>
-              <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-200">
+              <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-hero/15 bg-hero/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-hero">
                 <Sparkles size={15} />
-                Optional family setup
+                Allowance is optional
               </div>
               <h1 class="max-w-xl text-4xl font-black leading-[0.95] tracking-tighter sm:text-5xl lg:text-6xl">
                 Allowance setup
               </h1>
-              <p class="mt-6 max-w-xl text-base font-medium leading-relaxed text-slate-300 sm:text-lg">
-                Connect points to an optional allowance value for each child. Rewards still work separately, and this does not automatically pay money.
+              <p class="mt-5 max-w-xl text-base font-medium leading-relaxed text-slate-700 sm:text-lg">
+                Allowance is optional. Pick a child, choose an amount, and set the point goal. Turning on allowance gives your child’s current points an allowance value. You can adjust their points before enabling allowance if needed. Rewards and custom requests spend the same available balance, and nothing is paid automatically.
+              </p>
+              <p class="mt-4 max-w-xl text-sm font-medium leading-relaxed text-slate-600">
+                Start with the child selector on the right. Then set the allowance amount, currency, period, and point goal.
               </p>
             </div>
 
-            <div class="grid gap-3 sm:grid-cols-3">
-              <div class="rounded-[1.5rem] border border-white/10 bg-white/10 p-4 backdrop-blur">
-                <ShieldCheck class="mb-3 text-savings" size={24} />
-                <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Separate</p>
-                <p class="mt-2 text-sm font-bold leading-snug text-white">Rewards keep their own point costs and approval flow.</p>
+            <div class="grid gap-3">
+              <div class="flex items-start gap-3 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
+                <ShieldCheck class="mt-0.5 shrink-0 text-savings" size={22} />
+                <div>
+                  <p class="text-sm font-black text-slate-900">Rewards spend the balance</p>
+                  <p class="mt-1 text-sm font-medium leading-relaxed text-slate-600">Rewards and custom requests use the same available points and allowance value.</p>
+                </div>
               </div>
-              <div class="rounded-[1.5rem] border border-white/10 bg-white/10 p-4 backdrop-blur">
-                <CalendarDays class="mb-3 text-hero-light" size={24} />
-                <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Period based</p>
-                <p class="mt-2 text-sm font-bold leading-snug text-white">Preview uses points earned in the current week or month.</p>
+              <div class="flex items-start gap-3 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
+                <CalendarDays class="mt-0.5 shrink-0 text-hero" size={22} />
+                <div>
+                  <p class="text-sm font-black text-slate-900">Period based</p>
+                  <p class="mt-1 text-sm font-medium leading-relaxed text-slate-600">Allowance value follows the current week or month, and the child’s current points gain allowance value when you turn it on.</p>
+                </div>
               </div>
-              <div class="rounded-[1.5rem] border border-white/10 bg-white/10 p-4 backdrop-blur">
-                <PiggyBank class="mb-3 text-reward" size={24} />
-                <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Estimate</p>
-                <p class="mt-2 text-sm font-bold leading-snug text-white">The app shows an allowance estimate; parents stay in control.</p>
+              <div class="flex items-start gap-3 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
+                <PiggyBank class="mt-0.5 shrink-0 text-reward" size={22} />
+                <div>
+                  <p class="text-sm font-black text-slate-900">Parent controlled</p>
+                  <p class="mt-1 text-sm font-medium leading-relaxed text-slate-600">Parents stay in control, and no money is paid automatically.</p>
+                </div>
               </div>
             </div>
           </div>
@@ -331,7 +358,13 @@
         <section class="space-y-5">
           {#if loading}
             <div class="card border-slate-100 bg-white p-6 shadow-xl">
-              <p class="text-sm font-bold text-slate-500">Loading allowance setup...</p>
+              <div class="flex items-center gap-3">
+                <div class="h-11 w-11 animate-spin rounded-full border-4 border-hero border-t-transparent"></div>
+                <div>
+                  <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Loading</p>
+                  <p class="text-sm font-medium text-slate-600">Loading allowance setup and child settings.</p>
+                </div>
+              </div>
             </div>
           {:else if needsLogin}
             <div class="card border-slate-100 bg-white p-6 shadow-xl">
@@ -348,19 +381,21 @@
           {:else if children.length === 0}
             <div class="card border-slate-100 bg-white p-6 shadow-xl">
               <h2 class="text-2xl font-black text-slate-950">No children found</h2>
-              <p class="mt-2 text-sm font-medium text-slate-600">Add a child before setting up allowance.</p>
+              <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">Add a child in Parent dashboard before setting up allowance. Then come back here to choose a currency, amount, period, and point goal.</p>
               <a href="/parent" class="btn-secondary mt-5 inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm uppercase tracking-[0.14em]">
                 Back to parent dashboard
               </a>
             </div>
           {:else}
             <div class="card border-slate-100 bg-white p-5 shadow-xl sm:p-6">
-              <label for="child-select" class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Child</label>
+              <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">1. Choose child</p>
+              <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">Start here. Select the child whose allowance-linked points you want to configure.</p>
+              <label for="child-select" class="sr-only">Child</label>
               <select
                 id="child-select"
                 bind:value={selectedChildId}
                 onchange={handleChildChange}
-                class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-black text-slate-900 outline-none transition focus:border-hero focus:ring-4 focus:ring-hero/10"
+                class="mt-4 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-black text-slate-900 outline-none transition focus:border-hero focus:ring-4 focus:ring-hero/10"
               >
                 {#each children as child}
                   <option value={String(child.child.id)}>{child.child.display_name}</option>
@@ -370,18 +405,19 @@
 
             {#if childLoading}
               <div class="card border-slate-100 bg-white p-6 shadow-xl">
-                <p class="text-sm font-bold text-slate-500">Loading {selectedChild?.child.display_name || 'child'} settings...</p>
+                <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Loading child settings</p>
+                <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">Loading {selectedChild?.child.display_name || 'this child'} allowance details and summary.</p>
               </div>
             {:else}
               <div class="card border-slate-100 bg-white p-5 shadow-xl sm:p-6">
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Status</p>
+                    <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">2. Allowance on or off</p>
                     <h2 class="mt-2 text-2xl font-black text-slate-950">
                       Allowance is {form.is_enabled ? 'enabled' : 'disabled'} for this child.
                     </h2>
                     <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">
-                      Reward requests, savings transfers, and reward holds do not reduce allowance progress.
+                      Reward requests, savings transfers, and reward holds reduce what is available, but they do not rewrite what was earned this period.
                     </p>
                   </div>
                   <div class={`inline-flex w-fit items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em] ${form.is_enabled ? 'bg-savings/10 text-savings' : 'bg-slate-100 text-slate-500'}`}>
@@ -397,7 +433,15 @@
               </div>
 
               <div class="card border-slate-100 bg-white p-5 shadow-xl sm:p-6">
-                <div class="grid gap-5 sm:grid-cols-2">
+                <div class="flex items-start justify-between gap-4">
+                  <div>
+                    <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">3. Amount, currency, period, and goal</p>
+                    <h2 class="mt-2 text-2xl font-black text-slate-950">Set allowance-linked points</h2>
+                    <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">Pick the amount and goal that match this child’s routine. Turning on allowance gives the child’s current points allowance value, so you can adjust their points before enabling it if needed.</p>
+                  </div>
+                </div>
+
+                <div class="mt-5 grid gap-5 sm:grid-cols-2">
                   <label class="flex items-start gap-3 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
                     <input
                       type="checkbox"
@@ -405,8 +449,9 @@
                       class="mt-1 h-5 w-5 rounded border-slate-300 text-hero focus:ring-hero"
                     />
                     <span>
-                      <span class="block text-sm font-black text-slate-900">Enable allowance estimate</span>
-                      <span class="mt-1 block text-sm font-medium leading-relaxed text-slate-500">Optional per child. No money is sent by the app.</span>
+                      <span class="block text-sm font-black text-slate-900">Enable allowance-linked points</span>
+                      <span class="mt-1 block text-sm font-medium leading-relaxed text-slate-600">Optional per child. No money is sent by the app.</span>
+                      <span class="mt-2 block text-sm font-bold leading-relaxed text-amber-700">Turning on allowance gives your child’s current points an allowance value. You can adjust their points before enabling allowance if needed.</span>
                     </span>
                   </label>
 
@@ -430,7 +475,7 @@
                       placeholder={form.currency === 'OMR' ? '10.000' : '10.00'}
                       class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-black text-slate-900 outline-none transition focus:border-hero focus:ring-4 focus:ring-hero/10"
                     />
-                    <p class="mt-2 text-xs font-bold text-slate-400">Stored as minor units. Example: 10.000 OMR becomes 10000.</p>
+                    <p class="mt-2 text-xs font-medium leading-relaxed text-slate-500">Stored as minor units. Example: 10.000 OMR becomes 10000.</p>
                   </label>
 
                   <label>
@@ -457,13 +502,13 @@
                 </div>
 
                 {#if formError}
-                  <div class="mt-5 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">
+                  <div class="mt-5 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700" aria-live="polite">
                     {formError}
                   </div>
                 {/if}
 
                 {#if statusMessage}
-                  <div class="mt-5 rounded-2xl border border-savings/20 bg-savings/10 p-4 text-sm font-bold text-savings">
+                  <div class="mt-5 rounded-2xl border border-savings/20 bg-savings/10 p-4 text-sm font-bold text-savings" aria-live="polite">
                     {statusMessage}
                   </div>
                 {/if}
@@ -493,8 +538,8 @@
                 <div class="card border-slate-100 bg-white p-5 shadow-xl sm:p-6">
                   <div class="flex items-start justify-between gap-4">
                     <div>
-                      <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Preview</p>
-                      <h2 class="mt-2 text-2xl font-black text-slate-950">Current period</h2>
+                      <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">4. Current-period summary</p>
+                      <h2 class="mt-2 text-2xl font-black text-slate-950">Available allowance balance</h2>
                     </div>
                     <div class="rounded-2xl bg-hero/10 p-3 text-hero">
                       <Coins size={22} />
@@ -509,43 +554,72 @@
                       </p>
                     </div>
 
+                    <div class="mt-4 rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4">
+                      <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Point value</p>
+                      <p class="mt-2 text-lg font-black text-slate-950">1 point = {preview.point_value_display}</p>
+                    </div>
+
+                      {#if preview.allowance_enabled_at}
+                        <p class="mt-4 text-sm font-medium leading-relaxed text-slate-600">
+                          Allowance was enabled on {new Date(preview.allowance_enabled_at).toLocaleString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit'
+                          })}. This is shown for history only.
+                        </p>
+                      {/if}
+
                     <div class="mt-5 grid gap-3 sm:grid-cols-2">
                       <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Eligible points this period</p>
-                        <p class="mt-2 text-3xl font-black text-slate-950">{preview.eligible_points}</p>
+                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Earned this period</p>
+                        <p class="mt-2 text-3xl font-black text-slate-950">{preview.display_amount}</p>
+                        <p class="mt-1 text-sm font-medium text-slate-500">{preview.earned_points_period} points</p>
                       </div>
                       <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Allowance goal</p>
-                        <p class="mt-2 text-3xl font-black text-slate-950">{preview.point_goal}</p>
+                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Available to spend</p>
+                        <p class="mt-2 text-3xl font-black text-slate-950">{formatMinorAmount(preview.available_allowance_minor, preview.currency, preview.currency_exponent)}</p>
+                        <p class="mt-1 text-sm font-medium text-slate-500">{preview.available_points} points</p>
                       </div>
                       <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Estimated allowance earned</p>
-                        <p class="mt-2 text-3xl font-black text-slate-950">
-                          {formatMinorAmount(preview.earned_amount_minor, preview.currency, preview.currency_exponent)}
-                        </p>
+                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Spent this period</p>
+                        <p class="mt-2 text-3xl font-black text-slate-950">{formatMinorAmount(preview.spent_allowance_minor_period, preview.currency, preview.currency_exponent)}</p>
+                        <p class="mt-1 text-sm font-medium text-slate-500">{preview.spent_points_period} points</p>
                       </div>
                       <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Maximum allowance amount</p>
-                        <p class="mt-2 text-3xl font-black text-slate-950">
-                          {formatMinorAmount(preview.max_amount_minor, preview.currency, preview.currency_exponent)}
-                        </p>
+                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Carried over</p>
+                        <p class="mt-2 text-3xl font-black text-slate-950">{formatMinorAmount(preview.carried_over_allowance_minor, preview.currency, preview.currency_exponent)}</p>
+                        <p class="mt-1 text-sm font-medium text-slate-500">{preview.carried_over_points} points</p>
+                      </div>
+                    </div>
+
+                    <div class="mt-5 grid gap-3 sm:grid-cols-2">
+                      <div class="rounded-[1.5rem] bg-slate-50 p-4">
+                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Points on hold</p>
+                        <p class="mt-2 text-3xl font-black text-slate-950">{formatMinorAmount(preview.pending_allowance_minor, preview.currency, preview.currency_exponent)}</p>
+                        <p class="mt-1 text-sm font-medium text-slate-500">{preview.pending_points} points</p>
+                      </div>
+                      <div class="rounded-[1.5rem] bg-slate-50 p-4">
+                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Saved</p>
+                        <p class="mt-2 text-3xl font-black text-slate-950">{formatMinorAmount(preview.saved_allowance_minor, preview.currency, preview.currency_exponent)}</p>
+                        <p class="mt-1 text-sm font-medium text-slate-500">{preview.saved_points} points</p>
                       </div>
                     </div>
 
                     <div class="mt-5">
                       <div class="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-[0.16em] text-slate-400">
-                        <span>Progress percentage</span>
+                        <span>Progress to goal</span>
                         <span>{previewProgress}%</span>
                       </div>
                       <div class="h-4 overflow-hidden rounded-full bg-slate-100">
                         <div class="h-full rounded-full bg-gradient-to-r from-hero to-savings shadow-lg shadow-hero/20" style={`width: ${previewBarWidth}`}></div>
                       </div>
-                      <p class="mt-3 text-sm font-medium leading-relaxed text-slate-500">
-                        Preview includes awards, calendar task points, adjustments, and penalties. It excludes reward holds, reward approvals or rejections, and savings transfers.
+                      <p class="mt-3 text-sm font-medium leading-relaxed text-slate-600">
+                        This summary shows the child’s current points as allowance value. Allowance enabled time is kept for history and context only.
                       </p>
                     </div>
                   {:else}
-                    <p class="mt-5 text-sm font-bold text-slate-500">Preview is unavailable until settings load.</p>
+                    <p class="mt-5 text-sm font-medium leading-relaxed text-slate-600">Preview appears here after the child settings load.</p>
                   {/if}
                 </div>
 
@@ -555,7 +629,7 @@
                       <Star size={22} fill="currentColor" />
                     </div>
                     <div>
-                      <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Easy examples</p>
+                      <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Quick examples</p>
                       <h2 class="mt-2 text-2xl font-black text-slate-950">Points to allowance</h2>
                     </div>
                   </div>
@@ -563,18 +637,18 @@
                   <div class="mt-5 space-y-3">
                     {#if exampleRows.length > 0}
                       {#each exampleRows as row}
-                        <div class="flex items-center justify-between gap-4 rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4">
+                        <div class="flex items-center justify-between gap-4 rounded-[1.25rem] border border-slate-100 bg-slate-50 p-4">
                           <span class="text-sm font-black text-slate-950">{row.points} points</span>
                           <span class="text-sm font-black text-savings">{row.amount}</span>
                         </div>
                       {/each}
                     {:else}
-                      <p class="text-sm font-bold text-slate-500">Enter an amount and positive point goal to see examples.</p>
+                      <p class="text-sm font-medium leading-relaxed text-slate-600">Enter an amount and positive point goal to see examples.</p>
                     {/if}
                   </div>
 
-                  <div class="mt-5 rounded-[1.5rem] border border-amber-100 bg-amber-50 p-4 text-sm font-bold leading-relaxed text-amber-800">
-                    Allowance is an estimate linked to points. Rewards still work separately, and the app does not automatically pay the child.
+                  <div class="mt-5 rounded-[1.5rem] border border-amber-100 bg-amber-50 p-4 text-sm font-medium leading-relaxed text-amber-900">
+                    Allowance is linked to points. Rewards and custom requests spend the same available balance, and the app does not automatically pay the child.
                   </div>
                 </div>
               </div>

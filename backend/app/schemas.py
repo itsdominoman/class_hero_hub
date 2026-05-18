@@ -100,6 +100,7 @@ class AllowanceSettings(AllowanceSettingsBase):
     family_id: int
     child_id: int
     currency_exponent: int
+    allowance_enabled_at: Optional[datetime] = None
     created_by_parent_id: Optional[int] = None
     updated_by_parent_id: Optional[int] = None
     created_at: Optional[datetime] = None
@@ -112,11 +113,31 @@ class AllowancePreview(BaseModel):
     settings: AllowanceSettings
     period_start: date
     period_end: date
-    eligible_points: int
-    raw_eligible_points: int
+    next_reset_at: datetime
+    allowance_enabled_at: Optional[datetime] = None
+    point_value_display: str
     point_goal: int
     progress_ratio: float
+    progress_percent: float
+    maxed_for_period: bool
+    raw_eligible_points: int
+    eligible_points: int
+    raw_earned_points_period: int
+    earned_points_period: int
     earned_amount_minor: int
+    earned_allowance_minor_period: int
+    spent_points_period: int
+    spent_allowance_minor_period: int
+    pending_points: int
+    pending_allowance_minor: int
+    carried_over_points: int
+    carried_over_allowance_minor: int
+    available_points: int
+    available_allowance_minor: int
+    saved_points: int
+    saved_allowance_minor: int
+    locked_saved_points: int
+    locked_saved_allowance_minor: int
     max_amount_minor: int
     currency: str
     currency_exponent: int

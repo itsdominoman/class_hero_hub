@@ -1,5 +1,23 @@
 # Family Hero Hub - Upgrade Tracker
 
+# 2026-05-18 - Allowance-Linked Points Model
+
+### Scope
+- Converted allowance from a parent-only preview into allowance-linked points with child-facing read-only display when allowance is enabled.
+- Added `allowance_enabled_at` as audit/history metadata for when allowance was enabled.
+- Kept starting balance deferred for beta.
+- Kept the app points-only when allowance is disabled.
+
+### Verification
+- Backend allowance summary now derives allowance value from the child’s current relevant point balance using integer minor units.
+- Child-facing allowance summary route returns points/value breakdowns only when allowance is enabled.
+- Parent dashboard and allowance setup page now surface allowance-linked summaries.
+- Frontend child dashboard now shows points first and money equivalent second when allowance is enabled.
+
+### Notes
+- The app still does not automatically pay children.
+- Saved points/value remain visually separate from available-to-spend balance.
+
 # 2026-05-17 - Europe Dev Daily QA Phase A Restored
 
 ### Scope

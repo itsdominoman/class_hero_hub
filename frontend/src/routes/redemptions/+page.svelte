@@ -43,7 +43,7 @@
         <div class="w-11 h-11 sm:w-12 sm:h-12 bg-reward/10 text-reward rounded-2xl flex shrink-0 items-center justify-center">
           <Trophy size={24} />
         </div>
-        Redemption Requests
+        Reward Requests
       </h1>
     </div>
   </div>

@@ -68,12 +68,13 @@
 
 ### Allowance System
 - Backend support exists for optional child-level allowance settings
-- Parents can store allowance currency, amount, weekly/monthly period, and point goal per child through API endpoints
-- Allowance preview uses period ledger aggregation, not current point balances
-- Rewards remain independent from allowance; reward holds, reward releases, and savings transfers are excluded from allowance preview calculations
+- Parents can store allowance currency, amount, weekly/monthly period, point goal, and allowance enabled date per child through API endpoints
+- Allowance values are derived from allowance-linked points using integer minor-unit math
+- Rewards, reward holds, reward releases, and savings transfers reduce the available balance when allowance is enabled
 - Parent-facing Allowance setup page exists at `/allowance`
-- Parents can select a child, enable/disable allowance, choose OMR/USD/GBP/EUR, set weekly/monthly allowance goals, save settings, and view current-period allowance preview
-- No child dashboard allowance display or automatic payouts are implemented yet
+- Parents can select a child, enable/disable allowance, choose OMR/USD/GBP/EUR, set weekly/monthly allowance goals, save settings, and view allowance-linked summaries
+- Child dashboard allowance display is now implemented for children with allowance enabled
+- The app still does not automatically pay children
 
 ### UI / UX
 - Responsive layout (tablet + mobile)
@@ -196,7 +197,7 @@
 ### Productivity Features
 - Dedicated child management route/shell for child-specific Points, Rewards, Calendar, School Bag, Profile, and device sections
 - Component extraction/refactor for the large parent dashboard page
-- Child-facing allowance progress display
+- Child-facing allowance progress display is now implemented for allowance-enabled children
 - Full monthly calendar view
 - Drag-and-drop calendar editing
 - Notification/reminder system

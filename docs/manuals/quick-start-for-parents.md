@@ -5,6 +5,7 @@
 - Check or add your child profile
 - Review point actions: Add points, Remove points, Custom
 - Create one simple reward
+- If you want allowance, open Allowance setup and choose weekly or monthly
 - Link the child device
 - Give first points
 - Ask the child to request the reward
@@ -31,6 +32,9 @@
    - You know the child is in the right family when the details look right.
 4. Add another child if needed.
    - The new child appears in **Children**.
+
+If allowance is enabled for a child, you will also see the allowance balance and the amount still available to spend.
+The child’s current points gain allowance value when allowance is enabled.
 
 ## 3) Give first points
 
@@ -105,4 +109,6 @@ Example reward: “Choose movie night”
 - The child can open their device link.
 - You can give points and create rewards.
 - A reward request can be approved or rejected.
+- If allowance is enabled, the child dashboard shows points first and the money equivalent second.
+- The child’s current points gain allowance value when allowance is enabled.
 - The calendar and School Bag show the right items.

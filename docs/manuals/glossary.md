@@ -31,10 +31,19 @@ The QR code or link that opens a child’s dashboard on a device.
 The fun visual progress system that shows the dragon growing as points are earned.
 
 ## Allowance through points
-An optional setup where points help determine how much allowance a child earns.
+An optional setup where points are the child’s allowance currency and the allowance value is shown as a money equivalent.
 
 ## Allowance settings
-The optional per-child setup for currency, allowance amount, allowance period, and point goal.
+The optional per-child setup for currency, allowance amount, allowance period, point goal, and the date allowance was enabled.
 
-## Allowance preview
-A calculation that estimates allowance from eligible points in the current weekly or monthly period. Reward requests, points on hold, reward approvals or rejections, and saved-point transfers do not count toward allowance preview.
+## Allowance period
+The weekly or monthly window used to calculate earned, spent, carried-over, and remaining allowance value.
+
+## Allowance-linked points
+When allowance is enabled, points are shown with their allowance value and reward requests spend the same available balance.
+
+## Allowance enabled date
+The date and time when allowance was enabled for a child. It is kept for history and context, not as a cutoff for available allowance value.
+
+## Available allowance balance
+The allowance value that remains spendable after reward requests, holds, and saved balances are separated out. It follows the child’s current relevant point balance when allowance is enabled.
