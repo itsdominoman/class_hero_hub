@@ -52,16 +52,9 @@ N/A
 N/A
 
 ## Active Ports
-- **US Production**: 
-  - Public: HTTP(80), HTTPS(443)
-  - Mesh-only: WireGuard(51820)
-  - Internal-only: PostgreSQL (Not exposed publicly)
-- **Europe Dev/Hermes**: 
-  - Public: HTTP(80), HTTPS(443)
-  - Mesh-only: WireGuard(51820), Hermes Dashboard(9119)
-  - Internal-only: PostgreSQL (Not exposed publicly)
-- **UK Hub**: 
-  - Public/Mesh: WireGuard(51820), wg-easy(51821)
+- **US Production**: 80/443 Caddy, 22 SSH, 25/465/587/110/143/993/995/4190 Mailcow, 8000 Family Hero Hub API, 5173 Family Hero Hub frontend preview, 7654 Redis proxy, 8443 Mailcow UI proxy, 13306 MySQL proxy, 2019 Caddy admin, 20241 `cloudflared` local tunnel port, 51820 mesh WireGuard, 51821 wg-easy admin.
+- **Europe Dev/Hermes**: 80/443 Caddy, 22 SSH, 3000 Hermes workspace UI, 4173 static preview, 4174 Vite preview, 4180 Vite dev, 8000 Family Hero Hub API, 5173 Family Hero Hub frontend, 8642 Hermes gateway, 9119 Hermes dashboard, 8765 competitor-review viewer, 8766 docs viewer, 8767 QA reports viewer, 51820 mesh WireGuard, 51821 wg-easy admin. `8768` is currently not listening.
+- **UK Hub**: 22 SSH, 51820 mesh WireGuard, 51821 wg-easy admin. UK is restricted to backup/DR/VPN/Google Drive sync roles.
 
 ## Warnings
 - **EXPLICIT WARNING**: Do NOT expose backup stores (`/opt/apps/backups`) publicly via Caddy or any web server.

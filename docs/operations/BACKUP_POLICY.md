@@ -53,10 +53,10 @@ N/A
 
 ## Schedule & Timers
 Systemd timers trigger localized shell scripts running as `root`.
-- **Europe (`fhh-europe-backup.timer` @ 01:00)**: Backs up Europe dev app, Hermes, and configs. Mirrors to US and UK.
-- **US (`fhh-us-backup.timer` @ 02:00)**: Backs up US prod app, pgBackRest tarball, `us-sys-configs`, and encrypted secrets. Mirrors to UK.
+- **Europe (`fhh-europe-backup.timer` @ 01:00)**: Backs up Europe dev app, Hermes, Europe internal tools, and configs including `wg-easy/docker-compose.yml`; encrypted secrets also include `wg-easy/.env` and `wg-easy/etc_wireguard`. Mirrors to US and UK.
+- **US (`fhh-us-backup.timer` @ 02:00)**: Backs up US prod app, pgBackRest tarball, `us-sys-configs` including `wg-easy/docker-compose.yml`, and encrypted secrets, including the secret-bearing `cloudflared.service`, `wg-easy/.env`, and `wg-easy/etc_wireguard`. Mirrors to UK.
 - **Europe (`fhh-europe-pull-us.timer` @ 03:00)**: Pulls the US backup mirror down to Europe.
-- **UK (`fhh-uk-backup.timer` @ 04:00)**: Backs up UK configs, and syncs `local`, `from-us`, and `from-europe` to Google Drive.
+- **UK (`fhh-uk-backup.timer` @ 04:00)**: Backs up UK configs, encrypted WireGuard/wg-easy state, and syncs `local`, `from-us`, and `from-europe` to Google Drive.
 
 ## Retention
 - **Implemented Retention**: 30 days of archives are kept in `/opt/apps/backups/local/` on each server.
@@ -68,10 +68,12 @@ Systemd timers trigger localized shell scripts running as `root`.
 - `.git`
 - `.svelte-kit`
 - `build`
+- `.env`
 - `__pycache__`
 - `.pytest_cache`
 - `test_venv`
 - `tmp` (oversized data intentionally excluded).
+- Plaintext WireGuard material is excluded from sys-config tarballs and stored only in the encrypted secrets archives.
 
 ## Encryption Design
 - **Local secrets**: Asymmetrically encrypted using `age` recipient mode (`age -R /opt/apps/backups/scripts/fhh_backup.pub`). 

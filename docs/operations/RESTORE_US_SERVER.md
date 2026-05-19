@@ -4,7 +4,7 @@
 Full rebuild of the US production server.
 
 ## 2. Scope
-App folder, Docker Compose, `.env` files, WireGuard, backup scripts/timers, and US system-config snapshots.
+App folder, Docker Compose, `.env` files, WireGuard, backup scripts/timers, cloudflared tunnel metadata, and US system-config snapshots.
 
 ## 3. When to use this restore path
 US VPS hardware failure or OS wipe.
@@ -34,6 +34,7 @@ Dom must approve the OS rebuild and app startup.
 - `us-secrets-*.tar.gz.age`
 - `us-pgbackrest-repo-*.tar.gz` (for `RESTORE_POSTGRES.md`)
 - `us-sys-configs-*.tar.gz`
+- `us-secrets-*.tar.gz.age` also carries the secret-bearing `cloudflared.service` unit if the legacy tunnel still needs to be restored.
 
 ## 11. Exact restore target paths
 `/` (root)
@@ -112,7 +113,12 @@ Dom must approve the OS rebuild and app startup.
 9. **PostgreSQL Restore (MANDATORY BEFORE APP START):**
    - STOP: Execute steps in `RESTORE_POSTGRES.md` exactly as written to restore the DB data via an ephemeral pgBackRest container. Do NOT `docker compose up -d` before this is complete.
 
-10. **Start Application & Caddy:**
+10. **Restore wg-easy and start application services:**
+   - Restore `/opt/apps/wg-easy/docker-compose.yml` from `us-sys-configs-*.tar.gz`.
+   - Restore `/opt/apps/wg-easy/.env` and `/opt/apps/wg-easy/etc_wireguard/` from `us-secrets-*.tar.gz.age`.
+   - Start it only after the secret archive is restored: `cd /opt/apps/wg-easy && sudo docker compose up -d`.
+
+11. **Start Application & Caddy:**
     ```bash
     # Only after Postgres is fully restored and validated
     cd /opt/apps/family-hero-hub
@@ -120,6 +126,7 @@ Dom must approve the OS rebuild and app startup.
     sudo docker compose up -d backend frontend
     sudo caddy validate --config /etc/caddy/Caddyfile
     sudo systemctl enable --now caddy
+    sudo systemctl enable --now wg-personal-to-site-nat 2>/dev/null || true
     ```
 
 11. **Restore Backup Timers:**

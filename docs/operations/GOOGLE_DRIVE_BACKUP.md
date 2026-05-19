@@ -10,7 +10,7 @@ Recovery of `us/`, `europe/`, and `uk/` backup sets from the cloud.
 Complete catastrophic failure where US, Europe, and UK local backup stores are all destroyed.
 
 ## 4. What this restores
-Encrypted `.tar.gz` and `.age` archives.
+Encrypted `.tar.gz` and `.age` archives, including the mirrored US/Europe/UK backup sets and any secret-bearing units moved into the encrypted archives.
 
 ## 5. What this does NOT restore
 It does not automatically extract or decrypt the files.

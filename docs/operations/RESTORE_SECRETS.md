@@ -11,7 +11,9 @@ Server rebuild, accidental deletion of `.env`, or WireGuard key loss.
 
 ## 4. What this restores
 - `.env` files (App config, DB passwords, OAuth keys).
+- `hermes-workspace/.env`.
 - WireGuard private configs (`/etc/wireguard/`).
+- `wg-easy/etc_wireguard/` on UK.
 - `rclone.conf` (on UK).
 - QA env (`/home/administrator/.hermes/fhh-qa.env`).
 - Hermes profiles/secrets.

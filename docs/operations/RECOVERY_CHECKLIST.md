@@ -65,9 +65,10 @@ Do not guess the recovery order. Follow the tree.
 1. Determine if Hermes-only or full Europe server loss.
 2. If Hermes-only, use `RESTORE_HERMES.md`.
 3. If full server, use `RESTORE_EUROPE_SERVER.md`.
-4. Prefer UK `/opt/apps/backups/from-europe/` if available.
-5. If UK unavailable, use US `/opt/apps/backups/from-europe/`.
-6. If both unavailable, use Google Drive via `GOOGLE_DRIVE_BACKUP.md`.
+4. Restore `europe-app-internal-tools-*.tar.gz` as well if you need Hermes workspace or the private viewers.
+5. Prefer UK `/opt/apps/backups/from-europe/` if available.
+6. If UK unavailable, use US `/opt/apps/backups/from-europe/`.
+7. If both unavailable, use Google Drive via `GOOGLE_DRIVE_BACKUP.md`.
 
 **Scenario C: UK backup hub down**
 1. Use `RESTORE_UK_SERVER.md`.
@@ -93,8 +94,8 @@ Do not guess the recovery order. Follow the tree.
 1. Extract `*-app-family-hero-hub-*.tar.gz` and restore `docker-compose.yml`.
 
 **Scenario I: Backup automation-only issue**
-1. On Europe/UK: Extract `*-sys-configs-*.tar.gz` and restore `/etc/systemd/system/fhh-*.{timer,service}` and `/opt/apps/backups/scripts/`.
-2. On US: Extract `us-sys-configs-*.tar.gz` and restore `/etc/systemd/system/fhh-us-backup.{service,timer}`, `/opt/apps/backups/scripts/`, and `/usr/local/bin/family-hero-deploy`.
+1. On Europe/UK: Extract `*-sys-configs-*.tar.gz` and restore `/etc/systemd/system/fhh-*.{timer,service}`, `/etc/systemd/system/wg-*.service`, `/usr/local/sbin/*.sh`, and `/opt/apps/backups/scripts/`.
+2. On US: Extract `us-sys-configs-*.tar.gz` and restore `/etc/systemd/system/fhh-us-backup.{service,timer}`, `/etc/systemd/system/wg-personal-to-site-nat.service`, `/etc/systemd/system/cloudflared-update.{service,timer}`, `/usr/local/sbin/wg-personal-to-site-nat.sh`, `/opt/apps/backups/scripts/`, and `/usr/local/bin/family-hero-deploy`.
 
 
 ### 🔑 Offline Key Reference

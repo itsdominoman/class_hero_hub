@@ -4,7 +4,7 @@
 Restore Hermes orchestration agent, its profiles, and services.
 
 ## 2. Scope
-`/opt/apps/hermes-agent`, `/home/administrator/.hermes`, `/opt/apps/family-hero-hub/HERMES_RULES.md` (if backed up), `/home/administrator/.hermes/fhh-qa.env`, systemd services.
+`/opt/apps/hermes-agent`, `/opt/apps/hermes-workspace`, `/home/administrator/.hermes`, `/opt/apps/family-hero-hub/HERMES_RULES.md` (if backed up), `/home/administrator/.hermes/fhh-qa.env`, systemd services.
 
 ## 3. When to use this restore path
 Hermes agent is corrupted, deleted, or Europe VPS was rebuilt.
@@ -32,14 +32,17 @@ Dom must explicitly approve overwriting existing Hermes directories.
 
 ## 10. Exact backup source paths
 - `europe-app-hermes-*.tar.gz`
+- `europe-app-internal-tools-*.tar.gz`
 - `europe-home-hermes-*.tar.gz`
 - `europe-secrets-*.tar.gz.age`
 - `europe-sys-configs-*.tar.gz`
 
 ## 11. Exact restore target paths
 - `/opt/apps/hermes-agent`
+- `/opt/apps/hermes-workspace`
 - `/home/administrator/.hermes`
 - `/etc/systemd/system/hermes-*.service`
+- `/etc/systemd/system/hermes-workspace.service`
 
 ## 12. Exact commands
 
@@ -56,12 +59,16 @@ sudo tar -xzf europe-app-hermes-*.tar.gz -C /
 sudo tar -xzf europe-home-hermes-*.tar.gz -C /
 
 # 3. Restore Systemd Services
-sudo tar -xzf europe-sys-configs-*.tar.gz -C / etc/systemd/system/hermes-gateway.service etc/systemd/system/hermes-dashboard.service etc/systemd/system/hermes-dashboard-vpn-allow.service
+sudo tar -xzf europe-sys-configs-*.tar.gz -C / etc/systemd/system/hermes-gateway.service etc/systemd/system/hermes-dashboard.service etc/systemd/system/hermes-dashboard-vpn-allow.service etc/systemd/system/hermes-workspace.service
+
+# 3b. Restore Hermes workspace and private viewers if needed
+sudo tar -xzf europe-app-internal-tools-*.tar.gz -C /
 
 # 4. Decrypt Secrets (requires Dom to provide key.txt)
 mkdir -p /tmp/secrets_recovery
 age -d -i key.txt europe-secrets-*.tar.gz.age | tar -xzf - -C /tmp/secrets_recovery/
 sudo cp /tmp/secrets_recovery/home/administrator/.hermes/fhh-qa.env /home/administrator/.hermes/ 2>/dev/null || true
+sudo cp /tmp/secrets_recovery/opt/apps/hermes-workspace/.env /opt/apps/hermes-workspace/.env 2>/dev/null || true
 sudo cp -r /tmp/secrets_recovery/home/administrator/.hermes/profiles/* /home/administrator/.hermes/profiles/ 2>/dev/null || true
 
 # 5. Set Permissions
@@ -77,7 +84,7 @@ cat /etc/systemd/system/hermes-gateway.service | grep ExecStart
 
 # 7. Enable Services (Only after secrets are restored!)
 sudo systemctl daemon-reload
-sudo systemctl enable --now hermes-gateway hermes-dashboard hermes-dashboard-vpn-allow
+sudo systemctl enable --now hermes-gateway hermes-dashboard hermes-dashboard-vpn-allow hermes-workspace
 ```
 
 ## 13. Expected outputs
@@ -86,7 +93,9 @@ Systemctl should return no errors. Tar will extract files silently.
 ## 14. Validation checks
 - `systemctl status hermes-gateway --no-pager`
 - `systemctl status hermes-dashboard --no-pager`
+- `systemctl status hermes-workspace --no-pager`
 - `curl -I http://10.250.50.1:9119` (from VPN)
+- `curl -I http://10.250.50.1:3000` (from VPN or localhost)
 - Validate Telegram/agent integrations (check `journalctl -u hermes-gateway` for startup success, no secret exposure).
 
 ## 15. Failure handling

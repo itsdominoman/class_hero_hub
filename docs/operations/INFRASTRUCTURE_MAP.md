@@ -53,15 +53,15 @@ N/A
 
 ## Server Roles
 - **US Server (10.250.50.2)**: 
-  - Role: Production Family Hero Hub, PostgreSQL (pgBackRest), Caddy, Mailcow.
+  - Role: Production Family Hero Hub, PostgreSQL (pgBackRest), Caddy, Mailcow, and a legacy `cloudflared` tunnel service.
   - Public Domain: `familyherohub.com`
   - Rules: Should push backups to UK. Should NOT SSH into Europe or UK for anything else.
 - **Europe Server (10.250.50.1)**: 
-  - Role: Dev/test Family Hero Hub, Hermes agent, internal tools.
+  - Role: Dev/test Family Hero Hub, Hermes agent, Hermes workspace, and private internal tools/viewers.
   - Public Domain: `dev.familyherohub.com`
   - Rules: Should pull from US. Should push to US and UK. Orchestration hub.
 - **UK Server (10.250.50.3)**: 
-  - Role: Backup hub, Google Drive rclone sync, WireGuard hub.
+  - Role: Backup hub, Google Drive rclone sync, and WireGuard/VPN node.
   - Public Domain: None (infrastructure node).
   - Rules: Should NOT SSH into US or Europe. Read-only receiver of backups.
 

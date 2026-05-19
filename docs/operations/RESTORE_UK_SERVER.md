@@ -4,13 +4,13 @@
 Restore UK infrastructure and backup hub.
 
 ## 2. Scope
-WireGuard, `wg-easy`, `rclone` config, `/opt/apps/backups` directories, backup scripts/timers.
+WireGuard, `wg-easy`, `rclone` config, `/opt/apps/backups` directories, backup scripts/timers, and the installed UK helper services required for backup/DR/VPN (`fhh-uk-backup`, `hermes-gateway`, and `wg-personal-to-site-nat`).
 
 ## 3. When to use this restore path
 UK VPS hardware failure or OS wipe.
 
 ## 4. What this restores
-UK role: backup hub + Google Drive uploader.
+UK role: backup hub + Google Drive uploader, plus the helper services that support VPN and backup orchestration.
 
 ## 5. What this does NOT restore
 US/Europe local backups directly (must be pushed from them later or pulled from Drive).
@@ -87,6 +87,7 @@ Google Drive: `gdrive-crypt:uk/uk-sys-configs-*.tar.gz`, `uk-secrets-*.tar.gz.ag
    LATEST_SYS=$(ls -1t /tmp/recovery/uk-sys-configs-*.tar.gz | head -1)
    sudo tar -xzf "$LATEST_SYS" -C /
    ```
+   - This restores `fhh-uk-backup.*`, `hermes-gateway.service`, and `wg-personal-to-site-nat.service` when present.
 
 8. **Restore /opt/apps/backups structure:**
    ```bash
@@ -103,6 +104,7 @@ Google Drive: `gdrive-crypt:uk/uk-sys-configs-*.tar.gz`, `uk-secrets-*.tar.gz.ag
     ```bash
     sudo systemctl daemon-reload
     sudo systemctl enable --now fhh-uk-backup.timer
+   sudo systemctl enable --now hermes-gateway wg-personal-to-site-nat 2>/dev/null || true
     ```
 
 ## 13. Expected outputs
@@ -114,6 +116,7 @@ Silent extraction, successful service starts.
 - Validate UK local backup (`sudo /opt/apps/backups/scripts/uk-local-backup-and-sync.sh`).
 - Validate Google Drive encrypted upload/listing (`rclone ls gdrive-crypt:uk/`).
 - Validate no public backup store exposure.
+- Validate any restored helper services with `systemctl status fhh-uk-backup.timer hermes-gateway wg-personal-to-site-nat --no-pager`.
 
 ## 15. Failure handling
 If `rclone.conf` is missing, recreate it using offline salt/password per `GOOGLE_DRIVE_BACKUP.md`.

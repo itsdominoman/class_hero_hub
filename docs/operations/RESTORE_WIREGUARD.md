@@ -4,7 +4,7 @@
 Restore WireGuard mesh keys and configuration.
 
 ## 2. Scope
-`/etc/wireguard/wg-site.conf`, `/etc/wireguard/wg-site.private`, `/etc/wireguard/wg-site.public`.
+`/etc/wireguard/wg-site.conf`, `/etc/wireguard/wg-site.private`, `/etc/wireguard/wg-site.public`, and the `wg-easy` WireGuard state under `/opt/apps/wg-easy/etc_wireguard/` plus the matching `/opt/apps/wg-easy/docker-compose.yml` on servers that run the container.
 
 ## 3. When to use this restore path
 Server rebuild or corrupted VPN config.
@@ -50,6 +50,9 @@ age -d -i key.txt "$LATEST_SECRETS" | tar -xzf - -C /tmp/secrets_recovery/
 
 # 3. Restore config from staging (After Approval)
 sudo cp -r /tmp/secrets_recovery/etc/wireguard/* /etc/wireguard/
+
+# 3b. Restore wg-easy WireGuard state on UK (if present)
+sudo cp -r /tmp/secrets_recovery/opt/apps/wg-easy/etc_wireguard/* /opt/apps/wg-easy/etc_wireguard/
 
 # 4. Permissions
 sudo chmod 600 /etc/wireguard/*.conf

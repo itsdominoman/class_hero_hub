@@ -10,7 +10,7 @@ App dev folder, Hermes, WireGuard, Caddy, `.env` files, firewall rules.
 Europe VPS hardware failure or OS wipe.
 
 ## 4. What this restores
-Dev app, Hermes orchestration, dev database (from files), backup timers.
+Dev app, Hermes orchestration, Hermes workspace, internal viewers, dev database (from files), backup timers.
 
 ## 5. What this does NOT restore
 US production. Mailcow.
@@ -32,6 +32,7 @@ Dom must approve the OS rebuild and overwriting of any existing configuration.
 ## 10. Exact backup source paths
 - `europe-app-family-hero-hub-*.tar.gz`
 - `europe-app-hermes-*.tar.gz`
+- `europe-app-internal-tools-*.tar.gz`
 - `europe-home-hermes-*.tar.gz`
 - `europe-sys-configs-*.tar.gz`
 - `europe-secrets-*.tar.gz.age`
@@ -78,6 +79,12 @@ Dom must approve the OS rebuild and overwriting of any existing configuration.
    sudo chmod 600 /etc/wireguard/*.conf
    sudo chown root:root /etc/wireguard/*.conf
    sudo systemctl enable --now wg-quick@wg-site
+   
+   # Restore Hermes workspace env
+   sudo cp /tmp/secrets_recovery/opt/apps/hermes-workspace/.env /opt/apps/hermes-workspace/.env 2>/dev/null || true
+   # Restore wg-easy secrets if the container is in use
+   sudo cp /tmp/secrets_recovery/opt/apps/wg-easy/.env /opt/apps/wg-easy/.env 2>/dev/null || true
+   sudo cp -r /tmp/secrets_recovery/opt/apps/wg-easy/etc_wireguard/* /opt/apps/wg-easy/etc_wireguard/ 2>/dev/null || true
    ```
    - *Validate Mesh*: `sudo wg show`, `ip addr`, `ping 10.250.50.2`, `ping 10.250.50.3`.
 
@@ -100,11 +107,13 @@ Dom must approve the OS rebuild and overwriting of any existing configuration.
    ```bash
    LATEST_HUB=$(ls -1t /tmp/recovery/europe-app-family-hero-hub-*.tar.gz | head -1)
    LATEST_HERMES_APP=$(ls -1t /tmp/recovery/europe-app-hermes-*.tar.gz | head -1)
+   LATEST_INTERNAL=$(ls -1t /tmp/recovery/europe-app-internal-tools-*.tar.gz | head -1)
    LATEST_HERMES_HOME=$(ls -1t /tmp/recovery/europe-home-hermes-*.tar.gz | head -1)
    LATEST_SYS=$(ls -1t /tmp/recovery/europe-sys-configs-*.tar.gz | head -1)
    
    sudo tar -xzf "$LATEST_HUB" -C /
    sudo tar -xzf "$LATEST_HERMES_APP" -C /
+   sudo tar -xzf "$LATEST_INTERNAL" -C /
    sudo tar -xzf "$LATEST_HERMES_HOME" -C /
    sudo tar -xzf "$LATEST_SYS" -C /
    
@@ -121,6 +130,8 @@ Dom must approve the OS rebuild and overwriting of any existing configuration.
    cd /opt/apps/family-hero-hub
    sudo docker compose config
    sudo docker compose up -d
+   cd /opt/apps/hermes-workspace && sudo docker compose up -d || true
+   cd /opt/apps/fhh-ops-dashboard && ./scripts/start-dashboard.sh 2>/dev/null || true
    ```
 
 9. **Start Caddy:**
@@ -135,6 +146,8 @@ Dom must approve the OS rebuild and overwriting of any existing configuration.
     ```bash
     sudo systemctl daemon-reload
     sudo systemctl enable --now hermes-gateway hermes-dashboard hermes-dashboard-vpn-allow
+    sudo systemctl enable --now hermes-workspace
+    # Restore /opt/apps/wg-easy/docker-compose.yml from europe-sys-configs-*.tar.gz if wg-easy is used.
     ```
 
 11. **Restore Backup Timers:**
@@ -151,6 +164,11 @@ Service startups should report OK.
 - `docker ps` shows backend/frontend/postgres.
 - `systemctl list-timers | grep fhh`
 - `systemctl status hermes-gateway --no-pager`
+- `systemctl status hermes-workspace --no-pager`
+- `curl -I http://10.250.50.1:9119` (from VPN)
+- `curl -I http://10.250.50.1:3000` (from VPN or localhost)
+- `curl -I http://10.250.50.1:8765` and `curl -I http://10.250.50.1:8766` for the private viewers if they are restored
+- `ss -ltnp | grep 8768 || true` for the ops dashboard if you start it manually
 
 ## 15. Failure handling
 If Caddy fails to start, verify DNS points to the new Europe VPS IP before editing configs.

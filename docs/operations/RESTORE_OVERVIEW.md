@@ -59,10 +59,11 @@ Do not skip steps. Do not guess commands.
 4. **Stage Files First**: Copy `*.tar.gz` and `*.age` files to a `/tmp/recovery/` directory.
 5. **Verify Checksums**: Run `sha256sum -c manifest-*.txt` to ensure backup integrity.
 6. **Restore Non-Secrets**: Extract standard app and config tarballs, including server-specific `*-sys-configs-*.tar.gz` archives.
-7. **Decrypt/Restore Secrets**: Use `RESTORE_SECRETS.md` to decrypt `*.age` files and carefully restore `.env` and WireGuard keys.
-8. **Restart Services**: Reload systemd and start containers/services.
-9. **Validate**: Perform the specific validation checks listed in the targeted runbook.
-10. **Clean Up**: Only after validation, remove the `/tmp/recovery/` staging directory.
+7. **Restore Internal Tools**: On Europe, also extract `europe-app-internal-tools-*.tar.gz` if Hermes workspace or the private viewers are needed.
+8. **Decrypt/Restore Secrets**: Use `RESTORE_SECRETS.md` to decrypt `*.age` files and carefully restore `.env` and WireGuard keys.
+9. **Restart Services**: Reload systemd and start containers/services.
+10. **Validate**: Perform the specific validation checks listed in the targeted runbook.
+11. **Clean Up**: Only after validation, remove the `/tmp/recovery/` staging directory.
 
 
 ### 🔑 Offline Key Reference
