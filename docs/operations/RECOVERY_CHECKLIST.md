@@ -65,15 +65,19 @@ Do not guess the recovery order. Follow the tree.
 1. Determine if Hermes-only or full Europe server loss.
 2. If Hermes-only, use `RESTORE_HERMES.md`.
 3. If full server, use `RESTORE_EUROPE_SERVER.md`.
-4. Restore `europe-app-internal-tools-*.tar.gz` as well if you need Hermes workspace or the private viewers.
-5. Prefer UK `/opt/apps/backups/from-europe/` if available.
-6. If UK unavailable, use US `/opt/apps/backups/from-europe/`.
-7. If both unavailable, use Google Drive via `GOOGLE_DRIVE_BACKUP.md`.
+4. Confirm whether original Europe is offline or still active before restoring `10.250.50.1` or backup timers.
+5. Restore `europe-app-internal-tools-*.tar.gz` as well if you need Hermes workspace or the private viewers.
+6. Prefer UK `/opt/apps/backups/from-europe/` if available.
+7. If UK unavailable, use US `/opt/apps/backups/from-europe/`.
+8. If original Europe is still available and approved as a source, use Europe `/opt/apps/backups/local/`.
+9. If those are unavailable, use Google Drive via `GOOGLE_DRIVE_BACKUP.md`.
+10. Do not expect `/opt/apps/backups/from-europe/` on Europe itself; Europe stores its own `europe-*` archives in `/opt/apps/backups/local/`.
+11. Do not use `us-pgbackrest-repo-*` for Europe dev unless Dom explicitly approves seeding dev from US production.
 
 **Scenario C: UK backup hub down**
 1. Use `RESTORE_UK_SERVER.md`.
 2. Rebuild UK using `RESTORE_WIREGUARD.md` and `RESTORE_SECRETS.md`.
-3. Pull `uk-sys-configs` from Google Drive via `GOOGLE_DRIVE_BACKUP.md`.
+3. Pull `uk-sys-configs`, `uk-secrets`, and the matching manifest from Google Drive via `GOOGLE_DRIVE_BACKUP.md`, unless Dom has manually staged the UK archive set on the restore VPS.
 
 **Scenario D: All servers down (Google Drive only survives)**
 1. Restore UK server first (VPN hub + rclone access) using `RESTORE_UK_SERVER.md` and `GOOGLE_DRIVE_BACKUP.md`.
@@ -118,9 +122,11 @@ Not rehearsed yet.
 Before any restore drill:
 
 ```bash
-ls -la /opt/apps/backups/local /opt/apps/backups/from-us /opt/apps/backups/from-europe 2>/dev/null
+ls -la /opt/apps/backups/local /opt/apps/backups/from-us /opt/apps/backups/from-europe 2>/dev/null || true
 find /opt/apps/backups -maxdepth 2 -type f \( -name '*.tar.gz' -o -name '*.age' -o -name 'manifest-*.txt' \) -print | sort
 ```
+
+On Europe, missing `/opt/apps/backups/from-europe/` is expected because Europe is the source of those archives, not its own mirror. On US and UK, missing `/opt/apps/backups/from-europe/` is a mirror coverage issue.
 
 Verify the selected archive:
 
@@ -130,6 +136,17 @@ tar -tzf <role>-sys-configs-<timestamp>.tar.gz | grep -E 'firewall-status|ssh-ba
 ```
 
 Stop if the real server for the restored identity is still live, the latest sys-config archive lacks required restore reports, the offline age identity key is unavailable, provider firewall rules cannot be checked, or temporary DR firewall rules cannot be rolled back.
+
+Europe-specific stop conditions:
+
+- Original Europe and restore Europe would run simultaneously with the same WireGuard identity without an intentional endpoint-failover test.
+- SSH to US/UK with `ssh -o BatchMode=yes` asks for a password.
+- Manifest verification fails.
+- `wg-site` is active but handshakes, ping, or SSH over mesh fail.
+- wg-easy NAT shows `10.8.0.0/24` instead of `10.60.0.0/24`.
+- Postgres is healthy but `alembic_version` or critical app tables are missing.
+- OAuth is attempted before DB schema and data are restored.
+- UFW would be enabled before SSH, mesh, user VPN, admin IP allowlist, Caddy, and wg-easy ports are verified.
 
 ## 21. Final verification status
 

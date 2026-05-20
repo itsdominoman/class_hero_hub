@@ -119,3 +119,91 @@ Europe restore drill rule: only one server may own `10.250.50.1`. Validate from 
 ping -c 3 10.250.50.1
 sudo wg show
 ```
+
+## 21. Europe Site Mesh And wg-easy Gates
+
+Europe has two VPN layers and they must not be conflated:
+
+```text
+Site-to-site mesh: 10.250.50.0/24
+Europe: 10.250.50.1
+US: 10.250.50.2
+UK: 10.250.50.3
+UDP port: 51830
+
+Personal/mobile VPN: 10.60.0.0/24
+wg-easy UDP: 51820
+wg-easy admin: http://10.250.50.1:51821
+```
+
+Required SSH aliases before backup copy or endpoint repair:
+
+```text
+us-mesh
+uk-mesh
+us-public
+uk-public
+```
+
+Validation:
+
+```bash
+ssh -o BatchMode=yes us-mesh 'hostname; echo US_MESH_OK'
+ssh -o BatchMode=yes uk-mesh 'hostname; echo UK_MESH_OK'
+ssh -o BatchMode=yes us-public 'hostname; echo US_PUBLIC_OK'
+ssh -o BatchMode=yes uk-public 'hostname; echo UK_PUBLIC_OK'
+```
+
+Expected output: all aliases print the expected marker. Password prompt means stop.
+
+Site mesh validation must include all of:
+
+```bash
+sudo wg show wg-site
+ping -c 3 10.250.50.2
+ping -c 3 10.250.50.3
+ssh -o BatchMode=yes us-mesh 'hostname; echo US_MESH_OK'
+ssh -o BatchMode=yes uk-mesh 'hostname; echo UK_MESH_OK'
+```
+
+Expected output: recent handshakes, `0% packet loss`, and SSH markers.
+
+Endpoint drift:
+
+- Historical May 2026 restore endpoint and original Europe endpoint values must not be reused as defaults.
+- Use `<current-restore-public-ip>:51830` for a restore drill endpoint and `<current-original-europe-public-ip>:51830` when returning peers to the original Europe server.
+- If Europe restores to a new public IP, US/UK peer endpoint config must be updated only with Dom approval.
+- Never run original Europe and restore Europe simultaneously with the same WireGuard identity unless intentionally testing endpoint failover.
+
+wg-easy restore requirements:
+
+- Restore `/opt/apps/wg-easy/docker-compose.yml`.
+- Restore encrypted `/opt/apps/wg-easy/.env`.
+- Restore encrypted `/opt/apps/wg-easy/etc_wireguard/wg0.conf` and `wg0.json`.
+- If the latest encrypted archive is incomplete, inspect older encrypted Europe secrets archives by filename only.
+- Compose must bind `./etc_wireguard:/etc/wireguard`, not a named volume.
+- `.env` must include `WG_DEFAULT_ADDRESS=10.60.0.x`.
+- NAT must show `10.60.0.0/24`, not `10.8.0.0/24`.
+
+Validation:
+
+```bash
+cd /opt/apps/wg-easy
+docker compose config
+docker compose ps
+sudo ss -ltnup | grep -E '51820|51821'
+sudo docker exec wg-easy-europe sh -lc 'iptables -t nat -S | grep -E "10.8|10.60|MASQUERADE"'
+```
+
+Real client validation is mandatory before enabling UFW:
+
+```text
+Address = 10.60.0.x/24
+Endpoint = dev.familyherohub.com:51820
+AllowedIPs = 10.250.50.0/24
+ping 10.250.50.1
+open http://10.250.50.1:51821
+open http://10.250.50.1:9119
+open http://10.250.50.1:3000
+ssh administrator@10.250.50.1
+```

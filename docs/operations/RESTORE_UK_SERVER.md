@@ -22,7 +22,7 @@ Root on new UK VPS (`10.250.50.3`).
 `age` identity file, offline `rclone.conf`.
 
 ## 8. Required backup source options
-Google Drive via `GOOGLE_DRIVE_BACKUP.md`.
+Google Drive via `GOOGLE_DRIVE_BACKUP.md`, unless the required UK archives have already been manually staged on the restore VPS.
 
 ## 9. Required approval gates before destructive actions
 Approval to rebuild UK. Note: UK does not need outbound SSH to US/Europe for normal backup operation.
@@ -63,11 +63,12 @@ Google Drive: `gdrive-crypt:uk/uk-sys-configs-*.tar.gz`, `uk-secrets-*.tar.gz.ag
    chmod 600 ~/.config/rclone/rclone.conf
    ```
 
-5. **Pull UK Backups from Google Drive:**
+5. **Pull UK Backups from Google Drive unless manually staged:**
    ```bash
    mkdir -p /tmp/recovery
    rclone copy gdrive-crypt:uk/ /tmp/recovery/
    ```
+   If Dom manually staged the UK archive set, verify the staged folder contains `uk-sys-configs-*.tar.gz`, `uk-secrets-*.tar.gz.age`, and the matching `manifest-*.txt` before continuing.
 
 6. **Decrypt Secrets & Restore Network Identity:**
    ```bash
@@ -143,6 +144,18 @@ Required archives:
 - `uk-secrets-*.tar.gz.age`
 - Optional mirrored sets: `from-us/*`, `from-europe/*`, or Google Drive encrypted copy.
 
+Source requirement: a fresh UK restore depends on Google Drive/rclone recovery unless Dom manually stages the UK archive set on the restore VPS first. UK local archives are not expected to be available after a UK server loss.
+
+Required current UK proof set:
+
+```text
+uk-sys-configs-20260520-131436.tar.gz
+uk-secrets-20260520-131436.tar.gz.age
+manifest-20260520-131436.txt
+```
+
+Proof location note: this set is verified on UK local storage and through Google Drive `gdrive-crypt:uk/`. It is not expected to be present on Europe under `/opt/apps/backups/local/`; for a fresh UK rebuild, retrieve it from Google Drive through rclone or manually stage it from an offline copy.
+
 Inspect the sys-config archive:
 
 ```bash
@@ -196,6 +209,9 @@ Verified on 2026-05-20:
 - `sudo systemctl start fhh-uk-backup.service`
 - `sudo systemctl status fhh-uk-backup.service --no-pager`
 - Result: completed successfully with `status=0/SUCCESS`.
-- Latest verified sys-config archive: `/opt/apps/backups/local/uk-sys-configs-20260520-035446.tar.gz`.
-- Verified report files: `ssh-backup-trust-map.txt`, `docker-networks.txt`, `iptables-save.txt`, `nft-ruleset.txt`, `wireguard-summary.txt`, `rclone-remotes.txt`, `systemd-enabled-services.txt`, `google-drive-sync-status.txt`, `firewall-status.txt`, `temporary-dr-firewall-rules.md`.
+- Latest verified sys-config archive on UK: `/opt/apps/backups/local/uk-sys-configs-20260520-131436.tar.gz`.
+- Latest verified secrets archive on UK: `/opt/apps/backups/local/uk-secrets-20260520-131436.tar.gz.age`.
+- Google Drive `gdrive-crypt:uk/` also lists `manifest-20260520-131436.txt`, `uk-sys-configs-20260520-131436.tar.gz`, and `uk-secrets-20260520-131436.tar.gz.age`.
+- Verified archive members: `ssh-backup-trust-map.txt`, `backup-systemd-units/fhh-uk-backup.timer`, `backup-systemd-units/fhh-uk-backup.service`, `iptables-save.txt`, `systemd-units/fhh-uk-backup.timer`, `systemd-units/fhh-uk-backup.service`, `nft-ruleset.txt`, `wireguard-summary.txt`, `rclone-remotes.txt`, `google-drive-sync-status.txt`, `firewall-status.txt`, `backup-scripts/uk-local-backup-and-sync.sh`.
+- UK archive proof shows no active n8n/OpenClaw service or timer files in the sys-config archive.
 - Backup service is oneshot/static and is expected to be inactive after success; `fhh-uk-backup.timer` is the persistent reboot mechanism.

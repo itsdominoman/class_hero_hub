@@ -112,6 +112,7 @@ Dom must approve the OS rebuild and app startup.
 
 9. **PostgreSQL Restore (MANDATORY BEFORE APP START):**
    - STOP: Execute steps in `RESTORE_POSTGRES.md` exactly as written to restore the DB data via an ephemeral pgBackRest container. Do NOT `docker compose up -d` before this is complete.
+   - This US pgBackRest path still needs a non-production rehearsal on a fresh clone before a real production failover.
 
 10. **Restore wg-easy and start application services:**
    - Restore `/opt/apps/wg-easy/docker-compose.yml` from `us-sys-configs-*.tar.gz`.
@@ -228,6 +229,6 @@ Verified on 2026-05-20:
 - `sudo systemctl start fhh-us-backup.service`
 - `sudo systemctl status fhh-us-backup.service --no-pager`
 - Result: completed successfully with `status=0/SUCCESS`.
-- Latest verified sys-config archive: `/opt/apps/backups/local/us-sys-configs-20260520-034722.tar.gz`.
-- Verified report files: `wireguard-summary.txt`, `ssh-backup-trust-map.txt`, `systemd-enabled-services.txt`, `temporary-dr-firewall-rules.md`, `nft-ruleset.txt`, `docker-networks.txt`, `firewall-status.txt`, `iptables-save.txt`.
+- Latest verified sys-config archive: `/opt/apps/backups/from-us/us-sys-configs-20260520-131221.tar.gz`.
+- Verified archive members: `./helper-scripts/wg-personal-to-site-nat.sh`, `./local-bin/family-hero-deploy`, `./app-configs/wg-easy/docker-compose.yml`.
 - Backup service is oneshot/static and is expected to be inactive after success; `fhh-us-backup.timer` is the persistent reboot mechanism.

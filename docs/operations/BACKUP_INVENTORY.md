@@ -53,8 +53,14 @@ N/A
 
 ## Active Backups (`/opt/apps/backups/`)
 - `local/`: Server's own backups.
-- `from-us/`: Mirrored from US.
-- `from-europe/`: Mirrored from Europe.
+- `from-us/`: Mirrored from US. Expected on Europe and UK, not on US as a self-mirror.
+- `from-europe/`: Mirrored from Europe. Expected on US and UK, not on Europe as a self-mirror.
+
+Role-specific local expectations:
+
+- Europe: `/opt/apps/backups/local/` contains `europe-*`; `/opt/apps/backups/from-us/` may contain pulled `us-*`; `/opt/apps/backups/from-europe/` is not expected locally on Europe.
+- US: `/opt/apps/backups/local/` contains `us-*`; `/opt/apps/backups/from-europe/` may contain mirrored `europe-*`.
+- UK: `/opt/apps/backups/local/` contains `uk-*`; `/opt/apps/backups/from-us/` and `/opt/apps/backups/from-europe/` contain mirrored source-server archives.
 
 ## Google Drive (`gdrive-crypt:` remote)
 Encrypted logical layout:
@@ -71,12 +77,12 @@ Encrypted logical layout:
 - `us-secrets-*.tar.gz.age` (Encrypted; includes `/opt/apps/family-hero-hub/.env`, `/opt/apps/wg-easy/.env`, `/opt/apps/wg-easy/etc_wireguard`, `/etc/wireguard`, and the secret-bearing `cloudflared.service` unit)
 
 **Europe Backup Set:**
-- `europe-app-family-hero-hub-*.tar.gz`
+- `europe-app-family-hero-hub-*.tar.gz` (Includes app files and `/opt/apps/family-hero-hub/data/family_hero_hub.sqlite` as the Europe dev data source when no Europe pgBackRest exists)
 - `europe-app-hermes-*.tar.gz`
 - `europe-app-internal-tools-*.tar.gz` (Includes `/opt/apps/hermes-workspace`, `/opt/apps/fhh-ops-dashboard`, and the private viewer apps under `family-hero-hub/tmp/{competitor-review,docs-viewer,qa-reports-viewer}`)
-- `europe-home-hermes-*.tar.gz`
-- `europe-secrets-*.tar.gz.age` (Encrypted; includes `/opt/apps/family-hero-hub/.env`, `/opt/apps/hermes-workspace/.env`, `/opt/apps/wg-easy/.env`, `/opt/apps/wg-easy/etc_wireguard`, `/home/administrator/.hermes/fhh-qa.env`, Hermes profile secrets, and `/etc/wireguard`)
-- `europe-sys-configs-*.tar.gz` (Includes Caddy, `/opt/apps/wg-easy/docker-compose.yml`, custom systemd units, `/usr/local/sbin/*.sh`, and `/etc/sudoers.d`; WireGuard moved to the encrypted secrets archive)
+- `europe-home-hermes-*.tar.gz` (Plaintext Hermes home state with `auth`, `env`, `key`, `secret`, and `token` filename patterns excluded)
+- `europe-secrets-*.tar.gz.age` (Encrypted; includes `/opt/apps/family-hero-hub/.env`, `/opt/apps/hermes-workspace/.env`, `/opt/apps/wg-easy/.env`, `/opt/apps/wg-easy/etc_wireguard`, `/home/administrator/.hermes/*.env`, `/home/administrator/.hermes/auth*`, Hermes profile env/auth/secrets, Hermes state-snapshot auth/env files, `/etc/wireguard`, `/home/administrator/.ssh/europe-to-us-backups`, `/home/administrator/.ssh/europe-to-uk-backups`, and `/home/administrator/.ssh/known_hosts`)
+- `europe-sys-configs-*.tar.gz` (Includes Caddy, `/opt/apps/wg-easy/docker-compose.yml`, custom systemd units, restore helper scripts under `/usr/local/sbin`, backup scripts, and `/etc/sudoers.d`; WireGuard private material moved to the encrypted secrets archive)
 
 **UK Backup Set:**
 - `uk-sys-configs-*.tar.gz` (Includes `wg-easy/docker-compose.yml`, `fhh-uk-backup.*`, `hermes-gateway.service`, `wg-personal-to-site-nat.service`, and `/usr/local/sbin/wg-personal-to-site-nat.sh`)
@@ -95,7 +101,7 @@ Encrypted logical layout:
 - `/opt/backups/` on US and Europe: **Untouched, inventory only.** Do not migrate or delete.
 
 ## 18. Last verified date
-2026-05-19
+2026-05-20
 
 ## 19. Restore rehearsal status
 N/A
@@ -111,6 +117,7 @@ Every current `*-sys-configs-*.tar.gz` archive must include these report familie
 - Systemd/cron: `systemd-enabled-services.txt`, `systemd-enabled-timers.txt`, `systemd-project-units.txt`, `systemd-all-custom-units.txt`, `crontab-root.txt`, `crontab-administrator.txt`, `cron-d-listing.txt`.
 - Caddy: `caddy-configs/`, `caddy-config-paths.txt`, `caddy-validate.txt`, `caddy-routes-summary.txt`, `caddy-reverse-proxy-targets.txt`, `caddy-allowlists.txt`.
 - Backup/WireGuard: `backup-scripts/`, `backup-systemd-units/`, `wireguard-summary.txt`, `wg-show.txt`, `wg-service-status.txt`, `wg-easy-summary.txt`, `wireguard-endpoint-restore-notes.txt`.
+- Actual restore files: `helper-scripts/hermes-dashboard-vpn-allow.sh`, `helper-scripts/wg-personal-to-site-nat.sh`, `helper-scripts/wg-site-mesh-forward.sh`, `app-configs/wg-easy/docker-compose.yml`, `caddy-configs/caddy/Caddyfile`, and relevant `systemd-units/*.service`.
 - UK only: `rclone-version.txt`, `rclone-remotes.txt`, `rclone-crypt-list-test.txt`, `google-drive-sync-status.txt`.
 
 Verification:
@@ -125,26 +132,107 @@ High-signal historical plaintext filename findings from the 2026-05-20 audit:
 - Older US app archives on US/UK/Europe mirrors contain `family-hero-hub/.env`.
 - Older Europe app archives on Europe/UK mirrors contain `family-hero-hub/.env`.
 - Older UK sys-config archives contain `wg0.conf` and `wg-site.private` filenames.
+- `europe-home-hermes-20260520-145520.tar.gz` contains Hermes auth/env filenames and must be treated as secret-bearing until remediated.
+
+Exact affected archive paths confirmed by filename-only inspection on Europe:
+
+```text
+/opt/apps/backups/local/europe-app-family-hero-hub-20260519-070912.tar.gz
+/opt/apps/backups/local/europe-app-family-hero-hub-20260519-071313.tar.gz
+/opt/apps/backups/local/europe-app-family-hero-hub-20260519-072445.tar.gz
+/opt/apps/backups/local/europe-app-family-hero-hub-20260519-074218.tar.gz
+/opt/apps/backups/local/europe-home-hermes-20260520-145520.tar.gz
+/opt/apps/backups/from-us/us-app-family-hero-hub-20260519-053833.tar.gz
+/opt/apps/backups/from-us/us-app-family-hero-hub-20260519-053855.tar.gz
+/opt/apps/backups/from-us/us-app-family-hero-hub-20260519-053920.tar.gz
+/opt/apps/backups/from-us/us-app-family-hero-hub-20260519-092717.tar.gz
+```
+
+No local UK `uk-sys-configs-*.tar.gz` archive was present in the inspected Europe backup folders, so older UK plaintext sys-config archive paths still need to be inventoried on UK or Google Drive by filename only before any deletion decision.
 
 Do not delete these archives without Dom approval. Recommended remediation is to verify encrypted replacements exist, quarantine or delete obsolete plaintext archives, and rotate affected secrets if exposure risk is considered high.
 
-## 21. Final verification status
+Remediation task list for historical plaintext archives:
 
-Verified on 2026-05-20 after Dom manually ran the root backup services:
+1. Inventory affected archive filenames only; do not extract or print secret-bearing contents.
+2. For each affected timestamp, verify a newer encrypted replacement exists for the same role and data class.
+3. Quarantine affected plaintext archives to restricted storage or delete them only after Dom approval.
+4. Rotate any `.env`, Hermes auth, WireGuard, wg-easy, rclone, OAuth, API, or SSH backup credentials that may have been exposed through plaintext archive storage.
+5. Europe Hermes plaintext remediation proof is complete for timestamp `20260520-160643`: `/opt/apps/backups/local/europe-home-hermes-20260520-160643.tar.gz` has no obvious Hermes secret filenames matching `auth.json`, `.env`, `token`, `secret`, or `key`; `/opt/apps/backups/local/europe-secrets-20260520-160643.tar.gz.age` exists.
+6. Record the final disposition and rotation status in this document before the next full DR drill.
 
-- US: `fhh-us-backup.service` completed successfully and produced `/opt/apps/backups/local/us-sys-configs-20260520-034722.tar.gz`.
-- Europe: `fhh-europe-backup.service` completed successfully and produced `/opt/apps/backups/local/europe-sys-configs-20260520-054833.tar.gz`.
-- UK: `fhh-uk-backup.service` completed successfully and produced `/opt/apps/backups/local/uk-sys-configs-20260520-035446.tar.gz`.
+## 21. Europe Restore-Test Source Map
+
+Use this map during Europe restore:
+
+| Backup type | Expected source | Expected path or pattern |
+|---|---|---|
+| Europe app archive | UK `/opt/apps/backups/from-europe/`, US `/opt/apps/backups/from-europe/`, or Europe local if available | `europe-app-family-hero-hub-*.tar.gz` |
+| Europe Hermes app | same | `europe-app-hermes-*.tar.gz` |
+| Europe internal tools | same | `europe-app-internal-tools-*.tar.gz` |
+| Europe Hermes home | same | `europe-home-hermes-*.tar.gz` |
+| Europe sys configs | same | `europe-sys-configs-*.tar.gz` |
+| Europe secrets | same | `europe-secrets-*.tar.gz.age` |
+| Manifest | same folder | `manifest-*.txt` |
+| Europe dev DB | app archive after restore | `/opt/apps/family-hero-hub/data/family_hero_hub.sqlite` |
+| US production Postgres | US source only | `us-pgbackrest-repo-*.tar.gz` |
+
+Warning: do not use `us-pgbackrest-repo-*` for Europe dev unless intentionally seeding dev from production with Dom approval.
+
+Expected Europe dev SQLite row counts from the May 2026 restore test:
+
+```text
+parent_users: 7
+families: 4
+children: 7
+ledger_transactions: 97
+rewards: 10
+approved_parent_emails: 8
+redemption_requests: 8
+calendar_entries: 19
+school_items: 47
+```
+
+## 22. Final verification status
+
+Completed on 2026-05-20:
+
+- US backup service completed successfully and the latest pulled US sys-config mirror inspected from Europe is `/opt/apps/backups/from-us/us-sys-configs-20260520-131221.tar.gz`.
+- Europe backup service completed successfully and the latest remediated Europe sys-config archive inspected from Europe is `/opt/apps/backups/local/europe-sys-configs-20260520-160643.tar.gz`.
+- UK backup proof is verified on UK and in Google Drive, not by local files on Europe.
+- Required UK proof set: `uk-sys-configs-20260520-131436.tar.gz`, `uk-secrets-20260520-131436.tar.gz.age`, and `manifest-20260520-131436.txt`.
+- UK `gdrive-crypt` listing shows `manifest-20260520-131436.txt`, `uk-secrets-20260520-131436.tar.gz.age`, and `uk-sys-configs-20260520-131436.tar.gz`.
 
 Verified archive contents include:
 
-- US: `wireguard-summary.txt`, `ssh-backup-trust-map.txt`, `systemd-enabled-services.txt`, `temporary-dr-firewall-rules.md`, `nft-ruleset.txt`, `docker-networks.txt`, `firewall-status.txt`, `iptables-save.txt`.
-- Europe: `ssh-backup-trust-map.txt`, `firewall-status.txt`, `temporary-dr-firewall-rules.md`, `iptables-save.txt`, `wireguard-summary.txt`, `docker-networks.txt`, `systemd-enabled-services.txt`, `nft-ruleset.txt`.
-- UK: `ssh-backup-trust-map.txt`, `docker-networks.txt`, `iptables-save.txt`, `nft-ruleset.txt`, `wireguard-summary.txt`, `rclone-remotes.txt`, `systemd-enabled-services.txt`, `google-drive-sync-status.txt`, `firewall-status.txt`, `temporary-dr-firewall-rules.md`.
+- US: `helper-scripts/wg-personal-to-site-nat.sh`, `local-bin/family-hero-deploy`, `app-configs/wg-easy/docker-compose.yml`.
+- Europe: remediated set `20260520-160643` includes `app-configs/wg-easy/docker-compose.yml`, `helper-scripts/wg-personal-to-site-nat.sh`, `helper-scripts/wg-site-mesh-forward.sh`, and `helper-scripts/hermes-dashboard-vpn-allow.sh`.
+- UK: `ssh-backup-trust-map.txt`, `backup-systemd-units/fhh-uk-backup.timer`, `backup-systemd-units/fhh-uk-backup.service`, `iptables-save.txt`, `systemd-units/fhh-uk-backup.timer`, `systemd-units/fhh-uk-backup.service`, `nft-ruleset.txt`, `wireguard-summary.txt`, `rclone-remotes.txt`, `google-drive-sync-status.txt`, `firewall-status.txt`, `backup-scripts/uk-local-backup-and-sync.sh`.
 
-Mirror and cloud verification:
+## 23. 2026-05-20 Backup-Side Proof Update
 
-- UK has the latest US sys-config mirror at `/opt/apps/backups/from-us/us-sys-configs-20260520-034722.tar.gz`.
-- UK has the latest Europe sys-config mirror at `/opt/apps/backups/from-europe/europe-sys-configs-20260520-054833.tar.gz`.
-- Europe successfully pulled the latest US sys-config mirror.
-- UK `gdrive-crypt` listing shows the latest UK, US, and Europe sys-config archive names, confirming encrypted Google Drive upload and listing.
+The archive proof chain is now complete for all three server roles.
+
+US:
+
+- `us-sys-configs-20260520-131221.tar.gz` contains `./helper-scripts/wg-personal-to-site-nat.sh`, `./local-bin/family-hero-deploy`, and `./app-configs/wg-easy/docker-compose.yml`.
+
+Europe:
+
+- Remediated Europe backup was run.
+- `/opt/apps/backups/local/europe-home-hermes-20260520-160643.tar.gz` has no obvious Hermes secret filenames matching `auth.json`, `.env`, `token`, `secret`, or `key`.
+- `/opt/apps/backups/local/europe-secrets-20260520-160643.tar.gz.age` exists.
+- `/opt/apps/backups/local/europe-sys-configs-20260520-160643.tar.gz` contains `./app-configs/wg-easy/docker-compose.yml`, `./helper-scripts/wg-personal-to-site-nat.sh`, `./helper-scripts/wg-site-mesh-forward.sh`, and `./helper-scripts/hermes-dashboard-vpn-allow.sh`.
+
+UK:
+
+- Fresh UK backup was run.
+- On UK, `/opt/apps/backups/local/uk-sys-configs-20260520-131436.tar.gz` contains `ssh-backup-trust-map.txt`, `backup-systemd-units/fhh-uk-backup.timer`, `backup-systemd-units/fhh-uk-backup.service`, `iptables-save.txt`, `systemd-units/fhh-uk-backup.timer`, `systemd-units/fhh-uk-backup.service`, `nft-ruleset.txt`, `wireguard-summary.txt`, `rclone-remotes.txt`, `google-drive-sync-status.txt`, `firewall-status.txt`, and `backup-scripts/uk-local-backup-and-sync.sh`.
+- On UK, `/opt/apps/backups/local/uk-secrets-20260520-131436.tar.gz.age` exists alongside it.
+- Google Drive `gdrive-crypt:uk/` shows `manifest-20260520-131436.txt`, `uk-secrets-20260520-131436.tar.gz.age`, and `uk-sys-configs-20260520-131436.tar.gz`.
+
+Legitimate remaining caveats:
+
+- Historical plaintext archive quarantine/delete/rotation decisions still remain pending for affected old archives; the Europe Hermes plaintext backup path is remediated as of `20260520-160643`.
+- Mailcow remains out of scope.
+- Full restore drills still need to be repeated and proven end-to-end.

@@ -118,7 +118,7 @@ Do not start `postgres` before running the ephemeral `pgbackrest restore` comman
 2026-05-19
 
 ## 19. Restore rehearsal status
-Partially rehearsed: backup extraction/listing only. Rehearsal on Europe completed earlier (2026-05-09).
+Partially rehearsed: backup extraction/listing only. The US pgBackRest restore path still needs a non-production rehearsal on a fresh clone before it is treated as production-ready.
 
 ## 20. Fresh-server dependency checks
 

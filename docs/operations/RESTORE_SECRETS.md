@@ -16,7 +16,7 @@ Server rebuild, accidental deletion of `.env`, or WireGuard key loss.
 - `wg-easy/etc_wireguard/` on UK.
 - `rclone.conf` (on UK).
 - QA env (`/home/administrator/.hermes/fhh-qa.env`).
-- Hermes profiles/secrets.
+- Hermes auth/env state, profile env/auth files, state-snapshot auth/env files, and Hermes profiles/secrets.
 
 ## 5. What this does NOT restore
 App code or system binaries.
@@ -127,3 +127,53 @@ sudo chmod 600 /etc/wireguard/*.conf /etc/wireguard/*.private 2>/dev/null || tru
 ```
 
 Role-specific encrypted secrets must include `.env` files, WireGuard private state, wg-easy `.env`, backup automation SSH private keys needed by that role, UK `rclone.conf`, cloudflared credentials if present, and Hermes/QA/API/OAuth tokens if present.
+
+## 21. Europe Restore Secret Coverage
+
+For Europe, the encrypted secrets archive must include these restore-critical files:
+
+```text
+/opt/apps/family-hero-hub/.env
+/opt/apps/hermes-workspace/.env
+/opt/apps/wg-easy/.env
+/opt/apps/wg-easy/etc_wireguard/
+/home/administrator/.hermes/.env
+/home/administrator/.hermes/*.env
+/home/administrator/.hermes/auth.json
+/home/administrator/.hermes/auth.lock
+/home/administrator/.hermes/auth/
+/home/administrator/.hermes/fhh-qa.env
+/home/administrator/.hermes/profiles/*/.env
+/home/administrator/.hermes/profiles/*/*.env
+/home/administrator/.hermes/profiles/*/auth.json
+/home/administrator/.hermes/profiles/*/auth.lock
+/home/administrator/.hermes/profiles/*/secrets.env
+/home/administrator/.hermes/state-snapshots/*/.env
+/home/administrator/.hermes/state-snapshots/*/auth.json
+/etc/wireguard/
+/home/administrator/.ssh/europe-to-us-backups
+/home/administrator/.ssh/europe-to-uk-backups
+/home/administrator/.ssh/known_hosts
+```
+
+Validate by filename only:
+
+```bash
+find /opt/apps/restore-materials/secrets-staging -type f -printf '%p\n' | sort
+```
+
+Expected output: filenames appear; no secret contents are printed.
+
+Stop conditions:
+
+- The age identity key is missing or fails to decrypt.
+- Backup SSH keys are missing; US/UK backup copy cannot proceed.
+- Latest archive lacks wg-easy state; inspect older encrypted Europe secrets archives without printing contents.
+- Any command would print `.env`, private keys, WireGuard private keys, age key material, tokens, or `rclone.conf`.
+
+Do not restore secrets directly to `/`. Decrypt to staging, validate filenames, then copy exact files into exact restore targets after approval.
+
+Europe remediated backup proof from 2026-05-20:
+
+- `/opt/apps/backups/local/europe-secrets-20260520-160643.tar.gz.age` exists.
+- `/opt/apps/backups/local/europe-home-hermes-20260520-160643.tar.gz` has no obvious Hermes secret filenames matching `auth.json`, `.env`, `token`, `secret`, or `key`, so Hermes secret-bearing files should be restored from the encrypted Europe secrets archive.

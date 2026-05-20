@@ -53,7 +53,7 @@ N/A
 
 ## Schedule & Timers
 Systemd timers trigger localized shell scripts running as `root`.
-- **Europe (`fhh-europe-backup.timer` @ 01:00)**: Backs up Europe dev app, Hermes, Europe internal tools, and configs including `wg-easy/docker-compose.yml`; encrypted secrets also include `wg-easy/.env` and `wg-easy/etc_wireguard`. Mirrors to US and UK.
+- **Europe (`fhh-europe-backup.timer` @ 01:00)**: Backs up Europe dev app including `data/family_hero_hub.sqlite`, Hermes, Europe internal tools, and configs including Caddy, systemd units, `wg-easy/docker-compose.yml`, helper scripts under `/usr/local/sbin`, and backup scripts; encrypted secrets include app/Hermes env files, `wg-easy/.env`, `wg-easy/etc_wireguard`, `/etc/wireguard`, backup SSH keys, and SSH `known_hosts`. Mirrors to US and UK.
 - **US (`fhh-us-backup.timer` @ 02:00)**: Backs up US prod app, pgBackRest tarball, `us-sys-configs` including `wg-easy/docker-compose.yml`, and encrypted secrets, including the secret-bearing `cloudflared.service`, `wg-easy/.env`, and `wg-easy/etc_wireguard`. Mirrors to UK.
 - **Europe (`fhh-europe-pull-us.timer` @ 03:00)**: Pulls the US backup mirror down to Europe.
 - **UK (`fhh-uk-backup.timer` @ 04:00)**: Backs up UK configs, encrypted WireGuard/wg-easy state, and syncs `local`, `from-us`, and `from-europe` to Google Drive.
@@ -122,11 +122,20 @@ Backup services are oneshot/static services. They are expected to be inactive af
 
 Verified latest sys-config archives:
 
-- US: `/opt/apps/backups/local/us-sys-configs-20260520-034722.tar.gz`
-- Europe: `/opt/apps/backups/local/europe-sys-configs-20260520-054833.tar.gz`
-- UK: `/opt/apps/backups/local/uk-sys-configs-20260520-035446.tar.gz`
+- US: `/opt/apps/backups/from-us/us-sys-configs-20260520-131221.tar.gz`
+- Europe: `/opt/apps/backups/local/europe-sys-configs-20260520-160643.tar.gz`
+- UK: verified on UK local storage as `/opt/apps/backups/local/uk-sys-configs-20260520-131436.tar.gz` and in Google Drive `gdrive-crypt:uk/`; this archive is not expected to exist on Europe local storage.
 
 Verified report files inside those archives include the restore-critical set for firewall, SSH trust, systemd/timers, Docker, WireGuard, and Google Drive on UK.
+
+Archive proof update from 2026-05-20:
+
+- US archive proof now includes `./helper-scripts/wg-personal-to-site-nat.sh`, `./local-bin/family-hero-deploy`, and `./app-configs/wg-easy/docker-compose.yml`.
+- Europe remediated archive proof now includes `/opt/apps/backups/local/europe-home-hermes-20260520-160643.tar.gz`, `/opt/apps/backups/local/europe-secrets-20260520-160643.tar.gz.age`, and `/opt/apps/backups/local/europe-sys-configs-20260520-160643.tar.gz`.
+- `europe-home-hermes-20260520-160643.tar.gz` has no obvious Hermes secret filenames matching `auth.json`, `.env`, `token`, `secret`, or `key`.
+- `europe-secrets-20260520-160643.tar.gz.age` exists.
+- `europe-sys-configs-20260520-160643.tar.gz` contains `./app-configs/wg-easy/docker-compose.yml`, `./helper-scripts/wg-personal-to-site-nat.sh`, `./helper-scripts/wg-site-mesh-forward.sh`, and `./helper-scripts/hermes-dashboard-vpn-allow.sh`.
+- UK archive proof now includes `ssh-backup-trust-map.txt`, `backup-systemd-units/fhh-uk-backup.timer`, `backup-systemd-units/fhh-uk-backup.service`, `iptables-save.txt`, `systemd-units/fhh-uk-backup.timer`, `systemd-units/fhh-uk-backup.service`, `nft-ruleset.txt`, `wireguard-summary.txt`, `rclone-remotes.txt`, `google-drive-sync-status.txt`, `firewall-status.txt`, and `backup-scripts/uk-local-backup-and-sync.sh`.
 
 Do not start a Europe restore drill until the latest `*-sys-configs-*.tar.gz` archive for US, Europe, and UK contains the restore report set listed in `BACKUP_INVENTORY.md`.
 
@@ -139,3 +148,42 @@ tar -tzf "$LATEST_SYS" | grep -E 'firewall-status|systemd-enabled|docker-ps|cadd
 ```
 
 Backup scripts now use `/opt/apps/backups/scripts/fhh-collect-sys-config.sh` to generate restore reports. Private keys, `.env`, `rclone.conf`, WireGuard private configs, OAuth tokens, and API credentials must remain in `*-secrets-*.tar.gz.age`.
+
+## 21. Backup Script Hardening Proposal
+
+Do not apply these script changes during a restore drill without explicit approval. Proposed follow-up patch:
+
+- In every backup and mirror script, replace `set -e` with `set -euo pipefail`.
+- Add an `ERR` trap that prints the failed command and line number without printing secret values.
+- For secret archive pipelines such as `tar ... | age ...`, rely on `pipefail` so a failed `tar` cannot still produce an apparently successful encrypted archive.
+- Replace `StrictHostKeyChecking=no` with pinned host-key validation using restored `known_hosts` or `StrictHostKeyChecking=accept-new` only for first bootstrap after Dom approval.
+- Add `BatchMode=yes` to all backup SSH/rsync calls so automation fails fast instead of hanging on password prompts.
+- Add a preflight check that required SSH identity files and known hosts exist before any mirror `rsync`.
+- Keep secret-bearing files only in `*-secrets-*.tar.gz.age`; app and sys-config archives must continue excluding `.env`, `rclone.conf`, WireGuard private configs, and private keys.
+
+## 22. Backup Timer Restore Rule
+
+During a restore drill, do not re-enable backup timers until all validation gates in the target runbook pass:
+
+```bash
+systemctl list-timers --all | grep -Ei 'backup|pgbackrest|fhh|hermes'
+systemctl list-unit-files | grep -Ei 'backup|pgbackrest|fhh|hermes'
+```
+
+Required before enabling Europe timers:
+
+- Original Europe is confirmed offline, isolated, or intentionally replaced.
+- DB schema and Europe dev data are restored.
+- Site mesh works with handshakes, ping, and SSH.
+- wg-easy works from a real client.
+- UFW/provider firewall are verified.
+- Hermes, app UI, OAuth, and internal tools pass validation.
+- No duplicate backup streams are running.
+
+Approval gate:
+
+```bash
+sudo systemctl enable --now fhh-europe-backup.timer fhh-europe-pull-us.timer
+```
+
+Run only after Dom approval.

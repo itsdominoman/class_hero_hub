@@ -33,8 +33,8 @@ Dom must explicitly approve overwriting existing Hermes directories.
 ## 10. Exact backup source paths
 - `europe-app-hermes-*.tar.gz`
 - `europe-app-internal-tools-*.tar.gz`
-- `europe-home-hermes-*.tar.gz`
-- `europe-secrets-*.tar.gz.age`
+- `europe-home-hermes-*.tar.gz` for non-secret Hermes home state
+- `europe-secrets-*.tar.gz.age` for Hermes auth/env/profile secret state
 - `europe-sys-configs-*.tar.gz`
 
 ## 11. Exact restore target paths
@@ -55,7 +55,7 @@ cd /tmp/recovery
 # 1. Restore App
 sudo tar -xzf europe-app-hermes-*.tar.gz -C /
 
-# 2. Restore Home (profiles)
+# 2. Restore Home (non-secret state; auth/env/profile secrets come from europe-secrets)
 sudo tar -xzf europe-home-hermes-*.tar.gz -C /
 
 # 3. Restore Systemd Services
@@ -132,4 +132,50 @@ systemctl status hermes-gateway hermes-dashboard hermes-dashboard-vpn-allow herm
 sudo ss -ltnup | grep -E '8642|9119|8765|8766|8767' || true
 ```
 
-Do not start Hermes before `/home/administrator/.hermes` and secret-bearing Hermes env files are restored.
+Do not start Hermes before `/home/administrator/.hermes` and secret-bearing Hermes auth/env/profile files are restored from `europe-secrets-*.tar.gz.age`. The plaintext `europe-home-hermes-*.tar.gz` archive must not be treated as the source for auth, token, env, or profile-secret material.
+
+Remediated Europe backup proof from 2026-05-20:
+
+- `/opt/apps/backups/local/europe-home-hermes-20260520-160643.tar.gz` has no obvious Hermes secret filenames matching `auth.json`, `.env`, `token`, `secret`, or `key`.
+- `/opt/apps/backups/local/europe-secrets-20260520-160643.tar.gz.age` exists and remains the source for Hermes secret-bearing files.
+
+## 21. Europe Restore Lessons Incorporated
+
+Hermes is not an early restore dependency. In a full Europe rebuild, start Hermes only after the `RESTORE_EUROPE_SERVER.md` gates for SSH trust, backup verification, archive path mapping, Caddy, systemd units, helper scripts, site-to-site WireGuard, wg-easy, and real VPN client access have passed.
+
+Required Hermes restore checks:
+
+```bash
+node --version
+cd /opt/apps/hermes-workspace
+rm -rf node_modules
+npm install
+sudo systemctl restart hermes-workspace
+sudo ss -ltnup | grep -E '9119|3000'
+systemctl status hermes-gateway hermes-dashboard hermes-dashboard-vpn-allow hermes-workspace --no-pager
+curl -I http://10.250.50.1:9119
+curl -I http://10.250.50.1:3000
+```
+
+Expected output:
+
+- Node is `v22.x`.
+- Hermes dashboard listens privately on `10.250.50.1:9119`.
+- Hermes workspace listens on `10.250.50.1:3000`, not `0.0.0.0:3000`.
+- `hermes-dashboard-vpn-allow.service` does not fail with `203/EXEC`; `/usr/local/sbin/hermes-dashboard-vpn-allow.sh` exists and is executable.
+
+Stop conditions:
+
+- Node is v18.
+- Hermes workspace binds publicly.
+- Any Hermes env/token file would need to be printed to debug.
+- Telegram/Hermes messaging cannot be validated without exposing tokens.
+
+Telegram validation without printing tokens:
+
+```bash
+systemctl status hermes-gateway --no-pager
+journalctl -u hermes-gateway -n 100 --no-pager
+```
+
+Expected: config and allowlists are present, a real Telegram command is received and processed, and no token values appear in output.

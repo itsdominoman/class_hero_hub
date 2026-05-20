@@ -53,7 +53,7 @@ N/A
 
 ## Active Ports
 - **US Production**: 80/443 Caddy, 22 SSH, 25/465/587/110/143/993/995/4190 Mailcow, 8000 Family Hero Hub API, 5173 Family Hero Hub frontend preview, 7654 Redis proxy, 8443 Mailcow UI proxy, 13306 MySQL proxy, 2019 Caddy admin, 20241 `cloudflared` local tunnel port, 51820 mesh WireGuard, 51821 wg-easy admin.
-- **Europe Dev/Hermes**: 80/443 Caddy, 22 SSH, 3000 Hermes workspace UI, 4173 static preview, 4174 Vite preview, 4180 Vite dev, 8000 Family Hero Hub API, 5173 Family Hero Hub frontend, 8642 Hermes gateway, 9119 Hermes dashboard, 8765 competitor-review viewer, 8766 docs viewer, 8767 QA reports viewer, 51820 mesh WireGuard, 51821 wg-easy admin. `8768` is currently not listening.
+- **Europe Dev/Hermes**: 80/443 Caddy, 22 SSH, 51830 site-to-site WireGuard, 51820 wg-easy user VPN, 10.250.50.1:51821 wg-easy admin, 10.250.50.1:9119 Hermes dashboard, 10.250.50.1:3000 Hermes workspace UI, 127.0.0.1:8000 Family Hero Hub API, 127.0.0.1:5173 Family Hero Hub frontend, 8642 Hermes gateway, 8765 competitor-review viewer, 8766 docs viewer, 8767 QA reports viewer. `8768` is currently not listening.
 - **UK Hub**: 22 SSH, 51820 mesh WireGuard, 51821 wg-easy admin. UK is restricted to backup/DR/VPN/Google Drive sync roles.
 
 ## Warnings
@@ -82,6 +82,10 @@ Hard checks:
 - `/opt/apps/backups` must not be served publicly.
 - wg-easy admin `51821` must not be public unless Dom explicitly approves a temporary allowlisted restore window.
 - Europe private dashboards and viewers must remain mesh/private.
+- Europe Hermes workspace must bind `10.250.50.1:3000`, not `0.0.0.0:3000`.
+- Europe wg-easy admin must bind `10.250.50.1:51821`, not publicly.
+- Europe site mesh is `10.250.50.0/24`; mobile/user VPN is `10.60.0.0/24`.
+- Do not enable UFW until SSH, site mesh, user VPN, admin IP allowlist, Caddy, and wg-easy ports are verified.
 - UK must remain backup/DR/VPN only; no n8n/OpenClaw active restore path.
 
 ## 21. Final verification status

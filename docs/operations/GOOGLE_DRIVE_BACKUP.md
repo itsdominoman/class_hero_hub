@@ -122,11 +122,43 @@ find /tmp/recovery -maxdepth 2 -type f -print | sort
 
 Do not paste `rclone.conf`, OAuth tokens, crypt passwords, or downloaded decrypted secret contents into chat.
 
+For a fresh UK backup hub rebuild, this Google Drive/rclone path is required unless Dom manually stages the UK archive set on the restore VPS. Required UK files are `uk-sys-configs-*.tar.gz`, `uk-secrets-*.tar.gz.age`, and the matching `manifest-*.txt`.
+
+## 21. Europe Restore From Google Drive
+
+If Google Drive is the source for Europe restore, copy the Europe set into the standard restore path:
+
+```bash
+sudo mkdir -p /opt/apps/restore-materials/backups
+sudo chown -R administrator:administrator /opt/apps/restore-materials
+rclone copy gdrive-crypt:europe/ /opt/apps/restore-materials/backups/ -P
+cd /opt/apps/restore-materials/backups
+ls -1 europe-app-family-hero-hub-*.tar.gz
+ls -1 europe-app-hermes-*.tar.gz
+ls -1 europe-app-internal-tools-*.tar.gz
+ls -1 europe-home-hermes-*.tar.gz
+ls -1 europe-sys-configs-*.tar.gz
+ls -1 europe-secrets-*.tar.gz.age
+ls -1 manifest-*.txt
+sha256sum -c manifest-*.txt --ignore-missing
+```
+
+Expected output: all selected Europe archives are present and checksum verification returns `OK`.
+
+Stop conditions:
+
+- `rclone.conf` is missing and cannot be securely recreated from offline credentials.
+- `rclone` lists encrypted/gibberish Drive UI names instead of readable `gdrive-crypt:` names.
+- Any command would print `rclone.conf`, OAuth tokens, crypt passwords, age private key, or decrypted secret contents.
+- Manifest verification fails.
+
+After download, continue with `RESTORE_EUROPE_SERVER.md`; do not extract or decrypt directly from the Google Drive staging command.
+
 ## 21. Final verification status
 
 Verified on 2026-05-20:
 
-- UK `gdrive-crypt` listing shows `uk-sys-configs-20260520-035446.tar.gz`.
-- The same listing shows mirrored `us-sys-configs-20260520-034722.tar.gz` and `europe-sys-configs-20260520-054833.tar.gz`.
+- UK `gdrive-crypt` listing shows `uk-sys-configs-20260520-131436.tar.gz`, `uk-secrets-20260520-131436.tar.gz.age`, and `manifest-20260520-131436.txt`.
+- The same recovery path is expected to expose readable mirrored US and Europe archive names through `gdrive-crypt:` rather than through the encrypted Google Drive UI.
 - This confirms encrypted Google Drive upload and listing worked after the verified backup runs.
 - `rclone-remotes.txt` and `google-drive-sync-status.txt` are now part of the UK restore-readiness archive proof set.
