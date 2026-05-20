@@ -65,3 +65,29 @@ N/A
 
 ## 19. Restore rehearsal status
 N/A
+
+## 20. Restore port validation
+
+On every restored server, validate listening ports before exposing traffic:
+
+```bash
+sudo ss -ltnup
+sudo docker ps --format 'table {{.Names}}\t{{.Ports}}'
+sudo ufw status verbose
+```
+
+Hard checks:
+
+- PostgreSQL must not listen publicly.
+- `/opt/apps/backups` must not be served publicly.
+- wg-easy admin `51821` must not be public unless Dom explicitly approves a temporary allowlisted restore window.
+- Europe private dashboards and viewers must remain mesh/private.
+- UK must remain backup/DR/VPN only; no n8n/OpenClaw active restore path.
+
+## 21. Final verification status
+
+Verified on 2026-05-20:
+
+- US, Europe, and UK backup runs completed successfully and produced the verified restore-readiness archive set.
+- The verified sys-config archives contain the firewall, Docker, WireGuard, SSH trust, and systemd/timer report files required for restore.
+- UK `gdrive-crypt` listing confirms the uploaded archive names are visible through the crypt remote as expected.

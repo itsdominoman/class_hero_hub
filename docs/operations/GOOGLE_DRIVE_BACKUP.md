@@ -93,3 +93,40 @@ The age private identity key is stored offline by Dom at:
 
 ## 19. Restore rehearsal status
 Partially rehearsed: backup listing and sync tested.
+
+## 20. Fresh-server Google Drive restore notes
+
+Google Drive visible names may be encrypted/gibberish. Readable backup names are expected only through the configured rclone crypt remote.
+
+Preferred recovery uses offline `rclone.conf`. If unavailable, recreate both the Google Drive remote and crypt remote using the offline crypt password/password2 and Google login.
+
+Validation:
+
+```bash
+rclone listremotes
+rclone lsd gdrive-crypt:
+rclone lsf gdrive-crypt:us/ | head
+rclone lsf gdrive-crypt:europe/ | head
+rclone lsf gdrive-crypt:uk/ | head
+```
+
+Download without exposing secrets:
+
+```bash
+mkdir -p /tmp/recovery/{us,europe,uk}
+rclone copy gdrive-crypt:us/ /tmp/recovery/us/ -P
+rclone copy gdrive-crypt:europe/ /tmp/recovery/europe/ -P
+rclone copy gdrive-crypt:uk/ /tmp/recovery/uk/ -P
+find /tmp/recovery -maxdepth 2 -type f -print | sort
+```
+
+Do not paste `rclone.conf`, OAuth tokens, crypt passwords, or downloaded decrypted secret contents into chat.
+
+## 21. Final verification status
+
+Verified on 2026-05-20:
+
+- UK `gdrive-crypt` listing shows `uk-sys-configs-20260520-035446.tar.gz`.
+- The same listing shows mirrored `us-sys-configs-20260520-034722.tar.gz` and `europe-sys-configs-20260520-054833.tar.gz`.
+- This confirms encrypted Google Drive upload and listing worked after the verified backup runs.
+- `rclone-remotes.txt` and `google-drive-sync-status.txt` are now part of the UK restore-readiness archive proof set.

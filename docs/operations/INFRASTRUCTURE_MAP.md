@@ -82,3 +82,19 @@ N/A
 
 ## 19. Restore rehearsal status
 N/A
+
+## 20. Fresh restore identities and trust
+
+- Europe/dev/Hermes: mesh `10.250.50.1`; restore this identity only when the real Europe server is offline or isolated.
+- US/production: mesh `10.250.50.2`.
+- UK/backup hub: mesh `10.250.50.3`.
+- Backup root on all roles: `/opt/apps/backups`.
+
+Backup SSH trust:
+
+- US -> UK: `/home/administrator/.ssh/us-to-uk-backups`.
+- Europe -> US: `/home/administrator/.ssh/europe-to-us-backups`.
+- Europe -> UK: `/home/administrator/.ssh/europe-to-uk-backups`.
+- Europe pull-from-US: `/home/administrator/.ssh/europe-to-us-backups`.
+
+Provider firewall/security group rules are external dependencies. During restore, Dom must verify provider-side SSH, HTTP/HTTPS, WireGuard UDP `51820`, and any temporary allowlist rules before enabling UFW.

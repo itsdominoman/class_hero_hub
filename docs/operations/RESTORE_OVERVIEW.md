@@ -80,3 +80,40 @@ The age private identity key is stored offline by Dom at:
 
 ## 19. Restore rehearsal status
 N/A
+
+## 20. Fresh-server restore proof chain
+
+For a destroyed server, prove archive coverage before restore:
+
+```bash
+tar -tzf <role>-sys-configs-<timestamp>.tar.gz | grep -E 'firewall-status|provider-firewall-notes|ssh-backup-trust-map|wireguard-summary|docker-ps|caddy-validate|systemd-enabled|users-summary'
+```
+
+Decrypt secrets only into a private staging directory:
+
+```bash
+mkdir -p /tmp/secrets_recovery
+chmod 700 /tmp/secrets_recovery
+age -d -i /path/to/fhh-age-identity.txt -o /tmp/secrets.tar.gz <role>-secrets-<timestamp>.tar.gz.age
+tar -xzf /tmp/secrets.tar.gz -C /tmp/secrets_recovery
+rm -f /tmp/secrets.tar.gz
+```
+
+Never print `.env`, private keys, `rclone.conf`, OAuth tokens, API tokens, or WireGuard private keys.
+
+Restore activation order: identity isolation, base packages, users/sudo/SSH, firewall preflight, secrets, WireGuard, Docker/app data, Caddy, systemd/cron, backup timers, validation.
+
+## 21. Final verification status
+
+Verified on 2026-05-20:
+
+- Root backup services were manually started by Dom on US, Europe, and UK and completed successfully.
+- The verified restore-readiness sys-config archive set now exists for all three roles.
+- Backup services remain oneshot/static and are expected to be inactive after successful completion.
+- Timers remain enabled/active and are the persistence mechanism across reboot.
+- Europe restore drill is safer to begin than before, but it remains a controlled rehearsal that still requires explicit approval gates.
+
+Remaining separate work:
+
+- Historical plaintext archive remediation.
+- Mailcow remains out of scope except inventory.

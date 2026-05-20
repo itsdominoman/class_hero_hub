@@ -99,3 +99,52 @@ Encrypted logical layout:
 
 ## 19. Restore rehearsal status
 N/A
+
+## 20. Required sys-config report inventory
+
+Every current `*-sys-configs-*.tar.gz` archive must include these report families:
+
+- OS/host: `system-info.txt`, `hostnamectl.txt`, `os-release.txt`, `uname.txt`, `timedatectl.txt`, `disk-layout.txt`, `memory.txt`, `ip-addresses.txt`, `ip-routes.txt`, `dns-resolver.txt`, `hosts-file.txt`, `hostname-file.txt`.
+- Users/SSH/sudo: `users-summary.txt`, `administrator-groups.txt`, `sudoers-d-files-list.txt`, `sshd-config.txt`, `ssh-authorized-keys-summary.txt`, `ssh-key-fingerprints.txt`, `ssh-backup-trust-map.txt`.
+- Firewall/ports: `firewall-status.txt`, `ufw-status-verbose.txt`, `ufw-status-numbered.txt`, `ufw-app-list.txt`, `iptables-save.txt`, `nft-ruleset.txt`, `ss-listening-ports.txt`, `docker-ports.txt`, `provider-firewall-notes.txt`, `trusted-source-ips.txt`, `temporary-dr-firewall-rules.md`.
+- Docker: `docker-version.txt`, `docker-compose-version.txt`, `docker-ps.txt`, `docker-images.txt`, `docker-networks.txt`, `docker-volumes.txt`, `docker-compose-files.txt`, `docker-mounts.txt`, `docker-restart-policies.txt`.
+- Systemd/cron: `systemd-enabled-services.txt`, `systemd-enabled-timers.txt`, `systemd-project-units.txt`, `systemd-all-custom-units.txt`, `crontab-root.txt`, `crontab-administrator.txt`, `cron-d-listing.txt`.
+- Caddy: `caddy-configs/`, `caddy-config-paths.txt`, `caddy-validate.txt`, `caddy-routes-summary.txt`, `caddy-reverse-proxy-targets.txt`, `caddy-allowlists.txt`.
+- Backup/WireGuard: `backup-scripts/`, `backup-systemd-units/`, `wireguard-summary.txt`, `wg-show.txt`, `wg-service-status.txt`, `wg-easy-summary.txt`, `wireguard-endpoint-restore-notes.txt`.
+- UK only: `rclone-version.txt`, `rclone-remotes.txt`, `rclone-crypt-list-test.txt`, `google-drive-sync-status.txt`.
+
+Verification:
+
+```bash
+LATEST_SYS="$(ls -1t /opt/apps/backups/local/*-sys-configs-*.tar.gz | head -1)"
+tar -tzf "$LATEST_SYS" | sort
+```
+
+High-signal historical plaintext filename findings from the 2026-05-20 audit:
+
+- Older US app archives on US/UK/Europe mirrors contain `family-hero-hub/.env`.
+- Older Europe app archives on Europe/UK mirrors contain `family-hero-hub/.env`.
+- Older UK sys-config archives contain `wg0.conf` and `wg-site.private` filenames.
+
+Do not delete these archives without Dom approval. Recommended remediation is to verify encrypted replacements exist, quarantine or delete obsolete plaintext archives, and rotate affected secrets if exposure risk is considered high.
+
+## 21. Final verification status
+
+Verified on 2026-05-20 after Dom manually ran the root backup services:
+
+- US: `fhh-us-backup.service` completed successfully and produced `/opt/apps/backups/local/us-sys-configs-20260520-034722.tar.gz`.
+- Europe: `fhh-europe-backup.service` completed successfully and produced `/opt/apps/backups/local/europe-sys-configs-20260520-054833.tar.gz`.
+- UK: `fhh-uk-backup.service` completed successfully and produced `/opt/apps/backups/local/uk-sys-configs-20260520-035446.tar.gz`.
+
+Verified archive contents include:
+
+- US: `wireguard-summary.txt`, `ssh-backup-trust-map.txt`, `systemd-enabled-services.txt`, `temporary-dr-firewall-rules.md`, `nft-ruleset.txt`, `docker-networks.txt`, `firewall-status.txt`, `iptables-save.txt`.
+- Europe: `ssh-backup-trust-map.txt`, `firewall-status.txt`, `temporary-dr-firewall-rules.md`, `iptables-save.txt`, `wireguard-summary.txt`, `docker-networks.txt`, `systemd-enabled-services.txt`, `nft-ruleset.txt`.
+- UK: `ssh-backup-trust-map.txt`, `docker-networks.txt`, `iptables-save.txt`, `nft-ruleset.txt`, `wireguard-summary.txt`, `rclone-remotes.txt`, `systemd-enabled-services.txt`, `google-drive-sync-status.txt`, `firewall-status.txt`, `temporary-dr-firewall-rules.md`.
+
+Mirror and cloud verification:
+
+- UK has the latest US sys-config mirror at `/opt/apps/backups/from-us/us-sys-configs-20260520-034722.tar.gz`.
+- UK has the latest Europe sys-config mirror at `/opt/apps/backups/from-europe/europe-sys-configs-20260520-054833.tar.gz`.
+- Europe successfully pulled the latest US sys-config mirror.
+- UK `gdrive-crypt` listing shows the latest UK, US, and Europe sys-config archive names, confirming encrypted Google Drive upload and listing.

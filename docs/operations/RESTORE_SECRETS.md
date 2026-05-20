@@ -102,3 +102,28 @@ The age private identity key is stored offline by Dom at:
 
 ## 19. Restore rehearsal status
 Not rehearsed yet.
+
+## 20. Secret handling during fresh restore
+
+Offline key location: Google Drive > keys > VPS Backups Key > `fhh-age-identity.txt`. If this key is lost, encrypted secrets archives cannot be decrypted.
+
+Safe decrypt pattern:
+
+```bash
+mkdir -p /tmp/secrets_recovery
+chmod 700 /tmp/secrets_recovery
+age -d -i /path/to/fhh-age-identity.txt -o /tmp/secrets.tar.gz /tmp/recovery/<role>-secrets-<timestamp>.tar.gz.age
+tar -xzf /tmp/secrets.tar.gz -C /tmp/secrets_recovery
+rm -f /tmp/secrets.tar.gz
+```
+
+Place files without printing them:
+
+```bash
+sudo install -m 600 -o administrator -g administrator /tmp/secrets_recovery/opt/apps/family-hero-hub/.env /opt/apps/family-hero-hub/.env
+sudo cp -a /tmp/secrets_recovery/etc/wireguard/. /etc/wireguard/
+sudo chown root:root /etc/wireguard/*
+sudo chmod 600 /etc/wireguard/*.conf /etc/wireguard/*.private 2>/dev/null || true
+```
+
+Role-specific encrypted secrets must include `.env` files, WireGuard private state, wg-easy `.env`, backup automation SSH private keys needed by that role, UK `rclone.conf`, cloudflared credentials if present, and Hermes/QA/API/OAuth tokens if present.

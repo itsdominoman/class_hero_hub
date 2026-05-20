@@ -88,3 +88,34 @@ Restore original config if overwritten.
 
 ## 19. Restore rehearsal status
 Not rehearsed yet.
+
+## 20. Endpoint failover procedure
+
+Restore a dead server's mesh identity only after the original server is offline or isolated.
+
+On the replacement:
+
+```bash
+sudo cp -a /tmp/secrets_recovery/etc/wireguard/. /etc/wireguard/
+sudo chmod 600 /etc/wireguard/*.conf /etc/wireguard/*.private 2>/dev/null || true
+sudo chown root:root /etc/wireguard/*
+sudo systemctl enable --now wg-quick@wg-site
+sudo wg show
+ip addr | grep 10.250.50
+```
+
+If replacement public IP changed, inspect remaining peers:
+
+```bash
+sudo wg show all endpoints
+sudo grep -RIn 'Endpoint' /etc/wireguard /opt/apps/wg-easy 2>/dev/null
+```
+
+If endpoints are IP-based, update the peer endpoint on remaining servers and keep the previous value for rollback. If endpoints are hostname-based, change DNS only with Dom approval.
+
+Europe restore drill rule: only one server may own `10.250.50.1`. Validate from US and UK:
+
+```bash
+ping -c 3 10.250.50.1
+sudo wg show
+```

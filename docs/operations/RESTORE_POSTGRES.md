@@ -119,3 +119,25 @@ Do not start `postgres` before running the ephemeral `pgbackrest restore` comman
 
 ## 19. Restore rehearsal status
 Partially rehearsed: backup extraction/listing only. Rehearsal on Europe completed earlier (2026-05-09).
+
+## 20. Fresh-server dependency checks
+
+Before PostgreSQL restore on rebuilt US:
+
+```bash
+tar -tzf /tmp/recovery/us-pgbackrest-repo-*.tar.gz | head
+tar -tzf /tmp/recovery/us-sys-configs-*.tar.gz | grep -E 'docker-volumes|docker-compose-files|docker-mounts|docker-ps'
+cd /opt/apps/family-hero-hub
+sudo docker compose config
+```
+
+Expected: pgBackRest repo archive contains `_data/`; compose config resolves after `.env` is restored.
+
+Do not expose PostgreSQL publicly:
+
+```bash
+sudo ss -ltnup | grep -E ':5432|postgres' || true
+sudo docker ps --format 'table {{.Names}}\t{{.Ports}}'
+```
+
+The volume wipe steps are destructive. Use them only on a fresh or explicitly approved target.

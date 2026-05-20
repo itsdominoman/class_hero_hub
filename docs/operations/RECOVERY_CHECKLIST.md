@@ -112,3 +112,35 @@ The age private identity key is stored offline by Dom at:
 
 ## 19. Restore rehearsal status
 Not rehearsed yet.
+
+## 20. Fresh-server preflight
+
+Before any restore drill:
+
+```bash
+ls -la /opt/apps/backups/local /opt/apps/backups/from-us /opt/apps/backups/from-europe 2>/dev/null
+find /opt/apps/backups -maxdepth 2 -type f \( -name '*.tar.gz' -o -name '*.age' -o -name 'manifest-*.txt' \) -print | sort
+```
+
+Verify the selected archive:
+
+```bash
+sha256sum -c manifest-*.txt
+tar -tzf <role>-sys-configs-<timestamp>.tar.gz | grep -E 'firewall-status|ssh-backup-trust-map|wireguard-summary|docker-ps|systemd-enabled'
+```
+
+Stop if the real server for the restored identity is still live, the latest sys-config archive lacks required restore reports, the offline age identity key is unavailable, provider firewall rules cannot be checked, or temporary DR firewall rules cannot be rolled back.
+
+## 21. Final verification status
+
+Verified on 2026-05-20:
+
+- Dom manually ran the root backup services for US, Europe, and UK.
+- All three completed successfully with `status=0/SUCCESS`.
+- The sys-config archive proof chain is complete for the restore-critical report set.
+- Timer state remains the persistent reboot mechanism; services are oneshot/static and may be inactive after completion.
+
+Europe restore drill status:
+
+- Safer to begin than before.
+- Still a controlled restore rehearsal with explicit approval gates.

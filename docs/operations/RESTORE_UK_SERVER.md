@@ -132,3 +132,70 @@ Do not generate new SSH keys for US/Europe. US and Europe will push to UK using 
 
 ## 19. Restore rehearsal status
 Not rehearsed yet.
+
+## 20. Fresh-server deterministic restore addendum
+
+Purpose: rebuild UK backup hub/DR role from backups and docs only. Role: backup receiver, Google Drive uploader through rclone crypt, WireGuard mesh `10.250.50.3`, and wg-easy. UK should not run unrelated services; n8n/OpenClaw remain removed from active restore.
+
+Required archives:
+
+- `uk-sys-configs-*.tar.gz`
+- `uk-secrets-*.tar.gz.age`
+- Optional mirrored sets: `from-us/*`, `from-europe/*`, or Google Drive encrypted copy.
+
+Inspect the sys-config archive:
+
+```bash
+LATEST_SYS="$(ls -1t /tmp/recovery/uk-sys-configs-*.tar.gz | head -1)"
+tar -tzf "$LATEST_SYS" | grep -E 'firewall-status|ssh-backup-trust-map|wireguard-summary|docker-ps|systemd-enabled|users-summary|rclone'
+```
+
+Base packages:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y curl ca-certificates gnupg lsb-release tar gzip rsync openssh-server openssh-client age wireguard ufw nftables iptables docker.io docker-compose-v2 rclone
+```
+
+Restore order:
+
+1. Create `administrator`, restore sudo membership, and compare user/sudo reports.
+2. Restore SSH daemon settings; rebuild receiver-side `authorized_keys` for US and Europe backup senders using approved public keys and fingerprints in `ssh-key-fingerprints.txt`.
+3. Restore WireGuard and wg-easy secrets from `uk-secrets-*.tar.gz.age`.
+4. Restore rclone config from encrypted secrets or offline `rclone.conf`; never print the file.
+5. Restore `/opt/apps/backups/{local,from-us,from-europe,logs,scripts}` and systemd units.
+6. Start WireGuard and validate US/Europe mesh reachability.
+7. Validate Google Drive through crypt remote: `rclone lsd gdrive-crypt:`.
+8. Enable `fhh-uk-backup.timer` only after local and mirrored backup folders are correct.
+
+Firewall restore:
+
+```bash
+sudo ufw status verbose
+sudo ufw allow from <operator_ip> to any port 22 proto tcp comment 'temporary DR SSH'
+sudo ufw allow 51820/udp comment 'WireGuard mesh'
+sudo ufw --force enable
+sudo ufw status verbose
+```
+
+Validation:
+
+```bash
+sudo ss -ltnup
+sudo docker ps --format 'table {{.Names}}\t{{.Ports}}'
+rclone lsd gdrive-crypt:
+systemctl status fhh-uk-backup.timer --no-pager
+```
+
+What not to do: do not expose backup stores publicly, do not restore n8n/OpenClaw active services, do not print `rclone.conf`, and do not enable Google Drive sync until paths and crypt remote are verified.
+
+## 21. Final verification status
+
+Verified on 2026-05-20:
+
+- `sudo systemctl start fhh-uk-backup.service`
+- `sudo systemctl status fhh-uk-backup.service --no-pager`
+- Result: completed successfully with `status=0/SUCCESS`.
+- Latest verified sys-config archive: `/opt/apps/backups/local/uk-sys-configs-20260520-035446.tar.gz`.
+- Verified report files: `ssh-backup-trust-map.txt`, `docker-networks.txt`, `iptables-save.txt`, `nft-ruleset.txt`, `wireguard-summary.txt`, `rclone-remotes.txt`, `systemd-enabled-services.txt`, `google-drive-sync-status.txt`, `firewall-status.txt`, `temporary-dr-firewall-rules.md`.
+- Backup service is oneshot/static and is expected to be inactive after success; `fhh-uk-backup.timer` is the persistent reboot mechanism.

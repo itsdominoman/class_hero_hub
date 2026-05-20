@@ -107,3 +107,35 @@ The age private identity key is stored offline by Dom at:
 
 ## 19. Restore rehearsal status
 N/A
+
+## 20. Fresh-server restore coverage rule
+
+As of 2026-05-20, backup coverage must be proven in this order: live server state, backup script coverage, archive contents, then restore documentation.
+
+Verified on 2026-05-20 after Dom manually ran the root backup services on US, Europe, and UK:
+
+- `fhh-us-backup.service` completed successfully with `status=0/SUCCESS`.
+- `fhh-europe-backup.service` completed successfully with `status=0/SUCCESS`.
+- `fhh-uk-backup.service` completed successfully with `status=0/SUCCESS`.
+
+Backup services are oneshot/static services. They are expected to be inactive after successful completion. Timers are the persistent mechanism across reboot and should remain enabled/active.
+
+Verified latest sys-config archives:
+
+- US: `/opt/apps/backups/local/us-sys-configs-20260520-034722.tar.gz`
+- Europe: `/opt/apps/backups/local/europe-sys-configs-20260520-054833.tar.gz`
+- UK: `/opt/apps/backups/local/uk-sys-configs-20260520-035446.tar.gz`
+
+Verified report files inside those archives include the restore-critical set for firewall, SSH trust, systemd/timers, Docker, WireGuard, and Google Drive on UK.
+
+Do not start a Europe restore drill until the latest `*-sys-configs-*.tar.gz` archive for US, Europe, and UK contains the restore report set listed in `BACKUP_INVENTORY.md`.
+
+Manual validation:
+
+```bash
+LATEST_SYS="$(ls -1t /opt/apps/backups/local/*-sys-configs-*.tar.gz | head -1)"
+tar -tzf "$LATEST_SYS" | sort
+tar -tzf "$LATEST_SYS" | grep -E 'firewall-status|systemd-enabled|docker-ps|caddy-validate|wireguard-summary|ssh-backup-trust-map|users-summary'
+```
+
+Backup scripts now use `/opt/apps/backups/scripts/fhh-collect-sys-config.sh` to generate restore reports. Private keys, `.env`, `rclone.conf`, WireGuard private configs, OAuth tokens, and API credentials must remain in `*-secrets-*.tar.gz.age`.

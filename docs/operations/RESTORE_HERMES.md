@@ -112,3 +112,24 @@ Do not print decrypted secrets to the console. Do not start Hermes before secret
 
 ## 19. Restore rehearsal status
 Partially rehearsed: backup extraction/listing only.
+
+## 20. Fresh-server Hermes validation
+
+Verify these archives before starting Hermes:
+
+```bash
+tar -tzf /tmp/recovery/europe-app-hermes-*.tar.gz | head
+tar -tzf /tmp/recovery/europe-app-internal-tools-*.tar.gz | head
+tar -tzf /tmp/recovery/europe-home-hermes-*.tar.gz | head
+tar -tzf /tmp/recovery/europe-sys-configs-*.tar.gz | grep -E 'hermes|systemd-project-units|caddy'
+```
+
+Restore secrets first, then validate:
+
+```bash
+sudo systemctl daemon-reload
+systemctl status hermes-gateway hermes-dashboard hermes-dashboard-vpn-allow hermes-workspace --no-pager
+sudo ss -ltnup | grep -E '8642|9119|8765|8766|8767' || true
+```
+
+Do not start Hermes before `/home/administrator/.hermes` and secret-bearing Hermes env files are restored.

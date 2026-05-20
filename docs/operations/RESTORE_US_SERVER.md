@@ -157,3 +157,77 @@ Do NOT start `docker compose up -d` before fully restoring PostgreSQL via pgBack
 
 ## 19. Restore rehearsal status
 Not rehearsed yet.
+
+## 20. Fresh-server deterministic restore addendum
+
+Purpose: rebuild the US production role from backups and docs only. Role: Family Hero Hub production, PostgreSQL/pgBackRest, Caddy, WireGuard mesh `10.250.50.2`, backup push to UK, and Mailcow inventory only.
+
+Required archives:
+
+- `us-app-family-hero-hub-*.tar.gz`
+- `us-pgbackrest-repo-*.tar.gz`
+- `us-sys-configs-*.tar.gz`
+- `us-secrets-*.tar.gz.age`
+
+Before restore, inspect the sys-config archive:
+
+```bash
+LATEST_SYS="$(ls -1t /tmp/recovery/us-sys-configs-*.tar.gz | head -1)"
+tar -tzf "$LATEST_SYS" | grep -E 'firewall-status|ssh-backup-trust-map|wireguard-summary|docker-ps|caddy-validate|systemd-enabled|users-summary'
+```
+
+Base packages:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y curl ca-certificates gnupg lsb-release tar gzip rsync openssh-server openssh-client age wireguard ufw nftables iptables docker.io docker-compose-v2 caddy
+```
+
+Restore order:
+
+1. Create `administrator`, restore sudo membership, and compare `users-summary.txt`, `administrator-groups.txt`, and `sudoers-d-files-list.txt`.
+2. Restore SSH daemon settings from `sshd-config.txt`; rebuild `authorized_keys` using `ssh-authorized-keys-summary.txt` and Dom-approved public keys.
+3. Restore backup automation trust: encrypted secrets archive must provide `/home/administrator/.ssh/us-to-uk-backups`; UK `authorized_keys` must contain the matching public key fingerprint from `ssh-key-fingerprints.txt`.
+4. Restore WireGuard from encrypted secrets, start `wg-quick@wg-site`, and validate `ping 10.250.50.1` and `ping 10.250.50.3`.
+5. Restore Docker compose/app files, run `docker compose config`, then restore PostgreSQL through `RESTORE_POSTGRES.md` before starting app services.
+6. Restore Caddy configs, run `sudo caddy fmt --overwrite /etc/caddy/Caddyfile` and `sudo caddy validate --config /etc/caddy/Caddyfile`, then start/reload Caddy.
+7. Restore systemd units, run `sudo systemctl daemon-reload`, and enable timers only after the restored server is the active US identity.
+
+Firewall restore:
+
+```bash
+sudo ufw status verbose
+sudo ufw status numbered
+sudo ss -ltnup
+sudo ufw allow from <operator_ip> to any port 22 proto tcp comment 'temporary DR SSH'
+sudo ufw allow 51820/udp comment 'WireGuard mesh'
+sudo ufw --force enable
+sudo ufw status verbose
+```
+
+Remove temporary rules after validation:
+
+```bash
+sudo ufw status numbered
+sudo ufw delete <rule_number>
+```
+
+Provider firewall rules are outside the server. Dom must verify provider-side SSH, HTTP/HTTPS, and WireGuard before enabling UFW. Confirm PostgreSQL, backup stores, wg-easy admin, and internal ports are not public:
+
+```bash
+sudo ss -ltnup
+sudo docker ps --format 'table {{.Names}}\t{{.Ports}}'
+```
+
+What not to do: do not restore over live production without approval, do not start app containers before PostgreSQL restore is complete, do not restore Mailcow from this runbook, do not change DNS, and do not print decrypted secrets.
+
+## 21. Final verification status
+
+Verified on 2026-05-20:
+
+- `sudo systemctl start fhh-us-backup.service`
+- `sudo systemctl status fhh-us-backup.service --no-pager`
+- Result: completed successfully with `status=0/SUCCESS`.
+- Latest verified sys-config archive: `/opt/apps/backups/local/us-sys-configs-20260520-034722.tar.gz`.
+- Verified report files: `wireguard-summary.txt`, `ssh-backup-trust-map.txt`, `systemd-enabled-services.txt`, `temporary-dr-firewall-rules.md`, `nft-ruleset.txt`, `docker-networks.txt`, `firewall-status.txt`, `iptables-save.txt`.
+- Backup service is oneshot/static and is expected to be inactive after success; `fhh-us-backup.timer` is the persistent reboot mechanism.

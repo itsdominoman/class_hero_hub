@@ -184,3 +184,81 @@ Do not generate new WireGuard keys. Use the restored ones. Do not print secrets.
 
 ## 19. Restore rehearsal status
 Not rehearsed yet.
+
+## 20. Fresh-server deterministic restore addendum
+
+Purpose: rebuild Europe dev/Hermes role from backups and docs only. Role: Family Hero Hub dev, Hermes, internal tools/viewers, Caddy, WireGuard mesh `10.250.50.1`, backup push to US/UK, and pull-from-US.
+
+Required archives:
+
+- `europe-app-family-hero-hub-*.tar.gz`
+- `europe-app-hermes-*.tar.gz`
+- `europe-app-internal-tools-*.tar.gz`
+- `europe-home-hermes-*.tar.gz`
+- `europe-sys-configs-*.tar.gz`
+- `europe-secrets-*.tar.gz.age`
+
+Fresh restore safety rule: Europe may take `10.250.50.1` only when the real Europe server is shut down or isolated. Avoid duplicate backup streams during drills by keeping `fhh-europe-backup.timer` and `fhh-europe-pull-us.timer` disabled until Dom approves activation.
+
+Inspect the sys-config archive:
+
+```bash
+LATEST_SYS="$(ls -1t /tmp/recovery/europe-sys-configs-*.tar.gz | head -1)"
+tar -tzf "$LATEST_SYS" | grep -E 'firewall-status|ssh-backup-trust-map|wireguard-summary|docker-ps|caddy-validate|systemd-enabled|users-summary|rclone' || true
+```
+
+Base packages:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y curl ca-certificates gnupg lsb-release tar gzip rsync openssh-server openssh-client age wireguard ufw nftables iptables docker.io docker-compose-v2 caddy python3 python3-venv nodejs npm
+```
+
+Restore order:
+
+1. Create `administrator`, restore sudo membership, and compare `users-summary.txt`, `administrator-groups.txt`, and `sudoers-d-files-list.txt`.
+2. Restore SSH daemon settings and rebuild `authorized_keys` from approved public keys and `ssh-authorized-keys-summary.txt`.
+3. Restore backup automation trust from encrypted secrets: `/home/administrator/.ssh/europe-to-us-backups` and `/home/administrator/.ssh/europe-to-uk-backups`.
+4. If the replacement public IP changed and peers use IP endpoints, update US and UK peer endpoints; if peers use hostnames, change DNS only with Dom approval.
+5. Restore WireGuard from encrypted secrets and validate `ping 10.250.50.2` and `ping 10.250.50.3`.
+6. Restore app, Hermes, internal tools, and Hermes home archives.
+7. Restore Caddy configs; run `sudo caddy fmt --overwrite /etc/caddy/Caddyfile` and `sudo caddy validate --config /etc/caddy/Caddyfile`.
+8. Restore systemd units, `sudo systemctl daemon-reload`, then enable Hermes/app services only after secrets are in place.
+9. Enable backup timers only after the restored Europe is the sole active Europe identity.
+
+Firewall restore and rollback:
+
+```bash
+sudo ufw status verbose
+sudo ufw status numbered
+sudo ss -ltnup
+sudo ufw allow from <operator_ip> to any port 22 proto tcp comment 'temporary DR SSH'
+sudo ufw allow 51820/udp comment 'WireGuard mesh'
+sudo ufw --force enable
+sudo ufw status numbered
+sudo ufw delete <temporary_rule_number>
+```
+
+Validate private dashboards remain private:
+
+```bash
+sudo ss -ltnup
+sudo docker ps --format 'table {{.Names}}\t{{.Ports}}'
+curl -I http://10.250.50.1:8765
+curl -I http://10.250.50.1:8766
+curl -I http://10.250.50.1:8767
+```
+
+What not to do: do not run the Europe restore drill while real Europe is live, do not enable duplicate backup timers, do not expose private dashboards publicly, do not change DNS without approval, and do not print decrypted secrets.
+
+## 21. Final verification status
+
+Verified on 2026-05-20:
+
+- `sudo systemctl start fhh-europe-backup.service`
+- `sudo systemctl status fhh-europe-backup.service --no-pager`
+- Result: completed successfully with `status=0/SUCCESS`.
+- Latest verified sys-config archive: `/opt/apps/backups/local/europe-sys-configs-20260520-054833.tar.gz`.
+- Verified report files: `ssh-backup-trust-map.txt`, `firewall-status.txt`, `temporary-dr-firewall-rules.md`, `iptables-save.txt`, `wireguard-summary.txt`, `docker-networks.txt`, `systemd-enabled-services.txt`, `nft-ruleset.txt`.
+- Backup service is oneshot/static and is expected to be inactive after success; timers remain enabled/active across reboot.
+- Europe restore drill is now safer to begin than before, but it is still a controlled rehearsal with explicit approval gates.
