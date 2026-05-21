@@ -62,6 +62,10 @@ Role-specific local expectations:
 - US: `/opt/apps/backups/local/` contains `us-*`; `/opt/apps/backups/from-europe/` may contain mirrored `europe-*`.
 - UK: `/opt/apps/backups/local/` contains `uk-*`; `/opt/apps/backups/from-us/` and `/opt/apps/backups/from-europe/` contain mirrored source-server archives.
 
+Restore drill preference:
+- When restoring Europe, the surviving UK or US source server should push the latest complete `europe-*` set to the restore VPS.
+- Treat restore-side pulls as a fallback only.
+
 ## Google Drive (`gdrive-crypt:` remote)
 Encrypted logical layout:
 - `gdrive-crypt:us/`
@@ -80,9 +84,14 @@ Encrypted logical layout:
 - `europe-app-family-hero-hub-*.tar.gz` (Includes app files and `/opt/apps/family-hero-hub/data/family_hero_hub.sqlite` as the Europe dev data source when no Europe pgBackRest exists)
 - `europe-app-hermes-*.tar.gz`
 - `europe-app-internal-tools-*.tar.gz` (Includes `/opt/apps/hermes-workspace`, `/opt/apps/fhh-ops-dashboard`, and the private viewer apps under `family-hero-hub/tmp/{competitor-review,docs-viewer,qa-reports-viewer}`)
-- `europe-home-hermes-*.tar.gz` (Plaintext Hermes home state with `auth`, `env`, `key`, `secret`, and `token` filename patterns excluded)
+- `europe-home-hermes-*.tar.gz` (Plaintext Hermes home state with `auth`, `env`, `key`, `secret`, and `token` filename patterns excluded; carries Hermes session history, memory markdown, profile state, `state.db`, `kanban.db`, `response_store.db`, `gateway_state.json`, `channel_directory.json`, and `processes.json`)
 - `europe-secrets-*.tar.gz.age` (Encrypted; includes `/opt/apps/family-hero-hub/.env`, `/opt/apps/hermes-workspace/.env`, `/opt/apps/wg-easy/.env`, `/opt/apps/wg-easy/etc_wireguard`, `/home/administrator/.hermes/*.env`, `/home/administrator/.hermes/auth*`, Hermes profile env/auth/secrets, Hermes state-snapshot auth/env files, `/etc/wireguard`, `/home/administrator/.ssh/europe-to-us-backups`, `/home/administrator/.ssh/europe-to-uk-backups`, and `/home/administrator/.ssh/known_hosts`)
 - `europe-sys-configs-*.tar.gz` (Includes Caddy, `/opt/apps/wg-easy/docker-compose.yml`, custom systemd units, restore helper scripts under `/usr/local/sbin`, backup scripts, and `/etc/sudoers.d`; WireGuard private material moved to the encrypted secrets archive)
+
+**Hermes persistence split:**
+- Hermes agent/session history and memory markdown live in `europe-home-hermes-*.tar.gz` under `~/.hermes/`, including the named profile tree under `~/.hermes/profiles/<name>/`.
+- Workspace session cache and UI-side portable history live in `europe-app-internal-tools-*.tar.gz` under `hermes-workspace/.runtime/local-sessions.json`.
+- Auth, OAuth, tokens, and `.env` material stay in `europe-secrets-*.tar.gz.age`.
 
 **UK Backup Set:**
 - `uk-sys-configs-*.tar.gz` (Includes `wg-easy/docker-compose.yml`, `fhh-uk-backup.*`, `hermes-gateway.service`, `wg-personal-to-site-nat.service`, and `/usr/local/sbin/wg-personal-to-site-nat.sh`)

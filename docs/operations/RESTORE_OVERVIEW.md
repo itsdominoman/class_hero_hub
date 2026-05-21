@@ -57,11 +57,13 @@ Do not skip steps. Do not guess commands.
 2. **Confirm Role and Live Identity**: Before restoring WireGuard, backup timers, or DNS-facing services, confirm whether the original server is offline, isolated, or still active.
 3. **Bootstrap First**: On a fresh server, install required tools before restore work. Europe requires Node 22, Caddy, Docker Compose, WireGuard tools, `age`, `rsync`, `jq`, `unzip`, and `sqlite3`.
 4. **Stage Files First**: Use `/opt/apps/restore-materials/{docs,backups,keys}` and `/opt/apps/restore-test`; do not decrypt directly into live paths.
-5. **Verify Secrets Key and Checksums**: Verify the age identity exists, decrypt into staging only, and run `sha256sum -c manifest-*.txt` before extraction.
-6. **Prove SSH Trust Early**: Restore backup SSH keys and validate `ssh -o BatchMode=yes` to US/UK before copying backups or repairing remote peer endpoints. A password prompt means stop.
-7. **Restore Dependencies Before Services**: Network identity, Caddy config, systemd units, helper scripts, WireGuard mesh, wg-easy, Hermes, app containers, DB schema, data, OAuth, UI, internal tools, firewall, backup timers, sudo cleanup.
-8. **Validate Every Gate**: Service `active` is not sufficient. Validate WireGuard handshakes/ping/SSH, wg-easy real client access, DB schema/data, OAuth, UI data, dashboards, and firewall.
-9. **Clean Up Last**: Remove temporary passwordless sudo and decrypted staging only after final validation and approval.
+5. **Prefer Source-Server Push**: Use the surviving UK or US source server to push the latest complete Europe backup set into `/opt/apps/restore-materials/backups/`. Restore-side pulls are a fallback, not the default.
+6. **Verify Secrets Key and Checksums**: Verify the age identity exists, decrypt into staging only, and run `sha256sum -c manifest-*.txt` before extraction.
+7. **Select the Latest Complete Set Only**: Copy one timestamped Europe archive set at a time. Do not mix timestamps.
+8. **Prove SSH Trust Early**: Restore backup SSH keys and validate `ssh -o BatchMode=yes` to US/UK before repairing remote peer endpoints. A password prompt means stop.
+9. **Restore Dependencies Before Services**: Network identity, Caddy config, systemd units, helper scripts, WireGuard mesh, wg-easy, Hermes, app containers, DB schema, data, OAuth, UI, internal tools, firewall, backup timers, sudo cleanup.
+10. **Validate Every Gate**: Service `active` is not sufficient. Validate WireGuard handshakes/ping/SSH, wg-easy real client access, DB schema/data, OAuth, UI data, dashboards, and firewall.
+11. **Clean Up Last**: Remove temporary passwordless sudo and decrypted staging only after final validation and approval.
 
 
 ### 🔑 Offline Key Reference

@@ -51,6 +51,11 @@ Approval gate: Dom approval required before overwriting any existing `/opt/apps/
 | US production Postgres | US pgBackRest repo only | `us-pgbackrest-repo-*.tar.gz` |
 | wg-easy older state | older Europe encrypted secrets archive if latest is incomplete | `europe-secrets-20260520-010000.tar.gz.age` or older matching set |
 
+Hermes-specific restore note:
+- `europe-home-hermes-*.tar.gz` carries Hermes session history, memory markdown, profile state, `state.db`, `kanban.db`, `response_store.db`, `gateway_state.json`, and `channel_directory.json`.
+- `europe-app-internal-tools-*.tar.gz` carries the workspace-side portable history cache at `hermes-workspace/.runtime/local-sessions.json`.
+- `europe-secrets-*.tar.gz.age` carries only the secret-bearing Hermes auth/env material.
+
 Historical test-proven set from the May 2026 drill, retained only as a reference. Do not use this timestamp as a default:
 
 ```text
@@ -374,24 +379,21 @@ Rollback/backup step: if replacing existing SSH files, copy them to `/opt/apps/r
 
 Approval gate: Dom approval required before replacing existing SSH config on a non-fresh host.
 
-## Phase 10: Use SSH Trust To Copy Backups From US/UK
+## Phase 10: Verify Source-Server Pushed Backups
 
-Purpose: pull the selected Europe backup set from surviving sources.
+Purpose: verify the selected Europe backup set was pushed from a surviving source server.
 
 Commands:
 
 ```bash
-rsync -av --progress uk-public:/opt/apps/backups/from-europe/ /opt/apps/restore-materials/backups/
-# If UK is unavailable:
-rsync -av --progress us-public:/opt/apps/backups/from-europe/ /opt/apps/restore-materials/backups/
 ls -lah /opt/apps/restore-materials/backups
 ```
 
 Expected output: Europe app, Hermes, internal tools, home, sys-configs, secrets, and manifest files are present.
 
-Stop conditions: SSH prompts for a password, backup set is incomplete, or timestamps do not match the intended restore set.
+Stop conditions: backup set is incomplete or timestamps do not match the intended restore set.
 
-Do not touch: remote backups other than read-only copy.
+Do not touch: remote backups other than the source-side push operation.
 
 Rollback/backup step: keep all copied archives until final cleanup.
 
@@ -671,6 +673,8 @@ Expected output: client reaches mesh IP, wg-easy admin, Hermes dashboard, Hermes
 
 Stop conditions: handshake works but client cannot reach `10.250.50.1`; check NAT for `10.60.0.0/24`.
 
+If `dev.familyherohub.com` is still pointed at the original Europe server during a drill, update the WireGuard client endpoint manually before relying on this test.
+
 Do not touch: firewall enabling before this gate passes.
 
 Rollback/backup step: revert wg-easy compose/env/state from backup.
@@ -686,6 +690,26 @@ Commands:
 ```bash
 sudo install -o administrator -g administrator -m 600 /opt/apps/restore-materials/secrets-staging/home/administrator/.hermes/fhh-qa.env /home/administrator/.hermes/fhh-qa.env 2>/dev/null || true
 sudo install -o administrator -g administrator -m 600 /opt/apps/restore-materials/secrets-staging/opt/apps/hermes-workspace/.env /opt/apps/hermes-workspace/.env 2>/dev/null || true
+
+# Verify Hermes persistence before service start.
+test -s /home/administrator/.hermes/state.db
+sqlite3 /home/administrator/.hermes/state.db 'select count(*) from sessions;'
+sqlite3 /home/administrator/.hermes/state.db 'select count(*) from messages;'
+find /home/administrator/.hermes/sessions -type f | head
+find /home/administrator/.hermes/memories -type f
+find /home/administrator/.hermes/profiles/hermes -maxdepth 3 -type f | head
+ls -lah /opt/apps/hermes-workspace/.runtime/local-sessions.json
+
+# Verify Hermes root/profile. active_profile absent or "default" means /home/administrator/.hermes.
+# If Zeus should run the named Hermes profile, active_profile must contain exactly "hermes".
+if [ -f /home/administrator/.hermes/active_profile ]; then
+  cat /home/administrator/.hermes/active_profile
+else
+  echo "active_profile absent: default root"
+fi
+sudo -u administrator HOME=/home/administrator HERMES_HOME=/home/administrator/.hermes \
+  /opt/apps/hermes-agent/.venv/bin/python -m hermes_cli.main profile
+
 cd /opt/apps/hermes-workspace
 node --version
 rm -rf node_modules
@@ -699,13 +723,17 @@ sudo ss -ltnup | grep -E '9119|3000'
 
 Expected output: Node `v22.x`; Hermes dashboard binds private IP; Hermes workspace binds `10.250.50.1:3000`, not `0.0.0.0:3000`.
 
-Stop conditions: Node is too old, workspace binds publicly, missing secrets, or services fail with `203/EXEC`.
+Hermes persistence expected output: `state.db` exists; session and message counts are greater than zero; `/home/administrator/.hermes/sessions/`, `/home/administrator/.hermes/memories/MEMORY.md`, `/home/administrator/.hermes/memories/USER.md`, and `/home/administrator/.hermes/profiles/hermes/` exist when the named Hermes profile is expected. `/opt/apps/hermes-workspace/.runtime/local-sessions.json` exists when workspace history is expected. The reported Hermes root/profile matches the intended Zeus runtime.
+
+Stop conditions: Node is too old, workspace binds publicly, missing secrets, services fail with `203/EXEC`, Hermes persistence files are missing, session/message counts are zero, or Hermes reports the wrong root/profile.
 
 Do not touch: Telegram tokens or print Hermes secret files.
 
 Rollback/backup step: restore the timestamped Hermes workspace unit.
 
 Approval gate: Dom approval required before sending real Telegram commands.
+
+Live Hermes history gate: after services start and Dom approves a real Telegram/Zeus test, ask Zeus a known prior-history question from before the restore. If Zeus says it has no prior history, check for root/profile mismatch and do not call Hermes restored until the history question passes or the limitation is documented in the restore report.
 
 ## Phase 23: Start Family Hero Hub Containers
 
@@ -814,7 +842,7 @@ Purpose: verify the full OAuth chain after DB schema and data gates.
 Commands and checks:
 
 ```text
-1. DNS points to the intended restore server. DNS changes require Dom approval.
+1. DNS points to the intended restore server. If this is a drill and `dev.familyherohub.com` is not pointed at the restore VPS yet, update the WireGuard client endpoint manually before testing the VPN client path. DNS changes require Dom approval.
 2. Caddy allowlist includes the current admin/browser public IP exactly.
 3. Google Cloud Console callback URI exists:
    https://dev.familyherohub.com/api/auth/google/callback
@@ -828,6 +856,8 @@ Commands and checks:
 Expected output: Google login completes and the parent dashboard loads with restored data.
 
 Stop conditions: DNS wrong, Caddy 403, callback URI missing, backend exception, `approved_parent_emails` missing/empty, or UI shows empty bootstrap data.
+
+For a real restore cutover, update DNS/provider records when the restored server is meant to take over.
 
 Do not touch: DNS or Google Cloud Console without Dom approval.
 
@@ -1075,9 +1105,18 @@ Telegram/Hermes messaging validation:
 ```bash
 systemctl status hermes-gateway --no-pager
 journalctl -u hermes-gateway -n 100 --no-pager
+test -s /home/administrator/.hermes/state.db
+sqlite3 /home/administrator/.hermes/state.db 'select count(*) from sessions;'
+sqlite3 /home/administrator/.hermes/state.db 'select count(*) from messages;'
+find /home/administrator/.hermes/sessions -type f | head
+find /home/administrator/.hermes/memories -type f
+find /home/administrator/.hermes/profiles/hermes -maxdepth 3 -type f | head
+ls -lah /opt/apps/hermes-workspace/.runtime/local-sessions.json
+if [ -f /home/administrator/.hermes/active_profile ]; then cat /home/administrator/.hermes/active_profile; else echo "active_profile absent: default root"; fi
+sudo -u administrator HOME=/home/administrator HERMES_HOME=/home/administrator/.hermes /opt/apps/hermes-agent/.venv/bin/python -m hermes_cli.main profile
 ```
 
-Expected output: config and allowlists are present, a real Telegram command is received and processed, and no tokens are printed.
+Expected output: config and allowlists are present, persistence counts are nonzero, root/profile matches the intended Zeus runtime, a real Telegram command is received and processed, a known prior-history question succeeds, and no tokens are printed.
 
 Last verified date: 2026-05-20 restore test lessons incorporated.
 

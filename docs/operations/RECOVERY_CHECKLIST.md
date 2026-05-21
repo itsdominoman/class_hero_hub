@@ -67,12 +67,13 @@ Do not guess the recovery order. Follow the tree.
 3. If full server, use `RESTORE_EUROPE_SERVER.md`.
 4. Confirm whether original Europe is offline or still active before restoring `10.250.50.1` or backup timers.
 5. Restore `europe-app-internal-tools-*.tar.gz` as well if you need Hermes workspace or the private viewers.
-6. Prefer UK `/opt/apps/backups/from-europe/` if available.
-7. If UK unavailable, use US `/opt/apps/backups/from-europe/`.
+6. Prefer a source-server push from UK `/opt/apps/backups/from-europe/` into the restore VPS.
+7. If UK is unavailable, use a source-server push from US `/opt/apps/backups/from-europe/`.
 8. If original Europe is still available and approved as a source, use Europe `/opt/apps/backups/local/`.
 9. If those are unavailable, use Google Drive via `GOOGLE_DRIVE_BACKUP.md`.
-10. Do not expect `/opt/apps/backups/from-europe/` on Europe itself; Europe stores its own `europe-*` archives in `/opt/apps/backups/local/`.
-11. Do not use `us-pgbackrest-repo-*` for Europe dev unless Dom explicitly approves seeding dev from US production.
+10. Copy only the latest complete timestamped Europe backup set.
+11. Do not expect `/opt/apps/backups/from-europe/` on Europe itself; Europe stores its own `europe-*` archives in `/opt/apps/backups/local/`.
+12. Do not use `us-pgbackrest-repo-*` for Europe dev unless Dom explicitly approves seeding dev from US production.
 
 **Scenario C: UK backup hub down**
 1. Use `RESTORE_UK_SERVER.md`.
@@ -142,6 +143,8 @@ Europe-specific stop conditions:
 - Original Europe and restore Europe would run simultaneously with the same WireGuard identity without an intentional endpoint-failover test.
 - SSH to US/UK with `ssh -o BatchMode=yes` asks for a password.
 - Manifest verification fails.
+- If `dev.familyherohub.com` is still pointed at the original Europe server during a drill, update the WireGuard client endpoint manually before relying on the VPN client path.
+- For a real restore, update DNS/provider records when the restored server is meant to take over.
 - `wg-site` is active but handshakes, ping, or SSH over mesh fail.
 - wg-easy NAT shows `10.8.0.0/24` instead of `10.60.0.0/24`.
 - Postgres is healthy but `alembic_version` or critical app tables are missing.

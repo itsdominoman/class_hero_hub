@@ -4,7 +4,7 @@
 Restore Hermes orchestration agent, its profiles, and services.
 
 ## 2. Scope
-`/opt/apps/hermes-agent`, `/opt/apps/hermes-workspace`, `/home/administrator/.hermes`, `/opt/apps/family-hero-hub/HERMES_RULES.md` (if backed up), `/home/administrator/.hermes/fhh-qa.env`, systemd services.
+`/opt/apps/hermes-agent`, `/opt/apps/hermes-workspace`, `/home/administrator/.hermes`, `/home/administrator/.hermes/memories`, `/home/administrator/.hermes/sessions`, `/home/administrator/.hermes/profiles/hermes`, `/opt/apps/hermes-workspace/.runtime/local-sessions.json`, `/opt/apps/family-hero-hub/HERMES_RULES.md` (if backed up), `/home/administrator/.hermes/fhh-qa.env`, systemd services.
 
 ## 3. When to use this restore path
 Hermes agent is corrupted, deleted, or Europe VPS was rebuilt.
@@ -22,9 +22,9 @@ SSH/admin access to Europe server (`10.250.50.1`).
 `age` private key (`key.txt`) for decrypting `europe-secrets-*.tar.gz.age`.
 
 ## 8. Required backup source options
-1. UK `/opt/apps/backups/from-europe/`
-2. US `/opt/apps/backups/from-europe/`
-3. Europe `/opt/apps/backups/local/` (if still available)
+1. Source-server push from UK `/opt/apps/backups/from-europe/` into the restore VPS
+2. Source-server push from US `/opt/apps/backups/from-europe/` if UK is unavailable
+3. Europe `/opt/apps/backups/local/` (if still available and approved as a source)
 4. Google Drive via `rclone crypt`
 
 ## 9. Required approval gates before destructive actions
@@ -33,16 +33,62 @@ Dom must explicitly approve overwriting existing Hermes directories.
 ## 10. Exact backup source paths
 - `europe-app-hermes-*.tar.gz`
 - `europe-app-internal-tools-*.tar.gz`
-- `europe-home-hermes-*.tar.gz` for non-secret Hermes home state
+- `europe-home-hermes-*.tar.gz` for Hermes session history, memory markdown, profile state, and non-secret Hermes home state
 - `europe-secrets-*.tar.gz.age` for Hermes auth/env/profile secret state
 - `europe-sys-configs-*.tar.gz`
+- `hermes-workspace/.runtime/local-sessions.json` inside `europe-app-internal-tools-*.tar.gz`
+
+When copying from UK or US, use the latest complete Europe timestamp only and push the selected set from the source server if possible.
 
 ## 11. Exact restore target paths
 - `/opt/apps/hermes-agent`
 - `/opt/apps/hermes-workspace`
 - `/home/administrator/.hermes`
+- `/home/administrator/.hermes/memories`
+- `/home/administrator/.hermes/sessions`
+- `/home/administrator/.hermes/profiles/hermes`
+- `/opt/apps/hermes-workspace/.runtime/local-sessions.json`
 - `/etc/systemd/system/hermes-*.service`
 - `/etc/systemd/system/hermes-workspace.service`
+
+## 11.1 Hermes root and active profile
+Hermes chooses its runtime root before loading most code:
+
+1. An explicit CLI profile, such as `hermes -p <profile> ...`, wins.
+2. If `HERMES_HOME` already points directly at a directory under `/home/administrator/.hermes/profiles/`, Hermes uses that profile directory.
+3. Otherwise Hermes reads `/home/administrator/.hermes/active_profile`.
+4. If `active_profile` is absent, empty, or `default`, Hermes uses `/home/administrator/.hermes`.
+
+For Europe restore, document the intended Zeus runtime before starting Hermes:
+
+- Default root: `/home/administrator/.hermes`; `/home/administrator/.hermes/active_profile` is absent or contains `default`.
+- Named Hermes profile: `/home/administrator/.hermes/profiles/hermes`; `/home/administrator/.hermes/active_profile` contains exactly `hermes`.
+
+If Dom confirms Zeus should run from the named `hermes` profile and the restored profile directory already exists, restore/create the active profile pointer:
+
+```bash
+test -d /home/administrator/.hermes/profiles/hermes
+printf 'hermes\n' | sudo tee /home/administrator/.hermes/active_profile >/dev/null
+sudo chown administrator:administrator /home/administrator/.hermes/active_profile
+sudo chmod 644 /home/administrator/.hermes/active_profile
+```
+
+Do not create a new empty `profiles/hermes` directory during restore. If `/home/administrator/.hermes/profiles/hermes` is missing, stop and inspect the backup extraction.
+
+Verify the active root/profile without printing secrets:
+
+```bash
+if [ -f /home/administrator/.hermes/active_profile ]; then
+  cat /home/administrator/.hermes/active_profile
+else
+  echo "active_profile absent: default root"
+fi
+
+sudo -u administrator HOME=/home/administrator HERMES_HOME=/home/administrator/.hermes \
+  /opt/apps/hermes-agent/.venv/bin/python -m hermes_cli.main profile
+```
+
+Stop if the reported Hermes root/profile does not match the intended Zeus runtime.
 
 ## 12. Exact commands
 
@@ -74,6 +120,7 @@ sudo cp -r /tmp/secrets_recovery/home/administrator/.hermes/profiles/* /home/adm
 # 5. Set Permissions
 sudo chown -R administrator:administrator /opt/apps/hermes-agent
 sudo chown -R administrator:administrator /home/administrator/.hermes
+sudo chown -R administrator:administrator /opt/apps/hermes-workspace/.runtime 2>/dev/null || true
 
 # 6. Verify Services
 # The service files must have:
@@ -97,6 +144,42 @@ Systemctl should return no errors. Tar will extract files silently.
 - `curl -I http://10.250.50.1:9119` (from VPN)
 - `curl -I http://10.250.50.1:3000` (from VPN or localhost)
 - Validate Telegram/agent integrations (check `journalctl -u hermes-gateway` for startup success, no secret exposure).
+- `/home/administrator/.hermes/state.db` exists and has nonzero session/message counts.
+- `/home/administrator/.hermes/sessions/` exists and is non-empty.
+- `/home/administrator/.hermes/memories/MEMORY.md` exists.
+- `/home/administrator/.hermes/memories/USER.md` exists.
+- `/home/administrator/.hermes/profiles/hermes/` exists if Zeus should use the named Hermes profile.
+- `/opt/apps/hermes-workspace/.runtime/local-sessions.json` exists if workspace history is expected.
+- Hermes reports the intended root/profile.
+
+Deterministic persistence commands:
+
+```bash
+test -s /home/administrator/.hermes/state.db
+sqlite3 /home/administrator/.hermes/state.db 'select count(*) from sessions;'
+sqlite3 /home/administrator/.hermes/state.db 'select count(*) from messages;'
+find /home/administrator/.hermes/sessions -type f | head
+find /home/administrator/.hermes/memories -type f
+find /home/administrator/.hermes/profiles/hermes -maxdepth 3 -type f | head
+ls -lah /opt/apps/hermes-workspace/.runtime/local-sessions.json
+
+if [ -f /home/administrator/.hermes/active_profile ]; then
+  cat /home/administrator/.hermes/active_profile
+else
+  echo "active_profile absent: default root"
+fi
+
+sudo -u administrator HOME=/home/administrator HERMES_HOME=/home/administrator/.hermes \
+  /opt/apps/hermes-agent/.venv/bin/python -m hermes_cli.main profile
+```
+
+Session and message counts must be greater than zero for a history-preserving restore. If workspace history is not expected for this restore, record that explicitly.
+
+Live functional test:
+
+1. Ask Zeus a known prior-history question from before the restore.
+2. If Zeus cannot answer from prior history, check whether Hermes is using the wrong root/profile before debugging model behavior.
+3. Do not call Hermes restored until the history question passes or the limitation is written into the restore report.
 
 ## 15. Failure handling
 If `journalctl` shows missing dependencies, ensure the `.venv` inside `/opt/apps/hermes-agent/` extracted correctly.
@@ -142,6 +225,8 @@ Remediated Europe backup proof from 2026-05-20:
 ## 21. Europe Restore Lessons Incorporated
 
 Hermes is not an early restore dependency. In a full Europe rebuild, start Hermes only after the `RESTORE_EUROPE_SERVER.md` gates for SSH trust, backup verification, archive path mapping, Caddy, systemd units, helper scripts, site-to-site WireGuard, wg-easy, and real VPN client access have passed.
+
+Hermes chat history / persistence remains an open follow-up investigation. Do not treat a successful service start or Telegram connectivity test as proof that chat history was restored.
 
 Required Hermes restore checks:
 
