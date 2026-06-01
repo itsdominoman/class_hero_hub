@@ -1,100 +1,122 @@
 # Infrastructure Map
 
 ## 1. Purpose
-Overview of server roles and connectivity.
+Canonical current network, trust, and recovery map for Family Hero Hub infrastructure.
 
 ## 2. Scope
-Entire infrastructure topology.
+Live WireGuard mesh, routed wg-easy client subnets, SSH trust, restore node, and the helper services that keep routed VPN paths persistent across reboot.
 
-## 3. When to use this restore path
-N/A
+## 3. Current Trusted Topology
 
-## 4. What this restores
-N/A
+| Host | Role | Hostname | Mesh IP | Public IP | Routed / client subnet | Notes |
+|---|---|---|---|---|---|---|
+| Europe hub | Central WireGuard site-to-site hub / route reflector | `fhh-europe` | `10.250.50.1` | `213.199.61.244` | `10.60.0.0/24` via Europe wg-easy | Europe is the hub for the site mesh and the Europe wg-easy client range. |
+| US spoke | Production site-mesh node | `fhh-us` | `10.250.50.2` | `204.12.209.190` | `10.8.0.0/24` | US wg-easy clients are routed through the US node. |
+| UK spoke | Backup / DR / VPN node | `fhh-uk` | `10.250.50.3` | `217.154.52.123` | `10.70.0.0/24` | UK wg-easy clients are routed through the UK node. |
+| Singapore spoke | Site-mesh node | `fhh-singapore` | `10.250.50.4` | `194.233.71.132` | `10.10.0.0/24` | Singapore wg-easy clients are routed through the Singapore node. |
+| Restore node | Break-glass restore / recovery node | `vmi3310324` / `fhh-restore` | `10.250.50.5` | `95.111.243.235` | none | Uses `wg-quick@wg-site` and survived reboot with mesh identity intact. |
+| Home brain | Routed home peer behind Europe wg-easy | `fhh-home-brain` | routed via Europe | - | `10.11.0.0/24` behind `10.60.0.7` | User: `aibotadmin`. Not a direct `10.250.50.0/24` site-to-site peer. |
 
-## 5. What this does NOT restore
-N/A
+Restore peer public key currently used in the Europe WireGuard config:
 
-## 6. Required access
-N/A
+```text
+JywJlzQptH5HtqN+Z361o3FqUZ18Rpv+BlaSEr8v5B0=
+```
 
-## 7. Required offline secrets/keys
-N/A
+## 4. Trusted Ranges
 
-## 8. Required backup source options
-N/A
+| Range | Use |
+|---|---|
+| `10.250.50.0/24` | Site-to-site mesh |
+| `10.60.0.0/24` | Europe wg-easy clients and the home peer path |
+| `10.8.0.0/24` | US wg-easy clients |
+| `10.70.0.0/24` | UK wg-easy clients |
+| `10.10.0.0/24` | Singapore wg-easy clients |
+| `10.11.0.0/24` | Home VPN clients routed behind home brain |
 
-## 9. Required approval gates before destructive actions
-N/A
+`10.80.0.0/24` is not active. Treat it as historical or future-only unless live config is later updated to prove otherwise.
 
-## 10. Exact backup source paths
-N/A
+## 5. Routing Design Completed
 
-## 11. Exact restore target paths
-N/A
+Europe now carries the trusted mesh routes for:
 
-## 12. Exact commands
-N/A
+- `10.8.0.0/24` via the US spoke.
+- `10.70.0.0/24` via the UK spoke.
+- `10.10.0.0/24` via the Singapore spoke.
+- `10.250.50.5/32` for the restore server.
+- `10.11.0.0/24` routed behind home through the Europe wg-easy/home peer path.
 
-## 13. Expected outputs
-N/A
+Europe host routing for `10.11.0.0/24` uses source `10.250.50.1` so return routing works correctly.
 
-## 14. Validation checks
-N/A
+US, UK, and Singapore were updated so their Europe peer `AllowedIPs` include the remote trusted ranges that are meant to be reachable across the mesh.
 
-## 15. Failure handling
-N/A
+## 6. Persistence Services
 
-## 16. Rollback notes
-N/A
+These services keep the routed wg-easy subnet integration in place after reboot:
 
-## 17. What not to do
-N/A
+- US: `/usr/local/sbin/fhh-us-wg-easy-mesh-route.sh` and `/etc/systemd/system/fhh-us-wg-easy-mesh-route.service` route `10.8.0.0/24` via the wg-easy Docker bridge and add the required FORWARD rules.
+- UK: `/usr/local/sbin/fhh-uk-wg-easy-mesh-route.sh` and `/etc/systemd/system/fhh-uk-wg-easy-mesh-route.service` route `10.70.0.0/24` via the wg-easy Docker bridge and add the required FORWARD rules.
+- Singapore: `/usr/local/sbin/fhh-singapore-wg-easy-mesh-route.sh` and `/etc/systemd/system/fhh-singapore-wg-easy-mesh-route.service` route `10.10.0.0/24` via the wg-easy Docker bridge and add the required FORWARD rules.
+- Europe/home: `/usr/local/sbin/fhh-europe-home-vpn-route.sh` and `/etc/systemd/system/fhh-europe-home-vpn-route.service` route `10.11.0.0/24` through the Europe wg-easy container/home peer path.
 
-## Server Roles
-- **US Server (10.250.50.2)**: 
-  - Role: Production Family Hero Hub, PostgreSQL (pgBackRest), Caddy, Mailcow, and a legacy `cloudflared` tunnel service.
-  - Public Domain: `familyherohub.com`
-  - Rules: Should push backups to UK. Should NOT SSH into Europe or UK for anything else.
-- **Europe Server (10.250.50.1)**: 
-  - Role: Dev/test Family Hero Hub, Hermes agent, Hermes workspace, and private internal tools/viewers.
-  - Public Domain: `dev.familyherohub.com`
-  - Rules: Should pull from US. Should push to US and UK. Orchestration hub.
-- **UK Server (10.250.50.3)**: 
-  - Role: Backup hub, Google Drive rclone sync, and WireGuard/VPN node.
-  - Public Domain: None (infrastructure node).
-  - Rules: Should NOT SSH into US or Europe. Read-only receiver of backups.
+After reboot, check each persistence service on its matching host:
 
-## Backup Flow
-1. US -> UK (Push)
-2. Europe -> US (Pull)
-3. Europe -> US (Push)
-4. Europe -> UK (Push)
-5. UK -> Google Drive (Push via rclone sync)
+| Host | Service |
+|---|---|
+| `fhh-us` | `fhh-us-wg-easy-mesh-route.service` |
+| `fhh-uk` | `fhh-uk-wg-easy-mesh-route.service` |
+| `fhh-singapore` | `fhh-singapore-wg-easy-mesh-route.service` |
+| `fhh-europe` | `fhh-europe-home-vpn-route.service` |
 
-## SSH Trust Directions
-- US -> UK
-- Europe -> UK
-- Europe -> US
+Example:
 
-## 18. Last verified date
-2026-05-19
+```bash
+systemctl is-enabled <service>
+systemctl is-active <service>
+```
 
-## 19. Restore rehearsal status
-N/A
+## 7. SSH Trust
 
-## 20. Fresh restore identities and trust
+Completed passwordless SSH relationships:
 
-- Europe/dev/Hermes: mesh `10.250.50.1`; restore this identity only when the real Europe server is offline or isolated.
-- US/production: mesh `10.250.50.2`.
-- UK/backup hub: mesh `10.250.50.3`.
-- Backup root on all roles: `/opt/apps/backups`.
+| Source | Destination | Result |
+|---|---|---|
+| Restore node | `administrator@10.250.50.1` (`fhh-europe`) | Success |
+| Restore node | `administrator@10.250.50.2` (`fhh-us`) | Success |
+| Restore node | `administrator@10.250.50.3` (`fhh-uk`) | Success |
+| Restore node | `administrator@10.250.50.4` (`fhh-singapore`) | Success |
+| Restore node | `aibotadmin@10.60.0.7` (`fhh-home-brain`) | Success |
+| Europe / US / UK / Singapore / Home brain | `administrator@10.250.50.5` (`vmi3310324` / `fhh-restore`) | Success |
 
-Backup SSH trust:
+Restore-side mesh key files:
 
-- US -> UK: `/home/administrator/.ssh/us-to-uk-backups`.
-- Europe -> US: `/home/administrator/.ssh/europe-to-us-backups`.
-- Europe -> UK: `/home/administrator/.ssh/europe-to-uk-backups`.
-- Europe pull-from-US: `/home/administrator/.ssh/europe-to-us-backups`.
+- `~/.ssh/id_ed25519_fhh_mesh`
+- `~/.ssh/id_ed25519_fhh_mesh.pub`
 
-Provider firewall/security group rules are external dependencies. During restore, Dom must verify provider-side SSH, HTTP/HTTPS, WireGuard UDP `51820`, and any temporary allowlist rules before enabling UFW.
+Known hosts were populated for the mesh IPs so host key verification does not fail during restore or recovery work.
+
+## 8. Deprecated / Historical Notes
+
+- `10.50.0.0/24` was abandoned because it conflicted with office/local routing.
+- `10.80.0.0/24` is not an active trusted range.
+- Home is routed through Europe wg-easy as `10.60.0.7` with `10.11.0.0/24` behind it; it is not a normal `10.250.50.x` site-to-site peer.
+- `10.250.50.10` remains a future office-spoke candidate, not an active node.
+
+## 9. Verification
+
+Last verified on `2026-06-01`:
+
+- Restore node rebooted and `wg-quick@wg-site` returned active.
+- `10.250.50.5` came back after reboot.
+- Restore could ping Europe after reboot.
+- Restore could SSH to Europe after reboot using the mesh SSH key.
+- Restore could ping `10.250.50.1`, `10.250.50.2`, `10.250.50.3`, `10.250.50.4`, and `10.60.0.7`.
+- Restore could SSH out to Europe, US, UK, Singapore, and home brain.
+- Europe, US, UK, Singapore, and home brain could SSH into the restore node.
+
+## 10. Pending / Next Pass
+
+- Full server hardening documentation pass still pending.
+- Root SSH / password SSH policy review pending.
+- fail2ban / UFW final hardening audit pending.
+- Documentation should be updated again after hardening is completed.

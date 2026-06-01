@@ -177,3 +177,5 @@ Europe remediated backup proof from 2026-05-20:
 
 - `/opt/apps/backups/local/europe-secrets-20260520-160643.tar.gz.age` exists.
 - `/opt/apps/backups/local/europe-home-hermes-20260520-160643.tar.gz` has no obvious Hermes secret filenames matching `auth.json`, `.env`, `token`, `secret`, or `key`, so Hermes secret-bearing files should be restored from the encrypted Europe secrets archive.
+
+The manual break-glass SSH/WireGuard recovery bundle is documented separately in [BREAKGLASS_RECOVERY_BUNDLE.md](./BREAKGLASS_RECOVERY_BUNDLE.md). Use that page for the offsite bundle naming and storage rules; keep the AGE private identity outside the upload folder.

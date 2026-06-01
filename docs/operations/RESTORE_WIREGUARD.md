@@ -122,19 +122,30 @@ sudo wg show
 
 ## 21. Europe Site Mesh And wg-easy Gates
 
-Europe has two VPN layers and they must not be conflated:
+Canonical live topology: see [INFRASTRUCTURE_MAP.md](./INFRASTRUCTURE_MAP.md).
+
+Current live ranges:
 
 ```text
 Site-to-site mesh: 10.250.50.0/24
 Europe: 10.250.50.1
 US: 10.250.50.2
 UK: 10.250.50.3
+Singapore: 10.250.50.4
+Restore node: 10.250.50.5
 UDP port: 51830
 
-Personal/mobile VPN: 10.60.0.0/24
+Europe wg-easy clients: 10.60.0.0/24
+Home peer: 10.60.0.7
+Home VPN clients behind home: 10.11.0.0/24
+US wg-easy clients: 10.8.0.0/24
+UK wg-easy clients: 10.70.0.0/24
+Singapore wg-easy clients: 10.10.0.0/24
 wg-easy UDP: 51820
 wg-easy admin: http://10.250.50.1:51821
 ```
+
+`10.80.0.0/24` is not active and must not be treated as a live trusted range.
 
 Required SSH aliases before backup copy or endpoint repair:
 
@@ -168,12 +179,21 @@ ssh -o BatchMode=yes uk-mesh 'hostname; echo UK_MESH_OK'
 
 Expected output: recent handshakes, `0% packet loss`, and SSH markers.
 
+Drill cleanup note:
+
+- After a drill, restore the US endpoint back to real Europe `213.199.61.244:51830`.
+- Stop and remove the drill `wg-easy` container on the restore VPS.
+- If the restore VPS is being rebuilt, let the rebuild remove any leftover local `wg-site` identity instead of trying to preserve drill state.
+
 Endpoint drift:
 
 - Historical May 2026 restore endpoint and original Europe endpoint values must not be reused as defaults.
 - Use `<current-restore-public-ip>:51830` for a restore drill endpoint and `<current-original-europe-public-ip>:51830` when returning peers to the original Europe server.
 - If Europe restores to a new public IP, US/UK peer endpoint config must be updated only with Dom approval.
 - Never run original Europe and restore Europe simultaneously with the same WireGuard identity unless intentionally testing endpoint failover.
+- Real restore or cutover rule: `dev.familyherohub.com` must point to the restored server.
+- Drill rule: if DNS is intentionally left unchanged, update the WireGuard client endpoint IP manually to the restore server IP before relying on the VPN client path.
+- Latest drill confirmed VPN, Caddy, firewall, and routing worked once the restore identity was in place.
 
 wg-easy restore requirements:
 

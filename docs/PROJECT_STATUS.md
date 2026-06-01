@@ -117,7 +117,7 @@
 - DNS is aligned for dev: `dev.familyherohub.com` -> `213.199.61.244` and PTR `213.199.61.244` -> `dev.familyherohub.com`
 - Mail remains on the US server only; production DNS records were not changed
 - Dev access is locked down at Caddy with `remote_ip` allowlisting; off-VPN/untrusted clients receive HTTP 403
-- WireGuard site mesh is live on `10.250.50.0/24` with Europe as hub, US as spoke, and UK as spoke
+- WireGuard site mesh is live on `10.250.50.0/24` with Europe as hub, US/UK/Singapore as spokes, and the restore node at `10.250.50.5`
 - Europe personal VPN is working on `10.60.0.0/24`
 - UK personal VPN is working on `10.70.0.0/24`
 - Hermes migrated to the Europe/France VPS and now runs there as the active Hermes host
@@ -127,6 +127,10 @@
 - Europe private routing/firewall access is restored on reboot by `fhh-private-network-rules.service`
 - US Hermes was removed from active runtime and archived at `/opt/apps/hermes-removed-from-us/`
 - Ubuntu office box uses `wg-quick` with a split tunnel that routes only `10.250.50.0/24` through the Europe VPN
+- Current trusted mesh topology and routed VPN ranges are documented in [INFRASTRUCTURE_MAP.md](operations/INFRASTRUCTURE_MAP.md)
+- Site mesh now includes Europe `10.250.50.1`, US `10.250.50.2`, UK `10.250.50.3`, Singapore `10.250.50.4`, and the restore node `10.250.50.5`
+- Europe wg-easy serves `10.60.0.0/24`; home brain is routed as `10.60.0.7` with `10.11.0.0/24` behind it
+- US, UK, and Singapore wg-easy client ranges are `10.8.0.0/24`, `10.70.0.0/24`, and `10.10.0.0/24`
 - Backend tests passing (76 tests)
 - Frontend production build passes
 - Europe dev daily QA Phase A passes with backend pytest, frontend build, Playwright read-only E2E, and smoke checks
@@ -162,7 +166,7 @@
 - Admin registration requests page loaded successfully on dev
 - Hermes gateway and dashboard are active on Europe, and the private dashboard is reachable over the mesh/VPN path
 - Telegram Zeus gateway handling was confirmed by live `gateway.log` entries on the Europe Hermes host
-- All three servers can reach the `wg-easy` admin panels over the mesh at `10.250.50.1:51821`, `10.250.50.2:51821`, and `10.250.50.3:51821`
+- Trusted mesh nodes can reach the Europe, US, and UK `wg-easy` admin panels over the mesh; restore and home access are validated separately
 - Mobile calendar layout visually tested and improved
 - Mobile consistency viewport sweep completed against production frontend build at 320, 360, 375, 390, 412, 430, 768, and 1365 px widths using mocked app data; no horizontal page scrolling or non-decorative element overflow found
 - Parent dashboard child cards, quick actions, School Prep cards, rewards UI, child detail/log sections, login/request access, child/family invite pages, and parent/calendar modals were included in the mobile consistency pass

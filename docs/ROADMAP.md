@@ -129,7 +129,7 @@
 - Future: production PostgreSQL backup design using pgBackRest with WAL archiving, tested restore cadence, and off-server mirror retention, not `pg_dump` alone
 - Future: CI/test gate before deploy
 - Future: operational runbooks for private dashboards and VPN recovery
-- Future: formal US personal VPN cleanup/recreation to `10.80.0.0/24`
+- Future: review whether any US personal VPN cleanup/recreation is still needed; `10.80.0.0/24` is not active and remains historical/future-only
 - Future: optional office site mesh spoke at `10.250.50.10`
 - Future: narrow sudo permissions for Hermes if needed
 - Future: real-device mobile QA on Android Chrome and iPhone Safari

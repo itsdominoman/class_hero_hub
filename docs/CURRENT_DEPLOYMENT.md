@@ -72,14 +72,21 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 
 ## Private WireGuard Mesh
 
+- Canonical topology: [INFRASTRUCTURE_MAP.md](operations/INFRASTRUCTURE_MAP.md)
 - Site mesh subnet: `10.250.50.0/24`
 - Europe hub: `10.250.50.1`
 - US spoke: `10.250.50.2`
 - UK spoke: `10.250.50.3`
-- Future office spoke: `10.250.50.10`
-- Status: spoke-to-spoke traffic routes through Europe as the hub
-- Verification: all three servers can reach each other and all `wg-easy` admin panels over the mesh
-- Note: `10.50.0.0/24` was abandoned because it conflicted with office/local routing
+- Singapore spoke: `10.250.50.4`
+- Restore node: `10.250.50.5`
+- Europe wg-easy clients: `10.60.0.0/24`
+- Home brain: routed through Europe wg-easy as `10.60.0.7` with `10.11.0.0/24` behind it
+- US wg-easy clients: `10.8.0.0/24`
+- UK wg-easy clients: `10.70.0.0/24`
+- Singapore wg-easy clients: `10.10.0.0/24`
+- Status: spoke-to-spoke traffic routes through Europe as the hub; home is routed through the Europe wg-easy path rather than being a direct site-mesh peer
+- Verification: trusted mesh nodes can reach each other and the restore node, and the routed home peer is reachable through the Europe wg-easy path
+- Note: `10.50.0.0/24` was abandoned because it conflicted with office/local routing; `10.80.0.0/24` is not active
 
 ## Private Admin URLs
 
@@ -104,7 +111,7 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 - Do not assume Cloudflare Tunnel is active just because the file exists elsewhere in docs
 - Europe personal VPN runs through Docker `wg-easy`; the host may see container or bridge source addresses for that traffic.
 - Private routing and firewall access on reboot are restored by `/usr/local/sbin/fhh-private-network-rules.sh` and `fhh-private-network-rules.service`.
-- That private rules service preserves return routing for `10.60.0.0/24`, private service access, and site-mesh forwarding.
+- That private rules service preserves return routing for `10.60.0.0/24` and the routed home subnet `10.11.0.0/24`, plus private service access and site-mesh forwarding.
 
 ## App Location
 

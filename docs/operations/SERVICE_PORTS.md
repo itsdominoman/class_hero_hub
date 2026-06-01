@@ -53,8 +53,10 @@ N/A
 
 ## Active Ports
 - **US Production**: 80/443 Caddy, 22 SSH, 25/465/587/110/143/993/995/4190 Mailcow, 8000 Family Hero Hub API, 5173 Family Hero Hub frontend preview, 7654 Redis proxy, 8443 Mailcow UI proxy, 13306 MySQL proxy, 2019 Caddy admin, 20241 `cloudflared` local tunnel port, 51820 mesh WireGuard, 51821 wg-easy admin.
-- **Europe Dev/Hermes**: 80/443 Caddy, 22 SSH, 51830 site-to-site WireGuard, 51820 wg-easy user VPN, 10.250.50.1:51821 wg-easy admin, 10.250.50.1:9119 Hermes dashboard, 10.250.50.1:3000 Hermes workspace UI, 127.0.0.1:8000 Family Hero Hub API, 127.0.0.1:5173 Family Hero Hub frontend, 8642 Hermes gateway, 8765 competitor-review viewer, 8766 docs viewer, 8767 QA reports viewer. `8768` is currently not listening.
+- **Europe Dev/Hermes**: 80/443 Caddy, 22 SSH, 51830 site-to-site WireGuard, 51820 wg-easy user VPN, 10.250.50.1:51821 wg-easy admin, 10.250.50.1:9119 Hermes dashboard, 10.250.50.1:3000 Hermes workspace UI, 127.0.0.1:8000 Family Hero Hub API, 127.0.0.1:5173 Family Hero Hub frontend, 8642 Hermes gateway, 8765 competitor-review viewer, 8766 docs viewer, 8767 QA reports viewer, 8768 QA reports viewer if restored.
 - **UK Hub**: 22 SSH, 51820 mesh WireGuard, 51821 wg-easy admin. UK is restricted to backup/DR/VPN/Google Drive sync roles.
+- **Restore / Break-glass node**: 22 SSH, 51830 site-to-site WireGuard, `wg-quick@wg-site`, no public app ports.
+- **Home brain**: routed through Europe wg-easy as `10.60.0.7` with `10.11.0.0/24` behind it; no public services.
 
 ## Warnings
 - **EXPLICIT WARNING**: Do NOT expose backup stores (`/opt/apps/backups`) publicly via Caddy or any web server.
@@ -86,6 +88,7 @@ Hard checks:
 - Europe wg-easy admin must bind `10.250.50.1:51821`, not publicly.
 - Europe site mesh is `10.250.50.0/24`; mobile/user VPN is `10.60.0.0/24`.
 - Do not enable UFW until SSH, site mesh, user VPN, admin IP allowlist, Caddy, and wg-easy ports are verified.
+- For post-core validation, check Hermes dashboard `9119`, Hermes workspace `3000`, wg-easy admin `51821`, and internal viewers on `8765`-`8768` if restored.
 - UK must remain backup/DR/VPN only; no n8n/OpenClaw active restore path.
 
 ## 21. Final verification status

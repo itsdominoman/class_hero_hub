@@ -65,6 +65,15 @@ Do not skip steps. Do not guess commands.
 10. **Validate Every Gate**: Service `active` is not sufficient. Validate WireGuard handshakes/ping/SSH, wg-easy real client access, DB schema/data, OAuth, UI data, dashboards, and firewall.
 11. **Clean Up Last**: Remove temporary passwordless sudo and decrypted staging only after final validation and approval.
 
+Current trusted mesh topology, routed VPN ranges, SSH trust, and route helper services are documented in [INFRASTRUCTURE_MAP.md](./INFRASTRUCTURE_MAP.md).
+
+Europe restore timing targets:
+
+- Primary target: customer-facing FHH app usable.
+- Secondary target: VPN/admin access usable.
+- Final target: full operational restore, including Hermes, dashboards, internal tools, and cleanup.
+- Record the time to each target separately in restore reports.
+
 
 ### 🔑 Offline Key Reference
 The age private identity key is stored offline by Dom at:
@@ -122,6 +131,7 @@ Verified on 2026-05-20:
 - Backup services remain oneshot/static and are expected to be inactive after successful completion.
 - Timers remain enabled/active and are the persistence mechanism across reboot.
 - Europe restore drill is safer to begin than before, but it remains a controlled rehearsal that still requires explicit approval gates.
+- Latest successful Europe drill started at 16:25, the DR kit/bootstrap/file transfer stage took about 15 minutes, the core customer-facing app was usable in about 35 minutes, `dev.familyherohub.com` was confirmed up around 17:00, VPN/private access was usable around 17:05, and Hermes replied with working memory.
 
 Remaining separate work:
 

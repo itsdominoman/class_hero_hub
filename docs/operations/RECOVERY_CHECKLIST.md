@@ -51,6 +51,8 @@ N/A
 ## 17. What not to do
 Do not guess the recovery order. Follow the tree.
 
+Canonical current mesh/topology reference: [INFRASTRUCTURE_MAP.md](./INFRASTRUCTURE_MAP.md). Do not treat `10.80.0.0/24` as active unless live config later proves it, and do not treat home as a normal `10.250.50.x` site-to-site peer.
+
 ## Decision Tree
 
 **Scenario A: US production down**
@@ -74,6 +76,8 @@ Do not guess the recovery order. Follow the tree.
 10. Copy only the latest complete timestamped Europe backup set.
 11. Do not expect `/opt/apps/backups/from-europe/` on Europe itself; Europe stores its own `europe-*` archives in `/opt/apps/backups/local/`.
 12. Do not use `us-pgbackrest-repo-*` for Europe dev unless Dom explicitly approves seeding dev from US production.
+13. Treat the customer-facing FHH app as the primary restore target. Hermes, dashboards, internal tools, and cleanup come after the app and VPN/admin path are working.
+14. During a drill, if `dev.familyherohub.com` is not repointed to the restore server, manually update the WireGuard client endpoint IP to the restore server IP before relying on the VPN client path. For a real cutover, `dev.familyherohub.com` must point to the restored server.
 
 **Scenario C: UK backup hub down**
 1. Use `RESTORE_UK_SERVER.md`.
@@ -164,3 +168,5 @@ Europe restore drill status:
 
 - Safer to begin than before.
 - Still a controlled restore rehearsal with explicit approval gates.
+- Core app availability, VPN/admin access, and full operational restore should be tracked as separate timings.
+- Hermes, dashboards, internal tools, and cleanup are secondary operational restore items, not blockers for customer-facing app availability.

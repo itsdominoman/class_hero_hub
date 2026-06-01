@@ -124,6 +124,8 @@ Do not paste `rclone.conf`, OAuth tokens, crypt passwords, or downloaded decrypt
 
 For a fresh UK backup hub rebuild, this Google Drive/rclone path is required unless Dom manually stages the UK archive set on the restore VPS. Required UK files are `uk-sys-configs-*.tar.gz`, `uk-secrets-*.tar.gz.age`, and the matching `manifest-*.txt`.
 
+The manual break-glass SSH/WireGuard recovery bundle is documented separately in [BREAKGLASS_RECOVERY_BUNDLE.md](./BREAKGLASS_RECOVERY_BUNDLE.md). Keep the AGE private identity offline and separate from the Google Drive upload location.
+
 ## 21. Europe Restore From Google Drive
 
 If Google Drive is the source for Europe restore, copy the Europe set into the standard restore path:
@@ -154,7 +156,7 @@ Stop conditions:
 
 After download, continue with `RESTORE_EUROPE_SERVER.md`; do not extract or decrypt directly from the Google Drive staging command.
 
-## 21. Final verification status
+## 22. Final verification status
 
 Verified on 2026-05-20:
 
