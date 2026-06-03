@@ -7,11 +7,14 @@
 4. Look at My Day.
 5. Check School Bag.
 6. If your parent turned on allowance, look at the money value beside your points.
+7. If you have saved points, look for the savings card to see available points, locked points, and the next unlock.
 
 ## How to use it
 
 - **Points** show how much you have earned.
 - If allowance is on, your current points also show a money value beside them.
+- **Saved points** are points that are waiting to unlock later.
+- **Next unlock** shows when saved points return to available points, and it includes the savings bonus.
 - **Rewards** are things you can ask for.
 - **My Day** shows what you need to do today.
 - **School Bag** shows school things to remember.

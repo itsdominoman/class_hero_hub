@@ -2,9 +2,9 @@
 
 ## 1. Current status
 
-- This is a pre-implementation wording and terminology cleanup project.
-- The wording direction has been reviewed and approved in principle by Dom.
-- No app copy changes have been implemented yet.
+- This wording and terminology direction has now been implemented in the product where relevant.
+- The child savings flow now uses a visible `Bank points` action, a popup savings modal, `savings bonus`, and `next unlock` wording.
+- The remaining notes here are the approved terminology baseline for future copy work.
 
 ## 2. Approved terminology direction
 
@@ -18,6 +18,9 @@
 - Replace **Positive / Negative / Other** with **Add points / Remove points / Custom**.
 - Replace **Open child** with **View child dashboard**.
 - Replace **Points** button with **Add / remove points**.
+- Use **Bank points** on the child savings card for the savings flow.
+- Use **Savings bonus** for the extra points earned when saved points unlock.
+- Use **Next unlock** and **Unlock schedule** for child savings timing.
 - Replace **Reward Approvals** with **Reward requests / Review reward requests**.
 - Keep **dragon** as the main child-progress identity.
 
@@ -29,7 +32,7 @@
 - Prefer:
   - **Locked saved points** if genuinely locked
   - **Points on hold** if reserved during a reward request
-  - **Saved for later** for child-friendly savings language
+  - **Saved points** or **Saved for later** for child-friendly savings language, depending on context
 - Do not use **owed**, **withdraw**, **cash out**, **payment**, or **salary payment** in child-facing allowance copy.
 - Do not imply Family Hero Hub directly pays money.
 - Treat allowance start timestamps as history/context, not as a cutoff for available allowance value.

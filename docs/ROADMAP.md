@@ -70,6 +70,7 @@
 - Completed: Children appear first, followed by total available points / reward requests summary cards and Parent Tools
 - Completed: Duplicate Add Child entry removed from the child card area
 - Completed: Child cards consistently show saved balance, including `0 saved`
+- Completed: Child dashboard savings card now shows saved, available, locked, and next unlock details with a dedicated `Bank points` popup
 - Completed: Child card point entry renamed from Actions to Points
 - Completed: Points modal supports Add points, Remove points, and Custom point actions
 - Completed: Custom one-off point awards and penalties restored without requiring new presets
@@ -90,6 +91,7 @@
 ### 🔥 Streaks & Bonuses
 - Future: Automatic weekly streak generation
 - Future: Polished streak and bonus UI
+- Future: Expand the savings bonus presentation with richer celebrations if needed
 
 ---
 

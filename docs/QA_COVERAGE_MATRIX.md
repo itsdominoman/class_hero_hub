@@ -49,7 +49,7 @@ This matrix is meant to keep the Europe dev QA surface practical: read-only by d
 - `frontend/e2e/public-pages.spec.ts` now covers `/faq` and checks safe internal links.
 - `frontend/e2e/visual-layout.spec.ts` saves screenshots under `tmp/qa-runs/YYYYMMDD-HHMMSS-visual-layout/`.
 - The child dashboard is now exercised through a deterministic seeded child session in visual QA.
-- The child visual checks cover reward cards, the custom request form, pending requests, tasks, events, savings snapshot values, and points history.
+- The child visual checks cover reward cards, the custom request form, pending requests, tasks, events, savings snapshot values, the banking popup, the savings bonus preview, the grouped unlock schedule, and points history.
 - The parent visual check includes a desktop/laptop alignment assertion at `1024px` for child-card buttons, while mobile widths keep the safer stacked layout checks.
 - `frontend/e2e/authenticated-child-pages.spec.ts` covers the seeded child route directly.
 - Visual checks are intentionally focused on obvious layout explosions: horizontal overflow, narrow/over-tall text blocks, crushed headings, and buttons that stop fitting their containers.

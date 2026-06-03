@@ -4,6 +4,7 @@
 - Sign in with Google
 - Check or add your child profile
 - Review point actions: Add points, Remove points, Custom
+- Use the child dashboard savings card to bank points when you want them to unlock later
 - Create one simple reward
 - If you want allowance, open Allowance setup and choose weekly or monthly
 - Link the child device
@@ -49,7 +50,20 @@ The child’s current points gain allowance value when allowance is enabled.
 5. Save.
    - The child’s available points go up and you hear the success sound if audio is on.
 
-## 4) Create first reward
+## 4) Bank points on the child dashboard
+
+1. Open the child dashboard.
+   - You should see the savings card with saved, available, locked, and next-unlock information.
+2. Click **Bank points**.
+   - This opens a popup savings modal.
+3. Enter how many points to bank.
+   - The modal shows the projected savings bonus and unlock total as you type.
+4. Review the unlock warning.
+   - Banked points stay locked for 30 days before they return to available points.
+5. Save.
+   - The points move into savings and the child dashboard updates the next unlock summary.
+
+## 5) Create first reward
 
 1. Open **Manage rewards**.
    - This opens the reward editor.
@@ -64,7 +78,7 @@ The child’s current points gain allowance value when allowance is enabled.
 
 Example reward: “Choose movie night”
 
-## 5) Link the child device
+## 6) Link the child device
 
 1. Open **Link child device**.
    - This opens the QR/link screen.
@@ -75,7 +89,7 @@ Example reward: “Choose movie night”
 4. Confirm the child dashboard loads.
    - You’re ready for the next step when the child is connected to the right profile.
 
-## 6) Test a reward request
+## 7) Test a reward request
 
 1. Ask the child to choose a reward.
    - A request is sent from the child dashboard.
@@ -84,14 +98,14 @@ Example reward: “Choose movie night”
 3. Open pending requests.
    - You can review the request in **Review reward requests**.
 
-## 7) Approve or reject
+## 8) Approve or reject
 
 - Click **Approve request** if the child earned it.
   - The reward is approved and the points stay spent.
 - Click **Reject request** if you want to return the points on hold.
   - The points on hold return to the child’s available points.
 
-## 8) Use calendar and School Bag basics
+## 9) Use calendar and School Bag basics
 
 - Add one task or event to the calendar.
   - The item appears in the child’s day view.

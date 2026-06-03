@@ -80,6 +80,8 @@ Each child card shows:
 - an **Add / remove points** button for quick actions
 - a **View child dashboard** button to view the child dashboard
 
+Banking saved points happens on the child dashboard savings card, where parents can open the **Bank points** popup and review the unlock date and savings bonus before saving.
+
 ## 5) Adding and managing children
 
 Use the **Children** cards and **Family tools** to manage your family. From there you can:
@@ -131,10 +133,30 @@ Write a short reason so the record is clear later.
 The app shows three point balances for each child:
 
 - **Available points**: points the child can use right now
-- **Saved points**: points set aside for later
+- **Saved points**: points set aside for later. Saved points are locked for 30 days in the current savings flow and return to available points with a savings bonus when they unlock.
 - **Points on hold**: points temporarily set aside while a reward request waits for your decision. Points on hold are already removed from available points while a reward request waits for review.
 
-The points log shows the history of point changes, saved points changes, and reward requests.
+The points log shows the history of point changes, savings deposits, savings unlocks, bonus awards, and reward requests.
+
+### Banking saved points
+
+Use the child dashboard savings card when you want to bank points.
+
+The savings popup shows:
+
+- how many points you are banking
+- the projected savings bonus
+- the total amount that will unlock later
+- the unlock date
+- a warning that banked points cannot be used for 30 days
+
+The child dashboard also shows:
+
+- total saved points
+- available saved points
+- locked saved points
+- the next unlock summary
+- an optional grouped unlock schedule by date
 
 ### Reward lifecycle
 
@@ -215,7 +237,7 @@ Allowance setup is optional. When you turn it on for a child, the child’s curr
 
 Families without allowance enabled stay points-only.
 
-Reward requests, reward holds, reward approvals or rejections, and saved-point transfers reduce the child’s available balance. Family Hero Hub tracks allowance value. Parents approve requests and provide the real-world reward or purchase.
+Reward requests, reward holds, reward approvals or rejections, and savings deposits/unlocks reduce the child’s available balance. Family Hero Hub tracks allowance value. Parents approve requests and provide the real-world reward or purchase.
 
 The app warns you before turning allowance on because the child’s current points will gain allowance value.
 You can adjust the child’s points before enabling allowance if needed.

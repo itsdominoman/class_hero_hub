@@ -1,6 +1,6 @@
 # Family Hero Hub FAQ
 
-Last reviewed: 2026-05-18
+Last reviewed: 2026-06-03
 
 ## Getting started
 ### What is Family Hero Hub?
@@ -61,13 +61,16 @@ Points are the family score children earn or lose. Hero Points is the branded fu
 Available points are the points a child can use right now.
 
 ### What are saved points?
-Saved points are points set aside for later.
+Saved points are points set aside for later. In the current savings flow, banked points stay locked for 30 days and then unlock back into available points with a savings bonus.
+
+### What is the savings bonus?
+It is the extra points a child earns when saved points unlock. The child dashboard shows the next unlock amount, the next unlock date, and a grouped unlock schedule.
 
 ### What are points on hold?
 They are points temporarily set aside while a reward request is waiting for a parent to decide. Points on hold are already removed from available points while a reward request waits for review.
 
 ### What is the difference between available points, saved points, and points on hold?
-Available points can be used now, saved points are set aside for later, and points on hold are waiting on a reward decision.
+Available points can be used now, saved points are set aside for later, and points on hold are waiting on a reward decision. Saved points are locked for 30 days before they return to available points with a savings bonus.
 
 ### What happens when allowance is enabled?
 Children see their points with a money equivalent beside them. When allowance is enabled, the child’s current points gain allowance value.
@@ -76,10 +79,13 @@ Children see their points with a money equivalent beside them. When allowance is
 They are the allowance value that is still available after rewards, points on hold, and saved points are shown separately. The enable date is kept for history, not as a cutoff.
 
 ### Why did my child’s points change?
-Points can change after an add points action, a remove points action, a saved points change, or a reward request.
+Points can change after an add points action, a remove points action, a saved points deposit or unlock, or a reward request.
 
 ### What are Add points, Remove points, and Custom point actions?
 Add points adds points, Remove points removes points, and Custom lets a parent enter a custom point action.
+
+### How do I bank points?
+Open the child dashboard and use the **Bank points** button on the savings card. The popup shows the amount, savings bonus, unlock total, unlock date, and a warning that banked points cannot be used for 30 days.
 
 ## Rewards and requests
 ### How do rewards work?
@@ -120,7 +126,7 @@ Use **Allowance setup** from the parent dashboard Family tools area.
 No. Family Hero Hub tracks allowance value. Parents approve requests and provide the real-world reward or purchase.
 
 ### Do reward requests reduce allowance progress?
-Yes. Reward requests, points on hold, reward approvals or rejections, and saved-point transfers reduce the available allowance balance while keeping earned history visible.
+Yes. Reward requests, points on hold, reward approvals or rejections, and saved-point deposits and unlocks reduce the available allowance balance while keeping earned history visible.
 
 ## Calendar, School Prep, and School Bag
 ### What is the calendar for?
@@ -152,7 +158,7 @@ Check the child, the weekday, and the school items entered in School Prep.
 
 ## Child dashboard
 ### What can children see?
-Children can see points, rewards, My Day, School Bag, and their dragon progress if it is shown on their dashboard.
+Children can see points, rewards, My Day, School Bag, their dragon progress if it is shown on their dashboard, and a savings card with saved, available, locked, and next-unlock information.
 
 ### What is My Day?
 My Day shows tasks or events for today.

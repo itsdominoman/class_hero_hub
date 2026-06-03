@@ -10,7 +10,13 @@ The branded/fun name for points when Family Hero Hub uses the hero theme.
 Points a child can use right now.
 
 ## Saved points
-Points set aside for later.
+Points set aside for later. In the current savings flow, saved points stay locked for 30 days before they return to available points with a savings bonus.
+
+## Savings bonus
+Extra points added when banked saved points unlock.
+
+## Next unlock
+The next date shown on the child savings card for the earliest saved points to unlock.
 
 ## Points on hold
 Points temporarily set aside while a reward request is waiting for a parent decision. Points on hold are already removed from available points while a reward request waits for review.
@@ -22,7 +28,7 @@ A child’s request to use points for a reward.
 When a parent says yes to a reward request.
 
 ## Child dashboard
-The child’s private page for points, rewards, tasks, and dragon progress.
+The child’s private page for points, rewards, tasks, savings, and dragon progress.
 
 ## Child dashboard link
 The QR code or link that opens a child’s dashboard on a device.

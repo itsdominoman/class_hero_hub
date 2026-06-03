@@ -7,6 +7,7 @@ Kids who use Family Hero Hub on their own device.
 - Opening your child dashboard
 - What points mean
 - What allowance-linked points mean
+- What saved points, locked points, and next unlock mean
 - Rewards
 - Reward requests
 - My Day / calendar items
@@ -50,7 +51,21 @@ Examples:
 - `50 points / 5.000 OMR available to spend`
 - `30 points / 3.000 OMR on hold`
 
-## 4) Rewards
+## 4) What saved points mean
+
+Saved points are points your parent has banked for later.
+
+They stay locked for 30 days.
+
+When they unlock:
+
+- they return to your available points
+- they include a savings bonus
+- the dashboard shows the next unlock amount and date
+
+If your dashboard shows unlock details, they are grouped by date so the page stays easy to read on a phone.
+
+## 5) Rewards
 
 Rewards are things you can ask for with your points.
 
@@ -63,7 +78,7 @@ Examples:
 
 Your parent chooses the rewards you can ask for.
 
-## 5) How to request a reward
+## 6) How to request a reward
 
 1. Open the rewards area.
 2. Choose a reward.
@@ -72,7 +87,7 @@ Your parent chooses the rewards you can ask for.
 
 If allowance is turned on, each reward also shows the money value beside the points cost.
 
-## 6) What pending means
+## 7) What pending means
 
 Pending means:
 
@@ -81,7 +96,7 @@ Pending means:
 - the points are on hold while they decide
 - the money equivalent is on hold too if allowance is turned on
 
-## 7) If your parent says yes
+## 8) If your parent says yes
 
 If your parent approves your request:
 
@@ -90,7 +105,7 @@ If your parent approves your request:
 - the money equivalent is spent too if allowance is turned on
 - you can enjoy the reward
 
-## 8) If your parent says no
+## 9) If your parent says no
 
 If your parent rejects your request:
 
@@ -99,7 +114,7 @@ If your parent rejects your request:
 - the money equivalent goes back too if allowance is turned on
 - you can try again later
 
-## 9) My Day / calendar tasks
+## 10) My Day / calendar tasks
 
 Your dashboard shows tasks or events for today.
 
@@ -112,7 +127,7 @@ These might be things like:
 
 If a task is rewardable, your parent gives points when it is finished and approved.
 
-## 10) School Bag
+## 11) School Bag
 
 School Bag helps you remember what you need for school.
 
@@ -124,7 +139,7 @@ You see:
 
 Use it before school or bedtime.
 
-## 11) Dragon progress
+## 12) Dragon progress
 
 Your child dashboard shows a dragon.
 
@@ -136,7 +151,7 @@ That means:
 - your dragon can look different at each stage
 - it is a fun way to see your progress
 
-## 12) If the link stops working
+## 13) If the link stops working
 
 If you see a message saying the link expired or does not work:
 
@@ -144,13 +159,13 @@ If you see a message saying the link expired or does not work:
 2. Ask for a new link or QR code.
 3. Open the new one.
 
-## 13) Safety note
+## 14) Safety note
 
 If you are not sure what to do, ask your parent for help.
 
 That is always the safest choice.
 
-## 14) Allowance-linked points
+## 15) Allowance-linked points
 
 If your parent turns on allowance for you:
 
@@ -158,11 +173,12 @@ If your parent turns on allowance for you:
 - earned points increase what you can spend
 - spending points reduces what remains available
 - saved points stay separate from points you can spend now
+- saved points can unlock later with a savings bonus
 - points on hold are waiting for a parent to decide
 - your parent still has to approve every request
 - Parents approve requests and provide the real-world reward or purchase.
 - if your parent turns allowance on after you already had points, those current points also get allowance value
 
-## 15) Quick reminder
+## 16) Quick reminder
 
 If you get stuck, ask your parent.

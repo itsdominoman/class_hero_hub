@@ -1,5 +1,23 @@
 # Family Hero Hub - Upgrade Tracker
 
+# 2026-06-03 - Savings Bonus Banking Flow
+
+### Scope
+- Added a dedicated `Bank points` action on the child dashboard savings card.
+- Added a popup savings modal that previews the savings bonus, unlock total, unlock date, and 30-day lock warning before saving.
+- Added child-facing savings summary details for saved, available, locked, and next unlock values.
+- Added a grouped unlock schedule view so savings unlocks stay compact on mobile.
+- Kept the parent dashboard clutter-free and did not add a parent-side banking control.
+
+### Verification
+- Child dashboard savings UI now shows the compact summary and popup flow.
+- Savings deposits still remain individually locked and unlock on their own schedule.
+- The unlock summary derives from existing locked savings data.
+
+### Notes
+- The savings bonus wording is now the primary child/parent-facing savings language.
+- The child dashboard is the visible place to bank points.
+
 # 2026-05-18 - Visual Layout Improvements (Child Custom Request & Parent Dashboard)
 
 ### Scope
@@ -120,7 +138,7 @@
 ### Verification
 - Allowance preview uses current period ledger aggregation rather than current point balances.
 - Eligible allowance points include awards, calendar task points, adjustments, and penalties.
-- Reward holds/releases/approvals and savings transfers are excluded from allowance preview calculations.
+- Reward holds/releases/approvals and savings deposits/unlocks are excluded from allowance preview calculations.
 - Backend allowance tests passed.
 - Full backend test suite passed.
 

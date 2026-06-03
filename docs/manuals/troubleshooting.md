@@ -41,8 +41,8 @@ Parents, guardians, and support helpers.
 
 ## 7) Points look wrong
 - **Problem:** The child’s point balance does not look right.
-- **Likely reason:** A recent add points, remove points, or reward request changed the balance.
-- **What to try:** Open the points log and check recent point actions, reward requests, approvals, and rejections.
+- **Likely reason:** A recent add points, remove points, savings deposit, savings unlock, or reward request changed the balance.
+- **What to try:** Open the points log and check recent point actions, savings deposits, savings unlocks, reward requests, approvals, and rejections.
 - **When to contact support:** If the log does not explain the balance change.
 
 ## 8) Calendar item missing

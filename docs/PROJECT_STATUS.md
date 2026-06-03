@@ -71,11 +71,12 @@
 - Backend support exists for optional child-level allowance settings
 - Parents can store allowance currency, amount, weekly/monthly period, point goal, and allowance enabled date per child through API endpoints
 - Allowance values are derived from allowance-linked points using integer minor-unit math
-- Rewards, reward holds, reward releases, and savings transfers reduce the available balance when allowance is enabled
+- Rewards, reward holds, reward releases, and savings deposits/unlocks reduce the available balance when allowance is enabled
 - Parent-facing Allowance setup page exists at `/allowance`
 - Parents can select a child, enable/disable allowance, choose OMR/USD/GBP/EUR, set weekly/monthly allowance goals, save settings, and view allowance-linked summaries
 - Child dashboard allowance display is now implemented for children with allowance enabled
 - The app still does not automatically pay children
+- Child dashboard savings banking is now implemented with a dedicated popup, savings bonus projection, next-unlock summary, and grouped unlock schedule
 
 ### UI / UX
 - Responsive layout (tablet + mobile)
@@ -87,6 +88,7 @@
 - Child-friendly dashboard experience
 - Parent dashboard redesigned into a family-first, mobile-first launcher instead of a dense control-room layout
 - Children now appear first on the parent dashboard with balanced child cards, saved balance shown consistently, and `Points` as the child card point-action entry
+- Child dashboard savings card now exposes a visible `Bank points` action and a compact savings summary with next unlock information
 - Total available points and reward requests now use compact summary cards
 - Parent Tools are grouped in a dedicated section with a top `Manage` button that smoothly scrolls to the tools area
 - Manage Rewards, View Pending Requests, and Link child device use modal flows instead of large inline dashboard sections
@@ -138,7 +140,7 @@
 - Europe dev daily QA Phase A passes with backend pytest, frontend build, Playwright read-only E2E, and smoke checks
 - Playwright coverage now includes `/faq`, route inventory, authenticated parent visual layout checks, and mobile screenshot artifacts for the most important parent/child surfaces
 - Dev-only child QA login and seeded child visual coverage are now part of the Europe dev daily QA flow, and the full visual suite passes on the standard dev ports after rebuilding the dev containers
-- The child visual suite now covers the real seeded child route, reward cards, custom request form, pending requests, tasks, events, savings snapshot, and points log, with a 1024px parent alignment check for child dashboard cards
+- The child visual suite now covers the real seeded child route, reward cards, custom request form, pending requests, tasks, events, savings snapshot, savings popup, unlock schedule, and points log, with a 1024px parent alignment check for child dashboard cards
 - Europe PostgreSQL runtime smoke test now handles expired child-device links cleanly with HTTP 401 instead of a 500
 - US production smoke tests and manual verification passed after the PostgreSQL cutover
 
