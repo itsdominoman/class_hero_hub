@@ -16,6 +16,23 @@ Lessons learned source copied into this repo: `docs/operations/RESTORE_EUROPE_LE
 - Do not commit or push runbook changes until Dom approves.
 - Do not enable backup timers until all restore validation passes and duplicate backup streams are ruled out.
 
+Restore priority and timing:
+
+- Primary restore target: customer-facing FHH app usable.
+- Secondary restore target: VPN/admin access usable.
+- Final restore target: full operational restore, including Hermes, dashboards, internal tools, and cleanup.
+- Record the time to each target separately in the restore report.
+
+Latest successful drill summary:
+
+- Drill start: 16:25.
+- DR Kit/bootstrap/file transfer stage: about 15 minutes.
+- Core customer-facing app usable: about 35 minutes in calm drill conditions.
+- `dev.familyherohub.com` confirmed up: about 17:00.
+- VPN/private access usable: about 17:05.
+- Hermes replied and memory validation passed.
+- UK mesh was not restored in the drill because of a UK endpoint/reachability issue; treat that as a follow-up network validation item, not a blocker for Europe core restore.
+
 ## Standard Restore Paths
 
 ```bash
@@ -855,6 +872,9 @@ Commands and checks:
 
 Expected output: Google login completes and the parent dashboard loads with restored data.
 
+During a real restore or cutover, `dev.familyherohub.com` must point to the restored server.
+During a drill, if DNS is intentionally left unchanged, manually update the WireGuard client endpoint IP to the restore server IP before relying on the VPN client path.
+
 Stop conditions: DNS wrong, Caddy 403, callback URI missing, backend exception, `approved_parent_emails` missing/empty, or UI shows empty bootstrap data.
 
 For a real restore cutover, update DNS/provider records when the restored server is meant to take over.
@@ -902,9 +922,12 @@ curl -I http://10.250.50.1:3000
 curl -I http://10.250.50.1:8765
 curl -I http://10.250.50.1:8766
 curl -I http://10.250.50.1:8767
+curl -I http://10.250.50.1:8768
 ```
 
 Expected output: tools bind to VPN/private IPs only, not public internet; HTTP checks work from VPN/mesh.
+
+Treat this as a post-core validation step, after the customer-facing app and VPN/admin path are already working.
 
 Stop conditions: any internal tool binds `0.0.0.0` or public interfaces unexpectedly.
 
@@ -1044,6 +1067,7 @@ Rollback/backup step: restore the timestamped US/UK WireGuard config backups.
 Approval gate: Dom approval required before teardown endpoint changes.
 
 Warning: never run original Europe and restore Europe simultaneously with the same WireGuard identity unless intentionally testing endpoint failover. US/UK peers may roam to whichever endpoint last sent traffic.
+Latest drill cleanup pattern: restore the US endpoint back to real Europe at `213.199.61.244:51830`, stop and remove the drill `wg-easy` container, and if the restore VPS is being reinstalled, let the rebuild remove the leftover local `wg-site` identity.
 
 ## Final Validation Checklist
 
@@ -1065,6 +1089,10 @@ sudo docker exec wg-easy-europe sh -lc 'wg show; iptables -t nat -S | grep -E "1
 systemctl status hermes-gateway hermes-dashboard hermes-workspace --no-pager
 curl -I http://10.250.50.1:9119
 curl -I http://10.250.50.1:3000
+curl -I http://10.250.50.1:8765
+curl -I http://10.250.50.1:8766
+curl -I http://10.250.50.1:8767
+curl -I http://10.250.50.1:8768
 cd /opt/apps/family-hero-hub && docker compose ps
 curl -I http://127.0.0.1:8000/docs
 curl -I http://127.0.0.1:5173

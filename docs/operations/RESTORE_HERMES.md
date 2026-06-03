@@ -151,6 +151,7 @@ Systemctl should return no errors. Tar will extract files silently.
 - `/home/administrator/.hermes/profiles/hermes/` exists if Zeus should use the named Hermes profile.
 - `/opt/apps/hermes-workspace/.runtime/local-sessions.json` exists if workspace history is expected.
 - Hermes reports the intended root/profile.
+- In the latest successful Europe drill, Hermes replied to messages and memory validation passed. Keep the live prior-history question in the test: ask Zeus something it should only know from before the restore, then verify the answer comes from persisted history rather than model guesswork.
 
 Deterministic persistence commands:
 
@@ -227,6 +228,8 @@ Remediated Europe backup proof from 2026-05-20:
 Hermes is not an early restore dependency. In a full Europe rebuild, start Hermes only after the `RESTORE_EUROPE_SERVER.md` gates for SSH trust, backup verification, archive path mapping, Caddy, systemd units, helper scripts, site-to-site WireGuard, wg-easy, and real VPN client access have passed.
 
 Hermes chat history / persistence remains an open follow-up investigation. Do not treat a successful service start or Telegram connectivity test as proof that chat history was restored.
+
+That said, the latest successful Europe drill did pass Hermes reply and memory validation. Treat that as verified for the current restore documentation until a later drill contradicts it.
 
 Required Hermes restore checks:
 
