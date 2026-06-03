@@ -95,6 +95,8 @@ Encrypted logical layout:
 
 **UK Backup Set:**
 - `uk-sys-configs-*.tar.gz` (Includes `wg-easy/docker-compose.yml`, `fhh-uk-backup.*`, `hermes-gateway.service`, `wg-personal-to-site-nat.service`, and `/usr/local/sbin/wg-personal-to-site-nat.sh`)
+- `fhh-uk-to-restore-sync.{service,timer}` and `/usr/local/sbin/fhh-uk-to-restore-sync.sh` stage the filtered UK replica set to `/srv/fhh-restore-inbox/uk/backups`
+- `fhh-uk-backup-retention.{service,timer}` and `/usr/local/sbin/fhh-uk-backup-retention.sh` cap Hermes app backups to the latest 2 and Hermes home backups to the latest 3
 - Historical audit archive only: `/opt/apps/backups/local/removed-uk-n8n-openclaw-services-20260519-101652.tar.gz`
 - `uk-secrets-*.tar.gz.age` (Encrypted; includes `/etc/wireguard`, `/opt/apps/wg-easy/.env`, `/opt/apps/wg-easy/etc_wireguard`, and `rclone.conf`)
 
@@ -110,7 +112,7 @@ Encrypted logical layout:
 - `/opt/backups/` on US and Europe: **Untouched, inventory only.** Do not migrate or delete.
 
 ## 18. Last verified date
-2026-05-20
+2026-06-03
 
 ## 19. Restore rehearsal status
 N/A
@@ -245,3 +247,11 @@ Legitimate remaining caveats:
 - Historical plaintext archive quarantine/delete/rotation decisions still remain pending for affected old archives; the Europe Hermes plaintext backup path is remediated as of `20260520-160643`.
 - Mailcow remains out of scope.
 - Full restore drills still need to be repeated and proven end-to-end.
+
+## 24. 2026-06-03 DR Backup Update
+
+- UK restore replica inbox verified at `/srv/fhh-restore-inbox/uk/backups`.
+- Current verified inbox size is about `3.6G` after cleanup.
+- Restore sync uses `rsync` over SSH to `ukbackup@95.111.243.235` with both `--delete` and `--delete-excluded`, and keeps only the recent filtered backup set.
+- UK and Europe retention scripts now cap Hermes app backups to the latest 2 and Hermes home backups to the latest 3.
+- Europe Hermes app backup tarballs now exclude `.venv`, `*/.venv`, `test_venv`, `*/test_venv`, `.cache`, `*/.cache`, and `*.pyc`, reducing the archive from about `4.0G` to about `684M`.

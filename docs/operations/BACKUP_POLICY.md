@@ -57,9 +57,10 @@ Systemd timers trigger localized shell scripts running as `root`.
 - **US (`fhh-us-backup.timer` @ 02:00)**: Backs up US prod app, pgBackRest tarball, `us-sys-configs` including `wg-easy/docker-compose.yml`, and encrypted secrets, including the secret-bearing `cloudflared.service`, `wg-easy/.env`, and `wg-easy/etc_wireguard`. Mirrors to UK.
 - **Europe (`fhh-europe-pull-us.timer` @ 03:00)**: Pulls the US backup mirror down to Europe.
 - **UK (`fhh-uk-backup.timer` @ 04:00)**: Backs up UK configs, encrypted WireGuard/wg-easy state, and syncs `local`, `from-us`, and `from-europe` to Google Drive.
+- **UK DR sync (`fhh-uk-to-restore-sync.timer` @ 06:00 UTC)**: Uses rsync over SSH to mirror the filtered UK backup set to `ukbackup@95.111.243.235` and stores the rolling recent set only in `/srv/fhh-restore-inbox/uk/backups`; this path is for restore staging, not long-term archive retention.
 
 ## Retention
-- **Implemented Retention**: 30 days of archives are kept in `/opt/apps/backups/local/` on each server.
+- **Implemented Retention**: 30 days of archives are kept in `/opt/apps/backups/local/` on each server, with retention scripts for Europe and UK trimming Hermes app backups to the latest 2 and Hermes home backups to the latest 3.
 - **Proposed/Future**: 12 weekly, 6 monthly (Not yet implemented in shell scripts).
 - **pgBackRest**: Handles its own internal retention (Diff=7, Full=3). Our policy applies to the exported atomic tarballs of the pgBackRest repo.
 
@@ -74,6 +75,7 @@ Systemd timers trigger localized shell scripts running as `root`.
 - `test_venv`
 - `tmp` (oversized data intentionally excluded).
 - Plaintext WireGuard material is excluded from sys-config tarballs and stored only in the encrypted secrets archives.
+- Europe Hermes app tarballs exclude `.venv`, `*/.venv`, `test_venv`, `*/test_venv`, `.cache`, `*/.cache`, and `*.pyc`; this reduced the archive from about 4.0G to about 684M.
 
 ## Encryption Design
 - **Local secrets**: Asymmetrically encrypted using `age` recipient mode (`age -R /opt/apps/backups/scripts/fhh_backup.pub`). 
@@ -103,20 +105,22 @@ The age private identity key is stored offline by Dom at:
 - If this key is lost, encrypted secrets archives cannot be recovered.
 
 ## 18. Last verified date
-2026-05-19
+2026-06-03
 
 ## 19. Restore rehearsal status
 N/A
 
 ## 20. Fresh-server restore coverage rule
 
-As of 2026-05-20, backup coverage must be proven in this order: live server state, backup script coverage, archive contents, then restore documentation.
+As of 2026-06-03, backup coverage must be proven in this order: live server state, backup script coverage, archive contents, then restore documentation.
 
-Verified on 2026-05-20 after Dom manually ran the root backup services on US, Europe, and UK:
+Verified on 2026-06-03 after the hardening and DR backup pass:
 
 - `fhh-us-backup.service` completed successfully with `status=0/SUCCESS`.
 - `fhh-europe-backup.service` completed successfully with `status=0/SUCCESS`.
 - `fhh-uk-backup.service` completed successfully with `status=0/SUCCESS`.
+- `fhh-uk-to-restore-sync.service` and `fhh-uk-to-restore-sync.timer` are the restore staging path for the filtered UK backup set.
+- `fhh-uk-backup-retention.timer` and `fhh-europe-backup-retention.timer` are the active retention timers for the capped Hermes backups.
 
 Backup services are oneshot/static services. They are expected to be inactive after successful completion. Timers are the persistent mechanism across reboot and should remain enabled/active.
 
@@ -125,6 +129,7 @@ Verified latest sys-config archives:
 - US: `/opt/apps/backups/from-us/us-sys-configs-20260520-131221.tar.gz`
 - Europe: `/opt/apps/backups/local/europe-sys-configs-20260520-160643.tar.gz`
 - UK: verified on UK local storage as `/opt/apps/backups/local/uk-sys-configs-20260520-131436.tar.gz` and in Google Drive `gdrive-crypt:uk/`; this archive is not expected to exist on Europe local storage.
+- Restore staging inbox: `/srv/fhh-restore-inbox/uk/backups` currently holds about `3.6G` of the filtered UK replica set after cleanup.
 
 Verified report files inside those archives include the restore-critical set for firewall, SSH trust, systemd/timers, Docker, WireGuard, and Google Drive on UK.
 

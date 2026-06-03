@@ -65,7 +65,7 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 
 ## UK Infrastructure Node
 
-- Hostnames/IPs: `uk.familyherohub.com` -> `87.106.54.49`, `qa.familyherohub.com` -> `217.154.52.123`
+- Hostnames/IPs: `uk.familyherohub.com` -> `87.106.54.49`, `qa.familyherohub.com` -> `217.154.52.123` (reserved/future UK secondary IP; not currently in use)
 - Role: infrastructure and private VPN node, not production app hosting
 - Status: old playground/OpenVPN/OpenClaw/n8n/SearXNG/Caddy/Tailscale use has been cleaned up
 - VPN: participates in the private WireGuard mesh and runs a UK personal `wg-easy` VPN
@@ -101,7 +101,7 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 ## Access and Security Notes
 
 - `dev.familyherohub.com` is restricted at the Caddy layer with `remote_ip` allowlisting
-- Trusted access includes `96.9.135.3` (office/current admin), `45.155.44.72` (work/trusted admin), `204.12.209.190` (US), `213.199.61.244` (Europe), `87.106.54.49` (UK primary), `217.154.52.123` (UK secondary), and trusted WireGuard/VPN paths
+- Trusted access includes `96.9.135.3` (home public), `45.155.44.72` (work public), `204.12.209.190` (US), `213.199.61.244` (Europe), `87.106.54.49` (UK), `194.233.71.132` (Singapore), `95.111.243.235` (restore), and trusted WireGuard/VPN paths
 - Off-VPN or untrusted clients receive HTTP 403 on dev
 - OAuth still works from trusted IPs or VPN because the browser can reach `dev.familyherohub.com`
 - SQLite is no longer the live runtime on Europe dev, but the backup remains for rollback
@@ -112,6 +112,8 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 - Europe personal VPN runs through Docker `wg-easy`; the host may see container or bridge source addresses for that traffic.
 - Private routing and firewall access on reboot are restored by `/usr/local/sbin/fhh-private-network-rules.sh` and `fhh-private-network-rules.service`.
 - That private rules service preserves return routing for `10.60.0.0/24` and the routed home subnet `10.11.0.0/24`, plus private service access and site-mesh forwarding.
+- SSH password authentication is disabled across the managed hosts described here; key-only SSH is the expected state.
+- Public break-glass SSH is allowlisted only from trusted public IPs and VPN ranges.
 
 ## App Location
 

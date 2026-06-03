@@ -131,6 +131,8 @@
 - Site mesh now includes Europe `10.250.50.1`, US `10.250.50.2`, UK `10.250.50.3`, Singapore `10.250.50.4`, and the restore node `10.250.50.5`
 - Europe wg-easy serves `10.60.0.0/24`; home brain is routed as `10.60.0.7` with `10.11.0.0/24` behind it
 - US, UK, and Singapore wg-easy client ranges are `10.8.0.0/24`, `10.70.0.0/24`, and `10.10.0.0/24`
+- SSH password authentication is disabled on the managed fleet; SSH is key-only and public break-glass access is limited to trusted public IPs and VPN ranges.
+- The restore node is a DR receiving node at `95.111.243.235`, and the filtered UK replica is staged at `/srv/fhh-restore-inbox/uk/backups`.
 - Backend tests passing (76 tests)
 - Frontend production build passes
 - Europe dev daily QA Phase A passes with backend pytest, frontend build, Playwright read-only E2E, and smoke checks

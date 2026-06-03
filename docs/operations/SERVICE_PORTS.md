@@ -55,7 +55,7 @@ N/A
 - **US Production**: 80/443 Caddy, 22 SSH, 25/465/587/110/143/993/995/4190 Mailcow, 8000 Family Hero Hub API, 5173 Family Hero Hub frontend preview, 7654 Redis proxy, 8443 Mailcow UI proxy, 13306 MySQL proxy, 2019 Caddy admin, 20241 `cloudflared` local tunnel port, 51820 mesh WireGuard, 51821 wg-easy admin.
 - **Europe Dev/Hermes**: 80/443 Caddy, 22 SSH, 51830 site-to-site WireGuard, 51820 wg-easy user VPN, 10.250.50.1:51821 wg-easy admin, 10.250.50.1:9119 Hermes dashboard, 10.250.50.1:3000 Hermes workspace UI, 127.0.0.1:8000 Family Hero Hub API, 127.0.0.1:5173 Family Hero Hub frontend, 8642 Hermes gateway, 8765 competitor-review viewer, 8766 docs viewer, 8767 QA reports viewer, 8768 QA reports viewer if restored.
 - **UK Hub**: 22 SSH, 51820 mesh WireGuard, 51821 wg-easy admin. UK is restricted to backup/DR/VPN/Google Drive sync roles.
-- **Restore / Break-glass node**: 22 SSH, 51830 site-to-site WireGuard, `wg-quick@wg-site`, no public app ports.
+- **Restore / Break-glass node**: 22 SSH, 51830 site-to-site WireGuard, `wg-quick@wg-site`, no public app ports. Public SSH is break-glass only and limited to trusted public IPs and VPN ranges.
 - **Home brain**: routed through Europe wg-easy as `10.60.0.7` with `10.11.0.0/24` behind it; no public services.
 
 ## Warnings
@@ -63,7 +63,7 @@ N/A
 - **EXPLICIT WARNING**: Do NOT expose PostgreSQL (`5432`) publicly.
 
 ## 18. Last verified date
-2026-05-19
+2026-06-03
 
 ## 19. Restore rehearsal status
 N/A
@@ -98,3 +98,4 @@ Verified on 2026-05-20:
 - US, Europe, and UK backup runs completed successfully and produced the verified restore-readiness archive set.
 - The verified sys-config archives contain the firewall, Docker, WireGuard, SSH trust, and systemd/timer report files required for restore.
 - UK `gdrive-crypt` listing confirms the uploaded archive names are visible through the crypt remote as expected.
+- SSH password authentication is disabled on the managed hosts documented here; key-only SSH is the expected state.

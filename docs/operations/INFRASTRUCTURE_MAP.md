@@ -12,9 +12,9 @@ Live WireGuard mesh, routed wg-easy client subnets, SSH trust, restore node, and
 |---|---|---|---|---|---|---|
 | Europe hub | Central WireGuard site-to-site hub / route reflector | `fhh-europe` | `10.250.50.1` | `213.199.61.244` | `10.60.0.0/24` via Europe wg-easy | Europe is the hub for the site mesh and the Europe wg-easy client range. |
 | US spoke | Production site-mesh node | `fhh-us` | `10.250.50.2` | `204.12.209.190` | `10.8.0.0/24` | US wg-easy clients are routed through the US node. |
-| UK spoke | Backup / DR / VPN node | `fhh-uk` | `10.250.50.3` | `217.154.52.123` | `10.70.0.0/24` | UK wg-easy clients are routed through the UK node. |
+| UK spoke | Backup / DR / VPN node | `fhh-uk` | `10.250.50.3` | `87.106.54.49` | `10.70.0.0/24` | UK wg-easy clients are routed through the UK node. |
 | Singapore spoke | Site-mesh node | `fhh-singapore` | `10.250.50.4` | `194.233.71.132` | `10.10.0.0/24` | Singapore wg-easy clients are routed through the Singapore node. |
-| Restore node | Break-glass restore / recovery node | `vmi3310324` / `fhh-restore` | `10.250.50.5` | `95.111.243.235` | none | Uses `wg-quick@wg-site` and survived reboot with mesh identity intact. |
+| Restore node | DR receiving node / break-glass restore / recovery node | `vmi3310324` / `fhh-restore` | `10.250.50.5` | `95.111.243.235` | none | Receives the UK backup replica, can reach Europe/US/UK/Singapore by public IP without relying on the Europe mesh, and uses `wg-quick@wg-site`. |
 | Home brain | Routed home peer behind Europe wg-easy | `fhh-home-brain` | routed via Europe | - | `10.11.0.0/24` behind `10.60.0.7` | User: `aibotadmin`. Not a direct `10.250.50.0/24` site-to-site peer. |
 
 Restore peer public key currently used in the Europe WireGuard config:
@@ -33,6 +33,7 @@ JywJlzQptH5HtqN+Z361o3FqUZ18Rpv+BlaSEr8v5B0=
 | `10.70.0.0/24` | UK wg-easy clients |
 | `10.10.0.0/24` | Singapore wg-easy clients |
 | `10.11.0.0/24` | Home VPN clients routed behind home brain |
+| `95.111.243.235/32` | Restore node public endpoint |
 
 `10.80.0.0/24` is not active. Treat it as historical or future-only unless live config is later updated to prove otherwise.
 
@@ -58,6 +59,8 @@ These services keep the routed wg-easy subnet integration in place after reboot:
 - UK: `/usr/local/sbin/fhh-uk-wg-easy-mesh-route.sh` and `/etc/systemd/system/fhh-uk-wg-easy-mesh-route.service` route `10.70.0.0/24` via the wg-easy Docker bridge and add the required FORWARD rules.
 - Singapore: `/usr/local/sbin/fhh-singapore-wg-easy-mesh-route.sh` and `/etc/systemd/system/fhh-singapore-wg-easy-mesh-route.service` route `10.10.0.0/24` via the wg-easy Docker bridge and add the required FORWARD rules.
 - Europe/home: `/usr/local/sbin/fhh-europe-home-vpn-route.sh` and `/etc/systemd/system/fhh-europe-home-vpn-route.service` route `10.11.0.0/24` through the Europe wg-easy container/home peer path.
+- UK DR sync: `/usr/local/sbin/fhh-uk-to-restore-sync.sh`, `/etc/systemd/system/fhh-uk-to-restore-sync.service`, and `/etc/systemd/system/fhh-uk-to-restore-sync.timer` mirror the filtered UK backup set to the restore inbox at `/srv/fhh-restore-inbox/uk/backups` on a daily 06:00 UTC schedule.
+- UK and Europe backup retention: `/usr/local/sbin/fhh-uk-backup-retention.sh`, `/etc/systemd/system/fhh-uk-backup-retention.timer`, `/usr/local/sbin/fhh-europe-backup-retention.sh`, and `/etc/systemd/system/fhh-europe-backup-retention.timer` cap Hermes app backups to the latest 2 and Hermes home backups to the latest 3.
 
 After reboot, check each persistence service on its matching host:
 
@@ -77,7 +80,7 @@ systemctl is-active <service>
 
 ## 7. SSH Trust
 
-Completed passwordless SSH relationships:
+Completed key-only SSH relationships:
 
 | Source | Destination | Result |
 |---|---|---|
@@ -87,6 +90,13 @@ Completed passwordless SSH relationships:
 | Restore node | `administrator@10.250.50.4` (`fhh-singapore`) | Success |
 | Restore node | `aibotadmin@10.60.0.7` (`fhh-home-brain`) | Success |
 | Europe / US / UK / Singapore / Home brain | `administrator@10.250.50.5` (`vmi3310324` / `fhh-restore`) | Success |
+
+SSH hardening now in force:
+
+- Password authentication is disabled.
+- SSH is key-only.
+- Public SSH is allowlisted only from trusted public IPs and VPN ranges.
+- Restore, Europe, US, UK, and Singapore may be reached by public break-glass SSH from trusted source IPs; SSH is not open to the world.
 
 Restore-side mesh key files:
 
@@ -104,7 +114,7 @@ Known hosts were populated for the mesh IPs so host key verification does not fa
 
 ## 9. Verification
 
-Last verified on `2026-06-01`:
+Last verified on `2026-06-03`:
 
 - Restore node rebooted and `wg-quick@wg-site` returned active.
 - `10.250.50.5` came back after reboot.
@@ -113,10 +123,11 @@ Last verified on `2026-06-01`:
 - Restore could ping `10.250.50.1`, `10.250.50.2`, `10.250.50.3`, `10.250.50.4`, and `10.60.0.7`.
 - Restore could SSH out to Europe, US, UK, Singapore, and home brain.
 - Europe, US, UK, Singapore, and home brain could SSH into the restore node.
+- UK restore inbox verified at `/srv/fhh-restore-inbox/uk/backups` and measured at about `3.6G` after cleanup.
+- UK to restore sync uses `rsync` over SSH to `ukbackup@95.111.243.235` with `--delete` and `--delete-excluded`.
 
 ## 10. Pending / Next Pass
 
-- Full server hardening documentation pass still pending.
-- Root SSH / password SSH policy review pending.
-- fail2ban / UFW final hardening audit pending.
-- Documentation should be updated again after hardening is completed.
+- Home UFW still needs a careful separate pass.
+- Direct Dom to Restore emergency VPN is still optional/future.
+- Home to Restore direct DR tunnel is still optional/future.

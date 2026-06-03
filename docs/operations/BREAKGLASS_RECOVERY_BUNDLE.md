@@ -10,6 +10,7 @@ The human-prepared bundle created on the home machine under `/home/aibotadmin/do
 - Offsite encrypted recovery material for SSH and WireGuard recovery.
 - A readable outer wrapper so a human can identify the bundle without decrypting filename noise.
 - A manual fallback alongside the normal encrypted Drive backups.
+- Break-glass SSH is only for trusted public IPs and VPN ranges; it is not intended to leave SSH open to the world.
 
 ## 4. What this does not do
 - It does not replace the normal mirrored backup flow.
@@ -46,11 +47,12 @@ Typical contents inside each host folder may include:
 - Do not document or print AGE private identity contents.
 
 ## 7. Verification
-Last verified on `2026-06-01`:
+Last verified on `2026-06-03`:
 
 - The manual bundle naming exists as a readable outer wrapper for offsite recovery.
 - The archive contents are meant to remain encrypted inside the `.age` file.
 - The AGE private identity remains separate from the upload location.
+- Restore, Europe, US, UK, and Singapore are documented as reachable by public break-glass SSH only from trusted IPs and VPN ranges.
 
 ## 8. Pending / Next Pass
 - Update this bundle again after the server hardening documentation pass is complete.
