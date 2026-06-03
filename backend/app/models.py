@@ -9,6 +9,8 @@ class TransactionType(enum.Enum):
     penalty = "penalty"
     savings_deposit = "savings_deposit"
     savings_withdrawal = "savings_withdrawal"
+    savings_maturity = "savings_maturity"
+    savings_bonus = "savings_bonus"
     redemption_hold = "redemption_hold"
     redemption_approved = "redemption_approved"
     redemption_rejected = "redemption_rejected"
@@ -287,10 +289,12 @@ class LedgerTransaction(Base):
     points = Column(Integer)
     description = Column(String)
     locked_until = Column(DateTime(timezone=True), nullable=True)
+    source_transaction_id = Column(Integer, ForeignKey("ledger_transactions.id"), nullable=True)
     created_by_parent_id = Column(Integer, ForeignKey("parent_users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     child = relationship("Child", back_populates="transactions")
+    source_transaction = relationship("LedgerTransaction", remote_side=[id])
 
 class RedemptionRequest(Base):
     __tablename__ = "redemption_requests"

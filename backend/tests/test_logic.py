@@ -85,6 +85,212 @@ def test_balance_calculation_with_locks(db):
     assert balances["locked_savings"] == 50
     assert balances["available_savings"] == 0
 
+
+def test_savings_bonus_rounding_rule():
+    assert points_service.calculate_savings_bonus(0) == 0
+    assert points_service.calculate_savings_bonus(5) == 0
+    assert points_service.calculate_savings_bonus(6) == 1
+    assert points_service.calculate_savings_bonus(25) == 2
+    assert points_service.calculate_savings_bonus(27) == 3
+    assert points_service.calculate_savings_bonus(30) == 3
+
+
+def test_savings_unlock_schedule_groups_future_locks_by_family_date(db):
+    child = models.Child(display_name="Schedule Kid")
+    db.add(child)
+    db.commit()
+    db.refresh(child)
+
+    now = datetime(2026, 6, 3, 21, 30, 0)
+    db.add_all([
+        models.LedgerTransaction(
+            child_id=child.id,
+            jar=models.JarType.savings,
+            transaction_type=models.TransactionType.savings_deposit,
+            points=7,
+            description="Already unlocked",
+            locked_until=now - timedelta(minutes=1),
+        ),
+        models.LedgerTransaction(
+            child_id=child.id,
+            jar=models.JarType.savings,
+            transaction_type=models.TransactionType.savings_deposit,
+            points=5,
+            description="Unlocks today",
+            locked_until=now + timedelta(minutes=15),
+        ),
+        models.LedgerTransaction(
+            child_id=child.id,
+            jar=models.JarType.savings,
+            transaction_type=models.TransactionType.savings_deposit,
+            points=20,
+            description="Unlocks tomorrow Berlin",
+            locked_until=datetime(2026, 6, 3, 22, 30, 0),
+        ),
+        models.LedgerTransaction(
+            child_id=child.id,
+            jar=models.JarType.savings,
+            transaction_type=models.TransactionType.savings_deposit,
+            points=10,
+            description="Same Berlin unlock date",
+            locked_until=datetime(2026, 6, 4, 1, 0, 0),
+        ),
+        models.LedgerTransaction(
+            child_id=child.id,
+            jar=models.JarType.savings,
+            transaction_type=models.TransactionType.savings_deposit,
+            points=3,
+            description="Later date",
+            locked_until=datetime(2026, 6, 10, 8, 0, 0),
+        ),
+        models.LedgerTransaction(
+            child_id=child.id,
+            jar=models.JarType.spending,
+            transaction_type=models.TransactionType.savings_deposit,
+            points=-20,
+            description="Spending-side transfer row",
+            locked_until=datetime(2026, 6, 4, 8, 0, 0),
+        ),
+    ])
+    db.commit()
+
+    schedule = points_service.get_savings_unlock_schedule(
+        db,
+        child.id,
+        family_timezone="Europe/Berlin",
+        now=now,
+    )
+
+    assert schedule == [
+        {
+            "unlock_date": datetime(2026, 6, 3).date(),
+            "points": 5,
+            "principal_points": 5,
+            "bonus_points": 0,
+        },
+        {
+            "unlock_date": datetime(2026, 6, 4).date(),
+            "points": 33,
+            "principal_points": 30,
+            "bonus_points": 3,
+        },
+        {
+            "unlock_date": datetime(2026, 6, 10).date(),
+            "points": 3,
+            "principal_points": 3,
+            "bonus_points": 0,
+        },
+    ]
+
+
+def test_savings_unlock_schedule_empty_when_no_future_locked_savings(db):
+    child = models.Child(display_name="Unlocked Kid")
+    db.add(child)
+    db.commit()
+    db.refresh(child)
+
+    now = datetime(2026, 6, 3, 12, 0, 0)
+    db.add(
+        models.LedgerTransaction(
+            child_id=child.id,
+            jar=models.JarType.savings,
+            transaction_type=models.TransactionType.savings_deposit,
+            points=10,
+            description="Unlocked savings",
+            locked_until=now - timedelta(days=1),
+        )
+    )
+    db.commit()
+
+    assert points_service.get_savings_unlock_schedule(db, child.id, now=now) == []
+
+
+def test_mature_savings_moves_principal_and_bonus_to_spending_once(db):
+    child = models.Child(display_name="Maturity Kid")
+    db.add(child)
+    db.commit()
+    db.refresh(child)
+
+    now = datetime(2026, 6, 3, 12, 0, 0)
+    deposit = models.LedgerTransaction(
+        child_id=child.id,
+        jar=models.JarType.savings,
+        transaction_type=models.TransactionType.savings_deposit,
+        points=30,
+        description="Banked points",
+        locked_until=now - timedelta(minutes=1),
+    )
+    db.add(deposit)
+    db.commit()
+    db.refresh(deposit)
+
+    matured = points_service.mature_savings_deposits(db, child.id, now=now)
+    assert [tx.points for tx in matured] == [-30, 30, 3]
+    assert all(tx.source_transaction_id == deposit.id for tx in matured)
+
+    balances = points_service.calculate_balances(db, child.id, now=now)
+    assert balances["spending_balance"] == 33
+    assert balances["savings_balance"] == 0
+    assert balances["locked_savings"] == 0
+
+    assert points_service.mature_savings_deposits(db, child.id, now=now) == []
+    balances = points_service.calculate_balances(db, child.id, now=now)
+    assert balances["spending_balance"] == 33
+
+
+def test_mature_savings_handles_direct_savings_award(db):
+    child = models.Child(display_name="Savings Award Kid")
+    db.add(child)
+    db.commit()
+    db.refresh(child)
+
+    now = datetime(2026, 6, 3, 12, 0, 0)
+    db.add(
+        models.LedgerTransaction(
+            child_id=child.id,
+            jar=models.JarType.savings,
+            transaction_type=models.TransactionType.award,
+            points=27,
+            description="Direct savings award",
+            locked_until=now - timedelta(minutes=1),
+        )
+    )
+    db.commit()
+
+    balances = points_service.calculate_balances(db, child.id, now=now)
+    assert balances["spending_balance"] == 30
+    assert balances["savings_balance"] == 0
+
+
+def test_mature_savings_does_not_backfill_historical_unlocked_savings(db):
+    child = models.Child(display_name="Historical Savings Kid")
+    db.add(child)
+    db.commit()
+    db.refresh(child)
+
+    db.add(
+        models.LedgerTransaction(
+            child_id=child.id,
+            jar=models.JarType.savings,
+            transaction_type=models.TransactionType.savings_deposit,
+            points=30,
+            description="Old unlocked savings",
+            locked_until=points_service.SAVINGS_BONUS_ROLLOUT_CUTOFF - timedelta(days=1),
+        )
+    )
+    db.commit()
+
+    balances = points_service.calculate_balances(
+        db,
+        child.id,
+        now=points_service.SAVINGS_BONUS_ROLLOUT_CUTOFF + timedelta(days=1),
+    )
+    assert balances["spending_balance"] == 0
+    assert balances["savings_balance"] == 30
+    assert balances["locked_savings"] == 0
+    assert balances["available_savings"] == 30
+
+
 def test_redemption_hold_and_release(db):
     child = models.Child(display_name="Test Kid")
     db.add(child)

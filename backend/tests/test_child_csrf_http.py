@@ -205,6 +205,48 @@ def test_child_redemption_succeeds_after_child_me_mints_csrf():
         app.dependency_overrides.clear()
 
 
+def test_child_savings_deposit_succeeds_after_child_me_mints_csrf():
+    client = make_client()
+    try:
+        db = TestingSessionLocal()
+        try:
+            family = create_family(db)
+            parent = create_parent(db, family, "csrf-parent-savings@example.com", "Parent", "sub-parent-savings")
+            child = create_child(db, family)
+            _, _, session_token = create_child_session(db, child, parent)
+            create_award(db, child, parent, points=50)
+        finally:
+            db.close()
+
+        client.cookies.clear()
+        client.cookies.set("child_session", session_token)
+
+        me_response = client.get("/api/child/me")
+        assert me_response.status_code == 200
+        csrf_token = client.cookies.get("csrf_token")
+        assert csrf_token
+
+        response = client.post(
+            "/api/child/savings/deposit",
+            headers={"X-CSRF-Token": csrf_token},
+            json={"points": 20, "description": "Banking points"},
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert len(payload) == 2
+        assert payload[0]["points"] == -20
+        assert payload[1]["jar"] == "savings"
+        assert payload[1]["locked_until"] is not None
+
+        summary = client.get("/api/child/me")
+        assert summary.status_code == 200
+        assert summary.json()["savings_balance"] == 20
+        assert summary.json()["available_savings"] == 0
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_child_redemption_invalid_csrf_fails():
     client = make_client()
     try:

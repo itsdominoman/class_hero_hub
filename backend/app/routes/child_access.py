@@ -126,6 +126,27 @@ async def request_my_redemption(
     return db_request
 
 
+@router.post("/savings/deposit", response_model=List[schemas.LedgerTransaction])
+async def deposit_my_savings(
+    req: schemas.SavingsDepositRequest,
+    db: Session = Depends(get_db),
+    current_child: models.Child = Depends(get_current_child),
+):
+    if req.points <= 0:
+        raise HTTPException(status_code=400, detail="Points must be positive")
+
+    balances = points_service.calculate_balances(db, current_child.id)
+    if balances["spending_balance"] < req.points:
+        raise HTTPException(status_code=400, detail="Insufficient spending points")
+
+    return points_service.create_savings_deposit(
+        db,
+        current_child.id,
+        req.points,
+        req.description,
+    )
+
+
 @router.post("/logout")
 async def child_logout(response: Response):
     clear_child_session_cookie(response)

@@ -5,7 +5,7 @@ from ..database import get_db
 from .. import models, schemas, auth
 from ..services import points_service
 from .family_scope import get_family_child_or_404
-from datetime import datetime, timedelta
+from datetime import datetime
 
 router = APIRouter()
 
@@ -47,7 +47,7 @@ async def award_points(
 
     locked_until = None
     if req.jar == models.JarType.savings:
-        locked_until = datetime.utcnow() + timedelta(days=30)
+        locked_until = datetime.utcnow() + points_service.SAVINGS_LOCK_DAYS_DELTA
 
     transaction = models.LedgerTransaction(
         child_id=child.id,
@@ -118,35 +118,13 @@ async def deposit_to_savings(
     if balances["spending_balance"] < req.points:
         raise HTTPException(status_code=400, detail="Insufficient spending points")
 
-    # 1. Remove from spending
-    spending_tx = models.LedgerTransaction(
-        child_id=child.id,
-        jar=models.JarType.spending,
-        transaction_type=models.TransactionType.savings_deposit,
-        points=-req.points,
-        description=f"Transfer to Savings: {req.description}",
+    return points_service.create_savings_deposit(
+        db,
+        child.id,
+        req.points,
+        req.description,
         created_by_parent_id=current_parent.id,
     )
-
-    # 2. Add to savings (locked for 30 days)
-    locked_until = datetime.utcnow() + timedelta(days=30)
-    savings_tx = models.LedgerTransaction(
-        child_id=child.id,
-        jar=models.JarType.savings,
-        transaction_type=models.TransactionType.savings_deposit,
-        points=req.points,
-        description=f"Transfer from Spending: {req.description}",
-        locked_until=locked_until,
-        created_by_parent_id=current_parent.id,
-    )
-
-    db.add(spending_tx)
-    db.add(savings_tx)
-    db.commit()
-    db.refresh(spending_tx)
-    db.refresh(savings_tx)
-
-    return [spending_tx, savings_tx]
 
 
 @router.post("/{child_id}/savings/withdraw", response_model=List[schemas.LedgerTransaction])

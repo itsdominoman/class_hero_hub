@@ -2,6 +2,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from .. import models, schemas
 from datetime import datetime, timedelta
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo
 
 PET_THRESHOLDS = {
     models.PetStage.egg: 0,
@@ -11,8 +15,135 @@ PET_THRESHOLDS = {
     models.PetStage.beast: 600,
 }
 
+SAVINGS_LOCK_DAYS = 30
+SAVINGS_LOCK_DAYS_DELTA = timedelta(days=SAVINGS_LOCK_DAYS)
+SAVINGS_BONUS_RATE_BPS = 1000
+SAVINGS_BONUS_ROUND_UP_REMAINDER = 6
+# Rollout cutoff: bonus applies to deposits that were still locked when this feature shipped,
+# and to all future deposits. Older already-unlocked savings are intentionally not backfilled.
+SAVINGS_BONUS_ROLLOUT_CUTOFF = datetime(2026, 6, 3, 0, 0, 0)
 
-def calculate_balances(db: Session, child_id: int):
+
+def calculate_savings_bonus(points: int) -> int:
+    if points <= 0:
+        return 0
+    raw_bonus_units = points * SAVINGS_BONUS_RATE_BPS
+    whole_points = raw_bonus_units // 10000
+    remainder = raw_bonus_units % 10000
+    return whole_points + (1 if remainder >= SAVINGS_BONUS_ROUND_UP_REMAINDER * 1000 else 0)
+
+
+def _source_processed(db: Session, source_transaction_id: int) -> bool:
+    return (
+        db.query(models.LedgerTransaction.id)
+        .filter(models.LedgerTransaction.source_transaction_id == source_transaction_id)
+        .first()
+        is not None
+    )
+
+
+def mature_savings_deposits(db: Session, child_id: int | None = None, now: datetime | None = None) -> list[models.LedgerTransaction]:
+    current = now or datetime.utcnow()
+    query = db.query(models.LedgerTransaction).filter(
+        models.LedgerTransaction.jar == models.JarType.savings,
+        models.LedgerTransaction.points > 0,
+        models.LedgerTransaction.locked_until.isnot(None),
+        models.LedgerTransaction.locked_until <= current,
+        models.LedgerTransaction.locked_until > SAVINGS_BONUS_ROLLOUT_CUTOFF,
+        models.LedgerTransaction.transaction_type.in_(
+            [models.TransactionType.savings_deposit, models.TransactionType.award]
+        ),
+    )
+    if child_id is not None:
+        query = query.filter(models.LedgerTransaction.child_id == child_id)
+
+    matured_rows: list[models.LedgerTransaction] = []
+    for deposit in query.order_by(models.LedgerTransaction.locked_until.asc(), models.LedgerTransaction.id.asc()).all():
+        if _source_processed(db, deposit.id):
+            continue
+
+        principal = deposit.points or 0
+        bonus = calculate_savings_bonus(principal)
+        description = deposit.description or "Saved points"
+        common_kwargs = {
+            "child_id": deposit.child_id,
+            "source_transaction_id": deposit.id,
+            "created_by_parent_id": deposit.created_by_parent_id,
+        }
+
+        matured_rows.extend(
+            [
+                models.LedgerTransaction(
+                    **common_kwargs,
+                    jar=models.JarType.savings,
+                    transaction_type=models.TransactionType.savings_maturity,
+                    points=-principal,
+                    description=f"Savings unlocked: {description}",
+                ),
+                models.LedgerTransaction(
+                    **common_kwargs,
+                    jar=models.JarType.spending,
+                    transaction_type=models.TransactionType.savings_maturity,
+                    points=principal,
+                    description=f"Savings returned to available points: {description}",
+                ),
+            ]
+        )
+        if bonus > 0:
+            matured_rows.append(
+                models.LedgerTransaction(
+                    **common_kwargs,
+                    jar=models.JarType.spending,
+                    transaction_type=models.TransactionType.savings_bonus,
+                    points=bonus,
+                    description=f"Savings bonus: {description}",
+                )
+            )
+
+    if matured_rows:
+        db.add_all(matured_rows)
+        db.commit()
+
+    return matured_rows
+
+
+def create_savings_deposit(
+    db: Session,
+    child_id: int,
+    points: int,
+    description: str,
+    created_by_parent_id: int | None = None,
+) -> list[models.LedgerTransaction]:
+    spending_tx = models.LedgerTransaction(
+        child_id=child_id,
+        jar=models.JarType.spending,
+        transaction_type=models.TransactionType.savings_deposit,
+        points=-points,
+        description=f"Transfer to Savings: {description}",
+        created_by_parent_id=created_by_parent_id,
+    )
+
+    savings_tx = models.LedgerTransaction(
+        child_id=child_id,
+        jar=models.JarType.savings,
+        transaction_type=models.TransactionType.savings_deposit,
+        points=points,
+        description=f"Transfer from Spending: {description}",
+        locked_until=datetime.utcnow() + SAVINGS_LOCK_DAYS_DELTA,
+        created_by_parent_id=created_by_parent_id,
+    )
+
+    db.add(spending_tx)
+    db.add(savings_tx)
+    db.commit()
+    db.refresh(spending_tx)
+    db.refresh(savings_tx)
+    return [spending_tx, savings_tx]
+
+
+def calculate_balances(db: Session, child_id: int, now: datetime | None = None):
+    mature_savings_deposits(db, child_id, now=now)
+
     # Spending balance includes the redemption hold as the single deduction.
     # Keep legacy approved rows out of the total in case older data exists.
     spending_balance = db.query(func.sum(models.LedgerTransaction.points)).filter(
@@ -28,7 +159,7 @@ def calculate_balances(db: Session, child_id: int):
     ).scalar() or 0
 
     # Locked Savings
-    now = datetime.utcnow()
+    now = now or datetime.utcnow()
     locked_savings = db.query(func.sum(models.LedgerTransaction.points)).filter(
         models.LedgerTransaction.child_id == child_id,
         models.LedgerTransaction.jar == models.JarType.savings,
@@ -52,6 +183,52 @@ def calculate_balances(db: Session, child_id: int):
         "available_spending": available_spending,
         "pending_redemptions": pending_redemptions,
     }
+
+
+def _as_utc_aware(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=ZoneInfo("UTC"))
+    return value.astimezone(ZoneInfo("UTC"))
+
+
+def get_savings_unlock_schedule(
+    db: Session,
+    child_id: int,
+    family_timezone: str = "UTC",
+    now: datetime | None = None,
+) -> list[dict]:
+    current = now or datetime.utcnow()
+    family_zone = ZoneInfo(family_timezone or "UTC")
+    unlock_rows = (
+        db.query(models.LedgerTransaction)
+        .filter(
+            models.LedgerTransaction.child_id == child_id,
+            models.LedgerTransaction.jar == models.JarType.savings,
+            models.LedgerTransaction.points > 0,
+            models.LedgerTransaction.locked_until > current,
+            models.LedgerTransaction.transaction_type.in_(
+                [models.TransactionType.savings_deposit, models.TransactionType.award]
+            ),
+        )
+        .order_by(models.LedgerTransaction.locked_until.asc())
+        .all()
+    )
+
+    grouped: dict = {}
+    for transaction in unlock_rows:
+        unlock_date = _as_utc_aware(transaction.locked_until).astimezone(family_zone).date()
+        principal = transaction.points or 0
+        bonus = calculate_savings_bonus(principal)
+        current_group = grouped.get(unlock_date, {"points": 0, "principal_points": 0, "bonus_points": 0})
+        current_group["points"] += principal + bonus
+        current_group["principal_points"] += principal
+        current_group["bonus_points"] += bonus
+        grouped[unlock_date] = current_group
+
+    return [
+        {"unlock_date": unlock_date, **values}
+        for unlock_date, values in sorted(grouped.items())
+    ]
 
 
 def get_period_bounds(period: str, now: datetime | None = None) -> tuple[datetime, datetime]:
@@ -84,7 +261,7 @@ def _matches_activity_type(transaction: models.LedgerTransaction, tx_type: str) 
     if tx_type == "all":
         return True
     if tx_type == "earned":
-        return transaction.transaction_type == models.TransactionType.award or (
+        return transaction.transaction_type in {models.TransactionType.award, models.TransactionType.savings_bonus} or (
             transaction.transaction_type == models.TransactionType.adjustment and transaction.points > 0
         )
     if tx_type == "spent":
@@ -93,6 +270,8 @@ def _matches_activity_type(transaction: models.LedgerTransaction, tx_type: str) 
         return transaction.transaction_type in {
             models.TransactionType.savings_deposit,
             models.TransactionType.savings_withdrawal,
+            models.TransactionType.savings_maturity,
+            models.TransactionType.savings_bonus,
         }
     if tx_type == "held":
         return transaction.transaction_type == models.TransactionType.redemption_hold
@@ -147,7 +326,9 @@ def get_ledger_summary(db: Session, child_id: int, period: str = "month", now: d
         tx_type = transaction.transaction_type
         points = transaction.points or 0
 
-        if tx_type == models.TransactionType.award or (tx_type == models.TransactionType.adjustment and points > 0):
+        if tx_type in {models.TransactionType.award, models.TransactionType.savings_bonus} or (
+            tx_type == models.TransactionType.adjustment and points > 0
+        ):
             totals["gained"] += points
         elif tx_type == models.TransactionType.penalty or (tx_type == models.TransactionType.adjustment and points < 0):
             totals["lost"] += abs(points)
@@ -156,7 +337,10 @@ def get_ledger_summary(db: Session, child_id: int, period: str = "month", now: d
             totals["spent"] += abs(points)
         elif tx_type == models.TransactionType.savings_deposit and transaction.jar == models.JarType.savings and points > 0:
             totals["saved_in"] += points
-        elif tx_type == models.TransactionType.savings_withdrawal and transaction.jar == models.JarType.savings and points < 0:
+        elif tx_type in {
+            models.TransactionType.savings_withdrawal,
+            models.TransactionType.savings_maturity,
+        } and transaction.jar == models.JarType.savings and points < 0:
             totals["saved_out"] += abs(points)
         elif tx_type == models.TransactionType.redemption_rejected and transaction.jar == models.JarType.spending and points > 0:
             totals["released"] += points
@@ -201,4 +385,9 @@ def get_child_summary(db: Session, child_id: int):
         "child": child,
         **balances,
         "pet_progress": pet,
+        "savings_unlock_schedule": get_savings_unlock_schedule(
+            db,
+            child_id,
+            child.family.timezone if child.family else "UTC",
+        ),
     }

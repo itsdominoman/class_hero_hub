@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime, date, time
 from typing import Optional, List, Literal
 from .models import TransactionType, JarType, RedemptionStatus, PetStage
@@ -239,6 +239,7 @@ class LedgerTransactionBase(BaseModel):
     points: int
     description: str
     locked_until: Optional[datetime] = None
+    source_transaction_id: Optional[int] = None
 
 class LedgerTransactionCreate(LedgerTransactionBase):
     pass
@@ -317,6 +318,12 @@ class PetProgress(PetProgressBase):
     class Config:
         from_attributes = True
 
+class SavingsUnlockScheduleItem(BaseModel):
+    unlock_date: date
+    points: int
+    principal_points: int
+    bonus_points: int
+
 class ChildSummary(BaseModel):
     child: Child
     spending_balance: int
@@ -326,6 +333,7 @@ class ChildSummary(BaseModel):
     available_spending: int
     pending_redemptions: int
     pet_progress: PetProgress
+    savings_unlock_schedule: List[SavingsUnlockScheduleItem] = Field(default_factory=list)
 
 class AwardRequest(BaseModel):
     points: int

@@ -148,6 +148,8 @@ def test_qa_child_login_seeds_a_deterministic_child_session(client, monkeypatch,
     assert child_me.status_code == 200
     assert child_me.json()["child"]["display_name"] == "QA Seed Child"
     assert child_me.json()["available_spending"] > 0
+    assert child_me.json()["savings_unlock_schedule"][0]["points"] == 22
+    assert child_me.json()["savings_unlock_schedule"][0]["bonus_points"] == 2
 
     rewards = client.get("/api/child/rewards")
     assert rewards.status_code == 200
