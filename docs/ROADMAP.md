@@ -70,6 +70,7 @@
 - Completed: Children appear first, followed by total available points / reward requests summary cards and Parent Tools
 - Completed: Duplicate Add Child entry removed from the child card area
 - Completed: Child cards consistently show saved balance, including `0 saved`
+- Completed: Parent settings now hosts the child editor for display name and numeric avatar changes
 - Completed: Child dashboard savings card now shows saved, available, locked, and next unlock details with a dedicated `Bank points` popup
 - Completed: Child card point entry renamed from Actions to Points
 - Completed: Points modal supports Add points, Remove points, and Custom point actions
@@ -83,7 +84,6 @@
 - Preset behaviour templates
 - One-click daily routines
 - Batch reward/add-or-remove-points assignment
-- Future: Dedicated child management route/shell
 - Future: Avatar/character customization
 - Future: Shared family goals / house rewards
 - Future: Component extraction from the large parent dashboard page

@@ -80,6 +80,10 @@ Each child card shows:
 - an **Add / remove points** button for quick actions
 - a **View child dashboard** button to view the child dashboard
 
+The main parent dashboard now stays child-first. The denser management tools live in **Parent settings**, which you can open from the gear icon in the header or from the settings card.
+
+Use **Parent settings** when you need to edit a child’s display name or avatar. Each child card has its own editor there, so you can return later and change the profile again without touching the main launcher.
+
 Banking saved points happens on the child dashboard savings card, where parents can open the **Bank points** popup and review the unlock date and savings bonus before saving.
 
 ## 5) Adding and managing children
@@ -92,6 +96,10 @@ Use the **Children** cards and **Family tools** to manage your family. From ther
 - manage rewards
 - link a child device
 - send family invites
+
+For child profile cleanup, go to **Parent settings** and use the child editor to change the display name or avatar. The editor includes save and cancel actions, and it reopens later if you need to make another change.
+
+For the phase 2A launcher redesign, the management shortcuts are also grouped in **Parent settings** so the main dashboard can stay focused on the children.
 
 ## 6) Adding and removing points
 

@@ -48,6 +48,11 @@ class ChildBase(BaseModel):
 class ChildCreate(ChildBase):
     pass
 
+class ChildUpdate(BaseModel):
+    display_name: Optional[str] = None
+    avatar_name: Optional[str] = None
+    active: Optional[bool] = None
+
 class Child(ChildBase):
     id: int
     family_id: Optional[int] = None

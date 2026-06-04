@@ -88,9 +88,10 @@
 - Child-friendly dashboard experience
 - Parent dashboard redesigned into a family-first, mobile-first launcher instead of a dense control-room layout
 - Children now appear first on the parent dashboard with balanced child cards, saved balance shown consistently, and `Points` as the child card point-action entry
+- Parent child editing now lives in `/parent/settings`, where parents can rename a child and switch numeric avatars without cluttering the launcher
 - Child dashboard savings card now exposes a visible `Bank points` action and a compact savings summary with next unlock information
 - Total available points and reward requests now use compact summary cards
-- Parent Tools are grouped in a dedicated section with a top `Manage` button that smoothly scrolls to the tools area
+- Parent tools are now split between the dedicated `/parent/settings` hub and a smaller fallback tools section on the launcher
 - Manage Rewards, View Pending Requests, and Link child device use modal flows instead of large inline dashboard sections
 - Parent dashboard copy was reduced to remove duplicate headings and development-style explanatory filler
 
@@ -159,6 +160,7 @@
 - Multi-child support (e.g., Jackson, Leah)
 - Parent dashboard launcher redesign visually approved after mobile review
 - Parent dashboard launcher layout tested at 320, 360, 375, 390, 412, 430, 768, and desktop widths
+- Parent settings child editor now has authenticated visual coverage at mobile widths plus desktop launcher checks
 - Parent Points modal positive/negative presets and custom one-off point awards/penalties
 - Parent Tools access for rewards, allowance setup, pending reward requests, family settings, behaviour presets, calendar, add child, and child dashboard links
 - Parent calendar event/task creation, editing, deletion, recurrence, and rewardable tasks

@@ -1,5 +1,22 @@
 # Family Hero Hub - Upgrade Tracker
 
+# 2026-06-04 - Parent Child Editor and Numeric Avatar Contract
+
+### Scope
+- Added the child editor to `/parent/settings` so parents can rename a child and change the avatar without cluttering the parent launcher.
+- Standardized avatar keys to numeric values `1` through `24`, with assets resolved from `/avatars/{key}.png`.
+- Kept missing or unknown avatar values on a safe fallback path.
+- Kept child PATCH behavior partial so only supplied fields are updated.
+
+### Verification
+- Parent settings now loads the child list, opens a mobile-friendly editor, saves display name and avatar changes, and supports cancel/reopen.
+- Child launcher cards still open the child dashboard and render safely when avatar data is missing or legacy.
+- QA seed and screenshot capture now use numeric avatar keys.
+
+### Notes
+- Avatar artwork is still managed separately from app state.
+- No upload flow was added.
+
 # 2026-06-03 - Savings Bonus Banking Flow
 
 ### Scope

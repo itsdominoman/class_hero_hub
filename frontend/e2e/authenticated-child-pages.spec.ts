@@ -31,6 +31,14 @@ test.describe("Europe dev authenticated child QA", () => {
     await expect(
       page.locator('[data-qa="child-savings-next-unlock"]'),
     ).toContainText(/^Next unlock: 22 pts /);
+    await page.getByRole("button", { name: "View unlock schedule" }).click();
+    await expect(
+      page.locator('[data-qa="child-savings-unlock-schedule"]'),
+    ).toContainText("22 pts");
+    await expect(
+      page.locator('[data-qa="child-savings-unlock-schedule"]'),
+    ).toContainText("includes +2 savings bonus");
+
     await expect(
       page.getByRole("button", { name: "Bank points" }),
     ).toBeVisible();
@@ -45,13 +53,6 @@ test.describe("Europe dev authenticated child QA", () => {
     await expect(page.getByText("+3 pts")).toBeVisible();
     await expect(page.getByText("Unlocks as")).toBeVisible();
     await expect(page.getByText("30 pts")).toBeVisible();
-    await page.getByRole("button", { name: "View unlock schedule" }).click();
-    await expect(
-      page.locator('[data-qa="child-savings-unlock-schedule"]'),
-    ).toContainText("22 pts");
-    await expect(
-      page.locator('[data-qa="child-savings-unlock-schedule"]'),
-    ).toContainText("includes +2 savings bonus");
     await expect(
       page.getByText("Your current points are worth", { exact: false }),
     ).toBeVisible();

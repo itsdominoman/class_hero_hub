@@ -41,6 +41,9 @@ No. Children can ask for rewards, but a parent still has to approve the request.
 ### How do I add or check a child profile?
 Use the **Children** area on the parent dashboard to add a child or review an existing child card.
 
+### Where did the parent tools go?
+The main parent dashboard is now child-first. Open **Parent settings** from the gear icon to reach rewards, family settings, behaviour presets, allowance, calendar, and child device links.
+
 ### How does a child open their dashboard?
 The parent gives the child a link or QR code. The child opens it on their device and goes to their dashboard.
 
