@@ -214,60 +214,56 @@ async function assertChildCustomRequestLayout(page: Page, viewport: number) {
 }
 
 async function assertParentChildCardLayout(page: Page) {
-  const jacksonTitle = page.getByRole('heading', { name: 'Jackson' });
-  const leahTitle = page.getByRole('heading', { name: 'Leah' });
-  await expect(jacksonTitle).toBeVisible();
-  await expect(leahTitle).toBeVisible();
-  await expect(page.getByText('0 pending', { exact: false })).toBeVisible();
-  await expect(page.getByText('5 pending', { exact: false })).toBeVisible();
+  const jacksonButton = page.getByRole('button', { name: /Open point actions for Jackson/i });
+  const leahButton = page.getByRole('button', { name: /Open point actions for Leah/i });
+  await expect(jacksonButton).toBeVisible();
+  await expect(leahButton).toBeVisible();
+  await expect(jacksonButton.getByText('53', { exact: true })).toBeVisible();
+  await expect(leahButton.getByText('42', { exact: true })).toBeVisible();
+  await expect(page.getByText('Settings', { exact: true })).toBeVisible();
 
-  for (const title of [jacksonTitle, leahTitle]) {
-    const card = title.locator('xpath=ancestor::article[1]');
-    const dashboardButton = card.getByRole('link', { name: /Dashboard/i });
-    const pointsButton = card.getByRole('button', { name: /Points/i });
-
-    await expect(dashboardButton).toBeVisible();
-    await expect(pointsButton).toBeVisible();
-    await expect(card.getByText(/pending/)).toBeVisible();
-    await expect(dashboardButton, 'dashboard button should stay readable').toHaveText(/Dashboard/i);
-    await expect(pointsButton, 'points button should stay readable').toHaveText(/Points/i);
+  for (const childButton of [jacksonButton, leahButton]) {
+    await expect(childButton, 'child avatar button should show the child name').toContainText(/Jackson|Leah/);
   }
+
+  await jacksonButton.click();
+  await expect(page.getByRole('heading', { name: 'Jackson' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Points', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Requests' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'School Bag' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Calendar' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Savings' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Points Log' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Custom', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: /child dashboard/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edit Child' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Edit Child' }).click();
+  await expect(page.getByRole('heading', { name: 'Update display name and avatar' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByRole('button', { name: 'Close modal' }).click();
 }
 
 async function assertParentChildCardAlignment(page: Page) {
-  const jacksonTitle = page.getByRole('heading', { name: 'Jackson' });
-  const leahTitle = page.getByRole('heading', { name: 'Leah' });
-  const dashboardButtons: BoxMetrics[] = [];
-  const pointsButtons: BoxMetrics[] = [];
+  const jacksonButton = page.getByRole('button', { name: /Open point actions for Jackson/i });
+  const leahButton = page.getByRole('button', { name: /Open point actions for Leah/i });
+  const childButtons: BoxMetrics[] = [];
 
-  for (const title of [jacksonTitle, leahTitle]) {
-    const card = title.locator('xpath=ancestor::article[1]');
-    const dashboardButton = card.getByRole('link', { name: /Dashboard/i });
-    const pointsButton = card.getByRole('button', { name: /Points/i });
-
-    await expect(dashboardButton).toBeVisible();
-    await expect(pointsButton).toBeVisible();
-    await expect(card.getByText(/pending/)).toBeVisible();
-
-    dashboardButtons.push(await readBox(dashboardButton));
-    pointsButtons.push(await readBox(pointsButton));
-
-    await expect(dashboardButton, 'dashboard button should stay readable').toHaveText(/Dashboard/i);
-    await expect(pointsButton, 'points button should stay readable').toHaveText(/Points/i);
+  for (const childButton of [jacksonButton, leahButton]) {
+    await expect(childButton).toBeVisible();
+    childButtons.push(await readBox(childButton));
   }
 
   expect(
-    Math.abs(dashboardButtons[0].y - dashboardButtons[1].y),
-    'dashboard buttons should align across cards'
-  ).toBeLessThanOrEqual(10);
-  expect(
-    Math.abs(pointsButtons[0].y - pointsButtons[1].y),
-    'points buttons should align across cards'
+    Math.abs(childButtons[0].y - childButtons[1].y),
+    'child avatar buttons should align across the row'
   ).toBeLessThanOrEqual(10);
 
-  for (const box of [...dashboardButtons, ...pointsButtons]) {
-    expect(box.height, 'parent card action buttons should not wrap').toBeLessThanOrEqual(64);
-    expect(box.width, 'parent card action buttons should remain wide enough').toBeGreaterThanOrEqual(100);
+  for (const box of childButtons) {
+    expect(box.height, 'child avatar button should have stable height').toBeGreaterThanOrEqual(130);
+    expect(box.width, 'child avatar button should stay tappable').toBeGreaterThanOrEqual(120);
   }
 }
 

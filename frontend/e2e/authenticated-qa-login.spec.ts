@@ -9,25 +9,38 @@ test.describe('Europe dev authenticated QA login', () => {
     await page.goto('/parent', { waitUntil: 'networkidle' });
 
     await expect(page.getByRole('heading', { name: 'My Family' })).toBeVisible();
-    await expect(page.getByText('QA Parent', { exact: false })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Open point actions for Jackson/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Open point actions for Leah/i })).toBeVisible();
+
+    await page.getByRole('button', { name: /Open point actions for Jackson/i }).click();
+    await expect(page.getByRole('heading', { name: 'Jackson' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Points', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Requests' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'School Bag' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Calendar' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Savings' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Points Log' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Remove', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Custom', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: /child dashboard/i })).toBeVisible();
+    await page.getByRole('button', { name: 'Close modal' }).click();
 
     // Check header
     const desktopParentDashboardLink = page.locator('nav.md\\:flex a').filter({ hasText: /Parent Dashboard/i });
     await expect(desktopParentDashboardLink).toBeVisible();
     await expect(page.getByRole('button', { name: /Logout/i })).toBeVisible();
 
-    await expect(page.getByRole('link', { name: 'Allowance setup' })).toBeVisible();
+    await page.getByText('Settings', { exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Allowance' })).toBeVisible();
 
-    await page.getByRole('link', { name: 'Allowance setup' }).click();
+    await page.getByRole('link', { name: 'Allowance' }).click();
     await expect(page).toHaveURL(/\/allowance$/);
     await expect(page.getByRole('heading', { name: 'Allowance setup' })).toBeVisible();
     const main = page.locator('main');
-    await expect(
-      page.getByText('Allowance is optional. Pick a child, choose an amount, and set the point goal. Turning on allowance gives your child’s current points an allowance value. You can adjust their points before enabling allowance if needed. Rewards and custom requests spend the same available balance, and nothing is paid automatically.', {
-        exact: true
-      })
-    ).toBeVisible();
+    await expect(main).toContainText('Allowance is optional. Pick a child, choose an amount, and set the point goal.');
     await expect(main).toContainText('Rewards and custom requests spend the same available balance');
+    await expect(main).toContainText('Parents stay in control of what is approved');
     await expect(page.locator('#child-select')).toBeVisible();
     await expect(main).toContainText('Available allowance balance');
     await expect(main).toContainText('Turning on allowance gives your child’s current points an allowance value');
