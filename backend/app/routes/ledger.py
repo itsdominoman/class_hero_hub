@@ -10,6 +10,12 @@ from datetime import datetime
 router = APIRouter()
 
 
+def _child_week_start_day(child: models.Child) -> int:
+    if child.family and child.family.week_start_day is not None:
+        return child.family.week_start_day
+    return 6
+
+
 @router.get("/{child_id}/ledger", response_model=List[schemas.LedgerTransaction])
 async def get_ledger(
     child_id: int,
@@ -19,7 +25,13 @@ async def get_ledger(
     current_parent: models.ParentUser = Depends(auth.get_current_parent),
 ):
     child = get_family_child_or_404(db, child_id, current_parent)
-    return points_service.get_ledger_transactions(db, child.id, period=period, tx_type=tx_type)
+    return points_service.get_ledger_transactions(
+        db,
+        child.id,
+        period=period,
+        tx_type=tx_type,
+        week_start_day=_child_week_start_day(child),
+    )
 
 
 @router.get("/{child_id}/ledger/summary", response_model=schemas.LedgerSummary)
@@ -30,7 +42,12 @@ async def get_ledger_summary(
     current_parent: models.ParentUser = Depends(auth.get_current_parent),
 ):
     child = get_family_child_or_404(db, child_id, current_parent)
-    return points_service.get_ledger_summary(db, child.id, period=period)
+    return points_service.get_ledger_summary(
+        db,
+        child.id,
+        period=period,
+        week_start_day=_child_week_start_day(child),
+    )
 
 
 @router.post("/{child_id}/award", response_model=schemas.LedgerTransaction)

@@ -432,6 +432,22 @@ Common tools include:
 - family settings or member controls
 - school prep or other family tools
 
+### Week starts on
+
+In **Family Settings**, parents can choose which day the family week starts on.
+
+Available options are:
+
+- Sunday
+- Monday
+- Tuesday
+- Wednesday
+- Thursday
+- Friday
+- Saturday
+
+The default is Sunday. This is a family-level setting, not a per-child setting. It affects weekly allowance periods, calendar week calculations, and weekly points views where those weekly views are implemented.
+
 ## 19) Logging out
 
 Use the account or menu area and choose **Log out** when you are done.

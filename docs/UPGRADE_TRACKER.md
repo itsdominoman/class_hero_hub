@@ -148,6 +148,26 @@
 - The app still does not automatically pay children.
 - Saved points/value remain visually separate from available-to-spend balance.
 
+# 2026-06-04 - Family Week Start Setting
+
+### Scope
+- Added parent-authenticated `GET /api/family/settings` and `PATCH /api/family/settings`.
+- Exposed `week_start_day` as named API values: `monday`, `tuesday`, `wednesday`, `thursday`, `friday`, `saturday`, and `sunday`.
+- Kept the existing database storage as integer `0..6`, with Sunday/default stored as `6`.
+- Added a minimal **Week starts on** selector in the existing parent Family Settings modal.
+- Updated weekly Points Log filtering to use the family's configured week start day.
+- Calendar and allowance weekly calculations continue to use the existing family-level setting.
+
+### Verification
+- `./test_venv/bin/pytest backend/tests/test_family_settings.py` passed.
+- `./test_venv/bin/pytest backend/tests` passed.
+- `npm run build` passed from `frontend/`.
+
+### Notes
+- No DB migration was needed.
+- This is a family-level setting, not per child.
+- Smoke remains read-only and should not mutate this setting.
+
 # 2026-05-17 - Europe Dev Daily QA Phase A Restored
 
 ### Scope

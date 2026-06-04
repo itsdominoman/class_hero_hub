@@ -12,6 +12,54 @@ from datetime import datetime, timedelta, timezone
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+WEEK_START_DAY_TO_INDEX = {
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6,
+}
+WEEK_START_INDEX_TO_DAY = {value: key for key, value in WEEK_START_DAY_TO_INDEX.items()}
+
+
+def _family_settings_response(family: models.Family) -> schemas.FamilySettings:
+    return schemas.FamilySettings(
+        timezone=family.timezone,
+        week_start_day=WEEK_START_INDEX_TO_DAY.get(family.week_start_day, "sunday"),
+    )
+
+
+def _get_current_family_or_404(db: Session, current_parent: models.ParentUser) -> models.Family:
+    family = db.query(models.Family).filter(models.Family.id == current_parent.family_id).first()
+    if not family:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Family not found")
+    return family
+
+
+@router.get("/settings", response_model=schemas.FamilySettings)
+async def get_family_settings(
+    db: Session = Depends(get_db),
+    current_parent: models.ParentUser = Depends(auth.get_current_parent),
+):
+    family = _get_current_family_or_404(db, current_parent)
+    return _family_settings_response(family)
+
+
+@router.patch("/settings", response_model=schemas.FamilySettings)
+async def update_family_settings(
+    settings_update: schemas.FamilySettingsUpdate,
+    db: Session = Depends(get_db),
+    current_parent: models.ParentUser = Depends(auth.get_current_parent),
+):
+    family = _get_current_family_or_404(db, current_parent)
+    family.week_start_day = WEEK_START_DAY_TO_INDEX[settings_update.week_start_day]
+    db.commit()
+    db.refresh(family)
+    return _family_settings_response(family)
+
+
 @router.get("/members", response_model=List[schemas.FamilyMember])
 async def get_family_members(
     db: Session = Depends(get_db),

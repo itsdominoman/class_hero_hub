@@ -30,6 +30,7 @@
 - Completed: Last-parent revoke protection
 - Completed: Parent-facing family member lists hide revoked parents
 - Completed: Device/session management lets parents view linked child devices and unlink one device without deleting child data
+- Completed: Family-level week start setting with Sunday default and named API values
 - Child reward-request CSRF recovery for existing linked devices now happens through `/api/child/me`
 
 ### 🎁 Rewards System
@@ -74,6 +75,7 @@
 - Completed: Edit Child supports display name editing and numeric avatar selection
 - Completed: Avatar assets use numeric keys `1` through `24` resolved from `/avatars/{key}.png`
 - Completed: Points Log includes Day / Week / Year filters and a behaviour ring chart that excludes savings, banking, redemptions, holds, and system financial entries
+- Completed: Points Log weekly filtering follows the family week start setting
 - Completed: Parent tools remain secondary under `Settings`
 - Completed: Duplicate Add Child entry removed from the child card area
 - Completed: Child cards consistently show saved balance, including `0 saved`

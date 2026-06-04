@@ -7,6 +7,7 @@
 - Parent sessions last 30 days by default through `ACCESS_TOKEN_EXPIRE_MINUTES`; JWT expiry, `HttpOnly` access cookie lifetime, and CSRF cookie lifetime are aligned
 - Parent `last_login_at` tracking (updates on first-time and returning Google OAuth logins)
 - Family-based data scoping
+- Family-level week start setting is parent-manageable from Family Settings; default remains Sunday
 - Child device linking via QR code
 - Parents can view linked child devices and unlink one specific child device without deleting child data
 - Child-specific sessions (separate from parent auth)
@@ -71,10 +72,12 @@
 - Parent dashboard now opens a child action modal from each child avatar, with Points shown first, persistent Child Dashboard/Edit Child actions, and Requests, School Bag, Calendar, Savings, and Points Log available inside the same modal
 - Edit Child supports display name changes and numeric avatar selection using avatar keys `1` through `24` resolved from `/avatars/{key}.png`
 - Points Log includes Day / Week / Year filters and a behaviour ring chart that excludes savings, banking, redemptions, holds, and other system financial entries
+- Points Log weekly filtering now follows the family's configured week start day
 
 ### Allowance System
 - Backend support exists for optional child-level allowance settings
 - Parents can store allowance currency, amount, weekly/monthly period, point goal, and allowance enabled date per child through API endpoints
+- Weekly allowance periods use the family-level week start setting
 - Allowance values are derived from allowance-linked points using integer minor-unit math
 - Rewards, reward holds, reward releases, and savings deposits/unlocks reduce the available balance when allowance is enabled
 - Parent-facing Allowance setup page exists at `/allowance`

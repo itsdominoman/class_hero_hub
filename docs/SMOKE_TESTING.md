@@ -20,6 +20,14 @@ The Europe dev smoke script is still the read-only baseline for fast checks. It 
 - Logout still clears both `access_token` and `csrf_token`.
 - Smoke remains read-only and does not attempt to wait out or mutate long-lived sessions.
 
+## Family settings notes
+
+- Parents can set the family-level week start day from the parent Family Settings modal.
+- Default is Sunday.
+- Available values are Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, and Saturday.
+- The setting affects weekly allowance periods, calendar week calculations, and weekly Points Log filtering where implemented.
+- Smoke remains read-only and does not PATCH `/api/family/settings`; use backend tests or an approved stateful QA plan for mutation coverage.
+
 ## Commands
 
 ```bash
@@ -75,6 +83,7 @@ That wrapper loads `/home/administrator/.hermes/fhh-qa.env` automatically and ru
 
 - Smoke does not prove the child dashboard session flow by itself
 - Smoke does not exercise linked-device unlink because unlink is an intentional mutation; use backend tests or a stateful QA plan for that flow.
+- Smoke does not change the family week start setting because that is an intentional mutation.
 - Smoke does not replace the real seeded child visual QA run
 - Smoke does not replace mobile visual QA
 - Tokenized routes such as child-link and family-invite are discovered, but not deeply exercised by smoke

@@ -40,6 +40,23 @@ class Family(FamilyBase):
     class Config:
         from_attributes = True
 
+WeekStartDayName = Literal[
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+]
+
+class FamilySettings(BaseModel):
+    timezone: str
+    week_start_day: WeekStartDayName
+
+class FamilySettingsUpdate(BaseModel):
+    week_start_day: WeekStartDayName
+
 class ChildBase(BaseModel):
     display_name: str
     avatar_name: Optional[str] = None

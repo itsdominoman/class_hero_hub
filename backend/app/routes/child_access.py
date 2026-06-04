@@ -11,6 +11,12 @@ from ..services.rewards_service import get_family_rewards
 router = APIRouter()
 
 
+def _current_child_week_start_day(child: models.Child) -> int:
+    if child.family and child.family.week_start_day is not None:
+        return child.family.week_start_day
+    return 6
+
+
 @router.get("/me", response_model=schemas.ChildSummary)
 async def get_my_dashboard(
     db: Session = Depends(get_db),
@@ -57,7 +63,13 @@ async def get_my_ledger(
     db: Session = Depends(get_db),
     current_child: models.Child = Depends(get_current_child),
 ):
-    return points_service.get_ledger_transactions(db, current_child.id, period=period, tx_type=tx_type)
+    return points_service.get_ledger_transactions(
+        db,
+        current_child.id,
+        period=period,
+        tx_type=tx_type,
+        week_start_day=_current_child_week_start_day(current_child),
+    )
 
 
 @router.get("/ledger/summary", response_model=schemas.LedgerSummary)
@@ -66,7 +78,12 @@ async def get_my_ledger_summary(
     db: Session = Depends(get_db),
     current_child: models.Child = Depends(get_current_child),
 ):
-    return points_service.get_ledger_summary(db, current_child.id, period=period)
+    return points_service.get_ledger_summary(
+        db,
+        current_child.id,
+        period=period,
+        week_start_day=_current_child_week_start_day(current_child),
+    )
 
 
 @router.get("/redemptions", response_model=List[schemas.RedemptionRequest])

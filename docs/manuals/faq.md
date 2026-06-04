@@ -134,12 +134,18 @@ Use **Allowance setup** from the parent dashboard **Settings** menu.
 ### Does the app automatically pay allowance?
 No. Family Hero Hub tracks allowance value. Parents approve requests and provide the real-world reward or purchase.
 
+### Which day does the allowance week start on?
+The family default is Sunday. Parents can change this in **Family Settings** with the **Week starts on** selector.
+
 ### Do reward requests reduce allowance progress?
 Yes. Reward requests, points on hold, reward approvals or rejections, and saved-point deposits and unlocks reduce the available allowance balance while keeping earned history visible.
 
 ## Calendar, School Prep, and School Bag
 ### What is the calendar for?
 It is for family tasks and events, including items that can reward points when completed and approved.
+
+### Can I change which day the family week starts on?
+Yes. Use **Family Settings** and choose **Week starts on**. Options are Sunday through Saturday, and the setting applies to the whole family.
 
 ### What is a rewardable task?
 A rewardable task is a calendar task that can be tied to points.

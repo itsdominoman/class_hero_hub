@@ -16,6 +16,11 @@
   let presets = $state<any[]>([]);
   let familyMembers = $state<any[]>([]);
   let familyInvites = $state<any[]>([]);
+  let familySettings = $state<FamilySettings | null>(null);
+  let familySettingsForm = $state<{ week_start_day: WeekStartDay }>({ week_start_day: 'sunday' });
+  let familySettingsSaving = $state(false);
+  let familySettingsMessage = $state<string | null>(null);
+  let familySettingsError = $state<string | null>(null);
   let loading = $state(true);
   let loadingChildren = $state(false);
   let loadingFamilySettings = $state(false);
@@ -130,6 +135,23 @@
     is_active: boolean;
     label: string;
   };
+
+  type WeekStartDay = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+
+  type FamilySettings = {
+    timezone: string;
+    week_start_day: WeekStartDay;
+  };
+
+  const WEEK_START_OPTIONS: { value: WeekStartDay; label: string }[] = [
+    { value: 'sunday', label: 'Sunday' },
+    { value: 'monday', label: 'Monday' },
+    { value: 'tuesday', label: 'Tuesday' },
+    { value: 'wednesday', label: 'Wednesday' },
+    { value: 'thursday', label: 'Thursday' },
+    { value: 'friday', label: 'Friday' },
+    { value: 'saturday', label: 'Saturday' }
+  ];
 
   type AllowanceSummary = {
     is_enabled: boolean;
@@ -358,16 +380,42 @@
   async function loadFamilySettings() {
     try {
       loadingFamilySettings = true;
+      familySettingsError = null;
+      familySettingsMessage = null;
       familyMembers = [];
       familyInvites = [];
-      const [fm, fi] = await Promise.all([
+      familySettings = null;
+      const [fm, fi, settings] = await Promise.all([
         api.get('/family/members'),
-        api.get('/family/invites')
+        api.get('/family/invites'),
+        api.get('/family/settings')
       ]);
       familyMembers = fm;
       familyInvites = fi;
+      familySettings = settings;
+      familySettingsForm = { week_start_day: settings.week_start_day };
+    } catch (e) {
+      familySettingsError = e instanceof Error ? e.message : 'Unable to load family settings';
     } finally {
       loadingFamilySettings = false;
+    }
+  }
+
+  async function saveFamilySettings() {
+    try {
+      familySettingsSaving = true;
+      familySettingsError = null;
+      familySettingsMessage = null;
+      const updated = await api.patch('/family/settings', {
+        week_start_day: familySettingsForm.week_start_day
+      });
+      familySettings = updated;
+      familySettingsForm = { week_start_day: updated.week_start_day };
+      familySettingsMessage = 'Family settings saved.';
+    } catch (e) {
+      familySettingsError = e instanceof Error ? e.message : 'Unable to save family settings';
+    } finally {
+      familySettingsSaving = false;
     }
   }
 
@@ -1747,6 +1795,41 @@
                 <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">Refreshing family members</p>
               </div>
             {/if}
+
+            <!-- Family Week Settings -->
+            <div class="space-y-3">
+              <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Family Week</span>
+              <div class="rounded-2xl bg-slate-50 p-4">
+                <label for="family-week-start" class="mb-2 block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Week starts on</label>
+                <div class="flex flex-col gap-3 sm:flex-row">
+                  <select
+                    id="family-week-start"
+                    bind:value={familySettingsForm.week_start_day}
+                    disabled={loadingFamilySettings || familySettingsSaving || !familySettings}
+                    class="w-full rounded-2xl border-2 border-slate-100 bg-white px-4 py-3 text-sm font-bold text-slate-900 focus:border-hero/30 focus:outline-none disabled:opacity-50"
+                  >
+                    {#each WEEK_START_OPTIONS as option}
+                      <option value={option.value}>{option.label}</option>
+                    {/each}
+                  </select>
+                  <button
+                    type="button"
+                    onclick={saveFamilySettings}
+                    disabled={loadingFamilySettings || familySettingsSaving || !familySettings || familySettingsForm.week_start_day === familySettings.week_start_day}
+                    class="rounded-2xl bg-slate-900 px-5 py-3 text-xs font-black uppercase tracking-[0.16em] text-white transition-all disabled:opacity-50"
+                  >
+                    {familySettingsSaving ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+                <p class="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Used for allowance, calendar, and weekly point views.</p>
+                {#if familySettingsMessage}
+                  <p class="mt-3 text-xs font-bold text-hero">{familySettingsMessage}</p>
+                {/if}
+                {#if familySettingsError}
+                  <p class="mt-3 text-xs font-bold text-penalty">{familySettingsError}</p>
+                {/if}
+              </div>
+            </div>
 
             <!-- Members List -->
             <div class="space-y-3">

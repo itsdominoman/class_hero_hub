@@ -231,7 +231,13 @@ def get_savings_unlock_schedule(
     ]
 
 
-def get_period_bounds(period: str, now: datetime | None = None) -> tuple[datetime, datetime]:
+def _normalize_week_start_day(week_start_day: int | None) -> int:
+    if week_start_day is None or week_start_day < 0 or week_start_day > 6:
+        return 6
+    return week_start_day
+
+
+def get_period_bounds(period: str, now: datetime | None = None, week_start_day: int | None = 6) -> tuple[datetime, datetime]:
     current = now or datetime.utcnow()
     today = current.date()
 
@@ -241,7 +247,9 @@ def get_period_bounds(period: str, now: datetime | None = None) -> tuple[datetim
         return start, end
 
     if period == "week":
-        week_start = today - timedelta(days=today.weekday())
+        normalized_week_start = _normalize_week_start_day(week_start_day)
+        days_since_start = (today.weekday() - normalized_week_start) % 7
+        week_start = today - timedelta(days=days_since_start)
         start = datetime.combine(week_start, datetime.min.time())
         end = start + timedelta(days=7)
         return start, end
@@ -282,8 +290,15 @@ def _matches_activity_type(transaction: models.LedgerTransaction, tx_type: str) 
     return False
 
 
-def get_ledger_transactions(db: Session, child_id: int, period: str = "month", tx_type: str = "all", now: datetime | None = None):
-    start, end = get_period_bounds(period, now=now)
+def get_ledger_transactions(
+    db: Session,
+    child_id: int,
+    period: str = "month",
+    tx_type: str = "all",
+    now: datetime | None = None,
+    week_start_day: int | None = 6,
+):
+    start, end = get_period_bounds(period, now=now, week_start_day=week_start_day)
     transactions = (
         db.query(models.LedgerTransaction)
         .filter(
@@ -298,8 +313,14 @@ def get_ledger_transactions(db: Session, child_id: int, period: str = "month", t
     return [tx for tx in transactions if _matches_activity_type(tx, tx_type)]
 
 
-def get_ledger_summary(db: Session, child_id: int, period: str = "month", now: datetime | None = None):
-    start, end = get_period_bounds(period, now=now)
+def get_ledger_summary(
+    db: Session,
+    child_id: int,
+    period: str = "month",
+    now: datetime | None = None,
+    week_start_day: int | None = 6,
+):
+    start, end = get_period_bounds(period, now=now, week_start_day=week_start_day)
     transactions = (
         db.query(models.LedgerTransaction)
         .filter(
