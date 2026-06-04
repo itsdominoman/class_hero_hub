@@ -34,6 +34,12 @@ It means your account is waiting to be approved before you can use the app.
 ### Can another parent use the app too?
 Yes, if they have access to the family account and sign in with their own approved Google account.
 
+### How long do parents stay signed in?
+Parent sessions last about 30 days by default. Use **Log out** on shared devices or any device you do not control.
+
+### Does logging out clear my parent session?
+Yes. Logging out clears the parent session cookies from that browser.
+
 ### Can children spend points without parent approval?
 No. Children can ask for rewards, but a parent still has to approve the request.
 

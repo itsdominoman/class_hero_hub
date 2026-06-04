@@ -1,5 +1,24 @@
 # Family Hero Hub - Upgrade Tracker
 
+# 2026-06-04 - Parent Session Duration
+
+### Scope
+- Changed the default parent session duration to 30 days.
+- Kept parent auth as an `HttpOnly` JWT `access_token` cookie.
+- Made the parent `access_token` cookie lifetime derive from `ACCESS_TOKEN_EXPIRE_MINUTES` instead of a hardcoded 30-minute value.
+- Aligned the readable double-submit `csrf_token` cookie lifetime with the configured parent session duration so unsafe parent actions remain usable during the session.
+- Kept logout clearing both `access_token` and `csrf_token`.
+
+### Verification
+- Added backend tests for configured JWT expiry, OAuth callback cookie max-age, CSRF cookie max-age, logout clearing, `/api/me` cookie auth, expired JWT rejection, and `Authorization: Bearer` compatibility.
+- Full backend test suite passed.
+
+### Notes
+- No database migration was needed.
+- Refresh tokens and server-side parent session revocation were deliberately not added.
+- Indefinite parent login remains intentionally unsupported.
+- Existing users may need to sign in once after deployment to receive the longer cookie.
+
 # 2026-06-04 - Parent Child Device Unlink
 
 ### Scope

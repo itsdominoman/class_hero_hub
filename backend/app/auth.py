@@ -77,6 +77,10 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
+
+def parent_session_cookie_max_age_seconds() -> int:
+    return max(0, int(settings.ACCESS_TOKEN_EXPIRE_MINUTES) * 60)
+
 async def get_current_parent(request: Request, db: Session = Depends(get_db)):
     # Check for token in cookie first, then Authorization header
     token = request.cookies.get("access_token")
@@ -199,12 +203,13 @@ def create_csrf_token() -> str:
 
 
 def set_csrf_cookie(response, token: str):
+    max_age = parent_session_cookie_max_age_seconds()
     response.set_cookie(
         key=CSRF_COOKIE_NAME,
         value=token,
         httponly=False,
-        max_age=1800,
-        expires=1800,
+        max_age=max_age,
+        expires=max_age,
         samesite="lax",
         secure=settings.COOKIE_SECURE,
         path="/",

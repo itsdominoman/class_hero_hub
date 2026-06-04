@@ -1,6 +1,6 @@
 # QA Login Design
 
-Last reviewed: 2026-05-18
+Last reviewed: 2026-06-04
 
 This repo uses dev-only QA login helpers so browser tests can reach authenticated parent and child pages without depending on real OAuth in automation.
 The standard Europe/dev QA runner sources `/home/administrator/.hermes/fhh-qa.env` automatically, so Zeus/daily QA does not need ad hoc token exports for the normal flow.
@@ -11,6 +11,16 @@ The standard Europe/dev QA runner sources `/home/administrator/.hermes/fhh-qa.en
 - Purpose: issue a safe dev-only parent session for browser QA
 - Required input: `QA_LOGIN_TOKEN`
 - Expected identity in the current QA environment: `qa-parent@dev.familyherohub.com`
+- Parent QA login uses the same config-driven parent session lifetime as normal OAuth login.
+
+## Parent session lifetime
+
+- Parent sessions last 30 days by default.
+- The duration is controlled by backend `ACCESS_TOKEN_EXPIRE_MINUTES`, currently defaulting to `43200`.
+- The parent JWT expiry and `HttpOnly` `access_token` cookie max-age use the same configured duration.
+- The readable `csrf_token` cookie uses the same duration so unsafe requests remain compatible with the longer parent session.
+- There is no refresh token or server-side parent session revocation yet.
+- Indefinite parent sessions are intentionally unsupported.
 
 ## Child QA login
 

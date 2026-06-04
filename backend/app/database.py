@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./data/family_hero_hub.sqlite"
     SECRET_KEY: str = "secret"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 43200
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
     GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/auth/google/callback"

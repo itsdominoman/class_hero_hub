@@ -116,6 +116,7 @@ async def _qa_login_from_request(request: Request, db: Session) -> JSONResponse:
     db.refresh(parent)
 
     access_token = auth.create_access_token(data={"sub": parent.email})
+    session_max_age = auth.parent_session_cookie_max_age_seconds()
     response = JSONResponse(content={
         "status": "ok",
         "email": email,
@@ -127,8 +128,8 @@ async def _qa_login_from_request(request: Request, db: Session) -> JSONResponse:
         key="access_token",
         value=access_token,
         httponly=True,
-        max_age=1800,
-        expires=1800,
+        max_age=session_max_age,
+        expires=session_max_age,
         samesite="lax",
         secure=settings.COOKIE_SECURE,
         path="/",

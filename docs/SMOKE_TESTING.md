@@ -1,6 +1,6 @@
 # Smoke Testing
 
-Last reviewed: 2026-05-18
+Last reviewed: 2026-06-04
 
 The Europe dev smoke script is still the read-only baseline for fast checks. It should stay safe to run repeatedly without mutating app data.
 
@@ -11,6 +11,14 @@ The Europe dev smoke script is still the read-only baseline for fast checks. It 
 - Header authentication state (anonymous)
 - Unauthenticated API access behavior
 - Public dev URL reachability checks for information only
+
+## Parent session notes
+
+- Parent sessions last 30 days by default.
+- The backend uses `ACCESS_TOKEN_EXPIRE_MINUTES` for parent JWT expiry and parent `access_token` cookie max-age.
+- The CSRF cookie lifetime is aligned with the parent session lifetime.
+- Logout still clears both `access_token` and `csrf_token`.
+- Smoke remains read-only and does not attempt to wait out or mutate long-lived sessions.
 
 ## Commands
 

@@ -181,6 +181,7 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
 
     # Create JWT
     access_token = auth.create_access_token(data={"sub": parent.email})
+    session_max_age = auth.parent_session_cookie_max_age_seconds()
     
     # Redirect to frontend dashboard with token in cookie
     response = Response(status_code=status.HTTP_302_FOUND)
@@ -189,8 +190,8 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         key="access_token",
         value=access_token,
         httponly=True,
-        max_age=1800,
-        expires=1800,
+        max_age=session_max_age,
+        expires=session_max_age,
         samesite="lax",
         secure=settings.COOKIE_SECURE,
         path="/"

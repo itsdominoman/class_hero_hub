@@ -4,6 +4,7 @@
 
 ### Authentication & Access
 - Google OAuth for parent accounts
+- Parent sessions last 30 days by default through `ACCESS_TOKEN_EXPIRE_MINUTES`; JWT expiry, `HttpOnly` access cookie lifetime, and CSRF cookie lifetime are aligned
 - Parent `last_login_at` tracking (updates on first-time and returning Google OAuth logins)
 - Family-based data scoping
 - Child device linking via QR code
@@ -137,7 +138,7 @@
 - US, UK, and Singapore wg-easy client ranges are `10.8.0.0/24`, `10.70.0.0/24`, and `10.10.0.0/24`
 - SSH password authentication is disabled on the managed fleet; SSH is key-only and public break-glass access is limited to trusted public IPs and VPN ranges.
 - The restore node is a DR receiving node at `95.111.243.235`, and the filtered UK replica is staged at `/srv/fhh-restore-inbox/uk/backups`.
-- Backend tests passing (76 tests)
+- Backend tests passing (108 tests)
 - Frontend production build passes
 - Europe dev daily QA Phase A passes with backend pytest, frontend build, Playwright read-only E2E, and smoke checks
 - Playwright coverage now includes `/faq`, route inventory, authenticated parent visual layout checks, and mobile screenshot artifacts for the most important parent/child surfaces
@@ -181,6 +182,7 @@
 - Admin registration request approval
 - Admin users page search/filter/pagination
 - Parent revoke/restore access controls
+- Parent 30-day session duration with logout clearing both auth and CSRF cookies
 - Family suspend/restore controls
 - Revoked parent login/session blocking
 - Suspended family parent and child blocking
@@ -191,6 +193,7 @@
 ## ⚠️ Known Gaps / Not Yet Implemented
 
 ### Authentication Enhancements
+- Parent refresh tokens/server-side session revocation are not implemented; parent logout clears browser cookies, so indefinite login is intentionally unsupported
 - Longer-lived parent-managed child device sessions are a future improvement; current child links still expire and now show clearer relink messaging
 
 ### Rewards System

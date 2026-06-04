@@ -45,6 +45,8 @@ In simple terms:
 - You do **not** type your Google password into Family Hero Hub.
 - Google shows its own secure sign-in screen.
 - Family Hero Hub only receives the sign-in result.
+- After signing in, parent sessions stay active for about 30 days by default.
+- Use **Log out** on shared devices or any device you do not control.
 
 ## 3) Request access if you are new
 
@@ -434,7 +436,7 @@ Common tools include:
 
 Use the account or menu area and choose **Log out** when you are done.
 
-This is useful on shared devices.
+This clears the parent session from that browser. It is especially important on shared devices.
 
 ## 20) Common parent issues
 

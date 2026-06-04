@@ -39,6 +39,7 @@ This matrix is meant to keep the Europe dev QA surface practical: read-only by d
 ## Notes
 
 - **Authentication Source of Truth:** Authenticated header state is sourced exclusively from `/api/me`.
+- **Parent Session Coverage:** `backend/tests/test_parent_auth_session.py` verifies configured parent JWT expiry, OAuth `access_token` cookie max-age, CSRF cookie max-age alignment, logout cookie clearing, valid `/api/me` cookie auth, expired JWT rejection, and `Authorization: Bearer` compatibility.
 - **Admin Security:** The Admin navigation link is strictly gated by the `is_admin` property of the `currentParent` object.
 - **Header QA Coverage:** `frontend/e2e/authenticated-qa-login.spec.ts` now explicitly verifies the header state:
   - Anonymous users see the "Login" link only.
