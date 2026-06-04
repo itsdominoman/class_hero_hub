@@ -63,8 +63,8 @@ const PARENT_CASES: VisualCase[] = [
     auth: 'parent',
     screenshotName: 'parent-settings-auth',
     extraChecks: async (page) => {
-      await expect(page.getByRole('heading', { name: 'Manage children' })).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Quick links for family management' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Edit child names and avatars' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Tools still opened from the parent dashboard' })).toBeVisible();
     }
   },
   {
