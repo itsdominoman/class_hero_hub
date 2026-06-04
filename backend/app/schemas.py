@@ -469,9 +469,15 @@ class FamilyMember(BaseModel):
     email: str
     name: Optional[str]
     last_login_at: Optional[datetime]
+    can_remove: bool = False
 
     class Config:
         from_attributes = True
+
+class FamilyGrownupRemoveResponse(BaseModel):
+    id: int
+    status: str
+    revoked_at: datetime
 
 class FamilyInviteCreate(BaseModel):
     email: EmailStr

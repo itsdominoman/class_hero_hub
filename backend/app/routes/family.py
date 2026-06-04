@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_, and_
+from sqlalchemy import func
 from typing import List
 from ..database import get_db, settings
 from .. import models, schemas, auth, mailer
@@ -38,6 +38,52 @@ def _get_current_family_or_404(db: Session, current_parent: models.ParentUser) -
     return family
 
 
+def _active_family_parents_query(db: Session, family_id: int):
+    return db.query(models.ParentUser).filter(
+        models.ParentUser.family_id == family_id,
+        func.coalesce(models.ParentUser.status, "active") == "active",
+    )
+
+
+def _family_owner_parent(db: Session, family_id: int) -> models.ParentUser | None:
+    return (
+        _active_family_parents_query(db, family_id)
+        .order_by(models.ParentUser.created_at.asc(), models.ParentUser.id.asc())
+        .first()
+    )
+
+
+def _can_manage_grownups(db: Session, current_parent: models.ParentUser) -> bool:
+    if auth.is_admin(current_parent):
+        return True
+    owner = _family_owner_parent(db, current_parent.family_id)
+    return bool(owner and owner.id == current_parent.id)
+
+
+def _family_member_response(member: models.ParentUser, current_parent: models.ParentUser, can_manage: bool) -> schemas.FamilyMember:
+    return schemas.FamilyMember(
+        id=member.id,
+        email=member.email,
+        name=member.name,
+        last_login_at=member.last_login_at,
+        can_remove=bool(can_manage and member.id != current_parent.id),
+    )
+
+
+def _active_family_members(db: Session, current_parent: models.ParentUser) -> list[schemas.FamilyMember]:
+    can_manage = _can_manage_grownups(db, current_parent)
+    members = (
+        db.query(models.ParentUser)
+        .filter(
+            models.ParentUser.family_id == current_parent.family_id,
+            func.coalesce(models.ParentUser.status, "active") == "active",
+        )
+        .order_by(models.ParentUser.created_at.asc(), models.ParentUser.id.asc())
+        .all()
+    )
+    return [_family_member_response(member, current_parent, can_manage) for member in members]
+
+
 @router.get("/settings", response_model=schemas.FamilySettings)
 async def get_family_settings(
     db: Session = Depends(get_db),
@@ -65,16 +111,61 @@ async def get_family_members(
     db: Session = Depends(get_db),
     current_parent: models.ParentUser = Depends(auth.get_current_parent)
 ):
-    return db.query(models.ParentUser).filter(
+    return _active_family_members(db, current_parent)
+
+
+@router.get("/grownups", response_model=List[schemas.FamilyMember])
+async def get_family_grownups(
+    db: Session = Depends(get_db),
+    current_parent: models.ParentUser = Depends(auth.get_current_parent),
+):
+    return _active_family_members(db, current_parent)
+
+
+@router.delete("/grownups/{parent_id}", response_model=schemas.FamilyGrownupRemoveResponse)
+async def remove_family_grownup(
+    parent_id: int,
+    db: Session = Depends(get_db),
+    current_parent: models.ParentUser = Depends(auth.get_current_parent),
+):
+    if not _can_manage_grownups(db, current_parent):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the family owner can remove grownups")
+
+    target_parent = db.query(models.ParentUser).filter(
+        models.ParentUser.id == parent_id,
         models.ParentUser.family_id == current_parent.family_id,
-        or_(
-            models.ParentUser.status == "active",
-            and_(
-                models.ParentUser.status.is_(None),
-                models.ParentUser.revoked_at.is_(None),
-            ),
-        ),
-    ).order_by(models.ParentUser.created_at.asc()).all()
+        func.coalesce(models.ParentUser.status, "active") == "active",
+    ).first()
+    if not target_parent:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grownup not found")
+
+    if auth.is_admin(target_parent):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bootstrap admin accounts cannot be removed")
+
+    active_remaining = auth.count_active_parents_in_family(
+        db,
+        current_parent.family_id,
+        exclude_parent_id=target_parent.id,
+    )
+    if active_remaining == 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot remove the only active grownup")
+
+    if parent_id == current_parent.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot remove yourself")
+
+    now = datetime.now(timezone.utc)
+    target_parent.status = "revoked"
+    target_parent.revoked_at = now
+    target_parent.revoked_by_parent_id = current_parent.id
+    target_parent.revoke_reason = "Removed from family"
+    db.commit()
+    db.refresh(target_parent)
+
+    return schemas.FamilyGrownupRemoveResponse(
+        id=target_parent.id,
+        status=target_parent.status,
+        revoked_at=target_parent.revoked_at,
+    )
 
 @router.get("/invites", response_model=List[schemas.FamilyInvite])
 async def get_family_invites(
@@ -173,3 +264,12 @@ async def revoke_family_invite(
     db.refresh(db_invite)
 
     return db_invite
+
+
+@router.delete("/invites/{invite_id}", response_model=schemas.FamilyInvite)
+async def delete_family_invite(
+    invite_id: int,
+    db: Session = Depends(get_db),
+    current_parent: models.ParentUser = Depends(auth.get_current_parent),
+):
+    return await revoke_family_invite(invite_id, db, current_parent)

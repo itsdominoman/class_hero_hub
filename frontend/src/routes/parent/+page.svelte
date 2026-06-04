@@ -14,13 +14,14 @@
   let rewards = $state<any[]>([]);
   let allowanceSummaries = $state<Record<number, AllowanceSummary>>({});
   let presets = $state<any[]>([]);
-  let familyMembers = $state<any[]>([]);
+  let familyMembers = $state<FamilyMember[]>([]);
   let familyInvites = $state<any[]>([]);
   let familySettings = $state<FamilySettings | null>(null);
   let familySettingsForm = $state<{ week_start_day: WeekStartDay }>({ week_start_day: 'sunday' });
   let familySettingsSaving = $state(false);
   let familySettingsMessage = $state<string | null>(null);
   let familySettingsError = $state<string | null>(null);
+  let familyGrownupRemovingId = $state<number | null>(null);
   let loading = $state(true);
   let loadingChildren = $state(false);
   let loadingFamilySettings = $state(false);
@@ -141,6 +142,14 @@
   type FamilySettings = {
     timezone: string;
     week_start_day: WeekStartDay;
+  };
+
+  type FamilyMember = {
+    id: number;
+    email: string;
+    name: string | null;
+    last_login_at: string | null;
+    can_remove: boolean;
   };
 
   const WEEK_START_OPTIONS: { value: WeekStartDay; label: string }[] = [
@@ -339,7 +348,7 @@
         api.get('/redemptions'),
         api.get('/rewards'),
         api.get('/presets/'),
-        api.get('/family/members'),
+        api.get('/family/grownups'),
         api.get('/family/invites')
       ]);
       parent = p;
@@ -386,7 +395,7 @@
       familyInvites = [];
       familySettings = null;
       const [fm, fi, settings] = await Promise.all([
-        api.get('/family/members'),
+        api.get('/family/grownups'),
         api.get('/family/invites'),
         api.get('/family/settings')
       ]);
@@ -822,12 +831,28 @@
   }
 
   async function revokeInvite(id: number) {
-    if (!confirm('Revoke this invite?')) return;
+    if (!confirm('Cancel this invite? The invite link will no longer work.')) return;
     try {
-      await api.patch(`/family/invites/${id}/revoke`, {});
+      await api.delete(`/family/invites/${id}`);
       await loadDashboard();
+      await loadFamilySettings();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to revoke invite');
+      alert(e instanceof Error ? e.message : 'Failed to cancel invite');
+    }
+  }
+
+  async function removeGrownup(member: FamilyMember) {
+    if (!confirm('Remove this grownup from your family? They will no longer be able to manage children or points.')) return;
+
+    try {
+      familyGrownupRemovingId = member.id;
+      await api.delete(`/family/grownups/${member.id}`);
+      await loadDashboard();
+      await loadFamilySettings();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to remove grownup');
+    } finally {
+      familyGrownupRemovingId = null;
     }
   }
 
@@ -1821,6 +1846,15 @@
                     </div>
                     {#if member.id === parent?.id}
                       <span class="shrink-0 px-3 py-1 bg-hero/10 text-hero rounded-lg text-[10px] font-black uppercase tracking-[0.12em] sm:tracking-[0.22em]">You</span>
+                    {:else if member.can_remove}
+                      <button
+                        type="button"
+                        onclick={() => removeGrownup(member)}
+                        disabled={familyGrownupRemovingId === member.id}
+                        class="shrink-0 rounded-xl border border-red-100 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50 sm:tracking-[0.18em]"
+                      >
+                        {familyGrownupRemovingId === member.id ? 'Removing...' : 'Remove Grownup'}
+                      </button>
                     {/if}
                   </div>
                 {/each}
@@ -1838,8 +1872,8 @@
                         <p class="font-bold text-slate-900 text-sm break-all">{invite.email}</p>
                         <p class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Waiting for login</p>
                       </div>
-                      <button onclick={() => revokeInvite(invite.id)} class="h-11 w-11 shrink-0 text-slate-300 hover:text-red-500 transition-colors flex items-center justify-center" aria-label="Revoke invite">
-                        <X size={16} />
+                      <button onclick={() => revokeInvite(invite.id)} class="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 transition-colors hover:border-red-100 hover:bg-red-50 hover:text-red-500 sm:tracking-[0.18em]" aria-label="Cancel invite">
+                        Cancel Invite
                       </button>
                     </div>
                   {/each}

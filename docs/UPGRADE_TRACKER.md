@@ -1,5 +1,31 @@
 # Family Hero Hub - Upgrade Tracker
 
+# 2026-06-04 - Parents & Caregivers Removal MVP
+
+### Scope
+- Added parent-authenticated `GET /api/family/grownups` for accepted active grownups in the current family.
+- Added `DELETE /api/family/grownups/{parent_id}` to soft-revoke another grownup by setting `parent_users.status='revoked'`, `revoked_at`, `revoked_by_parent_id`, and `revoke_reason`.
+- Added `DELETE /api/family/invites/{invite_id}` as a cancel-invite alias for the existing invite revoke behavior.
+- Added minimal parent dashboard controls in Settings -> Parents & Caregivers: **Remove Grownup** and **Cancel Invite**.
+- Kept children, points, rewards, savings, allowance, calendar, school bag, and history untouched.
+
+### Permission Model
+- No roles or membership table were added.
+- The MVP allows the derived family owner, defined as the earliest active parent in the family, to remove another grownup.
+- Bootstrap admins are protected from removal.
+- Self-removal and last-active-grownup removal are blocked server-side.
+
+### Verification
+- Added backend tests for listing grownups, same-family removal, removed-session blocking, cross-family blocking, last-grownup/self-removal guards, non-owner blocking, unauthenticated blocking, pending invite cancellation, and cancelled invite rejection.
+- `./test_venv/bin/pytest backend/tests/test_family_grownup_management.py` passed.
+- `./test_venv/bin/pytest backend/tests` passed.
+- `npm run build` passed from `frontend/`.
+
+### Notes
+- No database migration was needed.
+- Removed grownups lose access on their next API request because parent auth checks `parent_users.status` on every request.
+- A true role/owner model remains a future migration/design task.
+
 # 2026-06-04 - Parent Session Duration
 
 ### Scope

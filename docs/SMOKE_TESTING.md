@@ -28,6 +28,13 @@ The Europe dev smoke script is still the read-only baseline for fast checks. It 
 - The setting affects weekly allowance periods, calendar week calculations, and weekly Points Log filtering where implemented.
 - Smoke remains read-only and does not PATCH `/api/family/settings`; use backend tests or an approved stateful QA plan for mutation coverage.
 
+## Parents & Caregivers notes
+
+- Settings -> Parents & Caregivers lets parents view accepted grownups and pending invites.
+- The derived family owner can remove another grownup; removal is a soft revoke of that `ParentUser`, not deletion of children or family data.
+- Pending invites can be cancelled, and cancelled invite links no longer verify.
+- Smoke remains read-only and does not remove grownups or cancel invites; use backend tests or an approved stateful QA plan for mutation coverage.
+
 ## Commands
 
 ```bash
@@ -84,6 +91,7 @@ That wrapper loads `/home/administrator/.hermes/fhh-qa.env` automatically and ru
 - Smoke does not prove the child dashboard session flow by itself
 - Smoke does not exercise linked-device unlink because unlink is an intentional mutation; use backend tests or a stateful QA plan for that flow.
 - Smoke does not change the family week start setting because that is an intentional mutation.
+- Smoke does not remove grownups or cancel family invites because those are intentional mutations.
 - Smoke does not replace the real seeded child visual QA run
 - Smoke does not replace mobile visual QA
 - Tokenized routes such as child-link and family-invite are discovered, but not deeply exercised by smoke

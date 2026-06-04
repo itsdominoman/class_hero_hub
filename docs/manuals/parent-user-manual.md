@@ -432,6 +432,21 @@ Common tools include:
 - Parents & Caregivers
 - school prep or other family tools
 
+### Parents & Caregivers
+
+Use **Parents & Caregivers** to manage grownups who can help with the family.
+
+From this screen, parents can:
+
+- view accepted grownups connected to the family
+- invite another parent or caregiver
+- cancel a pending invite
+- remove another grownup when the backend allows it
+
+Removing a grownup signs that grownup out of family access on their next request. It does not delete children, points, rewards, school bag items, calendar items, savings, allowance settings, or history.
+
+For this MVP, only the family owner can remove another grownup. The family owner is the earliest active parent account in the family. The app blocks removing yourself and blocks removing the last active grownup.
+
 ### Week starts on
 
 In **Calendar & School Week**, parents can choose which day the family week starts on.

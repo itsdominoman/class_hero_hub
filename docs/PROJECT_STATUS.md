@@ -10,6 +10,7 @@
 - Family-level week start setting is parent-manageable from Calendar & School Week; default remains Sunday
 - Child device linking via QR code
 - Parents can view linked child devices and unlink one specific child device without deleting child data
+- Parents & Caregivers management lets the family owner view grownups, remove another accepted grownup by soft-revoking access, and cancel pending invites
 - Child-specific sessions (separate from parent auth)
 - Secure token-based invite system (hashed, expiring, scoped)
 - Admin registration approval flow
@@ -21,6 +22,7 @@
 - Last-parent protection prevents revoking the only active parent in an active family
 - Suspended families block parent and child access without deleting family data
 - Revoked parents are hidden from normal parent-facing family member lists while remaining visible to admins
+- Removed grownups lose access on their next API request because parent auth checks `parent_users.status` on every request
 
 ### Child System
 - Child profiles linked to parent/family

@@ -34,6 +34,17 @@ It means your account is waiting to be approved before you can use the app.
 ### Can another parent use the app too?
 Yes, if they have access to the family account and sign in with their own approved Google account.
 
+### Can I remove a parent, caregiver, babysitter, or other grownup?
+Yes. Open **Settings** and then **Parents & Caregivers**. If you are the family owner, you can use **Remove Grownup** for another accepted grownup.
+
+Removing a grownup revokes their access to the family. It does not delete children, points, rewards, calendar items, school bag items, savings, allowance settings, or history.
+
+### Why can I not remove a grownup?
+The MVP only allows the family owner to remove another grownup. The app also blocks removing yourself and blocks removing the last active grownup.
+
+### Can I cancel a pending caregiver invite?
+Yes. Use **Cancel Invite** in **Parents & Caregivers**. Cancelled invite links no longer work.
+
 ### How long do parents stay signed in?
 Parent sessions last about 30 days by default. Use **Log out** on shared devices or any device you do not control.
 

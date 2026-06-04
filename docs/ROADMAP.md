@@ -31,6 +31,7 @@
 - Completed: Parent-facing family member lists hide revoked parents
 - Completed: Device/session management lets parents view linked child devices and unlink one device without deleting child data
 - Completed: Family-level week start setting with Sunday default and named API values
+- Completed: Parents & Caregivers removal MVP; the derived family owner can soft-revoke another grownup and cancel pending caregiver invites without deleting family data
 - Child reward-request CSRF recovery for existing linked devices now happens through `/api/child/me`
 
 ### 🎁 Rewards System
