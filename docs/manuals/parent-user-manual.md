@@ -73,7 +73,6 @@ You will see:
 
 Each child button shows:
 
-- the child name
 - avatar image when available, or initials fallback
 - a point badge showing the child’s current available points
 - the child name underneath
@@ -110,12 +109,23 @@ The repeated summary block that used to show points, saved points, and requests 
 
 ## 5) Adding and managing children
 
-Use the child avatar buttons and the **Settings** menu to manage your family. From there you can:
+Use **Add Child** on the parent dashboard to create a child.
 
-- add a child profile
-- view a child’s dashboard
+Tap a child avatar to open that child’s action modal.
+
+From the modal, parents can:
+
 - add or remove points
+- open the child dashboard
+- edit child name and avatar
+- review that child’s requests
+- view School Bag, Calendar, Savings, and Points Log
+
+Use **Settings** for secondary family tools:
+
 - manage rewards
+- allowance setup
+- family settings or member controls
 - link a child device
 - send family invites
 
@@ -172,6 +182,16 @@ The app shows three point balances for each child:
 - **Points on hold**: points temporarily set aside while a reward request waits for your decision. Points on hold are already removed from available points while a reward request waits for review.
 
 The points log shows the history of point changes, savings deposits, savings unlocks, bonus awards, and reward requests.
+
+### Behaviour percentage
+
+The Points Log includes **Day**, **Week**, and **Year** filters.
+
+It shows a ring chart with a positive behaviour percentage, such as `75%`.
+
+The percentage is based on behaviour point entries only. It does not count savings transfers, banking, reward holds, reward redemptions, allowance movements, or other system and financial entries.
+
+If there are no behaviour points for the selected period, the app shows a neutral empty state instead of treating the child as `0%`.
 
 ### Banking saved points
 
@@ -236,7 +256,7 @@ Good reward examples:
 
 ## 10) Viewing reward requests
 
-Open **Review reward requests**.
+Open the child action modal for the child, then choose **Requests**.
 
 You will see:
 
@@ -246,25 +266,29 @@ You will see:
 - when the request was made
 - whether it is pending, approved, or rejected
 
+If you want a wider parent-level review, **Review reward requests** is still available from **Settings**.
+
 ## 11) Approving reward requests
 
 When you approve a request:
 
-1. Open **Review reward requests**.
-2. Review the child, the reward, and the point cost.
-3. Click **Approve request**.
-4. The request moves to approved.
-5. The child’s points stay spent for that reward.
+1. Open the child action modal.
+2. Choose **Requests**.
+3. Review the child, the reward, and the point cost.
+4. Click **Approve request**.
+5. The request moves to approved.
+6. The child’s points stay spent for that reward.
 
 ## 12) Rejecting reward requests
 
 When you reject a request:
 
-1. Open **Review reward requests**.
-2. Click **Reject request**.
-3. Add a short reason if asked.
-4. The request moves to rejected.
-5. The points on hold return to the child’s available points.
+1. Open the child action modal.
+2. Choose **Requests**.
+3. Click **Reject request**.
+4. Add a short reason if asked.
+5. The request moves to rejected.
+6. The points on hold return to the child’s available points.
 
 ## 13) Allowance setup
 
@@ -357,6 +381,8 @@ Child-facing **School Bag** shows:
 - **Needed today**
 - **Check stationery**
 
+Parents can also view a child’s **School Bag** directly from the child action modal on the parent dashboard.
+
 Parent-facing **School Prep** shows today and tomorrow school items for each child.
 
 Use it to keep track of books, clothes, and other school needs.
@@ -391,7 +417,6 @@ Common tools include:
 - link child device
 - family settings or member controls
 - school prep or other family tools
-- child and point actions
 
 ## 19) Logging out
 
