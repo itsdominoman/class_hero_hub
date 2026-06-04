@@ -1,6 +1,6 @@
 # QA Coverage Matrix
 
-Last reviewed: 2026-05-18
+Last reviewed: 2026-06-04
 
 This matrix is meant to keep the Europe dev QA surface practical: read-only by default, screenshot-backed where layout matters, and explicit about where we still do not have a safe fixture.
 
@@ -46,6 +46,9 @@ This matrix is meant to keep the Europe dev QA surface practical: read-only by d
   - Logged-in admins see "Parent Dashboard", "Admin", and "Logout".
   - The "Admin" link is verified to be hidden for non-admin users.
 - **Layout Consistency:** QA coverage now includes reward card value visibility, custom request form alignment, and parent child-card button alignment.
+- **Parent Modal Coverage:** The parent dashboard child modal is expected to show `Points` first, with persistent `Child Dashboard` and `Edit Child` actions plus `Requests`, `School Bag`, `Calendar`, `Savings`, and `Points Log` sections. The repeated summary block is no longer part of the modal body.
+- **Avatar Contract:** QA checks should assume numeric avatar keys `1` through `24` resolve to `/avatars/{key}.png`, with initials fallback when an avatar asset is missing.
+- **Points Log Coverage:** Behaviour percentage checks should exclude savings, banking, redemptions, holds, and other system financial entries; the ring chart should show the good percentage only.
 - `frontend/e2e/public-pages.spec.ts` now covers `/faq` and checks safe internal links.
 - `frontend/e2e/visual-layout.spec.ts` saves screenshots under `tmp/qa-runs/YYYYMMDD-HHMMSS-visual-layout/`.
 - The child dashboard is now exercised through a deterministic seeded child session in visual QA.

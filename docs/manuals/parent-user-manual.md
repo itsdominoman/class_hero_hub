@@ -60,31 +60,57 @@ If the app says your email is not approved, that means you need to request acces
 
 ## 4) Parent dashboard overview
 
-The parent dashboard is your family control center. When you sign in, this is the page you use to manage your children, points, rewards, calendar items, and child dashboard links.
+The parent dashboard is your family overview. When you sign in, this is the page you use to manage your children, points, rewards, calendar items, and child dashboard links.
 
 You will see:
 
-- **Children** cards
-- **Total available points** or another family summary label, depending on the card value shown
-- **Reward requests** summary
-- **Family tools**
+- **My Family**
+- child avatar buttons with point badges and names
+- a secondary **Settings** menu
+- an **Add Child** button
 
-### What the child cards show
+### What the child buttons show
 
-Each child card shows:
+Each child button shows:
 
 - the child name
-- avatar or dragon progress
-- **Available points** for the child’s spending balance
-- **Saved points** for saved balance
-- an **Add / remove points** button for quick actions
-- a **View child dashboard** button to view the child dashboard
+- avatar image when available, or initials fallback
+- a point badge showing the child’s current available points
+- the child name underneath
 
-Banking saved points happens on the child dashboard savings card, where parents can open the **Bank points** popup and review the unlock date and savings bonus before saving.
+Tap a child button to open the child action modal.
+
+### Child action modal
+
+The child action modal opens on **Points** by default.
+
+From there you can:
+
+- add points
+- remove points
+- use a custom point action
+- open the child dashboard
+- edit the child name and avatar
+- review requests
+- view School Bag
+- view Calendar
+- review Savings
+- check the Points Log
+
+The modal keeps **Child Dashboard** and **Edit Child** visible near the top.
+
+The modal header shows:
+
+- the child avatar
+- the child name
+- the current available points
+- the close button
+
+The repeated summary block that used to show points, saved points, and requests in the modal body is no longer shown.
 
 ## 5) Adding and managing children
 
-Use the **Children** cards and **Family tools** to manage your family. From there you can:
+Use the child avatar buttons and the **Settings** menu to manage your family. From there you can:
 
 - add a child profile
 - view a child’s dashboard
@@ -95,7 +121,7 @@ Use the **Children** cards and **Family tools** to manage your family. From ther
 
 ## 6) Adding and removing points
 
-Open the points action for a child.
+Open the child action modal for a child, then stay on **Points**.
 
 You can choose:
 
@@ -127,6 +153,15 @@ Example reasons:
 Use **Custom** when the action does not fit the preset buttons.
 
 Write a short reason so the record is clear later.
+
+### Edit a child
+
+Use **Edit Child** in the child action modal when you need to:
+
+- change the display name
+- choose a different avatar
+
+Avatar choices use numeric keys `1` through `24` and resolve to `/avatars/{key}.png`.
 
 ## 7) Points balance, saved points, and points on hold
 
@@ -182,7 +217,7 @@ Parents create rewards, and children can see the active rewards that are availab
 
 ## 9) Creating and managing rewards
 
-From the family tools area, open **Manage rewards**.
+From **Settings**, open **Manage rewards**.
 
 You can:
 
@@ -244,7 +279,7 @@ You can adjust the child’s points before enabling allowance if needed.
 
 To set it up:
 
-1. Open **Allowance setup** from Family tools.
+1. Open **Allowance setup** from **Settings**.
 2. Choose a child.
 3. Turn allowance on or off for that child.
 4. Choose the currency.
@@ -330,7 +365,7 @@ Use it to keep track of books, clothes, and other school needs.
 
 To give a child their own dashboard:
 
-1. Open the family tools area.
+1. Open the **Settings** menu.
 2. Choose **Link child device**.
 3. Generate the QR code or fallback link.
 4. Have the child open it on their device.
@@ -344,9 +379,9 @@ If the child sees an expired link message:
 2. Generate a fresh child link.
 3. Ask the child to scan or open the new link.
 
-## 18) Family tools
+## 18) Settings
 
-Family tools are the main action shortcuts for adults.
+**Settings** is the main secondary tools menu for adults.
 
 Common tools include:
 

@@ -1,6 +1,6 @@
 # Family Hero Hub FAQ
 
-Last reviewed: 2026-06-03
+Last reviewed: 2026-06-04
 
 ## Getting started
 ### What is Family Hero Hub?
@@ -39,7 +39,7 @@ No. Children can ask for rewards, but a parent still has to approve the request.
 
 ## Children and child devices
 ### How do I add or check a child profile?
-Use the **Children** area on the parent dashboard to add a child or review an existing child card.
+Use the child avatar buttons on the **My Family** parent dashboard to add a child or review an existing child.
 
 ### How does a child open their dashboard?
 The parent gives the child a link or QR code. The child opens it on their device and goes to their dashboard.
@@ -120,7 +120,7 @@ Yes, optionally. Some families turn on allowance-linked points so the child sees
 You choose the allowance amount, the point goal, and the allowance period. When allowance is enabled, your child’s current points gain allowance value. When they spend points on rewards, their available allowance balance goes down, but their earned history stays visible.
 
 ### Where do I set up allowance?
-Use **Allowance setup** from the parent dashboard Family tools area.
+Use **Allowance setup** from the parent dashboard **Settings** menu.
 
 ### Does the app automatically pay allowance?
 No. Family Hero Hub tracks allowance value. Parents approve requests and provide the real-world reward or purchase.

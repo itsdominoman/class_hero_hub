@@ -1,5 +1,21 @@
 # Family Hero Hub - Upgrade Tracker
 
+# 2026-06-04 - Parent Dashboard Modal Cleanup
+
+### Scope
+- Updated the parent dashboard documentation to reflect the current `My Family` layout.
+- Documented the child action modal flow, which opens from each child avatar and starts on `Points`.
+- Documented persistent `Child Dashboard` and `Edit Child` actions in the modal.
+- Documented the numeric avatar contract (`1` through `24` mapped to `/avatars/{key}.png`).
+- Documented the Points Log behaviour ring chart and the exclusions for savings, banking, redemptions, holds, and other system financial entries.
+
+### Verification
+- Documentation-only update; no app code changed.
+- The docs now match the current Europe/dev parent dashboard and child modal behavior.
+
+### Notes
+- The parent dashboard remains minimalist, with `Settings` as the secondary parent-tools entry.
+
 # 2026-06-03 - Savings Bonus Banking Flow
 
 ### Scope

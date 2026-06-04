@@ -66,6 +66,9 @@
 - Parent points modal supports Add points, Remove points, and Custom point actions
 - Custom one-off point awards and penalties are available without creating a preset
 - Adding and removing points provide short Web Audio feedback sounds
+- Parent dashboard now opens a child action modal from each child avatar, with Points shown first, persistent Child Dashboard/Edit Child actions, and Requests, School Bag, Calendar, Savings, and Points Log available inside the same modal
+- Edit Child supports display name changes and numeric avatar selection using avatar keys `1` through `24` resolved from `/avatars/{key}.png`
+- Points Log includes Day / Week / Year filters and a behaviour ring chart that excludes savings, banking, redemptions, holds, and other system financial entries
 
 ### Allowance System
 - Backend support exists for optional child-level allowance settings
@@ -86,12 +89,10 @@
 - Reward cards fixed (no overflow issues)
 - Improved contrast and readability
 - Child-friendly dashboard experience
-- Parent dashboard redesigned into a family-first, mobile-first launcher instead of a dense control-room layout
-- Children now appear first on the parent dashboard with balanced child cards, saved balance shown consistently, and `Points` as the child card point-action entry
-- Child dashboard savings card now exposes a visible `Bank points` action and a compact savings summary with next unlock information
-- Total available points and reward requests now use compact summary cards
-- Parent Tools are grouped in a dedicated section with a top `Manage` button that smoothly scrolls to the tools area
-- Manage Rewards, View Pending Requests, and Link child device use modal flows instead of large inline dashboard sections
+- Parent dashboard is now a minimalist `My Family` launcher with avatar buttons, point badges, and child names
+- Tapping a child opens the child action modal instead of navigating directly to the child dashboard
+- The modal keeps quick point actions first and preserves parent access to child dashboard, edit child, requests, school bag, calendar, savings, and points log sections
+- Parent tools remain secondary under `Settings`
 - Parent dashboard copy was reduced to remove duplicate headings and development-style explanatory filler
 
 ### Infrastructure

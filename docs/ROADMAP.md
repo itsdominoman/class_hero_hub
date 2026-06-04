@@ -66,16 +66,19 @@
 - Future: Optional school timetable improvements
 
 ### ⚙️ Parent Productivity
-- Completed: Parent dashboard simplified into a family-first, mobile-first launcher
-- Completed: Children appear first, followed by total available points / reward requests summary cards and Parent Tools
+- Completed: Parent dashboard simplified into a minimalist `My Family` view with child avatar buttons and compact point badges
+- Completed: Tapping a child opens a dedicated child action modal rather than navigating to the child dashboard
+- Completed: The child action modal opens on `Points` by default and keeps Add points, Remove points, and Custom point actions immediately available
+- Completed: The child action modal includes persistent `Child Dashboard` and `Edit Child` actions
+- Completed: The child action modal includes Requests, School Bag, Calendar, Savings, and Points Log sections
+- Completed: Edit Child supports display name editing and numeric avatar selection
+- Completed: Avatar assets use numeric keys `1` through `24` resolved from `/avatars/{key}.png`
+- Completed: Points Log includes Day / Week / Year filters and a behaviour ring chart that excludes savings, banking, redemptions, holds, and system financial entries
+- Completed: Parent tools remain secondary under `Settings`
 - Completed: Duplicate Add Child entry removed from the child card area
 - Completed: Child cards consistently show saved balance, including `0 saved`
 - Completed: Child dashboard savings card now shows saved, available, locked, and next unlock details with a dedicated `Bank points` popup
 - Completed: Child card point entry renamed from Actions to Points
-- Completed: Points modal supports Add points, Remove points, and Custom point actions
-- Completed: Custom one-off point awards and penalties restored without requiring new presets
-- Completed: Manage Rewards, View Pending Requests, and Link child device use modal flows
-- Completed: Header Manage button smoothly scrolls to Parent Tools
 - Completed: Short positive/negative Web Audio feedback sounds for successful point awards/penalties, with gain adjusted to 0.25
 - Completed: Backend allowance settings and preview API for optional child-level allowance through points
 - Completed: Parent-facing Allowance setup UI at `/allowance`
