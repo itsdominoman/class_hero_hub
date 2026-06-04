@@ -154,7 +154,7 @@
 - Added parent-authenticated `GET /api/family/settings` and `PATCH /api/family/settings`.
 - Exposed `week_start_day` as named API values: `monday`, `tuesday`, `wednesday`, `thursday`, `friday`, `saturday`, and `sunday`.
 - Kept the existing database storage as integer `0..6`, with Sunday/default stored as `6`.
-- Added a minimal **Week starts on** selector in the existing parent Family Settings modal.
+- Added a minimal **Week starts on** selector in the new **Calendar & School Week** modal.
 - Updated weekly Points Log filtering to use the family's configured week start day.
 - Calendar and allowance weekly calculations continue to use the existing family-level setting.
 

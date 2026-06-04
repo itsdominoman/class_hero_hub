@@ -7,7 +7,7 @@
 - Parent sessions last 30 days by default through `ACCESS_TOKEN_EXPIRE_MINUTES`; JWT expiry, `HttpOnly` access cookie lifetime, and CSRF cookie lifetime are aligned
 - Parent `last_login_at` tracking (updates on first-time and returning Google OAuth logins)
 - Family-based data scoping
-- Family-level week start setting is parent-manageable from Family Settings; default remains Sunday
+- Family-level week start setting is parent-manageable from Calendar & School Week; default remains Sunday
 - Child device linking via QR code
 - Parents can view linked child devices and unlink one specific child device without deleting child data
 - Child-specific sessions (separate from parent auth)

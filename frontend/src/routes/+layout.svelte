@@ -53,10 +53,15 @@
         {/if}
       </nav>
 
-      <!-- Mobile Menu Button (Placeholder) -->
-      <button aria-label="Open mobile menu" class="md:hidden w-11 h-11 shrink-0 flex items-center justify-center text-slate-500">
-        <div class="w-6 h-0.5 bg-current mb-1.5 shadow-[0_6px_0_0_currentColor,0_12px_0_0_currentColor]"></div>
-      </button>
+      {#if currentParent}
+        <button onclick={handleLogout} class="md:hidden inline-flex shrink-0 items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-xs font-black uppercase tracking-[0.12em] text-white shadow-sm">
+          Logout
+        </button>
+      {:else}
+        <a href={dashboardHref} class="md:hidden inline-flex shrink-0 items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-xs font-black uppercase tracking-[0.12em] text-white shadow-sm">
+          Login
+        </a>
+      {/if}
     </div>
   </header>
 

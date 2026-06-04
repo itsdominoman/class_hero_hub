@@ -429,12 +429,12 @@ Common tools include:
 - allowance setup
 - review reward requests
 - link child device
-- family settings or member controls
+- Parents & Caregivers
 - school prep or other family tools
 
 ### Week starts on
 
-In **Family Settings**, parents can choose which day the family week starts on.
+In **Calendar & School Week**, parents can choose which day the family week starts on.
 
 Available options are:
 

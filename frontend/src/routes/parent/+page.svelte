@@ -411,7 +411,7 @@
       });
       familySettings = updated;
       familySettingsForm = { week_start_day: updated.week_start_day };
-      familySettingsMessage = 'Family settings saved.';
+      familySettingsMessage = 'Calendar and school week saved.';
     } catch (e) {
       familySettingsError = e instanceof Error ? e.message : 'Unable to save family settings';
     } finally {
@@ -457,7 +457,7 @@
     };
     modalError = null;
 
-    if (type === 'family') {
+    if (type === 'family' || type === 'calendar-week') {
       void loadFamilySettings();
     }
 
@@ -1129,7 +1129,11 @@
                   </button>
                   <button type="button" onclick={() => openModal('family', null)} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
                     <Users size={15} />
-                    Family settings
+                    Parents &amp; Caregivers
+                  </button>
+                  <button type="button" onclick={() => openModal('calendar-week', null)} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
+                    <CalendarDays size={15} />
+                    Calendar &amp; School Week
                   </button>
                   <button type="button" onclick={() => openModal('presets', null)} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
                     <Settings size={15} />
@@ -1279,6 +1283,7 @@
                  activeModal.type === 'bank' ? 'bg-savings text-white shadow-savings/20' :
                  activeModal.type === 'presets' ? 'bg-slate-900 text-white shadow-slate-200' :
                  activeModal.type === 'family' ? 'bg-hero text-white shadow-hero/20' :
+                 activeModal.type === 'calendar-week' ? 'bg-hero text-white shadow-hero/20' :
                  activeModal.type === 'child-link' ? 'bg-slate-900 text-white shadow-slate-200' :
                  activeModal.type === 'child-link-select' ? 'bg-slate-900 text-white shadow-slate-200' :
                  activeModal.type === 'rewards' ? 'bg-reward text-white shadow-reward/20' :
@@ -1289,6 +1294,7 @@
                 {:else if activeModal.type === 'bank'}<PiggyBank size={32} />
                 {:else if activeModal.type === 'presets'}<Settings size={32} />
                 {:else if activeModal.type === 'family'}<Users size={32} />
+                {:else if activeModal.type === 'calendar-week'}<CalendarDays size={32} />
                 {:else if activeModal.type === 'child-link'}<QrCode size={32} />
                 {:else if activeModal.type === 'child-link-select'}<QrCode size={32} />
                 {:else if activeModal.type === 'rewards'}<Gift size={32} />
@@ -1301,7 +1307,8 @@
                    activeModal.type === 'penalty' ? 'Remove points' :
                    activeModal.type === 'bank' ? 'Move to saved points' :
                   activeModal.type === 'presets' ? (editingPresetId ? 'Edit Behaviour' : 'Manage Behaviours') :
-                   activeModal.type === 'family' ? 'Family Settings' :
+                   activeModal.type === 'family' ? 'Parents & Caregivers' :
+                   activeModal.type === 'calendar-week' ? 'Calendar & School Week' :
                    activeModal.type === 'child-link' ? 'Link child device' :
                    activeModal.type === 'child-link-select' ? 'Link child device' :
                    activeModal.type === 'rewards' ? 'Manage Rewards' :
@@ -1310,7 +1317,8 @@
                 </h3>
                 <p class="text-slate-400 font-black text-[10px] sm:text-xs uppercase tracking-[0.14em] sm:tracking-[0.2em] break-words">
                   {activeModal.type === 'presets' ? (editingPresetId ? 'Update this action' : 'Configure reusable actions') : 
-                   activeModal.type === 'family' ? 'Manage members & co-parents' :
+                   activeModal.type === 'family' ? 'Invite another grownup to help manage points, rewards, and routines' :
+                   activeModal.type === 'calendar-week' ? 'Week start affects weekly views and planning' :
                    activeModal.type === 'child-link' ? 'Child dashboard link' :
                    activeModal.type === 'child-link-select' ? 'Choose a child first' :
                    activeModal.type === 'rewards' ? 'Family rewards' :
@@ -1796,44 +1804,9 @@
               </div>
             {/if}
 
-            <!-- Family Week Settings -->
-            <div class="space-y-3">
-              <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Family Week</span>
-              <div class="rounded-2xl bg-slate-50 p-4">
-                <label for="family-week-start" class="mb-2 block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Week starts on</label>
-                <div class="flex flex-col gap-3 sm:flex-row">
-                  <select
-                    id="family-week-start"
-                    bind:value={familySettingsForm.week_start_day}
-                    disabled={loadingFamilySettings || familySettingsSaving || !familySettings}
-                    class="w-full rounded-2xl border-2 border-slate-100 bg-white px-4 py-3 text-sm font-bold text-slate-900 focus:border-hero/30 focus:outline-none disabled:opacity-50"
-                  >
-                    {#each WEEK_START_OPTIONS as option}
-                      <option value={option.value}>{option.label}</option>
-                    {/each}
-                  </select>
-                  <button
-                    type="button"
-                    onclick={saveFamilySettings}
-                    disabled={loadingFamilySettings || familySettingsSaving || !familySettings || familySettingsForm.week_start_day === familySettings.week_start_day}
-                    class="rounded-2xl bg-slate-900 px-5 py-3 text-xs font-black uppercase tracking-[0.16em] text-white transition-all disabled:opacity-50"
-                  >
-                    {familySettingsSaving ? 'Saving...' : 'Save'}
-                  </button>
-                </div>
-                <p class="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Used for allowance, calendar, and weekly point views.</p>
-                {#if familySettingsMessage}
-                  <p class="mt-3 text-xs font-bold text-hero">{familySettingsMessage}</p>
-                {/if}
-                {#if familySettingsError}
-                  <p class="mt-3 text-xs font-bold text-penalty">{familySettingsError}</p>
-                {/if}
-              </div>
-            </div>
-
             <!-- Members List -->
             <div class="space-y-3">
-              <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Family Members</span>
+              <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Parents &amp; Caregivers</span>
               <div class="grid gap-2">
                 {#each familyMembers as member}
                   <div class="flex min-w-0 items-center justify-between gap-3 p-4 bg-slate-50 rounded-2xl">
@@ -1876,16 +1849,61 @@
 
             <!-- Invite Form -->
             <div class="space-y-3 pt-4 border-t border-slate-100">
-              <label for="co-parent-email" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Invite Co-Parent</label>
+              <label for="co-parent-email" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Add Grownup</label>
               <div class="space-y-2">
                 <input 
                   id="co-parent-email"
                   type="email" 
                   bind:value={modalForm.email}
-                  placeholder="co-parent@example.com"
+                  placeholder="parent-or-caregiver@example.com"
                   class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-bold text-slate-900 focus:outline-none focus:border-hero/30 transition-all"
                 />
-                <p class="text-[10px] text-slate-400 ml-2">They will join your family automatically when they log in with this email.</p>
+                <p class="text-[10px] text-slate-400 ml-2">Invite another parent or caregiver to help manage points, rewards, school bag items, and family routines.</p>
+              </div>
+            </div>
+          {/if}
+
+          {#if activeModal.type === 'calendar-week'}
+            {#if loadingFamilySettings}
+              <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                <div class="mx-auto mb-4 w-10 h-10 animate-spin rounded-full border-4 border-hero border-t-transparent"></div>
+                <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">Loading calendar and school week</p>
+              </div>
+            {/if}
+            <div class="space-y-3">
+              <div class="rounded-[1.75rem] border border-slate-100 bg-white p-4">
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Calendar &amp; School Week</p>
+                <p class="mt-2 text-sm font-bold text-slate-600">This affects weekly views, points log weeks, calendar planning, and school week planning.</p>
+                <div class="mt-4">
+                  <label for="family-week-start" class="mb-2 block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Week starts on</label>
+                  <div class="flex flex-col gap-3 sm:flex-row">
+                    <select
+                      id="family-week-start"
+                      bind:value={familySettingsForm.week_start_day}
+                      disabled={loadingFamilySettings || familySettingsSaving || !familySettings}
+                      class="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 focus:border-hero/30 focus:outline-none disabled:opacity-50"
+                    >
+                      {#each WEEK_START_OPTIONS as option}
+                        <option value={option.value}>{option.label}</option>
+                      {/each}
+                    </select>
+                    <button
+                      type="button"
+                      onclick={saveFamilySettings}
+                      disabled={loadingFamilySettings || familySettingsSaving || !familySettings || familySettingsForm.week_start_day === familySettings.week_start_day}
+                      class="rounded-2xl bg-slate-900 px-5 py-3 text-xs font-black uppercase tracking-[0.16em] text-white transition-all disabled:opacity-50"
+                    >
+                      {familySettingsSaving ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                  <p class="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Used for allowance, calendar, and weekly point views.</p>
+                </div>
+                {#if familySettingsMessage}
+                  <p class="mt-3 text-xs font-bold text-hero">{familySettingsMessage}</p>
+                {/if}
+                {#if familySettingsError}
+                  <p class="mt-3 text-xs font-bold text-penalty">{familySettingsError}</p>
+                {/if}
               </div>
             </div>
           {/if}
@@ -2284,7 +2302,7 @@
             {/if}
           {/if}
 
-          {#if activeModal.type !== 'picker' && activeModal.type !== 'family' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests'}
+          {#if activeModal.type !== 'picker' && activeModal.type !== 'family' && activeModal.type !== 'calendar-week' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests'}
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
               <div class="space-y-2">
                 <label for="points-amount" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Points Amount</label>
@@ -2318,7 +2336,7 @@
             </div>
           {/if}
 
-          {#if activeModal.type !== 'presets' && activeModal.type !== 'picker' && activeModal.type !== 'family' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests'}
+          {#if activeModal.type !== 'presets' && activeModal.type !== 'picker' && activeModal.type !== 'family' && activeModal.type !== 'calendar-week' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests'}
             <div class="space-y-2">
               <label for="modal-description" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Description / Reason</label>
               <textarea 
@@ -2381,7 +2399,7 @@
           {/if}
         </div>
 
-          {#if activeModal.type !== 'picker' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests'}
+          {#if activeModal.type !== 'picker' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests' && activeModal.type !== 'calendar-week'}
             <div class="pt-6 shrink-0 flex flex-col gap-3 bg-white">
               <button 
                 onclick={handleModalSubmit}
@@ -2395,7 +2413,7 @@
               >
                 {modalLoading ? 'Processing...' : 
              activeModal.type === 'presets' ? (editingPresetId ? 'Save Changes' : 'Create Preset') : 
-             activeModal.type === 'family' ? 'Send Invitation' :
+             activeModal.type === 'family' ? 'Add Grownup' :
              'Confirm Action'}
               </button>
               {#if editingPresetId}
