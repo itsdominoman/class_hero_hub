@@ -35,7 +35,7 @@ It means your account is waiting to be approved before you can use the app.
 Yes, if they have access to the family account and sign in with their own approved Google account.
 
 ### Can I remove a parent, caregiver, babysitter, or other grownup?
-Yes. Open **Settings** and then **Parents & Caregivers**. If you are the family owner, you can use **Remove Grownup** for another accepted grownup.
+Yes. Open **Settings** and then **Parents & Caregivers**. If you are the family owner, you can use **Remove** for another accepted grownup.
 
 Removing a grownup revokes their access to the family. It does not delete children, points, rewards, calendar items, school bag items, savings, allowance settings, or history.
 

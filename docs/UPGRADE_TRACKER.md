@@ -6,7 +6,7 @@
 - Added parent-authenticated `GET /api/family/grownups` for accepted active grownups in the current family.
 - Added `DELETE /api/family/grownups/{parent_id}` to soft-revoke another grownup by setting `parent_users.status='revoked'`, `revoked_at`, `revoked_by_parent_id`, and `revoke_reason`.
 - Added `DELETE /api/family/invites/{invite_id}` as a cancel-invite alias for the existing invite revoke behavior.
-- Added minimal parent dashboard controls in Settings -> Parents & Caregivers: **Remove Grownup** and **Cancel Invite**.
+- Added minimal parent dashboard controls in Settings -> Parents & Caregivers: **Remove** and **Cancel Invite**.
 - Kept children, points, rewards, savings, allowance, calendar, school bag, and history untouched.
 
 ### Permission Model

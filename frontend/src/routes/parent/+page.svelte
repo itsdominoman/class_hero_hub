@@ -1829,45 +1829,28 @@
               </div>
             {/if}
 
-            <!-- Members List -->
-            <div class="space-y-3">
-              <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Parents &amp; Caregivers</span>
-              <div class="grid gap-2">
-                {#each familyMembers as member}
-                  <div class="flex min-w-0 items-center justify-between gap-3 p-4 bg-slate-50 rounded-2xl">
-                    <div class="flex min-w-0 items-center gap-3">
-                      <div class="w-10 h-10 bg-white rounded-xl flex shrink-0 items-center justify-center text-hero font-black shadow-sm">
-                        {member.name ? member.name[0].toUpperCase() : member.email[0].toUpperCase()}
-                      </div>
-                      <div class="min-w-0">
-                        <p class="font-bold text-slate-900 text-sm truncate">{member.name || 'Parent'}</p>
-                        <p class="text-[10px] text-slate-400 font-medium uppercase tracking-normal sm:tracking-wider break-all">{member.email}</p>
-                      </div>
-                    </div>
-                    {#if member.id === parent?.id}
-                      <span class="shrink-0 px-3 py-1 bg-hero/10 text-hero rounded-lg text-[10px] font-black uppercase tracking-[0.12em] sm:tracking-[0.22em]">You</span>
-                    {:else if member.can_remove}
-                      <button
-                        type="button"
-                        onclick={() => removeGrownup(member)}
-                        disabled={familyGrownupRemovingId === member.id}
-                        class="shrink-0 rounded-xl border border-red-100 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50 sm:tracking-[0.18em]"
-                      >
-                        {familyGrownupRemovingId === member.id ? 'Removing...' : 'Remove Grownup'}
-                      </button>
-                    {/if}
-                  </div>
-                {/each}
+            <!-- Invite Form -->
+            <div class="space-y-3 pt-4 border-t border-slate-100">
+              <label for="co-parent-email" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Add Grownup</label>
+              <div class="space-y-2">
+                <input 
+                  id="co-parent-email"
+                  type="email" 
+                  bind:value={modalForm.email}
+                  placeholder="parent-or-caregiver@example.com"
+                  class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-bold text-slate-900 focus:outline-none focus:border-hero/30 transition-all"
+                />
+                <p class="text-[10px] text-slate-400 ml-2">Invite another parent or caregiver to help manage points, rewards, school bag items, and family routines.</p>
               </div>
             </div>
 
-            <!-- Invites List -->
+            <!-- Pending Invites -->
             {#if familyInvites.filter(i => i.status === 'pending').length > 0}
               <div class="space-y-3 pt-4 border-t border-slate-100">
                 <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Pending Invites</span>
                 <div class="grid gap-2">
                   {#each familyInvites.filter(i => i.status === 'pending') as invite}
-                    <div class="flex min-w-0 items-center justify-between gap-3 p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                    <div class="flex min-w-0 items-start justify-between gap-3 p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
                       <div class="min-w-0">
                         <p class="font-bold text-slate-900 text-sm break-all">{invite.email}</p>
                         <p class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Waiting for login</p>
@@ -1881,18 +1864,36 @@
               </div>
             {/if}
 
-            <!-- Invite Form -->
-            <div class="space-y-3 pt-4 border-t border-slate-100">
-              <label for="co-parent-email" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Add Grownup</label>
-              <div class="space-y-2">
-                <input 
-                  id="co-parent-email"
-                  type="email" 
-                  bind:value={modalForm.email}
-                  placeholder="parent-or-caregiver@example.com"
-                  class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-bold text-slate-900 focus:outline-none focus:border-hero/30 transition-all"
-                />
-                <p class="text-[10px] text-slate-400 ml-2">Invite another parent or caregiver to help manage points, rewards, school bag items, and family routines.</p>
+            <!-- Members List -->
+            <div class="space-y-3">
+              <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Parents &amp; Caregivers</span>
+              <div class="grid gap-2">
+                {#each familyMembers as member}
+                  <div class="flex min-w-0 flex-col gap-3 p-4 bg-slate-50 rounded-2xl">
+                    <div class="flex min-w-0 items-start gap-3">
+                      <div class="w-10 h-10 bg-white rounded-xl flex shrink-0 items-center justify-center text-hero font-black shadow-sm">
+                        {member.name ? member.name[0].toUpperCase() : member.email[0].toUpperCase()}
+                      </div>
+                      <div class="min-w-0 flex-1">
+                        <p class="font-bold text-slate-900 text-sm truncate">{member.name || 'Parent'}</p>
+                        <p class="text-[10px] text-slate-400 font-medium uppercase tracking-normal sm:tracking-wider break-all">{member.email}</p>
+                      </div>
+                      {#if member.id === parent?.id}
+                        <span class="shrink-0 px-3 py-1 bg-hero/10 text-hero rounded-lg text-[10px] font-black uppercase tracking-[0.12em] sm:tracking-[0.22em]">You</span>
+                      {/if}
+                    </div>
+                    {#if member.can_remove}
+                      <button
+                        type="button"
+                        onclick={() => removeGrownup(member)}
+                        disabled={familyGrownupRemovingId === member.id}
+                        class="self-start rounded-xl border border-red-100 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50 sm:tracking-[0.18em]"
+                      >
+                        {familyGrownupRemovingId === member.id ? 'Removing...' : 'Remove'}
+                      </button>
+                    {/if}
+                  </div>
+                {/each}
               </div>
             </div>
           {/if}
