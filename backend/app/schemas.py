@@ -304,6 +304,24 @@ class ChildDeviceInviteRevokeResponse(BaseModel):
     revoked_invites: int
     revoked_sessions: int
 
+class ChildDeviceSession(BaseModel):
+    id: int
+    child_id: int
+    created_at: datetime
+    expires_at: datetime
+    revoked_at: Optional[datetime] = None
+    last_seen_at: Optional[datetime] = None
+    is_active: bool
+    label: str = "Linked device"
+
+    class Config:
+        from_attributes = True
+
+class ChildDeviceUnlinkResponse(BaseModel):
+    id: int
+    child_id: int
+    revoked: bool
+
 class ChildLinkExchangeRequest(BaseModel):
     token: str
 

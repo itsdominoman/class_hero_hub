@@ -7,6 +7,7 @@
 - Parent `last_login_at` tracking (updates on first-time and returning Google OAuth logins)
 - Family-based data scoping
 - Child device linking via QR code
+- Parents can view linked child devices and unlink one specific child device without deleting child data
 - Child-specific sessions (separate from parent auth)
 - Secure token-based invite system (hashed, expiring, scoped)
 - Admin registration approval flow
@@ -150,6 +151,7 @@
 ## 🧪 Verified Working
 - Child device linking (QR + link)
 - Child session persistence
+- Parent-managed child device list and single-device unlink
 - Rewards creation → child visibility → request flow
 - Child reward request CSRF recovery for existing linked devices
 - Parent pending reward request card receives child requests
@@ -189,7 +191,6 @@
 ## ⚠️ Known Gaps / Not Yet Implemented
 
 ### Authentication Enhancements
-- Device management (view/revoke sessions UI - backend done, needs dedicated UI page)
 - Longer-lived parent-managed child device sessions are a future improvement; current child links still expire and now show clearer relink messaging
 
 ### Rewards System
@@ -234,7 +235,7 @@
 
 ### Mobile Follow-Up
 - Real-device Android Chrome and iPhone Safari checks are still recommended before Capacitor packaging; current verification used Chromium mobile emulation with mocked API data.
-- Device/session management UI remains a future mobile workflow once the dedicated page is added.
+- Device/session management now has a minimal parent-dashboard modal workflow; future mobile polish can add clearer device names once device metadata is stored.
 
 ---
 

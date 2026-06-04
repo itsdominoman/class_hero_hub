@@ -66,6 +66,7 @@ That wrapper loads `/home/administrator/.hermes/fhh-qa.env` automatically and ru
 ## Known limitations
 
 - Smoke does not prove the child dashboard session flow by itself
+- Smoke does not exercise linked-device unlink because unlink is an intentional mutation; use backend tests or a stateful QA plan for that flow.
 - Smoke does not replace the real seeded child visual QA run
 - Smoke does not replace mobile visual QA
 - Tokenized routes such as child-link and family-invite are discovered, but not deeply exercised by smoke

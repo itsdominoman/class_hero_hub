@@ -397,6 +397,18 @@ To give a child their own dashboard:
 4. Have the child open it on their device.
 5. The child dashboard opens for that child.
 
+### Managing linked child devices
+
+The child device link screen also shows linked devices for the selected child.
+
+Parents can:
+
+- refresh the linked device list
+- unlink one specific child device
+- revoke all child device access for that child if needed
+
+Unlinking a device signs out that child device. It does not delete the child profile, points, rewards, calendar items, savings, allowance settings, or history. Other linked devices for the same child stay connected unless you remove them too.
+
 ### If the link expires
 
 If the child sees an expired link message:

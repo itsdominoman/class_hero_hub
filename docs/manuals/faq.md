@@ -50,6 +50,9 @@ It is the link or QR code that opens the child dashboard on a child’s device.
 ### What should I do if the child link expires?
 Generate a fresh child dashboard link from the parent dashboard and open the new one on the child device.
 
+### Can I remove one child device?
+Yes. Open **Child device links**, choose the child, and use **Unlink** beside the linked device. This signs out that device only. It does not delete the child profile or remove points, rewards, calendar items, savings, allowance settings, or history.
+
 ### Does my child need a Google account?
 No. The child opens the dashboard with the link or QR code your parent provides.
 
@@ -181,6 +184,8 @@ Wait for approval, check that you used the right email, and try again later.
 
 ### My child’s device will not open the dashboard. What should I try?
 Check the link or QR code, make sure the device has internet access, and ask for a fresh child link if needed.
+
+If the device was unlinked by a parent, generate a fresh child dashboard link and open it on that device again.
 
 ### A reward request is missing. What should I check?
 Check **Review reward requests**, refresh the page, and confirm the child sent the request from the correct child device.

@@ -29,7 +29,7 @@
 - Completed: Legacy bootstrap users migrated to database-approved access
 - Completed: Last-parent revoke protection
 - Completed: Parent-facing family member lists hide revoked parents
-- Device/session management (parent can revoke child devices - backend done)
+- Completed: Device/session management lets parents view linked child devices and unlink one device without deleting child data
 - Child reward-request CSRF recovery for existing linked devices now happens through `/api/child/me`
 
 ### 🎁 Rewards System

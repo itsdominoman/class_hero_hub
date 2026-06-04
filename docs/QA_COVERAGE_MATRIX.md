@@ -47,6 +47,7 @@ This matrix is meant to keep the Europe dev QA surface practical: read-only by d
   - The "Admin" link is verified to be hidden for non-admin users.
 - **Layout Consistency:** QA coverage now includes reward card value visibility, custom request form alignment, and parent child-card button alignment.
 - **Parent Modal Coverage:** The parent dashboard child modal is expected to show `Points` first, with persistent `Child Dashboard` and `Edit Child` actions plus `Requests`, `School Bag`, `Calendar`, `Savings`, and `Points Log` sections. The repeated summary block is no longer part of the modal body.
+- **Child Device Management Coverage:** `backend/tests/test_child_device_management.py` covers parent listing of linked child devices, family scoping, single-device unlink, revoked-session rejection, preserving other linked devices, unauthenticated blocking, and response safety so hashes/raw tokens are not exposed.
 - **Avatar Contract:** QA checks should assume numeric avatar keys `1` through `24` resolve to `/avatars/{key}.png`, with initials fallback when an avatar asset is missing.
 - **Points Log Coverage:** Behaviour percentage checks should exclude savings, banking, redemptions, holds, and other system financial entries; the ring chart should show the good percentage only.
 - `frontend/e2e/public-pages.spec.ts` now covers `/faq` and checks safe internal links.

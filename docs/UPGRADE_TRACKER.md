@@ -1,5 +1,24 @@
 # Family Hero Hub - Upgrade Tracker
 
+# 2026-06-04 - Parent Child Device Unlink
+
+### Scope
+- Added parent-authenticated child device listing for linked child sessions.
+- Added per-device unlink that soft-revokes one `child_device_sessions` row by setting `revoked_at`.
+- Kept existing bulk child-device revoke available.
+- Added a minimal linked-devices section to the existing parent child-device link modal.
+- Unlinking a device invalidates that child session without deleting the child, points, rewards, calendar, savings, allowance, or other child history.
+
+### Verification
+- Added backend coverage for own-family listing, cross-family blocking, single-device unlink, revoked-session rejection, preserving other devices, unauthenticated blocking, and response safety.
+- Verified the device API does not expose session hashes, invite token hashes, raw invite tokens, or raw child session tokens.
+- Backend tests passed.
+- Frontend production build passed.
+
+### Notes
+- No database migration was needed; the feature uses the existing `child_device_sessions` table.
+- The minimal UI uses generic device labels because the current schema does not store device names or user-agent metadata.
+
 # 2026-06-04 - Parent Dashboard Modal Cleanup
 
 ### Scope

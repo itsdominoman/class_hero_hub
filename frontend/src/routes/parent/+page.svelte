@@ -70,6 +70,10 @@
   let childLinkLoading = $state(false);
   let childLinkError = $state<string | null>(null);
   let childLinkCopied = $state(false);
+  let childDevices = $state<ChildDevice[]>([]);
+  let childDevicesLoading = $state(false);
+  let childDevicesError = $state<string | null>(null);
+  let childDeviceUnlinkingId = $state<number | null>(null);
   let avatarImageErrors = $state<Record<number, boolean>>({});
   let pointAudioContext: AudioContext | null = null;
 
@@ -114,6 +118,17 @@
     description: string;
     created_at: string;
     locked_until: string | null;
+  };
+
+  type ChildDevice = {
+    id: number;
+    child_id: number;
+    created_at: string;
+    expires_at: string;
+    revoked_at: string | null;
+    last_seen_at: string | null;
+    is_active: boolean;
+    label: string;
   };
 
   type AllowanceSummary = {
@@ -499,13 +514,30 @@
     }
   }
 
+  async function loadChildDevices(childSummary: any) {
+    try {
+      childDevicesLoading = true;
+      childDevicesError = null;
+      childDevices = await api.get(`/children/${childSummary.child.id}/devices`);
+    } catch (e) {
+      childDevicesError = e instanceof Error ? e.message : 'Unable to load linked devices';
+      childDevices = [];
+    } finally {
+      childDevicesLoading = false;
+    }
+  }
+
   function openChildLink(childSummary: any) {
     activeModal = { type: 'child-link', child: childSummary };
     childLinkInvite = null;
     childLinkQr = '';
     childLinkError = null;
     childLinkCopied = false;
+    childDevices = [];
+    childDevicesError = null;
+    childDeviceUnlinkingId = null;
     void createChildLink(childSummary);
+    void loadChildDevices(childSummary);
   }
 
   async function copyChildInviteLink() {
@@ -526,12 +558,33 @@
       await api.post(`/children/${activeModal.child.child.id}/device-invites/revoke`, {});
       childLinkInvite = null;
       childLinkQr = '';
+      await loadChildDevices(activeModal.child);
       await loadDashboard();
     } catch (e) {
       childLinkError = e instanceof Error ? e.message : 'Failed to revoke child device access';
     } finally {
       childLinkLoading = false;
     }
+  }
+
+  async function unlinkChildDevice(device: ChildDevice) {
+    if (!activeModal?.child) return;
+    if (!confirm('Unlink this child device?')) return;
+    try {
+      childDeviceUnlinkingId = device.id;
+      childDevicesError = null;
+      await api.delete(`/children/${activeModal.child.child.id}/devices/${device.id}`);
+      await loadChildDevices(activeModal.child);
+    } catch (e) {
+      childDevicesError = e instanceof Error ? e.message : 'Failed to unlink child device';
+    } finally {
+      childDeviceUnlinkingId = null;
+    }
+  }
+
+  function formatDeviceDate(value: string | null) {
+    if (!value) return 'Not seen yet';
+    return new Date(value).toLocaleString();
   }
 
   async function regenerateChildLink() {
@@ -1475,6 +1528,60 @@
                   </button>
                 </div>
               {/if}
+
+              <div class="rounded-[1.75rem] border border-slate-100 bg-white p-5 space-y-4">
+                <div class="flex items-center justify-between gap-3">
+                  <div class="min-w-0">
+                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">Linked devices</p>
+                    <p class="mt-1 text-sm text-slate-600">Remove one tablet or phone without deleting this child.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onclick={() => loadChildDevices(activeModal.child)}
+                    disabled={childDevicesLoading}
+                    class="shrink-0 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600 disabled:opacity-60"
+                  >
+                    {childDevicesLoading ? 'Loading' : 'Refresh'}
+                  </button>
+                </div>
+
+                {#if childDevicesError}
+                  <div class="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 break-words">
+                    {childDevicesError}
+                  </div>
+                {/if}
+
+                {#if childDevicesLoading && childDevices.length === 0}
+                  <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-400">
+                    Loading linked devices.
+                  </div>
+                {:else if childDevices.length === 0}
+                  <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-400">
+                    No linked devices yet.
+                  </div>
+                {:else}
+                  <div class="space-y-2">
+                    {#each childDevices as device}
+                      <div class="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="min-w-0">
+                          <p class="text-sm font-black text-slate-900">{device.label || 'Linked device'} #{device.id}</p>
+                          <p class="mt-1 text-xs font-bold text-slate-500">Last seen: {formatDeviceDate(device.last_seen_at)}</p>
+                          <p class="text-xs font-bold text-slate-400">Expires: {formatDeviceDate(device.expires_at)}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onclick={() => unlinkChildDevice(device)}
+                          disabled={childDeviceUnlinkingId === device.id}
+                          class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-slate-100 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-slate-700 disabled:opacity-60 sm:w-auto"
+                        >
+                          <Link2 size={14} />
+                          {childDeviceUnlinkingId === device.id ? 'Removing' : 'Unlink'}
+                        </button>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
             </div>
           {/if}
 
