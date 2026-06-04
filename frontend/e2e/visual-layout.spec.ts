@@ -57,17 +57,6 @@ const PARENT_CASES: VisualCase[] = [
     }
   },
   {
-    path: '/parent/settings',
-    heading: 'Parent settings',
-    headingLevel: 'h1',
-    auth: 'parent',
-    screenshotName: 'parent-settings-auth',
-    extraChecks: async (page) => {
-      await expect(page.getByRole('heading', { name: 'Edit child names and avatars' })).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Tools still opened from the parent dashboard' })).toBeVisible();
-    }
-  },
-  {
     path: '/allowance',
     heading: 'Allowance setup',
     headingLevel: 'h1',
@@ -229,50 +218,56 @@ async function assertParentChildCardLayout(page: Page) {
   const leahTitle = page.getByRole('heading', { name: 'Leah' });
   await expect(jacksonTitle).toBeVisible();
   await expect(leahTitle).toBeVisible();
+  await expect(page.getByText('0 pending', { exact: false })).toBeVisible();
+  await expect(page.getByText('5 pending', { exact: false })).toBeVisible();
 
   for (const title of [jacksonTitle, leahTitle]) {
-    const card = title.locator('xpath=ancestor::a[1]');
-    const currentPointsLabel = card.getByText('Current points', { exact: true });
-    const availableNowLabel = card.getByText('Available now', { exact: true });
+    const card = title.locator('xpath=ancestor::article[1]');
+    const dashboardButton = card.getByRole('link', { name: /Dashboard/i });
+    const pointsButton = card.getByRole('button', { name: /Points/i });
 
-    await expect(card).toBeVisible();
-    await expect(currentPointsLabel).toBeVisible();
-    await expect(availableNowLabel).toBeVisible();
-    await expect(card, 'child launcher card should stay readable').toHaveText(/Open .* dashboard/i);
+    await expect(dashboardButton).toBeVisible();
+    await expect(pointsButton).toBeVisible();
+    await expect(card.getByText(/pending/)).toBeVisible();
+    await expect(dashboardButton, 'dashboard button should stay readable').toHaveText(/Dashboard/i);
+    await expect(pointsButton, 'points button should stay readable').toHaveText(/Points/i);
   }
 }
 
 async function assertParentChildCardAlignment(page: Page) {
   const jacksonTitle = page.getByRole('heading', { name: 'Jackson' });
   const leahTitle = page.getByRole('heading', { name: 'Leah' });
-  const currentPointLabels: BoxMetrics[] = [];
-  const availableNowLabels: BoxMetrics[] = [];
+  const dashboardButtons: BoxMetrics[] = [];
+  const pointsButtons: BoxMetrics[] = [];
 
   for (const title of [jacksonTitle, leahTitle]) {
-    const card = title.locator('xpath=ancestor::a[1]');
-    const currentPointsLabel = card.getByText('Current points', { exact: true });
-    const availableNowLabel = card.getByText('Available now', { exact: true });
+    const card = title.locator('xpath=ancestor::article[1]');
+    const dashboardButton = card.getByRole('link', { name: /Dashboard/i });
+    const pointsButton = card.getByRole('button', { name: /Points/i });
 
-    await expect(card).toBeVisible();
-    await expect(currentPointsLabel).toBeVisible();
-    await expect(availableNowLabel).toBeVisible();
+    await expect(dashboardButton).toBeVisible();
+    await expect(pointsButton).toBeVisible();
+    await expect(card.getByText(/pending/)).toBeVisible();
 
-    currentPointLabels.push(await readBox(currentPointsLabel));
-    availableNowLabels.push(await readBox(availableNowLabel));
+    dashboardButtons.push(await readBox(dashboardButton));
+    pointsButtons.push(await readBox(pointsButton));
+
+    await expect(dashboardButton, 'dashboard button should stay readable').toHaveText(/Dashboard/i);
+    await expect(pointsButton, 'points button should stay readable').toHaveText(/Points/i);
   }
 
   expect(
-    Math.abs(currentPointLabels[0].y - currentPointLabels[1].y),
-    'current point labels should align across cards'
+    Math.abs(dashboardButtons[0].y - dashboardButtons[1].y),
+    'dashboard buttons should align across cards'
   ).toBeLessThanOrEqual(10);
   expect(
-    Math.abs(availableNowLabels[0].y - availableNowLabels[1].y),
-    'available now labels should align across cards'
+    Math.abs(pointsButtons[0].y - pointsButtons[1].y),
+    'points buttons should align across cards'
   ).toBeLessThanOrEqual(10);
 
-  for (const box of [...currentPointLabels, ...availableNowLabels]) {
-    expect(box.height, 'parent card stat labels should not wrap').toBeLessThanOrEqual(64);
-    expect(box.width, 'parent card stat labels should remain wide enough').toBeGreaterThanOrEqual(100);
+  for (const box of [...dashboardButtons, ...pointsButtons]) {
+    expect(box.height, 'parent card action buttons should not wrap').toBeLessThanOrEqual(64);
+    expect(box.width, 'parent card action buttons should remain wide enough').toBeGreaterThanOrEqual(100);
   }
 }
 

@@ -1,6 +1,6 @@
 # QA Coverage Matrix
 
-Last reviewed: 2026-06-04
+Last reviewed: 2026-05-18
 
 This matrix is meant to keep the Europe dev QA surface practical: read-only by default, screenshot-backed where layout matters, and explicit about where we still do not have a safe fixture.
 
@@ -15,7 +15,6 @@ This matrix is meant to keep the Europe dev QA surface practical: read-only by d
 | `/faq` | public | `frontend/e2e/public-pages.spec.ts`, visual | public + visual | yes | yes | yes | yes | no | none | smoke |
 | `/calendar` | parent | smoke, visual layout (parent auth) | authenticated + visual | yes | yes | yes | yes | yes | medium | authenticated |
 | `/parent` | parent | `frontend/e2e/authenticated-qa-login.spec.ts`, visual layout | authenticated + visual | yes | yes | yes | yes | yes | low | authenticated |
-| `/parent/settings` | parent | `frontend/e2e/authenticated-qa-login.spec.ts`, `frontend/e2e/visual-layout.spec.ts` | authenticated + visual | yes | yes | yes | yes | yes | low | authenticated |
 | `/allowance` | parent | `frontend/e2e/authenticated-qa-login.spec.ts`, visual layout | authenticated + visual | yes | yes | yes | yes | yes | medium | authenticated |
 | `/redemptions` | parent | visual layout | authenticated + visual | yes | yes | yes | yes | yes | medium | authenticated |
 | `/child/[id]` | child | `frontend/e2e/authenticated-child-pages.spec.ts`, visual layout | child auth fixture + visual | yes | yes | yes | yes | yes | medium | visual |
@@ -52,7 +51,6 @@ This matrix is meant to keep the Europe dev QA surface practical: read-only by d
 - The child dashboard is now exercised through a deterministic seeded child session in visual QA.
 - The child visual checks cover reward cards, the custom request form, pending requests, tasks, events, savings snapshot values, the banking popup, the savings bonus preview, the grouped unlock schedule, and points history.
 - The parent visual check includes a desktop/laptop alignment assertion at `1024px` for child-card buttons, while mobile widths keep the safer stacked layout checks.
-- The parent settings page now has authenticated visual coverage for the child editor surface, including mobile and desktop widths.
 - `frontend/e2e/authenticated-child-pages.spec.ts` covers the seeded child route directly.
 - Visual checks are intentionally focused on obvious layout explosions: horizontal overflow, narrow/over-tall text blocks, crushed headings, and buttons that stop fitting their containers.
 - Mutation-heavy surfaces remain out of the default read-only harness unless a future stateful fixture is explicitly approved.

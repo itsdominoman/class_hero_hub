@@ -57,7 +57,7 @@ async def get_child(
 @router.patch("/{child_id}", response_model=schemas.Child)
 async def update_child(
     child_id: int,
-    child_update: schemas.ChildUpdate,
+    child_update: schemas.ChildCreate,
     db: Session = Depends(get_db),
     current_parent: models.ParentUser = Depends(auth.get_current_parent)
 ):
@@ -68,8 +68,7 @@ async def update_child(
     if not db_child:
         raise HTTPException(status_code=404, detail="Child not found")
     
-    update_data = child_update.dict(exclude_unset=True)
-    for key, value in update_data.items():
+    for key, value in child_update.dict().items():
         setattr(db_child, key, value)
     
     db.commit()

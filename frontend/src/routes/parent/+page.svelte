@@ -1,12 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { page } from '$app/state';
   import { api } from '$lib/api';
-  import ChildAvatarCard from '$lib/components/parent/ChildAvatarCard.svelte';
   import { 
-    UserPlus, Award, Ban, PiggyBank, Star, Gift, Coins,
-    Settings, LogIn, Trophy, Clock, Check, X,
-    TrendingUp, Users, QrCode, Copy, RefreshCcw, Link2, CalendarDays
+    UserPlus, Award, Ban, PiggyBank, ArrowRight, Star, Bell, Gift, Coins,
+    LayoutDashboard, Settings, LogIn, Trophy, Clock, Check, X, 
+    History, TrendingUp, ChevronRight, Users, QrCode, Copy, RefreshCcw, Link2, CalendarDays
   } from 'lucide-svelte';
 
   let parent = $state<any>(null);
@@ -55,6 +53,7 @@
   let childLinkLoading = $state(false);
   let childLinkError = $state<string | null>(null);
   let childLinkCopied = $state(false);
+  let parentToolsSection = $state<HTMLElement | null>(null);
   let pointAudioContext: AudioContext | null = null;
 
   const DEFAULT_EMOJIS = ['🪥', '📚', '🛏️', '⏰', '🧹', '🧺', '🍎', '🥦', '👍', '❤️', '⭐', '👑', '🎮', '🖥️', '📱', '😴', '😡', '🚫', '🧸', '🏃', '🎒', '✏️', '🧼', '🍽️'];
@@ -115,6 +114,10 @@
     message.toLowerCase().includes('not authenticated') ||
     message.toLowerCase().includes('invalid token') ||
     message.toLowerCase().includes('parent not found');
+
+  function scrollToParentTools() {
+    parentToolsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   function getPointAudioContext() {
     if (typeof window === 'undefined') return null;
@@ -687,44 +690,38 @@
     window.location.href = '/login';
   }
 
-  function launchToolFromQuery(tool: string | null | undefined) {
-    switch ((tool || '').trim().toLowerCase()) {
-      case 'rewards':
-        openModal('rewards', null);
-        break;
-      case 'family':
-        openModal('family', null);
-        break;
-      case 'behaviours':
-      case 'behaviors':
-      case 'presets':
-        openModal('presets', null);
-        break;
-      case 'requests':
-        openModal('requests', null);
-        break;
-      case 'child-links':
-      case 'child-link':
-        openModal('child-link-select', null);
-        break;
-      case 'add-child':
-        void addChild();
-        break;
-      default:
-        break;
-    }
+  function childAvatarLabel(childSummary: any) {
+    const avatarName = childSummary?.child?.avatar_name?.trim();
+    if (avatarName) return avatarName.slice(0, 2).toUpperCase();
+
+    const displayName = childSummary?.child?.display_name?.trim() || '?';
+    return displayName.slice(0, 1).toUpperCase();
   }
 
-  onMount(() => {
-    void loadDashboard().then(() => {
-      if (parent) {
-        launchToolFromQuery(page.url.searchParams.get('tool'));
-      }
-    });
-  });
+  function childAvatarDescription(childSummary: any) {
+    const avatarName = childSummary?.child?.avatar_name?.trim();
+    if (avatarName) return `Avatar: ${avatarName}`;
+    return 'No avatar chosen yet';
+  }
+
+  onMount(loadDashboard);
+
+  const PET_STAGES_ASSETS: Record<string, { label: string; image: string }> = {
+    egg: { label: 'Egg', image: '/pets/dragon-1/egg.png' },
+    hatchling: { label: 'Hatchling', image: '/pets/dragon-1/hatchling.png' },
+    cub: { label: 'Young Dragon', image: '/pets/dragon-1/young-dragon.png' },
+    hero: { label: 'Hero Dragon', image: '/pets/dragon-1/hero-dragon.png' },
+    beast: { label: 'Legendary Dragon', image: '/pets/dragon-1/legendary-dragon.png' }
+  };
 
   const housePoints = $derived(children.reduce((sum, child) => sum + (child.spending_balance || 0), 0));
   const pendingRedemptions = $derived(redemptions.filter((request) => request.status === 'pending'));
+  const allowanceEnabledChildren = $derived(
+    children.filter((child) => allowanceSummaries[child.child.id]?.is_enabled)
+  );
+
+  const getPetImage = (stage: string) => (PET_STAGES_ASSETS[stage] || PET_STAGES_ASSETS.egg).image;
+  const getPetLabel = (stage: string) => (PET_STAGES_ASSETS[stage] || PET_STAGES_ASSETS.egg).label;
 </script>
 
 <div class="bg-slate-50 min-h-dvh max-w-full overflow-x-hidden pb-[var(--safe-bottom)]">
@@ -755,146 +752,119 @@
       </div>
     </div>
   {:else}
-    <div class="min-h-dvh max-w-full overflow-x-hidden bg-slate-50 pb-[calc(5rem+var(--safe-bottom))]">
-      <div class="border-b border-slate-200/70 bg-white/90 backdrop-blur-xl">
-        <div class="mx-auto max-w-5xl px-3 py-5 sm:px-4 md:py-6">
-          <div class="flex items-start justify-between gap-4">
+    <div class="bg-slate-50 min-h-dvh max-w-full overflow-x-hidden pb-[calc(5rem+var(--safe-bottom))]">
+      <div class="bg-white border-b border-slate-200/70">
+        <div class="max-w-5xl mx-auto px-3 sm:px-4 py-5 md:py-6">
+          <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div class="min-w-0">
-              <p class="text-[10px] font-black uppercase tracking-[0.28em] text-hero">Family launcher</p>
-              <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
-                My Family
-              </h1>
-              <p class="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-600">
-                Tap a child to open their dashboard. Keep parent tools in the settings hub instead of the main launcher.
-              </p>
+              <h1 class="text-3xl sm:text-4xl font-black text-slate-950 tracking-tight break-words">My Family</h1>
             </div>
 
-            <div class="flex shrink-0 flex-col items-end gap-2">
-              <a
-                href="/parent/settings"
-                class="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800"
+            <div class="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onclick={scrollToParentTools}
+                class="inline-flex w-full max-w-full items-center justify-center gap-2 rounded-full bg-hero px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-hero/20 transition hover:bg-hero-dark sm:w-auto"
               >
                 <Settings size={14} />
-                Settings
-              </a>
-              <div class="inline-flex items-center gap-2 rounded-full bg-hero/10 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-hero">
+                Manage
+              </button>
+              <div class="inline-flex max-w-full items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-white">
                 <TrendingUp size={14} />
                 {children.length} children
               </div>
+              {#if parent}
+                <div class="inline-flex max-w-full items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-700">
+                  {parent.name || parent.email}
+                </div>
+              {/if}
             </div>
           </div>
         </div>
       </div>
 
-      <div class="mx-auto max-w-5xl space-y-6 px-3 py-6 sm:px-4 md:py-8">
-        <section class="grid gap-4 md:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
-          <div class="card overflow-hidden border-slate-100 bg-white p-5 shadow-xl sm:p-6">
-            <div class="flex items-start justify-between gap-4">
-              <div class="min-w-0">
-                <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Today</p>
-                <h2 class="mt-2 text-2xl font-black text-slate-950">Children first</h2>
-                <p class="mt-2 max-w-xl text-sm font-medium leading-relaxed text-slate-600">
-                  Child dashboards are the main destination. Parent actions still work, but they stay one layer behind the launcher.
-                </p>
-              </div>
-              <div class="rounded-2xl bg-hero/10 px-3 py-3 text-hero">
-                <Star size={22} fill="currentColor" />
-              </div>
-            </div>
-
-            <div class="mt-5 flex flex-wrap gap-2">
-              <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-600">
-                <Users size={13} />
-                {children.length} children
-              </span>
-              <span class="inline-flex items-center gap-2 rounded-full bg-hero/10 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-hero">
-                <Star size={13} fill="currentColor" />
-                {housePoints} available
-              </span>
-              <button
-                type="button"
-                onclick={() => openModal('requests', null)}
-                class={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.16em] transition ${
-                  pendingRedemptions.length > 0
-                    ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                }`}
-              >
-                <Clock size={13} />
-                {pendingRedemptions.length > 0
-                  ? `${pendingRedemptions.length} pending requests`
-                  : 'No pending requests'}
-              </button>
-            </div>
-          </div>
-
-          <a
-            href="/parent/settings"
-            class="card flex min-w-0 flex-col justify-between overflow-hidden border-slate-100 bg-white p-5 shadow-xl transition hover:-translate-y-0.5 hover:shadow-2xl sm:p-6"
-          >
-            <div class="flex items-start justify-between gap-4">
-              <div class="min-w-0">
-                <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Launcher hub</p>
-                <h2 class="mt-2 text-2xl font-black text-slate-950">Parent settings</h2>
-                <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">
-                  Rewards, family settings, behaviour presets, allowance, calendar, and device links live here.
-                </p>
-              </div>
-              <div class="rounded-2xl bg-slate-900 px-3 py-3 text-white">
-                <Settings size={22} />
-              </div>
-            </div>
-
-            <div class="mt-5 flex flex-wrap gap-2">
-              <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">
-                Manage tools
-              </span>
-              <span class="inline-flex items-center gap-2 rounded-full bg-hero/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-hero">
-                Open settings
-              </span>
-            </div>
-          </a>
-        </section>
-
+      <div class="max-w-5xl mx-auto px-3 sm:px-4 py-6 md:py-8 space-y-6">
         <section class="space-y-4">
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
-              <h2 class="text-2xl font-black text-slate-950">Children</h2>
+              <h2 class="text-2xl sm:text-3xl font-black text-slate-950">Children</h2>
             </div>
           </div>
 
           {#if children.length === 0}
-            <div class="card border-dashed border-2 border-slate-200 bg-white p-8 text-center shadow-none sm:p-10">
+            <div class="card overflow-hidden border-dashed border-2 border-slate-200 bg-white p-8 sm:p-10 text-center shadow-none">
               <div class="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[1.75rem] bg-slate-100 text-slate-400">
                 <UserPlus size={36} />
               </div>
               <h3 class="text-2xl font-black text-slate-900">Your family is empty</h3>
               <p class="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-500">
-                Add a child to start the launcher. Their dashboard, rewards, and points will appear here after setup.
+                Add a child to start tracking points, rewards, and daily routines.
               </p>
             </div>
           {:else}
             <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {#each children as c}
-                <ChildAvatarCard
-                  data-qa="parent-child-card"
-                  childSummary={c}
-                  href={`/child/${c.child.id}`}
-                  allowanceEnabled={Boolean(allowanceSummaries[c.child.id]?.is_enabled)}
-                />
+                <article data-qa="parent-child-card" class="card flex h-full min-w-0 flex-col overflow-hidden border-slate-100 bg-white p-5 sm:p-6 shadow-xl">
+                  <div class="flex min-w-0 items-start gap-4">
+                    <div class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-900 text-white shadow-sm">
+                      <span class="text-lg font-black tracking-tight">{childAvatarLabel(c)}</span>
+                    </div>
+
+                    <div class="min-w-0 flex-1">
+                      <h3 class="truncate text-xl font-black text-slate-950">{c.child.display_name}</h3>
+                      <p class="mt-1 truncate text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                        {childAvatarDescription(c)}
+                      </p>
+
+                      <div class="mt-3 flex flex-wrap items-center gap-2">
+                        <span class="inline-flex items-center gap-2 rounded-full bg-hero/10 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-hero">
+                          <Star size={13} fill="currentColor" />
+                          {c.spending_balance || 0} available
+                        </span>
+                        <span class="inline-flex items-center gap-2 rounded-full bg-savings/10 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-savings">
+                          <PiggyBank size={13} />
+                          {c.savings_balance || 0} saved
+                        </span>
+                        {#if allowanceSummaries[c.child.id]?.is_enabled}
+                          <span class="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-amber-700">
+                            <Coins size={13} />
+                            {formatAllowanceMinorAmount(allowanceSummaries[c.child.id].available_allowance_minor, allowanceSummaries[c.child.id].currency, allowanceSummaries[c.child.id].currency_exponent)} available
+                          </span>
+                        {/if}
+                        <span data-qa="parent-child-pending-row" class={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.14em] ${c.pending_redemptions > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-400'}`}>
+                          <Clock size={13} />
+                          {c.pending_redemptions} pending
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="mt-auto grid grid-cols-1 gap-3 pt-6 sm:grid-cols-2">
+                    <a href={`/child/${c.child.id}`} data-qa="parent-child-dashboard-link" class="btn-hero flex h-14 items-center justify-center gap-2 rounded-2xl px-4 text-[10px] font-black uppercase tracking-[0.18em] shadow-lg shadow-hero/20 whitespace-nowrap">
+                      Dashboard
+                      <ArrowRight size={14} />
+                    </a>
+                    <button
+                      type="button"
+                      onclick={() => openModal('picker', c)}
+                      data-qa="parent-child-points-button"
+                      class="btn-secondary flex h-14 items-center justify-center gap-2 rounded-2xl px-4 text-[10px] font-black uppercase tracking-[0.18em] whitespace-nowrap"
+                    >
+                      <Star size={14} />
+                      Points
+                    </button>
+                  </div>
+                </article>
               {/each}
             </div>
           {/if}
         </section>
 
-        <section class="grid gap-4 md:grid-cols-2">
-          <div class="card overflow-hidden border-slate-100 bg-white p-5 shadow-xl sm:p-6">
+        <section class="grid gap-4 md:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+          <div class="card overflow-hidden border-slate-100 bg-white p-5 sm:p-6 shadow-xl">
             <div class="flex items-start justify-between gap-4 min-w-0">
               <div class="min-w-0">
                 <h2 class="text-2xl font-black text-slate-950">Total available points</h2>
-                <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">
-                  A quick family snapshot without the old control-room layout.
-                </p>
               </div>
               <div class="shrink-0 rounded-2xl bg-hero/10 px-3 py-3 text-hero">
                 <Star size={22} fill="currentColor" />
@@ -910,14 +880,11 @@
           <button
             type="button"
             onclick={() => openModal('requests', null)}
-            class="card flex min-w-0 flex-col justify-between overflow-hidden border-slate-100 bg-white p-5 text-left shadow-xl transition hover:-translate-y-0.5 hover:shadow-2xl sm:p-6"
+            class="card flex min-w-0 flex-col justify-between overflow-hidden border-slate-100 bg-white p-5 sm:p-6 text-left shadow-xl transition hover:-translate-y-0.5 hover:shadow-2xl"
           >
             <div class="flex items-start justify-between gap-4">
               <div class="min-w-0">
-                <h2 class="text-2xl font-black text-slate-950">Reward requests</h2>
-                <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">
-                  Review approvals or rejections from the parent modal when needed.
-                </p>
+                <h2 class="text-2xl font-black text-slate-950">Reward Requests</h2>
               </div>
               <div class={`shrink-0 rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.18em] ${pendingRedemptions.length > 0 ? 'bg-hero/10 text-hero' : 'bg-slate-100 text-slate-400'}`}>
                 {pendingRedemptions.length}
@@ -931,42 +898,115 @@
           </button>
         </section>
 
-        <section class="card overflow-hidden border-slate-100 bg-white p-5 shadow-xl sm:p-6">
+        {#if allowanceEnabledChildren.length > 0}
+          <section class="card overflow-hidden border-slate-100 bg-white p-5 sm:p-6 shadow-xl">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div class="min-w-0">
+                <h2 class="text-2xl font-black text-slate-950">Allowance snapshots</h2>
+                <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">
+                  Only children with allowance enabled appear here. Points stay the source of truth, and the money equivalent follows available points.
+                </p>
+              </div>
+              <div class="inline-flex w-fit items-center gap-2 rounded-full bg-amber-100 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-amber-700">
+                <Coins size={13} />
+                Linked balances
+              </div>
+            </div>
+
+            <div class="mt-5 grid gap-4 md:grid-cols-2">
+              {#each allowanceEnabledChildren as c}
+                {@const allowance = allowanceSummaries[c.child.id]}
+                <article class="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-4 sm:p-5">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <h3 class="truncate text-lg font-black text-slate-950">{c.child.display_name}</h3>
+                      <p class="mt-1 text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                        {allowance.allowance_enabled_at ? `Enabled on ${new Date(allowance.allowance_enabled_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : 'Allowance enabled'}
+                      </p>
+                    </div>
+                    <span class="rounded-full bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
+                      {allowance.period}
+                    </span>
+                  </div>
+
+                  <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div class="rounded-2xl bg-white p-4">
+                      <p class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Available to spend</p>
+                      <p class="mt-2 text-2xl font-black text-slate-950">{formatAllowanceMinorAmount(allowance.available_allowance_minor, allowance.currency, allowance.currency_exponent)}</p>
+                      <p class="mt-1 text-sm font-medium text-slate-500">{allowance.available_points} points</p>
+                    </div>
+                    <div class="rounded-2xl bg-white p-4">
+                      <p class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Earned this period</p>
+                      <p class="mt-2 text-2xl font-black text-slate-950">{formatAllowanceMinorAmount(allowance.earned_allowance_minor_period, allowance.currency, allowance.currency_exponent)}</p>
+                      <p class="mt-1 text-sm font-medium text-slate-500">{allowance.earned_points_period} points</p>
+                    </div>
+                    <div class="rounded-2xl bg-white p-4">
+                      <p class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Spent this period</p>
+                      <p class="mt-2 text-2xl font-black text-slate-950">{formatAllowanceMinorAmount(allowance.spent_allowance_minor_period, allowance.currency, allowance.currency_exponent)}</p>
+                      <p class="mt-1 text-sm font-medium text-slate-500">{allowance.spent_points_period} points</p>
+                    </div>
+                    <div class="rounded-2xl bg-white p-4">
+                      <p class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Carried over</p>
+                      <p class="mt-2 text-2xl font-black text-slate-950">{formatAllowanceMinorAmount(allowance.carried_over_allowance_minor, allowance.currency, allowance.currency_exponent)}</p>
+                      <p class="mt-1 text-sm font-medium text-slate-500">{allowance.carried_over_points} points</p>
+                    </div>
+                    <div class="rounded-2xl bg-white p-4">
+                      <p class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Points on hold</p>
+                      <p class="mt-2 text-2xl font-black text-slate-950">{formatAllowanceMinorAmount(allowance.pending_allowance_minor, allowance.currency, allowance.currency_exponent)}</p>
+                      <p class="mt-1 text-sm font-medium text-slate-500">{allowance.pending_points} points</p>
+                    </div>
+                    <div class="rounded-2xl bg-white p-4">
+                      <p class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Saved</p>
+                      <p class="mt-2 text-2xl font-black text-slate-950">{formatAllowanceMinorAmount(allowance.saved_allowance_minor, allowance.currency, allowance.currency_exponent)}</p>
+                      <p class="mt-1 text-sm font-medium text-slate-500">{allowance.saved_points} points</p>
+                    </div>
+                  </div>
+                </article>
+              {/each}
+            </div>
+          </section>
+        {/if}
+
+        <section bind:this={parentToolsSection} class="card scroll-mt-6 overflow-hidden border-slate-100 bg-white p-5 sm:p-6 shadow-xl">
           <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div class="min-w-0">
-              <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Fallback tools</p>
-              <h2 class="mt-2 text-2xl font-black text-slate-950">Still reachable from here</h2>
-              <p class="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-600">
-                These links keep the phase-2A roll-out safe while the larger parent tools live in the settings launcher.
-              </p>
+              <h2 class="text-2xl font-black text-slate-950">Parent Tools</h2>
             </div>
           </div>
 
           <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <a href="/parent/settings?tool=rewards" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
+            <button type="button" onclick={() => openModal('rewards', null)} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
               <Gift size={16} />
               Manage rewards
+            </button>
+            <a href="/allowance" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
+              <PiggyBank size={16} />
+              Allowance setup
             </a>
-            <a href="/parent/settings?tool=family" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
+            <button type="button" onclick={() => openModal('family', null)} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
               <Users size={16} />
               Family settings
-            </a>
-            <a href="/parent/settings?tool=presets" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
+            </button>
+            <button type="button" onclick={() => openModal('presets', null)} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
               <Settings size={16} />
-              Behaviour presets
+              Manage behaviours
+            </button>
+            <a href="/calendar" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
+              <CalendarDays size={16} />
+              Open calendar
             </a>
-            <a href="/parent/settings?tool=add-child" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
+            <button type="button" onclick={() => openModal('requests', null)} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
+              <Check size={16} />
+              View pending requests
+            </button>
+            <button type="button" onclick={addChild} disabled={loadingChildren} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero disabled:opacity-60 disabled:cursor-not-allowed">
               <UserPlus size={16} />
               Add child
-            </a>
-            <a href="/parent/settings?tool=child-links" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
+            </button>
+            <button type="button" onclick={() => openModal('child-link-select', null)} disabled={children.length === 0} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero disabled:cursor-not-allowed disabled:opacity-60">
               <QrCode size={16} />
-              Child device links
-            </a>
-            <a href="/parent/settings" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-900 bg-slate-900 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white transition hover:bg-slate-800">
-              <CalendarDays size={16} />
-              Open settings hub
-            </a>
+              Link child device
+            </button>
           </div>
         </section>
       </div>

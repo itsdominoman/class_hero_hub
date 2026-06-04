@@ -191,7 +191,7 @@ async function captureAddChildFlow(page, flowName) {
   const childVisible = await page.getByText(childName, { exact: false }).isVisible().catch(() => false);
   if (!childVisible) {
     await page.request.post(new URL('/api/children/', DEFAULT_BACKEND).toString(), {
-      data: { display_name: childName, avatar_name: '1', active: true },
+      data: { display_name: childName, avatar_name: 'hero', active: true },
       headers: csrfToken ? { 'x-csrf-token': csrfToken } : {}
     });
     await page.goto(new URL('/parent', DEFAULT_FRONTEND).toString(), { waitUntil: 'domcontentloaded' });
@@ -224,8 +224,7 @@ const FLOW_HANDLERS = {
   rewards: async (page, flowName) => captureGenericParentFlow(page, flowName),
   'reward-request': async (page, flowName) => captureGenericParentFlow(page, flowName),
   allowance: async (page, flowName) => captureGenericParentFlow(page, flowName),
-  'parent-tools': async (page, flowName) => captureGenericParentFlow(page, flowName, '/parent/settings'),
-  'parent-settings': async (page, flowName) => captureGenericParentFlow(page, flowName, '/parent/settings')
+  'parent-tools': async (page, flowName) => captureGenericParentFlow(page, flowName)
 };
 
 async function main() {

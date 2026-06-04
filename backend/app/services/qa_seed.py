@@ -13,7 +13,7 @@ QA_CHILD_PARENT_EMAIL = "qa-child-parent@dev.familyherohub.com"
 QA_CHILD_PARENT_NAME = "QA Child Parent"
 QA_CHILD_DISPLAY_NAME = "QA Seed Child"
 QA_CHILD_FAMILY_TIMEZONE = "Europe/Berlin"
-QA_CHILD_AVATAR_NAME = "1"
+QA_CHILD_AVATAR_NAME = "hero"
 QA_CHILD_ALLOWANCE_CURRENCY = "USD"
 QA_CHILD_ALLOWANCE_AMOUNT_MINOR = 2500
 QA_CHILD_ALLOWANCE_POINT_GOAL = 50
@@ -21,7 +21,7 @@ QA_CHILD_SESSION_SEED = "qa-child-session"
 QA_PARENT_CARD_SPECS = [
     {
         "display_name": "Jackson",
-        "avatar_name": "2",
+        "avatar_name": "robot",
         "spending_points": 58,
         "savings_points": 30,
         "pending_requests": [
@@ -34,7 +34,7 @@ QA_PARENT_CARD_SPECS = [
     },
     {
         "display_name": "Leah",
-        "avatar_name": "1",
+        "avatar_name": "hero",
         "spending_points": 42,
         "savings_points": 18,
         "pending_requests": [],
@@ -148,8 +148,8 @@ def _reset_child_seed_rows(db: Session, child_id: int, family_id: int) -> None:
     db.query(models.ChildAllowanceSetting).filter(models.ChildAllowanceSetting.child_id == child_id).delete(synchronize_session=False)
     db.query(models.WeeklyStreak).filter(models.WeeklyStreak.child_id == child_id).delete(synchronize_session=False)
     db.query(models.PetProgress).filter(models.PetProgress.child_id == child_id).delete(synchronize_session=False)
-    db.query(models.ChildDeviceSession).filter(models.ChildDeviceSession.child_id == child_id).delete(synchronize_session=False)
     db.query(models.ChildDeviceInvite).filter(models.ChildDeviceInvite.child_id == child_id).delete(synchronize_session=False)
+    db.query(models.ChildDeviceSession).filter(models.ChildDeviceSession.child_id == child_id).delete(synchronize_session=False)
     db.query(models.Reward).filter(models.Reward.family_id == family_id).delete(synchronize_session=False)
 
 
@@ -162,8 +162,8 @@ def _reset_parent_child_rows(db: Session, child_id: int) -> None:
     db.query(models.ChildAllowanceSetting).filter(models.ChildAllowanceSetting.child_id == child_id).delete(synchronize_session=False)
     db.query(models.WeeklyStreak).filter(models.WeeklyStreak.child_id == child_id).delete(synchronize_session=False)
     db.query(models.PetProgress).filter(models.PetProgress.child_id == child_id).delete(synchronize_session=False)
-    db.query(models.ChildDeviceSession).filter(models.ChildDeviceSession.child_id == child_id).delete(synchronize_session=False)
     db.query(models.ChildDeviceInvite).filter(models.ChildDeviceInvite.child_id == child_id).delete(synchronize_session=False)
+    db.query(models.ChildDeviceSession).filter(models.ChildDeviceSession.child_id == child_id).delete(synchronize_session=False)
 
 
 def _get_or_create_parent(db: Session) -> tuple[models.ParentUser, models.Family, bool]:
