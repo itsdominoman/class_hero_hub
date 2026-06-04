@@ -9,7 +9,7 @@ test.describe('Europe dev authenticated QA login', () => {
     await page.goto('/parent', { waitUntil: 'networkidle' });
 
     await expect(page.getByRole('heading', { name: 'My Family' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Settings', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Family tools', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: /Dashboard/i }).first()).toBeVisible();
 
     // Check header
@@ -17,7 +17,7 @@ test.describe('Europe dev authenticated QA login', () => {
     await expect(desktopParentDashboardLink).toBeVisible();
     await expect(page.getByRole('button', { name: /Logout/i })).toBeVisible();
 
-    await page.getByRole('link', { name: 'Parent settings' }).click();
+    await page.getByRole('link', { name: 'Family tools' }).click();
     await expect(page).toHaveURL(/\/parent\/settings$/);
     await expect(page.getByRole('heading', { name: 'Parent settings' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Allowance setup' })).toBeVisible();

@@ -760,12 +760,12 @@
         <div class="mx-auto max-w-5xl px-3 py-5 sm:px-4 md:py-6">
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">
-              <p class="text-[10px] font-black uppercase tracking-[0.28em] text-hero">Family launcher</p>
+              <p class="text-[10px] font-black uppercase tracking-[0.28em] text-hero">Family tools</p>
               <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
                 My Family
               </h1>
               <p class="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-600">
-                Tap a child to open their dashboard. Keep parent tools in the settings hub instead of the main launcher.
+                Tap a child to open their dashboard. Parent tools live in Family tools, so the main view stays child-first.
               </p>
             </div>
 
@@ -775,7 +775,7 @@
                 class="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800"
               >
                 <Settings size={14} />
-                Settings
+                Family tools
               </a>
               <div class="inline-flex items-center gap-2 rounded-full bg-hero/10 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-hero">
                 <TrendingUp size={14} />
@@ -794,7 +794,7 @@
                 <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Today</p>
                 <h2 class="mt-2 text-2xl font-black text-slate-950">Children first</h2>
                 <p class="mt-2 max-w-xl text-sm font-medium leading-relaxed text-slate-600">
-                  Child dashboards are the main destination. Parent actions still work, but they stay one layer behind the launcher.
+                  Child dashboards are the main destination. Parent actions still work, but they stay one tap away in Family tools.
                 </p>
               </div>
               <div class="rounded-2xl bg-hero/10 px-3 py-3 text-hero">
@@ -835,9 +835,9 @@
             <div class="flex items-start justify-between gap-4">
               <div class="min-w-0">
                 <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Launcher hub</p>
-                <h2 class="mt-2 text-2xl font-black text-slate-950">Parent settings</h2>
+                <h2 class="mt-2 text-2xl font-black text-slate-950">Parent tools</h2>
                 <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">
-                  Rewards, family settings, behaviour presets, allowance, calendar, and device links live here.
+                  Manage rewards, children, family settings, allowance, calendar, and device links from one place.
                 </p>
               </div>
               <div class="rounded-2xl bg-slate-900 px-3 py-3 text-white">
@@ -914,9 +914,9 @@
           >
             <div class="flex items-start justify-between gap-4">
               <div class="min-w-0">
-                <h2 class="text-2xl font-black text-slate-950">Reward requests</h2>
+                <h2 class="text-2xl font-black text-slate-950">Review reward requests</h2>
                 <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">
-                  Review approvals or rejections from the parent modal when needed.
+                  Review approvals or rejections from the family dashboard when needed.
                 </p>
               </div>
               <div class={`shrink-0 rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.18em] ${pendingRedemptions.length > 0 ? 'bg-hero/10 text-hero' : 'bg-slate-100 text-slate-400'}`}>
@@ -934,10 +934,10 @@
         <section class="card overflow-hidden border-slate-100 bg-white p-5 shadow-xl sm:p-6">
           <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div class="min-w-0">
-              <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Fallback tools</p>
-              <h2 class="mt-2 text-2xl font-black text-slate-950">Still reachable from here</h2>
+              <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Family tools</p>
+              <h2 class="mt-2 text-2xl font-black text-slate-950">Parent tools</h2>
               <p class="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-600">
-                These links keep the phase-2A roll-out safe while the larger parent tools live in the settings launcher.
+                Open the family tools you use most from one place.
               </p>
             </div>
           </div>
@@ -955,9 +955,9 @@
               <Settings size={16} />
               Behaviour presets
             </a>
-            <a href="/parent/settings?tool=add-child" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
+            <a href="/parent/settings#children" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
               <UserPlus size={16} />
-              Add child
+              Manage children
             </a>
             <a href="/parent/settings?tool=child-links" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-hero hover:text-hero">
               <QrCode size={16} />
@@ -965,7 +965,7 @@
             </a>
             <a href="/parent/settings" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-900 bg-slate-900 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white transition hover:bg-slate-800">
               <CalendarDays size={16} />
-              Open settings hub
+              Parent tools
             </a>
           </div>
         </section>

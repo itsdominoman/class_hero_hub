@@ -52,7 +52,7 @@
     },
     {
       href: "/redemptions",
-      label: "Pending requests",
+      label: "Review reward requests",
       description: "Review reward requests and approve or reject them.",
       icon: Check,
     },
@@ -188,12 +188,12 @@
     <div class="mx-auto max-w-5xl px-3 py-5 sm:px-4 md:py-6">
       <div class="flex items-start justify-between gap-4">
         <div class="min-w-0">
-          <p class="text-[10px] font-black uppercase tracking-[0.28em] text-hero">Settings hub</p>
+          <p class="text-[10px] font-black uppercase tracking-[0.28em] text-hero">Family tools</p>
           <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
             Parent settings
           </h1>
           <p class="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-600">
-            Use this page as the launcher for the management surfaces that are still split out in phase 2A.
+            Use this page to manage the family tools that live outside the main dashboard.
           </p>
         </div>
         <div class="rounded-2xl bg-slate-900 px-3 py-3 text-white">
@@ -235,9 +235,9 @@
       <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div class="min-w-0">
           <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Children</p>
-          <h2 class="mt-2 text-2xl font-black text-slate-950">Edit child names and avatars</h2>
+          <h2 class="mt-2 text-2xl font-black text-slate-950">Manage children</h2>
           <p class="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-600">
-            Each child card has a quick edit action. Parents can rename a child and switch their avatar without leaving the settings hub.
+            Each child card has a quick edit action. Parents can rename a child and switch their avatar without leaving Family tools.
           </p>
         </div>
         <a
@@ -245,7 +245,7 @@
           class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-slate-600"
         >
           <Pencil size={14} />
-          Edit children
+          Manage children
         </a>
       </div>
 
@@ -357,10 +357,10 @@
     <section class="card overflow-hidden border-slate-100 bg-white p-5 shadow-xl sm:p-6">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div class="min-w-0">
-          <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Launcher links</p>
-          <h2 class="mt-2 text-2xl font-black text-slate-950">Tools still opened from the parent dashboard</h2>
+          <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Parent tools</p>
+          <h2 class="mt-2 text-2xl font-black text-slate-950">Quick links for family management</h2>
           <p class="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-600">
-            These routes preserve the old modals for now, but the parent dashboard no longer has to carry the whole control panel.
+            Open the tools you need without cluttering the main dashboard.
           </p>
         </div>
         <a
@@ -368,7 +368,7 @@
           class="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800"
         >
           <ArrowRight size={14} />
-          Back to launcher
+          Back to parent dashboard
         </a>
       </div>
 
@@ -394,9 +394,9 @@
       <div class="flex items-start justify-between gap-4">
         <div class="min-w-0">
           <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Notes</p>
-          <h2 class="mt-2 text-2xl font-black text-slate-950">Phase 2A keeps the risk low</h2>
+          <h2 class="mt-2 text-2xl font-black text-slate-950">Family tools stay easy to find</h2>
           <p class="mt-2 max-w-3xl text-sm font-medium leading-relaxed text-slate-600">
-            Parent tools remain reachable without changing the backend flow. The child launcher stays the primary dashboard, and the old modal flows remain available until they are fully moved.
+            The child launcher stays the primary dashboard, and the family tools you need are grouped here when you want them.
           </p>
         </div>
         <div class="rounded-2xl bg-hero/10 px-3 py-3 text-hero">
