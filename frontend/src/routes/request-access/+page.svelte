@@ -30,6 +30,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>Request access to Family Hero Hub</title>
+</svelte:head>
+
 <div class="min-h-[calc(100dvh-5rem)] flex items-center justify-center px-3 sm:px-4 py-8 md:py-12">
   <div class="max-w-xl w-full">
     <div class="card p-6 sm:p-8 md:p-12 relative overflow-hidden">
@@ -40,24 +44,25 @@
           <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
           </div>
-          <h1 class="text-3xl font-black text-slate-900 mb-4">Request received</h1>
-          <p class="text-slate-600 mb-8 text-base sm:text-lg break-words">
-            We’ve received your request to join Family Hero Hub. We’ll review it and email <strong>{email}</strong> once access is approved. After approval, you can sign in with Google.
+          <h1 class="text-3xl font-black text-slate-900 mb-4">Thanks - your access request has been sent.</h1>
+          <p class="text-slate-600 mb-8 text-base sm:text-lg leading-relaxed break-words">
+            If approved, you'll be able to sign in with the Google account you provided.
           </p>
           <a href="/login" class="btn-secondary inline-block">Return to login</a>
         </div>
       {:else}
         <div class="mb-10 text-center">
-          <h1 class="text-3xl font-black text-slate-900 mb-2">Request access</h1>
-          <p class="text-slate-600 mb-6">Family Hero Hub is in limited release. Request access and we’ll review your details before sign-in is approved.</p>
-          
-          <div class="bg-slate-50 border-2 border-slate-100 p-4 sm:p-6 rounded-2xl text-sm text-slate-600 leading-relaxed text-left">
-            <p><strong>Note:</strong> This form does not create an account yet. After approval, you’ll sign in with Google. Family Hero Hub never asks for or stores your Google password. Children do not need Google accounts.</p>
-          </div>
+          <h1 class="text-3xl font-black text-slate-900 mb-3">Request access to Family Hero Hub</h1>
+          <p class="text-slate-600 mb-6 text-base sm:text-lg leading-relaxed">
+            Family Hero Hub is currently open by approval so we can keep setup smooth, safe, and properly supported for early families.
+          </p>
+          <p class="mx-auto max-w-2xl rounded-2xl border-2 border-slate-100 bg-slate-50 p-4 text-left text-sm leading-relaxed text-slate-600">
+            Request access if you want a parent-led way to manage points, rewards, allowance-style values, school bag prep, calendar tasks, and child dashboards for your family.
+          </p>
         </div>
 
         {#if error}
-          <div class="bg-rose-50 border-2 border-rose-100 text-rose-600 p-4 rounded-2xl mb-8 font-medium text-sm flex items-start gap-3 break-words">
+          <div class="mb-8 flex items-start gap-3 break-words rounded-2xl border-2 border-rose-100 bg-rose-50 p-4 text-sm font-medium text-rose-600">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             {error}
           </div>
@@ -77,7 +82,7 @@
               />
             </div>
             <div class="space-y-2">
-              <label for="email" class="block text-sm font-bold text-slate-700 ml-1">Email Address</label>
+              <label for="email" class="block text-sm font-bold text-slate-700 ml-1">Google Email Address</label>
               <input
                 id="email"
                 type="email"
@@ -86,6 +91,9 @@
                 placeholder="jane@example.com"
                 class="w-full px-5 py-4 rounded-2xl border-2 border-slate-100 focus:border-hero/30 focus:ring-4 focus:ring-hero/5 outline-none transition-all placeholder:text-slate-300"
               />
+              <p class="text-xs text-slate-500 leading-relaxed">
+                Use the Google email address you want to sign in with. If approved, this will become your parent account.
+              </p>
             </div>
           </div>
 
@@ -96,7 +104,7 @@
               type="text"
               bind:value={familyName}
               required
-              placeholder="e.g. The Smith Heroes"
+              placeholder="e.g. The Smith Family"
               class="w-full px-5 py-4 rounded-2xl border-2 border-slate-100 focus:border-hero/30 focus:ring-4 focus:ring-hero/5 outline-none transition-all placeholder:text-slate-300"
             />
           </div>
@@ -107,9 +115,12 @@
               id="message"
               bind:value={message}
               rows="3"
-              placeholder="Tell us a bit about your family goals..."
+              placeholder="Tell us anything useful about your family setup, such as number of children or what you want to use Family Hero Hub for."
               class="w-full px-5 py-4 rounded-2xl border-2 border-slate-100 focus:border-hero/30 focus:ring-4 focus:ring-hero/5 outline-none transition-all placeholder:text-slate-300 resize-none"
             ></textarea>
+            <p class="text-xs text-slate-500 leading-relaxed">
+              Please do not include sensitive child information in your message.
+            </p>
           </div>
 
           <button
@@ -126,14 +137,14 @@
                 Submitting...
               </div>
             {:else}
-              Submit Request
+              Request access
             {/if}
           </button>
         </form>
 
         <div class="mt-8 text-center">
           <p class="text-slate-500 text-sm">
-            Already have access? <a href="/login" class="text-hero font-bold hover:underline">Log In</a>
+            Already have access? <a href="/login" class="text-hero font-bold hover:underline">Log in</a>
           </p>
         </div>
       {/if}

@@ -1,226 +1,102 @@
 # Family Hero Hub FAQ
 
-Last reviewed: 2026-06-04
+Last reviewed: 2026-06-07
 
 ## Getting started
 ### What is Family Hero Hub?
-Family Hero Hub helps families track points, rewards, tasks, and school reminders in one place.
+Family Hero Hub is a parent-led family rewards and routines app. It helps parents manage points, rewards, school bag prep, calendar tasks, savings-style goals, allowance-linked point values, child dashboards, and caregiver access.
+
+### Is Family Hero Hub just a chore app?
+No. Chores and tasks can be part of it, but Family Hero Hub is broader than that. It helps families manage everyday responsibility, rewards, school prep, routines, and child progress in one place.
 
 ### Who is it for?
-It is for parents and guardians who manage the family setup, and for children who use their own dashboard.
+It is for parents and caregivers who manage the family setup, and for children who use their own linked dashboard.
 
-### How do parents sign in?
-Parents sign in with **Continue with Google** and use the Google account that belongs to the parent or guardian.
+### Do children need their own email address?
+No. Children use linked child dashboards. Parent accounts use Google sign-in.
 
-### What should I do first?
-Sign in, check or add your child profile, create one simple reward, and link the child device.
+### Is the app mobile-friendly?
+Yes. Family Hero Hub is designed mobile-first, so parents and children can use it comfortably on phones.
 
-### Can I use Family Hero Hub from a phone browser?
-Yes. Open it in your phone browser and use the same website.
+## Points and rewards
+### Who controls points?
+Parents do. They decide when to award or remove points and what counts in their own family.
 
-### What if my access has not been approved yet?
-Choose **Request access** and submit your details. If you already requested access, wait for approval and try signing in again later.
+### Can children approve their own rewards?
+No. Children can request rewards from their dashboard, but parents approve or reject each request.
 
-## Parent accounts and access
-### Why do I sign in with Google?
-Family Hero Hub uses Google to confirm who you are.
+### Can parents remove points?
+Yes. Parents can remove points when they need to reflect family expectations or missed responsibilities.
 
-### Do I type my Google password into Family Hero Hub?
-No. Google handles the secure sign-in screen, and Family Hero Hub only receives the sign-in result.
+### What should points be used for?
+Points can be used for effort, routines, helpful choices, kindness, school prep, and other everyday wins the family wants to recognise.
 
-### What does Request access mean?
-It means your account is waiting to be approved before you can use the app.
+### Can I use Family Hero Hub without allowance?
+Yes. The app works well as a points-and-rewards system even if you never turn on allowance-style values.
 
-### Can another parent use the app too?
-Yes, if they have access to the family account and sign in with their own approved Google account.
-
-### Can I remove a parent, caregiver, babysitter, or other grownup?
-Yes. Open **Settings** and then **Parents & Caregivers**. If you are the family owner, you can use **Remove** for another accepted grownup.
-
-Removing a grownup revokes their access to the family. It does not delete children, points, rewards, calendar items, school bag items, savings, allowance settings, or history.
-
-### Why can I not remove a grownup?
-The MVP only allows the family owner to remove another grownup. The app also blocks removing yourself and blocks removing the last active grownup.
-
-### Can I cancel a pending caregiver invite?
-Yes. Use **Cancel Invite** in **Parents & Caregivers**. Cancelled invite links no longer work.
-
-### How long do parents stay signed in?
-Parent sessions last about 30 days by default. Use **Log out** on shared devices or any device you do not control.
-
-### Does logging out clear my parent session?
-Yes. Logging out clears the parent session cookies from that browser.
-
-### Can children spend points without parent approval?
-No. Children can ask for rewards, but a parent still has to approve the request.
-
-## Children and child devices
-### How do I add or check a child profile?
-Use the child avatar buttons on the **My Family** parent dashboard to add a child or review an existing child.
-
-### How does a child open their dashboard?
-The parent gives the child a link or QR code. The child opens it on their device and goes to their dashboard.
-
-### What is a child dashboard link?
-It is the link or QR code that opens the child dashboard on a child’s device.
-
-### What should I do if the child link expires?
-Generate a fresh child dashboard link from the parent dashboard and open the new one on the child device.
-
-### Can I remove one child device?
-Yes. Open **Child device links**, choose the child, and use **Unlink** beside the linked device. This signs out that device only. It does not delete the child profile or remove points, rewards, calendar items, savings, allowance settings, or history.
-
-### Does my child need a Google account?
-No. The child opens the dashboard with the link or QR code your parent provides.
-
-## Points and balances
-### What are points or Hero Points?
-Points are the family score children earn or lose. Hero Points is the branded fun name for points.
-
-### What are available points?
-Available points are the points a child can use right now.
+## Savings and allowance
+### Is Family Hero Hub a bank?
+No. Family Hero Hub does not hold money, transfer money, or provide banking services. Parents can optionally show an allowance value beside points, but any real-world allowance or purchase remains the parent's responsibility.
 
 ### What are saved points?
-Saved points are points set aside for later. In the current savings flow, banked points stay locked for 30 days and then unlock back into available points with a savings bonus.
+Saved points are points set aside for later. They stay locked for a set time and can unlock with a bonus, helping children practise saving and waiting for bigger goals.
 
-### What is the savings bonus?
-It is the extra points a child earns when saved points unlock. The child dashboard shows the next unlock amount, the next unlock date, and a grouped unlock schedule.
+### What does allowance value mean?
+It means points can show an optional money value. The app can help children understand the connection between effort, saving, and rewards, but parents still control any real-world allowance or purchase.
 
-### What are points on hold?
-They are points temporarily set aside while a reward request is waiting for a parent to decide. Points on hold are already removed from available points while a reward request waits for review.
+### Does Family Hero Hub pay my child?
+No. Family Hero Hub does not hold money, transfer money, or pay children directly.
 
-### What is the difference between available points, saved points, and points on hold?
-Available points can be used now, saved points are set aside for later, and points on hold are waiting on a reward decision. Saved points are locked for 30 days before they return to available points with a savings bonus.
+### Can I turn allowance features off?
+Yes. Families can keep the app points-based only and ignore allowance-style values if they prefer.
 
-### What happens when allowance is enabled?
-Children see their points with a money equivalent beside them. When allowance is enabled, the child’s current points gain allowance value.
+## Child dashboards and devices
+### Can my child use their own device?
+Yes. Parents can link a child dashboard to a child device.
 
-### What are available allowance balance and remaining allowance?
-They are the allowance value that is still available after rewards, points on hold, and saved points are shown separately. The enable date is kept for history, not as a cutoff.
+### How do linked child devices work?
+A parent links a child dashboard to a device. That device then opens the child's own view of points, rewards, tasks, School Bag items, and progress.
 
-### Why did my child’s points change?
-Points can change after an add points action, a remove points action, a saved points deposit or unlock, or a reward request.
+### Can I unlink a child device?
+Yes. Parents can unlink a specific child device. This signs that device out without deleting the child profile or history.
 
-### What are Add points, Remove points, and Custom point actions?
-Add points adds points, Remove points removes points, and Custom lets a parent enter a custom point action.
-
-### How do I bank points?
-Open the child dashboard and use the **Bank points** button on the savings card. The popup shows the amount, savings bonus, unlock total, unlock date, and a warning that banked points cannot be used for 30 days.
-
-## Rewards and requests
-### How do rewards work?
-Parents create rewards, and children can request them with points. If allowance is enabled, the reward cards also show the money equivalent.
-
-### How do I create a reward?
-Open **Manage rewards**, add a title, choose a point cost, and keep the reward visible if you want children to see it.
-
-### How does a child request a reward?
-The child opens Rewards, chooses a reward, and taps or clicks **Request**.
-
-### What does pending mean?
-Pending means the request has been sent and is waiting for a parent decision.
-
-### What happens when I approve a reward request?
-The reward is approved and the points stay spent for that reward.
-
-### What happens when I reject a reward request?
-The request is rejected and the points on hold go back to the child’s available points.
-
-### Where do I view pending requests?
-Use **Review reward requests** on the parent dashboard.
-
-### What does the reward requests area do?
-It is where you review reward requests and decide whether to approve or reject them.
-
-## Allowance through points
-### Can points be used for allowance?
-Yes, optionally. Some families turn on allowance-linked points so the child sees a money equivalent beside the points.
-
-### How does allowance through points work?
-You choose the allowance amount, the point goal, and the allowance period. When allowance is enabled, your child’s current points gain allowance value. When they spend points on rewards, their available allowance balance goes down, but their earned history stays visible.
-
-### Where do I set up allowance?
-Use **Allowance setup** from the parent dashboard **Settings** menu.
-
-### Does the app automatically pay allowance?
-No. Family Hero Hub tracks allowance value. Parents approve requests and provide the real-world reward or purchase.
-
-### Which day does the allowance week start on?
-The family default is Sunday. Parents can change this in **Calendar & School Week** with the **Week starts on** selector.
-
-### Do reward requests reduce allowance progress?
-Yes. Reward requests, points on hold, reward approvals or rejections, and saved-point deposits and unlocks reduce the available allowance balance while keeping earned history visible.
-
-## Calendar, School Prep, and School Bag
-### What is the calendar for?
-It is for family tasks and events, including items that can reward points when completed and approved.
-
-### Can I change which day the family week starts on?
-Yes. Use **Calendar & School Week** and choose **Week starts on**. Options are Sunday through Saturday, and the setting applies to the whole family.
-
-### What is a rewardable task?
-A rewardable task is a calendar task that can be tied to points.
-
-### What is School Prep?
-School Prep is the parent view for today and tomorrow’s school items.
-
-### What is School Bag?
-School Bag is the child view that shows school items to remember.
-
-### What is the difference between School Prep and School Bag?
-School Prep is for parents. School Bag is for children.
-
-### What does “Pack for tomorrow” mean?
-It is a School Bag item that reminds the child to get ready for the next day.
-
-### What does “Needed today” mean?
-It shows school items that are needed for today.
-
-### What does “Check stationery” mean?
-It reminds the child to check school supplies such as pens, pencils, and other stationery.
-
-### What should I do if the wrong school items appear?
-Check the child, the weekday, and the school items entered in School Prep.
-
-## Child dashboard
 ### What can children see?
-Children can see points, rewards, My Day, School Bag, their dragon progress if it is shown on their dashboard, and a savings card with saved, available, locked, and next-unlock information.
+Children can see their own points, rewards, tasks, School Bag items, savings progress, and daily routines from a child-friendly dashboard.
 
-### What is My Day?
-My Day shows tasks or events for today.
+### Can children message each other?
+No. Family Hero Hub does not include child-to-child messaging.
 
-### What can children do with rewards?
-They can view available rewards and request one from their dashboard.
+## Parents and caregivers
+### Can I invite another parent or caregiver?
+Yes. Parents & Caregivers lets families invite trusted grownups and remove access when needed.
 
-### What does the dragon mean?
-It is a fun way to show progress as points grow.
+### Can I remove a caregiver?
+Yes, where the family access rules allow it. Removing a grownup removes their family access without deleting children, points, rewards, school bag items, calendar items, savings, allowance settings, or history.
 
-### What should a child do if they get stuck?
-Ask a parent or guardian for help.
+### Who controls family settings?
+Parents control family setup, points, rewards, caregiver access, and linked child devices.
 
-## Troubleshooting
-### I cannot log in. What should I try?
-Use **Continue with Google**, confirm the correct Google account, and try again from the login page.
+## Privacy and safety
+### Is my family information private?
+Family Hero Hub is designed as a private, parent-led family space. Parents control the family setup and children only see their own linked dashboard.
 
-### My access request is still pending. What should I do?
-Wait for approval, check that you used the right email, and try again later.
+### Are there public child profiles?
+No. Family Hero Hub does not have public child profiles.
 
-### My child’s device will not open the dashboard. What should I try?
-Check the link or QR code, make sure the device has internet access, and ask for a fresh child link if needed.
+### Is there a social feed?
+No. Family Hero Hub is a private family space, not a social network.
 
-If the device was unlinked by a parent, generate a fresh child dashboard link and open it on that device again.
+### Are there ads aimed at children?
+No. Family Hero Hub is not built around advertising to children.
 
-### A reward request is missing. What should I check?
-Check **Review reward requests**, refresh the page, and confirm the child sent the request from the correct child device.
+### How does Google sign-in work?
+Parents sign in with Google. Google handles the secure sign-in screen, and Family Hero Hub does not ask for the Google password.
 
-### Points look wrong. What should I check?
-Review recent point actions, reward requests, approvals, and rejections to see what changed the balance.
+### What happens if I use a shared device?
+Parent sessions stay signed in for convenience. Always log out on shared devices or any device you do not control.
 
-### A calendar item is missing. What should I check?
-Check the selected child, the date, and whether the item is active.
+### Can Family Hero Hub replace parenting decisions?
+No. Family Hero Hub helps organise routines, rewards, and expectations. Parents still decide what matters, what is fair, and how rewards work in real life.
 
-### School Bag looks wrong. What should I check?
-Check the child, the weekday, and the school items entered in School Prep.
-
-### The page looks strange on my phone. What should I try?
-Refresh the page, try a different browser, or rotate your phone and try again.
+### Can children approve their own access or settings?
+No. Parents control setup, caregivers, rewards, and linked devices.

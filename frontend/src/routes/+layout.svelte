@@ -71,22 +71,44 @@
 
   <footer class="bg-slate-900 text-slate-400 pt-16 pb-[calc(4rem+var(--safe-bottom))] md:pt-20 mt-16 md:mt-20 relative overflow-hidden">
     <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-hero/50 to-transparent"></div>
-    <div class="max-w-7xl mx-auto px-4 grid md:grid-cols-2 gap-10 md:gap-12 items-center">
-      <div class="text-left">
-        <div class="flex items-center gap-3 mb-6 opacity-50 grayscale">
-          <img src="/family-hero-hub-logo.png" alt="Family Hero Hub" class="w-10 h-10 rounded-xl object-cover bg-white" />
-          <span class="text-xl font-black tracking-tighter text-white uppercase">Family Hero Hub</span>
+    <div class="max-w-7xl mx-auto px-4">
+      <div class="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
+        <div class="text-left">
+          <div class="flex items-center gap-3 mb-6 opacity-50 grayscale">
+            <img src="/family-hero-hub-logo.png" alt="Family Hero Hub" class="w-10 h-10 rounded-xl object-cover bg-white" />
+            <span class="text-xl font-black tracking-tighter text-white uppercase">Family Hero Hub</span>
+          </div>
+          <p class="text-lg leading-relaxed max-w-md">Family Hero Hub is a private, parent-led family app for points, rewards, routines, school prep, and everyday responsibility.</p>
+          <p class="mt-6 text-sm font-black uppercase tracking-[0.2em] text-white">Built for families. Controlled by parents. Designed for children.</p>
         </div>
-        <p class="text-lg leading-relaxed max-w-md">Empowering the next generation with the responsibility they need to thrive.</p>
-      </div>
-      <div class="text-left md:text-right space-y-4">
-        <p class="font-black text-white uppercase tracking-widest text-sm">Family Hero Hub</p>
-        <p class="text-sm">Built with ❤️ for families everywhere.</p>
-        <div class="flex flex-wrap md:justify-end gap-x-6 gap-y-3 text-xs font-black uppercase tracking-tighter">
-          <a href="/faq" class="hover:text-hero transition-colors">FAQ</a>
-          <a href="/privacy" class="hover:text-hero transition-colors">Privacy Policy</a>
-          <a href="/terms" class="hover:text-hero transition-colors">Terms of Service</a>
-          <a href="/contact" class="hover:text-hero transition-colors">Contact</a>
+
+        <div class="grid gap-8 sm:grid-cols-3">
+          <div class="min-w-0">
+            <p class="text-white font-black uppercase tracking-[0.18em] text-sm mb-4">Product</p>
+            <div class="flex flex-col gap-3 text-sm font-semibold">
+              <a href="/" class="hover:text-hero transition-colors">Home</a>
+              <a href="/#how-it-works" class="hover:text-hero transition-colors">How it works</a>
+              <a href="/faq" class="hover:text-hero transition-colors">FAQ</a>
+              <a href="/request-access" class="hover:text-hero transition-colors">Request access</a>
+            </div>
+          </div>
+
+          <div class="min-w-0">
+            <p class="text-white font-black uppercase tracking-[0.18em] text-sm mb-4">Support</p>
+            <div class="flex flex-col gap-3 text-sm font-semibold">
+              <a href="/contact" class="hover:text-hero transition-colors">Contact</a>
+              <a href="/parent-guide" class="hover:text-hero transition-colors">Parent guide</a>
+              <a href="/child-guide" class="hover:text-hero transition-colors">Child guide</a>
+            </div>
+          </div>
+
+          <div class="min-w-0">
+            <p class="text-white font-black uppercase tracking-[0.18em] text-sm mb-4">Legal</p>
+            <div class="flex flex-col gap-3 text-sm font-semibold">
+              <a href="/privacy" class="hover:text-hero transition-colors">Privacy Policy</a>
+              <a href="/terms" class="hover:text-hero transition-colors">Terms of Service</a>
+            </div>
+          </div>
         </div>
       </div>
     </div>
