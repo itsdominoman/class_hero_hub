@@ -33,3 +33,7 @@ Caddyfile.backup*
 # Local test virtual environment
 test_venv/
 frontend/test-results/
+
+# Local competitor-copy reports
+docs/public-competitor-copy-pull-20260607.md
+docs/public-competitor-copy-pull-20260607.txt

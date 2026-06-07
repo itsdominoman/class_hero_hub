@@ -2522,4 +2522,15 @@
   .animate-in {
     animation: fade-in 0.3s ease-out, zoom-in 0.3s ease-out;
   }
+
+  @media (max-width: 1024px) {
+    :global(.custom-scrollbar) {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    :global(.custom-scrollbar::-webkit-scrollbar) {
+      display: none;
+    }
+  }
 </style>
