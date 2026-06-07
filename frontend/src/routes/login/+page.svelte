@@ -23,7 +23,7 @@
       <div class="absolute -top-24 -right-24 w-48 h-48 bg-hero/5 rounded-full blur-3xl"></div>
       <div class="absolute -bottom-24 -left-24 w-48 h-48 bg-savings/5 rounded-full blur-3xl"></div>
 
-      <div class="w-20 h-20 bg-hero rounded-3xl flex items-center justify-center shadow-xl shadow-hero/30 mx-auto mb-8 relative overflow-hidden">
+      <div class="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-xl shadow-hero/20 border border-slate-200 mx-auto mb-8 relative overflow-hidden">
         <img src="/family-hero-hub-logo.png" alt="Family Hero Hub" class="w-full h-full object-cover" />
       </div>
 

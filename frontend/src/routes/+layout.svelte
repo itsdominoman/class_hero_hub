@@ -54,7 +54,7 @@
       </nav>
 
       {#if currentParent}
-        <button onclick={handleLogout} class="md:hidden inline-flex shrink-0 items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-xs font-black uppercase tracking-[0.12em] text-white shadow-sm">
+        <button onclick={handleLogout} class="md:hidden inline-flex shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.1em] text-slate-700 shadow-sm transition hover:border-hero hover:text-hero">
           Logout
         </button>
       {:else}

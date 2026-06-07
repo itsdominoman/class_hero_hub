@@ -902,6 +902,15 @@
           class="grid gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)] items-center"
         >
           <div class="space-y-6">
+            {#if accessMode === "parent"}
+              <a
+                href="/parent"
+                class="inline-flex items-center gap-2 rounded-full border border-hero/15 bg-hero/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-hero transition hover:border-hero/30 hover:bg-hero/15 sm:tracking-[0.18em]"
+              >
+                <ArrowRight class="rotate-180" size={14} />
+                Back to Parent Dashboard
+              </a>
+            {/if}
             <div
               class="inline-flex max-w-full items-center gap-2 px-4 py-2 rounded-full bg-hero/10 text-hero border border-hero/20 text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.22em]"
             >
@@ -2270,39 +2279,39 @@
   }
 
   .text-hero {
-    color: #ff5a5f;
+    color: #7c3aed;
   }
 
   .text-savings {
-    color: #00a699;
+    color: #10b981;
   }
 
   .text-reward {
-    color: #fc642d;
+    color: #f59e0b;
   }
 
   .text-penalty {
-    color: #d64545;
+    color: #f43f5e;
   }
 
   .bg-hero {
-    background: #ff5a5f;
+    background: #7c3aed;
   }
 
   .bg-penalty {
-    background: #d64545;
+    background: #f43f5e;
   }
 
   .bg-savings {
-    background: #00a699;
+    background: #10b981;
   }
 
   .bg-reward {
-    background: #fc642d;
+    background: #f59e0b;
   }
 
   .shadow-hero\/20 {
-    box-shadow: 0 10px 20px -5px rgba(255, 90, 95, 0.2);
+    box-shadow: 0 10px 20px -5px rgba(124, 58, 237, 0.2);
   }
 
   .line-clamp-2 {

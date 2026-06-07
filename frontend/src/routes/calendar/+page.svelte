@@ -823,9 +823,9 @@
           </div>
 
           <div class="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto lg:justify-end">
-            <a href="/parent" class="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm transition hover:border-slate-300 hover:shadow-md sm:w-auto sm:tracking-[0.18em]">
+            <a href="/parent" class="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-2xl border border-hero/15 bg-hero/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-hero shadow-sm transition hover:border-hero/30 hover:bg-hero/15 hover:shadow-md sm:w-auto sm:tracking-[0.18em]">
               <ArrowLeft size={16} />
-              Back to dashboard
+              Back to Parent Dashboard
             </a>
             <div class="grid w-full grid-cols-2 rounded-2xl border border-slate-200 bg-slate-50 p-1 sm:w-auto">
               <button
@@ -957,7 +957,7 @@
           <p class="mx-auto mt-3 max-w-xl text-sm font-medium leading-6 text-slate-500">
             Add a child from the parent dashboard before scheduling events or chores.
           </p>
-          <a href="/parent" class="mt-8 inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-white">
+          <a href="/parent" class="mt-8 inline-flex items-center justify-center gap-2 rounded-2xl bg-hero px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-white shadow-lg shadow-hero/20">
             Go to parent dashboard
           </a>
         </div>

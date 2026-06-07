@@ -1003,7 +1003,7 @@
 
   function ringStyle(percent: number | null) {
     const safePercent = Math.max(0, Math.min(100, percent ?? 0));
-    return `background: conic-gradient(#ff7a1a ${safePercent}%, #e2e8f0 ${safePercent}% 100%);`;
+    return `background: conic-gradient(#10B981 ${safePercent}%, #F43F5E ${safePercent}% 100%);`;
   }
 
   function formatLedgerDate(value: string) {
@@ -1303,10 +1303,10 @@
           {:else}
             <div class="flex min-w-0 items-center gap-3 sm:gap-4">
               <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-3xl flex items-center justify-center shadow-lg shrink-0
-                {activeModal.type === 'award' ? 'bg-hero text-white shadow-hero/20' : 
+                {activeModal.type === 'award' ? 'bg-savings text-white shadow-savings/20' : 
                  activeModal.type === 'penalty' ? 'bg-penalty text-white shadow-penalty/20' :
-                 activeModal.type === 'bank' ? 'bg-savings text-white shadow-savings/20' :
-                 activeModal.type === 'presets' ? 'bg-slate-900 text-white shadow-slate-200' :
+                 activeModal.type === 'bank' ? 'bg-reward text-white shadow-reward/20' :
+                 activeModal.type === 'presets' ? 'bg-hero text-white shadow-hero/20' :
                  activeModal.type === 'family' ? 'bg-hero text-white shadow-hero/20' :
                  activeModal.type === 'calendar-week' ? 'bg-hero text-white shadow-hero/20' :
                  activeModal.type === 'child-link' ? 'bg-slate-900 text-white shadow-slate-200' :
@@ -1509,7 +1509,7 @@
                   <button
                     type="button"
                     onclick={() => setChildModalTab(tab[0])}
-                    class="min-w-0 rounded-xl px-2.5 py-3 text-[9px] font-black uppercase tracking-[0.03em] leading-tight whitespace-normal transition-all sm:px-4 sm:py-3.5 sm:text-[10px] sm:tracking-[0.08em] {childModalTab === tab[0] ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-700'}"
+                    class="min-w-0 rounded-xl px-2.5 py-3 text-[9px] font-black uppercase tracking-[0.03em] leading-tight whitespace-normal transition-all sm:px-4 sm:py-3.5 sm:text-[10px] sm:tracking-[0.08em] {childModalTab === tab[0] ? 'bg-hero text-white shadow-md shadow-hero/20' : 'text-slate-500 hover:bg-white/70 hover:text-hero'}"
                   >
                     <span class="block min-w-0 break-words text-center">{tab[1]}</span>
                   </button>
@@ -1946,22 +1946,22 @@
           {#if activeModal.type === 'picker'}
             {#if childModalTab === 'points'}
               <div class="space-y-4">
-              <div class="flex gap-2 p-1 bg-slate-100 rounded-2xl">
+              <div class="flex gap-2 rounded-2xl bg-hero/5 p-1 ring-1 ring-hero/10">
                 <button
                   onclick={() => activeTab = 'positive'}
-                  class="min-w-0 flex-1 px-2 py-2.5 rounded-xl font-black uppercase tracking-[0.08em] text-[9px] leading-none transition-all sm:px-4 sm:py-3 sm:text-[10px] sm:tracking-[0.08em] {activeTab === 'positive' ? 'bg-white text-hero shadow-sm' : 'text-slate-500 hover:text-slate-700'}"
+                  class="min-w-0 flex-1 rounded-xl px-2 py-2.5 text-[9px] font-black uppercase leading-none tracking-[0.08em] transition-all sm:px-4 sm:py-3 sm:text-[10px] sm:tracking-[0.08em] {activeTab === 'positive' ? 'bg-savings/15 text-savings shadow-sm ring-1 ring-savings/10' : 'text-slate-500 hover:bg-white/70 hover:text-savings'}"
                 >
                   Add
                 </button>
                 <button
                   onclick={() => activeTab = 'negative'}
-                  class="min-w-0 flex-1 px-2 py-2.5 rounded-xl font-black uppercase tracking-[0.08em] text-[9px] leading-none transition-all sm:px-4 sm:py-3 sm:text-[10px] sm:tracking-[0.08em] {activeTab === 'negative' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}"
+                  class="min-w-0 flex-1 rounded-xl px-2 py-2.5 text-[9px] font-black uppercase leading-none tracking-[0.08em] transition-all sm:px-4 sm:py-3 sm:text-[10px] sm:tracking-[0.08em] {activeTab === 'negative' ? 'bg-penalty/15 text-penalty shadow-sm ring-1 ring-penalty/10' : 'text-slate-500 hover:bg-white/70 hover:text-penalty'}"
                 >
                   Remove
                 </button>
                 <button 
                   onclick={() => activeTab = 'other'}
-                  class="min-w-0 flex-1 px-2 py-2.5 rounded-xl font-black uppercase tracking-[0.08em] text-[9px] leading-none transition-all sm:px-4 sm:py-3 sm:text-[10px] sm:tracking-[0.08em] {activeTab === 'other' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}"
+                  class="min-w-0 flex-1 rounded-xl px-2 py-2.5 text-[9px] font-black uppercase leading-none tracking-[0.08em] transition-all sm:px-4 sm:py-3 sm:text-[10px] sm:tracking-[0.08em] {activeTab === 'other' ? 'bg-hero/15 text-hero shadow-sm ring-1 ring-hero/10' : 'text-slate-500 hover:bg-white/70 hover:text-hero'}"
                 >
                   Custom
                 </button>
@@ -2013,7 +2013,7 @@
                         type="button"
                         onclick={() => submitCustomPoints('award')}
                         disabled={modalLoading || Math.abs(Number(modalForm.points) || 0) < 1}
-                        class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-hero px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-hero/20 disabled:cursor-not-allowed disabled:opacity-60"
+                        class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-savings/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <Award size={16} />
                         Add points
@@ -2022,7 +2022,7 @@
                         type="button"
                         onclick={() => submitCustomPoints('penalty')}
                         disabled={modalLoading || Math.abs(Number(modalForm.points) || 0) < 1}
-                        class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-penalty px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-penalty/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <Ban size={16} />
                         Remove points
@@ -2035,12 +2035,12 @@
                       <button
                         onclick={() => applyPreset(activeModal.child, p)}
                         title={p.title}
-                        class="group p-3 sm:p-4 rounded-3xl border-2 transition-all text-center flex flex-col items-center gap-2 min-h-40 sm:min-h-44 {p.points > 0 ? 'border-slate-50 hover:border-hero/20 hover:bg-hero/5' : 'border-slate-50 hover:border-slate-900/10 hover:bg-slate-50'}"
+                        class="group flex min-h-40 flex-col items-center gap-2 rounded-3xl border-2 p-3 text-center transition-all sm:min-h-44 sm:p-4 {p.points > 0 ? 'border-slate-50 hover:border-savings/20 hover:bg-savings/5' : 'border-slate-50 hover:border-penalty/20 hover:bg-penalty/5'}"
                       >
                         <div class="text-4xl mb-1 h-12 flex items-center justify-center">
                           {p.icon || '✨'}
                         </div>
-                        <div class="px-2 py-0.5 rounded-lg font-black text-xs {p.points > 0 ? 'bg-hero text-white' : 'bg-slate-900 text-white'}">
+                        <div class="rounded-lg px-2 py-0.5 text-xs font-black {p.points > 0 ? 'bg-savings text-white' : 'bg-penalty text-white'}">
                           {p.points > 0 ? '+' : ''}{p.points} pts
                         </div>
                         <div class="min-w-0 mt-1">
@@ -2224,17 +2224,17 @@
               {@const percent = goodPercentage(behaviorLedger)}
               {@const key = ledgerKey(activeModal.child.child.id)}
               <div class="space-y-5">
-                <div class="grid grid-cols-3 gap-2 rounded-2xl bg-slate-100 p-1">
-                  {#each [['day', 'Day'], ['week', 'Week'], ['year', 'Year']] as period}
-                    <button
-                      type="button"
-                      onclick={() => setPointLogPeriod(period[0])}
-                      class="rounded-xl py-3 text-[9px] font-black uppercase tracking-[0.03em] transition-all sm:text-[10px] sm:tracking-[0.08em] {pointLogPeriod === period[0] ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-700'}"
-                    >
-                      {period[1]}
-                    </button>
-                  {/each}
-                </div>
+              <div class="grid grid-cols-3 gap-2 rounded-2xl bg-hero/5 p-1 ring-1 ring-hero/10">
+                {#each [['day', 'Day'], ['week', 'Week'], ['year', 'Year']] as period}
+                  <button
+                    type="button"
+                    onclick={() => setPointLogPeriod(period[0])}
+                    class="rounded-xl py-3 text-[9px] font-black uppercase tracking-[0.03em] transition-all sm:text-[10px] sm:tracking-[0.08em] {pointLogPeriod === period[0] ? 'bg-hero text-white shadow-md shadow-hero/20' : 'text-slate-500 hover:bg-white/70 hover:text-hero'}"
+                  >
+                    {period[1]}
+                  </button>
+                {/each}
+              </div>
 
                 <div class="rounded-[1.75rem] border border-slate-100 bg-white p-5">
                   {#if behaviorLedger.length === 0}
@@ -2248,7 +2248,7 @@
                     </div>
                   {:else}
                     <div class="mx-auto grid h-44 w-44 place-items-center rounded-full" style={ringStyle(percent)}>
-                      <div class="grid h-28 w-28 place-items-center rounded-full bg-white shadow-inner">
+                      <div class="grid h-28 w-28 place-items-center rounded-full bg-white shadow-inner ring-1 ring-slate-100">
                         <div class="text-center">
                           <p class="text-3xl font-black text-slate-950">{percent === null ? '—' : `${percent}%`}</p>
                           <p class="mt-1 text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">Good</p>
@@ -2281,7 +2281,7 @@
                           <p class="truncate text-sm font-black text-slate-950">{tx.description || tx.transaction_type}</p>
                           <p class="text-xs font-bold text-slate-400">{formatLedgerDate(tx.created_at)} · {tx.jar}</p>
                         </div>
-                        <span class="shrink-0 rounded-full px-3 py-2 text-xs font-black {tx.points >= 0 ? 'bg-hero/10 text-hero' : 'bg-slate-200 text-slate-700'}">
+                        <span class="shrink-0 rounded-full px-3 py-2 text-xs font-black {tx.points > 0 ? 'bg-savings/10 text-savings' : tx.points < 0 ? 'bg-penalty/10 text-penalty' : 'bg-slate-100 text-slate-600'}">
                           {tx.points > 0 ? '+' : ''}{tx.points}
                         </span>
                       </div>
@@ -2404,7 +2404,7 @@
                     <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
                       <div class="flex items-center gap-3">
                         <span class="text-xl w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm">{p.icon || '✨'}</span>
-                        <span class={p.points > 0 ? 'text-hero' : 'text-slate-900'}>
+                        <span class={p.points > 0 ? 'text-savings' : 'text-penalty'}>
                           {p.points > 0 ? '+' : ''}{p.points}
                         </span>
                         <span class="font-bold text-slate-900 uppercase tracking-tight text-xs">{p.title}</span>
@@ -2440,10 +2440,10 @@
                 onclick={handleModalSubmit}
                 disabled={modalLoading}
                 class="w-full py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-sm shadow-xl transition-all active:scale-[0.98] disabled:opacity-50
-                {activeModal.type === 'award' ? 'bg-hero text-white shadow-hero/20 hover:bg-hero-dark' : 
+                {activeModal.type === 'award' ? 'bg-savings text-white shadow-savings/20 hover:bg-savings-dark' : 
                  activeModal.type === 'penalty' ? 'bg-penalty text-white shadow-penalty/30 hover:bg-penalty-dark' :
-                 activeModal.type === 'bank' ? 'bg-savings text-white shadow-savings/30 hover:bg-savings-dark' :
-                 activeModal.type === 'presets' ? 'bg-slate-900 text-white shadow-slate-200 hover:bg-black' :
+                 activeModal.type === 'bank' ? 'bg-reward text-white shadow-reward/30 hover:bg-reward-dark' :
+                 activeModal.type === 'presets' ? 'bg-hero text-white shadow-hero/20 hover:bg-hero-dark' :
                  'bg-reward text-white shadow-reward/30 hover:bg-reward-dark'}"
               >
                 {modalLoading ? 'Processing...' : 
@@ -2474,7 +2474,7 @@
   }
   
   :global(.btn-hero) {
-    background: #FF5A5F;
+    background: #7C3AED;
     color: white;
     font-weight: 900;
   }
@@ -2486,24 +2486,30 @@
     font-weight: 800;
   }
 
-  .text-hero { color: #FF5A5F; }
-  .bg-hero { background: #FF5A5F; }
-  .shadow-hero\/20 { box-shadow: 0 10px 20px -5px rgba(255, 90, 95, 0.2); }
+  .text-hero { color: #7C3AED; }
+  .text-hero-dark { color: #5B21B6; }
+  .bg-hero { background: #7C3AED; }
+  .bg-hero-dark { background: #5B21B6; }
+  .shadow-hero\/20 { box-shadow: 0 10px 20px -5px rgba(124, 58, 237, 0.2); }
   
-  .text-savings { color: #00A699; }
-  .text-savings-dark { color: #008489; }
-  .bg-savings { background: #00A699; }
-  .shadow-savings\/20 { box-shadow: 0 10px 20px -5px rgba(0, 166, 153, 0.2); }
-  .shadow-savings\/30 { box-shadow: 0 10px 25px -5px rgba(0, 166, 153, 0.3); }
+  .text-savings { color: #10B981; }
+  .text-savings-dark { color: #047857; }
+  .bg-savings { background: #10B981; }
+  .bg-savings-dark { background: #047857; }
+  .shadow-savings\/20 { box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.2); }
+  .shadow-savings\/30 { box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.3); }
 
-  .text-reward { color: #FC642D; }
-  .bg-reward { background: #FC642D; }
-  .shadow-reward\/20 { box-shadow: 0 10px 20px -5px rgba(252, 100, 45, 0.2); }
-  .shadow-reward\/30 { box-shadow: 0 10px 25px -5px rgba(252, 100, 45, 0.3); }
+  .text-reward { color: #F59E0B; }
+  .bg-reward { background: #F59E0B; }
+  .bg-reward-dark { background: #92400E; }
+  .shadow-reward\/20 { box-shadow: 0 10px 20px -5px rgba(245, 158, 11, 0.2); }
+  .shadow-reward\/30 { box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.3); }
 
-  .text-penalty { color: #484848; }
-  .bg-penalty { background: #484848; }
-  .shadow-penalty\/30 { box-shadow: 0 10px 25px -5px rgba(72, 72, 72, 0.3); }
+  .text-penalty { color: #F43F5E; }
+  .bg-penalty { background: #F43F5E; }
+  .bg-penalty-dark { background: #BE123C; }
+  .shadow-penalty\/20 { box-shadow: 0 10px 20px -5px rgba(244, 63, 94, 0.2); }
+  .shadow-penalty\/30 { box-shadow: 0 10px 25px -5px rgba(244, 63, 94, 0.3); }
 
   @keyframes fade-in {
     from { opacity: 0; }

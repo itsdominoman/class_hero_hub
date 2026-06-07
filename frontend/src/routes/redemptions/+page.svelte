@@ -37,7 +37,7 @@
   <div class="bg-white border-b border-slate-200 mb-12">
     <div class="max-w-4xl mx-auto px-3 sm:px-4 py-6 md:py-8">
       <a href="/parent" class="inline-flex items-center gap-2 text-slate-400 hover:text-hero font-black text-xs uppercase tracking-widest mb-6 transition-colors">
-        <ChevronLeft size={16} /> Back to Dashboard
+        <ChevronLeft size={16} /> Back to Parent Dashboard
       </a>
       <h1 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3 sm:gap-4">
         <div class="w-11 h-11 sm:w-12 sm:h-12 bg-reward/10 text-reward rounded-2xl flex shrink-0 items-center justify-center">
@@ -119,8 +119,8 @@
     border-radius: 2rem;
     box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05);
   }
-  .text-hero { color: #FF5A5F; }
-  .text-savings { color: #00A699; }
-  .bg-savings { background: #00A699; }
-  .text-reward { color: #FC642D; }
+  .text-hero { color: #7C3AED; }
+  .text-savings { color: #10B981; }
+  .bg-savings { background: #10B981; }
+  .text-reward { color: #F59E0B; }
 </style>

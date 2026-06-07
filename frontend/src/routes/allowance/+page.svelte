@@ -304,9 +304,9 @@
   <section class="px-3 py-8 sm:px-4 sm:py-10 lg:py-14">
     <div class="mx-auto max-w-7xl">
       <div class="mb-6">
-        <a href="/parent" class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-500 shadow-sm transition hover:border-hero hover:text-hero">
+        <a href="/parent" class="inline-flex items-center gap-2 rounded-full border border-hero/15 bg-hero/10 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-hero shadow-sm transition hover:border-hero/30 hover:bg-hero/15">
           <ArrowLeft size={14} />
-          Parent dashboard
+          Back to Parent Dashboard
         </a>
       </div>
 
@@ -383,7 +383,7 @@
               <h2 class="text-2xl font-black text-slate-950">No children found</h2>
               <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">Add a child in Parent dashboard before setting up allowance. Then come back here to choose a currency, amount, period, and point goal.</p>
               <a href="/parent" class="btn-secondary mt-5 inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm uppercase tracking-[0.14em]">
-                Back to parent dashboard
+                Back to Parent Dashboard
               </a>
             </div>
           {:else}

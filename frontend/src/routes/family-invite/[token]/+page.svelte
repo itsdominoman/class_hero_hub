@@ -98,7 +98,7 @@
 
 <style>
   :global(.btn-hero) {
-    background: #FF5A5F;
+    background: #7C3AED;
     color: white;
     font-weight: 900;
   }
@@ -110,6 +110,6 @@
     font-weight: 800;
   }
 
-  .text-hero { color: #FF5A5F; }
-  .text-savings { color: #00A699; }
+  .text-hero { color: #7C3AED; }
+  .text-savings { color: #10B981; }
 </style>
