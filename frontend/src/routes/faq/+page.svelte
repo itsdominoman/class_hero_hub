@@ -79,6 +79,10 @@
           answer: 'Points can be used for effort, routines, helpful choices, kindness, school prep, and other everyday wins the family wants to recognise.'
         },
         {
+          question: 'Do calendar events have to earn points?',
+          answer: 'No. Calendar events can simply help the family stay organised. Parents can use Calendar for exams, sports, clubs, appointments, homework due dates, reminders, or tasks. Some families may connect certain tasks to points, but ordinary events do not need to be rewards.'
+        },
+        {
           question: 'Can I use Family Hero Hub without allowance?',
           answer: 'Yes. The app works well as a points-and-rewards system even if you never turn on allowance-style values.'
         },

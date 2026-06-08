@@ -10,7 +10,7 @@ Children who use Family Hero Hub on a linked device.
 - What saved points and unlocks mean
 - Rewards
 - Reward requests
-- My Day / calendar items
+- My Day / calendar items and reminders
 - School Bag
 - What to do if the link stops working
 
@@ -105,18 +105,22 @@ If your parent rejects your request:
 - the points on hold go back to your score
 - you can try again later
 
-## 10) My Day / calendar tasks
+## 10) My Day / calendar items
 
-Your dashboard shows tasks or events for today.
+Your dashboard shows what is coming up for today.
 
 These might be things like:
 
-- homework
+- homework due dates
+- school events
+- exams
+- sports or club activities
+- appointments
 - chores
-- practice
 - family plans
+- reminders
 
-If a task is rewardable, your parent gives points when it is finished and approved.
+Some items might earn points when your parent says so. Other items are just reminders so you know what is coming up.
 
 ## 11) School Bag
 

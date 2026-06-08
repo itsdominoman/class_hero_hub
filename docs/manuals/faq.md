@@ -4,7 +4,7 @@ Last reviewed: 2026-06-08
 
 ## Getting started
 ### What is Family Hero Hub?
-Family Hero Hub is a parent-led family rewards and routines app. It helps parents manage points, rewards, school bag prep, calendar tasks, savings-style goals, allowance-linked point values, child dashboards, and caregiver access.
+Family Hero Hub is a parent-led family rewards and routines app. It helps parents manage points, rewards, school bag prep, calendar events and tasks, savings-style goals, allowance-linked point values, child dashboards, and caregiver access.
 
 ### Is Family Hero Hub just a chore app?
 No. Chores and tasks can be part of it, but Family Hero Hub is broader than that. It helps families manage everyday responsibility, rewards, school prep, routines, and child progress in one place.
@@ -30,6 +30,9 @@ Yes. Parents can remove points when they need to reflect family expectations or 
 
 ### What should points be used for?
 Points can be used for effort, routines, helpful choices, kindness, school prep, and other everyday wins the family wants to recognise.
+
+### Do calendar events have to earn points?
+No. Calendar events can simply help the family stay organised. Parents can use Calendar for exams, sports, clubs, appointments, homework due dates, reminders, or tasks. Some families may connect certain tasks to points, but ordinary events do not need to be rewards.
 
 ### Can I use Family Hero Hub without allowance?
 Yes. The app works well as a points-and-rewards system even if you never turn on allowance-style values.

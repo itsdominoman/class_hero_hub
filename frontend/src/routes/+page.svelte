@@ -67,8 +67,8 @@
     },
     {
       icon: CalendarDays,
-      title: 'Calendar',
-      text: 'Keep tasks, reminders, and family routines visible.'
+      title: 'Calendar & family schedule',
+      text: 'Keep track of exams, sports, clubs, appointments, homework due dates, and family reminders — with or without points attached.'
     },
     {
       icon: Sparkles,
@@ -98,7 +98,7 @@
     },
     {
       title: "Let children see what's next",
-      text: 'Children can view their own dashboard with points, rewards, tasks, School Bag, calendar items, and savings progress.'
+      text: 'Children can view their own dashboard with points, rewards, tasks, School Bag, calendar events, and savings progress.'
     },
     {
       title: 'Approve rewards together',
@@ -308,7 +308,7 @@
           Family life gets noisy. School bags, chores, routines, screen-time deals, reward promises, allowance values, and "but you said" moments all pile up fast.
         </p>
         <p class="mt-4 text-base md:text-lg leading-relaxed text-slate-600">
-          Family Hero Hub gives parents one place to set expectations, award points, approve rewards, manage savings-style goals, and keep daily routines visible.
+          Family Hero Hub gives parents one place to set expectations, award points, approve rewards, manage savings-style goals, and keep routines, tasks, and calendar events visible.
         </p>
       </div>
 

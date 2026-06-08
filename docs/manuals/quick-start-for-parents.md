@@ -11,7 +11,7 @@
 - Give first points
 - Ask the child to request the reward
 - Approve or reject the reward request
-- Add one calendar item
+- Add one calendar event or reminder
 - Check School Prep / School Bag
 
 ## 1) Sign in
@@ -109,8 +109,9 @@ Example reward: “Choose movie night”
 
 - Add one task or event to the calendar.
   - The item appears in the child’s day view.
-- Check whether it is rewardable.
-  - The task can award points when completed and approved.
+- Decide whether it is rewardable.
+  - Some items can award points when completed and approved.
+  - Other items can simply be reminders.
 - Add school items for today or tomorrow.
   - **School Prep** and **School Bag** show the right items.
 - Confirm the child can see School Bag.
@@ -125,4 +126,4 @@ Example reward: “Choose movie night”
 - A reward request can be approved or rejected.
 - If allowance is enabled, the child dashboard shows points first and the money equivalent second.
 - The child’s current points gain allowance value when allowance is enabled.
-- The calendar and School Bag show the right items.
+- The calendar and School Bag show the right items, including ordinary reminders.

@@ -12,7 +12,7 @@ Parents and caregivers who use Family Hero Hub to manage children, points, rewar
 - Creating and managing rewards
 - Reviewing reward requests
 - Using saved points and allowance-style values
-- Using the calendar
+- Using the calendar for tasks and family events
 - Using School Prep / School Bag
 - Linking and unlinking child devices
 - Managing caregivers and family access
@@ -27,7 +27,7 @@ In simple terms:
 - children can request rewards from their own dashboard
 - parents approve or reject those requests
 - families can optionally use allowance-style point values
-- parents can manage calendar items and school prep
+- parents can manage calendar items, school prep, and ordinary family events
 
 ## 2) How parents sign in
 
@@ -208,7 +208,18 @@ Good reward examples:
 
 ## 11) Calendar, School Prep, and School Bag
 
-Use the calendar for family tasks and events.
+Use the calendar for family tasks, reminders, and ordinary events.
+
+Use it for things like:
+
+- exams
+- tests
+- sporting events
+- school events
+- clubs and activities
+- appointments
+- homework due dates
+- reminders that do not earn points
 
 School Prep is the parent view for today and tomorrow's school items.
 School Bag is the child view that shows the school items to remember.

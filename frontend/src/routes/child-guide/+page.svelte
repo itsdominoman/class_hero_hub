@@ -12,12 +12,16 @@
     <p class="mt-5 max-w-3xl text-base leading-relaxed text-slate-600">
       Points show progress. You can earn them by following routines, helping out, trying hard, and completing tasks your parent has set. Some families use points for rewards or allowance values, but your parent decides how it works.
     </p>
+    <p class="mt-4 max-w-3xl text-base leading-relaxed text-slate-600">
+      Your Calendar shows what is coming up, like school events, exams, sports, clubs, homework, appointments, or tasks from your parent. Some things may earn points, but some are just reminders so you know what to expect.
+    </p>
   </div>
 
   <div class="grid gap-5 md:grid-cols-2">
     {#each [
       ['See your points', 'Your dashboard shows the points you have available and, when your parent uses savings, points set aside for later.'],
       ['Check tasks and School Bag', 'Use the dashboard to see what is coming up, what needs doing today, and what to remember for school.'],
+      ['Look at Calendar', 'See school events, exams, sports, clubs, homework dates, appointments, and reminders. Some items earn points and some are just there to help you remember.'],
       ['Request rewards', 'You can ask for rewards from your dashboard. Your parent approves or rejects each request.'],
       ['Save points', 'Saved points help you practise waiting and working toward bigger goals.'],
       ['Ask a parent if something looks wrong', 'If points, tasks, rewards, or School Bag items do not look right, ask a parent or caregiver.'],
