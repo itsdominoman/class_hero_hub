@@ -44,9 +44,9 @@
           <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
           </div>
-          <h1 class="text-3xl font-black text-slate-900 mb-4">Thanks - your access request has been sent.</h1>
+          <h1 class="text-3xl font-black text-slate-900 mb-4">Thanks — your access request has been sent.</h1>
           <p class="text-slate-600 mb-8 text-base sm:text-lg leading-relaxed break-words">
-            If approved, you'll be able to sign in with the Google account you provided.
+            If approved, you’ll be able to sign in with the Google account you provided.
           </p>
           <a href="/login" class="btn-secondary inline-block">Return to login</a>
         </div>
@@ -59,6 +59,15 @@
           <p class="mx-auto max-w-2xl rounded-2xl border-2 border-slate-100 bg-slate-50 p-4 text-left text-sm leading-relaxed text-slate-600">
             Request access if you want a parent-led way to manage points, rewards, allowance-style values, school bag prep, calendar tasks, and child dashboards for your family.
           </p>
+          <div class="mx-auto mt-5 max-w-2xl rounded-2xl border-2 border-slate-100 bg-white p-4 text-left text-sm leading-relaxed text-slate-600">
+            <h2 class="font-black text-slate-900">What happens next?</h2>
+            <p class="mt-2">
+              Send your request using the Google email address you want to use for your parent account. If approved, you’ll be able to sign in and start setting up your family.
+            </p>
+            <p class="mt-2">
+              Family Hero Hub is currently opened carefully so early families can be supported properly.
+            </p>
+          </div>
         </div>
 
         {#if error}

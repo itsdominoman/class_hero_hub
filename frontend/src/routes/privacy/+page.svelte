@@ -4,54 +4,110 @@
 
 <div class="max-w-4xl mx-auto px-4 py-16">
   <div class="card p-8 md:p-12">
-    <h1 class="text-4xl font-black text-slate-900 mb-6">Privacy Policy</h1>
+    <h1 class="text-4xl font-black text-slate-900 mb-3">Privacy Policy</h1>
+    <p class="text-sm font-bold uppercase tracking-[0.18em] text-slate-400 mb-8">Last updated: 2026-06-08</p>
 
     <div class="prose prose-slate max-w-none space-y-8 text-slate-600">
       <p class="text-lg leading-relaxed">
-        Family Hero Hub is designed for parent-led family use. This policy explains, in plain language, the kinds of information we use to run the service and the choices parents keep in control.
+        Family Hero Hub is designed for parent-led family use. This Privacy Policy explains what information we use to run the service, how it is used, and the choices parents have.
       </p>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">1. Parent-led family use</h2>
+        <h2 class="text-2xl font-bold text-slate-800">1. Who Family Hero Hub is for</h2>
         <p>
-          Parents set up the family, manage children, award points, approve rewards, invite caregivers, and control linked child devices.
-          Children use a linked dashboard made for their own view only.
+          Family Hero Hub is for parents and caregivers managing a private family space. Children use linked dashboards created and managed by parents.
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">2. What children can and cannot see</h2>
+        <h2 class="text-2xl font-bold text-slate-800">2. Information we collect</h2>
+        <p>We collect and use information needed to provide the service, including:</p>
+        <ul class="list-disc pl-6 space-y-2">
+          <li><strong>Parent account details:</strong> name and email address from Google sign-in.</li>
+          <li><strong>Family details:</strong> family name and family settings.</li>
+          <li><strong>Child profile details:</strong> child names or display names, avatars, and profile settings entered by parents.</li>
+          <li><strong>Family activity:</strong> points awarded or removed, reward requests and approvals, routines and tasks, School Bag items, Calendar items, Points Log entries, savings and allowance-style values, linked child devices, and caregiver invitations or access.</li>
+          <li><strong>Request access and contact information:</strong> names, email addresses, and messages submitted through forms.</li>
+          <li><strong>Technical information:</strong> session, device, and access information needed to operate and protect the service.</li>
+        </ul>
+      </section>
+
+      <section class="space-y-4">
+        <h2 class="text-2xl font-bold text-slate-800">3. How we use information</h2>
+        <p>We use information to:</p>
+        <ul class="list-disc pl-6 space-y-2">
+          <li>operate Family Hero Hub</li>
+          <li>show parent and child dashboards</li>
+          <li>manage points, rewards, routines, School Bag, Calendar, savings, allowance values, caregiver access, and linked devices</li>
+          <li>respond to access requests and contact messages</li>
+          <li>protect accounts and maintain the service</li>
+        </ul>
+      </section>
+
+      <section class="space-y-4">
+        <h2 class="text-2xl font-bold text-slate-800">4. Children's access</h2>
         <p>
-          Children can see their own points, rewards, tasks, School Bag items, and progress. They do not have parent/admin access.
-          Family Hero Hub does not have public child profiles, a social feed, or child-to-child messaging.
+          Children use linked dashboards. They do not have parent/admin access, public profiles, a social feed, or child-to-child messaging.
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">3. Google sign-in for parents</h2>
+        <h2 class="text-2xl font-bold text-slate-800">5. Google sign-in for parents</h2>
         <p>
-          Parent accounts use Google sign-in. Google handles the secure sign-in screen, and Family Hero Hub does not ask for your Google password.
+          Parent accounts use Google sign-in. Family Hero Hub does not ask for or store your Google password. Google handles the sign-in screen.
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">4. Family tools and access control</h2>
+        <h2 class="text-2xl font-bold text-slate-800">6. Caregivers and family access</h2>
         <p>
-          Parents control caregiver access, can unlink child devices, and decide how family points, rewards, routines, and School Bag items are used.
+          Invited caregivers may see or manage family information according to the app's family access model. Family access can be removed where permissions allow.
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">5. Rewards, savings, and allowance</h2>
+        <h2 class="text-2xl font-bold text-slate-800">7. Rewards, savings, and allowance</h2>
         <p>
-          Family Hero Hub uses points for family progress. Saved points and optional allowance values are family tools, not banking features. Family Hero Hub does not hold money, transfer money, or pay children directly.
+          Points and saved points are app features. Optional allowance values are family-managed representations. Family Hero Hub does not hold money, transfer money, or pay children.
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">6. Contact</h2>
+        <h2 class="text-2xl font-bold text-slate-800">8. Sharing information</h2>
         <p>
-          If you have questions about privacy, family access, or how the app works in your household, contact us at
+          Family Hero Hub uses information to provide the service. We do not sell your data to third parties. We may use trusted service providers to host, maintain, secure, or support the service.
+        </p>
+      </section>
+
+      <section class="space-y-4">
+        <h2 class="text-2xl font-bold text-slate-800">9. Data retention</h2>
+        <p>
+          Information is kept while needed to provide the service, maintain records, support accounts, or meet legitimate operational or legal needs. Parents can contact support with questions about account deletion or data removal.
+        </p>
+      </section>
+
+      <section class="space-y-4">
+        <h2 class="text-2xl font-bold text-slate-800">10. Security</h2>
+        <p>
+          Family Hero Hub uses reasonable technical and organisational measures to protect family information. No online service can guarantee perfect security, so parents should keep their devices and accounts protected.
+        </p>
+      </section>
+
+      <section class="space-y-4">
+        <h2 class="text-2xl font-bold text-slate-800">11. Parent choices</h2>
+        <p>Parents can:</p>
+        <ul class="list-disc pl-6 space-y-2">
+          <li>update family and child information in the app where available</li>
+          <li>unlink child devices</li>
+          <li>remove caregiver access where allowed</li>
+          <li>contact support for privacy questions</li>
+        </ul>
+      </section>
+
+      <section class="space-y-4">
+        <h2 class="text-2xl font-bold text-slate-800">12. Contact</h2>
+        <p>
+          If you have questions about privacy, family access, or how the app works in your household, contact
           <a href="mailto:support@familyherohub.com" class="text-hero font-bold hover:underline">support@familyherohub.com</a>.
         </p>
       </section>

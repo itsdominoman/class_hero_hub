@@ -1,6 +1,6 @@
 <script lang="ts">
   import {
-    CalendarDays,
+    Backpack,
     ChevronRight,
     Coins,
     HelpCircle,
@@ -33,6 +33,10 @@
         {
           question: 'What is Family Hero Hub?',
           answer: 'Family Hero Hub is a parent-led family rewards and routines app. It helps parents manage points, rewards, school bag prep, calendar tasks, savings-style goals, allowance-linked point values, child dashboards, and caregiver access.'
+        },
+        {
+          question: 'Why did you build Family Hero Hub?',
+          answer: 'Family Hero Hub was built by a parent for real family life. I wanted a calmer way to manage repeated reminders, school bag prep, routines, points, rewards, savings-style goals, and child dashboards in one place. Other family apps I tried were missing pieces I needed, so Family Hero Hub started as something practical for my own family.'
         },
         {
           question: 'Is Family Hero Hub just a chore app?',
@@ -68,7 +72,7 @@
         },
         {
           question: 'Can parents remove points?',
-          answer: 'Yes. Parents can remove points when they need to reflect family expectations or missed responsibilities.'
+          answer: 'Yes. Parents can adjust points when they need to reflect family expectations or missed responsibilities.'
         },
         {
           question: 'What should points be used for?',
@@ -77,6 +81,10 @@
         {
           question: 'Can I use Family Hero Hub without allowance?',
           answer: 'Yes. The app works well as a points-and-rewards system even if you never turn on allowance-style values.'
+        },
+        {
+          question: 'Is this about punishment?',
+          answer: 'No. Family Hero Hub is designed around clear expectations, positive habits, and parent-approved rewards. Parents can adjust points when needed, but the app should not be used to shame children or replace real parenting decisions.'
         }
       ]
     },
@@ -111,7 +119,7 @@
     {
       id: 'child-devices',
       label: 'Child dashboards and devices',
-      icon: CalendarDays,
+      icon: Backpack,
       description: 'How children see their own space and use linked devices.',
       items: [
         {
@@ -175,7 +183,7 @@
           answer: 'No. Family Hero Hub is a private family space, not a social network.'
         },
         {
-          question: 'Are there ads aimed at children?',
+          question: 'Are there ads for children?',
           answer: 'No. Family Hero Hub is not built around advertising to children.'
         },
         {
@@ -187,12 +195,8 @@
           answer: 'Parent sessions stay signed in for convenience. Always log out on shared devices or any device you do not control.'
         },
         {
-          question: 'Can Family Hero Hub replace parenting decisions?',
+          question: 'Does Family Hero Hub replace parenting decisions?',
           answer: 'No. Family Hero Hub helps organise routines, rewards, and expectations. Parents still decide what matters, what is fair, and how rewards work in real life.'
-        },
-        {
-          question: 'Can children approve their own access or settings?',
-          answer: 'No. Parents control setup, caregivers, rewards, and linked devices.'
         }
       ]
     }
@@ -213,16 +217,13 @@
     <div class="max-w-7xl mx-auto">
       <div class="grid lg:grid-cols-[1.1fr_0.9fr] gap-6 sm:gap-8 items-stretch">
         <div class="card p-6 sm:p-8 lg:p-10 relative overflow-hidden">
-          <div class="absolute -top-24 -right-24 w-56 h-56 rounded-full bg-hero/10 blur-3xl"></div>
-          <div class="absolute -bottom-24 -left-24 w-56 h-56 rounded-full bg-savings/10 blur-3xl"></div>
-
           <div class="relative z-10">
             <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-hero/10 text-hero text-sm font-black mb-6 border border-hero/20">
               <HelpCircle size={16} />
               <span class="uppercase tracking-[0.14em]">Questions parents usually ask</span>
             </div>
 
-            <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter text-slate-900 leading-[0.95] mb-5">
+            <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 leading-[0.95] mb-5">
               Clear answers for <span class="text-hero">parents</span>.
             </h1>
 
@@ -239,12 +240,11 @@
               </a>
             </div>
 
-            <p class="mt-6 text-xs font-black uppercase tracking-[0.2em] text-slate-400">Last reviewed: 2026-06-07</p>
+            <p class="mt-6 text-xs font-black uppercase tracking-[0.2em] text-slate-400">Last reviewed: 2026-06-08</p>
           </div>
         </div>
 
         <div class="card p-6 sm:p-8 lg:p-10 !bg-slate-900 text-white relative overflow-hidden">
-          <div class="absolute top-0 right-0 w-72 h-72 rounded-full bg-hero/10 blur-[120px]"></div>
           <div class="relative z-10">
             <h2 class="text-2xl sm:text-3xl font-black mb-4">Jump to a section</h2>
             <p class="text-slate-300 leading-relaxed mb-6">
@@ -279,7 +279,7 @@
               <SectionIcon size={28} />
             </div>
             <div class="min-w-0">
-              <h2 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{section.label}</h2>
+              <h2 class="text-2xl sm:text-3xl font-black text-slate-900">{section.label}</h2>
               <p class="text-slate-600 mt-1 leading-relaxed max-w-3xl">{section.description}</p>
             </div>
           </div>

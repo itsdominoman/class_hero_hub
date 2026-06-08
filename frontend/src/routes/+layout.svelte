@@ -3,8 +3,12 @@
   import { onMount } from 'svelte';
   import { api } from '$lib/api';
 
+  type ParentSession = {
+    is_admin?: boolean;
+  };
+
   let { children } = $props();
-  let currentParent = $state(null);
+  let currentParent = $state<ParentSession | null>(null);
 
   async function loadSession() {
     try {
@@ -99,6 +103,7 @@
               <a href="/contact" class="hover:text-hero transition-colors">Contact</a>
               <a href="/parent-guide" class="hover:text-hero transition-colors">Parent guide</a>
               <a href="/child-guide" class="hover:text-hero transition-colors">Child guide</a>
+              <a href="/safety-privacy" class="hover:text-hero transition-colors">Safety & Privacy</a>
             </div>
           </div>
 

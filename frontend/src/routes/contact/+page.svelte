@@ -6,7 +6,7 @@
   <div class="card p-8 md:p-12 text-center">
     <h1 class="text-4xl font-black text-slate-900 mb-6">Contact Family Hero Hub</h1>
     <p class="text-xl text-slate-600 mb-12 leading-relaxed">
-      Have a question about access, setup, privacy, or your family account? Send us a message and we'll help.
+      Have a question about access, setup, privacy, or your family account? Send us a message and we’ll help.
     </p>
 
     <div class="space-y-8">
