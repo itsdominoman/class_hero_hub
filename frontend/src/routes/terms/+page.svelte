@@ -29,7 +29,7 @@
       <section class="space-y-4">
         <h2 class="text-2xl font-bold text-slate-800">3. Child dashboard access</h2>
         <p>
-          Children may use linked dashboards created or managed by parents. Children do not receive parent/admin access through the Child Dashboard.
+          Children may use linked dashboards created or managed by parents. Children do not receive parent settings or admin permissions through the Child Dashboard.
         </p>
       </section>
 
@@ -41,56 +41,69 @@
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">5. Reward requests and approvals</h2>
+        <h2 class="text-2xl font-bold text-slate-800">5. Subscriptions and billing</h2>
+        <p>
+          When paid subscriptions are available, consumer subscriptions may be managed through Apple App Store or Google Play. Billing, renewals, cancellations, refunds, and payment method management may be handled by the app store where you subscribed.
+        </p>
+        <p>
+          Family Hero Hub does not collect or store payment card or bank account details. Subscription access may depend on subscription status information provided by the relevant app store.
+        </p>
+        <p>
+          If other billing options are added later, these terms and related privacy wording may be updated.
+        </p>
+      </section>
+
+      <section class="space-y-4">
+        <h2 class="text-2xl font-bold text-slate-800">6. Reward requests and approvals</h2>
         <p>
           Children can request rewards, but parents approve or reject requests. Family Hero Hub does not decide what is fair, appropriate, affordable, or suitable for a family.
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">6. Caregiver access</h2>
+        <h2 class="text-2xl font-bold text-slate-800">7. Caregiver access</h2>
         <p>
           Parents may invite trusted caregivers or grownups. Families are responsible for choosing who they invite. Access can be removed where permissions allow.
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">7. Linked child devices</h2>
+        <h2 class="text-2xl font-bold text-slate-800">8. Linked child devices</h2>
         <p>
           Parents may link and unlink child devices. Families are responsible for keeping devices secure.
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">8. Acceptable use</h2>
+        <h2 class="text-2xl font-bold text-slate-800">9. Acceptable use</h2>
         <p>
           Use the service only for lawful family organisation purposes. Do not misuse the service, attempt unauthorised access, interfere with security, or enter harmful or unlawful content.
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">9. Service availability and limitation</h2>
+        <h2 class="text-2xl font-bold text-slate-800">10. Service availability and limitation</h2>
         <p>
           Family Hero Hub is provided as a family organisation tool. We work to keep it useful and available, but we cannot guarantee that it will always be uninterrupted, error-free, or suitable for every family situation. Parents and caregivers remain responsible for decisions made in their household.
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">10. Changes to the service</h2>
+        <h2 class="text-2xl font-bold text-slate-800">11. Changes to the service</h2>
         <p>
           We may update, improve, change, or remove features over time.
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">11. Access requests</h2>
+        <h2 class="text-2xl font-bold text-slate-800">12. Access requests</h2>
         <p>
           Access may be limited and approved in stages. Requesting access does not guarantee approval.
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">12. Contact</h2>
+        <h2 class="text-2xl font-bold text-slate-800">13. Contact</h2>
         <p>
           For questions about these terms, contact
           <a href="mailto:support@familyherohub.com" class="text-hero font-bold hover:underline">support@familyherohub.com</a>.

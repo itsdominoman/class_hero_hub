@@ -443,6 +443,15 @@
             <p class="mt-4 text-base md:text-lg leading-relaxed text-slate-300">
               Children get a simple dashboard to see their points, rewards, School Bag items, tasks, and progress — without public profiles, social feeds, or child-to-child messaging.
             </p>
+            <div class="mt-6 rounded-3xl border border-white/10 bg-white/5 p-4 text-slate-300">
+              <h3 class="text-xl font-black text-white">Parent-led by design</h3>
+              <p class="mt-3 leading-relaxed">
+                Parents manage rewards, caregivers, and linked child devices. Children get simple dashboards without sharing the parent account.
+              </p>
+              <p class="mt-3 leading-relaxed">
+                Family Hero Hub does not hold money, store bank details, transfer funds, or pay children directly. Points and allowance values stay inside your family's own system.
+              </p>
+            </div>
             <a href="/safety-privacy" class="mt-6 inline-flex items-center gap-2 font-black text-hero hover:underline">
               Read Safety & Privacy
               <ArrowRight size={18} />

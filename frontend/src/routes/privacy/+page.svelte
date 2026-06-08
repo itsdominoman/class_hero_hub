@@ -47,7 +47,7 @@
       <section class="space-y-4">
         <h2 class="text-2xl font-bold text-slate-800">4. Children's access</h2>
         <p>
-          Children use linked dashboards. They do not have parent/admin access, public profiles, a social feed, or child-to-child messaging.
+          Children use linked dashboards. They do not get parent settings or admin permissions, public profiles, a social feed, or child-to-child messaging.
         </p>
       </section>
 
@@ -80,21 +80,37 @@
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">9. Data retention</h2>
+        <h2 class="text-2xl font-bold text-slate-800">9. Payments and subscriptions</h2>
+        <p>
+          When paid subscriptions are available through Apple App Store or Google Play, your payment method is handled by the relevant app store. Family Hero Hub may receive subscription status information needed to provide access, but does not collect or store payment card or bank account details.
+        </p>
+      </section>
+
+      <section class="space-y-4">
+        <h2 class="text-2xl font-bold text-slate-800">10. Data retention</h2>
         <p>
           Information is kept while needed to provide the service, maintain records, support accounts, or meet legitimate operational or legal needs. Parents can contact support with questions about account deletion or data removal.
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">10. Security</h2>
+        <h2 class="text-2xl font-bold text-slate-800">11. Security and account protection</h2>
         <p>
-          Family Hero Hub uses reasonable technical and organisational measures to protect family information. No online service can guarantee perfect security, so parents should keep their devices and accounts protected.
+          Family Hero Hub has been built with security and privacy in mind from the start. We avoid collecting financial details we do not need, do not hold money, do not store bank details, and do not pay children directly.
+        </p>
+        <p>
+          Parent accounts use Google sign-in, so Family Hero Hub never asks for or stores your Google password. Children use linked dashboards rather than parent accounts, and parents can manage caregiver access or unlink child devices when needed.
+        </p>
+        <p>
+          When paid subscriptions are available through Apple App Store or Google Play, payment method details are handled by the relevant app store. Family Hero Hub may receive subscription status information needed to provide access, but does not collect or store payment card or bank account details.
+        </p>
+        <p>
+          No online service can promise perfect security, but Family Hero Hub is designed to reduce unnecessary exposure, protect family information, and keep family access under parent control.
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">11. Parent choices</h2>
+        <h2 class="text-2xl font-bold text-slate-800">12. Parent choices</h2>
         <p>Parents can:</p>
         <ul class="list-disc pl-6 space-y-2">
           <li>update family and child information in the app where available</li>
@@ -105,7 +121,7 @@
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">12. Contact</h2>
+        <h2 class="text-2xl font-bold text-slate-800">13. Contact</h2>
         <p>
           If you have questions about privacy, family access, or how the app works in your household, contact
           <a href="mailto:support@familyherohub.com" class="text-hero font-bold hover:underline">support@familyherohub.com</a>.

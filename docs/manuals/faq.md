@@ -1,6 +1,6 @@
 # Family Hero Hub FAQ
 
-Last reviewed: 2026-06-07
+Last reviewed: 2026-06-08
 
 ## Getting started
 ### What is Family Hero Hub?
@@ -34,6 +34,9 @@ Points can be used for effort, routines, helpful choices, kindness, school prep,
 ### Can I use Family Hero Hub without allowance?
 Yes. The app works well as a points-and-rewards system even if you never turn on allowance-style values.
 
+### Is this about punishment?
+No. Family Hero Hub is designed around clear expectations, positive habits, and parent-approved rewards. Parents can adjust points when needed, but the app should not be used to shame children or replace real parenting decisions.
+
 ## Savings and allowance
 ### Is Family Hero Hub a bank?
 No. Family Hero Hub does not hold money, transfer money, or provide banking services. Parents can optionally show an allowance value beside points, but any real-world allowance or purchase remains the parent's responsibility.
@@ -44,11 +47,17 @@ Saved points are points set aside for later. They stay locked for a set time and
 ### What does allowance value mean?
 It means points can show an optional money value. The app can help children understand the connection between effort, saving, and rewards, but parents still control any real-world allowance or purchase.
 
+### Does Family Hero Hub teach children about earning money?
+Family Hero Hub can help children understand the connection between effort, responsibility, saving, and rewards. If parents choose to use allowance values, points can show a family-managed value — but Family Hero Hub does not pay children, hold money, or act like a payroll or banking system. Parents decide what points mean in their home.
+
 ### Does Family Hero Hub pay my child?
 No. Family Hero Hub does not hold money, transfer money, or pay children directly.
 
 ### Can I turn allowance features off?
 Yes. Families can keep the app points-based only and ignore allowance-style values if they prefer.
+
+### How will payments work?
+When paid subscriptions are available, Family Hero Hub plans to use Apple App Store and Google Play subscriptions for consumer billing. That means payment method details are handled by the app store you use. Family Hero Hub does not collect or store payment card or bank account details.
 
 ## Child dashboards and devices
 ### Can my child use their own device?

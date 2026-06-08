@@ -34,6 +34,8 @@ If the device is already linked, you go straight to your dashboard.
 
 Points are your score.
 
+Points show progress. You can earn them by following routines, helping out, trying hard, and completing tasks your parent has set.
+
 You can get points when you:
 
 - help at home
@@ -43,7 +45,7 @@ You can get points when you:
 
 You can also lose points if your parent removes points.
 
-If your parent turns on allowance-style values, your points may also show a money value beside them. The points are still the main thing to look at, and your parent still approves reward requests.
+Some families use points for rewards or allowance values, but your parent decides how it works. If your parent turns on allowance-style values, your points may also show a money value beside them. The points are still the main thing to look at, and your parent still approves reward requests.
 
 ## 4) What saved points mean
 

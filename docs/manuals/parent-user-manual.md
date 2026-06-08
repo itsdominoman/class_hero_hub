@@ -161,6 +161,10 @@ Family Hero Hub can optionally show allowance-style values beside points.
 - Family Hero Hub does not hold money, transfer money, or pay children
 - parents remain responsible for any real-world allowance, purchase, or reward
 
+Use points to encourage effort and follow-through, not just payment for chores. Some families connect points to allowance values, while others use points only for rewards, privileges, or progress.
+
+When paid subscriptions are available, Family Hero Hub plans to use Apple App Store and Google Play subscriptions for consumer billing. Payment method details are handled by the app store you use. Family Hero Hub does not collect or store payment card or bank account details.
+
 ## 8) Rewards overview
 
 Rewards are things a child can earn with points.

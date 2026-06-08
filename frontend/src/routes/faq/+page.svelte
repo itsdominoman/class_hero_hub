@@ -117,6 +117,10 @@
         {
           question: 'Can I turn allowance features off?',
           answer: 'Yes. Families can keep the app points-based only and ignore allowance-style values if they prefer.'
+        },
+        {
+          question: 'How will payments work?',
+          answer: 'When paid subscriptions are available, Family Hero Hub plans to use Apple App Store and Google Play subscriptions for consumer billing. That means payment method details are handled by the app store you use. Family Hero Hub does not collect or store payment card or bank account details.'
         }
       ]
     },
