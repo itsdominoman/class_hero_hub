@@ -3,7 +3,7 @@
   import { api } from '$lib/api';
   import { AVATAR_OPTIONS, getAvatarAsset, hasAvatarAssetFile, normaliseAvatarKey } from '$lib/avatars';
   import { 
-    UserPlus, Award, Ban, PiggyBank, Gift,
+    UserPlus, Award, Ban, PiggyBank, Gift, Ticket,
     LayoutDashboard, Settings, LogIn, Trophy, Clock, Check, X,
     Users, QrCode, Copy, RefreshCcw, Link2, CalendarDays
   } from 'lucide-svelte';
@@ -1164,13 +1164,9 @@
                     <Settings size={15} />
                     Behaviour presets
                   </button>
-                  <button type="button" onclick={() => openModal('requests', null)} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
-                    <Check size={15} />
-                    Review reward requests
-                  </button>
                   <a href="/redemptions" class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
-                    <Check size={15} />
-                    Redemptions
+                    <Ticket size={15} />
+                    Reward redemptions
                   </a>
                   <a href="/allowance" class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
                     <PiggyBank size={15} />

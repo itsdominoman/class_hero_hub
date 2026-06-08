@@ -43,6 +43,8 @@ test.describe('Europe dev authenticated QA login', () => {
 
     await page.getByText('Settings', { exact: true }).click();
     await expect(page.getByRole('link', { name: 'Allowance' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Review reward requests/i })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /Reward redemptions/i })).toBeVisible();
 
     await page.getByRole('link', { name: 'Allowance' }).click();
     await expect(page).toHaveURL(/\/allowance$/);
