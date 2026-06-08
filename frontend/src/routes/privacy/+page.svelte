@@ -124,7 +124,13 @@
         <h2 class="text-2xl font-bold text-slate-800">13. Contact</h2>
         <p>
           If you have questions about privacy, family access, or how the app works in your household, contact
-          <a href="mailto:support@familyherohub.com" class="text-hero font-bold hover:underline">support@familyherohub.com</a>.
+          <a
+            href="mailto:support@familyherohub.com"
+            class="inline-block max-w-full break-words align-bottom text-hero font-bold hover:underline"
+            style="overflow-wrap:anywhere;"
+          >
+            support@familyherohub.com
+          </a>.
         </p>
       </section>
     </div>

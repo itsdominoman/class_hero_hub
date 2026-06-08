@@ -12,7 +12,13 @@
     <div class="space-y-8">
       <div>
         <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Email Support</h2>
-        <a href="mailto:support@familyherohub.com" class="text-3xl font-black text-hero hover:underline">support@familyherohub.com</a>
+        <a
+          href="mailto:support@familyherohub.com"
+          class="inline-block max-w-full break-words text-2xl font-black leading-tight text-hero hover:underline sm:text-3xl"
+          style="overflow-wrap:anywhere;"
+        >
+          support@familyherohub.com
+        </a>
       </div>
 
       <div class="pt-8 border-t border-slate-100">
