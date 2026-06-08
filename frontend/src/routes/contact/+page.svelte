@@ -14,8 +14,8 @@
         <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Email Support</h2>
         <a
           href="mailto:support@familyherohub.com"
-          class="inline-block max-w-full break-words text-2xl font-black leading-tight text-hero hover:underline sm:text-3xl"
-          style="overflow-wrap:anywhere;"
+          class="inline-block max-w-full whitespace-nowrap font-black leading-tight text-hero hover:underline"
+          style="font-size: clamp(0.78rem, 3.5vw, 1.25rem);"
         >
           support@familyherohub.com
         </a>

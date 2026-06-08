@@ -126,8 +126,7 @@
           If you have questions about privacy, family access, or how the app works in your household, contact
           <a
             href="mailto:support@familyherohub.com"
-            class="inline-block max-w-full break-words align-bottom text-hero font-bold hover:underline"
-            style="overflow-wrap:anywhere;"
+            class="inline-block max-w-full whitespace-nowrap align-bottom text-sm font-bold text-hero hover:underline sm:text-base"
           >
             support@familyherohub.com
           </a>.
