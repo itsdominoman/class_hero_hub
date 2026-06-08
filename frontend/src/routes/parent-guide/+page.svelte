@@ -17,7 +17,7 @@
       ['Add simple points', 'Begin with a few everyday reasons: helpful choices, school prep, routines, effort, or kindness.'],
       ['Create a few rewards', 'Keep rewards easy to understand and age-appropriate. Children can request them, but parents approve them.'],
       ['Add School Bag and Calendar later', 'Use School Bag and Calendar when your family is ready to make school prep and routines more visible.'],
-      ['Link a child device if useful', 'A linked child device opens the Child Dashboard without giving children parent/admin access.'],
+      ['Link a child device if useful', 'A linked child device opens the Child Dashboard without sharing the parent account, parent login, or parent device.'],
       ['Invite caregivers only when needed', 'Parents & Caregivers is for trusted grownups who help manage routines, points, rewards, or family setup.'],
       ['Keep points fair and age-appropriate', 'Use points as a clear family tool, not a replacement for parenting judgment or real conversations.'],
       ['Use savings and allowance carefully', 'Saved points and allowance values are optional family tools. Family Hero Hub does not hold or move money.']
@@ -27,6 +27,10 @@
         <p class="mt-3 leading-relaxed text-slate-600">{item[1]}</p>
       </section>
     {/each}
+  </div>
+
+  <div class="mt-8 rounded-3xl border border-slate-200 bg-slate-50 p-5 text-slate-600 leading-relaxed">
+    Use points to encourage effort and follow-through, not just payment for chores. Some families connect points to allowance values, while others use points only for rewards, privileges, or progress.
   </div>
 
   <div class="mt-10 flex flex-wrap gap-3">

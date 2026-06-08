@@ -9,6 +9,9 @@
     <p class="mt-5 max-w-3xl text-lg leading-relaxed text-slate-600">
       A simple guide for children who use a linked Child Dashboard on their own device.
     </p>
+    <p class="mt-5 max-w-3xl text-base leading-relaxed text-slate-600">
+      Points show progress. You can earn them by following routines, helping out, trying hard, and completing tasks your parent has set. Some families use points for rewards or allowance values, but your parent decides how it works.
+    </p>
   </div>
 
   <div class="grid gap-5 md:grid-cols-2">

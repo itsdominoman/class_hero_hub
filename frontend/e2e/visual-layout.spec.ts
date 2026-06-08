@@ -29,7 +29,7 @@ const CHILD_VIEWPORTS = [320, 360, 375, 390, 430, 768];
 const PUBLIC_CASES: VisualCase[] = [
   {
     path: '/',
-    heading: 'Less nagging. Clearer routines. Rewards kids can actually earn.',
+    heading: 'Less nagging. Clearer routines. More everyday wins.',
     headingLevel: 'h1',
     auth: 'public',
     screenshotName: 'home-public',
@@ -37,7 +37,7 @@ const PUBLIC_CASES: VisualCase[] = [
   },
   {
     path: '/faq',
-    heading: 'Clear answers for parents and children.',
+    heading: 'Clear answers for parents.',
     headingLevel: 'h1',
     auth: 'public',
     screenshotName: 'faq-public',

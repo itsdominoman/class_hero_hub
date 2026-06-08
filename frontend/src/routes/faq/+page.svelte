@@ -107,6 +107,10 @@
           answer: 'It means points can show an optional money value. The app can help children understand the connection between effort, saving, and rewards, but parents still control any real-world allowance or purchase.'
         },
         {
+          question: 'Does Family Hero Hub teach children about earning money?',
+          answer: 'Family Hero Hub can help children understand the connection between effort, responsibility, saving, and rewards. If parents choose to use allowance values, points can show a family-managed value — but Family Hero Hub does not pay children, hold money, or act like a payroll or banking system. Parents decide what points mean in their home.'
+        },
+        {
           question: 'Does Family Hero Hub pay my child?',
           answer: 'No. Family Hero Hub does not hold money, transfer money, or pay children directly.'
         },

@@ -40,7 +40,7 @@
     'Clearer expectations',
     'Parent-approved rewards',
     'Shared caregiver access',
-    'Child dashboards without parent access',
+    'Child dashboards on their own devices',
     'A visible history of points and requests'
   ];
 
@@ -73,7 +73,7 @@
     {
       icon: Sparkles,
       title: 'Child Dashboard',
-      text: 'Give children a simple place to see progress without giving them parent access.'
+      text: 'Give children a simple place to see progress without sharing the parent account.'
     },
     {
       icon: Users,
@@ -227,7 +227,7 @@
             <div class="rounded-3xl border border-slate-100 bg-hero/5 p-5">
               <p class="text-xs font-black uppercase tracking-[0.18em] text-hero">Child view</p>
               <p class="mt-3 text-xl font-black text-slate-900">Simple, clear, and age-friendly.</p>
-              <p class="mt-2 text-sm leading-relaxed text-slate-600">Children see their own dashboard without parent/admin access.</p>
+              <p class="mt-2 text-sm leading-relaxed text-slate-600">Children see their own dashboard without using the parent account.</p>
             </div>
           </div>
 
@@ -378,10 +378,10 @@
         <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Child benefit</p>
         <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">For children who need to see progress</h2>
         <p class="mt-5 text-base md:text-lg leading-relaxed text-slate-600">
-          Children do better when they can see what is expected, what they have earned, and what they are working toward.
+          Children do better when they can see what is expected, what progress they have made, and what they are working toward.
         </p>
         <p class="mt-4 text-base md:text-lg leading-relaxed text-slate-600">
-          The Child Dashboard gives them a simple view of their points, rewards, tasks, School Bag, Calendar, and savings progress — without giving them parent settings or admin access.
+          The Child Dashboard gives them a simple view of their points, rewards, tasks, School Bag, Calendar, and savings progress — without sharing the parent account, parent login, or parent device.
         </p>
         <p class="mt-5 rounded-3xl bg-hero/5 px-4 py-4 text-sm font-semibold text-slate-700">
           Children can request rewards, but parents approve them.
@@ -396,8 +396,8 @@
         </div>
         <div class="card p-6">
           <Star size={28} class="text-reward" />
-          <h3 class="mt-5 text-xl font-black text-slate-900">What they earned</h3>
-          <p class="mt-3 leading-relaxed text-slate-600">Points and rewards make progress visible without parent access.</p>
+          <h3 class="mt-5 text-xl font-black text-slate-900">What they have done</h3>
+          <p class="mt-3 leading-relaxed text-slate-600">Points and rewards make effort, responsibility, and follow-through visible.</p>
         </div>
         <div class="card p-6 sm:col-span-2">
           <PiggyBank size={28} class="text-savings" />
@@ -474,6 +474,9 @@
       <div class="space-y-5 text-base md:text-lg leading-relaxed text-slate-600">
         <p>
           Family Hero Hub can show optional allowance values beside points, helping children understand effort, saving, and rewards.
+        </p>
+        <p>
+          Points can also help children understand that effort, responsibility, and follow-through can lead to rewards. When families choose to show optional allowance values, children can start to see how consistent effort adds up over time.
         </p>
         <p>
           Saved points can be locked for later and unlock with a bonus, giving children a simple way to practise waiting, planning, and working toward bigger rewards.
