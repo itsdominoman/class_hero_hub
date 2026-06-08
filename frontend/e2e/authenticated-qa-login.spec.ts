@@ -12,6 +12,16 @@ test.describe('Europe dev authenticated QA login', () => {
     await expect(page.getByRole('button', { name: /Open point actions for Jackson/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /Open point actions for Leah/i })).toBeVisible();
 
+    const jacksonAvatar = page.getByRole('button', { name: /Open point actions for Jackson/i }).locator('img');
+    const leahAvatar = page.getByRole('button', { name: /Open point actions for Leah/i }).locator('img');
+    await expect(jacksonAvatar).toBeVisible();
+    await expect(leahAvatar).toBeVisible();
+    await expect(jacksonAvatar).toHaveAttribute('src', /\/avatars\/\d+\.png$/);
+    await expect(leahAvatar).toHaveAttribute('src', /\/avatars\/\d+\.png$/);
+    const jacksonSrc = await jacksonAvatar.getAttribute('src');
+    const leahSrc = await leahAvatar.getAttribute('src');
+    expect(jacksonSrc).not.toBe(leahSrc);
+
     await page.getByRole('button', { name: /Open point actions for Jackson/i }).click();
     await expect(page.getByRole('heading', { name: 'Jackson' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Points', exact: true })).toBeVisible();

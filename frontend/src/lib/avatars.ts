@@ -6,6 +6,11 @@ export type AvatarAsset = {
   path: string;
 };
 
+const LEGACY_AVATAR_KEYS: Record<string, AvatarKey> = {
+  robot: "1",
+  hero: "2",
+};
+
 const avatarFiles = import.meta.glob('/static/avatars/*.png', {
   eager: true,
   query: '?url',
@@ -26,6 +31,11 @@ export const AVATAR_OPTIONS: AvatarAsset[] = Array.from({ length: 24 }, (_, inde
 export function normaliseAvatarKey(value: string | null | undefined): AvatarKey | null {
   const trimmed = (value || "").trim();
   if (!trimmed) return null;
+
+  const legacyKey = LEGACY_AVATAR_KEYS[trimmed.toLowerCase()];
+  if (legacyKey) {
+    return legacyKey;
+  }
 
   const numeric = Number(trimmed);
   if (!Number.isInteger(numeric) || numeric < 1 || numeric > 24) {
