@@ -448,7 +448,19 @@ export const ar = {
     privateByDesignText: 'لا ملفات أطفال عامة. لا موجز اجتماعي. لا رسائل بين الأطفال. يبقى التحكم للوالدين.',
     rewardApproved: 'بموافقة الوالدين',
     familyControlled: 'تحكم عائلي',
-    linkOrUnlink: 'ربط أو إلغاء الربط'
+    linkOrUnlink: 'ربط أو إلغاء الربط',
+    heroRewardLabel: 'المكافآت',
+    heroRewardValue: 'معتمد من الوالدين',
+    heroAccessLabel: 'الوصول',
+    heroAccessValue: 'تتحكم بها العائلة',
+    heroDevicesLabel: 'الأجهزة',
+    heroDevicesValue: 'ربط أو إلغاء الربط',
+    heroTrustLabel: 'الثقة',
+    heroTrustText: 'الوالدان يوجهان. والأطفال يرون ما يهم.',
+    heroRoutinesLabel: 'الروتين اليومي',
+    heroRoutinesText: 'اجعل الأمور اليومية مرئية وأسهل في المتابعة.',
+    heroMomentumLabel: 'الزخم',
+    heroMomentumText: 'الإنجازات الصغيرة تتحول مع الوقت إلى عادات أوضح.'
   },
   login: {
     title: 'مرحبا بعودتك إلى Family Hero Hub',
