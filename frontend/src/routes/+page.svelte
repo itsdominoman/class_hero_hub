@@ -38,12 +38,12 @@
   let primaryCtaLabel = $derived(sessionLoaded && authenticated ? $_('home.dashboardCta') : $_('home.requestAccessCta'));
 
   const parentProblemItems = [
-    'Fewer repeated reminders',
-    'Clearer expectations',
-    'Parent-approved rewards',
-    'Shared caregiver access',
-    'Child dashboards on their own devices',
-    'A visible history of points and requests'
+    'home.parentProblemItem1',
+    'home.parentProblemItem2',
+    'home.parentProblemItem3',
+    'home.parentProblemItem4',
+    'home.parentProblemItem5',
+    'home.parentProblemItem6'
   ];
 
   const featureCards = [
@@ -307,13 +307,13 @@
   <section class="px-3 sm:px-4 py-16 md:py-24">
     <div class="max-w-7xl mx-auto">
       <div class="max-w-3xl mb-10">
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">The parent problem</p>
-        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">For parents who are tired of repeating themselves</h2>
+        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{$_('home.parentProblemEyebrow')}</p>
+        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">{$_('home.parentProblemHeading')}</h2>
         <p class="mt-5 text-base md:text-lg leading-relaxed text-slate-600">
-          Family life gets noisy. School bags, chores, routines, screen-time deals, reward promises, allowance values, and "but you said" moments all pile up fast.
+          {$_('home.parentProblemParagraph1')}
         </p>
         <p class="mt-4 text-base md:text-lg leading-relaxed text-slate-600">
-          Family Hero Hub gives parents one place to set expectations, award points, approve rewards, manage savings-style goals, and keep routines, tasks, and calendar events visible.
+          {$_('home.parentProblemParagraph2')}
         </p>
       </div>
 
@@ -321,7 +321,7 @@
         {#each parentProblemItems as item}
           <div class="card p-5 flex items-start gap-3">
             <CheckCircle2 size={22} class="mt-0.5 shrink-0 text-savings" />
-            <p class="font-black leading-relaxed text-slate-900">{item}</p>
+            <p class="font-black leading-relaxed text-slate-900">{$_(item)}</p>
           </div>
         {/each}
       </div>

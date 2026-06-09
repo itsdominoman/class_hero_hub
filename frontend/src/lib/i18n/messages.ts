@@ -113,7 +113,17 @@ export const en = {
     storyHeading: 'Built by a parent for real family life',
     storyParagraph1: 'Family Hero Hub started with the kind of everyday parenting problem most families know too well: repeated reminders, forgotten school bag items, unfinished routines, reward promises, and children asking, "How many points do I have?"',
     storyParagraph2: 'I tried other family apps, but they did not bring together everything I needed — points, rewards, School Bag prep, Calendar tasks, savings-style goals, child dashboards, and caregiver access.',
-    storyParagraph3: 'So I built Family Hero Hub for my own family first. It is designed to help children see what is expected, understand their progress, and work toward parent-approved rewards — while parents stay in control.'
+    storyParagraph3: 'So I built Family Hero Hub for my own family first. It is designed to help children see what is expected, understand their progress, and work toward parent-approved rewards — while parents stay in control.',
+    parentProblemEyebrow: 'The parent problem',
+    parentProblemHeading: 'For parents who are tired of repeating themselves',
+    parentProblemParagraph1: 'Family life gets noisy. School bags, chores, routines, screen-time deals, reward promises, allowance values, and "but you said" moments all pile up fast.',
+    parentProblemParagraph2: 'Family Hero Hub gives parents one place to set expectations, award points, approve rewards, manage savings-style goals, and keep routines, tasks, and calendar events visible.',
+    parentProblemItem1: 'Fewer repeated reminders',
+    parentProblemItem2: 'Clearer expectations',
+    parentProblemItem3: 'Parent-approved rewards',
+    parentProblemItem4: 'Shared caregiver access',
+    parentProblemItem5: 'Child dashboards on their own devices',
+    parentProblemItem6: 'A visible history of points and requests'
   },
   login: {
     title: 'Welcome back to Family Hero Hub',
@@ -470,7 +480,17 @@ export const ar = {
     storyHeading: 'صممه أحد الوالدين لحياة عائلية حقيقية',
     storyParagraph1: 'بدأ Family Hero Hub من مشكلات يومية يعرفها معظم الوالدين جيدًا: التذكيرات المتكررة، ونسيان أدوات الحقيبة المدرسية، والروتين غير المكتمل، ووعود المكافآت، وسؤال الأطفال: "كم نقطة لدي؟"',
     storyParagraph2: 'جرّبت تطبيقات عائلية أخرى، لكنها لم تجمع كل ما كنت أحتاجه في مكان واحد — النقاط، والمكافآت، وتجهيز الحقيبة المدرسية، ومهام التقويم، وأهداف الادخار، ولوحات الأطفال، ووصول مقدمي الرعاية.',
-    storyParagraph3: 'لذلك أنشأت Family Hero Hub لعائلتي أولًا. صُمم ليساعد الأطفال على رؤية ما هو متوقع منهم، وفهم تقدمهم، والعمل نحو مكافآت معتمدة من الوالدين — مع بقاء التحكم بيد الوالدين.'
+    storyParagraph3: 'لذلك أنشأت Family Hero Hub لعائلتي أولًا. صُمم ليساعد الأطفال على رؤية ما هو متوقع منهم، وفهم تقدمهم، والعمل نحو مكافآت معتمدة من الوالدين — مع بقاء التحكم بيد الوالدين.',
+    parentProblemEyebrow: 'المشكلة التي يواجهها الوالدان',
+    parentProblemHeading: 'للوالدين الذين تعبوا من تكرار نفس الكلام',
+    parentProblemParagraph1: 'تزدحم الحياة العائلية بسرعة. الحقيبة المدرسية، والأعمال المنزلية، والروتين، واتفاقات وقت الشاشة، ووعود المكافآت، وقيم المصروف، ولحظات "لكن قلتَ..." كلها تتراكم سريعًا.',
+    parentProblemParagraph2: 'يمنح Family Hero Hub الوالدين مكانًا واحدًا لتحديد التوقعات، ومنح النقاط، والموافقة على المكافآت، وإدارة أهداف الادخار، والحفاظ على الروتين والمهام وأحداث التقويم واضحة.',
+    parentProblemItem1: 'تذكيرات متكررة أقل',
+    parentProblemItem2: 'توقعات أوضح',
+    parentProblemItem3: 'مكافآت معتمدة من الوالدين',
+    parentProblemItem4: 'مشاركة الوصول مع مقدمي الرعاية',
+    parentProblemItem5: 'لوحات الأطفال على أجهزتهم الخاصة',
+    parentProblemItem6: 'سجل واضح للنقاط والطلبات'
   },
   login: {
     title: 'مرحبا بعودتك إلى Family Hero Hub',
