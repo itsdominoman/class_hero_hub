@@ -339,6 +339,15 @@ export const en = {
     contactText: 'Contact us if you have questions about your account, privacy, or access.',
     contactLink: 'Contact Family Hero Hub'
   },
+  contact: {
+    pageTitle: 'Contact Family Hero Hub',
+    heading: 'Contact Family Hero Hub',
+    intro: 'Have a question about access, setup, privacy, or your family account? Send us a message and we’ll help.',
+    emailSupport: 'Email Support',
+    emailAddress: 'support@familyherohub.com',
+    privacyNote1: 'Family Hero Hub is a private, parent-led family app for points, rewards, routines, school prep, and everyday responsibility.',
+    privacyNote2: 'Please do not include sensitive child information in your message.'
+  },
   login: {
     title: 'Welcome back to Family Hero Hub',
     intro: "Sign in to manage your family's points, rewards, routines, school prep, and child dashboards.",
@@ -930,6 +939,15 @@ export const ar = {
     contactHeading: 'هل لديك أسئلة؟',
     contactText: 'تواصل معنا إذا كانت لديك أسئلة حول حسابك أو الخصوصية أو الوصول.',
     contactLink: 'تواصل مع Family Hero Hub'
+  },
+  contact: {
+    pageTitle: 'تواصل مع Family Hero Hub',
+    heading: 'تواصل مع Family Hero Hub',
+    intro: 'هل لديك سؤال حول الوصول أو الإعداد أو الخصوصية أو حساب عائلتك؟ أرسل لنا رسالة وسنساعدك.',
+    emailSupport: 'الدعم عبر البريد الإلكتروني',
+    emailAddress: 'support@familyherohub.com',
+    privacyNote1: 'Family Hero Hub تطبيق عائلي خاص بقيادة الأهل للنقاط والمكافآت والروتين وتجهيز المدرسة والمسؤولية اليومية.',
+    privacyNote2: 'يرجى عدم تضمين أي معلومات حساسة تخص الأطفال في رسالتك.'
   },
   parent: {
     title: 'عائلتي',
