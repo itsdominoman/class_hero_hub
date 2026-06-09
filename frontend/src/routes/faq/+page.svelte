@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { _ } from 'svelte-i18n';
   import {
     Backpack,
     ChevronRight,
@@ -26,9 +27,9 @@
   const faqSections: FaqSection[] = [
     {
       id: 'getting-started',
-      label: 'Getting started',
+      label: 'faq.sectionGettingStartedLabel',
       icon: Sparkles,
-      description: 'Quick answers for parents who are new to Family Hero Hub.',
+      description: 'faq.sectionGettingStartedDescription',
       items: [
         {
           question: 'What is Family Hero Hub?',
@@ -58,9 +59,9 @@
     },
     {
       id: 'points-rewards',
-      label: 'Points and rewards',
+      label: 'faq.sectionPointsRewardsLabel',
       icon: Coins,
-      description: 'How points, requests, and approvals work.',
+      description: 'faq.sectionPointsRewardsDescription',
       items: [
         {
           question: 'Who controls points?',
@@ -94,9 +95,9 @@
     },
     {
       id: 'savings-allowance',
-      label: 'Savings and allowance',
+      label: 'faq.sectionSavingsAllowanceLabel',
       icon: Star,
-      description: 'Clear answers about saved points and optional allowance values.',
+      description: 'faq.sectionSavingsAllowanceDescription',
       items: [
         {
           question: 'Is Family Hero Hub a bank?',
@@ -130,9 +131,9 @@
     },
     {
       id: 'child-devices',
-      label: 'Child dashboards and devices',
+      label: 'faq.sectionChildDevicesLabel',
       icon: Backpack,
-      description: 'How children see their own space and use linked devices.',
+      description: 'faq.sectionChildDevicesDescription',
       items: [
         {
           question: 'Can my child use their own device?',
@@ -158,9 +159,9 @@
     },
     {
       id: 'parents-caregivers',
-      label: 'Parents and caregivers',
+      label: 'faq.sectionParentsCaregiversLabel',
       icon: Users,
-      description: 'How trusted grownups are managed.',
+      description: 'faq.sectionParentsCaregiversDescription',
       items: [
         {
           question: 'Can I invite another parent or caregiver?',
@@ -178,9 +179,9 @@
     },
     {
       id: 'privacy-safety',
-      label: 'Privacy and safety',
+      label: 'faq.sectionPrivacySafetyLabel',
       icon: ShieldCheck,
-      description: 'Why the app stays private and child-safe.',
+      description: 'faq.sectionPrivacySafetyDescription',
       items: [
         {
           question: 'Is my family information private?',
@@ -232,35 +233,35 @@
           <div class="relative z-10">
             <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-hero/10 text-hero text-sm font-black mb-6 border border-hero/20">
               <HelpCircle size={16} />
-              <span class="uppercase tracking-[0.14em]">Questions parents usually ask</span>
+              <span class="uppercase tracking-[0.14em]">{$_('faq.heroEyebrow')}</span>
             </div>
 
             <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 leading-[0.95] mb-5">
-              Clear answers for <span class="text-hero">parents</span>.
+              {$_('faq.heroHeading')}
             </h1>
 
             <p class="text-lg sm:text-xl text-slate-600 leading-relaxed max-w-2xl">
-              Find quick help for getting started, points, rewards, savings, child dashboards, privacy, and family access.
+              {$_('faq.heroIntro')}
             </p>
 
             <div class="mt-8 flex flex-wrap gap-3">
               <a href="/login" class="btn-hero inline-flex items-center gap-2 px-5 py-4 rounded-2xl">
-                Log in <ChevronRight size={18} />
+                {$_('faq.heroLoginCta')} <ChevronRight size={18} />
               </a>
               <a href="/request-access" class="btn-secondary inline-flex items-center gap-2 px-5 py-4 rounded-2xl">
-                Request access <ChevronRight size={18} />
+                {$_('faq.heroRequestAccessCta')} <ChevronRight size={18} />
               </a>
             </div>
 
-            <p class="mt-6 text-xs font-black uppercase tracking-[0.2em] text-slate-400">Last reviewed: 2026-06-08</p>
+            <p class="mt-6 text-xs font-black uppercase tracking-[0.2em] text-slate-400">{$_('faq.heroLastReviewed')}</p>
           </div>
         </div>
 
         <div class="card p-6 sm:p-8 lg:p-10 !bg-slate-900 text-white relative overflow-hidden">
           <div class="relative z-10">
-            <h2 class="text-2xl sm:text-3xl font-black mb-4">Jump to a section</h2>
+            <h2 class="text-2xl sm:text-3xl font-black mb-4">{$_('faq.jumpHeading')}</h2>
             <p class="text-slate-300 leading-relaxed mb-6">
-              Use these quick links to move straight to the topic you need.
+              {$_('faq.jumpIntro')}
             </p>
 
             <div class="flex flex-wrap gap-3">
@@ -269,7 +270,7 @@
                   href={link.href}
                   class="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-white hover:bg-white/10 transition-colors"
                 >
-                  {link.label}
+                  {$_(link.label)}
                 </a>
               {/each}
             </div>
@@ -291,8 +292,8 @@
               <SectionIcon size={28} />
             </div>
             <div class="min-w-0">
-              <h2 class="text-2xl sm:text-3xl font-black text-slate-900">{section.label}</h2>
-              <p class="text-slate-600 mt-1 leading-relaxed max-w-3xl">{section.description}</p>
+              <h2 class="text-2xl sm:text-3xl font-black text-slate-900">{$_(section.label)}</h2>
+              <p class="text-slate-600 mt-1 leading-relaxed max-w-3xl">{$_(section.description)}</p>
             </div>
           </div>
 
