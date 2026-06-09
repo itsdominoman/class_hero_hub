@@ -184,32 +184,32 @@
       description: 'faq.sectionPrivacySafetyDescription',
       items: [
         {
-          question: 'Is my family information private?',
-          answer: 'Family Hero Hub is designed as a private, parent-led family space. Parents control the family setup and children only see their own linked dashboard.'
+          question: 'faq.privacySafetyQuestion1',
+          answer: 'faq.privacySafetyAnswer1'
         },
         {
-          question: 'Are there public child profiles?',
-          answer: 'No. Family Hero Hub does not have public child profiles.'
+          question: 'faq.privacySafetyQuestion2',
+          answer: 'faq.privacySafetyAnswer2'
         },
         {
-          question: 'Is there a social feed?',
-          answer: 'No. Family Hero Hub is a private family space, not a social network.'
+          question: 'faq.privacySafetyQuestion3',
+          answer: 'faq.privacySafetyAnswer3'
         },
         {
-          question: 'Are there ads for children?',
-          answer: 'No. Family Hero Hub is not built around advertising to children.'
+          question: 'faq.privacySafetyQuestion4',
+          answer: 'faq.privacySafetyAnswer4'
         },
         {
-          question: 'How does Google sign-in work?',
-          answer: 'Parents sign in with Google. Google handles the secure sign-in screen, and Family Hero Hub does not ask for the Google password.'
+          question: 'faq.privacySafetyQuestion5',
+          answer: 'faq.privacySafetyAnswer5'
         },
         {
-          question: 'What happens if I use a shared device?',
-          answer: 'Parent sessions stay signed in for convenience. Always log out on shared devices or any device you do not control.'
+          question: 'faq.privacySafetyQuestion6',
+          answer: 'faq.privacySafetyAnswer6'
         },
         {
-          question: 'Does Family Hero Hub replace parenting decisions?',
-          answer: 'No. Family Hero Hub helps organise routines, rewards, and expectations. Parents still decide what matters, what is fair, and how rewards work in real life.'
+          question: 'faq.privacySafetyQuestion7',
+          answer: 'faq.privacySafetyAnswer7'
         }
       ]
     }
