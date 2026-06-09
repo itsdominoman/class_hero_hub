@@ -164,16 +164,16 @@
       description: 'faq.sectionParentsCaregiversDescription',
       items: [
         {
-          question: 'Can I invite another parent or caregiver?',
-          answer: 'Yes. Parents & Caregivers lets families invite trusted grownups and remove access when needed.'
+          question: 'faq.parentsCaregiversQuestion1',
+          answer: 'faq.parentsCaregiversAnswer1'
         },
         {
-          question: 'Can I remove a caregiver?',
-          answer: 'Yes, where the family access rules allow it. Removing a grownup removes their family access without deleting children, points, rewards, school bag items, calendar items, savings, allowance settings, or history.'
+          question: 'faq.parentsCaregiversQuestion2',
+          answer: 'faq.parentsCaregiversAnswer2'
         },
         {
-          question: 'Who controls family settings?',
-          answer: 'Parents control family setup, points, rewards, caregiver access, and linked child devices.'
+          question: 'faq.parentsCaregiversQuestion3',
+          answer: 'faq.parentsCaregiversAnswer3'
         }
       ]
     },

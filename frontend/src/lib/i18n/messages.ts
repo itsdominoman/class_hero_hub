@@ -290,7 +290,13 @@ export const en = {
     childDevicesQuestion4: 'What can children see?',
     childDevicesAnswer4: 'Children can see their own points, rewards, tasks, School Bag items, savings progress, and daily routines from a child-friendly dashboard.',
     childDevicesQuestion5: 'Can children message each other?',
-    childDevicesAnswer5: 'No. Family Hero Hub does not include child-to-child messaging.'
+    childDevicesAnswer5: 'No. Family Hero Hub does not include child-to-child messaging.',
+    parentsCaregiversQuestion1: 'Can I invite another parent or caregiver?',
+    parentsCaregiversAnswer1: 'Yes. Parents & Caregivers lets families invite trusted grownups and remove access when needed.',
+    parentsCaregiversQuestion2: 'Can I remove a caregiver?',
+    parentsCaregiversAnswer2: 'Yes, where the family access rules allow it. Removing a grownup removes their family access without deleting children, points, rewards, school bag items, calendar items, savings, allowance settings, or history.',
+    parentsCaregiversQuestion3: 'Who controls family settings?',
+    parentsCaregiversAnswer3: 'Parents control family setup, points, rewards, caregiver access, and linked child devices.'
   },
   login: {
     title: 'Welcome back to Family Hero Hub',
@@ -820,7 +826,13 @@ export const ar = {
     childDevicesQuestion4: 'ماذا يمكن للأطفال رؤيته؟',
     childDevicesAnswer4: 'يمكن للأطفال رؤية نقاطهم ومكافآتهم ومهامهم وعناصر الحقيبة المدرسية وتقدم الادخار والروتين اليومي من لوحة مناسبة للأطفال.',
     childDevicesQuestion5: 'هل يمكن للأطفال إرسال رسائل لبعضهم؟',
-    childDevicesAnswer5: 'لا. لا يتضمن Family Hero Hub رسائل بين الأطفال.'
+    childDevicesAnswer5: 'لا. لا يتضمن Family Hero Hub رسائل بين الأطفال.',
+    parentsCaregiversQuestion1: 'هل يمكنني دعوة والد آخر أو مقدم رعاية؟',
+    parentsCaregiversAnswer1: 'نعم. تتيح ميزة الأهل ومقدمي الرعاية للعائلات دعوة بالغين موثوقين وإزالة وصولهم عند الحاجة.',
+    parentsCaregiversQuestion2: 'هل يمكنني إزالة مقدم رعاية؟',
+    parentsCaregiversAnswer2: 'نعم، عندما تسمح قواعد وصول العائلة بذلك. إزالة شخص بالغ تزيل وصوله إلى العائلة دون حذف الأطفال أو النقاط أو المكافآت أو عناصر الحقيبة المدرسية أو عناصر التقويم أو الادخار أو إعدادات المصروف أو السجل.',
+    parentsCaregiversQuestion3: 'من يتحكم في إعدادات العائلة؟',
+    parentsCaregiversAnswer3: 'يتحكم الأهل في إعداد العائلة والنقاط والمكافآت ووصول مقدمي الرعاية وأجهزة الأطفال المرتبطة.'
   },
   parent: {
     title: 'عائلتي',
