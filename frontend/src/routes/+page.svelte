@@ -287,18 +287,18 @@
   <section class="bg-white px-3 sm:px-4 py-16 md:py-24">
     <div class="max-w-7xl mx-auto grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
       <div>
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Why it exists</p>
-        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">Built by a parent for real family life</h2>
+        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{$_('home.storyEyebrow')}</p>
+        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">{$_('home.storyHeading')}</h2>
       </div>
       <div class="space-y-5 text-base md:text-lg leading-relaxed text-slate-600">
         <p>
-          Family Hero Hub started with the kind of everyday parenting problem most families know too well: repeated reminders, forgotten school bag items, unfinished routines, reward promises, and children asking, "How many points do I have?"
+          {$_('home.storyParagraph1')}
         </p>
         <p>
-          I tried other family apps, but they did not bring together everything I needed — points, rewards, School Bag prep, Calendar tasks, savings-style goals, child dashboards, and caregiver access.
+          {$_('home.storyParagraph2')}
         </p>
         <p>
-          So I built Family Hero Hub for my own family first. It is designed to help children see what is expected, understand their progress, and work toward parent-approved rewards — while parents stay in control.
+          {$_('home.storyParagraph3')}
         </p>
       </div>
     </div>

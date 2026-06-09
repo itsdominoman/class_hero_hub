@@ -108,7 +108,12 @@ export const en = {
     heroRoutinesLabel: 'Routines',
     heroRoutinesText: 'Keep the everyday stuff visible and easier to follow.',
     heroMomentumLabel: 'Momentum',
-    heroMomentumText: 'Small wins turn into clearer habits over time.'
+    heroMomentumText: 'Small wins turn into clearer habits over time.',
+    storyEyebrow: 'Why it exists',
+    storyHeading: 'Built by a parent for real family life',
+    storyParagraph1: 'Family Hero Hub started with the kind of everyday parenting problem most families know too well: repeated reminders, forgotten school bag items, unfinished routines, reward promises, and children asking, "How many points do I have?"',
+    storyParagraph2: 'I tried other family apps, but they did not bring together everything I needed — points, rewards, School Bag prep, Calendar tasks, savings-style goals, child dashboards, and caregiver access.',
+    storyParagraph3: 'So I built Family Hero Hub for my own family first. It is designed to help children see what is expected, understand their progress, and work toward parent-approved rewards — while parents stay in control.'
   },
   login: {
     title: 'Welcome back to Family Hero Hub',
@@ -460,7 +465,12 @@ export const ar = {
     heroRoutinesLabel: 'الروتين اليومي',
     heroRoutinesText: 'اجعل الأمور اليومية مرئية وأسهل في المتابعة.',
     heroMomentumLabel: 'الزخم',
-    heroMomentumText: 'الإنجازات الصغيرة تتحول مع الوقت إلى عادات أوضح.'
+    heroMomentumText: 'الإنجازات الصغيرة تتحول مع الوقت إلى عادات أوضح.',
+    storyEyebrow: 'لماذا أنشأته',
+    storyHeading: 'صممه أحد الوالدين لحياة عائلية حقيقية',
+    storyParagraph1: 'بدأ Family Hero Hub من مشكلات يومية يعرفها معظم الوالدين جيدًا: التذكيرات المتكررة، ونسيان أدوات الحقيبة المدرسية، والروتين غير المكتمل، ووعود المكافآت، وسؤال الأطفال: "كم نقطة لدي؟"',
+    storyParagraph2: 'جرّبت تطبيقات عائلية أخرى، لكنها لم تجمع كل ما كنت أحتاجه في مكان واحد — النقاط، والمكافآت، وتجهيز الحقيبة المدرسية، ومهام التقويم، وأهداف الادخار، ولوحات الأطفال، ووصول مقدمي الرعاية.',
+    storyParagraph3: 'لذلك أنشأت Family Hero Hub لعائلتي أولًا. صُمم ليساعد الأطفال على رؤية ما هو متوقع منهم، وفهم تقدمهم، والعمل نحو مكافآت معتمدة من الوالدين — مع بقاء التحكم بيد الوالدين.'
   },
   login: {
     title: 'مرحبا بعودتك إلى Family Hero Hub',
