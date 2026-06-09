@@ -476,7 +476,8 @@ export const en = {
     childrenDoNotSignIn: 'Children do not sign in here',
     childHelp: 'Children use linked dashboards. Parents can link a child device from the family dashboard.',
     noAccess: "Don't have access yet?",
-    requestAccess: 'Request access'
+    requestAccess: 'Request access',
+    errorSubmit: 'Failed to submit request. Please try again later.'
   },
   parent: {
     title: 'My Family',
@@ -938,7 +939,8 @@ export const ar = {
     childrenDoNotSignIn: 'الأطفال لا يسجلون الدخول هنا',
     childHelp: 'يستخدم الأطفال لوحات مرتبطة. يمكن للوالدين ربط جهاز طفل من لوحة العائلة.',
     noAccess: 'ليس لديك وصول بعد؟',
-    requestAccess: 'اطلب الوصول'
+    requestAccess: 'اطلب الوصول',
+    errorSubmit: 'فشل إرسال الطلب. يرجى المحاولة مرة أخرى لاحقًا.'
   },
   faq: {
     heroHeading: 'أسئلة يسألها الأهل عادة',
