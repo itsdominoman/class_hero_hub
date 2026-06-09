@@ -280,7 +280,17 @@ export const en = {
     savingsAllowanceQuestion6: 'Can I turn allowance features off?',
     savingsAllowanceAnswer6: 'Yes. Families can keep the app points-based only and ignore allowance-style values if they prefer.',
     savingsAllowanceQuestion7: 'How will payments work?',
-    savingsAllowanceAnswer7: 'When paid subscriptions are available, Family Hero Hub plans to use Apple App Store and Google Play subscriptions for consumer billing. That means payment method details are handled by the app store you use. Family Hero Hub does not collect or store payment card or bank account details.'
+    savingsAllowanceAnswer7: 'When paid subscriptions are available, Family Hero Hub plans to use Apple App Store and Google Play subscriptions for consumer billing. That means payment method details are handled by the app store you use. Family Hero Hub does not collect or store payment card or bank account details.',
+    childDevicesQuestion1: 'Can my child use their own device?',
+    childDevicesAnswer1: 'Yes. Parents can link a child dashboard to a child device.',
+    childDevicesQuestion2: 'How do linked child devices work?',
+    childDevicesAnswer2: "A parent links a child dashboard to a device. That device then opens the child's own view of points, rewards, tasks, School Bag items, and progress.",
+    childDevicesQuestion3: 'Can I unlink a child device?',
+    childDevicesAnswer3: 'Yes. Parents can unlink a specific child device. This signs that device out without deleting the child profile or history.',
+    childDevicesQuestion4: 'What can children see?',
+    childDevicesAnswer4: 'Children can see their own points, rewards, tasks, School Bag items, savings progress, and daily routines from a child-friendly dashboard.',
+    childDevicesQuestion5: 'Can children message each other?',
+    childDevicesAnswer5: 'No. Family Hero Hub does not include child-to-child messaging.'
   },
   login: {
     title: 'Welcome back to Family Hero Hub',
@@ -800,7 +810,17 @@ export const ar = {
     savingsAllowanceQuestion6: 'هل يمكنني إيقاف ميزات المصروف؟',
     savingsAllowanceAnswer6: 'نعم. يمكن للعائلات إبقاء التطبيق قائمًا على النقاط فقط وتجاهل قيم المصروف إذا فضّلوا ذلك.',
     savingsAllowanceQuestion7: 'كيف ستعمل المدفوعات؟',
-    savingsAllowanceAnswer7: 'عندما تتوفر الاشتراكات المدفوعة، يخطط Family Hero Hub لاستخدام اشتراكات Apple App Store وGoogle Play لفوترة المستخدمين. هذا يعني أن تفاصيل طريقة الدفع تتم معالجتها من متجر التطبيقات الذي تستخدمه. لا يجمع Family Hero Hub ولا يخزن بيانات بطاقات الدفع أو الحسابات البنكية.'
+    savingsAllowanceAnswer7: 'عندما تتوفر الاشتراكات المدفوعة، يخطط Family Hero Hub لاستخدام اشتراكات Apple App Store وGoogle Play لفوترة المستخدمين. هذا يعني أن تفاصيل طريقة الدفع تتم معالجتها من متجر التطبيقات الذي تستخدمه. لا يجمع Family Hero Hub ولا يخزن بيانات بطاقات الدفع أو الحسابات البنكية.',
+    childDevicesQuestion1: 'هل يمكن لطفلي استخدام جهازه الخاص؟',
+    childDevicesAnswer1: 'نعم. يمكن للأهل ربط لوحة الطفل بجهاز خاص بالطفل.',
+    childDevicesQuestion2: 'كيف تعمل أجهزة الأطفال المرتبطة؟',
+    childDevicesAnswer2: 'يربط أحد الأهل لوحة الطفل بجهاز. بعد ذلك يفتح هذا الجهاز عرض الطفل الخاص للنقاط والمكافآت والمهام وعناصر الحقيبة المدرسية والتقدم.',
+    childDevicesQuestion3: 'هل يمكنني فصل جهاز طفل؟',
+    childDevicesAnswer3: 'نعم. يمكن للأهل فصل جهاز طفل محدد. يؤدي ذلك إلى تسجيل خروج ذلك الجهاز دون حذف ملف الطفل أو سجله.',
+    childDevicesQuestion4: 'ماذا يمكن للأطفال رؤيته؟',
+    childDevicesAnswer4: 'يمكن للأطفال رؤية نقاطهم ومكافآتهم ومهامهم وعناصر الحقيبة المدرسية وتقدم الادخار والروتين اليومي من لوحة مناسبة للأطفال.',
+    childDevicesQuestion5: 'هل يمكن للأطفال إرسال رسائل لبعضهم؟',
+    childDevicesAnswer5: 'لا. لا يتضمن Family Hero Hub رسائل بين الأطفال.'
   },
   parent: {
     title: 'عائلتي',

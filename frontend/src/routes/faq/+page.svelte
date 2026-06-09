@@ -136,24 +136,24 @@
       description: 'faq.sectionChildDevicesDescription',
       items: [
         {
-          question: 'Can my child use their own device?',
-          answer: 'Yes. Parents can link a child dashboard to a child device.'
+          question: 'faq.childDevicesQuestion1',
+          answer: 'faq.childDevicesAnswer1'
         },
         {
-          question: 'How do linked child devices work?',
-          answer: "A parent links a child dashboard to a device. That device then opens the child's own view of points, rewards, tasks, School Bag items, and progress."
+          question: 'faq.childDevicesQuestion2',
+          answer: 'faq.childDevicesAnswer2'
         },
         {
-          question: 'Can I unlink a child device?',
-          answer: 'Yes. Parents can unlink a specific child device. This signs that device out without deleting the child profile or history.'
+          question: 'faq.childDevicesQuestion3',
+          answer: 'faq.childDevicesAnswer3'
         },
         {
-          question: 'What can children see?',
-          answer: 'Children can see their own points, rewards, tasks, School Bag items, savings progress, and daily routines from a child-friendly dashboard.'
+          question: 'faq.childDevicesQuestion4',
+          answer: 'faq.childDevicesAnswer4'
         },
         {
-          question: 'Can children message each other?',
-          answer: 'No. Family Hero Hub does not include child-to-child messaging.'
+          question: 'faq.childDevicesQuestion5',
+          answer: 'faq.childDevicesAnswer5'
         }
       ]
     },
