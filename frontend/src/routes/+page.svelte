@@ -136,15 +136,15 @@
   ];
 
   const trustItems = [
-    'Parents control family setup',
-    'Rewards require parent approval',
-    'Children use linked dashboards',
-    'Caregiver access can be invited and removed',
-    'Child devices can be linked and unlinked',
-    'No public child profiles',
-    'No social feed',
-    'No child-to-child messaging',
-    'Savings are points-based, not banking'
+    'home.trustSafetyItem1',
+    'home.trustSafetyItem2',
+    'home.trustSafetyItem3',
+    'home.trustSafetyItem4',
+    'home.trustSafetyItem5',
+    'home.trustSafetyItem6',
+    'home.trustSafetyItem7',
+    'home.trustSafetyItem8',
+    'home.trustSafetyItem9'
   ];
 
   const faqs = [
@@ -440,36 +440,36 @@
       <div class="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
         <div class="card !bg-slate-900 text-white p-6 sm:p-8 md:p-10 relative overflow-hidden">
           <div class="relative z-10">
-            <p class="text-xs font-black uppercase tracking-[0.2em] text-hero">Trust and safety</p>
-            <h2 class="mt-3 text-3xl md:text-4xl font-black leading-tight">A private family space, led by parents</h2>
+            <p class="text-xs font-black uppercase tracking-[0.2em] text-hero">{$_('home.trustSafetyEyebrow')}</p>
+            <h2 class="mt-3 text-3xl md:text-4xl font-black leading-tight">{$_('home.trustSafetyHeading')}</h2>
             <p class="mt-5 text-base md:text-lg leading-relaxed text-slate-300">
-              Family Hero Hub is designed for families, not followers. Parents set up the family, manage children, award points, approve rewards, invite caregivers, and control linked child devices.
+              {$_('home.trustSafetyParagraph1')}
             </p>
             <p class="mt-4 text-base md:text-lg leading-relaxed text-slate-300">
-              Children get a simple dashboard to see their points, rewards, School Bag items, tasks, and progress — without public profiles, social feeds, or child-to-child messaging.
+              {$_('home.trustSafetyParagraph2')}
             </p>
             <div class="mt-6 rounded-3xl border border-white/10 bg-white/5 p-4 text-slate-300">
-              <h3 class="text-xl font-black text-white">Parent-led by design</h3>
+              <h3 class="text-xl font-black text-white">{$_('home.trustSafetySubcardHeading')}</h3>
               <p class="mt-3 leading-relaxed">
-                Parents manage rewards, caregivers, and linked child devices. Children get simple dashboards without sharing the parent account.
+                {$_('home.trustSafetySubcardParagraph1')}
               </p>
               <p class="mt-3 leading-relaxed">
-                Family Hero Hub does not hold money, store bank details, transfer funds, or pay children directly. Points and allowance values stay inside your family's own system.
+                {$_('home.trustSafetySubcardParagraph2')}
               </p>
             </div>
             <a href="/safety-privacy" class="mt-6 inline-flex items-center gap-2 font-black text-hero hover:underline">
-              Read Safety & Privacy
+              {$_('home.trustSafetyLink')}
               <ArrowRight size={18} />
             </a>
           </div>
         </div>
 
         <div class="card p-6 sm:p-8 md:p-10">
-          <h3 class="text-2xl font-black text-slate-900">What parents control</h3>
+          <h3 class="text-2xl font-black text-slate-900">{$_('home.trustSafetyControlsHeading')}</h3>
           <div class="mt-6 grid gap-4 sm:grid-cols-2">
             {#each trustItems as item}
               <div class="rounded-3xl border border-slate-200 bg-slate-50/80 p-4 text-sm font-semibold leading-relaxed text-slate-700">
-                {item}
+                {$_(item)}
               </div>
             {/each}
           </div>
