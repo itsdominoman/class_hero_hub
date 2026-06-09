@@ -100,32 +100,32 @@
       description: 'faq.sectionSavingsAllowanceDescription',
       items: [
         {
-          question: 'Is Family Hero Hub a bank?',
-          answer: "No. Family Hero Hub does not hold money, transfer money, or provide banking services. Parents can optionally show an allowance value beside points, but any real-world allowance or purchase remains the parent's responsibility."
+          question: 'faq.savingsAllowanceQuestion1',
+          answer: 'faq.savingsAllowanceAnswer1'
         },
         {
-          question: 'What are saved points?',
-          answer: 'Saved points are points set aside for later. They stay locked for a set time and can unlock with a bonus, helping children practise saving and waiting for bigger goals.'
+          question: 'faq.savingsAllowanceQuestion2',
+          answer: 'faq.savingsAllowanceAnswer2'
         },
         {
-          question: 'What does allowance value mean?',
-          answer: 'It means points can show an optional money value. The app can help children understand the connection between effort, saving, and rewards, but parents still control any real-world allowance or purchase.'
+          question: 'faq.savingsAllowanceQuestion3',
+          answer: 'faq.savingsAllowanceAnswer3'
         },
         {
-          question: 'Does Family Hero Hub teach children about earning money?',
-          answer: 'Family Hero Hub can help children understand the connection between effort, responsibility, saving, and rewards. If parents choose to use allowance values, points can show a family-managed value — but Family Hero Hub does not pay children, hold money, or act like a payroll or banking system. Parents decide what points mean in their home.'
+          question: 'faq.savingsAllowanceQuestion4',
+          answer: 'faq.savingsAllowanceAnswer4'
         },
         {
-          question: 'Does Family Hero Hub pay my child?',
-          answer: 'No. Family Hero Hub does not hold money, transfer money, or pay children directly.'
+          question: 'faq.savingsAllowanceQuestion5',
+          answer: 'faq.savingsAllowanceAnswer5'
         },
         {
-          question: 'Can I turn allowance features off?',
-          answer: 'Yes. Families can keep the app points-based only and ignore allowance-style values if they prefer.'
+          question: 'faq.savingsAllowanceQuestion6',
+          answer: 'faq.savingsAllowanceAnswer6'
         },
         {
-          question: 'How will payments work?',
-          answer: 'When paid subscriptions are available, Family Hero Hub plans to use Apple App Store and Google Play subscriptions for consumer billing. That means payment method details are handled by the app store you use. Family Hero Hub does not collect or store payment card or bank account details.'
+          question: 'faq.savingsAllowanceQuestion7',
+          answer: 'faq.savingsAllowanceAnswer7'
         }
       ]
     },
