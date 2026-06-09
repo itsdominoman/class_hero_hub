@@ -593,8 +593,8 @@
                 <div class="card border-slate-100 bg-white p-5 shadow-xl sm:p-6">
                   <div class="flex items-start justify-between gap-4">
                     <div>
-                      <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">4. Current-period summary</p>
-                      <h2 class="mt-2 text-2xl font-black text-slate-950">Available allowance balance</h2>
+                      <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('allowance.stepCurrentSummary')}</p>
+                      <h2 class="mt-2 text-2xl font-black text-slate-950">{$_('allowance.availableBalanceHeading')}</h2>
                     </div>
                     <div class="rounded-2xl bg-hero/10 p-3 text-hero">
                       <Coins size={22} />
@@ -603,78 +603,76 @@
 
                   {#if preview}
                     <div class="mt-5 rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4">
-                      <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Current period</p>
+                      <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('allowance.currentPeriodLabel')}</p>
                       <p class="mt-2 text-lg font-black text-slate-950">
                         {formatPeriodDate(preview.period_start)} to {formatPeriodDate(preview.period_end)}
                       </p>
                     </div>
 
                     <div class="mt-4 rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4">
-                      <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Point value</p>
-                      <p class="mt-2 text-lg font-black text-slate-950">1 point = {formatPointValueDisplay()}</p>
+                      <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('allowance.pointValueLabel')}</p>
+                      <p class="mt-2 text-lg font-black text-slate-950">{$_('allowance.onePointEquals', { values: { value: formatPointValueDisplay() } })}</p>
                     </div>
 
                       {#if preview.allowance_enabled_at}
                         <p class="mt-4 text-sm font-medium leading-relaxed text-slate-600">
-                          Allowance was enabled on {new Date(preview.allowance_enabled_at).toLocaleString(undefined, {
+                          {$_('allowance.enabledHistoryNote', { values: { date: new Date(preview.allowance_enabled_at).toLocaleString(undefined, {
                             month: 'short',
                             day: 'numeric',
                             hour: 'numeric',
                             minute: '2-digit'
-                          })}. This is shown for history only.
+                          }) } })}
                         </p>
                       {/if}
 
                     <div class="mt-5 grid gap-3 sm:grid-cols-2">
                       <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Earned this period</p>
+                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('allowance.earnedThisPeriod')}</p>
                         <p class="mt-2 text-3xl font-black text-slate-950">{formatMinorAmount(preview.earned_allowance_minor_period, preview.currency, preview.currency_exponent)}</p>
-                        <p class="mt-1 text-sm font-medium text-slate-500">{preview.earned_points_period} points</p>
+                        <p class="mt-1 text-sm font-medium text-slate-500">{preview.earned_points_period} {$_('allowance.pointsUnit')}</p>
                       </div>
                       <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Available to spend</p>
+                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('allowance.availableToSpend')}</p>
                         <p class="mt-2 text-3xl font-black text-slate-950">{formatMinorAmount(preview.available_allowance_minor, preview.currency, preview.currency_exponent)}</p>
-                        <p class="mt-1 text-sm font-medium text-slate-500">{preview.available_points} points</p>
+                        <p class="mt-1 text-sm font-medium text-slate-500">{preview.available_points} {$_('allowance.pointsUnit')}</p>
                       </div>
                       <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Spent this period</p>
+                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('allowance.spentThisPeriod')}</p>
                         <p class="mt-2 text-3xl font-black text-slate-950">{formatMinorAmount(preview.spent_allowance_minor_period, preview.currency, preview.currency_exponent)}</p>
-                        <p class="mt-1 text-sm font-medium text-slate-500">{preview.spent_points_period} points</p>
+                        <p class="mt-1 text-sm font-medium text-slate-500">{preview.spent_points_period} {$_('allowance.pointsUnit')}</p>
                       </div>
                       <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Carried over</p>
+                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('allowance.carriedOverLabel')}</p>
                         <p class="mt-2 text-3xl font-black text-slate-950">{formatMinorAmount(preview.carried_over_allowance_minor, preview.currency, preview.currency_exponent)}</p>
-                        <p class="mt-1 text-sm font-medium text-slate-500">{preview.carried_over_points} points</p>
+                        <p class="mt-1 text-sm font-medium text-slate-500">{preview.carried_over_points} {$_('allowance.pointsUnit')}</p>
                       </div>
                     </div>
 
                     <div class="mt-5 grid gap-3 sm:grid-cols-2">
                       <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Points on hold</p>
+                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('allowance.pointsOnHoldLabel')}</p>
                         <p class="mt-2 text-3xl font-black text-slate-950">{formatMinorAmount(preview.pending_allowance_minor, preview.currency, preview.currency_exponent)}</p>
-                        <p class="mt-1 text-sm font-medium text-slate-500">{preview.pending_points} points</p>
+                        <p class="mt-1 text-sm font-medium text-slate-500">{preview.pending_points} {$_('allowance.pointsUnit')}</p>
                       </div>
                       <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Saved</p>
+                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('allowance.savedLabel')}</p>
                         <p class="mt-2 text-3xl font-black text-slate-950">{formatMinorAmount(preview.saved_allowance_minor, preview.currency, preview.currency_exponent)}</p>
-                        <p class="mt-1 text-sm font-medium text-slate-500">{preview.saved_points} points</p>
+                        <p class="mt-1 text-sm font-medium text-slate-500">{preview.saved_points} {$_('allowance.pointsUnit')}</p>
                       </div>
                     </div>
 
                     <div class="mt-5">
                       <div class="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-[0.16em] text-slate-400">
-                        <span>Progress to goal</span>
+                        <span>{$_('allowance.progressToGoal')}</span>
                         <span>{previewProgress}%</span>
                       </div>
                       <div class="h-4 overflow-hidden rounded-full bg-slate-100">
                         <div class="h-full rounded-full bg-gradient-to-r from-hero to-savings shadow-lg shadow-hero/20" style={`width: ${previewBarWidth}`}></div>
                       </div>
-                      <p class="mt-3 text-sm font-medium leading-relaxed text-slate-600">
-                        This summary shows the child’s current points as allowance value. Allowance enabled time is kept for history and context only.
-                      </p>
+                      <p class="mt-3 text-sm font-medium leading-relaxed text-slate-600">{$_('allowance.summaryHelp')}</p>
                     </div>
                   {:else}
-                    <p class="mt-5 text-sm font-medium leading-relaxed text-slate-600">Preview appears here after the child settings load.</p>
+                    <p class="mt-5 text-sm font-medium leading-relaxed text-slate-600">{$_('allowance.previewPlaceholder')}</p>
                   {/if}
                 </div>
 
@@ -684,8 +682,8 @@
                       <Star size={22} fill="currentColor" />
                     </div>
                     <div>
-                      <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Quick examples</p>
-                      <h2 class="mt-2 text-2xl font-black text-slate-950">Points to allowance</h2>
+                      <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('allowance.quickExamplesHeading')}</p>
+                      <h2 class="mt-2 text-2xl font-black text-slate-950">{$_('allowance.pointsToAllowanceHeading')}</h2>
                     </div>
                   </div>
 
@@ -693,17 +691,17 @@
                     {#if exampleRows.length > 0}
                       {#each exampleRows as row}
                         <div class="flex items-center justify-between gap-4 rounded-[1.25rem] border border-slate-100 bg-slate-50 p-4">
-                          <span class="text-sm font-black text-slate-950">{row.points} points</span>
+                          <span class="text-sm font-black text-slate-950">{row.points} {$_('allowance.pointsUnit')}</span>
                           <span class="text-sm font-black text-savings">{row.amount}</span>
                         </div>
                       {/each}
                     {:else}
-                      <p class="text-sm font-medium leading-relaxed text-slate-600">Enter an amount and positive point goal to see examples.</p>
+                      <p class="text-sm font-medium leading-relaxed text-slate-600">{$_('allowance.examplesHelp')}</p>
                     {/if}
                   </div>
 
                   <div class="mt-5 rounded-[1.5rem] border border-amber-100 bg-amber-50 p-4 text-sm font-medium leading-relaxed text-amber-900">
-                    Allowance is linked to points. Rewards and custom requests spend the same available balance. Parents stay in control of what is approved and how the real-world purchase is handled.
+                    {$_('allowance.linkedNote')}
                   </div>
                 </div>
               </div>
