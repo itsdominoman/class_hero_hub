@@ -114,24 +114,24 @@
 
   const choreChartCards = [
     {
-      title: 'Routines',
-      text: 'Keep daily responsibilities visible.'
+      title: 'home.choreCardRoutinesTitle',
+      text: 'home.choreCardRoutinesText'
     },
     {
-      title: 'Rewards',
-      text: 'Let children work toward parent-approved rewards.'
+      title: 'home.choreCardRewardsTitle',
+      text: 'home.choreCardRewardsText'
     },
     {
-      title: 'Savings',
-      text: 'Help children practise waiting and planning with saved points.'
+      title: 'home.choreCardSavingsTitle',
+      text: 'home.choreCardSavingsText'
     },
     {
-      title: 'School prep',
-      text: 'Make School Bag items easier to remember.'
+      title: 'home.choreCardSchoolPrepTitle',
+      text: 'home.choreCardSchoolPrepText'
     },
     {
-      title: 'Family access',
-      text: 'Invite trusted caregivers and remove access when needed.'
+      title: 'home.choreCardFamilyAccessTitle',
+      text: 'home.choreCardFamilyAccessText'
     }
   ];
 
@@ -416,10 +416,10 @@
   <section class="px-3 sm:px-4 py-16 md:py-24">
     <div class="max-w-7xl mx-auto">
       <div class="max-w-3xl mb-10">
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Not just chores</p>
-        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">More than a chore chart</h2>
+        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{$_('home.notJustChoresEyebrow')}</p>
+        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">{$_('home.notJustChoresHeading')}</h2>
         <p class="mt-5 text-base md:text-lg leading-relaxed text-slate-600">
-          Family Hero Hub is not just a list of jobs. It connects everyday routines with points, rewards, savings-style goals, school prep, child dashboards, and caregiver access.
+          {$_('home.notJustChoresIntro')}
         </p>
       </div>
 

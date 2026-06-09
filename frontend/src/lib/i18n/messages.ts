@@ -166,7 +166,20 @@ export const en = {
     childBenefitCard2Title: 'What they have done',
     childBenefitCard2Text: 'Points and rewards make effort, responsibility, and follow-through visible.',
     childBenefitCard3Title: 'What they are working toward',
-    childBenefitCard3Text: 'Saved points and parent-approved rewards help children practise waiting, planning, and choosing.'
+    childBenefitCard3Text: 'Saved points and parent-approved rewards help children practise waiting, planning, and choosing.',
+    notJustChoresEyebrow: 'Not just chores',
+    notJustChoresHeading: 'More than a chore chart',
+    notJustChoresIntro: 'Family Hero Hub is not just a list of jobs. It connects everyday routines with points, rewards, savings-style goals, school prep, child dashboards, and caregiver access.',
+    choreCardRoutinesTitle: 'Routines',
+    choreCardRoutinesText: 'Keep daily responsibilities visible.',
+    choreCardRewardsTitle: 'Rewards',
+    choreCardRewardsText: 'Let children work toward parent-approved rewards.',
+    choreCardSavingsTitle: 'Savings',
+    choreCardSavingsText: 'Help children practise waiting and planning with saved points.',
+    choreCardSchoolPrepTitle: 'School prep',
+    choreCardSchoolPrepText: 'Make School Bag items easier to remember.',
+    choreCardFamilyAccessTitle: 'Family access',
+    choreCardFamilyAccessText: 'Invite trusted caregivers and remove access when needed.'
   },
   login: {
     title: 'Welcome back to Family Hero Hub',
@@ -576,7 +589,20 @@ export const ar = {
     childBenefitCard2Title: 'ما أنجزوه',
     childBenefitCard2Text: 'تجعل النقاط والمكافآت الجهد والمسؤولية والمتابعة واضحة.',
     childBenefitCard3Title: 'ما يعملون من أجله',
-    childBenefitCard3Text: 'تساعد النقاط المدخرة والمكافآت المعتمدة من الوالدين الأطفال على التدرّب على الانتظار والتخطيط والاختيار.'
+    childBenefitCard3Text: 'تساعد النقاط المدخرة والمكافآت المعتمدة من الوالدين الأطفال على التدرّب على الانتظار والتخطيط والاختيار.',
+    notJustChoresEyebrow: 'ليس مجرد أعمال منزلية',
+    notJustChoresHeading: 'أكثر من مجرد جدول مهام',
+    notJustChoresIntro: 'Family Hero Hub ليس مجرد قائمة بالمهام. إنه يربط الروتين اليومي بالنقاط والمكافآت وأهداف الادخار وتجهيز المدرسة ولوحات الأطفال ووصول مقدمي الرعاية.',
+    choreCardRoutinesTitle: 'الروتين',
+    choreCardRoutinesText: 'اجعل المسؤوليات اليومية واضحة.',
+    choreCardRewardsTitle: 'المكافآت',
+    choreCardRewardsText: 'دع الأطفال يسعون نحو مكافآت معتمدة من الوالدين.',
+    choreCardSavingsTitle: 'الادخار',
+    choreCardSavingsText: 'ساعد الأطفال على التدرّب على الانتظار والتخطيط باستخدام النقاط المدخرة.',
+    choreCardSchoolPrepTitle: 'التحضير للمدرسة',
+    choreCardSchoolPrepText: 'اجعل تذكّر عناصر الحقيبة المدرسية أسهل.',
+    choreCardFamilyAccessTitle: 'وصول أفراد العائلة',
+    choreCardFamilyAccessText: 'ادعُ مقدمي الرعاية الموثوقين وأزل الوصول عند الحاجة.'
   },
   login: {
     title: 'مرحبا بعودتك إلى Family Hero Hub',
