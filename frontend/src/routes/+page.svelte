@@ -481,22 +481,22 @@
   <section class="bg-white px-3 sm:px-4 py-16 md:py-24">
     <div class="max-w-7xl mx-auto grid gap-8 lg:grid-cols-[0.92fr_1.08fr] lg:items-start">
       <div>
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-savings">Rewards, savings, and allowance</p>
-        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">Rewards, savings, and allowance — without pretending to be a bank</h2>
+        <p class="text-xs font-bold uppercase tracking-[0.2em] text-savings">{$_('home.rewardsSavingsEyebrow')}</p>
+        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">{$_('home.rewardsSavingsHeading')}</h2>
       </div>
 
       <div class="space-y-5 text-base md:text-lg leading-relaxed text-slate-600">
         <p>
-          Family Hero Hub can show optional allowance values beside points, helping children understand effort, saving, and rewards.
+          {$_('home.rewardsSavingsParagraph1')}
         </p>
         <p>
-          Points can also help children understand that effort, responsibility, and follow-through can lead to rewards. When families choose to show optional allowance values, children can start to see how consistent effort adds up over time.
+          {$_('home.rewardsSavingsParagraph2')}
         </p>
         <p>
-          Saved points can be locked for later and unlock with a bonus, giving children a simple way to practise waiting, planning, and working toward bigger rewards.
+          {$_('home.rewardsSavingsParagraph3')}
         </p>
         <div class="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-relaxed text-slate-700">
-          Family Hero Hub does not hold money, transfer money, or pay children directly. Parents remain responsible for any real-world allowance, reward, or purchase.
+          {$_('home.rewardsSavingsNote')}
         </div>
       </div>
     </div>

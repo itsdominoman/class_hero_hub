@@ -197,7 +197,13 @@ export const en = {
     trustSafetyItem6: 'No public child profiles',
     trustSafetyItem7: 'No social feed',
     trustSafetyItem8: 'No child-to-child messaging',
-    trustSafetyItem9: 'Savings are points-based, not banking'
+    trustSafetyItem9: 'Savings are points-based, not banking',
+    rewardsSavingsEyebrow: 'Rewards, savings, and allowance',
+    rewardsSavingsHeading: 'Rewards, savings, and allowance — without pretending to be a bank',
+    rewardsSavingsParagraph1: 'Family Hero Hub can show optional allowance values beside points, helping children understand effort, saving, and rewards.',
+    rewardsSavingsParagraph2: 'Points can also help children understand that effort, responsibility, and follow-through can lead to rewards. When families choose to show optional allowance values, children can start to see how consistent effort adds up over time.',
+    rewardsSavingsParagraph3: 'Saved points can be locked for later and unlock with a bonus, giving children a simple way to practise waiting, planning, and working toward bigger rewards.',
+    rewardsSavingsNote: 'Family Hero Hub does not hold money, transfer money, or pay children directly. Parents remain responsible for any real-world allowance, reward, or purchase.'
   },
   login: {
     title: 'Welcome back to Family Hero Hub',
@@ -638,7 +644,13 @@ export const ar = {
     trustSafetyItem6: 'لا ملفات عامة للأطفال',
     trustSafetyItem7: 'لا موجز اجتماعي',
     trustSafetyItem8: 'لا رسائل بين الأطفال',
-    trustSafetyItem9: 'الادخار قائم على النقاط، وليس خدمة بنكية'
+    trustSafetyItem9: 'الادخار قائم على النقاط، وليس خدمة بنكية',
+    rewardsSavingsEyebrow: 'المكافآت والادخار والمصروف',
+    rewardsSavingsHeading: 'المكافآت والادخار والمصروف — دون أن يكون بنكًا',
+    rewardsSavingsParagraph1: 'يمكن أن يعرض Family Hero Hub قيم المصروف الاختيارية بجانب النقاط، مما يساعد الأطفال على فهم الجهد والادخار والمكافآت.',
+    rewardsSavingsParagraph2: 'يمكن للنقاط أيضًا أن تساعد الأطفال على فهم أن الجهد والمسؤولية والمتابعة يمكن أن تؤدي إلى مكافآت. وعندما تختار العائلات إظهار قيم المصروف الاختيارية، يمكن للأطفال أن يروا كيف يتراكم الجهد المستمر بمرور الوقت.',
+    rewardsSavingsParagraph3: 'يمكن قفل النقاط المدخرة لوقت لاحق ثم فتحها مع مكافأة إضافية، مما يمنح الأطفال طريقة بسيطة للتدرّب على الانتظار والتخطيط والعمل نحو مكافآت أكبر.',
+    rewardsSavingsNote: 'لا يحتفظ Family Hero Hub بالمال، ولا يحوّل الأموال، ولا يدفع للأطفال مباشرة. يظل الوالدان مسؤولين عن أي مصروف أو مكافأة أو شراء في الواقع.'
   },
   login: {
     title: 'مرحبا بعودتك إلى Family Hero Hub',
