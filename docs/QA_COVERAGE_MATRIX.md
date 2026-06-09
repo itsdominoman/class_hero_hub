@@ -2,7 +2,7 @@
 
 Last reviewed: 2026-06-04
 
-2026-06-09 localisation update: English/Arabic fixed UI support now needs QA coverage in both `ltr` and `rtl` document directions. The language selector lives in Parent Dashboard -> Settings and stores the chosen language in browser `localStorage`.
+2026-06-09 localisation update: English/Arabic fixed UI support now needs QA coverage in both `ltr` and `rtl` document directions. Compact public selectors live on `/`, `/login`, and `/request-access`; the logged-in selector lives in Parent Dashboard -> Settings. Browser language detection only applies when no `localStorage` language is saved.
 
 This matrix is meant to keep the Europe dev QA surface practical: read-only by default, screenshot-backed where layout matters, and explicit about where we still do not have a safe fixture.
 

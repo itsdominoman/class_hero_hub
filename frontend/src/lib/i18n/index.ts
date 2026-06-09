@@ -19,10 +19,23 @@ export function localeDirection(value: string | null | undefined): 'ltr' | 'rtl'
   return value === 'ar' ? 'rtl' : 'ltr';
 }
 
-function savedLocale(): SupportedLocale {
+function browserDefaultLocale(): SupportedLocale {
+  if (!browser) return DEFAULT_LOCALE;
+
+  const languages = [
+    ...(Array.isArray(window.navigator.languages) ? window.navigator.languages : []),
+    window.navigator.language
+  ].filter(Boolean);
+
+  return languages.some((language) => language.toLowerCase().startsWith('ar'))
+    ? 'ar'
+    : DEFAULT_LOCALE;
+}
+
+function initialLocale(): SupportedLocale {
   if (!browser) return DEFAULT_LOCALE;
   const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
-  return isSupportedLocale(stored) ? stored : DEFAULT_LOCALE;
+  return isSupportedLocale(stored) ? stored : browserDefaultLocale();
 }
 
 export function syncDocumentLocale(value: string | null | undefined) {
@@ -38,7 +51,7 @@ export function initI18n() {
     addMessages('ar', ar);
     init({
       fallbackLocale: DEFAULT_LOCALE,
-      initialLocale: savedLocale(),
+      initialLocale: initialLocale(),
       handleMissingMessage: ({ defaultValue, id }) => defaultValue ?? id
     });
     initialized = true;

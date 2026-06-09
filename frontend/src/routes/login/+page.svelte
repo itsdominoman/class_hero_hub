@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
+  import LanguageSelector from '$lib/components/LanguageSelector.svelte';
 
   const handleGoogleLogin = () => {
     window.location.href = '/api/auth/google/login';
@@ -24,6 +25,9 @@
 <div class="min-h-[calc(100dvh-5rem)] flex items-center justify-center px-3 sm:px-4 py-8">
   <div class="max-w-md w-full">
     <div class="card p-6 sm:p-8 md:p-12 text-center relative overflow-hidden">
+      <div class="mb-4 flex justify-end">
+        <LanguageSelector compact />
+      </div>
       <div class="absolute -top-24 -right-24 w-48 h-48 bg-hero/5 rounded-full blur-3xl"></div>
       <div class="absolute -bottom-24 -left-24 w-48 h-48 bg-savings/5 rounded-full blur-3xl"></div>
 

@@ -114,7 +114,9 @@ Use **Settings** for secondary family tools:
 
 ### Language
 
-Open **Settings** on the parent dashboard and use **Language** to choose English or Arabic.
+Use the small language selector on the homepage, login page, or request-access page before signing in. After signing in, open **Settings** on the parent dashboard and use **Language** to choose English or Arabic.
+
+On first load, Arabic browser or device language settings choose Arabic automatically. After you choose a language yourself, that saved browser choice is used instead.
 
 Arabic changes the fixed app interface to right-to-left layout. Family-entered content is not translated automatically. Child names, reward names, task names, calendar events, School Bag items, and custom point reasons stay exactly as the family entered them.
 

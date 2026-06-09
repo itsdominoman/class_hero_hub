@@ -5,8 +5,10 @@
 ### Scope
 - Added `svelte-i18n` wiring for English and Arabic fixed UI strings.
 - Added English and Arabic dictionaries under the frontend i18n module.
+- Added compact public language selectors on homepage, login, and request-access so Arabic can be selected before sign-in.
 - Added a language selector inside parent Settings.
-- Persisted the selected language in browser `localStorage` for the MVP.
+- Detects Arabic browser/device languages on first load, including `ar`, `ar-OM`, `ar-SA`, `ar-AE`, and any navigator language starting with `ar`.
+- Persisted the selected language in browser `localStorage` for the MVP. Saved language always overrides browser detection.
 - Set document language and direction at runtime: English uses `lang="en" dir="ltr"` and Arabic uses `lang="ar" dir="rtl"`.
 - Translated high-traffic UI labels across shared layout, public home/login, parent dashboard Settings, child action modal core tabs/actions, allowance setup, and core child dashboard labels.
 - Added [LOCALISATION_NOTES.md](LOCALISATION_NOTES.md) with key Arabic terminology choices and native-review notes.
@@ -16,6 +18,7 @@
 - `PLAYWRIGHT_IMAGE=mcr.microsoft.com/playwright:v1.60.0-jammy PLAYWRIGHT_BASE_URL=http://127.0.0.1:4174 npm run test:e2e:visual` passed all 31 checks against the fresh preview build.
 - Authenticated QA passed with the same Playwright image.
 - Focused Arabic RTL overflow checks passed at `320`, `375`, `390`, and `430` px for `/`, `/login`, `/parent`, Settings menu, child action modal, `/allowance`, `/calendar`, and seeded child dashboard.
+- Focused language-behaviour checks passed for first-load Arabic browser detection, saved English override, public selector switching, immediate `lang`/`dir` updates, and parent session preservation after language switching.
 
 ### Notes
 - No backend code changed.

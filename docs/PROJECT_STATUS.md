@@ -92,7 +92,9 @@
 ### UI / UX
 - Responsive layout (tablet + mobile)
 - English and Arabic fixed app UI support is implemented for the main app surface, with English as the default/fallback and Arabic using `lang="ar"` plus `dir="rtl"`.
-- Parent Settings includes a language selector. The MVP stores the selected UI language in browser `localStorage`; no backend parent/family language hierarchy is implemented yet.
+- Public home, login, and request-access screens include a compact language selector so parents can choose Arabic before signing in. Parent Settings includes the same language control for logged-in parents.
+- On first load, Arabic browser/device languages such as `ar`, `ar-OM`, `ar-SA`, and `ar-AE` default the UI to Arabic. A saved browser `localStorage` choice always overrides browser detection.
+- The MVP stores the selected UI language in browser `localStorage`; no backend parent/family language hierarchy is implemented yet.
 - Parent-entered content is not auto-translated: child names, reward names, task titles, calendar events, School Bag items, and custom point reasons remain exactly as entered.
 - Mobile UI consistency pass completed across common phone widths for parent dashboard, child dashboard, rewards, auth/linking pages, and calendar modals
 - Global mobile viewport safeguards added for dynamic viewport height, safe-area insets, horizontal overflow, tap targets, and mobile form font sizing

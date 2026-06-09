@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
+  import LanguageSelector from '$lib/components/LanguageSelector.svelte';
   import {
     ArrowRight,
     Backpack,
@@ -184,6 +185,9 @@
 
 <div class="relative max-w-full overflow-hidden bg-hero-pattern">
   <section class="px-3 sm:px-4 py-14 sm:py-18 lg:py-24">
+    <div class="mx-auto mb-4 flex max-w-7xl justify-end">
+      <LanguageSelector compact />
+    </div>
     <div class="max-w-7xl mx-auto grid gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
       <div class="relative z-10 text-left">
         <div class="inline-flex max-w-full items-center gap-2 rounded-full border border-hero/20 bg-hero/10 px-4 py-2 text-sm font-black text-hero mb-6">

@@ -31,11 +31,13 @@ The Europe dev smoke script is still the read-only baseline for fast checks. It 
 ## Localisation notes
 
 - The main app UI supports English and Arabic fixed interface text.
-- The language selector is in Parent Dashboard -> Settings.
+- Compact public language selectors are available on the homepage, login page, and request-access page.
+- The logged-in parent language selector is in Parent Dashboard -> Settings.
+- On first load, Arabic browser/device languages default to Arabic. A saved browser `localStorage` language overrides browser detection.
 - The selected language is stored in browser `localStorage` for the MVP.
 - Arabic mode must set `html lang="ar"` and `dir="rtl"`.
 - Parent-entered content is not auto-translated.
-- Smoke should remain read-only. Language switching can be tested by setting localStorage before page load or by using the Settings selector in an authenticated browser QA run.
+- Smoke should remain read-only. Language switching can be tested by setting localStorage before page load, by using the public selectors, or by using the Settings selector in an authenticated browser QA run.
 - Mobile overflow checks should include `320`, `375`, `390`, and `430` px in both English and Arabic.
 
 ## Allowance currency notes
