@@ -786,7 +786,7 @@
 </script>
 
 <svelte:head>
-  <title>Family Calendar</title>
+  <title>{$_('calendar.eyebrow')}</title>
 </svelte:head>
 
 <div class="min-h-dvh max-w-full overflow-x-hidden bg-slate-50 pb-[calc(4rem+var(--safe-bottom))]">
@@ -794,7 +794,7 @@
     <div class="flex justify-center py-24">
       <div class="flex flex-col items-center gap-4">
         <div class="w-12 h-12 animate-spin rounded-full border-4 border-slate-300 border-t-hero"></div>
-        <p class="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Loading calendar</p>
+        <p class="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">{$_('calendar.loadingTitle')}</p>
       </div>
     </div>
   {:else if error}
@@ -803,9 +803,9 @@
         <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
           <CalendarDays size={32} />
         </div>
-        <h1 class="text-2xl font-black text-slate-950">Calendar unavailable</h1>
+        <h1 class="text-2xl font-black text-slate-950">{$_('calendar.errorTitle')}</h1>
         <p class="mt-3 break-words text-slate-600">{error}</p>
-        <button type="button" class="btn-hero mt-8 w-full rounded-2xl px-6 py-4" onclick={loadPage}>Try again</button>
+        <button type="button" class="btn-hero mt-8 w-full rounded-2xl px-6 py-4" onclick={loadPage}>{$_('calendar.tryAgain')}</button>
       </div>
     </div>
   {:else}
@@ -815,18 +815,18 @@
           <div class="min-w-0">
             <div class="mb-3 inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 sm:tracking-[0.24em]">
               <CalendarDays size={14} />
-              Family Calendar
+              {$_('calendar.eyebrow')}
             </div>
-            <h1 class="break-words text-3xl font-black tracking-tight text-slate-950 md:text-5xl">Plan the week with the family.</h1>
+            <h1 class="break-words text-3xl font-black tracking-tight text-slate-950 md:text-5xl">{$_('calendar.heading')}</h1>
             <p class="mt-3 max-w-2xl text-sm font-medium leading-6 text-slate-500 md:text-base">
-              Schedule chores, school events, and reward tasks in one agenda-first view.
+              {$_('calendar.intro')}
             </p>
           </div>
 
           <div class="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto lg:justify-end">
             <a href="/parent" class="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-2xl border border-hero/15 bg-hero/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-hero shadow-sm transition hover:border-hero/30 hover:bg-hero/15 hover:shadow-md sm:w-auto sm:tracking-[0.18em]">
               <ArrowLeft size={16} />
-              Back to Parent Dashboard
+              {$_('calendar.backToParentDashboard')}
             </a>
             <div class="grid w-full grid-cols-2 rounded-2xl border border-slate-200 bg-slate-50 p-1 sm:w-auto">
               <button
@@ -834,14 +834,14 @@
                 class={`rounded-xl px-4 py-3 text-xs font-black uppercase tracking-[0.14em] transition sm:tracking-[0.18em] ${viewMode === 'today' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
                 onclick={() => (viewMode = 'today')}
               >
-                Today
+                {$_('calendar.today')}
               </button>
               <button
                 type="button"
                 class={`rounded-xl px-4 py-3 text-xs font-black uppercase tracking-[0.14em] transition sm:tracking-[0.18em] ${viewMode === 'week' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
                 onclick={() => (viewMode = 'week')}
               >
-                Week
+                {$_('calendar.week')}
               </button>
             </div>
             <button
@@ -850,7 +850,7 @@
               onclick={openCreateModal}
             >
               <Plus size={16} />
-              Add Schedule Item
+              {$_('calendar.addScheduleItem')}
             </button>
             <button
               type="button"
@@ -858,7 +858,7 @@
               onclick={openSchoolModal}
             >
               <CalendarDays size={16} />
-              School Books & Classes
+              {$_('calendar.schoolBooksClasses')}
             </button>
           </div>
         </div>
@@ -867,7 +867,7 @@
           <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5">
             <div class="flex flex-col gap-4 md:flex-row md:flex-wrap md:items-end md:justify-between">
               <div class="min-w-0 md:flex-1">
-                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Child</p>
+                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">{$_('calendar.childLabel')}</p>
                 <div class="mt-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                   <select
                     class="w-full min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none"
@@ -876,7 +876,7 @@
                     disabled={children.length === 0}
                   >
                     {#if children.length === 0}
-                      <option value="">No children available</option>
+                      <option value="">{$_('calendar.noChildrenAvailable')}</option>
                     {:else}
                       {#each children as child}
                         <option value={child.child.id.toString()}>{child.child.display_name}</option>
@@ -891,9 +891,9 @@
               </div>
 
               <div class="min-w-0 md:flex-1">
-                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Selected date</p>
+                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">{$_('calendar.selectedDateLabel')}</p>
                 <div class="mt-2 grid min-w-0 grid-cols-[48px_minmax(0,1fr)_48px] items-center gap-2">
-                  <button type="button" class="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm" aria-label="Previous day" onclick={() => changeSelectedDate(-1)}>
+                  <button type="button" class="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm" aria-label={$_('calendar.previousDayAria')} onclick={() => changeSelectedDate(-1)}>
                     <ChevronLeft size={18} />
                   </button>
                   <input
@@ -902,7 +902,7 @@
                     onchange={refreshCalendar}
                     class="w-full min-w-0 rounded-2xl border border-slate-200 bg-white px-2 py-3 text-sm font-bold text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none sm:px-4"
                   />
-                  <button type="button" class="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm" aria-label="Next day" onclick={() => changeSelectedDate(1)}>
+                  <button type="button" class="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm" aria-label={$_('calendar.nextDayAria')} onclick={() => changeSelectedDate(1)}>
                     <ChevronRight size={18} />
                   </button>
                 </div>
@@ -914,7 +914,7 @@
                 onclick={setToday}
               >
                 <Sparkles size={16} />
-                Jump to today
+                {$_('calendar.jumpToToday')}
               </button>
             </div>
           </div>
@@ -922,15 +922,15 @@
           <div class="rounded-3xl border border-slate-200 bg-white p-4 md:p-5">
             <div class="flex items-center justify-between gap-3">
               <div>
-                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Selected week</p>
+                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">{$_('calendar.selectedWeekLabel')}</p>
                 <p class="mt-2 text-base font-black text-slate-950">{formatShortDate(selectedDate)}</p>
               </div>
               <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-                {calendarItems.length} items
+                {calendarItems.length} {$_('calendar.itemsLabel')}
               </span>
             </div>
             <p class="mt-3 text-sm font-medium text-slate-500">
-              {viewMode === 'today' ? 'Showing the selected day.' : 'Showing the full weekly agenda.'}
+              {viewMode === 'today' ? $_('calendar.showingSelectedDay') : $_('calendar.showingWeeklyAgenda')}
             </p>
           </div>
         </div>
@@ -942,7 +942,7 @@
         <div class="flex items-start justify-between gap-3 rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm">
           <p class="min-w-0 break-words">{calendarNotice}</p>
           <button type="button" class="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500" onclick={() => (calendarNotice = null)}>
-            Dismiss
+            {$_('calendar.dismiss')}
           </button>
         </div>
       </div>
@@ -954,12 +954,12 @@
           <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
             <CalendarDays size={30} />
           </div>
-          <h2 class="mt-5 text-2xl font-black text-slate-950">No children yet</h2>
+          <h2 class="mt-5 text-2xl font-black text-slate-950">{$_('calendar.noChildrenTitle')}</h2>
           <p class="mx-auto mt-3 max-w-xl text-sm font-medium leading-6 text-slate-500">
-            Add a child from the parent dashboard before scheduling events or chores.
+            {$_('calendar.noChildrenText')}
           </p>
           <a href="/parent" class="mt-8 inline-flex items-center justify-center gap-2 rounded-2xl bg-hero px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-white shadow-lg shadow-hero/20">
-            Go to parent dashboard
+            {$_('calendar.goToParentDashboard')}
           </a>
         </div>
       {:else}
