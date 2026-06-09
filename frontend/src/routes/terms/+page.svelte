@@ -1,116 +1,120 @@
+<script lang="ts">
+  import { _ } from 'svelte-i18n';
+</script>
+
 <svelte:head>
-  <title>Terms of Service | Family Hero Hub</title>
+  <title>{$_('terms.pageTitle')}</title>
 </svelte:head>
 
 <div class="max-w-4xl mx-auto px-4 py-16">
   <div class="card p-8 md:p-12">
-    <h1 class="text-4xl font-black text-slate-900 mb-3">Terms of Service</h1>
-    <p class="text-sm font-bold uppercase tracking-[0.18em] text-slate-400 mb-8">Last updated: 2026-06-08</p>
+    <h1 class="text-4xl font-black text-slate-900 mb-3">{$_('terms.heading')}</h1>
+    <p class="text-sm font-bold uppercase tracking-[0.18em] text-slate-400 mb-8">{$_('terms.lastUpdated')}</p>
 
     <div class="prose prose-slate max-w-none space-y-8 text-slate-600">
       <p class="text-lg leading-relaxed">
-        Welcome to Family Hero Hub. By using the service, you agree to these terms and to use the app as a parent-led family organisation tool.
+        {$_('terms.intro')}
       </p>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">1. Purpose of service</h2>
+        <h2 class="text-2xl font-bold text-slate-800">{$_('terms.section1Title')}</h2>
         <p>
-          Family Hero Hub is a private family app for points, rewards, routines, school prep, and everyday responsibility. It is not a social network, school system, banking app, or financial service.
+          {$_('terms.section1Text')}
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">2. Parent and caregiver responsibility</h2>
+        <h2 class="text-2xl font-bold text-slate-800">{$_('terms.section2Title')}</h2>
         <p>
-          Parents and caregivers are responsible for the family account, the information they enter, the children they manage, and the decisions they make about points, rewards, routines, permissions, and real-world allowance or purchases.
+          {$_('terms.section2Text')}
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">3. Child dashboard access</h2>
+        <h2 class="text-2xl font-bold text-slate-800">{$_('terms.section3Title')}</h2>
         <p>
-          Children may use linked dashboards created or managed by parents. Children do not receive parent settings or admin permissions through the Child Dashboard.
+          {$_('terms.section3Text')}
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">4. Points, rewards, savings, and allowance</h2>
+        <h2 class="text-2xl font-bold text-slate-800">{$_('terms.section4Title')}</h2>
         <p>
-          Points are not money. Saved points are in-app family features. Optional allowance values are family-managed representations. Family Hero Hub does not hold money, transfer money, or pay children directly. Parents remain responsible for real-world rewards, purchases, and allowance.
+          {$_('terms.section4Text')}
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">5. Subscriptions and billing</h2>
+        <h2 class="text-2xl font-bold text-slate-800">{$_('terms.section5Title')}</h2>
         <p>
-          When paid subscriptions are available, consumer subscriptions may be managed through Apple App Store or Google Play. Billing, renewals, cancellations, refunds, and payment method management may be handled by the app store where you subscribed.
+          {$_('terms.section5Text1')}
         </p>
         <p>
-          Family Hero Hub does not collect or store payment card or bank account details. Subscription access may depend on subscription status information provided by the relevant app store.
+          {$_('terms.section5Text2')}
         </p>
         <p>
-          If other billing options are added later, these terms and related privacy wording may be updated.
-        </p>
-      </section>
-
-      <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">6. Reward requests and approvals</h2>
-        <p>
-          Children can request rewards, but parents approve or reject requests. Family Hero Hub does not decide what is fair, appropriate, affordable, or suitable for a family.
+          {$_('terms.section5Text3')}
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">7. Caregiver access</h2>
+        <h2 class="text-2xl font-bold text-slate-800">{$_('terms.section6Title')}</h2>
         <p>
-          Parents may invite trusted caregivers or grownups. Families are responsible for choosing who they invite. Access can be removed where permissions allow.
+          {$_('terms.section6Text')}
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">8. Linked child devices</h2>
+        <h2 class="text-2xl font-bold text-slate-800">{$_('terms.section7Title')}</h2>
         <p>
-          Parents may link and unlink child devices. Families are responsible for keeping devices secure.
+          {$_('terms.section7Text')}
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">9. Acceptable use</h2>
+        <h2 class="text-2xl font-bold text-slate-800">{$_('terms.section8Title')}</h2>
         <p>
-          Use the service only for lawful family organisation purposes. Do not misuse the service, attempt unauthorised access, interfere with security, or enter harmful or unlawful content.
+          {$_('terms.section8Text')}
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">10. Service availability and limitation</h2>
+        <h2 class="text-2xl font-bold text-slate-800">{$_('terms.section9Title')}</h2>
         <p>
-          Family Hero Hub is provided as a family organisation tool. We work to keep it useful and available, but we cannot guarantee that it will always be uninterrupted, error-free, or suitable for every family situation. Parents and caregivers remain responsible for decisions made in their household.
+          {$_('terms.section9Text')}
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">11. Changes to the service</h2>
+        <h2 class="text-2xl font-bold text-slate-800">{$_('terms.section10Title')}</h2>
         <p>
-          We may update, improve, change, or remove features over time.
+          {$_('terms.section10Text')}
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">12. Access requests</h2>
+        <h2 class="text-2xl font-bold text-slate-800">{$_('terms.section11Title')}</h2>
         <p>
-          Access may be limited and approved in stages. Requesting access does not guarantee approval.
+          {$_('terms.section11Text')}
         </p>
       </section>
 
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold text-slate-800">13. Contact</h2>
+        <h2 class="text-2xl font-bold text-slate-800">{$_('terms.section12Title')}</h2>
         <p>
-          For questions about these terms, contact
+          {$_('terms.section12Text')}
+        </p>
+      </section>
+
+      <section class="space-y-4">
+        <h2 class="text-2xl font-bold text-slate-800">{$_('terms.section13Title')}</h2>
+        <p>
+          {$_('terms.section13Text')}
           <a
             href="mailto:support@familyherohub.com"
             class="inline-block max-w-full whitespace-nowrap align-bottom text-sm font-bold text-hero hover:underline sm:text-base"
           >
-            support@familyherohub.com
+            {$_('terms.contactEmail')}
           </a>.
         </p>
       </section>
