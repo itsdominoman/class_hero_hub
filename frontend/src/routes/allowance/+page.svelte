@@ -2,6 +2,12 @@
   import { onMount } from 'svelte';
   import { api } from '$lib/api';
   import {
+    CURRENCY_EXPONENTS,
+    formatAllowanceAmount,
+    formatCurrencyLabel,
+    searchCurrencies
+  } from '$lib/currencies';
+  import {
     ArrowLeft,
     BadgeCheck,
     Ban,
@@ -78,15 +84,6 @@
     included_transaction_count: number;
   };
 
-  const CURRENCY_EXPONENTS: Record<string, number> = {
-    OMR: 3,
-    USD: 2,
-    GBP: 2,
-    EUR: 2
-  };
-
-  const CURRENCIES = Object.keys(CURRENCY_EXPONENTS);
-
   let children = $state<ChildSummary[]>([]);
   let selectedChildId = $state('');
   let settings = $state<AllowanceSettings | null>(null);
@@ -98,6 +95,8 @@
   let formError = $state<string | null>(null);
   let statusMessage = $state<string | null>(null);
   let needsLogin = $state(false);
+  let currencySearch = $state(formatCurrencyLabel('OMR'));
+  let showCurrencyOptions = $state(false);
   let form = $state({
     is_enabled: false,
     currency: 'OMR',
@@ -112,6 +111,7 @@
   const previewBarWidth = $derived(`${Math.max(0, Math.min(100, previewProgress))}%`);
   const amountMinorForExamples = $derived(parseAmountToMinor(form.allowance_amount, activeExponent));
   const exampleRows = $derived(buildExampleRows());
+  const filteredCurrencyOptions = $derived(searchCurrencies(currencySearch));
 
   const isAuthError = (message: string) =>
     message.toLowerCase().includes('not authenticated') ||
@@ -147,11 +147,36 @@
   }
 
   function formatMinorAmount(minor: number, currency: string, exponent: number) {
-    const scale = powerOfTen(exponent);
-    const safeMinor = Math.max(0, Math.trunc(minor || 0));
-    const whole = Math.floor(safeMinor / scale);
-    const fraction = String(safeMinor % scale).padStart(exponent, '0');
-    return exponent > 0 ? `${whole}.${fraction} ${currency}` : `${whole} ${currency}`;
+    return formatAllowanceAmount(minor, currency, exponent);
+  }
+
+  function formatPointValueDisplay() {
+    if (!preview) return '';
+    const perPointMinor = Math.floor((preview.settings.allowance_amount_minor || 0) / Math.max(1, preview.settings.point_goal || 1));
+    return formatMinorAmount(perPointMinor, preview.currency, preview.currency_exponent);
+  }
+
+  function selectCurrency(code: string) {
+    form.currency = code;
+    currencySearch = formatCurrencyLabel(code);
+    showCurrencyOptions = false;
+  }
+
+  function handleCurrencySearchInput(event: Event) {
+    const value = (event.currentTarget as HTMLInputElement).value;
+    currencySearch = value;
+    showCurrencyOptions = true;
+    const exactCode = value.trim().toUpperCase();
+    if (CURRENCY_EXPONENTS[exactCode] !== undefined) {
+      form.currency = exactCode;
+    }
+  }
+
+  function closeCurrencyOptionsSoon() {
+    window.setTimeout(() => {
+      showCurrencyOptions = false;
+      currencySearch = formatCurrencyLabel(form.currency);
+    }, 120);
   }
 
   function formatPeriodDate(value: string) {
@@ -186,6 +211,7 @@
       period: nextSettings.period === 'monthly' ? 'monthly' : 'weekly',
       point_goal: nextSettings.point_goal
     };
+    currencySearch = formatCurrencyLabel(nextSettings.currency);
   }
 
   async function loadAllowanceForChild(childId: string) {
@@ -455,16 +481,44 @@
                     </span>
                   </label>
 
-                  <label>
+                  <label class="relative">
                     <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Currency</span>
-                    <select
-                      bind:value={form.currency}
-                      class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-black text-slate-900 outline-none transition focus:border-hero focus:ring-4 focus:ring-hero/10"
-                    >
-                      {#each CURRENCIES as currency}
-                        <option value={currency}>{currency}</option>
-                      {/each}
-                    </select>
+                      <input
+                        value={currencySearch}
+                        oninput={handleCurrencySearchInput}
+                        onfocus={() => (showCurrencyOptions = true)}
+                        onblur={closeCurrencyOptionsSoon}
+                        role="combobox"
+                        aria-expanded={showCurrencyOptions}
+                        aria-controls="currency-options"
+                        autocomplete="off"
+                        placeholder="Search by code, name, or symbol"
+                        class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-black text-slate-900 outline-none transition focus:border-hero focus:ring-4 focus:ring-hero/10"
+                      />
+                      {#if showCurrencyOptions}
+                        <div
+                          id="currency-options"
+                          class="absolute z-20 mt-2 max-h-72 w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-xl"
+                        >
+                          {#if filteredCurrencyOptions.length > 0}
+                            {#each filteredCurrencyOptions as currency}
+                              <button
+                                type="button"
+                                class={`flex w-full items-start justify-between gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-hero/10 ${currency.code === form.currency ? 'bg-hero/10 text-hero' : 'text-slate-800'}`}
+                                onmousedown={(event) => event.preventDefault()}
+                                onclick={() => selectCurrency(currency.code)}
+                              >
+                                <span class="min-w-0">
+                                  <span class="block text-sm font-black">{currency.code} — {currency.symbol} {currency.name}</span>
+                                  <span class="block text-xs font-bold text-slate-500">{currency.exponent} decimal{currency.exponent === 1 ? '' : 's'}</span>
+                                </span>
+                              </button>
+                            {/each}
+                          {:else}
+                            <p class="px-3 py-2 text-sm font-bold text-slate-500">No supported currency matches that search.</p>
+                          {/if}
+                        </div>
+                      {/if}
                   </label>
 
                   <label>
@@ -472,10 +526,10 @@
                     <input
                       bind:value={form.allowance_amount}
                       inputmode="decimal"
-                      placeholder={form.currency === 'OMR' ? '10.000' : '10.00'}
+                      placeholder={activeExponent === 3 ? '10.000' : activeExponent === 0 ? '10' : '10.00'}
                       class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-black text-slate-900 outline-none transition focus:border-hero focus:ring-4 focus:ring-hero/10"
                     />
-                    <p class="mt-2 text-xs font-medium leading-relaxed text-slate-500">Stored as minor units. Example: 10.000 OMR becomes 10000.</p>
+                    <p class="mt-2 text-xs font-medium leading-relaxed text-slate-500">Stored as minor units using the selected currency code. No exchange-rate conversion is applied.</p>
                   </label>
 
                   <label>
@@ -556,7 +610,7 @@
 
                     <div class="mt-4 rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4">
                       <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Point value</p>
-                      <p class="mt-2 text-lg font-black text-slate-950">1 point = {preview.point_value_display}</p>
+                      <p class="mt-2 text-lg font-black text-slate-950">1 point = {formatPointValueDisplay()}</p>
                     </div>
 
                       {#if preview.allowance_enabled_at}
@@ -573,7 +627,7 @@
                     <div class="mt-5 grid gap-3 sm:grid-cols-2">
                       <div class="rounded-[1.5rem] bg-slate-50 p-4">
                         <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Earned this period</p>
-                        <p class="mt-2 text-3xl font-black text-slate-950">{preview.display_amount}</p>
+                        <p class="mt-2 text-3xl font-black text-slate-950">{formatMinorAmount(preview.earned_allowance_minor_period, preview.currency, preview.currency_exponent)}</p>
                         <p class="mt-1 text-sm font-medium text-slate-500">{preview.earned_points_period} points</p>
                       </div>
                       <div class="rounded-[1.5rem] bg-slate-50 p-4">

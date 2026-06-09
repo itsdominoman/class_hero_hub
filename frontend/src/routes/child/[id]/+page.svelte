@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { api } from "$lib/api";
+  import { formatAllowanceAmount } from "$lib/currencies";
   import {
     ArrowRight,
     BadgeCheck,
@@ -407,13 +408,7 @@
     currency: string,
     exponent: number,
   ) {
-    const safeMinor = Math.max(0, Math.trunc(minor || 0));
-    const scale = 10 ** exponent;
-    const whole = Math.floor(safeMinor / scale);
-    const fraction = String(safeMinor % scale).padStart(exponent, "0");
-    return exponent > 0
-      ? `${whole}.${fraction} ${currency}`
-      : `${whole} ${currency}`;
+    return formatAllowanceAmount(minor, currency, exponent);
   }
 
   function getLocalDateValue(reference = new Date()) {

@@ -13,6 +13,23 @@ SUPPORTED_CURRENCY_EXPONENTS = schemas.SUPPORTED_ALLOWANCE_CURRENCIES
 DEFAULT_CURRENCY = "OMR"
 DEFAULT_PERIOD = "weekly"
 DEFAULT_POINT_GOAL = 100
+DISPLAY_SYMBOLS = {
+    "AED": "د.إ",
+    "AUD": "A$",
+    "BDT": "৳",
+    "BRL": "R$",
+    "CAD": "C$",
+    "CHF": "CHF",
+    "CNY": "¥",
+    "EUR": "€",
+    "GBP": "£",
+    "HKD": "HK$",
+    "INR": "₹",
+    "JPY": "¥",
+    "OMR": "ر.ع",
+    "USD": "$",
+    "ZAR": "R",
+}
 
 
 def currency_exponent(currency: str) -> int:
@@ -160,7 +177,8 @@ def _format_minor_amount(amount_minor: int, currency: str, exponent: int) -> str
     text = f"{amount:.{exponent}f}".rstrip("0").rstrip(".")
     if not text:
         text = "0"
-    return f"{text} {currency}"
+    symbol = DISPLAY_SYMBOLS.get(currency, "")
+    return f"{currency} {symbol}{text}" if symbol else f"{currency} {text}"
 
 
 def _format_point_value_display(amount_minor: int, point_goal: int, currency: str, exponent: int) -> str:
@@ -169,7 +187,8 @@ def _format_point_value_display(amount_minor: int, point_goal: int, currency: st
     text = f"{per_point.quantize(Decimal(10) ** -exponent, rounding=ROUND_HALF_UP):f}".rstrip("0").rstrip(".")
     if not text:
         text = "0"
-    return f"{text} {currency}"
+    symbol = DISPLAY_SYMBOLS.get(currency, "")
+    return f"{currency} {symbol}{text}" if symbol else f"{currency} {text}"
 
 
 def _points_to_minor(points: int, setting: schemas.AllowanceSettings) -> int:
@@ -340,9 +359,9 @@ def _build_allowance_summary(
         progress_ratio = 0.0
         progress_percent = 0.0
         maxed_for_period = False
-        point_value_display = f"0 {setting.currency}"
-        display_amount = f"0 {setting.currency}"
-        display_max_amount = f"0 {setting.currency}"
+        point_value_display = _format_minor_amount(0, setting.currency, setting.currency_exponent)
+        display_amount = _format_minor_amount(0, setting.currency, setting.currency_exponent)
+        display_max_amount = _format_minor_amount(0, setting.currency, setting.currency_exponent)
         max_amount_minor = 0
         included_transaction_count = 0
 

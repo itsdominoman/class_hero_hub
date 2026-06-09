@@ -170,6 +170,35 @@ def test_parent_can_enable_save_and_update_allowance_settings(db, client):
     assert updated["allowance_enabled_at"] is not None
 
 
+@pytest.mark.parametrize(
+    "currency,exponent",
+    [
+        ("AED", 2),
+        ("BDT", 2),
+        ("JPY", 0),
+        ("KWD", 3),
+        ("OMR", 3),
+        ("ZAR", 2),
+    ],
+)
+def test_parent_can_save_global_allowance_currencies(db, client, currency, exponent):
+    family = create_family(db)
+    parent = create_parent(db, family)
+    child = create_child(db, family)
+    headers = authenticate(client, parent)
+
+    response = client.put(
+        f"/api/allowance/children/{child.id}/settings",
+        headers=headers,
+        json=valid_payload(currency=currency, allowance_amount_minor=1000),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["currency"] == currency
+    assert payload["currency_exponent"] == exponent
+
+
 def test_parent_can_disable_and_delete_allowance_settings(db, client):
     family = create_family(db)
     parent = create_parent(db, family)
@@ -331,7 +360,7 @@ def test_reward_hold_and_rejection_update_allowance_balance(db, client):
 @pytest.mark.parametrize(
     "field,value",
     [
-        ("currency", "JPY"),
+        ("currency", "ZZZ"),
         ("period", "daily"),
         ("point_goal", 0),
         ("allowance_amount_minor", -1),
@@ -458,6 +487,6 @@ def test_preview_uses_period_ledger_and_excludes_rewards_and_savings(db, client)
     assert payload["eligible_points"] == 110
     assert payload["point_goal"] == 200
     assert payload["earned_amount_minor"] == 5500
-    assert payload["display_amount"] == "5.5 OMR"
-    assert payload["display_max_amount"] == "10 OMR"
+    assert payload["display_amount"] == "OMR ر.ع5.5"
+    assert payload["display_max_amount"] == "OMR ر.ع10"
     assert payload["included_transaction_count"] == 3

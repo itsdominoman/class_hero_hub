@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime, date, time
 from typing import Optional, List, Literal
+from .currencies import SUPPORTED_ALLOWANCE_CURRENCIES
 from .models import TransactionType, JarType, RedemptionStatus, PetStage
 
 class ParentUserBase(BaseModel):
@@ -77,13 +78,6 @@ class Child(ChildBase):
 
     class Config:
         from_attributes = True
-
-SUPPORTED_ALLOWANCE_CURRENCIES = {
-    "OMR": 3,
-    "USD": 2,
-    "GBP": 2,
-    "EUR": 2,
-}
 
 class AllowanceSettingsBase(BaseModel):
     is_enabled: bool = False

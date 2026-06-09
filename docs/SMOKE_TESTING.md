@@ -28,6 +28,14 @@ The Europe dev smoke script is still the read-only baseline for fast checks. It 
 - The setting affects weekly allowance periods, calendar week calculations, and weekly Points Log filtering where implemented.
 - Smoke remains read-only and does not PATCH `/api/family/settings`; use backend tests or an approved stateful QA plan for mutation coverage.
 
+## Allowance currency notes
+
+- Allowance setup uses a searchable ISO-style currency selector.
+- Search should match currency code, name, and symbol for examples such as USD, OMR, ZAR, AED, INR, AUD, CAD, BRL, and JPY.
+- Allowance and savings value displays should include the currency code with a symbol where possible.
+- The app does not perform exchange-rate conversion or live-rate lookup.
+- Smoke remains read-only and does not save allowance currency changes; use backend tests or an approved authenticated QA run for mutation coverage.
+
 ## Parents & Caregivers notes
 
 - Settings -> Parents & Caregivers lets parents view accepted grownups and pending invites.

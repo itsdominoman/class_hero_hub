@@ -40,7 +40,7 @@ The fun visual progress system that shows the dragon growing as points are earne
 An optional setup where points are the child’s allowance currency and the allowance value is shown as a money equivalent.
 
 ## Allowance settings
-The optional per-child setup for currency, allowance amount, allowance period, point goal, and the date allowance was enabled.
+The optional per-child setup for currency, allowance amount, allowance period, point goal, and the date allowance was enabled. Currency is stored as an ISO-style code selected from a searchable list.
 
 ## Allowance period
 The weekly or monthly window used to calculate earned, spent, carried-over, and remaining allowance value.

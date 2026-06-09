@@ -158,7 +158,10 @@ Family Hero Hub can optionally show allowance-style values beside points.
 
 - saved points are still family points
 - allowance values are optional and parent-managed
+- allowance currency is selected per child in Allowance setup from a broad searchable list of ISO-style currency codes
+- allowance and savings value displays show the currency code with a symbol where possible to avoid ambiguous symbols such as `$`, `R`, `Rs`, and `¥`
 - Family Hero Hub does not hold money, transfer money, or pay children
+- Family Hero Hub does not convert exchange rates or fetch live currency rates
 - parents remain responsible for any real-world allowance, purchase, or reward
 
 Use points to encourage effort and follow-through, not just payment for chores. Some families connect points to allowance values, while others use points only for rewards, privileges, or progress.

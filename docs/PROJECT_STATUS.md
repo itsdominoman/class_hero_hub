@@ -83,7 +83,8 @@
 - Allowance values are derived from allowance-linked points using integer minor-unit math
 - Rewards, reward holds, reward releases, and savings deposits/unlocks reduce the available balance when allowance is enabled
 - Parent-facing Allowance setup page exists at `/allowance`
-- Parents can select a child, enable/disable allowance, choose OMR/USD/GBP/EUR, set weekly/monthly allowance goals, save settings, and view allowance-linked summaries
+- Parents can select a child, enable/disable allowance, choose from a broad searchable ISO-style currency list, set weekly/monthly allowance goals, save settings, and view allowance-linked summaries
+- Allowance and savings value displays include the currency code plus a symbol where possible; the app does not perform exchange-rate conversion
 - Child dashboard allowance display is now implemented for children with allowance enabled
 - The app still does not automatically pay children
 - Child dashboard savings banking is now implemented with a dedicated popup, savings bonus projection, next-unlock summary, and grouped unlock schedule

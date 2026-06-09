@@ -50,6 +50,9 @@ Saved points are points set aside for later. They stay locked for a set time and
 ### What does allowance value mean?
 It means points can show an optional money value. The app can help children understand the connection between effort, saving, and rewards, but parents still control any real-world allowance or purchase.
 
+### Which currencies can I use for allowance values?
+Parents choose a currency per child in Allowance setup. The selector uses a broad searchable list of ISO-style currency codes such as USD, GBP, EUR, OMR, ZAR, AED, INR, AUD, CAD, BRL, and JPY. Currency is display context only; Family Hero Hub does not convert exchange rates or fetch live rates.
+
 ### Does Family Hero Hub teach children about earning money?
 Family Hero Hub can help children understand the connection between effort, responsibility, saving, and rewards. If parents choose to use allowance values, points can show a family-managed value — but Family Hero Hub does not pay children, hold money, or act like a payroll or banking system. Parents decide what points mean in their home.
 

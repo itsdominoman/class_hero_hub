@@ -215,7 +215,7 @@
 ### Scope
 - Added the parent-facing Allowance setup page at `/allowance`.
 - Added a Parent Tools link from the parent dashboard to Allowance setup.
-- Parents can select a child, enable or disable allowance, choose OMR/USD/GBP/EUR, enter a human-readable allowance amount, choose weekly/monthly period, set a point goal, save settings, and view current-period preview.
+- Parents can select a child, enable or disable allowance, choose from a broad searchable ISO-style currency list, enter a human-readable allowance amount, choose weekly/monthly period, set a point goal, save settings, and view current-period preview.
 - Kept rewards, redemptions, child dashboard display, and automatic payout behavior unchanged.
 
 ### Verification
@@ -232,8 +232,18 @@
 ### Scope
 - Added backend support for optional child-level allowance settings in `child_allowance_settings`.
 - Added parent-authenticated allowance settings and preview endpoints under `/api/allowance`.
-- Stored allowance amounts in integer minor units and derived the currency exponent from supported currencies: OMR, USD, GBP, and EUR.
+- Stored allowance amounts in integer minor units and derived the currency exponent from the supported ISO-style currency code list.
 - Kept rewards independent from allowance; no reward behavior, frontend allowance UI, child dashboard display, or automatic payouts were implemented.
+
+# 2026-06-09 - Global Allowance Currency Support
+
+### Scope
+- Replaced the small allowance currency list with a broad searchable ISO-style currency selector.
+- Kept currency storage as three-letter uppercase codes such as USD, OMR, ZAR, AED, INR, AUD, CAD, BRL, and JPY.
+- Updated backend currency validation to accept the broader known-code list while still rejecting arbitrary values.
+- Updated allowance, savings, parent, and child displays to show currency code plus symbol where possible.
+- Confirmed no DB migration is needed because `child_allowance_settings.currency` is already a 3-character string code with no small enum constraint.
+- No exchange-rate conversion or live-rate lookup was added.
 
 ### Verification
 - Allowance preview uses current period ledger aggregation rather than current point balances.

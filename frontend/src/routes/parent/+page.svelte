@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { api } from '$lib/api';
   import { AVATAR_OPTIONS, getAvatarAsset, hasAvatarAssetFile, normaliseAvatarKey } from '$lib/avatars';
+  import { formatAllowanceAmount } from '$lib/currencies';
   import { 
     UserPlus, Award, Ban, PiggyBank, Gift, Ticket,
     LayoutDashboard, Settings, LogIn, Trophy, Clock, Check, X,
@@ -296,11 +297,7 @@
   }
 
   function formatAllowanceMinorAmount(minor: number, currency: string, exponent: number) {
-    const safeMinor = Math.max(0, Math.trunc(minor || 0));
-    const scale = 10 ** exponent;
-    const whole = Math.floor(safeMinor / scale);
-    const fraction = String(safeMinor % scale).padStart(exponent, '0');
-    return exponent > 0 ? `${whole}.${fraction} ${currency}` : `${whole} ${currency}`;
+    return formatAllowanceAmount(minor, currency, exponent);
   }
 
   async function loadSchoolPrep(childSummaries = children) {
