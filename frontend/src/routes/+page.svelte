@@ -380,34 +380,34 @@
   <section class="bg-white px-3 sm:px-4 py-16 md:py-24">
     <div class="max-w-7xl mx-auto grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
       <div>
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Child benefit</p>
-        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">For children who need to see progress</h2>
+        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{$_('home.childBenefitEyebrow')}</p>
+        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">{$_('home.childBenefitHeading')}</h2>
         <p class="mt-5 text-base md:text-lg leading-relaxed text-slate-600">
-          Children do better when they can see what is expected, what progress they have made, and what they are working toward.
+          {$_('home.childBenefitParagraph1')}
         </p>
         <p class="mt-4 text-base md:text-lg leading-relaxed text-slate-600">
-          The Child Dashboard gives them a simple view of their points, rewards, tasks, School Bag, Calendar, and savings progress — without sharing the parent account, parent login, or parent device.
+          {$_('home.childBenefitParagraph2')}
         </p>
         <p class="mt-5 rounded-3xl bg-hero/5 px-4 py-4 text-sm font-semibold text-slate-700">
-          Children can request rewards, but parents approve them.
+          {$_('home.childBenefitCallout')}
         </p>
       </div>
 
       <div class="grid gap-4 sm:grid-cols-2">
         <div class="card p-6">
           <Clock size={28} class="text-hero" />
-          <h3 class="mt-5 text-xl font-black text-slate-900">What is next</h3>
-          <p class="mt-3 leading-relaxed text-slate-600">Tasks, School Bag items, and Calendar routines are easier to see.</p>
+          <h3 class="mt-5 text-xl font-black text-slate-900">{$_('home.childBenefitCard1Title')}</h3>
+          <p class="mt-3 leading-relaxed text-slate-600">{$_('home.childBenefitCard1Text')}</p>
         </div>
         <div class="card p-6">
           <Star size={28} class="text-reward" />
-          <h3 class="mt-5 text-xl font-black text-slate-900">What they have done</h3>
-          <p class="mt-3 leading-relaxed text-slate-600">Points and rewards make effort, responsibility, and follow-through visible.</p>
+          <h3 class="mt-5 text-xl font-black text-slate-900">{$_('home.childBenefitCard2Title')}</h3>
+          <p class="mt-3 leading-relaxed text-slate-600">{$_('home.childBenefitCard2Text')}</p>
         </div>
         <div class="card p-6 sm:col-span-2">
           <Coins size={28} class="text-savings" />
-          <h3 class="mt-5 text-xl font-black text-slate-900">What they are working toward</h3>
-          <p class="mt-3 leading-relaxed text-slate-600">Saved points and parent-approved rewards help children practise waiting, planning, and choosing.</p>
+          <h3 class="mt-5 text-xl font-black text-slate-900">{$_('home.childBenefitCard3Title')}</h3>
+          <p class="mt-3 leading-relaxed text-slate-600">{$_('home.childBenefitCard3Text')}</p>
         </div>
       </div>
     </div>

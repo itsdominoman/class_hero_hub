@@ -155,7 +155,18 @@ export const en = {
     howItWorksStep4Title: 'Approve rewards together',
     howItWorksStep4Text: 'Children can request rewards. Parents approve or reject them, so expectations stay clear.',
     howItWorksStep5Title: 'Grow into savings and allowance',
-    howItWorksStep5Text: 'When ready, add saved points, bonus unlocks, and optional allowance values — without turning the app into a bank.'
+    howItWorksStep5Text: 'When ready, add saved points, bonus unlocks, and optional allowance values — without turning the app into a bank.',
+    childBenefitEyebrow: 'Child benefit',
+    childBenefitHeading: 'For children who need to see progress',
+    childBenefitParagraph1: 'Children do better when they can see what is expected, what progress they have made, and what they are working toward.',
+    childBenefitParagraph2: 'The Child Dashboard gives them a simple view of their points, rewards, tasks, School Bag, Calendar, and savings progress — without sharing the parent account, parent login, or parent device.',
+    childBenefitCallout: 'Children can request rewards, but parents approve them.',
+    childBenefitCard1Title: 'What is next',
+    childBenefitCard1Text: 'Tasks, School Bag items, and Calendar routines are easier to see.',
+    childBenefitCard2Title: 'What they have done',
+    childBenefitCard2Text: 'Points and rewards make effort, responsibility, and follow-through visible.',
+    childBenefitCard3Title: 'What they are working toward',
+    childBenefitCard3Text: 'Saved points and parent-approved rewards help children practise waiting, planning, and choosing.'
   },
   login: {
     title: 'Welcome back to Family Hero Hub',
@@ -554,7 +565,18 @@ export const ar = {
     howItWorksStep4Title: 'وافقوا على المكافآت معًا',
     howItWorksStep4Text: 'يمكن للأطفال طلب المكافآت. يوافق الوالدان عليها أو يرفضانها، فتظل التوقعات واضحة.',
     howItWorksStep5Title: 'أضف الادخار والمصروف لاحقًا',
-    howItWorksStep5Text: 'عندما تكونون جاهزين، أضيفوا النقاط المدخرة ومكافآت الفتح الإضافية وقيم المصروف الاختيارية — دون تحويل التطبيق إلى بنك.'
+    howItWorksStep5Text: 'عندما تكونون جاهزين، أضيفوا النقاط المدخرة ومكافآت الفتح الإضافية وقيم المصروف الاختيارية — دون تحويل التطبيق إلى بنك.',
+    childBenefitEyebrow: 'فائدة للأطفال',
+    childBenefitHeading: 'للأطفال الذين يحتاجون إلى رؤية التقدم',
+    childBenefitParagraph1: 'يستفيد الأطفال أكثر عندما يمكنهم رؤية ما هو متوقع منهم، وما أحرزوه من تقدم، وما يعملون من أجله.',
+    childBenefitParagraph2: 'تمنحهم لوحة الطفل رؤية بسيطة لنقاطهم ومكافآتهم ومهامهم والحقيبة المدرسية والتقويم وتقدم الادخار — دون مشاركة حساب الوالدين أو تسجيل الدخول الخاص بهم أو جهاز الوالدين.',
+    childBenefitCallout: 'يمكن للأطفال طلب المكافآت، لكن الوالدين هما من يوافقان عليها.',
+    childBenefitCard1Title: 'ما التالي',
+    childBenefitCard1Text: 'تصبح المهام وعناصر الحقيبة المدرسية وروتين التقويم أسهل في الرؤية.',
+    childBenefitCard2Title: 'ما أنجزوه',
+    childBenefitCard2Text: 'تجعل النقاط والمكافآت الجهد والمسؤولية والمتابعة واضحة.',
+    childBenefitCard3Title: 'ما يعملون من أجله',
+    childBenefitCard3Text: 'تساعد النقاط المدخرة والمكافآت المعتمدة من الوالدين الأطفال على التدرّب على الانتظار والتخطيط والاختيار.'
   },
   login: {
     title: 'مرحبا بعودتك إلى Family Hero Hub',
