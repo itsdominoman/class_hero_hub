@@ -149,28 +149,28 @@
 
   const faqs = [
     {
-      question: 'Is Family Hero Hub a banking app?',
-      answer: 'No. It can show optional allowance values beside points, but it does not hold or transfer money.'
+      question: 'home.faqQuestion1',
+      answer: 'home.faqAnswer1'
     },
     {
-      question: 'Can children approve their own rewards?',
-      answer: 'No. Children can request rewards, but parents approve or reject them.'
+      question: 'home.faqQuestion2',
+      answer: 'home.faqAnswer2'
     },
     {
-      question: 'Can I invite another parent or caregiver?',
-      answer: 'Yes. Parents & Caregivers lets families invite trusted grownups and remove access when needed.'
+      question: 'home.faqQuestion3',
+      answer: 'home.faqAnswer3'
     },
     {
-      question: 'Can my child use their own device?',
-      answer: 'Yes. Parents can link a child dashboard to a device and unlink it later if needed.'
+      question: 'home.faqQuestion4',
+      answer: 'home.faqAnswer4'
     },
     {
-      question: 'Can children message each other?',
-      answer: 'No. Family Hero Hub does not include child-to-child messaging.'
+      question: 'home.faqQuestion5',
+      answer: 'home.faqAnswer5'
     },
     {
-      question: 'Why did you build Family Hero Hub?',
-      answer: 'It started as a practical way to bring points, routines, school prep, rewards, savings-style goals, and child dashboards into one parent-led family space.'
+      question: 'home.faqQuestion6',
+      answer: 'home.faqAnswer6'
     }
   ];
 </script>
@@ -505,22 +505,22 @@
   <section class="px-3 sm:px-4 py-16 md:py-24">
     <div class="max-w-7xl mx-auto">
       <div class="text-center mb-12 md:mb-16">
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">FAQ preview</p>
-        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">Questions parents usually ask</h2>
+        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{$_('home.faqEyebrow')}</p>
+        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">{$_('home.faqHeading')}</h2>
       </div>
 
       <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {#each faqs as item}
           <div class="card p-6">
-            <h3 class="text-lg font-black text-slate-900">{item.question}</h3>
-            <p class="mt-3 leading-relaxed text-slate-600">{item.answer}</p>
+            <h3 class="text-lg font-black text-slate-900">{$_(item.question)}</h3>
+            <p class="mt-3 leading-relaxed text-slate-600">{$_(item.answer)}</p>
           </div>
         {/each}
       </div>
 
       <div class="mt-8 text-center">
         <a href="/faq" class="btn-secondary inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-4">
-          Read the FAQ
+          {$_('home.faqButton')}
           <ArrowRight size={18} />
         </a>
       </div>
