@@ -427,8 +427,8 @@
         {#each choreChartCards as card}
           <div class="card p-6">
             <Lightbulb size={26} class="text-hero" />
-            <h3 class="mt-5 text-xl font-black text-slate-900">{card.title}</h3>
-            <p class="mt-3 leading-relaxed text-slate-600">{card.text}</p>
+            <h3 class="mt-5 text-xl font-black text-slate-900">{$_(card.title)}</h3>
+            <p class="mt-3 leading-relaxed text-slate-600">{$_(card.text)}</p>
           </div>
         {/each}
       </div>
