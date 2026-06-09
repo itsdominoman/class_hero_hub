@@ -142,7 +142,20 @@ export const en = {
     featureParentsCaregiversTitle: 'Parents & Caregivers',
     featureParentsCaregiversText: 'Invite trusted grownups and remove access when needed.',
     featureLinkedDevicesTitle: 'Linked Devices',
-    featureLinkedDevicesText: 'Connect child dashboards to devices and unlink them from parent settings.'
+    featureLinkedDevicesText: 'Connect child dashboards to devices and unlink them from parent settings.',
+    howItWorksEyebrow: 'How it works',
+    howItWorksHeading: 'Start simple. Add more when your family is ready.',
+    howItWorksIntro: 'You do not need to use every feature on day one. Start with points and rewards, then add School Bag, Calendar, savings, allowance values, child devices, and caregiver access when they make sense for your family.',
+    howItWorksStep1Title: 'Add your children',
+    howItWorksStep1Text: 'Create child profiles, choose avatars, and set up your family space.',
+    howItWorksStep2Title: 'Use points for everyday progress',
+    howItWorksStep2Text: 'Award points for routines, helpful choices, school prep, effort, kindness, or custom reasons.',
+    howItWorksStep3Title: "Let children see what's next",
+    howItWorksStep3Text: 'Children can view their own dashboard with points, rewards, tasks, School Bag, calendar events, and savings progress.',
+    howItWorksStep4Title: 'Approve rewards together',
+    howItWorksStep4Text: 'Children can request rewards. Parents approve or reject them, so expectations stay clear.',
+    howItWorksStep5Title: 'Grow into savings and allowance',
+    howItWorksStep5Text: 'When ready, add saved points, bonus unlocks, and optional allowance values — without turning the app into a bank.'
   },
   login: {
     title: 'Welcome back to Family Hero Hub',
@@ -528,7 +541,20 @@ export const ar = {
     featureParentsCaregiversTitle: 'الوالدان ومقدمو الرعاية',
     featureParentsCaregiversText: 'ادعُ مقدمي الرعاية الموثوقين وأزل الوصول عند الحاجة.',
     featureLinkedDevicesTitle: 'الأجهزة المرتبطة',
-    featureLinkedDevicesText: 'اربط لوحات الأطفال بالأجهزة وافصلها من إعدادات الوالدين.'
+    featureLinkedDevicesText: 'اربط لوحات الأطفال بالأجهزة وافصلها من إعدادات الوالدين.',
+    howItWorksEyebrow: 'كيف يعمل',
+    howItWorksHeading: 'ابدأ ببساطة. أضف المزيد عندما تكون عائلتك جاهزة.',
+    howItWorksIntro: 'لست بحاجة إلى استخدام كل ميزة من اليوم الأول. ابدأ بالنقاط والمكافآت، ثم أضف الحقيبة المدرسية والتقويم والادخار وقيم المصروف وأجهزة الأطفال ووصول مقدمي الرعاية عندما تصبح مناسبة لعائلتك.',
+    howItWorksStep1Title: 'أضف أطفالك',
+    howItWorksStep1Text: 'أنشئ ملفات للأطفال، واختر الصور الرمزية، وأعدّ مساحة عائلتك.',
+    howItWorksStep2Title: 'استخدم النقاط للتقدم اليومي',
+    howItWorksStep2Text: 'امنح النقاط على الروتين والاختيارات المفيدة وتجهيز المدرسة والجهد واللطف أو أي سبب مخصص.',
+    howItWorksStep3Title: 'دع الأطفال يرون ما هو التالي',
+    howItWorksStep3Text: 'يمكن للأطفال عرض لوحتهم الخاصة مع النقاط والمكافآت والمهام والحقيبة المدرسية وأحداث التقويم وتقدم الادخار.',
+    howItWorksStep4Title: 'وافقوا على المكافآت معًا',
+    howItWorksStep4Text: 'يمكن للأطفال طلب المكافآت. يوافق الوالدان عليها أو يرفضانها، فتظل التوقعات واضحة.',
+    howItWorksStep5Title: 'أضف الادخار والمصروف لاحقًا',
+    howItWorksStep5Text: 'عندما تكونون جاهزين، أضيفوا النقاط المدخرة ومكافآت الفتح الإضافية وقيم المصروف الاختيارية — دون تحويل التطبيق إلى بنك.'
   },
   login: {
     title: 'مرحبا بعودتك إلى Family Hero Hub',

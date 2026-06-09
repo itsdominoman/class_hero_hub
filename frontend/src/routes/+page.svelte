@@ -91,24 +91,24 @@
 
   const steps = [
     {
-      title: 'Add your children',
-      text: 'Create child profiles, choose avatars, and set up your family space.'
+      title: 'home.howItWorksStep1Title',
+      text: 'home.howItWorksStep1Text'
     },
     {
-      title: 'Use points for everyday progress',
-      text: 'Award points for routines, helpful choices, school prep, effort, kindness, or custom reasons.'
+      title: 'home.howItWorksStep2Title',
+      text: 'home.howItWorksStep2Text'
     },
     {
-      title: "Let children see what's next",
-      text: 'Children can view their own dashboard with points, rewards, tasks, School Bag, calendar events, and savings progress.'
+      title: 'home.howItWorksStep3Title',
+      text: 'home.howItWorksStep3Text'
     },
     {
-      title: 'Approve rewards together',
-      text: 'Children can request rewards. Parents approve or reject them, so expectations stay clear.'
+      title: 'home.howItWorksStep4Title',
+      text: 'home.howItWorksStep4Text'
     },
     {
-      title: 'Grow into savings and allowance',
-      text: 'When ready, add saved points, bonus unlocks, and optional allowance values — without turning the app into a bank.'
+      title: 'home.howItWorksStep5Title',
+      text: 'home.howItWorksStep5Text'
     }
   ];
 
@@ -356,10 +356,10 @@
   <section id="how-it-works" class="px-3 sm:px-4 py-16 md:py-24">
     <div class="max-w-7xl mx-auto">
       <div class="text-center mb-12 md:mb-16">
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">How it works</p>
-        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">Start simple. Add more when your family is ready.</h2>
+        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{$_('home.howItWorksEyebrow')}</p>
+        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">{$_('home.howItWorksHeading')}</h2>
         <p class="mx-auto mt-4 max-w-3xl text-base md:text-lg leading-relaxed text-slate-600">
-          You do not need to use every feature on day one. Start with points and rewards, then add School Bag, Calendar, savings, allowance values, child devices, and caregiver access when they make sense for your family.
+          {$_('home.howItWorksIntro')}
         </p>
       </div>
 
@@ -369,8 +369,8 @@
             <div class="inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white">
               0{index + 1}
             </div>
-            <h3 class="mt-5 text-xl font-black text-slate-900">{step.title}</h3>
-            <p class="mt-3 leading-relaxed text-slate-600">{step.text}</p>
+            <h3 class="mt-5 text-xl font-black text-slate-900">{$_(step.title)}</h3>
+            <p class="mt-3 leading-relaxed text-slate-600">{$_(step.text)}</p>
           </div>
         {/each}
       </div>
