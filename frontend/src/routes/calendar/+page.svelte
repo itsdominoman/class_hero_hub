@@ -208,7 +208,7 @@
   }
 
   function formatTime(value: string | null) {
-    if (!value) return 'All day';
+    if (!value) return $_('calendar.allDay');
     const trimmed = value.slice(0, 5);
     const [hours, minutes] = trimmed.split(':').map(Number);
     const date = new Date();
@@ -228,17 +228,17 @@
   }
 
   function recurrenceLabel(entry: CalendarEntry) {
-    if (entry.recurrence_type === 'daily') return 'Repeats daily';
+    if (entry.recurrence_type === 'daily') return $_('calendar.repeatsDaily');
     if (entry.recurrence_type === 'weekly') {
       const days = (entry.recurrence_days || '')
         .split(',')
         .map((value) => Number(value))
         .filter((value) => !Number.isNaN(value));
-      if (days.length === 0) return 'Repeats weekly';
-      const labels = WEEKDAY_OPTIONS.filter((option) => days.includes(option.value)).map((option) => option.label);
-      return `Repeats weekly: ${labels.join(' ')}`;
+      if (days.length === 0) return $_('calendar.repeatsWeekly');
+      const labels = days.map((day) => weekdayRecurrenceLabel(day)).filter(Boolean);
+      return $_('calendar.repeatsWeeklyWithDays', { values: { days: labels.join(' ') } });
     }
-    return 'One time';
+    return $_('calendar.oneTime');
   }
 
   function recurrenceBadgeClass(entry: CalendarEntry) {
@@ -260,15 +260,15 @@
   }
 
   function statusLabel(status: string) {
-    if (status === 'approved') return 'Completed';
-    if (status === 'pending') return 'Pending approval';
-    if (status === 'rejected') return 'Rejected';
+    if (status === 'approved') return $_('calendar.completed');
+    if (status === 'pending') return $_('calendar.pendingApproval');
+    if (status === 'rejected') return $_('calendar.rejected');
     return status;
   }
 
   function entryPointsLabel(entry: CalendarEntry) {
     if (!entry.is_rewardable || !entry.points_value) return '';
-    return `${entry.points_value} points`;
+    return $_('calendar.pointsCount', { values: { count: entry.points_value } });
   }
 
   function cleanDescription(entry: CalendarEntry) {
@@ -276,7 +276,18 @@
   }
 
   function getSelectedChildLabel() {
-    return children.find((child) => child.child.id.toString() === selectedChildId)?.child.display_name || 'Choose a child';
+    return children.find((child) => child.child.id.toString() === selectedChildId)?.child.display_name || $_('calendar.chooseChild');
+  }
+
+  function weekdayRecurrenceLabel(value: number) {
+    if (value === 0) return $_('calendar.weekdayMondayShort');
+    if (value === 1) return $_('calendar.weekdayTuesdayShort');
+    if (value === 2) return $_('calendar.weekdayWednesdayShort');
+    if (value === 3) return $_('calendar.weekdayThursdayShort');
+    if (value === 4) return $_('calendar.weekdayFridayShort');
+    if (value === 5) return $_('calendar.weekdaySaturdayShort');
+    if (value === 6) return $_('calendar.weekdaySundayShort');
+    return '';
   }
 
   function normalizePointsValue(raw: string | number) {
@@ -968,11 +979,11 @@
             <div class="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
               <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div class="min-w-0">
-                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Weekly strip</p>
-                  <h2 class="mt-1 text-xl font-black text-slate-950">Move through the week</h2>
+                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">{$_('calendar.weeklyStripLabel')}</p>
+                  <h2 class="mt-1 text-xl font-black text-slate-950">{$_('calendar.moveThroughWeek')}</h2>
                 </div>
                 <span class="w-fit rounded-full bg-slate-100 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-                  Sunday start
+                  {$_('calendar.sundayStart')}
                 </span>
               </div>
 
@@ -1008,11 +1019,11 @@
               <section class="rounded-[2rem] border border-amber-200 bg-amber-50/70 p-4 shadow-sm md:p-5">
                 <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div class="min-w-0">
-                    <p class="text-[10px] font-black uppercase tracking-[0.24em] text-amber-600">Pending approvals</p>
-                    <h2 class="mt-1 text-xl font-black text-slate-950">{pendingItems().length} waiting for review</h2>
+                    <p class="text-[10px] font-black uppercase tracking-[0.24em] text-amber-600">{$_('calendar.pendingApprovals')}</p>
+                    <h2 class="mt-1 text-xl font-black text-slate-950">{$_('calendar.waitingForReview', { values: { count: pendingItems().length } })}</h2>
                   </div>
                   <div class="rounded-full bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
-                    Parent review
+                    {$_('calendar.parentReview')}
                   </div>
                 </div>
 
@@ -1023,7 +1034,7 @@
                         <div class="min-w-0 flex-1">
                           <div class="mb-3 flex flex-wrap items-center gap-2">
                             <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${typeBadgeClass(item.entry.entry_type)}`}>
-                              {item.entry.entry_type === 'event' ? 'Event' : 'Task'}
+                              {item.entry.entry_type === 'event' ? $_('calendar.eventType') : $_('calendar.taskType')}
                             </span>
                             {#if item.entry.is_rewardable && item.entry.entry_type === 'task'}
                               <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
@@ -1081,14 +1092,14 @@
             <section class="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
               <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div class="min-w-0">
-                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Agenda</p>
+                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">{$_('calendar.agenda')}</p>
                   <h2 class="mt-1 text-xl font-black text-slate-950">
-                    {viewMode === 'today' ? 'Today' : 'This week'}
+                    {viewMode === 'today' ? $_('calendar.today') : $_('calendar.week')}
                   </h2>
                 </div>
                 <div class="flex w-fit items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 sm:tracking-[0.18em]">
                   <BadgeCheck size={14} />
-                  {loadingCalendar ? 'Refreshing' : `${calendarItems.length} occurrences`}
+                  {loadingCalendar ? $_('calendar.refreshing') : `${calendarItems.length} ${$_('calendar.occurrencesLabel')}`}
                 </div>
               </div>
 
@@ -1101,11 +1112,11 @@
                         <div class="flex flex-wrap items-center gap-2">
                           <h3 class="break-words text-lg font-black text-slate-950">{formatLongDate(day)}</h3>
                           {#if day === selectedDate}
-                            <span class="rounded-full bg-slate-900 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white">Selected</span>
+                            <span class="rounded-full bg-slate-900 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white">{$_('calendar.selected')}</span>
                           {/if}
                         </div>
                         <p class="mt-1 text-sm font-medium text-slate-500">
-                          {dayItems.length === 0 ? 'Nothing scheduled' : `${dayItems.length} scheduled item${dayItems.length === 1 ? '' : 's'}`}
+                          {dayItems.length === 0 ? $_('calendar.nothingScheduled') : $_('calendar.scheduledItems', { values: { count: dayItems.length } })}
                         </p>
                       </div>
                       <button
@@ -1117,15 +1128,15 @@
                         }}
                       >
                         <Sparkles size={16} />
-                        Focus day
+                        {$_('calendar.focusDay')}
                       </button>
                     </div>
 
                     <div class="space-y-3 p-4 md:p-5">
                       {#if dayItems.length === 0}
                         <div class="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center">
-                          <p class="text-sm font-black uppercase tracking-[0.2em] text-slate-400">No items yet</p>
-                          <p class="mt-2 text-sm font-medium text-slate-500">Add a schedule item for this day when you are ready.</p>
+                          <p class="text-sm font-black uppercase tracking-[0.2em] text-slate-400">{$_('calendar.noItemsYet')}</p>
+                          <p class="mt-2 text-sm font-medium text-slate-500">{$_('calendar.addScheduleForDay')}</p>
                         </div>
                       {:else}
                         {#each dayItems as item}
@@ -1134,21 +1145,21 @@
                               <div class="min-w-0 flex-1">
                                 <div class="mb-3 flex flex-wrap items-center gap-2">
                                   <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${typeBadgeClass(item.entry.entry_type)}`}>
-                                    {item.entry.entry_type === 'event' ? 'Event' : 'Task'}
+                                    {item.entry.entry_type === 'event' ? $_('calendar.eventType') : $_('calendar.taskType')}
                                   </span>
                                   {#if item.entry.is_rewardable && item.entry.entry_type === 'task'}
                                     <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
-                                      Reward task
+                                      {$_('calendar.rewardTask')}
                                     </span>
                                   {/if}
                                   {#if item.entry.is_rewardable && item.entry.points_value}
                                     <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
-                                      {item.entry.points_value} points
+                                      {$_('calendar.pointsCount', { values: { count: item.entry.points_value } })}
                                     </span>
                                   {/if}
                                   <span class={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${recurrenceBadgeClass(item.entry)} sm:tracking-[0.18em]`}>
                                     <Repeat2 size={12} />
-                                    {item.entry.recurrence_type === 'none' ? 'One time' : item.entry.recurrence_type === 'daily' ? 'Daily' : 'Weekly'}
+                                    {item.entry.recurrence_type === 'none' ? $_('calendar.oneTime') : item.entry.recurrence_type === 'daily' ? $_('calendar.daily') : $_('calendar.weekly')}
                                   </span>
                                   {#if item.completion}
                                     <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${statusBadgeClass(item.completion.status)}`}>
@@ -1186,16 +1197,16 @@
                                 {#if !item.completion}
                                   <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white shadow-sm sm:tracking-[0.18em]" onclick={() => completeEntry(item)}>
                                     <Check size={16} />
-                                    Complete
+                                    {$_('calendar.complete')}
                                   </button>
                                 {/if}
                                 <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm sm:tracking-[0.18em]" onclick={() => openEditModal(item)}>
                                   <PencilLine size={16} />
-                                  Edit
+                                  {$_('calendar.edit')}
                                 </button>
                                 <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-rose-700 shadow-sm sm:tracking-[0.18em]" onclick={() => disableEntry(item)}>
                                   <Trash2 size={16} />
-                                  Disable
+                                  {$_('calendar.disable')}
                                 </button>
                               </div>
                             </div>
@@ -1213,8 +1224,8 @@
             <div class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
               <div class="flex items-start justify-between gap-3">
                 <div>
-                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Parent view</p>
-                  <h2 class="mt-1 text-xl font-black text-slate-950">Calendar overview</h2>
+                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">{$_('calendar.parentView')}</p>
+                  <h2 class="mt-1 text-xl font-black text-slate-950">{$_('calendar.overview')}</h2>
                 </div>
                 <div class="rounded-2xl bg-slate-900 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white">
                   {getSelectedChildLabel()}
@@ -1222,16 +1233,16 @@
               </div>
               <div class="mt-4 space-y-3 text-sm text-slate-600">
                 <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
-                  <span class="font-bold text-slate-500">Visible occurrences</span>
+                  <span class="font-bold text-slate-500">{$_('calendar.visibleOccurrences')}</span>
                   <span class="font-black text-slate-950">{calendarItems.length}</span>
                 </div>
                 <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
-                  <span class="font-bold text-slate-500">Pending approvals</span>
+                  <span class="font-bold text-slate-500">{$_('calendar.pendingApprovalsCount')}</span>
                   <span class="font-black text-slate-950">{pendingItems().length}</span>
                 </div>
                 <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
-                  <span class="font-bold text-slate-500">Week mode</span>
-                  <span class="font-black text-slate-950">{viewMode === 'today' ? 'Day' : 'Week'}</span>
+                  <span class="font-bold text-slate-500">{$_('calendar.weekMode')}</span>
+                  <span class="font-black text-slate-950">{viewMode === 'today' ? $_('calendar.day') : $_('calendar.week')}</span>
                 </div>
               </div>
             </div>
