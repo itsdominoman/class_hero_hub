@@ -28,6 +28,16 @@ The Europe dev smoke script is still the read-only baseline for fast checks. It 
 - The setting affects weekly allowance periods, calendar week calculations, and weekly Points Log filtering where implemented.
 - Smoke remains read-only and does not PATCH `/api/family/settings`; use backend tests or an approved stateful QA plan for mutation coverage.
 
+## Localisation notes
+
+- The main app UI supports English and Arabic fixed interface text.
+- The language selector is in Parent Dashboard -> Settings.
+- The selected language is stored in browser `localStorage` for the MVP.
+- Arabic mode must set `html lang="ar"` and `dir="rtl"`.
+- Parent-entered content is not auto-translated.
+- Smoke should remain read-only. Language switching can be tested by setting localStorage before page load or by using the Settings selector in an authenticated browser QA run.
+- Mobile overflow checks should include `320`, `375`, `390`, and `430` px in both English and Arabic.
+
 ## Allowance currency notes
 
 - Allowance setup uses a searchable ISO-style currency selector.

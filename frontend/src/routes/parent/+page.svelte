@@ -3,6 +3,8 @@
   import { api } from '$lib/api';
   import { AVATAR_OPTIONS, getAvatarAsset, hasAvatarAssetFile, normaliseAvatarKey } from '$lib/avatars';
   import { formatAllowanceAmount } from '$lib/currencies';
+  import { _ } from 'svelte-i18n';
+  import LanguageSelector from '$lib/components/LanguageSelector.svelte';
   import { 
     UserPlus, Award, Ban, PiggyBank, Gift, Ticket,
     LayoutDashboard, Settings, LogIn, Trophy, Clock, Check, X,
@@ -417,7 +419,7 @@
       });
       familySettings = updated;
       familySettingsForm = { week_start_day: updated.week_start_day };
-      familySettingsMessage = 'Calendar and school week saved.';
+      familySettingsMessage = $_('parent.week.saved');
     } catch (e) {
       familySettingsError = e instanceof Error ? e.message : 'Unable to save family settings';
     } finally {
@@ -1124,9 +1126,9 @@
         <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
           <Ban size={32} />
         </div>
-                      <p class="text-red-600 font-black mb-4 uppercase tracking-[0.12em] text-sm sm:tracking-[0.2em]">Failed to load dashboard</p>
+        <p class="text-red-600 font-black mb-4 uppercase tracking-[0.12em] text-sm sm:tracking-[0.2em]">{$_('parent.failedLoad')}</p>
         <p class="text-slate-600 mb-8 break-words">{error}</p>
-        <button onclick={loadDashboard} class="btn-secondary w-full py-4">Try Again</button>
+        <button onclick={loadDashboard} class="btn-secondary w-full py-4">{$_('common.tryAgain')}</button>
       </div>
     </div>
   {:else}
@@ -1135,47 +1137,48 @@
         <div class="max-w-5xl mx-auto px-3 sm:px-4 py-5 md:py-6">
           <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div class="min-w-0">
-              <h1 class="text-3xl sm:text-4xl font-black text-slate-950 tracking-tight break-words">My Family</h1>
+              <h1 class="text-3xl sm:text-4xl font-black text-slate-950 tracking-tight break-words">{$_('parent.title')}</h1>
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
               <details class="relative w-full sm:w-auto">
                 <summary class="inline-flex w-full cursor-pointer list-none items-center justify-center gap-2 rounded-full bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:text-hero sm:w-auto sm:tracking-[0.16em]">
                   <Settings size={14} />
-                  Settings
+                  {$_('parent.settings')}
                 </summary>
                 <div class="absolute right-0 z-30 mt-2 grid w-full min-w-64 gap-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl sm:w-72">
+                  <LanguageSelector />
                   <button type="button" onclick={() => openModal('rewards', null)} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
                     <Gift size={15} />
-                    Manage rewards
+                    {$_('parent.manageRewards')}
                   </button>
                   <button type="button" onclick={() => openModal('family', null)} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
                     <Users size={15} />
-                    Parents &amp; Caregivers
+                    {$_('parent.parentsCaregivers')}
                   </button>
                   <button type="button" onclick={() => openModal('calendar-week', null)} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
                     <CalendarDays size={15} />
-                    Calendar &amp; School Week
+                    {$_('parent.calendarSchoolWeek')}
                   </button>
                   <button type="button" onclick={() => openModal('presets', null)} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
                     <Settings size={15} />
-                    Behaviour presets
+                    {$_('parent.behaviourPresets')}
                   </button>
                   <a href="/redemptions" class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
                     <Ticket size={15} />
-                    Reward redemptions
+                    {$_('parent.rewardRedemptions')}
                   </a>
                   <a href="/allowance" class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
                     <PiggyBank size={15} />
-                    Allowance
+                    {$_('parent.allowance')}
                   </a>
                   <a href="/calendar" class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
                     <CalendarDays size={15} />
-                    Calendar
+                    {$_('parent.calendar')}
                   </a>
                   <button type="button" onclick={() => openModal('child-link-select', null)} disabled={children.length === 0} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:tracking-[0.14em]">
                     <QrCode size={15} />
-                    Child device links
+                    {$_('parent.childDeviceLinks')}
                   </button>
                 </div>
               </details>
@@ -1194,7 +1197,7 @@
               class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:text-hero disabled:cursor-not-allowed disabled:opacity-60 sm:tracking-[0.14em]"
             >
               <UserPlus size={14} />
-              Add child
+              {$_('parent.addChild')}
             </button>
           </div>
 
@@ -1203,9 +1206,9 @@
               <div class="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[1.75rem] bg-slate-100 text-slate-400">
                 <UserPlus size={36} />
               </div>
-              <h3 class="text-2xl font-black text-slate-900">Your family is empty</h3>
+              <h3 class="text-2xl font-black text-slate-900">{$_('parent.emptyTitle')}</h3>
               <p class="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-500">
-                Add a child to start tracking points, rewards, and daily routines.
+                {$_('parent.emptyText')}
               </p>
             </div>
           {:else}
@@ -1218,7 +1221,7 @@
                   data-qa="parent-child-card"
                   data-child-id={c.child.id}
                   class="group flex min-w-0 flex-col items-center rounded-2xl border border-transparent bg-transparent px-2 py-3 text-center transition hover:border-slate-200 hover:bg-white hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-hero/15"
-                  aria-label={`Open point actions for ${c.child.display_name}`}
+                  aria-label={$_('parent.openPointActions', { values: { name: c.child.display_name } })}
                 >
                   <div class="relative">
                     <div class="absolute -top-3 left-1/2 z-10 -translate-x-1/2 min-w-[2.75rem] max-w-[4.25rem] truncate rounded-full bg-slate-900 px-2.5 py-1 text-center text-[10px] font-black leading-none tabular-nums text-white shadow-lg">
@@ -1321,31 +1324,31 @@
               </div>
               <div class="min-w-0">
                 <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight break-words leading-tight">
-                  {activeModal.type === 'award' ? 'Add points' : 
-                   activeModal.type === 'penalty' ? 'Remove points' :
+                  {activeModal.type === 'award' ? $_('parent.pointsActions.addPoints') :
+                   activeModal.type === 'penalty' ? $_('parent.pointsActions.removePoints') :
                    activeModal.type === 'bank' ? 'Move to saved points' :
                   activeModal.type === 'presets' ? (editingPresetId ? 'Edit Behaviour' : 'Manage Behaviours') :
-                   activeModal.type === 'family' ? 'Parents & Caregivers' :
-                   activeModal.type === 'calendar-week' ? 'Calendar & School Week' :
+                   activeModal.type === 'family' ? $_('parent.parentsCaregivers') :
+                   activeModal.type === 'calendar-week' ? $_('parent.calendarSchoolWeek') :
                    activeModal.type === 'child-link' ? 'Link child device' :
                    activeModal.type === 'child-link-select' ? 'Link child device' :
-                   activeModal.type === 'rewards' ? 'Manage Rewards' :
-                   activeModal.type === 'requests' ? 'Review reward requests' :
+                   activeModal.type === 'rewards' ? $_('parent.rewards.manage') :
+                   activeModal.type === 'requests' ? $_('parent.requests.reviewRewardRequests') :
                    'Redeem Points'}
                 </h3>
                 <p class="text-slate-400 font-black text-[10px] sm:text-xs uppercase tracking-[0.14em] sm:tracking-[0.2em] break-words">
                   {activeModal.type === 'presets' ? (editingPresetId ? 'Update this action' : 'Configure reusable actions') : 
-                   activeModal.type === 'family' ? 'Invite another grownup to help manage points, rewards, and routines' :
-                   activeModal.type === 'calendar-week' ? 'Week start affects weekly views and planning' :
+                   activeModal.type === 'family' ? $_('parent.family.subtitle') :
+                   activeModal.type === 'calendar-week' ? $_('parent.week.subtitle') :
                    activeModal.type === 'child-link' ? 'Child dashboard link' :
                    activeModal.type === 'child-link-select' ? 'Choose a child first' :
-                   activeModal.type === 'rewards' ? 'Family rewards' :
-                   activeModal.type === 'requests' ? 'Requests' : ''}
+                   activeModal.type === 'rewards' ? $_('parent.rewards.subtitle') :
+                   activeModal.type === 'requests' ? $_('parent.tabs.requests') : ''}
                 </p>
               </div>
             </div>
           {/if}
-          <button onclick={closeModal} class="w-11 h-11 shrink-0 rounded-xl bg-slate-50 text-slate-300 flex items-center justify-center hover:bg-slate-100 hover:text-slate-500 transition-all" aria-label="Close modal">
+          <button onclick={closeModal} class="w-11 h-11 shrink-0 rounded-xl bg-slate-50 text-slate-300 flex items-center justify-center hover:bg-slate-100 hover:text-slate-500 transition-all" aria-label={$_('common.close')}>
             <X size={20} />
           </button>
         </div>
@@ -1365,8 +1368,8 @@
                   class="inline-flex min-w-0 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.1em] text-slate-700 transition hover:border-hero hover:text-hero sm:tracking-[0.14em]"
                 >
                   <LayoutDashboard size={15} />
-                  <span class="sm:hidden">Child Dashboard</span>
-                  <span class="hidden sm:inline">Open Child Dashboard</span>
+                  <span class="sm:hidden">{$_('parent.childDashboard')}</span>
+                  <span class="hidden sm:inline">{$_('parent.openChildDashboard')}</span>
                 </a>
                 <button
                   type="button"
@@ -1374,7 +1377,7 @@
                   class="inline-flex min-w-0 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.1em] text-slate-700 transition hover:border-hero hover:text-hero sm:tracking-[0.14em]"
                 >
                   <Settings size={15} />
-                  Edit Child
+                  {$_('parent.editChild')}
                 </button>
               </div>
 
@@ -1383,7 +1386,7 @@
                 <div class="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-4 sm:p-5">
                   <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
-                      <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">Edit child</p>
+                      <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.editChild')}</p>
                       <h4 class="mt-1 text-lg font-black text-slate-950">Update display name and avatar</h4>
                     </div>
                     <button
@@ -1391,7 +1394,7 @@
                       onclick={() => (childEditOpen = false)}
                       class="rounded-xl bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 shadow-sm ring-1 ring-slate-200"
                     >
-                      Close
+                      {$_('common.close')}
                     </button>
                   </div>
 
@@ -1492,12 +1495,12 @@
 
               <div class="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-2 sm:grid-cols-3">
                 {#each [
-                  ['points', 'Points'],
-                  ['requests', 'Requests'],
-                  ['school', 'School Bag'],
-                  ['calendar', 'Calendar'],
-                  ['savings', 'Savings'],
-                  ['points-log', 'Points Log']
+                  ['points', $_('parent.tabs.points')],
+                  ['requests', $_('parent.tabs.requests')],
+                  ['school', $_('parent.tabs.schoolBag')],
+                  ['calendar', $_('parent.tabs.calendar')],
+                  ['savings', $_('parent.tabs.savings')],
+                  ['points-log', $_('parent.tabs.pointsLog')]
                 ] as tab}
                   <button
                     type="button"
@@ -1944,30 +1947,30 @@
                   onclick={() => activeTab = 'positive'}
                   class="min-w-0 flex-1 rounded-xl px-2 py-2.5 text-[9px] font-black uppercase leading-none tracking-[0.08em] transition-all sm:px-4 sm:py-3 sm:text-[10px] sm:tracking-[0.08em] {activeTab === 'positive' ? 'bg-savings/15 text-savings shadow-sm ring-1 ring-savings/10' : 'text-slate-500 hover:bg-white/70 hover:text-savings'}"
                 >
-                  Add
+                  {$_('parent.pointsActions.add')}
                 </button>
                 <button
                   onclick={() => activeTab = 'negative'}
                   class="min-w-0 flex-1 rounded-xl px-2 py-2.5 text-[9px] font-black uppercase leading-none tracking-[0.08em] transition-all sm:px-4 sm:py-3 sm:text-[10px] sm:tracking-[0.08em] {activeTab === 'negative' ? 'bg-penalty/15 text-penalty shadow-sm ring-1 ring-penalty/10' : 'text-slate-500 hover:bg-white/70 hover:text-penalty'}"
                 >
-                  Remove
+                  {$_('parent.pointsActions.remove')}
                 </button>
                 <button 
                   onclick={() => activeTab = 'other'}
                   class="min-w-0 flex-1 rounded-xl px-2 py-2.5 text-[9px] font-black uppercase leading-none tracking-[0.08em] transition-all sm:px-4 sm:py-3 sm:text-[10px] sm:tracking-[0.08em] {activeTab === 'other' ? 'bg-hero/15 text-hero shadow-sm ring-1 ring-hero/10' : 'text-slate-500 hover:bg-white/70 hover:text-hero'}"
                 >
-                  Custom
+                  {$_('parent.pointsActions.custom')}
                 </button>
                 </div>
 
                 {#if activeTab === 'other'}
                   <div class="space-y-4 pb-4">
                     <div class="space-y-2">
-                      <label for="custom-points-description" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Reason</label>
+                      <label for="custom-points-description" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.pointsActions.reason')}</label>
                       <textarea
                         id="custom-points-description"
                         bind:value={modalForm.description}
-                        placeholder="What happened?"
+                        placeholder={$_('parent.pointsActions.reasonPlaceholder')}
                         rows="3"
                         class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 font-medium text-slate-900 focus:outline-none focus:border-hero/30 transition-all resize-none"
                       ></textarea>
@@ -1975,7 +1978,7 @@
 
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div class="space-y-2">
-                        <label for="custom-points-amount" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Points</label>
+                        <label for="custom-points-amount" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('common.points')}</label>
                         <div class="relative">
                           <input
                             id="custom-points-amount"
@@ -1984,19 +1987,19 @@
                             bind:value={modalForm.points}
                             class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 pr-12 font-black text-slate-900 focus:outline-none focus:border-hero/30 transition-all text-2xl"
                           />
-                          <span class="absolute right-5 top-1/2 -translate-y-1/2 font-black text-slate-300 text-sm">pts</span>
+                          <span class="absolute right-5 top-1/2 -translate-y-1/2 font-black text-slate-300 text-sm">{$_('common.pts')}</span>
                         </div>
                       </div>
 
                       <div class="space-y-2">
-                        <label for="custom-points-jar" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Jar</label>
+                        <label for="custom-points-jar" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.pointsActions.jar')}</label>
                         <select
                           id="custom-points-jar"
                           bind:value={modalForm.jar}
                           class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 font-bold text-slate-900 focus:outline-none focus:border-hero/30 transition-all appearance-none cursor-pointer"
                         >
-                          <option value="spending">Points</option>
-                          <option value="savings">Saved</option>
+                          <option value="spending">{$_('common.points')}</option>
+                          <option value="savings">{$_('common.saved')}</option>
                         </select>
                       </div>
                     </div>
@@ -2009,7 +2012,7 @@
                         class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-savings/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <Award size={16} />
-                        Add points
+                        {$_('parent.pointsActions.addPoints')}
                       </button>
                       <button
                         type="button"
@@ -2018,7 +2021,7 @@
                         class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-penalty px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-penalty/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <Ban size={16} />
-                        Remove points
+                        {$_('parent.pointsActions.removePoints')}
                       </button>
                     </div>
                   </div>
@@ -2034,7 +2037,7 @@
                           {p.icon || '✨'}
                         </div>
                         <div class="rounded-lg px-2 py-0.5 text-xs font-black {p.points > 0 ? 'bg-savings text-white' : 'bg-penalty text-white'}">
-                          {p.points > 0 ? '+' : ''}{p.points} pts
+                          {p.points > 0 ? '+' : ''}{p.points} {$_('common.pts')}
                         </div>
                         <div class="min-w-0 mt-1">
                           <p class="font-bold text-slate-900 text-[11px] leading-tight uppercase tracking-tight line-clamp-2">{p.title}</p>
@@ -2042,9 +2045,9 @@
                       </button>
                     {:else}
                       <div class="col-span-full py-12 text-center text-slate-300">
-                        <p class="font-black uppercase tracking-[0.12em] text-xs">No presets found</p>
+                        <p class="font-black uppercase tracking-[0.12em] text-xs">{$_('parent.pointsActions.noPresets')}</p>
                         <button onclick={() => openModal('presets', null)} class="text-hero text-[10px] font-black uppercase tracking-[0.12em] mt-2 hover:underline">
-                          Add preset
+                          {$_('parent.pointsActions.addPreset')}
                         </button>
                       </div>
                     {/each}
@@ -2058,29 +2061,29 @@
               <div class="space-y-4">
                 {#if childRequests.length === 0}
                   <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                    <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">No pending requests</p>
+                    <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.requests.noPending')}</p>
                   </div>
                 {:else}
                   {#each childRequests as r}
                     <div class="rounded-[1.5rem] border border-slate-100 bg-white p-4">
                       <div class="flex flex-wrap items-center gap-2">
-                        <span class="inline-flex items-center rounded-full bg-hero/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-hero">Pending</span>
+                        <span class="inline-flex items-center rounded-full bg-hero/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-hero">{$_('common.pending')}</span>
                         <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{new Date(r.created_at).toLocaleDateString()}</span>
                       </div>
                       <h4 class="mt-3 font-black text-slate-950 break-words">{r.title}</h4>
-                      <p class="mt-2 text-sm text-slate-600 break-words">{r.description || 'No description provided.'}</p>
+                      <p class="mt-2 text-sm text-slate-600 break-words">{r.description || $_('common.noDescriptionProvided')}</p>
                       <div class="mt-3 inline-flex items-center gap-2 rounded-full bg-hero/10 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-hero">
                         <Trophy size={13} />
-                        {r.points} points
+                        {r.points} {$_('common.points')}
                       </div>
                       <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <button onclick={() => processRedemption(r.id, 'approve')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-savings/20">
                           <Check size={16} />
-                          Approve
+                          {$_('common.approve')}
                         </button>
                         <button onclick={() => processRedemption(r.id, 'reject')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700">
                           <X size={16} />
-                          Reject
+                          {$_('common.reject')}
                         </button>
                       </div>
                     </div>
@@ -2088,8 +2091,8 @@
                 {/if}
                 <a href="/redemptions" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-slate-700 transition hover:border-hero hover:text-hero">
                   <Check size={15} />
-                  <span class="sm:hidden">Review Requests</span>
-                  <span class="hidden sm:inline">Open Request Review</span>
+                  <span class="sm:hidden">{$_('parent.requests.reviewRewardRequests')}</span>
+                  <span class="hidden sm:inline">{$_('parent.requests.openReview')}</span>
                 </a>
               </div>
             {/if}
@@ -2098,13 +2101,13 @@
               {@const todayItems = schoolTodayByChild[activeModal.child.child.id] || []}
               {@const tomorrowItems = schoolTomorrowByChild[activeModal.child.child.id] || []}
               <div class="grid gap-4 sm:grid-cols-2">
-                {#each [['Today', todayItems], ['Tomorrow', tomorrowItems]] as group}
+                {#each ([['Today', todayItems], ['Tomorrow', tomorrowItems]] as [string, SchoolItem[]][]) as group}
                   <div class="rounded-[1.75rem] border border-slate-100 bg-white p-4">
-                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{group[0]}</p>
+                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{group[0] === 'Today' ? $_('common.today') : $_('common.tomorrow')}</p>
                     {#if loadingSchoolPrep}
-                      <p class="mt-4 text-sm font-bold text-slate-400">Loading school bag.</p>
+                      <p class="mt-4 text-sm font-bold text-slate-400">{$_('parent.school.loading')}</p>
                     {:else if group[1].length === 0}
-                      <p class="mt-4 text-sm font-bold text-slate-500">Nothing listed.</p>
+                      <p class="mt-4 text-sm font-bold text-slate-500">{$_('parent.school.nothingListed')}</p>
                     {:else}
                       <div class="mt-4 space-y-2">
                         {#each group[1] as item}
@@ -2134,7 +2137,7 @@
                   </div>
                 {:else}
                   <div class="rounded-[1.75rem] border border-slate-100 bg-white p-4">
-                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">Today</p>
+                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('common.today')}</p>
                     {#if todayEvents.length === 0}
                       <p class="mt-4 text-sm font-bold text-slate-500">No calendar items today.</p>
                     {:else}
@@ -2149,7 +2152,7 @@
                     {/if}
                   </div>
                   <div class="rounded-[1.75rem] border border-slate-100 bg-white p-4">
-                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">Upcoming</p>
+                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('common.upcoming')}</p>
                     {#if upcomingEvents.length === 0}
                       <p class="mt-4 text-sm font-bold text-slate-500">No upcoming calendar items found.</p>
                     {:else}
@@ -2166,8 +2169,8 @@
                 {/if}
                 <a href="/calendar" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-slate-700 transition hover:border-hero hover:text-hero">
                   <CalendarDays size={15} />
-                  <span class="sm:hidden">Calendar</span>
-                  <span class="hidden sm:inline">Open Calendar</span>
+                  <span class="sm:hidden">{$_('parent.tabs.calendar')}</span>
+                  <span class="hidden sm:inline">{$_('parent.calendar')}</span>
                 </a>
               </div>
             {/if}
@@ -2178,11 +2181,11 @@
               <div class="space-y-4">
                 <div class="grid grid-cols-2 gap-3">
                   <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                    <p class="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">Saved</p>
+                    <p class="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">{$_('common.saved')}</p>
                     <p class="mt-2 text-2xl font-black text-slate-950">{activeModal.child.savings_balance || 0}</p>
                   </div>
                   <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                    <p class="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">Points</p>
+                    <p class="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">{$_('common.points')}</p>
                     <p class="mt-2 text-2xl font-black text-slate-950">{childAvailablePoints(activeModal.child)}</p>
                   </div>
                   <div class="rounded-[1.5rem] bg-slate-50 p-4">
@@ -2190,22 +2193,22 @@
                     <p class="mt-2 text-2xl font-black text-slate-950">{activeModal.child.available_savings || 0}</p>
                   </div>
                   <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                    <p class="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">Held</p>
+                    <p class="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">{$_('common.held')}</p>
                     <p class="mt-2 text-2xl font-black text-slate-950">{activeModal.child.locked_savings || 0}</p>
                   </div>
                 </div>
                 {#if allowance}
                   <div class="rounded-[1.75rem] border border-savings/10 bg-savings/5 p-4">
-                    <p class="text-[10px] font-black uppercase tracking-[0.08em] text-savings-dark sm:tracking-[0.18em]">Allowance</p>
-                    <p class="mt-2 break-words text-sm font-bold leading-snug text-slate-700">{formatAllowanceMinorAmount(allowance.saved_allowance_minor, allowance.currency, allowance.currency_exponent)} saved · {formatAllowanceMinorAmount(allowance.available_allowance_minor, allowance.currency, allowance.currency_exponent)} available</p>
+                    <p class="text-[10px] font-black uppercase tracking-[0.08em] text-savings-dark sm:tracking-[0.18em]">{$_('parent.allowance')}</p>
+                    <p class="mt-2 break-words text-sm font-bold leading-snug text-slate-700">{$_('parent.savings.allowanceLine', { values: { saved: formatAllowanceMinorAmount(allowance.saved_allowance_minor, allowance.currency, allowance.currency_exponent), available: formatAllowanceMinorAmount(allowance.available_allowance_minor, allowance.currency, allowance.currency_exponent) } })}</p>
                   </div>
                 {/if}
                 <div class="rounded-[1.75rem] border border-slate-100 bg-white p-4">
-                  <p class="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">Next unlock</p>
+                  <p class="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">{$_('parent.savings.nextUnlock')}</p>
                   {#if unlock}
-                    <p class="mt-2 break-words text-sm font-bold leading-snug text-slate-700">{unlock.points} points on {formatCalendarDate(unlock.unlock_date)}</p>
+                    <p class="mt-2 break-words text-sm font-bold leading-snug text-slate-700">{unlock.points} {$_('common.points')} on {formatCalendarDate(unlock.unlock_date)}</p>
                   {:else}
-                    <p class="mt-2 break-words text-sm font-bold leading-snug text-slate-500">No upcoming unlock listed.</p>
+                    <p class="mt-2 break-words text-sm font-bold leading-snug text-slate-500">{$_('parent.savings.noUnlock')}</p>
                   {/if}
                 </div>
               </div>
@@ -2218,7 +2221,7 @@
               {@const key = ledgerKey(activeModal.child.child.id)}
               <div class="space-y-5">
               <div class="grid grid-cols-3 gap-2 rounded-2xl bg-hero/5 p-1 ring-1 ring-hero/10">
-                {#each [['day', 'Day'], ['week', 'Week'], ['year', 'Year']] as period}
+                {#each ([['day', $_('parent.pointsLog.day')], ['week', $_('parent.pointsLog.week')], ['year', $_('parent.pointsLog.year')]] as ['day' | 'week' | 'year', string][]) as period}
                   <button
                     type="button"
                     onclick={() => setPointLogPeriod(period[0])}

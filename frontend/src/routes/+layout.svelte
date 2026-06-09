@@ -1,7 +1,9 @@
 <script lang="ts">
   import '../app.css';
   import { onMount } from 'svelte';
+  import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
+  import { initI18n } from '$lib/i18n';
 
   type ParentSession = {
     is_admin?: boolean;
@@ -27,6 +29,8 @@
     }
   }
 
+  initI18n();
+
   onMount(loadSession);
 
   let dashboardHref = $derived(currentParent ? '/parent' : '/login');
@@ -38,32 +42,32 @@
       <a href="/" class="flex min-w-0 items-center gap-3 group">
         <img src="/family-hero-hub-logo.png" alt="Family Hero Hub" class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl object-cover shadow-xl shadow-hero/30 group-hover:rotate-6 transition-all duration-300 shrink-0" />
         <div class="flex flex-col -space-y-1 min-w-0">
-          <span class="truncate text-lg sm:text-2xl font-black tracking-tighter text-slate-900 uppercase leading-none">Family Hero</span>
-          <span class="text-xs font-black text-hero tracking-[0.22em] uppercase opacity-80 leading-none">Hub</span>
+          <span class="truncate text-lg sm:text-2xl font-black tracking-tighter text-slate-900 uppercase leading-none">{$_('app.familyHero')}</span>
+          <span class="text-xs font-black text-hero tracking-[0.22em] uppercase opacity-80 leading-none">{$_('app.hub')}</span>
         </div>
       </a>
       
       <nav class="hidden md:flex items-center gap-8">
         <a href={dashboardHref} class="text-sm font-black text-slate-500 hover:text-hero uppercase tracking-widest transition-colors">
-          {currentParent ? 'Parent Dashboard' : 'Login'}
+          {currentParent ? $_('nav.parentDashboard') : $_('nav.login')}
         </a>
         {#if currentParent && currentParent.is_admin}
           <a href="/admin/registration-requests" class="text-sm font-black text-slate-500 hover:text-hero uppercase tracking-widest transition-colors">
-            Admin
+            {$_('nav.admin')}
           </a>
         {/if}
         {#if currentParent}
-          <button onclick={handleLogout} class="btn-hero px-6 py-3 rounded-2xl text-sm uppercase tracking-widest">Logout</button>
+          <button onclick={handleLogout} class="btn-hero px-6 py-3 rounded-2xl text-sm uppercase tracking-widest">{$_('nav.logout')}</button>
         {/if}
       </nav>
 
       {#if currentParent}
         <button onclick={handleLogout} class="md:hidden inline-flex shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.1em] text-slate-700 shadow-sm transition hover:border-hero hover:text-hero">
-          Logout
+          {$_('nav.logout')}
         </button>
       {:else}
         <a href={dashboardHref} class="md:hidden inline-flex shrink-0 items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-xs font-black uppercase tracking-[0.12em] text-white shadow-sm">
-          Login
+          {$_('nav.login')}
         </a>
       {/if}
     </div>
@@ -80,38 +84,38 @@
         <div class="text-left">
           <div class="flex items-center gap-3 mb-6 opacity-50 grayscale">
             <img src="/family-hero-hub-logo.png" alt="Family Hero Hub" class="w-10 h-10 rounded-xl object-cover bg-white" />
-            <span class="text-xl font-black tracking-tighter text-white uppercase">Family Hero Hub</span>
+            <span class="text-xl font-black tracking-tighter text-white uppercase">{$_('app.name')}</span>
           </div>
-          <p class="text-lg leading-relaxed max-w-md">Family Hero Hub is a private, parent-led family app for points, rewards, routines, school prep, and everyday responsibility.</p>
-          <p class="mt-6 text-sm font-black uppercase tracking-[0.2em] text-white">Built for families. Controlled by parents. Designed for children.</p>
+          <p class="text-lg leading-relaxed max-w-md">{$_('footer.description')}</p>
+          <p class="mt-6 text-sm font-black uppercase tracking-[0.2em] text-white">{$_('footer.tagline')}</p>
         </div>
 
         <div class="grid gap-8 sm:grid-cols-3">
           <div class="min-w-0">
-            <p class="text-white font-black uppercase tracking-[0.18em] text-sm mb-4">Product</p>
+            <p class="text-white font-black uppercase tracking-[0.18em] text-sm mb-4">{$_('nav.product')}</p>
             <div class="flex flex-col gap-3 text-sm font-semibold">
-              <a href="/" class="hover:text-hero transition-colors">Home</a>
-              <a href="/#how-it-works" class="hover:text-hero transition-colors">How it works</a>
-              <a href="/faq" class="hover:text-hero transition-colors">FAQ</a>
-              <a href="/request-access" class="hover:text-hero transition-colors">Request access</a>
+              <a href="/" class="hover:text-hero transition-colors">{$_('nav.home')}</a>
+              <a href="/#how-it-works" class="hover:text-hero transition-colors">{$_('nav.howItWorks')}</a>
+              <a href="/faq" class="hover:text-hero transition-colors">{$_('nav.faq')}</a>
+              <a href="/request-access" class="hover:text-hero transition-colors">{$_('nav.requestAccess')}</a>
             </div>
           </div>
 
           <div class="min-w-0">
-            <p class="text-white font-black uppercase tracking-[0.18em] text-sm mb-4">Support</p>
+            <p class="text-white font-black uppercase tracking-[0.18em] text-sm mb-4">{$_('nav.support')}</p>
             <div class="flex flex-col gap-3 text-sm font-semibold">
-              <a href="/contact" class="hover:text-hero transition-colors">Contact</a>
-              <a href="/parent-guide" class="hover:text-hero transition-colors">Parent guide</a>
-              <a href="/child-guide" class="hover:text-hero transition-colors">Child guide</a>
-              <a href="/safety-privacy" class="hover:text-hero transition-colors">Safety & Privacy</a>
+              <a href="/contact" class="hover:text-hero transition-colors">{$_('nav.contact')}</a>
+              <a href="/parent-guide" class="hover:text-hero transition-colors">{$_('nav.parentGuide')}</a>
+              <a href="/child-guide" class="hover:text-hero transition-colors">{$_('nav.childGuide')}</a>
+              <a href="/safety-privacy" class="hover:text-hero transition-colors">{$_('nav.safetyPrivacy')}</a>
             </div>
           </div>
 
           <div class="min-w-0">
-            <p class="text-white font-black uppercase tracking-[0.18em] text-sm mb-4">Legal</p>
+            <p class="text-white font-black uppercase tracking-[0.18em] text-sm mb-4">{$_('nav.legal')}</p>
             <div class="flex flex-col gap-3 text-sm font-semibold">
-              <a href="/privacy" class="hover:text-hero transition-colors">Privacy Policy</a>
-              <a href="/terms" class="hover:text-hero transition-colors">Terms of Service</a>
+              <a href="/privacy" class="hover:text-hero transition-colors">{$_('nav.privacyPolicy')}</a>
+              <a href="/terms" class="hover:text-hero transition-colors">{$_('nav.terms')}</a>
             </div>
           </div>
         </div>

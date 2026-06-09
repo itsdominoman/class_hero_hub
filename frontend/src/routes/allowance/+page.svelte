@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
   import {
     CURRENCY_EXPONENTS,
@@ -306,7 +307,7 @@
 
       applySettingsToForm(response);
       await loadAllowanceForChild(selectedChildId);
-      statusMessage = nextEnabled ? 'Allowance settings saved.' : 'Allowance disabled for this child.';
+      statusMessage = nextEnabled ? $_('allowance.saved') : $_('allowance.disabledSaved');
     } catch (e) {
       formError = e instanceof Error ? e.message : 'Unable to save allowance settings';
     } finally {
@@ -323,7 +324,7 @@
 </script>
 
 <svelte:head>
-  <title>Allowance setup | Family Hero Hub</title>
+  <title>{$_('allowance.title')}</title>
 </svelte:head>
 
 <div class="relative max-w-full overflow-hidden bg-hero-pattern">
@@ -332,7 +333,7 @@
       <div class="mb-6">
         <a href="/parent" class="inline-flex items-center gap-2 rounded-full border border-hero/15 bg-hero/10 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-hero shadow-sm transition hover:border-hero/30 hover:bg-hero/15">
           <ArrowLeft size={14} />
-          Back to Parent Dashboard
+          {$_('allowance.back')}
         </a>
       </div>
 
@@ -342,16 +343,16 @@
             <div>
               <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-hero/15 bg-hero/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-hero">
                 <Sparkles size={15} />
-                Allowance is optional
+                {$_('allowance.optional')}
               </div>
               <h1 class="max-w-xl text-4xl font-black leading-[0.95] tracking-tighter sm:text-5xl lg:text-6xl">
-                Allowance setup
+                {$_('allowance.heading')}
               </h1>
               <p class="mt-5 max-w-xl text-base font-medium leading-relaxed text-slate-700 sm:text-lg">
-                Allowance is optional. Pick a child, choose an amount, and set the point goal. Turning on allowance gives your child’s current points an allowance value. You can adjust their points before enabling allowance if needed. Rewards and custom requests spend the same available balance. Parents stay in control of what is approved and how the real-world purchase is handled.
+                {$_('allowance.intro')}
               </p>
               <p class="mt-4 max-w-xl text-sm font-medium leading-relaxed text-slate-600">
-                Start with the child selector on the right. Then set the allowance amount, currency, period, and point goal.
+                {$_('allowance.startHelp')}
               </p>
             </div>
 
@@ -415,8 +416,8 @@
           {:else}
             <div class="card border-slate-100 bg-white p-5 shadow-xl sm:p-6">
               <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">1. Choose child</p>
-              <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">Start here. Select the child whose allowance-linked points you want to configure.</p>
-              <label for="child-select" class="sr-only">Child</label>
+              <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">{$_('allowance.selectChildHelp')}</p>
+              <label for="child-select" class="sr-only">{$_('allowance.child')}</label>
               <select
                 id="child-select"
                 bind:value={selectedChildId}
@@ -432,15 +433,15 @@
             {#if childLoading}
               <div class="card border-slate-100 bg-white p-6 shadow-xl">
                 <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Loading child settings</p>
-                <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">Loading {selectedChild?.child.display_name || 'this child'} allowance details and summary.</p>
+                <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">{$_('allowance.loadingDetails', { values: { name: selectedChild?.child.display_name || 'this child' } })}</p>
               </div>
             {:else}
               <div class="card border-slate-100 bg-white p-5 shadow-xl sm:p-6">
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">2. Allowance on or off</p>
+                    <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('allowance.onOff')}</p>
                     <h2 class="mt-2 text-2xl font-black text-slate-950">
-                      Allowance is {form.is_enabled ? 'enabled' : 'disabled'} for this child.
+                      {$_('allowance.status', { values: { status: form.is_enabled ? $_('allowance.enabled') : $_('allowance.disabled') } })}
                     </h2>
                     <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">
                       Reward requests, savings transfers, and reward holds reduce what is available, but they do not rewrite what was earned this period.
@@ -449,10 +450,10 @@
                   <div class={`inline-flex w-fit items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em] ${form.is_enabled ? 'bg-savings/10 text-savings' : 'bg-slate-100 text-slate-500'}`}>
                     {#if form.is_enabled}
                       <BadgeCheck size={15} />
-                      Enabled
+                      {$_('allowance.enabled')}
                     {:else}
                       <Ban size={15} />
-                      Disabled
+                      {$_('allowance.disabled')}
                     {/if}
                   </div>
                 </div>
@@ -462,8 +463,8 @@
                 <div class="flex items-start justify-between gap-4">
                   <div>
                     <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">3. Amount, currency, period, and goal</p>
-                    <h2 class="mt-2 text-2xl font-black text-slate-950">Set allowance-linked points</h2>
-                    <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">Pick the amount and goal that match this child’s routine. Turning on allowance gives the child’s current points allowance value, so you can adjust their points before enabling it if needed.</p>
+                    <h2 class="mt-2 text-2xl font-black text-slate-950">{$_('allowance.setLinked')}</h2>
+                    <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">{$_('allowance.setHelp')}</p>
                   </div>
                 </div>
 
@@ -475,14 +476,14 @@
                       class="mt-1 h-5 w-5 rounded border-slate-300 text-hero focus:ring-hero"
                     />
                     <span>
-                      <span class="block text-sm font-black text-slate-900">Enable allowance-linked points</span>
+                      <span class="block text-sm font-black text-slate-900">{$_('allowance.enableLinked')}</span>
                       <span class="mt-1 block text-sm font-medium leading-relaxed text-slate-600">Optional per child. Family Hero Hub tracks allowance value; parents approve requests and provide the real-world reward or purchase.</span>
-                      <span class="mt-2 block text-sm font-bold leading-relaxed text-amber-700">Turning on allowance gives your child’s current points an allowance value. You can adjust their points before enabling allowance if needed.</span>
+                      <span class="mt-2 block text-sm font-bold leading-relaxed text-amber-700">{$_('allowance.enableWarning')}</span>
                     </span>
                   </label>
 
                   <label class="relative">
-                    <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Currency</span>
+                    <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('allowance.currency')}</span>
                       <input
                         value={currencySearch}
                         oninput={handleCurrencySearchInput}
@@ -522,7 +523,7 @@
                   </label>
 
                   <label>
-                    <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Allowance amount</span>
+                    <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('allowance.amount')}</span>
                     <input
                       bind:value={form.allowance_amount}
                       inputmode="decimal"
@@ -533,13 +534,13 @@
                   </label>
 
                   <label>
-                    <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Allowance period</span>
+                    <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('allowance.period')}</span>
                     <select
                       bind:value={form.period}
                       class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-black text-slate-900 outline-none transition focus:border-hero focus:ring-4 focus:ring-hero/10"
                     >
-                      <option value="weekly">Weekly</option>
-                      <option value="monthly">Monthly</option>
+                      <option value="weekly">{$_('allowance.weekly')}</option>
+                      <option value="monthly">{$_('allowance.monthly')}</option>
                     </select>
                   </label>
 
@@ -575,7 +576,7 @@
                     class="btn-hero inline-flex flex-1 items-center justify-center gap-2 rounded-2xl px-5 py-4 text-xs font-black uppercase tracking-[0.16em] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Save size={16} />
-                    {saving ? 'Saving...' : 'Save settings'}
+                    {saving ? $_('common.saving') : $_('allowance.saveSettings')}
                   </button>
                   <button
                     type="button"
@@ -583,7 +584,7 @@
                     disabled={saving || !form.is_enabled}
                     class="btn-secondary inline-flex flex-1 items-center justify-center gap-2 rounded-2xl px-5 py-4 text-xs font-black uppercase tracking-[0.16em] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Disable allowance
+                    {$_('allowance.disabled')}
                   </button>
                 </div>
               </div>

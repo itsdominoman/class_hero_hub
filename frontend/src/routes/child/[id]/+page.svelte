@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { _ } from 'svelte-i18n';
   import { page } from "$app/state";
   import { api } from "$lib/api";
   import { formatAllowanceAmount } from "$lib/currencies";
@@ -878,13 +879,13 @@
             href="/parent"
             class="btn-secondary inline-flex w-full items-center justify-center px-6 py-4 rounded-2xl mb-3"
           >
-            Back to parent dashboard
+            {$_('child.backParent')}
           </a>
         {/if}
         <button
           type="button"
           class="btn-hero px-6 py-4 rounded-2xl"
-          onclick={loadData}>Try again</button
+          onclick={loadData}>{$_('common.tryAgain')}</button
         >
       </div>
     </div>
@@ -903,14 +904,14 @@
                 class="inline-flex items-center gap-2 rounded-full border border-hero/15 bg-hero/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-hero transition hover:border-hero/30 hover:bg-hero/15 sm:tracking-[0.18em]"
               >
                 <ArrowRight class="rotate-180" size={14} />
-                Back to Parent Dashboard
+                {$_('child.backParent')}
               </a>
             {/if}
             <div
               class="inline-flex max-w-full items-center gap-2 px-4 py-2 rounded-full bg-hero/10 text-hero border border-hero/20 text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.22em]"
             >
               <Sparkles size={14} />
-              Kid dashboard
+              {$_('child.kidDashboard')}
             </div>
 
             <div class="flex flex-col sm:flex-row sm:items-center gap-5">
@@ -935,8 +936,7 @@
                   {summary.child.display_name}
                 </h1>
                 <p class="text-slate-600 font-medium mt-2 max-w-2xl">
-                  Keep earning points, pick rewards you can afford, and watch
-                  your hero grow.
+                  {$_('child.heroIntro')}
                 </p>
                 <div class="mt-4 flex flex-wrap gap-3">
                   <span
@@ -944,22 +944,22 @@
                   >
                     <BadgeCheck size={14} />
                     <span class="min-w-0 break-words"
-                      >{stageInfo.label} stage</span
+                      >{$_('child.stage', { values: { label: stageInfo.label } })}</span
                     >
                   </span>
                   <span
                     class="inline-flex max-w-full items-center gap-2 px-3 py-2 rounded-full bg-white text-slate-700 border border-slate-200 text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.2em]"
                   >
                     {accessMode === "child"
-                      ? "Child session"
-                      : "Parent preview"}
+                      ? $_('child.childSession')
+                      : $_('child.parentPreview')}
                   </span>
                   {#if avatarLabel}
                     <span
                       class="inline-flex max-w-full items-center gap-2 px-3 py-2 rounded-full bg-white text-slate-700 border border-slate-200 text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.2em]"
                     >
                       <span class="min-w-0 break-words"
-                        >Avatar: {avatarLabel}</span
+                        >{$_('child.avatar', { values: { label: avatarLabel } })}</span
                       >
                     </span>
                   {/if}
@@ -984,18 +984,18 @@
                 <p
                   class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400"
                 >
-                  Available points
+                  {$_('child.availablePoints')}
                 </p>
                 <p class="text-4xl md:text-5xl font-black text-slate-950 mt-1">
                   {summary.spending_balance}
                 </p>
                 {#if allowanceActive}
                   <p class="mt-2 text-sm font-bold text-slate-600">
-                    Your current points are worth {formatMinorAmount(
+                    {$_('child.worth', { values: { value: formatMinorAmount(
                       allowanceActive.available_allowance_minor,
                       allowanceActive.currency,
                       allowanceActive.currency_exponent,
-                    )}.
+                    ) } })}
                   </p>
                 {/if}
               </div>
@@ -1011,8 +1011,8 @@
                 <div
                   class="flex items-center justify-between text-xs font-black uppercase tracking-[0.22em] text-slate-400 mb-2"
                 >
-                  <span>Next dragon stage</span>
-                  <span>{summary.pet_progress.lifetime_points} earned</span>
+                  <span>{$_('child.nextDragon')}</span>
+                  <span>{$_('child.earned', { values: { points: summary.pet_progress.lifetime_points } })}</span>
                 </div>
                 <div class="h-4 rounded-full bg-slate-100 overflow-hidden">
                   <div
@@ -1029,7 +1029,7 @@
                   <p
                     class="text-[10px] font-black uppercase tracking-[0.22em] text-[#b98612]"
                   >
-                    Saved points
+                    {$_('child.savedPoints')}
                   </p>
                   <p class="text-2xl font-black text-slate-950 mt-1">
                     {summary.savings_balance}
@@ -1050,7 +1050,7 @@
                   <p
                     class="text-[10px] font-black uppercase tracking-[0.22em] text-savings"
                   >
-                    Available to spend
+                    {$_('child.availableToSpend')}
                   </p>
                   <p class="text-2xl font-black text-slate-950 mt-1">
                     {summary.available_spending}
@@ -1074,7 +1074,7 @@
                   <p
                     class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400"
                   >
-                    Locked saved points
+                    {$_('child.lockedSaved')}
                   </p>
                   <p class="text-xl font-black text-slate-950 mt-1">
                     {summary.locked_savings}
@@ -1095,7 +1095,7 @@
                   <p
                     class="text-[10px] font-black uppercase tracking-[0.22em] text-penalty"
                   >
-                    Points on hold
+                    {$_('child.pointsOnHold')}
                   </p>
                   <p class="text-xl font-black text-slate-950 mt-1">
                     {summary.pending_redemptions}
@@ -1130,17 +1130,17 @@
                 <p
                   class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2"
                 >
-                  Reward ideas
+                  {$_('child.rewardsEyebrow')}
                 </p>
                 <h2 class="text-2xl md:text-3xl font-black text-slate-950">
-                  Choose a reward
+                  {$_('child.chooseReward')}
                 </h2>
               </div>
               <div
                 class="inline-flex w-fit items-center gap-2 px-3 py-2 rounded-full bg-slate-100 text-slate-700 text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.22em]"
               >
                 <Gift size={14} />
-                {rewardOptions.length} available
+                {$_('child.availableRewards', { values: { count: rewardOptions.length } })}
               </div>
             </div>
 
@@ -1180,7 +1180,7 @@
                         class="text-sm text-slate-600 break-words line-clamp-2"
                       >
                         {reward.description ||
-                          "A reward your parents can approve."}
+                          $_('child.rewardFallback')}
                       </p>
                     </div>
 
@@ -1189,8 +1189,8 @@
                         class="inline-flex w-fit max-w-full items-center rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] sm:tracking-[0.16em] leading-none bg-slate-100 text-slate-500"
                       >
                         {affordable
-                          ? "Affordable now"
-                          : `Need ${rewardShortfall(reward.points)} more`}
+                          ? $_('child.affordable')
+                          : $_('child.needMore', { values: { points: rewardShortfall(reward.points) } })}
                       </span>
                       <button
                         type="button"
@@ -1200,8 +1200,8 @@
                         class="inline-flex w-full max-w-full justify-center items-center gap-2 rounded-2xl px-3 py-3 text-[10px] sm:text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] bg-hero text-white shadow-lg shadow-hero/20 disabled:opacity-50 disabled:shadow-none shrink-0"
                       >
                         {submittingRewardId === reward.id
-                          ? "Sending..."
-                          : "Request"}
+                          ? $_('common.sending')
+                          : $_('common.request')}
                         <ArrowRight size={12} />
                       </button>
                     </div>
@@ -1215,10 +1215,10 @@
                 <p
                   class="text-sm font-black uppercase tracking-[0.22em] text-slate-400"
                 >
-                  No rewards yet
+                  {$_('child.noRewards')}
                 </p>
                 <p class="text-sm text-slate-500 mt-2">
-                  You can still ask to spend your points below.
+                  {$_('child.askBelow')}
                 </p>
               </div>
             {/if}
@@ -1234,24 +1234,24 @@
                 <p
                   class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2"
                 >
-                  Custom request
+                  {$_('child.customRequest')}
                 </p>
                 <h2 class="text-2xl md:text-3xl font-black text-slate-950">
-                  Ask to spend your points
+                  {$_('child.askSpend')}
                 </h2>
                 {#if allowanceActive}
                   <p
                     data-qa="child-custom-request-conversion"
                     class="mt-2 text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-50 w-fit px-3 py-1.5 rounded-full border border-slate-200/60 shadow-sm"
                   >
-                    1 point = {formatMinorAmount(
+                    {$_('child.onePointValue', { values: { value: formatMinorAmount(
                       Math.floor(
                         allowanceActive.settings.allowance_amount_minor /
                           allowanceActive.settings.point_goal,
                       ),
                       allowanceActive.currency,
                       allowanceActive.currency_exponent,
-                    )}
+                    ) } })}
                   </p>
                 {/if}
               </div>
@@ -1270,12 +1270,12 @@
               <label class="block space-y-2 min-w-0">
                 <span
                   class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 ml-1"
-                  >Request name</span
+                  >{$_('child.requestName')}</span
                 >
                 <input
                   type="text"
                   bind:value={customRewardTitle}
-                  placeholder="Movie night, dessert..."
+                  placeholder={$_('child.requestPlaceholder')}
                   class="h-14 w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30 transition-all"
                 />
               </label>
@@ -1283,7 +1283,7 @@
               <label class="block space-y-2 min-w-0">
                 <span
                   class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 ml-1"
-                  >Points</span
+                  >{$_('common.points')}</span
                 >
                 <div class="relative">
                   <input
@@ -1295,7 +1295,7 @@
                   />
                   <span
                     class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black uppercase text-slate-300"
-                    >pts</span
+                    >{$_('common.pts')}</span
                   >
                 </div>
               </label>
@@ -1313,7 +1313,7 @@
                     customRewardPoints > summary.available_spending}
                   class="btn-hero h-14 px-8 w-full md:w-auto rounded-2xl flex items-center justify-center gap-2 text-sm uppercase tracking-widest shadow-xl shadow-hero/20 disabled:opacity-50 whitespace-nowrap"
                 >
-                  {submitting ? "Sending..." : "Request"}
+                  {submitting ? $_('common.sending') : $_('common.request')}
                   <ArrowRight size={18} />
                 </button>
               </div>
@@ -1327,11 +1327,11 @@
                   data-qa="child-custom-request-value"
                   class="text-[10px] font-black uppercase tracking-wider text-slate-500 bg-slate-100/50 px-3 py-1.5 rounded-full border border-slate-200/40"
                 >
-                  Calculated Value: {formatMinorAmount(
+                  {$_('child.calculatedValue', { values: { value: formatMinorAmount(
                     rewardValueMinor(customRewardPoints) || 0,
                     allowanceActive.currency,
                     allowanceActive.currency_exponent,
-                  )}
+                  ) } })}
                 </p>
               </div>
             {/if}

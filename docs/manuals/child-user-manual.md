@@ -30,6 +30,12 @@ Your parent gives you a link or QR code.
 
 If the device is already linked, you go straight to your dashboard.
 
+## Language
+
+Family Hero Hub can show the main app interface in English or Arabic. Your parent changes the language from Settings on the parent dashboard.
+
+Arabic uses right-to-left layout. Names, rewards, tasks, School Bag items, and notes your family typed stay exactly as they were entered.
+
 ## 3) What points mean
 
 Points are your score.

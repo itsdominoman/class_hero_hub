@@ -2,6 +2,8 @@
 
 Last reviewed: 2026-06-04
 
+2026-06-09 localisation update: English/Arabic fixed UI support now needs QA coverage in both `ltr` and `rtl` document directions. The language selector lives in Parent Dashboard -> Settings and stores the chosen language in browser `localStorage`.
+
 This matrix is meant to keep the Europe dev QA surface practical: read-only by default, screenshot-backed where layout matters, and explicit about where we still do not have a safe fixture.
 
 | route | auth type | current test coverage | recommended test coverage | desktop coverage needed | mobile coverage needed | screenshot needed | links checked | buttons/forms checked | data mutation risk | recommended test type |
@@ -32,6 +34,7 @@ This matrix is meant to keep the Europe dev QA surface practical: read-only by d
 
 ## Visual Regression Surface
 
+- **Localisation / RTL:** Arabic mode should verify `html[lang="ar"][dir="rtl"]`, no horizontal overflow, readable labels, and contained modals at `320`, `375`, `390`, and `430` px. Parent-entered content must remain unchanged.
 - **Custom Request Form:** Verified 1-point conversion text, total value readability, and field alignment (mobile/desktop).
 - **Parent Child Cards:** Verified "Dashboard" and "Points" button labels fit without bleeding, and buttons align across cards at desktop widths.
 - **Reward Cards:** Verified value sits below title and is not clipped by card boundaries.

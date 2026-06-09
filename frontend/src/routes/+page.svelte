@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
   import {
     ArrowRight,
@@ -33,7 +34,7 @@
   });
 
   let primaryCtaHref = $derived(sessionLoaded && authenticated ? '/parent' : '/request-access');
-  let primaryCtaLabel = $derived(sessionLoaded && authenticated ? 'Go to dashboard' : 'Request access');
+  let primaryCtaLabel = $derived(sessionLoaded && authenticated ? $_('home.dashboardCta') : $_('home.requestAccessCta'));
 
   const parentProblemItems = [
     'Fewer repeated reminders',
@@ -174,10 +175,10 @@
 </script>
 
 <svelte:head>
-  <title>Family Hero Hub | Parent-led family rewards and routines</title>
+  <title>{$_('home.title')}</title>
   <meta
     name="description"
-    content="A private family hub for points, rewards, routines, and responsibility."
+    content={$_('home.metaDescription')}
   />
 </svelte:head>
 
@@ -187,13 +188,13 @@
       <div class="relative z-10 text-left">
         <div class="inline-flex max-w-full items-center gap-2 rounded-full border border-hero/20 bg-hero/10 px-4 py-2 text-sm font-black text-hero mb-6">
           <Sparkles size={16} />
-          <span class="uppercase tracking-[0.12em] sm:tracking-[0.2em]">Parent-led family hub</span>
+          <span class="uppercase tracking-[0.12em] sm:tracking-[0.2em]">{$_('home.eyebrow')}</span>
         </div>
         <h1 class="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-slate-900 leading-[0.96] max-w-2xl">
-          Less nagging. Clearer routines. More everyday wins.
+          {$_('home.heading')}
         </h1>
         <p class="mt-6 max-w-2xl text-lg sm:text-xl md:text-2xl leading-relaxed text-slate-600">
-          Family Hero Hub helps parents guide daily responsibilities with points, rewards, school bag prep, calendar tasks, and child-friendly dashboards — all in a private, parent-led family space.
+          {$_('home.intro')}
         </p>
 
         <div class="mt-8 flex flex-col sm:flex-row gap-4">
@@ -202,17 +203,17 @@
             <ArrowRight size={20} />
           </a>
           <a href="#how-it-works" class="btn-secondary inline-flex items-center justify-center rounded-2xl px-6 py-4 text-base sm:text-lg">
-            See how it works
+            {$_('home.howItWorksCta')}
           </a>
         </div>
 
         <p class="mt-5 max-w-2xl text-sm sm:text-base font-semibold text-slate-500 leading-relaxed">
-          Parent-led rewards · Child-friendly dashboards · Private family space
+          {$_('home.strapline')}
         </p>
         <p class="mt-3 text-sm font-semibold text-slate-500">
-          <a href="/safety-privacy" class="text-hero hover:underline">Safety & Privacy</a>
+          <a href="/safety-privacy" class="text-hero hover:underline">{$_('nav.safetyPrivacy')}</a>
           <span class="px-2 text-slate-300">|</span>
-          <a href="/faq" class="text-hero hover:underline">FAQ</a>
+          <a href="/faq" class="text-hero hover:underline">{$_('nav.faq')}</a>
         </p>
       </div>
 
@@ -220,24 +221,24 @@
         <div class="card relative z-10 overflow-hidden border border-white/80 bg-white/95 p-5 sm:p-6 lg:p-8 shadow-2xl">
           <div class="grid gap-4 sm:grid-cols-2">
             <div class="rounded-3xl border border-slate-100 bg-slate-50 p-5">
-              <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Parent view</p>
-              <p class="mt-3 text-xl font-black text-slate-900">Set the rules, keep the rhythm.</p>
-              <p class="mt-2 text-sm leading-relaxed text-slate-600">Parents manage children, points, rewards, caregivers, and linked devices.</p>
+              <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('home.parentView')}</p>
+              <p class="mt-3 text-xl font-black text-slate-900">{$_('home.parentViewTitle')}</p>
+              <p class="mt-2 text-sm leading-relaxed text-slate-600">{$_('home.parentViewText')}</p>
             </div>
             <div class="rounded-3xl border border-slate-100 bg-hero/5 p-5">
-              <p class="text-xs font-black uppercase tracking-[0.18em] text-hero">Child view</p>
-              <p class="mt-3 text-xl font-black text-slate-900">Simple, clear, and age-friendly.</p>
-              <p class="mt-2 text-sm leading-relaxed text-slate-600">Children see their own dashboard without using the parent account.</p>
+              <p class="text-xs font-black uppercase tracking-[0.18em] text-hero">{$_('home.childView')}</p>
+              <p class="mt-3 text-xl font-black text-slate-900">{$_('home.childViewTitle')}</p>
+              <p class="mt-2 text-sm leading-relaxed text-slate-600">{$_('home.childViewText')}</p>
             </div>
           </div>
 
           <div class="mt-4 rounded-3xl bg-slate-900 p-5 sm:p-6 text-white">
             <div class="flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-hero">
               <ShieldCheck size={16} />
-              <span>Private by design</span>
+              <span>{$_('home.privateByDesign')}</span>
             </div>
             <p class="mt-3 text-lg font-semibold leading-relaxed text-slate-200">
-              No public child profiles. No social feed. No child-to-child messaging. Parents stay in control.
+              {$_('home.privateByDesignText')}
             </p>
           </div>
 

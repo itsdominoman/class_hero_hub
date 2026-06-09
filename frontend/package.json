@@ -21,11 +21,11 @@
     "format": "prettier --write ."
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@sveltejs/adapter-auto": "^3.2.0",
     "@sveltejs/adapter-static": "^3.0.1",
     "@sveltejs/kit": "^2.5.10",
     "@sveltejs/vite-plugin-svelte": "^4.0.0-next.6",
-    "@playwright/test": "^1.59.1",
     "@types/eslint": "^8.56.7",
     "autoprefixer": "^10.4.19",
     "eslint": "^9.0.0",
@@ -50,6 +50,7 @@
     "clsx": "^2.1.1",
     "lucide-svelte": "^0.378.0",
     "qrcode": "^1.5.4",
+    "svelte-i18n": "^4.0.1",
     "tailwind-merge": "^2.3.0"
   }
 }

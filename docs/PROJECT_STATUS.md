@@ -91,6 +91,9 @@
 
 ### UI / UX
 - Responsive layout (tablet + mobile)
+- English and Arabic fixed app UI support is implemented for the main app surface, with English as the default/fallback and Arabic using `lang="ar"` plus `dir="rtl"`.
+- Parent Settings includes a language selector. The MVP stores the selected UI language in browser `localStorage`; no backend parent/family language hierarchy is implemented yet.
+- Parent-entered content is not auto-translated: child names, reward names, task titles, calendar events, School Bag items, and custom point reasons remain exactly as entered.
 - Mobile UI consistency pass completed across common phone widths for parent dashboard, child dashboard, rewards, auth/linking pages, and calendar modals
 - Global mobile viewport safeguards added for dynamic viewport height, safe-area insets, horizontal overflow, tap targets, and mobile form font sizing
 - QR linking UI for child devices
@@ -218,6 +221,7 @@
 - More rewarding child-facing excitement and retention loops
 
 ### Productivity Features
+- Arabic wording should receive native-speaker review before production launch, especially allowance, caregiver, reward request/redeem, and child-facing encouragement copy. See [LOCALISATION_NOTES.md](LOCALISATION_NOTES.md).
 - Dedicated child management route/shell for child-specific Points, Rewards, Calendar, School Bag, Profile, and device sections
 - Component extraction/refactor for the large parent dashboard page
 - Child-facing allowance progress display is now implemented for allowance-enabled children

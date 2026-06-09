@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
 
   const handleGoogleLogin = () => {
@@ -17,7 +18,7 @@
 </script>
 
 <svelte:head>
-  <title>Welcome back to Family Hero Hub</title>
+  <title>{$_('login.title')}</title>
 </svelte:head>
 
 <div class="min-h-[calc(100dvh-5rem)] flex items-center justify-center px-3 sm:px-4 py-8">
@@ -30,9 +31,9 @@
         <img src="/family-hero-hub-logo.png" alt="Family Hero Hub" class="w-full h-full object-cover" />
       </div>
 
-      <h1 class="text-3xl font-black text-slate-900 mb-3">Welcome back to Family Hero Hub</h1>
+      <h1 class="text-3xl font-black text-slate-900 mb-3">{$_('login.title')}</h1>
       <p class="text-slate-600 text-base sm:text-lg leading-relaxed">
-        Sign in to manage your family's points, rewards, routines, school prep, and child dashboards.
+        {$_('login.intro')}
       </p>
 
       <button
@@ -40,29 +41,29 @@
         class="mt-8 w-full flex items-center justify-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-6 py-4 font-bold text-slate-700 transition-all hover:border-hero/30 hover:bg-slate-50 active:scale-[0.98] group"
       >
         <img src="https://www.google.com/favicon.ico" alt="Google" class="w-6 h-6 group-hover:scale-110 transition-transform" />
-        Continue with Google
+        {$_('login.continueGoogle')}
       </button>
 
       <div class="mt-6 rounded-2xl border-2 border-slate-100 bg-slate-50 p-4 text-left text-sm leading-relaxed text-slate-600">
         <p>
-          Use the Google account approved for your family. Parent accounts manage children, rewards, caregiver access, and linked child devices.
+          {$_('login.accountHelp')}
         </p>
       </div>
 
       <div class="mt-4 text-sm text-slate-500 leading-relaxed">
-        <p>Parent sessions stay signed in for convenience. Always log out on shared devices.</p>
+        <p>{$_('login.sessionHelp')}</p>
       </div>
 
       <div class="mt-8 pt-8 border-t border-slate-100 text-left">
-        <p class="text-xs font-black uppercase tracking-widest text-slate-400">Children do not sign in here</p>
+        <p class="text-xs font-black uppercase tracking-widest text-slate-400">{$_('login.childrenDoNotSignIn')}</p>
         <p class="mt-3 text-sm text-slate-500 leading-relaxed">
-          Children use linked dashboards. Parents can link a child device from the family dashboard.
+          {$_('login.childHelp')}
         </p>
       </div>
 
       <div class="mt-6 text-center">
         <p class="text-slate-500 text-sm">
-          Don't have access yet? <a href="/request-access" class="text-hero font-bold hover:underline">Request access</a>
+          {$_('login.noAccess')} <a href="/request-access" class="text-hero font-bold hover:underline">{$_('login.requestAccess')}</a>
         </p>
       </div>
     </div>

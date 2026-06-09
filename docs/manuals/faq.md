@@ -18,6 +18,11 @@ No. Children use linked child dashboards. Parent accounts use Google sign-in.
 ### Is the app mobile-friendly?
 Yes. Family Hero Hub is designed mobile-first, so parents and children can use it comfortably on phones.
 
+### Does Family Hero Hub support Arabic?
+Yes. The main fixed app interface supports English and Arabic. Parents can change the language from **Settings** on the parent dashboard.
+
+Arabic uses right-to-left layout. Parent-entered content is not auto-translated, so child names, reward names, task names, calendar events, School Bag items, and custom point reasons stay exactly as entered.
+
 ## Points and rewards
 ### Who controls points?
 Parents do. They decide when to award or remove points and what counts in their own family.

@@ -110,6 +110,13 @@ Use **Settings** for secondary family tools:
 - family settings or member controls
 - link a child device
 - manage caregivers and invites
+- change the app language between English and Arabic
+
+### Language
+
+Open **Settings** on the parent dashboard and use **Language** to choose English or Arabic.
+
+Arabic changes the fixed app interface to right-to-left layout. Family-entered content is not translated automatically. Child names, reward names, task names, calendar events, School Bag items, and custom point reasons stay exactly as the family entered them.
 
 ## 6) Adding and removing points
 

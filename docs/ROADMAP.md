@@ -68,6 +68,8 @@
 - Future: Optional school timetable improvements
 
 ### ⚙️ Parent Productivity
+- Completed: English/Arabic fixed UI localisation foundation with a parent Settings language selector, browser-local language persistence, English fallback, and Arabic right-to-left document direction.
+- Completed: Main high-traffic surfaces now use translation keys for shared layout, public entry/login, parent dashboard/Settings/child action modal, allowance setup, and core child dashboard labels. Parent-created content remains untranslated by design.
 - Completed: Parent dashboard simplified into a minimalist `My Family` view with child avatar buttons and compact point badges
 - Completed: Tapping a child opens a dedicated child action modal rather than navigating to the child dashboard
 - Completed: The child action modal opens on `Points` by default and keeps Add points, Remove points, and Custom point actions immediately available
@@ -93,6 +95,7 @@
 - Future: Avatar/character customization
 - Future: Shared family goals / house rewards
 - Future: Component extraction from the large parent dashboard page
+- Future: Native-speaker Arabic wording review and broader translation coverage for lower-traffic/admin/legal/help pages.
 
 ### 🔥 Streaks & Bonuses
 - Future: Automatic weekly streak generation
