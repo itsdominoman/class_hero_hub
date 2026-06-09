@@ -12,7 +12,7 @@
     Heart,
     Lightbulb,
     Lock,
-    PiggyBank,
+    Coins,
     ShieldCheck,
     Sparkles,
     Star,
@@ -49,43 +49,43 @@
   const featureCards = [
     {
       icon: Trophy,
-      title: 'Points',
-      text: 'Reward effort, responsibility, routines, and everyday wins.'
+      title: 'home.featurePointsTitle',
+      text: 'home.featurePointsText'
     },
     {
       icon: Star,
-      title: 'Rewards',
-      text: 'Create parent-approved rewards children can work toward.'
+      title: 'home.featureRewardsTitle',
+      text: 'home.featureRewardsText'
     },
     {
-      icon: PiggyBank,
-      title: 'Savings',
-      text: 'Let children set points aside and see when saved points unlock with a bonus.'
+      icon: Coins,
+      title: 'home.featureSavingsTitle',
+      text: 'home.featureSavingsText'
     },
     {
       icon: Backpack,
-      title: 'School Bag',
-      text: 'Help children see what they need today and what to pack for tomorrow.'
+      title: 'home.featureSchoolBagTitle',
+      text: 'home.featureSchoolBagText'
     },
     {
       icon: CalendarDays,
-      title: 'Calendar & family schedule',
-      text: 'Keep track of exams, sports, clubs, appointments, homework due dates, and family reminders — with or without points attached.'
+      title: 'home.featureCalendarTitle',
+      text: 'home.featureCalendarText'
     },
     {
       icon: Sparkles,
-      title: 'Child Dashboard',
-      text: 'Give children a simple place to see progress without sharing the parent account.'
+      title: 'home.featureChildDashboardTitle',
+      text: 'home.featureChildDashboardText'
     },
     {
       icon: Users,
-      title: 'Parents & Caregivers',
-      text: 'Invite trusted grownups and remove access when needed.'
+      title: 'home.featureParentsCaregiversTitle',
+      text: 'home.featureParentsCaregiversText'
     },
     {
       icon: Lock,
-      title: 'Linked Devices',
-      text: 'Connect child dashboards to devices and unlink them from parent settings.'
+      title: 'home.featureLinkedDevicesTitle',
+      text: 'home.featureLinkedDevicesText'
     }
   ];
 
@@ -331,10 +331,10 @@
   <section id="what-it-does" class="bg-white px-3 sm:px-4 py-16 md:py-24">
     <div class="max-w-7xl mx-auto">
       <div class="text-center mb-12 md:mb-16">
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">What Family Hero Hub does</p>
-        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">One family hub for the daily stuff that usually lives in everyone's head</h2>
+        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{$_('home.whatItDoesEyebrow')}</p>
+        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">{$_('home.whatItDoesHeading')}</h2>
         <p class="mx-auto mt-4 max-w-3xl text-base md:text-lg leading-relaxed text-slate-600">
-          Family Hero Hub brings points, rewards, school bag prep, calendar tasks, savings-style goals, and caregiver access into one mobile-first family app.
+          {$_('home.whatItDoesIntro')}
         </p>
       </div>
 
@@ -345,8 +345,8 @@
             <div class="mb-6 flex h-14 w-14 items-center justify-center rounded-3xl bg-hero/10 text-hero group-hover:scale-105 transition-transform">
               <Icon size={28} />
             </div>
-            <h3 class="text-xl font-black text-slate-900">{card.title}</h3>
-            <p class="mt-3 leading-relaxed text-slate-600">{card.text}</p>
+            <h3 class="text-xl font-black text-slate-900">{$_(card.title)}</h3>
+            <p class="mt-3 leading-relaxed text-slate-600">{$_(card.text)}</p>
           </div>
         {/each}
       </div>
