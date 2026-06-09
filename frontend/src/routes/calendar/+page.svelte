@@ -104,23 +104,23 @@
   };
 
   const WEEKDAY_OPTIONS = [
-    { label: 'Mon', value: 0 },
-    { label: 'Tue', value: 1 },
-    { label: 'Wed', value: 2 },
-    { label: 'Thu', value: 3 },
-    { label: 'Fri', value: 4 },
-    { label: 'Sat', value: 5 },
-    { label: 'Sun', value: 6 }
+    { label: 'calendar.weekdayMondayShort', value: 0 },
+    { label: 'calendar.weekdayTuesdayShort', value: 1 },
+    { label: 'calendar.weekdayWednesdayShort', value: 2 },
+    { label: 'calendar.weekdayThursdayShort', value: 3 },
+    { label: 'calendar.weekdayFridayShort', value: 4 },
+    { label: 'calendar.weekdaySaturdayShort', value: 5 },
+    { label: 'calendar.weekdaySundayShort', value: 6 }
   ];
 
   const SCHOOL_WEEKDAY_OPTIONS = [
-    { label: 'S', name: 'Sunday', value: 6 },
-    { label: 'M', name: 'Monday', value: 0 },
-    { label: 'T', name: 'Tuesday', value: 1 },
-    { label: 'W', name: 'Wednesday', value: 2 },
-    { label: 'T', name: 'Thursday', value: 3 },
-    { label: 'F', name: 'Friday', value: 4 },
-    { label: 'S', name: 'Saturday', value: 5 }
+    { label: 'calendar.weekdaySundayShort', name: 'calendar.weekdaySundayShort', value: 6 },
+    { label: 'calendar.weekdayMondayShort', name: 'calendar.weekdayMondayShort', value: 0 },
+    { label: 'calendar.weekdayTuesdayShort', name: 'calendar.weekdayTuesdayShort', value: 1 },
+    { label: 'calendar.weekdayWednesdayShort', name: 'calendar.weekdayWednesdayShort', value: 2 },
+    { label: 'calendar.weekdayThursdayShort', name: 'calendar.weekdayThursdayShort', value: 3 },
+    { label: 'calendar.weekdayFridayShort', name: 'calendar.weekdayFridayShort', value: 4 },
+    { label: 'calendar.weekdaySaturdayShort', name: 'calendar.weekdaySaturdayShort', value: 5 }
   ];
 
   let children = $state<ChildOption[]>([]);
@@ -429,7 +429,7 @@
     } catch (e) {
       schoolExistingRows = [];
       schoolRows = [newSchoolRow()];
-      schoolError = e instanceof Error ? e.message : 'Unable to load school items';
+      schoolError = e instanceof Error ? e.message : $_('calendar.unableToLoadSchoolItems');
     } finally {
       schoolLoading = false;
     }
@@ -476,7 +476,7 @@
     schoolError = null;
 
     if (!schoolChildId) {
-      schoolError = 'Select a child first.';
+      schoolError = $_('calendar.selectChildFirst');
       return;
     }
 
@@ -489,7 +489,7 @@
       .filter((row) => row.class_name || row.needed_item);
 
     if (rowsToSave.some((row) => !row.class_name)) {
-      schoolError = 'Each row needs a class name.';
+      schoolError = $_('calendar.rowNeedsClass');
       return;
     }
 
@@ -498,13 +498,13 @@
       const savedItems = await api.put(`/school-items?child_id=${schoolChildId}&weekday=${schoolWeekday}`, rowsToSave);
       applySchoolRows(Array.isArray(savedItems) ? savedItems : []);
       closeSchoolModal();
-      calendarNotice = 'School items saved.';
+      calendarNotice = $_('calendar.schoolItemsSaved');
     } catch (e) {
       if (e instanceof Error && getErrorStatus(e) === 401) {
-        schoolError = 'Your session expired. Please sign in again.';
-        calendarNotice = 'Your session expired. Please sign in again.';
+        schoolError = $_('calendar.sessionExpired');
+        calendarNotice = $_('calendar.sessionExpired');
       } else {
-        schoolError = e instanceof Error ? e.message : 'Unable to save school items';
+        schoolError = e instanceof Error ? e.message : $_('calendar.unableToSaveSchoolItems');
       }
     } finally {
       schoolSaving = false;
@@ -552,7 +552,7 @@
       await loadChildren();
       await loadCalendar();
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Unable to load calendar';
+      error = e instanceof Error ? e.message : $_('calendar.unableToLoadCalendar');
     } finally {
       loading = false;
     }
@@ -567,7 +567,7 @@
     try {
       await loadCalendar();
     } catch (e) {
-      calendarNotice = e instanceof Error ? e.message : 'Unable to load calendar';
+      calendarNotice = e instanceof Error ? e.message : $_('calendar.unableToLoadCalendar');
     }
   }
 
@@ -610,32 +610,32 @@
     const points = normalizePointsValue(form.points_value);
 
     if (!selectedChildId && !childId) {
-      formError = 'Select a child first.';
+      formError = $_('calendar.selectChildFirst');
       return;
     }
 
     if (!title) {
-      formError = 'Title is required.';
+      formError = $_('calendar.titleRequired');
       return;
     }
 
     if (!form.start_date) {
-      formError = 'Start date is required.';
+      formError = $_('calendar.startDateRequired');
       return;
     }
 
     if (duration !== null && (!Number.isInteger(duration) || duration <= 0)) {
-      formError = 'Duration must be a positive number of minutes.';
+      formError = $_('calendar.durationPositive');
       return;
     }
 
     if (form.entry_type === 'task' && form.is_rewardable && points === null) {
-      formError = 'Points are required for reward tasks.';
+      formError = $_('calendar.validationPointsRequired');
       return;
     }
 
     if (form.recurrence_type === 'weekly' && form.recurrence_days.length === 0) {
-      formError = 'Weekly recurrence needs at least one weekday.';
+      formError = $_('calendar.validationWeeklyNeedsDay');
       return;
     }
 
@@ -668,10 +668,10 @@
       clearModal();
     } catch (e) {
       if (e instanceof Error && getErrorStatus(e) === 401) {
-        formError = 'Your session expired. Please sign in again.';
-        calendarNotice = 'Your session expired. Please sign in again.';
+        formError = $_('calendar.sessionExpired');
+        calendarNotice = $_('calendar.sessionExpired');
       } else {
-        formError = e instanceof Error ? e.message : 'Unable to save calendar item';
+        formError = e instanceof Error ? e.message : $_('calendar.unableToSave');
       }
     } finally {
       saving = false;
@@ -679,7 +679,7 @@
   }
 
   async function disableEntry(item: CalendarOccurrence) {
-    if (!confirm(`Disable "${item.entry.title}"?`)) return;
+    if (!confirm($_('calendar.disableConfirm', { values: { title: item.entry.title } }))) return;
 
     try {
       await api.delete(`/calendar/${item.entry.id}`);
@@ -690,12 +690,12 @@
     } catch (e) {
       const status = e instanceof Error ? getErrorStatus(e) : null;
       if (status === 401) {
-        calendarNotice = 'Your session expired. Please sign in again.';
+        calendarNotice = $_('calendar.sessionExpired');
       } else if (status === 404) {
-        calendarNotice = 'That item was already removed.';
+        calendarNotice = $_('calendar.itemAlreadyRemoved');
         await refreshCalendar();
       } else {
-        calendarNotice = e instanceof Error ? e.message : 'Unable to disable item';
+        calendarNotice = e instanceof Error ? e.message : $_('calendar.unableToDisable');
       }
     }
   }
@@ -707,12 +707,12 @@
     } catch (e) {
       const status = e instanceof Error ? getErrorStatus(e) : null;
       if (status === 401) {
-        calendarNotice = 'Your session expired. Please sign in again.';
+        calendarNotice = $_('calendar.sessionExpired');
       } else if (status === 404) {
-        calendarNotice = 'That item is no longer available.';
+        calendarNotice = $_('calendar.itemNoLongerAvailable');
         await refreshCalendar();
       } else {
-        calendarNotice = e instanceof Error ? e.message : 'Unable to mark item complete';
+        calendarNotice = e instanceof Error ? e.message : $_('calendar.unableToComplete');
       }
     }
   }
@@ -725,12 +725,12 @@
     } catch (e) {
       const status = e instanceof Error ? getErrorStatus(e) : null;
       if (status === 401) {
-        calendarNotice = 'Your session expired. Please sign in again.';
+        calendarNotice = $_('calendar.sessionExpired');
       } else if (status === 404) {
-        calendarNotice = 'That completion was already handled.';
+        calendarNotice = $_('calendar.completionAlreadyHandled');
         await refreshCalendar();
       } else {
-        calendarNotice = e instanceof Error ? e.message : 'Unable to approve completion';
+        calendarNotice = e instanceof Error ? e.message : $_('calendar.unableToApprove');
       }
     }
   }
@@ -743,12 +743,12 @@
     } catch (e) {
       const status = e instanceof Error ? getErrorStatus(e) : null;
       if (status === 401) {
-        calendarNotice = 'Your session expired. Please sign in again.';
+        calendarNotice = $_('calendar.sessionExpired');
       } else if (status === 404) {
-        calendarNotice = 'That completion was already handled.';
+        calendarNotice = $_('calendar.completionAlreadyHandled');
         await refreshCalendar();
       } else {
-        calendarNotice = e instanceof Error ? e.message : 'Unable to reject completion';
+        calendarNotice = e instanceof Error ? e.message : $_('calendar.unableToReject');
       }
     }
   }
@@ -1263,10 +1263,10 @@
     <div class="relative z-10 flex max-h-[calc(100dvh-var(--safe-top))] w-full flex-col overflow-hidden bg-white shadow-2xl md:max-h-[92dvh] md:max-w-2xl md:rounded-[2rem]">
       <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-4 md:px-6 md:py-5">
         <div class="min-w-0">
-          <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">School Books & Classes</p>
-          <h2 class="mt-1 text-2xl font-black text-slate-950">Set what your child needs for each school day</h2>
+          <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.schoolModalTitle')}</p>
+          <h2 class="mt-1 text-2xl font-black text-slate-950">{$_('calendar.schoolModalHeading')}</h2>
           <p class="mt-2 text-sm font-medium leading-6 text-slate-500">
-            These items appear in School Bag and School Prep.
+            {$_('calendar.schoolModalIntro')}
           </p>
         </div>
         <button type="button" class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 transition hover:bg-slate-200" onclick={closeSchoolModal}>
@@ -1283,7 +1283,7 @@
 
         <div class="grid gap-4 sm:grid-cols-2">
           <label class="block min-w-0">
-            <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Child</span>
+            <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.childLabel')}</span>
             <select
               class="w-full min-w-0 rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-sm font-bold text-slate-900 focus:border-slate-400 focus:outline-none"
               bind:value={schoolChildId}
@@ -1296,16 +1296,16 @@
           </label>
 
           <div class="min-w-0">
-            <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Weekday</span>
+            <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.weekdayLabel')}</span>
             <div class="grid grid-cols-7 gap-1">
               {#each SCHOOL_WEEKDAY_OPTIONS as day}
                 <button
                   type="button"
                   class={`min-w-0 rounded-2xl border px-2 py-3 text-xs font-black uppercase transition ${schoolWeekday === day.value ? 'border-slate-900 bg-slate-900 text-white shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
-                  title={day.name}
+                  title={$_(day.name)}
                   onclick={() => handleSchoolWeekdayChange(day.value)}
                 >
-                  {day.label}
+                  {$_(day.label)}
                 </button>
               {/each}
             </div>
@@ -1315,26 +1315,26 @@
         <div class="mt-6 rounded-[1.75rem] border border-slate-200 bg-slate-50 p-3 md:p-4">
           <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p class="text-sm font-black text-slate-950">Classes and items</p>
-              <p class="mt-1 text-xs font-medium text-slate-500">Examples: Math + Math book, P.E. + Gym clothes.</p>
+              <p class="text-sm font-black text-slate-950">{$_('calendar.classesAndItems')}</p>
+              <p class="mt-1 text-xs font-medium text-slate-500">{$_('calendar.schoolExamples')}</p>
             </div>
             <button type="button" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-slate-700 sm:w-auto" onclick={addSchoolRow}>
               <Plus size={14} />
-              Add row
+              {$_('calendar.addRow')}
             </button>
           </div>
 
           <div class="space-y-3">
             {#if schoolLoading && schoolRows.length === 0}
               <div class="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center">
-                <p class="text-sm font-black uppercase tracking-[0.18em] text-slate-400">Loading school items</p>
+                <p class="text-sm font-black uppercase tracking-[0.18em] text-slate-400">{$_('calendar.loadingSchoolItems')}</p>
               </div>
             {/if}
 
             {#each schoolRows as row}
               <div class="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto]">
                 <label class="block min-w-0">
-                  <span class="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Class</span>
+                  <span class="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{$_('calendar.classLabel')}</span>
                   <input
                     id={`${row.key}-class`}
                     type="text"
@@ -1345,7 +1345,7 @@
                   />
                 </label>
                 <label class="block min-w-0">
-                  <span class="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Needed item</span>
+                  <span class="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{$_('calendar.neededItemLabel')}</span>
                   <input
                     type="text"
                     value={row.needed_item}
@@ -1355,7 +1355,7 @@
                   />
                 </label>
                 <button type="button" class="inline-flex h-12 items-center justify-center rounded-xl border border-rose-200 bg-white px-3 text-xs font-black uppercase tracking-[0.14em] text-rose-700 sm:self-end" onclick={() => removeSchoolRow(row.key)}>
-                  Remove
+                  {$_('calendar.remove')}
                 </button>
               </div>
             {/each}
@@ -1364,11 +1364,11 @@
 
         <div class="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button type="button" class="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-slate-700" onclick={closeSchoolModal}>
-            Cancel
+            {$_('calendar.cancel')}
           </button>
           <button type="submit" disabled={schoolSaving} class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-white disabled:opacity-60">
             <Check size={16} />
-            {schoolSaving ? 'Saving...' : 'Save school day'}
+            {schoolSaving ? $_('calendar.saving') : $_('calendar.saveSchoolDay')}
           </button>
         </div>
       </form>
@@ -1385,9 +1385,9 @@
     <div class="relative z-10 flex h-[100dvh] max-h-[calc(100dvh-var(--safe-top))] w-full flex-col overflow-hidden bg-white shadow-2xl md:h-auto md:max-h-[92dvh] md:max-w-3xl md:rounded-[2rem]">
       <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-4 md:px-6 md:py-5">
         <div class="min-w-0">
-          <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Schedule item</p>
-          <h2 class="mt-1 text-2xl font-black text-slate-950">{editingEntryId ? 'Edit schedule item' : 'Add schedule item'}</h2>
-          <p class="mt-2 text-sm font-medium text-slate-500">Create tasks, events, and rewardable chores for the selected child.</p>
+          <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">{$_('calendar.scheduleModalLabel')}</p>
+          <h2 class="mt-1 text-2xl font-black text-slate-950">{editingEntryId ? $_('calendar.editScheduleItem') : $_('calendar.addScheduleItemModal')}</h2>
+          <p class="mt-2 text-sm font-medium text-slate-500">{$_('calendar.scheduleModalIntro')}</p>
         </div>
         <button type="button" class="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 transition hover:bg-slate-200" onclick={clearModal}>
           <X size={18} />
@@ -1410,18 +1410,18 @@
                 class="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-sm font-bold text-slate-900 focus:border-slate-400 focus:outline-none disabled:opacity-60"
                 disabled={editingEntryId !== null}
               >
-                <option value="">Select child</option>
+                <option value="">{$_('calendar.selectChild')}</option>
                 {#each children as child}
                   <option value={child.child.id}>{child.child.display_name}</option>
                 {/each}
               </select>
               {#if editingEntryId !== null}
-                <p class="mt-2 text-xs font-medium text-slate-400">Child changes are not available after a schedule item is created.</p>
+                <p class="mt-2 text-xs font-medium text-slate-400">{$_('calendar.childChangesLocked')}</p>
               {/if}
             </label>
 
             <label class="block">
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Title</span>
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.titleLabel')}</span>
               <input
                 bind:value={form.title}
                 type="text"
@@ -1431,37 +1431,37 @@
             </label>
 
             <label class="block md:col-span-2">
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Description</span>
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.descriptionLabel')}</span>
               <textarea
                 bind:value={form.description}
                 rows="3"
-                placeholder="Optional details, instructions, or context"
+                placeholder={$_('calendar.descriptionPlaceholder')}
                 class="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-sm font-medium text-slate-900 focus:border-slate-400 focus:outline-none"
               ></textarea>
             </label>
 
             <div class="md:col-span-2">
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Type</span>
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.typeLabel')}</span>
               <div class="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   class={`rounded-2xl border px-4 py-4 text-sm font-black uppercase tracking-[0.18em] transition ${form.entry_type === 'task' ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
                   onclick={() => toggleRewardable('task')}
                 >
-                  Task
+                  {$_('calendar.task')}
                 </button>
                 <button
                   type="button"
                   class={`rounded-2xl border px-4 py-4 text-sm font-black uppercase tracking-[0.18em] transition ${form.entry_type === 'event' ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
                   onclick={() => toggleRewardable('event')}
                 >
-                  Event
+                  {$_('calendar.event')}
                 </button>
               </div>
             </div>
 
             <label class="block">
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Start date</span>
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.startDate')}</span>
               <input
                 bind:value={form.start_date}
                 type="date"
@@ -1470,7 +1470,7 @@
             </label>
 
             <label class="block">
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Start time</span>
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.startTime')}</span>
               <input
                 bind:value={form.start_time}
                 type="time"
@@ -1479,7 +1479,7 @@
             </label>
 
             <label class="block">
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Duration in minutes</span>
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.durationMinutes')}</span>
               <input
                 bind:value={form.duration_minutes}
                 type="number"
@@ -1490,34 +1490,34 @@
             </label>
 
             <div>
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Recurrence</span>
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.recurrence')}</span>
               <div class="grid grid-cols-3 gap-3">
                 <button
                   type="button"
                   class={`rounded-2xl border px-4 py-4 text-xs font-black uppercase tracking-[0.18em] transition ${form.recurrence_type === 'none' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
                   onclick={() => (form.recurrence_type = 'none')}
                 >
-                  None
+                  {$_('calendar.none')}
                 </button>
                 <button
                   type="button"
                   class={`rounded-2xl border px-4 py-4 text-xs font-black uppercase tracking-[0.18em] transition ${form.recurrence_type === 'daily' ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
                   onclick={() => (form.recurrence_type = 'daily')}
                 >
-                  Daily
+                  {$_('calendar.daily')}
                 </button>
                 <button
                   type="button"
                   class={`rounded-2xl border px-4 py-4 text-xs font-black uppercase tracking-[0.18em] transition ${form.recurrence_type === 'weekly' ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
                   onclick={() => (form.recurrence_type = 'weekly')}
                 >
-                  Weekly
+                  {$_('calendar.weekly')}
                 </button>
               </div>
             </div>
 
             <div class="md:col-span-2">
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Weekdays</span>
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.weekdays')}</span>
               <div class="grid grid-cols-4 gap-2 md:grid-cols-7">
                 {#each WEEKDAY_OPTIONS as day}
                   <button
@@ -1531,18 +1531,18 @@
                 {/each}
               </div>
               {#if form.recurrence_type !== 'weekly'}
-                <p class="mt-2 text-xs font-medium text-slate-400">Choose weekly recurrence to enable weekday selection.</p>
+                <p class="mt-2 text-xs font-medium text-slate-400">{$_('calendar.weeklyRecurrenceHelp')}</p>
               {/if}
             </div>
 
             <div class="md:col-span-2">
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Reward settings</span>
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.rewardSettings')}</span>
               <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 {#if form.entry_type === 'task'}
                   <label class="flex items-center justify-between gap-4">
                     <div class="min-w-0">
-                      <p class="text-sm font-black text-slate-900">Rewardable task</p>
-                      <p class="mt-1 text-xs font-medium leading-5 text-slate-500">Reward tasks award points when completed or approved.</p>
+                      <p class="text-sm font-black text-slate-900">{$_('calendar.rewardableTask')}</p>
+                      <p class="mt-1 text-xs font-medium leading-5 text-slate-500">{$_('calendar.rewardTaskHelp')}</p>
                     </div>
                     <input
                       type="checkbox"
@@ -1554,7 +1554,7 @@
 
                   {#if form.is_rewardable}
                     <label class="mt-4 block">
-                      <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Points</span>
+                      <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.points')}</span>
                       <input
                         bind:value={form.points_value}
                         type="number"
@@ -1566,7 +1566,7 @@
                   {/if}
                 {:else}
                   <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-500">
-                    Events do not use points in this phase.
+                    {$_('calendar.eventNoPoints')}
                   </div>
                 {/if}
               </div>
@@ -1577,11 +1577,11 @@
         <div class="border-t border-slate-100 bg-white px-4 py-4 pb-[calc(1rem+var(--safe-bottom))] md:px-6 md:pb-4">
           <div class="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
             <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-slate-700" onclick={clearModal}>
-              Cancel
+            {$_('calendar.cancel')}
             </button>
             <button type="submit" disabled={saving} class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-white disabled:opacity-60">
               <Plus size={16} />
-              {saving ? 'Saving...' : editingEntryId ? 'Save changes' : 'Create item'}
+              {saving ? $_('calendar.saving') : editingEntryId ? $_('calendar.saveChanges') : $_('calendar.createItem')}
             </button>
           </div>
         </div>
