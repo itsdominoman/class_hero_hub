@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
   import {
     ArrowLeft,
@@ -1063,11 +1064,11 @@
                         <div class="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-2 md:flex md:shrink-0 md:flex-wrap">
                           <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white shadow-sm sm:tracking-[0.18em]" onclick={() => approveCompletion(item)}>
                             <Check size={16} />
-                            Approve
+                            {$_('common.approve')}
                           </button>
                           <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-rose-700 shadow-sm sm:tracking-[0.18em]" onclick={() => rejectCompletion(item)}>
                             <X size={16} />
-                            Reject
+                            {$_('common.reject')}
                           </button>
                         </div>
                       </div>

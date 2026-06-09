@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
   import { Check, X, Clock, Trophy, ChevronLeft } from 'lucide-svelte';
 
@@ -22,7 +23,7 @@
 
   async function processRedemption(id: number, action: string) {
     try {
-      const note = action === 'reject' ? window.prompt('Reason for rejection?') : 'Approved';
+      const note = action === 'reject' ? window.prompt($_('common.rejectionReasonPrompt')) : $_('common.approvedByParent');
       await api.post(`/redemptions/${id}/${action}`, {
         parent_note: note || ''
       });
@@ -90,13 +91,13 @@
                   onclick={() => processRedemption(r.id, 'approve')}
                   class="w-full md:w-40 py-4 bg-savings text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-lg shadow-savings/20 hover:scale-[1.02] transition-all"
                 >
-                  <Check size={18} /> Approve
+                  <Check size={18} /> {$_('common.approve')}
                 </button>
                 <button 
                   onclick={() => processRedemption(r.id, 'reject')}
                   class="w-full md:w-40 py-4 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:border-penalty hover:text-penalty transition-all"
                 >
-                  <X size={18} /> Reject
+                  <X size={18} /> {$_('common.reject')}
                 </button>
               </div>
             {:else}

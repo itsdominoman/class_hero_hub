@@ -857,7 +857,7 @@
 
   async function processRedemption(id: number, action: string) {
     try {
-      const note = action === 'reject' ? window.prompt('Reason for rejection? (Optional)') : 'Approved by parent';
+      const note = action === 'reject' ? window.prompt($_('common.rejectionReasonPrompt')) : $_('common.approvedByParent');
       await api.post(`/redemptions/${id}/${action}`, {
         parent_note: note || ''
       });
@@ -1780,35 +1780,35 @@
 
               {#if pendingRedemptions.length === 0}
                 <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                  <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">No pending requests</p>
+                  <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.requests.noPending')}</p>
                 </div>
               {:else}
                 {#each pendingRedemptions as r}
                   {@const child = children.find((ch) => ch.child.id === r.child_id)}
                   <div class="rounded-[1.5rem] border border-slate-100 bg-white p-4">
                     <div class="flex flex-wrap items-center gap-2">
-                      <span class="inline-flex items-center rounded-full bg-hero/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-hero">Pending</span>
+                      <span class="inline-flex items-center rounded-full bg-hero/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-hero">{$_('common.pending')}</span>
                       <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{new Date(r.created_at).toLocaleDateString()}</span>
                     </div>
                     <h4 class="mt-3 font-black text-slate-950 break-words">{r.title}</h4>
-                    <p class="mt-2 text-sm text-slate-600 break-words">{r.description || 'No description provided.'}</p>
+                    <p class="mt-2 text-sm text-slate-600 break-words">{r.description || $_('common.noDescriptionProvided')}</p>
                     <div class="mt-4 flex flex-wrap items-center gap-2">
                       <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-700">
-                        {child?.child.display_name || 'Unknown child'}
+                        {child?.child.display_name || $_('common.unknownChild')}
                       </span>
                       <span class="inline-flex items-center gap-2 rounded-full bg-hero/10 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-hero">
                         <Trophy size={13} />
-                        {r.points} points
+                        {r.points} {$_('common.points')}
                       </span>
                     </div>
                     <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <button onclick={() => processRedemption(r.id, 'approve')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-savings/20">
                         <Check size={16} />
-                        Approve
+                        {$_('common.approve')}
                       </button>
                       <button onclick={() => processRedemption(r.id, 'reject')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700">
                         <X size={16} />
-                        Reject
+                        {$_('common.reject')}
                       </button>
                     </div>
                   </div>
@@ -1827,7 +1827,7 @@
 
             <!-- Invite Form -->
             <div class="space-y-3 pt-4 border-t border-slate-100">
-              <label for="co-parent-email" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Add Grownup</label>
+              <label for="co-parent-email" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.family.addGrownup')}</label>
               <div class="space-y-2">
                 <input 
                   id="co-parent-email"
@@ -1836,23 +1836,23 @@
                   placeholder="parent-or-caregiver@example.com"
                   class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-bold text-slate-900 focus:outline-none focus:border-hero/30 transition-all"
                 />
-                <p class="text-[10px] text-slate-400 ml-2">Invite another parent or caregiver to help manage points, rewards, school bag items, and family routines.</p>
+                <p class="text-[10px] text-slate-400 ml-2">{$_('parent.family.inviteHelp')}</p>
               </div>
             </div>
 
             <!-- Pending Invites -->
             {#if familyInvites.filter(i => i.status === 'pending').length > 0}
               <div class="space-y-3 pt-4 border-t border-slate-100">
-                <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Pending Invites</span>
+                <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.family.pendingInvites')}</span>
                 <div class="grid gap-2">
                   {#each familyInvites.filter(i => i.status === 'pending') as invite}
                     <div class="flex min-w-0 items-start justify-between gap-3 p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
                       <div class="min-w-0">
                         <p class="font-bold text-slate-900 text-sm break-all">{invite.email}</p>
-                        <p class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Waiting for login</p>
+                        <p class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{$_('parent.family.waitingForLogin')}</p>
                       </div>
-                      <button onclick={() => revokeInvite(invite.id)} class="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 transition-colors hover:border-red-100 hover:bg-red-50 hover:text-red-500 sm:tracking-[0.18em]" aria-label="Cancel invite">
-                        Cancel Invite
+                      <button onclick={() => revokeInvite(invite.id)} class="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 transition-colors hover:border-red-100 hover:bg-red-50 hover:text-red-500 sm:tracking-[0.18em]" aria-label={$_('parent.family.cancelInvite')}>
+                        {$_('parent.family.cancelInvite')}
                       </button>
                     </div>
                   {/each}
@@ -1862,7 +1862,7 @@
 
             <!-- Members List -->
             <div class="space-y-3">
-              <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Parents &amp; Caregivers</span>
+              <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.parentsCaregivers')}</span>
               <div class="grid gap-2">
                 {#each familyMembers as member}
                   <div class="flex min-w-0 flex-col gap-3 p-4 bg-slate-50 rounded-2xl">
@@ -2444,7 +2444,7 @@
               >
                 {modalLoading ? 'Processing...' : 
              activeModal.type === 'presets' ? (editingPresetId ? 'Save Changes' : 'Create Preset') : 
-             activeModal.type === 'family' ? 'Add Grownup' :
+             activeModal.type === 'family' ? $_('parent.family.addGrownup') :
              'Confirm Action'}
               </button>
               {#if editingPresetId}

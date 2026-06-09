@@ -19,15 +19,19 @@ Arabic uses neutral Modern Standard Arabic with short, family-friendly labels wh
 | Savings | الادخار / النقاط المدخرة | “Savings” is rendered as saving/saved points to avoid implying real banking. | Yes |
 | School Bag | الحقيبة المدرسية | Common and clear. | No |
 | Requests | الطلبات | Short UI label. | No |
-| Approve | موافقة | Short label for parent approval. | Yes |
+| Approve | قبول | Button action for approving a request; use “موافقة” only when approval is a noun/status. | Yes |
 | Reject | رفض | Short and standard. | No |
 | Tasks | المهام | Standard neutral app Arabic. | No |
 | Calendar | التقويم | Standard app term. | No |
-| Grownup | شخص بالغ | Used sparingly; “والدان ومقدمو الرعاية” is preferred for the Settings section. | Yes |
+| Grownup | ولي أمر / مقدم رعاية | Prefer the family-role wording in visible UI; avoid “شخص بالغ” unless the exact context needs it. | Yes |
 | Caregiver | مقدم رعاية | Clear formal-neutral term; may need GCC parent review for warmth. | Yes |
 | Points Log | سجل النقاط | Clear and compact. | No |
-| Positive / Add | إضافة | Shorter than literal “positive”; fits the points action control. | Yes |
-| Negative / Remove | إزالة | Shorter than literal “negative”; fits the points action control. | Yes |
+| Positive | إيجابي | Use as a type/category label, not as an action verb. | Yes |
+| Negative | سلبي | Use as a type/category label, not as an action verb. | Yes |
+| Add | إضافة | Use for the UI action when adding points or another item. | No |
+| Remove | إزالة | Use for the UI action when removing points or another item. | No |
+| Positive behaviour | سلوك إيجابي | Child-facing behaviour label. Keep it gentle and non-shaming. | Yes |
+| Negative behaviour | سلوك سلبي | Child-facing behaviour label. Keep it gentle and non-shaming. | Yes |
 | Custom reason | سبب مخصص / السبب | Uses simple “reason” wording in compact forms. | Yes |
 
-Known follow-up: Arabic wording should receive native-speaker review before production launch, especially allowance, caregiver, redeem/request, and child-facing encouragement copy.
+Known follow-up: Arabic wording should receive native-speaker review before production launch, especially allowance, caregiver, redeem/request, and child-facing encouragement copy. Terms that still need context review include Positive/Negative labels and any place where approval is used as a noun/status instead of a button action.

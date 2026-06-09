@@ -1936,27 +1936,27 @@
                           {request.title}
                         </h3>
                         <p class="text-sm text-slate-600 mt-1 break-words">
-                          {request.description || "Waiting for approval."}
+                          {request.description || $_('child.waitingApproval')}
                         </p>
                       </div>
                       <span
                         class="shrink-0 rounded-2xl bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.12em] sm:tracking-[0.2em] text-hero border border-hero/20 max-w-full sm:max-w-[45%] whitespace-normal sm:whitespace-nowrap"
                       >
                         {#if allowanceActive}
-                          {request.points} points / {formatMinorAmount(
+                          {request.points} {$_('common.points')} / {formatMinorAmount(
                             rewardValueMinor(request.points) || 0,
                             allowanceActive.currency,
                             allowanceActive.currency_exponent,
                           )}
                         {:else}
-                          {request.points} points
+                          {request.points} {$_('common.points')}
                         {/if}
                       </span>
                     </div>
                     <p
                       class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mt-3 break-words"
                     >
-                      Requested {formatDateTime(request.created_at)}
+                      {$_('child.requested', { values: { date: formatDateTime(request.created_at) } })}
                     </p>
                   </div>
                 {/each}
@@ -1968,10 +1968,10 @@
                 <p
                   class="text-sm font-black uppercase tracking-[0.22em] text-slate-400"
                 >
-                  Nothing waiting
+                  {$_('child.nothingWaiting')}
                 </p>
                 <p class="text-sm text-slate-500 mt-2">
-                  Reward requests that need approval will show here.
+                  {$_('child.requestsShowHere')}
                 </p>
               </div>
             {/if}
