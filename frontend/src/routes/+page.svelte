@@ -405,7 +405,7 @@
           <p class="mt-3 leading-relaxed text-slate-600">Points and rewards make effort, responsibility, and follow-through visible.</p>
         </div>
         <div class="card p-6 sm:col-span-2">
-          <PiggyBank size={28} class="text-savings" />
+          <Coins size={28} class="text-savings" />
           <h3 class="mt-5 text-xl font-black text-slate-900">What they are working toward</h3>
           <p class="mt-3 leading-relaxed text-slate-600">Saved points and parent-approved rewards help children practise waiting, planning, and choosing.</p>
         </div>
