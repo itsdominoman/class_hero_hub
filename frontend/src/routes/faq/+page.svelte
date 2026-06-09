@@ -64,32 +64,32 @@
       description: 'faq.sectionPointsRewardsDescription',
       items: [
         {
-          question: 'Who controls points?',
-          answer: 'Parents do. They decide when to award or remove points and what counts in their own family.'
+          question: 'faq.pointsRewardsQuestion1',
+          answer: 'faq.pointsRewardsAnswer1'
         },
         {
-          question: 'Can children approve their own rewards?',
-          answer: 'No. Children can request rewards from their dashboard, but parents approve or reject each request.'
+          question: 'faq.pointsRewardsQuestion2',
+          answer: 'faq.pointsRewardsAnswer2'
         },
         {
-          question: 'Can parents remove points?',
-          answer: 'Yes. Parents can adjust points when they need to reflect family expectations or missed responsibilities.'
+          question: 'faq.pointsRewardsQuestion3',
+          answer: 'faq.pointsRewardsAnswer3'
         },
         {
-          question: 'What should points be used for?',
-          answer: 'Points can be used for effort, routines, helpful choices, kindness, school prep, and other everyday wins the family wants to recognise.'
+          question: 'faq.pointsRewardsQuestion4',
+          answer: 'faq.pointsRewardsAnswer4'
         },
         {
-          question: 'Do calendar events have to earn points?',
-          answer: 'No. Calendar events can simply help the family stay organised. Parents can use Calendar for exams, sports, clubs, appointments, homework due dates, reminders, or tasks. Some families may connect certain tasks to points, but ordinary events do not need to be rewards.'
+          question: 'faq.pointsRewardsQuestion5',
+          answer: 'faq.pointsRewardsAnswer5'
         },
         {
-          question: 'Can I use Family Hero Hub without allowance?',
-          answer: 'Yes. The app works well as a points-and-rewards system even if you never turn on allowance-style values.'
+          question: 'faq.pointsRewardsQuestion6',
+          answer: 'faq.pointsRewardsAnswer6'
         },
         {
-          question: 'Is this about punishment?',
-          answer: 'No. Family Hero Hub is designed around clear expectations, positive habits, and parent-approved rewards. Parents can adjust points when needed, but the app should not be used to shame children or replace real parenting decisions.'
+          question: 'faq.pointsRewardsQuestion7',
+          answer: 'faq.pointsRewardsAnswer7'
         }
       ]
     },
