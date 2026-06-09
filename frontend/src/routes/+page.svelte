@@ -248,16 +248,16 @@
 
           <div class="mt-4 grid gap-3 sm:grid-cols-3">
             <div class="rounded-2xl border border-slate-100 bg-white p-4">
-              <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Rewards</p>
-              <p class="mt-2 text-sm font-semibold text-slate-700">Parent approved</p>
+              <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('home.heroRewardLabel')}</p>
+              <p class="mt-2 text-sm font-semibold text-slate-700">{$_('home.heroRewardValue')}</p>
             </div>
             <div class="rounded-2xl border border-slate-100 bg-white p-4">
-              <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Access</p>
-              <p class="mt-2 text-sm font-semibold text-slate-700">Family controlled</p>
+              <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('home.heroAccessLabel')}</p>
+              <p class="mt-2 text-sm font-semibold text-slate-700">{$_('home.heroAccessValue')}</p>
             </div>
             <div class="rounded-2xl border border-slate-100 bg-white p-4">
-              <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Devices</p>
-              <p class="mt-2 text-sm font-semibold text-slate-700">Link or unlink</p>
+              <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('home.heroDevicesLabel')}</p>
+              <p class="mt-2 text-sm font-semibold text-slate-700">{$_('home.heroDevicesValue')}</p>
             </div>
           </div>
         </div>
@@ -269,16 +269,16 @@
     <div class="max-w-7xl mx-auto">
       <div class="grid gap-4 sm:grid-cols-3">
         <div class="rounded-3xl bg-white/95 p-5 sm:p-6 shadow-lg border border-slate-100">
-          <p class="text-xs font-black uppercase tracking-[0.18em] text-hero">Trust</p>
-          <p class="mt-3 text-lg font-black text-slate-900">Parents guide. Children see what matters.</p>
+          <p class="text-xs font-black uppercase tracking-[0.18em] text-hero">{$_('home.heroTrustLabel')}</p>
+          <p class="mt-3 text-lg font-black text-slate-900">{$_('home.heroTrustText')}</p>
         </div>
         <div class="rounded-3xl bg-white/95 p-5 sm:p-6 shadow-lg border border-slate-100">
-          <p class="text-xs font-black uppercase tracking-[0.18em] text-savings">Routines</p>
-          <p class="mt-3 text-lg font-black text-slate-900">Keep the everyday stuff visible and easier to follow.</p>
+          <p class="text-xs font-black uppercase tracking-[0.18em] text-savings">{$_('home.heroRoutinesLabel')}</p>
+          <p class="mt-3 text-lg font-black text-slate-900">{$_('home.heroRoutinesText')}</p>
         </div>
         <div class="rounded-3xl bg-white/95 p-5 sm:p-6 shadow-lg border border-slate-100">
-          <p class="text-xs font-black uppercase tracking-[0.18em] text-reward">Momentum</p>
-          <p class="mt-3 text-lg font-black text-slate-900">Small wins turn into clearer habits over time.</p>
+          <p class="text-xs font-black uppercase tracking-[0.18em] text-reward">{$_('home.heroMomentumLabel')}</p>
+          <p class="mt-3 text-lg font-black text-slate-900">{$_('home.heroMomentumText')}</p>
         </div>
       </div>
     </div>

@@ -96,7 +96,19 @@ export const en = {
     privateByDesignText: 'No public child profiles. No social feed. No child-to-child messaging. Parents stay in control.',
     rewardApproved: 'Parent approved',
     familyControlled: 'Family controlled',
-    linkOrUnlink: 'Link or unlink'
+    linkOrUnlink: 'Link or unlink',
+    heroRewardLabel: 'Rewards',
+    heroRewardValue: 'Parent approved',
+    heroAccessLabel: 'Access',
+    heroAccessValue: 'Family controlled',
+    heroDevicesLabel: 'Devices',
+    heroDevicesValue: 'Link or unlink',
+    heroTrustLabel: 'Trust',
+    heroTrustText: 'Parents guide. Children see what matters.',
+    heroRoutinesLabel: 'Routines',
+    heroRoutinesText: 'Keep the everyday stuff visible and easier to follow.',
+    heroMomentumLabel: 'Momentum',
+    heroMomentumText: 'Small wins turn into clearer habits over time.'
   },
   login: {
     title: 'Welcome back to Family Hero Hub',
