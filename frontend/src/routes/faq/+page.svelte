@@ -32,28 +32,28 @@
       description: 'faq.sectionGettingStartedDescription',
       items: [
         {
-          question: 'What is Family Hero Hub?',
-          answer: 'Family Hero Hub is a parent-led family rewards and routines app. It helps parents manage points, rewards, school bag prep, calendar tasks, savings-style goals, allowance-linked point values, child dashboards, and caregiver access.'
+          question: 'faq.gettingStartedQuestion1',
+          answer: 'faq.gettingStartedAnswer1'
         },
         {
-          question: 'Why did you build Family Hero Hub?',
-          answer: 'Family Hero Hub was built by a parent for real family life. I wanted a calmer way to manage repeated reminders, school bag prep, routines, points, rewards, savings-style goals, and child dashboards in one place. Other family apps I tried were missing pieces I needed, so Family Hero Hub started as something practical for my own family.'
+          question: 'faq.gettingStartedQuestion2',
+          answer: 'faq.gettingStartedAnswer2'
         },
         {
-          question: 'Is Family Hero Hub just a chore app?',
-          answer: 'No. Chores and tasks can be part of it, but Family Hero Hub is broader than that. It helps families manage everyday responsibility, rewards, school prep, routines, and child progress in one place.'
+          question: 'faq.gettingStartedQuestion3',
+          answer: 'faq.gettingStartedAnswer3'
         },
         {
-          question: 'Who is it for?',
-          answer: 'It is for parents and caregivers who manage the family setup, and for children who use their own linked dashboard.'
+          question: 'faq.gettingStartedQuestion4',
+          answer: 'faq.gettingStartedAnswer4'
         },
         {
-          question: 'Do children need their own email address?',
-          answer: 'No. Children use linked child dashboards. Parent accounts use Google sign-in.'
+          question: 'faq.gettingStartedQuestion5',
+          answer: 'faq.gettingStartedAnswer5'
         },
         {
-          question: 'Is the app mobile-friendly?',
-          answer: 'Yes. Family Hero Hub is designed mobile-first, so parents and children can use it comfortably on phones.'
+          question: 'faq.gettingStartedQuestion6',
+          answer: 'faq.gettingStartedAnswer6'
         }
       ]
     },
@@ -300,8 +300,8 @@
           <div class="grid gap-4 sm:gap-5">
             {#each section.items as item}
               <div class="rounded-3xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5 shadow-sm">
-                <h3 class="text-base sm:text-lg font-black text-slate-900 leading-snug">{item.question}</h3>
-                <p class="mt-2 text-sm sm:text-base text-slate-600 leading-relaxed">{item.answer}</p>
+                <h3 class="text-base sm:text-lg font-black text-slate-900 leading-snug">{item.question.startsWith('faq.') ? $_(item.question) : item.question}</h3>
+                <p class="mt-2 text-sm sm:text-base text-slate-600 leading-relaxed">{item.answer.startsWith('faq.') ? $_(item.answer) : item.answer}</p>
               </div>
             {/each}
           </div>

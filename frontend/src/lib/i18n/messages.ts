@@ -240,7 +240,19 @@ export const en = {
     sectionParentsCaregiversLabel: 'Parents and caregivers',
     sectionParentsCaregiversDescription: 'How trusted grownups are managed.',
     sectionPrivacySafetyLabel: 'Privacy and safety',
-    sectionPrivacySafetyDescription: 'Why the app stays private and child-safe.'
+    sectionPrivacySafetyDescription: 'Why the app stays private and child-safe.',
+    gettingStartedQuestion1: 'What is Family Hero Hub?',
+    gettingStartedAnswer1: 'Family Hero Hub is a parent-led family rewards and routines app. It helps parents manage points, rewards, school bag prep, calendar tasks, savings-style goals, allowance-linked point values, child dashboards, and caregiver access.',
+    gettingStartedQuestion2: 'Why did you build Family Hero Hub?',
+    gettingStartedAnswer2: 'Family Hero Hub was built by a parent for real family life. I wanted a calmer way to manage repeated reminders, school bag prep, routines, points, rewards, savings-style goals, and child dashboards in one place. Other family apps I tried were missing pieces I needed, so Family Hero Hub started as something practical for my own family.',
+    gettingStartedQuestion3: 'Is Family Hero Hub just a chore app?',
+    gettingStartedAnswer3: 'No. Chores and tasks can be part of it, but Family Hero Hub is broader than that. It helps families manage everyday responsibility, rewards, school prep, routines, and child progress in one place.',
+    gettingStartedQuestion4: 'Who is it for?',
+    gettingStartedAnswer4: 'It is for parents and caregivers who manage the family setup, and for children who use their own linked dashboard.',
+    gettingStartedQuestion5: 'Do children need their own email address?',
+    gettingStartedAnswer5: 'No. Children use linked child dashboards. Parent accounts use Google sign-in.',
+    gettingStartedQuestion6: 'Is the app mobile-friendly?',
+    gettingStartedAnswer6: 'Yes. Family Hero Hub is designed mobile-first, so parents and children can use it comfortably on phones.'
   },
   login: {
     title: 'Welcome back to Family Hero Hub',
@@ -720,7 +732,19 @@ export const ar = {
     sectionParentsCaregiversLabel: 'الأهل ومقدمو الرعاية',
     sectionParentsCaregiversDescription: 'كيف تتم إدارة البالغين الموثوقين.',
     sectionPrivacySafetyLabel: 'الخصوصية والسلامة',
-    sectionPrivacySafetyDescription: 'لماذا يبقى التطبيق خاصًا وآمنًا للأطفال.'
+    sectionPrivacySafetyDescription: 'لماذا يبقى التطبيق خاصًا وآمنًا للأطفال.',
+    gettingStartedQuestion1: 'ما هو Family Hero Hub؟',
+    gettingStartedAnswer1: 'Family Hero Hub هو تطبيق عائلي بقيادة الأهل للمكافآت والروتين. يساعد الأهل على إدارة النقاط والمكافآت وتجهيز الحقيبة المدرسية ومهام التقويم وأهداف الادخار وقيم النقاط المرتبطة بالمصروف ولوحات الأطفال ووصول مقدمي الرعاية.',
+    gettingStartedQuestion2: 'لماذا أنشأت Family Hero Hub؟',
+    gettingStartedAnswer2: 'بُني Family Hero Hub بواسطة أب للحياة العائلية الحقيقية. أردت طريقة أهدأ لإدارة التذكيرات المتكررة وتجهيز الحقيبة المدرسية والروتين والنقاط والمكافآت وأهداف الادخار ولوحات الأطفال في مكان واحد. كانت تطبيقات العائلة الأخرى التي جربتها تفتقد أجزاء أحتاجها، لذلك بدأ Family Hero Hub كشيء عملي لعائلتي.',
+    gettingStartedQuestion3: 'هل Family Hero Hub مجرد تطبيق للمهام المنزلية؟',
+    gettingStartedAnswer3: 'لا. يمكن أن تكون المهام المنزلية جزءًا منه، لكن Family Hero Hub يدعم أيضًا تجهيز المدرسة ومهام التقويم ولوحات الأطفال والمكافآت وأهداف الادخار وقيم المصروف الاختيارية ووصول العائلة والروتين بقيادة الأهل.',
+    gettingStartedQuestion4: 'لمن صُمم Family Hero Hub؟',
+    gettingStartedAnswer4: 'صُمم للعائلات التي تريد طريقة خاصة بقيادة الأهل لتنظيم الروتين والنقاط والمكافآت وتجهيز المدرسة وأهداف الادخار ولوحات الأطفال دون موجزات اجتماعية أو ملفات عامة للأطفال.',
+    gettingStartedQuestion5: 'هل يحتاج الأطفال إلى بريد إلكتروني خاص بهم؟',
+    gettingStartedAnswer5: 'لا. يستخدم الأطفال لوحات أطفال مرتبطة. أما حسابات الأهل فتستخدم تسجيل الدخول عبر Google.',
+    gettingStartedQuestion6: 'هل التطبيق مناسب للهواتف؟',
+    gettingStartedAnswer6: 'نعم. صُمم Family Hero Hub للهواتف أولًا، حتى يتمكن الأهل والأطفال من استخدامه بسهولة على الهواتف.'
   },
   parent: {
     title: 'عائلتي',
