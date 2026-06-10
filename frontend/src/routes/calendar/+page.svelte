@@ -200,7 +200,14 @@
   }
 
   function formatWeekdayLetter(value: string) {
-    return formatWeekday(value).slice(0, 1);
+    const weekday = parseDateInput(value).getDay();
+    if (weekday === 0) return $_('calendar.weekdaySundayShort');
+    if (weekday === 1) return $_('calendar.weekdayMondayShort');
+    if (weekday === 2) return $_('calendar.weekdayTuesdayShort');
+    if (weekday === 3) return $_('calendar.weekdayWednesdayShort');
+    if (weekday === 4) return $_('calendar.weekdayThursdayShort');
+    if (weekday === 5) return $_('calendar.weekdayFridayShort');
+    return $_('calendar.weekdaySaturdayShort');
   }
 
   function isToday(value: string) {
