@@ -838,18 +838,18 @@
   }
 
   async function revokeInvite(id: number) {
-    if (!confirm('Cancel this invite? The invite link will no longer work.')) return;
+    if (!confirm($_('parent.family.confirmCancelInvite'))) return;
     try {
       await api.delete(`/family/invites/${id}`);
       await loadDashboard();
       await loadFamilySettings();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to cancel invite');
+      alert(e instanceof Error ? e.message : $_('parent.family.errorCancelInvite'));
     }
   }
 
   async function removeGrownup(member: FamilyMember) {
-    if (!confirm('Remove this grownup from your family? They will no longer be able to manage children or points.')) return;
+    if (!confirm($_('parent.family.confirmRemoveGrownup'))) return;
 
     try {
       familyGrownupRemovingId = member.id;
@@ -857,7 +857,7 @@
       await loadDashboard();
       await loadFamilySettings();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to remove grownup');
+      alert(e instanceof Error ? e.message : $_('parent.family.errorRemoveGrownup'));
     } finally {
       familyGrownupRemovingId = null;
     }
@@ -1829,19 +1829,19 @@
             {#if loadingFamilySettings}
               <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
                 <div class="mx-auto mb-4 w-10 h-10 animate-spin rounded-full border-4 border-hero border-t-transparent"></div>
-                <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">Refreshing family members</p>
+                <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.family.refreshing')}</p>
               </div>
             {/if}
 
             <!-- Invite Form -->
             <div class="space-y-3 pt-4 border-t border-slate-100">
-              <label for="co-parent-email" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.family.addGrownup')}</label>
+              <label for="co-parent-email" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.family.emailLabel')}</label>
               <div class="space-y-2">
                 <input 
                   id="co-parent-email"
                   type="email" 
                   bind:value={modalForm.email}
-                  placeholder="parent-or-caregiver@example.com"
+                  placeholder={$_('parent.family.emailPlaceholder')}
                   class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-bold text-slate-900 focus:outline-none focus:border-hero/30 transition-all"
                 />
                 <p class="text-[10px] text-slate-400 ml-2">{$_('parent.family.inviteHelp')}</p>
@@ -1870,7 +1870,7 @@
 
             <!-- Members List -->
             <div class="space-y-3">
-              <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.parentsCaregivers')}</span>
+              <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.family.currentGrownups')}</span>
               <div class="grid gap-2">
                 {#each familyMembers as member}
                   <div class="flex min-w-0 flex-col gap-3 p-4 bg-slate-50 rounded-2xl">
@@ -1879,11 +1879,11 @@
                         {member.name ? member.name[0].toUpperCase() : member.email[0].toUpperCase()}
                       </div>
                       <div class="min-w-0 flex-1">
-                        <p class="font-bold text-slate-900 text-sm truncate">{member.name || 'Parent'}</p>
+                        <p class="font-bold text-slate-900 text-sm truncate">{member.name || $_('parent.family.parentFallback')}</p>
                         <p class="text-[10px] text-slate-400 font-medium uppercase tracking-normal sm:tracking-wider break-all">{member.email}</p>
                       </div>
                       {#if member.id === parent?.id}
-                        <span class="shrink-0 px-3 py-1 bg-hero/10 text-hero rounded-lg text-[10px] font-black uppercase tracking-[0.12em] sm:tracking-[0.22em]">You</span>
+                        <span class="shrink-0 px-3 py-1 bg-hero/10 text-hero rounded-lg text-[10px] font-black uppercase tracking-[0.12em] sm:tracking-[0.22em]">{$_('parent.family.you')}</span>
                       {/if}
                     </div>
                     {#if member.can_remove}
@@ -1893,7 +1893,7 @@
                         disabled={familyGrownupRemovingId === member.id}
                         class="self-start rounded-xl border border-red-100 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50 sm:tracking-[0.18em]"
                       >
-                        {familyGrownupRemovingId === member.id ? 'Removing...' : 'Remove'}
+                        {familyGrownupRemovingId === member.id ? $_('common.removing') : $_('common.remove')}
                       </button>
                     {/if}
                   </div>
@@ -2450,9 +2450,9 @@
                  activeModal.type === 'presets' ? 'bg-hero text-white shadow-hero/20 hover:bg-hero-dark' :
                  'bg-reward text-white shadow-reward/30 hover:bg-reward-dark'}"
               >
-                {modalLoading ? 'Processing...' : 
+                {modalLoading ? (activeModal.type === 'family' ? $_('common.processing') : 'Processing...') :
              activeModal.type === 'presets' ? (editingPresetId ? 'Save Changes' : 'Create Preset') : 
-             activeModal.type === 'family' ? $_('parent.family.addGrownup') :
+             activeModal.type === 'family' ? $_('parent.family.inviteGrownup') :
              'Confirm Action'}
               </button>
               {#if editingPresetId}
