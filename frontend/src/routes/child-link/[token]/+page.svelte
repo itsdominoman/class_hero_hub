@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { _ } from 'svelte-i18n';
   import { page } from '$app/state';
   import { api } from '$lib/api';
   import { ArrowRight, ShieldCheck, Sparkles } from 'lucide-svelte';
@@ -17,6 +18,17 @@
   let error = $state<string | null>(null);
   let childName = $state('');
 
+  const getLinkErrorMessage = (e: unknown) => {
+    if (e instanceof Error) {
+      if (e.message.trim().toLowerCase() === 'invalid or expired child link') {
+        return $_('childLink.invalidOrExpired');
+      }
+      return e.message;
+    }
+
+    return $_('childLink.genericLinkError');
+  };
+
   onMount(async () => {
     try {
       loading = true;
@@ -25,7 +37,7 @@
       childName = result.child.display_name;
       window.location.replace(`/child/${result.child.id}`);
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Could not link this device';
+      error = getLinkErrorMessage(e);
       loading = false;
     }
   });
@@ -38,9 +50,9 @@
         <div class="w-16 h-16 rounded-2xl bg-hero/10 text-hero flex items-center justify-center animate-pulse">
           <Sparkles size={30} />
         </div>
-        <h1 class="text-2xl sm:text-3xl font-black text-slate-950">Linking child device</h1>
+        <h1 class="text-2xl sm:text-3xl font-black text-slate-950">{$_('childLink.loadingTitle')}</h1>
         <p class="text-slate-600 max-w-md">
-          We are opening the dashboard now.
+          {$_('childLink.loadingText')}
         </p>
         <div class="animate-spin w-12 h-12 border-4 border-hero border-t-transparent rounded-full mt-2"></div>
       </div>
@@ -49,10 +61,10 @@
         <div class="w-16 h-16 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center">
           <ShieldCheck size={30} />
         </div>
-        <h1 class="text-2xl sm:text-3xl font-black text-slate-950">Link expired</h1>
+        <h1 class="text-2xl sm:text-3xl font-black text-slate-950">{$_('childLink.errorTitle')}</h1>
         <p class="text-slate-600 max-w-md break-words">{error}</p>
         <p class="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
-          Ask a parent to generate a fresh QR code.
+          {$_('childLink.errorHint')}
         </p>
       </div>
     {/if}

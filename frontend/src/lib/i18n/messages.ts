@@ -477,6 +477,14 @@ export const en = {
     loginPrompt: 'Already have access?',
     loginLink: 'Log in'
   },
+  childLink: {
+    loadingTitle: 'Linking child device',
+    loadingText: 'We are opening the dashboard now.',
+    errorTitle: 'Link expired',
+    errorHint: 'Ask a parent to generate a fresh QR code.',
+    invalidOrExpired: 'Invalid or expired child link',
+    genericLinkError: 'Could not link this device'
+  },
   terms: {
     pageTitle: 'Terms of Service | Family Hero Hub',
     heading: 'Terms of Service',
@@ -1518,6 +1526,14 @@ export const ar = {
     loadingButton: 'جارٍ الإرسال...',
     loginPrompt: 'لديك وصول بالفعل؟',
     loginLink: 'تسجيل الدخول'
+  },
+  childLink: {
+    loadingTitle: 'جارٍ ربط جهاز الطفل',
+    loadingText: 'نفتح لوحة التحكم الآن.',
+    errorTitle: 'انتهت صلاحية الرابط',
+    errorHint: 'اطلب من أحد الوالدين إنشاء رمز QR جديد.',
+    invalidOrExpired: 'الرابط غير صالح أو انتهت صلاحيته',
+    genericLinkError: 'تعذر ربط هذا الجهاز'
   },
   contact: {
     pageTitle: 'تواصل مع Family Hero Hub',
