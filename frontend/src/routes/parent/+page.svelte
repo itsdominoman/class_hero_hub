@@ -3,7 +3,7 @@
   import { api } from '$lib/api';
   import { AVATAR_OPTIONS, getAvatarAsset, hasAvatarAssetFile, normaliseAvatarKey } from '$lib/avatars';
   import { formatAllowanceAmount } from '$lib/currencies';
-  import { _ } from 'svelte-i18n';
+  import { _, locale } from 'svelte-i18n';
   import LanguageSelector from '$lib/components/LanguageSelector.svelte';
   import { 
     UserPlus, Award, Ban, PiggyBank, Gift, Ticket,
@@ -639,8 +639,16 @@
   }
 
   function formatDeviceDate(value: string | null) {
-    if (!value) return 'Not seen yet';
-    return new Date(value).toLocaleString();
+    if (!value) return $_('parent.childLink.notSeenYet');
+    return new Date(value).toLocaleString($locale || 'en');
+  }
+
+  function childLinkDeviceLabel(device: ChildDevice) {
+    const label = device.label?.trim();
+    if (!label || label.toLowerCase() === 'linked device') {
+      return $_('parent.childLink.linkedDevice');
+    }
+    return label;
   }
 
   async function regenerateChildLink() {
@@ -1326,22 +1334,22 @@
                 <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight break-words leading-tight">
                   {activeModal.type === 'award' ? $_('parent.pointsActions.addPoints') :
                    activeModal.type === 'penalty' ? $_('parent.pointsActions.removePoints') :
-                   activeModal.type === 'bank' ? 'Move to saved points' :
+                  activeModal.type === 'bank' ? 'Move to saved points' :
                   activeModal.type === 'presets' ? (editingPresetId ? 'Edit Behaviour' : 'Manage Behaviours') :
-                   activeModal.type === 'family' ? $_('parent.parentsCaregivers') :
-                   activeModal.type === 'calendar-week' ? $_('parent.calendarSchoolWeek') :
-                   activeModal.type === 'child-link' ? 'Link child device' :
-                   activeModal.type === 'child-link-select' ? 'Link child device' :
-                   activeModal.type === 'rewards' ? $_('parent.rewards.manage') :
-                   activeModal.type === 'requests' ? $_('parent.requests.reviewRewardRequests') :
-                   'Redeem Points'}
+                  activeModal.type === 'family' ? $_('parent.parentsCaregivers') :
+                  activeModal.type === 'calendar-week' ? $_('parent.calendarSchoolWeek') :
+                  activeModal.type === 'child-link' ? $_('parent.childLink.modalTitle') :
+                  activeModal.type === 'child-link-select' ? $_('parent.childLink.modalTitle') :
+                  activeModal.type === 'rewards' ? $_('parent.rewards.manage') :
+                  activeModal.type === 'requests' ? $_('parent.requests.reviewRewardRequests') :
+                  'Redeem Points'}
                 </h3>
                 <p class="text-slate-400 font-black text-[10px] sm:text-xs uppercase tracking-[0.14em] sm:tracking-[0.2em] break-words">
                   {activeModal.type === 'presets' ? (editingPresetId ? 'Update this action' : 'Configure reusable actions') : 
                    activeModal.type === 'family' ? $_('parent.family.subtitle') :
                    activeModal.type === 'calendar-week' ? $_('parent.week.subtitle') :
-                   activeModal.type === 'child-link' ? 'Child dashboard link' :
-                   activeModal.type === 'child-link-select' ? 'Choose a child first' :
+                   activeModal.type === 'child-link' ? $_('parent.childLink.dashboardLink') :
+                   activeModal.type === 'child-link-select' ? $_('parent.childLink.chooseChildFirst') :
                    activeModal.type === 'rewards' ? $_('parent.rewards.subtitle') :
                    activeModal.type === 'requests' ? $_('parent.tabs.requests') : ''}
                 </p>
@@ -1544,7 +1552,7 @@
                 </div>
                     <div class="text-center">
                       <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.childLink.expires')}</p>
-                      <p class="text-lg font-black text-slate-950 break-words">{new Date(childLinkInvite.expires_at).toLocaleString()}</p>
+                      <p class="text-lg font-black text-slate-950 break-words">{new Date(childLinkInvite.expires_at).toLocaleString($locale || 'en')}</p>
                     </div>
                   </div>
 
@@ -1641,7 +1649,7 @@
                     {#each childDevices as device}
                       <div class="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                         <div class="min-w-0">
-                          <p class="text-sm font-black text-slate-900">{device.label || $_('parent.childLink.linkedDevice')} #{device.id}</p>
+                          <p class="text-sm font-black text-slate-900">{childLinkDeviceLabel(device)} #{device.id}</p>
                           <p class="mt-1 text-xs font-bold text-slate-500">{$_('parent.childLink.lastSeen')} {formatDeviceDate(device.last_seen_at)}</p>
                           <p class="text-xs font-bold text-slate-400">{$_('parent.childLink.expiresLabel')} {formatDeviceDate(device.expires_at)}</p>
                         </div>
