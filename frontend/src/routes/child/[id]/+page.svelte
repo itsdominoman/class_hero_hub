@@ -523,7 +523,7 @@
       dayError =
         calendarResult.reason instanceof Error
           ? calendarResult.reason.message
-          : "Unable to load today’s schedule";
+          : $_('child.unableToLoadTodaySchedule');
     }
 
     if (schoolTodayResult.status === "fulfilled") {
@@ -535,7 +535,7 @@
       schoolTodayError =
         schoolTodayResult.reason instanceof Error
           ? schoolTodayResult.reason.message
-          : "Unable to load school items";
+          : $_('calendar.unableToLoadSchoolItems');
     }
 
     if (schoolTomorrowResult.status === "fulfilled") {
@@ -547,7 +547,7 @@
       schoolTomorrowError =
         schoolTomorrowResult.reason instanceof Error
           ? schoolTomorrowResult.reason.message
-          : "Unable to load school items";
+          : $_('calendar.unableToLoadSchoolItems');
     }
 
     dayLoading = false;
@@ -569,7 +569,7 @@
       );
       await refreshMyDay();
     } catch (e) {
-      dayError = e instanceof Error ? e.message : "Unable to mark task done";
+      dayError = e instanceof Error ? e.message : $_('child.unableToMarkTaskDone');
     } finally {
       daySubmittingId = null;
     }
@@ -643,7 +643,9 @@
         if (Number(childId) !== childSummary.child.id) {
           linkedChildName = childSummary.child.display_name;
           errorKind = "wrong-child";
-          error = `This device is linked to ${childSummary.child.display_name}, not this child profile.`;
+          error = $_('child.wrongChild', {
+            values: { name: childSummary.child.display_name },
+          });
           summary = null;
           ledger = [];
           redemptions = [];
@@ -703,15 +705,14 @@
           if (isAuthError(message)) {
             if (isExpiredChildLinkError(childAuthMessage)) {
               errorKind = "link-expired";
-              error =
-                "This child dashboard link has expired. Ask your parent for a new one.";
+              error = $_('child.linkExpired');
             } else {
               errorKind = "not-linked";
-              error = "This device is not linked yet.";
+              error = $_('child.deviceNotLinked');
             }
           } else if (isNotFoundError(message)) {
             errorKind = "not-found";
-            error = "Child profile not found.";
+            error = $_('child.notFound');
           } else {
             errorKind = "server-error";
             error = message;
@@ -743,10 +744,7 @@
   ) {
     if (!summary || points < 1) return;
     if (points > summary.available_spending) {
-      setStatus(
-        "That reward costs more points than you have right now.",
-        "error",
-      );
+      setStatus($_('child.rewardRequestTooExpensive'), "error");
       return;
     }
 
@@ -763,11 +761,11 @@
       });
       customRewardTitle = "";
       customRewardPoints = 1;
-      setStatus("Request sent. A parent will review it soon.", "success");
+      setStatus($_('child.rewardRequestSent'), "success");
       await loadData();
     } catch (e) {
       setStatus(
-        e instanceof Error ? e.message : "Could not send the reward request.",
+        e instanceof Error ? e.message : $_('child.rewardRequestFailed'),
         "error",
       );
     } finally {
@@ -782,7 +780,7 @@
       await requestReward(
         reward.title,
         reward.points,
-        reward.description?.trim() || "Requested from the child dashboard",
+        reward.description?.trim() || $_('child.requestedFromDashboard'),
       );
     } finally {
       submittingRewardId = null;
@@ -794,7 +792,7 @@
     await requestReward(
       customRewardTitle.trim(),
       customRewardPoints,
-      "Requested from the child dashboard",
+      $_('child.requestedFromDashboard'),
     );
   }
 
@@ -804,7 +802,7 @@
 
     const points = Math.min(savingsBankAmount(), summary.available_spending);
     if (points < 1) {
-      setStatus("Choose at least 1 point to bank.", "error");
+      setStatus($_('child.bankMinimumOnePoint'), "error");
       return;
     }
 
@@ -816,18 +814,20 @@
           : `/children/${childId}/savings/deposit`;
       await api.post(requestPath, {
         points,
-        description: "Banking points",
+        description: $_('child.bankingDescription'),
       });
       showSavingsBankModal = false;
       savingsBankPoints = Math.min(points, summary.available_spending);
-      setStatus(
-        `Banked ${points} points. They unlock as ${points + calculateSavingsBonus(points)} points in 30 days.`,
-        "success",
-      );
+      setStatus($_('child.bankSuccess', {
+        values: {
+          points,
+          total: points + calculateSavingsBonus(points),
+        },
+      }), "success");
       await loadData();
     } catch (e) {
       setStatus(
-        e instanceof Error ? e.message : "Could not bank those points.",
+        e instanceof Error ? e.message : $_('child.bankFailed'),
         "error",
       );
     } finally {
@@ -848,7 +848,7 @@
           class="animate-spin w-14 h-14 border-4 border-hero border-t-transparent rounded-full"
         ></div>
         <p class="text-xs font-black uppercase tracking-[0.3em] text-slate-400">
-          Loading dashboard
+          {$_('child.loading')}
         </p>
       </div>
     </div>
@@ -864,14 +864,14 @@
         </div>
         <h1 class="text-2xl md:text-3xl font-black text-slate-900 mb-2">
           {errorKind === "not-linked"
-            ? "This device is not linked yet"
+            ? $_('child.deviceNotLinked')
             : errorKind === "link-expired"
-              ? "This child dashboard link has expired. Ask your parent for a new one."
+              ? $_('child.linkExpired')
               : errorKind === "wrong-child"
-                ? `This device is linked to ${linkedChildName || "another child"}`
+                ? $_('child.wrongChild', { values: { name: linkedChildName || $_('common.unknownChild') } })
                 : errorKind === "not-found"
-                  ? "Child profile not found"
-                  : "Dashboard unavailable"}
+                  ? $_('child.notFound')
+                  : $_('child.unavailable')}
         </h1>
         <p class="text-slate-600 mb-6 break-words">{error}</p>
         {#if errorKind === "wrong-child"}
@@ -1167,13 +1167,13 @@
                         class={`inline-flex w-fit max-w-full rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.12em] sm:tracking-[0.15em] border leading-snug whitespace-normal break-words ${affordable ? "bg-savings/10 text-savings border-savings/20" : "bg-slate-100 text-slate-400 border-slate-200"}`}
                       >
                         {#if allowanceActive}
-                          {reward.points} points / {formatMinorAmount(
+                          {reward.points} {$_('common.points')} / {formatMinorAmount(
                             rewardValueMinor(reward.points) || 0,
                             allowanceActive.currency,
                             allowanceActive.currency_exponent,
                           )}
                         {:else}
-                          {reward.points} points
+                          {reward.points} {$_('common.points')}
                         {/if}
                       </div>
                       <p
@@ -1347,17 +1347,17 @@
                 <p
                   class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2"
                 >
-                  Recent activity
+                  {$_('child.recentActivity')}
                 </p>
                 <h2 class="text-2xl md:text-3xl font-black text-slate-950">
-                  Points log
+                  {$_('child.pointsLog')}
                 </h2>
               </div>
               <div
                 class="inline-flex w-fit items-center gap-2 px-3 py-2 rounded-full bg-slate-100 text-slate-700 text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.22em]"
               >
                 <Clock3 size={14} />
-                Latest entries
+                {$_('child.latestEntries')}
               </div>
             </div>
 
@@ -1373,7 +1373,7 @@
                       <span class="text-base leading-none"
                         >{formatPoints(tx.points)}</span
                       >
-                      <span>pts</span>
+                      <span>{$_('common.pts')}</span>
                     </div>
                     <div class="min-w-0 flex-1">
                       <div class="flex flex-wrap items-center gap-2 mb-2">
@@ -1406,11 +1406,10 @@
                 <p
                   class="text-sm font-black uppercase tracking-[0.22em] text-slate-400"
                 >
-                  No activity yet
+                  {$_('child.noActivity')}
                 </p>
                 <p class="text-sm text-slate-500 mt-2">
-                  Your points log will appear here once chores and rewards start
-                  coming in.
+                  {$_('child.noActivityHelp')}
                 </p>
               </div>
             {/if}
@@ -1428,10 +1427,10 @@
                 <p
                   class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2"
                 >
-                  My Day
+                  {$_('child.myDay')}
                 </p>
                 <h2 class="text-2xl font-black text-slate-950">
-                  Today’s schedule
+                  {$_('child.todaySchedule')}
                 </h2>
                 <p class="mt-1 text-sm text-slate-500">
                   {getLocalDateValue()
@@ -1457,7 +1456,7 @@
                 <p
                   class="text-sm font-black uppercase tracking-[0.22em] text-slate-400"
                 >
-                  Loading today’s schedule
+                  {$_('child.loadingTodaySchedule')}
                 </p>
               </div>
             {:else if dayError}
@@ -1476,10 +1475,10 @@
                       <p
                         class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400"
                       >
-                        School Bag
+                        {$_('child.schoolBag')}
                       </p>
                       <h3 class="mt-1 text-lg font-black text-slate-950">
-                        Pack for tomorrow
+                        {$_('child.packTomorrow')}
                       </h3>
                     </div>
                     <span
@@ -1491,7 +1490,7 @@
                   <p
                     class="mb-4 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500"
                   >
-                    Check stationery
+                    {$_('child.checkStationery')}
                   </p>
 
                   {#if schoolTomorrowError}
@@ -1528,9 +1527,9 @@
                     <div
                       class="rounded-2xl border border-dashed border-amber-100 bg-amber-50/40 p-4 text-center"
                     >
-                      <p class="text-sm font-bold text-slate-500">
-                        Nothing set for tomorrow.
-                      </p>
+                        <p class="text-sm font-bold text-slate-500">
+                          {$_('child.nothingTomorrow')}
+                        </p>
                     </div>
                   {/if}
 
@@ -1540,10 +1539,10 @@
                         <p
                           class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-600"
                         >
-                          Needed today
+                          {$_('child.neededToday')}
                         </p>
                         <h4 class="mt-1 text-base font-black text-slate-950">
-                          What is still needed now
+                          {$_('child.neededNow')}
                         </h4>
                       </div>
                       <span
@@ -1588,7 +1587,7 @@
                         class="rounded-2xl border border-dashed border-sky-100 bg-sky-50/30 p-4 text-center"
                       >
                         <p class="text-sm font-bold text-slate-500">
-                          Nothing set for today.
+                          {$_('child.nothingToday')}
                         </p>
                       </div>
                     {/if}
@@ -1605,10 +1604,10 @@
                       <p
                         class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400"
                       >
-                        School Bag
+                        {$_('child.schoolBag')}
                       </p>
                       <h3 class="mt-1 text-lg font-black text-slate-950">
-                        Pack for tomorrow
+                        {$_('child.packTomorrow')}
                       </h3>
                     </div>
                     <span
@@ -1620,7 +1619,7 @@
                   <p
                     class="mb-4 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500"
                   >
-                    Check stationery
+                    {$_('child.checkStationery')}
                   </p>
 
                   {#if schoolTomorrowError}
@@ -1657,9 +1656,9 @@
                     <div
                       class="rounded-2xl border border-dashed border-amber-100 bg-amber-50/40 p-4 text-center"
                     >
-                      <p class="text-sm font-bold text-slate-500">
-                        Nothing set for tomorrow.
-                      </p>
+                        <p class="text-sm font-bold text-slate-500">
+                          {$_('child.nothingTomorrow')}
+                        </p>
                     </div>
                   {/if}
 
@@ -1669,10 +1668,10 @@
                         <p
                           class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-600"
                         >
-                          Needed today
+                          {$_('child.neededToday')}
                         </p>
                         <h4 class="mt-1 text-base font-black text-slate-950">
-                          What is still needed now
+                          {$_('child.neededNow')}
                         </h4>
                       </div>
                       <span
@@ -1717,7 +1716,7 @@
                         class="rounded-2xl border border-dashed border-sky-100 bg-sky-50/30 p-4 text-center"
                       >
                         <p class="text-sm font-bold text-slate-500">
-                          Nothing set for today.
+                          {$_('child.nothingToday')}
                         </p>
                       </div>
                     {/if}
@@ -1727,7 +1726,7 @@
                 <div>
                   <div class="mb-3 flex items-center justify-between gap-3">
                     <h3 class="text-lg font-black text-slate-950">
-                      Tasks today
+                      {$_('child.tasksToday')}
                     </h3>
                     <span
                       class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500"
@@ -1748,15 +1747,15 @@
                                 class="mb-3 flex flex-wrap items-center gap-2"
                               >
                                 <span
-                                  class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${typeClass(item.entry.entry_type)}`}
-                                >
-                                  Task
+                                class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${typeClass(item.entry.entry_type)}`}
+                              >
+                                  {$_('child.task')}
                                 </span>
                                 {#if item.entry.is_rewardable && item.entry.points_value}
                                   <span
                                     class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-amber-700 sm:tracking-[0.18em]"
                                   >
-                                    {item.entry.points_value} points
+                                    {item.entry.points_value} {$_('common.points')}
                                   </span>
                                 {/if}
                                 {#if item.completion}
@@ -1808,8 +1807,8 @@
                               >
                                 <Check size={16} />
                                 {daySubmittingId === item.entry.id
-                                  ? "Saving..."
-                                  : "Mark done"}
+                                  ? $_('common.saving')
+                                  : $_('child.markDone')}
                               </button>
                             {/if}
                           </div>
@@ -1823,7 +1822,7 @@
                       <p
                         class="text-sm font-black uppercase tracking-[0.18em] text-slate-400"
                       >
-                        No tasks today.
+                        {$_('child.noTasks')}
                       </p>
                     </div>
                   {/if}
@@ -1832,7 +1831,7 @@
                 <div>
                   <div class="mb-3 flex items-center justify-between gap-3">
                     <h3 class="text-lg font-black text-slate-950">
-                      Events today
+                      {$_('child.eventsToday')}
                     </h3>
                     <span
                       class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500"
@@ -1847,9 +1846,9 @@
                         >
                           <div class="mb-3 flex flex-wrap items-center gap-2">
                             <span
-                              class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${typeClass(item.entry.entry_type)}`}
-                            >
-                              Event
+                            class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${typeClass(item.entry.entry_type)}`}
+                          >
+                              {$_('child.event')}
                             </span>
                             <span
                               class={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${recurrenceClass(item)}`}
@@ -1890,7 +1889,7 @@
                       <p
                         class="text-sm font-black uppercase tracking-[0.18em] text-slate-400"
                       >
-                        No events today.
+                        {$_('child.noEvents')}
                       </p>
                     </div>
                   {/if}
@@ -1909,10 +1908,10 @@
                 <p
                   class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2"
                 >
-                  Pending
+                  {$_('child.pendingRequests')}
                 </p>
                 <h2 class="text-2xl font-black text-slate-950">
-                  Waiting requests
+                  {$_('child.waitingRequests')}
                 </h2>
               </div>
               <div
@@ -1990,14 +1989,14 @@
                 >
                   <PiggyBank size={22} />
                 </div>
-                <div class="min-w-0">
-                  <p
-                    class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-600"
-                  >
-                    Bank
+              <div class="min-w-0">
+                <p
+                  class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-600"
+                >
+                    {$_('child.bank')}
                   </p>
                   <h2 class="text-2xl font-black text-slate-950">
-                    Savings snapshot
+                    {$_('child.savingsSnapshot')}
                   </h2>
                 </div>
               </div>
@@ -2008,7 +2007,7 @@
                   <p
                     class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600"
                   >
-                    Saved
+                    {$_('common.saved')}
                   </p>
                   <p class="text-3xl font-black mt-1 text-slate-950">
                     {summary.savings_balance}
@@ -2029,7 +2028,7 @@
                   <p
                     class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600"
                   >
-                    Available
+                    {$_('common.available')}
                   </p>
                   <p class="text-3xl font-black mt-1 text-slate-950">
                     {summary.available_savings}
@@ -2050,7 +2049,7 @@
                   <p
                     class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600"
                   >
-                    Locked
+                    {$_('common.locked')}
                   </p>
                   <p class="text-3xl font-black mt-1 text-slate-950">
                     {summary.locked_savings}
@@ -2087,8 +2086,8 @@
                     >
                       <Clock3 size={14} />
                       {showUnlockSchedule
-                        ? "Hide unlock details"
-                        : "View unlock schedule"}
+                        ? $_('child.hideUnlock')
+                        : $_('child.viewUnlock')}
                     </button>
                   {/if}
                 </div>
@@ -2124,12 +2123,12 @@
                     onclick={openSavingsBankModal}
                   >
                     <PiggyBank size={14} />
-                    Bank points
+                    {$_('child.bankPoints')}
                   </button>
                   <p
                     class="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500"
                   >
-                    Banked points are locked for 30 days.
+                    {$_('child.bankedLocked')}
                   </p>
                 </div>
               </div>
@@ -2159,10 +2158,10 @@
               <p
                 class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400"
               >
-                Savings
+                {$_('child.bank')}
               </p>
               <h3 class="mt-1 text-2xl font-black text-slate-950">
-                Bank points
+                {$_('child.bankPoints')}
               </h3>
               <p class="mt-2 text-sm font-medium text-slate-600 break-words">
                 {summary.child.display_name}
@@ -2184,7 +2183,7 @@
                 <p
                   class="text-[10px] font-black uppercase tracking-[0.18em] text-savings-dark"
                 >
-                  Banked points are locked for 30 days and cannot be used until unlocked.
+                  {$_('child.bankedLockedLong')}
                 </p>
               </div>
 
@@ -2192,7 +2191,7 @@
                 <span
                   class="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400"
                 >
-                  Points to bank
+                  {$_('child.pointsToBank')}
                 </span>
                 <input
                   type="number"
@@ -2208,20 +2207,20 @@
                   <p
                     class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400"
                   >
-                    Savings bonus
+                    {$_('child.savingsBonus')}
                   </p>
                   <p class="mt-1 text-2xl font-black text-slate-950">
-                    +{savingsBankBonus()} pts
+                    +{savingsBankBonus()} {$_('common.pts')}
                   </p>
                 </div>
                 <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                   <p
                     class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400"
                   >
-                    Unlocks as
+                    {$_('child.unlocksAs')}
                   </p>
                   <p class="mt-1 text-2xl font-black text-slate-950">
-                    {savingsBankTotal()} pts
+                    {savingsBankTotal()} {$_('common.pts')}
                   </p>
                   <p class="mt-1 text-xs font-bold text-slate-500">
                     Unlocks {savingsBankUnlockLabel()}
@@ -2234,13 +2233,13 @@
               class="border-t border-slate-100 bg-white px-5 py-5 sm:px-6"
             >
               <div class="flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  class="inline-flex w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-slate-300"
-                  onclick={closeSavingsBankModal}
-                >
-                  Cancel
-                </button>
+              <button
+                type="button"
+                class="inline-flex w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-slate-300"
+                onclick={closeSavingsBankModal}
+              >
+                  {$_('common.cancel')}
+              </button>
                 <button
                   type="submit"
                   disabled={
@@ -2250,7 +2249,7 @@
                   }
                   class="inline-flex w-full items-center justify-center rounded-2xl bg-savings px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-savings/20 transition hover:bg-[#008c81] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {submitting ? "Banking..." : "Bank points"}
+                  {submitting ? $_('child.banking') : $_('child.bankPoints')}
                 </button>
               </div>
             </div>
@@ -2261,7 +2260,7 @@
   {:else}
     <div class="flex justify-center py-32">
       <p class="text-slate-400 font-black uppercase tracking-[0.28em]">
-        Child not found
+        {$_('child.childNotFound')}
       </p>
     </div>
   {/if}
