@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { _ } from 'svelte-i18n';
+  import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
   import { Check, X, Clock, Trophy, ChevronLeft } from 'lucide-svelte';
 
@@ -13,7 +13,7 @@
       loading = true;
       redemptions = await api.get('/redemptions');
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Failed to load redemptions';
+      error = e instanceof Error ? e.message : $_('redemptions.errorLoad');
     } finally {
       loading = false;
     }
@@ -21,15 +21,41 @@
 
   onMount(loadRedemptions);
 
+  function getStatusLabel(status: string) {
+    switch (status) {
+      case 'pending':
+        return $_('common.pending');
+      case 'approved':
+        return $_('redemptions.statusApproved');
+      case 'rejected':
+        return $_('redemptions.statusRejected');
+      default:
+        return $_('redemptions.statusUnknown');
+    }
+  }
+
+  function formatCreatedAt(createdAt: string) {
+    return new Date(createdAt).toLocaleDateString($locale || 'en');
+  }
+
   async function processRedemption(id: number, action: string) {
     try {
-      const note = action === 'reject' ? window.prompt($_('common.rejectionReasonPrompt')) : $_('common.approvedByParent');
-      await api.post(`/redemptions/${id}/${action}`, {
-        parent_note: note || ''
-      });
+      const payload: { parent_note?: string } = {};
+
+      if (action === 'reject') {
+        const note = window.prompt($_('common.rejectionReasonPrompt'));
+        if (note === null) return;
+
+        const trimmedNote = note.trim();
+        if (trimmedNote) {
+          payload.parent_note = trimmedNote;
+        }
+      }
+
+      await api.post(`/redemptions/${id}/${action}`, payload);
       await loadRedemptions();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Action failed');
+      alert(e instanceof Error ? e.message : $_('redemptions.errorActionFailed'));
     }
   }
 </script>
@@ -38,13 +64,13 @@
   <div class="bg-white border-b border-slate-200 mb-12">
     <div class="max-w-4xl mx-auto px-3 sm:px-4 py-6 md:py-8">
       <a href="/parent" class="inline-flex items-center gap-2 text-slate-400 hover:text-hero font-black text-xs uppercase tracking-widest mb-6 transition-colors">
-        <ChevronLeft size={16} /> Back to Parent Dashboard
+        <ChevronLeft size={16} /> {$_('redemptions.backToParentDashboard')}
       </a>
       <h1 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3 sm:gap-4">
         <div class="w-11 h-11 sm:w-12 sm:h-12 bg-reward/10 text-reward rounded-2xl flex shrink-0 items-center justify-center">
           <Trophy size={24} />
         </div>
-        Reward Requests
+        {$_('redemptions.title')}
       </h1>
     </div>
   </div>
@@ -58,7 +84,7 @@
       <div class="card bg-red-50 p-8 text-red-600 font-bold text-center border-red-100">{error}</div>
     {:else if redemptions.length === 0}
       <div class="card p-10 md:p-20 text-center bg-white border-dashed border-4 border-slate-100 shadow-none">
-        <p class="text-slate-300 font-black uppercase tracking-[0.18em] sm:tracking-[0.3em]">No requests found</p>
+        <p class="text-slate-300 font-black uppercase tracking-[0.18em] sm:tracking-[0.3em]">{$_('redemptions.noRequests')}</p>
       </div>
     {:else}
       <div class="space-y-6">
@@ -71,17 +97,17 @@
                 <span class="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full
                   {r.status === 'pending' ? 'bg-hero/10 text-hero' : 
                    r.status === 'approved' ? 'bg-savings/10 text-savings' : 'bg-slate-100 text-slate-500'}">
-                  {r.status}
+                  {getStatusLabel(r.status)}
                 </span>
                 <span class="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase tracking-widest">
-                  <Clock size={12} /> {new Date(r.created_at).toLocaleDateString()}
+                  <Clock size={12} /> {formatCreatedAt(r.created_at)}
                 </span>
               </div>
               <h3 class="text-xl sm:text-2xl font-black text-slate-900 mb-1 break-words">{r.title}</h3>
-              <p class="text-slate-600 font-medium mb-4 break-words">{r.description || 'No description provided.'}</p>
+              <p class="text-slate-600 font-medium mb-4 break-words">{r.description || $_('common.noDescriptionProvided')}</p>
               
               <div class="flex items-center gap-2 text-hero font-black text-xl">
-                <Trophy size={20} /> {r.points} points
+                <Trophy size={20} /> {$_('redemptions.points', { values: { points: r.points } })}
               </div>
             </div>
 
@@ -103,7 +129,7 @@
             {:else}
               <div class="text-left md:text-right shrink-0 min-w-0">
                 {#if r.parent_note}
-                  <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">Parent Note</p>
+                  <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">{$_('redemptions.parentNote')}</p>
                   <p class="text-sm italic text-slate-500 max-w-full md:max-w-[200px] break-words">{r.parent_note}</p>
                 {/if}
               </div>

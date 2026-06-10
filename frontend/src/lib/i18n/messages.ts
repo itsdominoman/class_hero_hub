@@ -799,6 +799,13 @@ export const en = {
     title: 'Reward Requests',
     subtitle: 'Review pending reward requests from children.',
     noRequests: 'No pending reward requests.',
+    backToParentDashboard: 'Back to Parent Dashboard',
+    parentNote: 'Parent Note',
+    statusApproved: 'Approved',
+    statusRejected: 'Rejected',
+    statusUnknown: 'Unknown status',
+    errorLoad: 'Failed to load redemptions',
+    errorActionFailed: 'Action failed',
     points: '{points} points'
   },
   calendar: {
@@ -1747,6 +1754,13 @@ export const ar = {
     title: 'طلبات المكافآت',
     subtitle: 'راجع طلبات المكافآت المعلقة من الأطفال.',
     noRequests: 'لا توجد طلبات مكافآت معلقة.',
+    backToParentDashboard: 'العودة إلى لوحة الوالدين',
+    parentNote: 'ملاحظة الوالدين',
+    statusApproved: 'تمت الموافقة',
+    statusRejected: 'مرفوض',
+    statusUnknown: 'حالة غير معروفة',
+    errorLoad: 'فشل تحميل طلبات المكافآت',
+    errorActionFailed: 'فشلت العملية',
     points: '{points} نقطة'
   },
   calendar: {
