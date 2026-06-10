@@ -155,14 +155,14 @@
     can_remove: boolean;
   };
 
-  const WEEK_START_OPTIONS: { value: WeekStartDay; label: string }[] = [
-    { value: 'sunday', label: 'Sunday' },
-    { value: 'monday', label: 'Monday' },
-    { value: 'tuesday', label: 'Tuesday' },
-    { value: 'wednesday', label: 'Wednesday' },
-    { value: 'thursday', label: 'Thursday' },
-    { value: 'friday', label: 'Friday' },
-    { value: 'saturday', label: 'Saturday' }
+  const WEEK_START_OPTIONS: WeekStartDay[] = [
+    'sunday',
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday'
   ];
 
   type AllowanceSummary = {
@@ -300,6 +300,25 @@
 
   function formatAllowanceMinorAmount(minor: number, currency: string, exponent: number) {
     return formatAllowanceAmount(minor, currency, exponent);
+  }
+
+  function weekStartLabel(day: WeekStartDay) {
+    switch (day) {
+      case 'sunday':
+        return $_('calendar.weekdaySundayShort');
+      case 'monday':
+        return $_('calendar.weekdayMondayShort');
+      case 'tuesday':
+        return $_('calendar.weekdayTuesdayShort');
+      case 'wednesday':
+        return $_('calendar.weekdayWednesdayShort');
+      case 'thursday':
+        return $_('calendar.weekdayThursdayShort');
+      case 'friday':
+        return $_('calendar.weekdayFridayShort');
+      case 'saturday':
+        return $_('calendar.weekdaySaturdayShort');
+    }
   }
 
   async function loadSchoolPrep(childSummaries = children) {
@@ -1906,15 +1925,15 @@
             {#if loadingFamilySettings}
               <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
                 <div class="mx-auto mb-4 w-10 h-10 animate-spin rounded-full border-4 border-hero border-t-transparent"></div>
-                <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">Loading calendar and school week</p>
+                <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.week.loading')}</p>
               </div>
             {/if}
             <div class="space-y-3">
               <div class="rounded-[1.75rem] border border-slate-100 bg-white p-4">
-                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Calendar &amp; School Week</p>
-                <p class="mt-2 text-sm font-bold text-slate-600">This affects weekly views, points log weeks, calendar planning, and school week planning.</p>
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{$_('parent.calendarSchoolWeek')}</p>
+                <p class="mt-2 text-sm font-bold text-slate-600">{$_('parent.week.text')}</p>
                 <div class="mt-4">
-                  <label for="family-week-start" class="mb-2 block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Week starts on</label>
+                  <label for="family-week-start" class="mb-2 block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{$_('parent.week.startsOn')}</label>
                   <div class="flex flex-col gap-3 sm:flex-row">
                     <select
                       id="family-week-start"
@@ -1923,7 +1942,7 @@
                       class="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 focus:border-hero/30 focus:outline-none disabled:opacity-50"
                     >
                       {#each WEEK_START_OPTIONS as option}
-                        <option value={option.value}>{option.label}</option>
+                        <option value={option}>{weekStartLabel(option)}</option>
                       {/each}
                     </select>
                     <button
@@ -1932,10 +1951,10 @@
                       disabled={loadingFamilySettings || familySettingsSaving || !familySettings || familySettingsForm.week_start_day === familySettings.week_start_day}
                       class="rounded-2xl bg-slate-900 px-5 py-3 text-xs font-black uppercase tracking-[0.16em] text-white transition-all disabled:opacity-50"
                     >
-                      {familySettingsSaving ? 'Saving...' : 'Save'}
+                      {familySettingsSaving ? $_('common.saving') : $_('common.save')}
                     </button>
                   </div>
-                  <p class="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Used for allowance, calendar, and weekly point views.</p>
+                  <p class="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">{$_('parent.week.usedFor')}</p>
                 </div>
                 {#if familySettingsMessage}
                   <p class="mt-3 text-xs font-bold text-hero">{familySettingsMessage}</p>
