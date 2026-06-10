@@ -842,17 +842,17 @@
       await loadDashboard();
       closeModal();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to apply preset');
+      alert(e instanceof Error ? e.message : $_('parent.presets.applyError'));
     }
   }
 
   async function deletePreset(id: number) {
-    if (!confirm('Delete this preset?')) return;
+    if (!confirm($_('parent.presets.deleteConfirm'))) return;
     try {
       await api.delete(`/presets/${id}`);
       await loadDashboard();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to delete preset');
+      alert(e instanceof Error ? e.message : $_('parent.presets.deleteError'));
     }
   }
 
@@ -1354,7 +1354,7 @@
                   {activeModal.type === 'award' ? $_('parent.pointsActions.addPoints') :
                    activeModal.type === 'penalty' ? $_('parent.pointsActions.removePoints') :
                   activeModal.type === 'bank' ? 'Move to saved points' :
-                  activeModal.type === 'presets' ? (editingPresetId ? 'Edit Behaviour' : 'Manage Behaviours') :
+                  activeModal.type === 'presets' ? (editingPresetId ? $_('parent.presets.edit') : $_('parent.presets.manage')) :
                   activeModal.type === 'family' ? $_('parent.parentsCaregivers') :
                   activeModal.type === 'calendar-week' ? $_('parent.calendarSchoolWeek') :
                   activeModal.type === 'child-link' ? $_('parent.childLink.modalTitle') :
@@ -1364,7 +1364,7 @@
                   'Redeem Points'}
                 </h3>
                 <p class="text-slate-400 font-black text-[10px] sm:text-xs uppercase tracking-[0.14em] sm:tracking-[0.2em] break-words">
-                  {activeModal.type === 'presets' ? (editingPresetId ? 'Update this action' : 'Configure reusable actions') : 
+                  {activeModal.type === 'presets' ? (editingPresetId ? $_('parent.presets.update') : $_('parent.presets.subtitle')) :
                    activeModal.type === 'family' ? $_('parent.family.subtitle') :
                    activeModal.type === 'calendar-week' ? $_('parent.week.subtitle') :
                    activeModal.type === 'child-link' ? $_('parent.childLink.dashboardLink') :
@@ -2318,7 +2318,7 @@
           {#if activeModal.type === 'redeem' || activeModal.type === 'presets'}
             <div class="space-y-2">
               <label for="modal-title" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">
-                {activeModal.type === 'presets' ? 'Preset Title' : 'Reward Name'}
+                {activeModal.type === 'presets' ? $_('parent.presets.titleLabel') : 'Reward Name'}
               </label>
               <div class="flex gap-3 min-w-0">
                 {#if activeModal.type === 'presets'}
@@ -2330,7 +2330,7 @@
                   id="modal-title"
                   type="text" 
                   bind:value={modalForm.title}
-                  placeholder={activeModal.type === 'presets' ? "e.g., Brushed Teeth" : "e.g., 30 mins Screen Time"}
+                  placeholder={activeModal.type === 'presets' ? $_('parent.presets.titlePlaceholder') : "e.g., 30 mins Screen Time"}
                   class="min-w-0 flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 sm:px-6 py-4 font-bold text-slate-900 focus:outline-none focus:border-reward/30 transition-all"
                 />
               </div>
@@ -2338,7 +2338,7 @@
 
             {#if activeModal.type === 'presets'}
               <div class="space-y-2">
-                <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Select Visual (Optional)</span>
+                <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.presets.visualLabel')}</span>
                 <div class="flex flex-wrap gap-2 p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
                   <button 
                     onclick={() => modalForm.icon = ''}
@@ -2363,7 +2363,7 @@
           {#if activeModal.type !== 'picker' && activeModal.type !== 'family' && activeModal.type !== 'calendar-week' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests'}
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
               <div class="space-y-2">
-                <label for="points-amount" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Points Amount</label>
+                <label for="points-amount" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.presets.pointsLabel')}</label>
                 <div class="relative">
                   <input 
                     id="points-amount"
@@ -2371,10 +2371,10 @@
                     bind:value={modalForm.points}
                     class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 sm:px-6 py-4 font-black text-slate-900 focus:outline-none focus:border-hero/30 transition-all text-2xl"
                   />
-                  <span class="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 font-black text-slate-300 text-sm">pts</span>
+                  <span class="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 font-black text-slate-300 text-sm">{$_('common.pts')}</span>
                 </div>
                 {#if activeModal.type === 'presets'}
-                  <p class="text-[10px] text-slate-400 ml-2">Use negative numbers to remove points</p>
+                  <p class="text-[10px] text-slate-400 ml-2">{$_('parent.presets.pointsHint')}</p>
                 {/if}
               </div>
 
@@ -2409,11 +2409,11 @@
 
           {#if activeModal.type === 'presets'}
             <div class="space-y-2">
-              <label for="preset-details" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Details</label>
+              <label for="preset-details" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.presets.detailsLabel')}</label>
               <textarea 
                 id="preset-details"
                 bind:value={modalForm.description}
-                placeholder="Brief description of when to use this (optional)"
+                placeholder={$_('parent.presets.detailsPlaceholder')}
                 rows="2"
                 class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-medium text-slate-900 focus:outline-none focus:border-hero/30 transition-all resize-none"
               ></textarea>
@@ -2421,7 +2421,7 @@
 
             {#if presets.length > 0}
               <div class="space-y-3 pt-4 border-t border-slate-100">
-                <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Existing Presets</span>
+                <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.presets.existing')}</span>
                 <div class="grid gap-2">
                   {#each presets as p}
                     <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
@@ -2433,10 +2433,10 @@
                         <span class="font-bold text-slate-900 uppercase tracking-tight text-xs">{p.title}</span>
                       </div>
                       <div class="flex items-center gap-3">
-                        <button onclick={() => startEditing(p)} class="text-slate-300 hover:text-hero transition-colors">
+                        <button onclick={() => startEditing(p)} class="text-slate-300 hover:text-hero transition-colors" aria-label={$_('parent.presets.editButton')} title={$_('parent.presets.editButton')}>
                           <Settings size={16} />
                         </button>
-                        <button onclick={() => deletePreset(p.id)} class="text-slate-300 hover:text-red-500 transition-colors">
+                        <button onclick={() => deletePreset(p.id)} class="text-slate-300 hover:text-red-500 transition-colors" aria-label={$_('parent.presets.deleteButton')} title={$_('parent.presets.deleteButton')}>
                           <X size={16} />
                         </button>
                       </div>
@@ -2469,8 +2469,8 @@
                  activeModal.type === 'presets' ? 'bg-hero text-white shadow-hero/20 hover:bg-hero-dark' :
                  'bg-reward text-white shadow-reward/30 hover:bg-reward-dark'}"
               >
-                {modalLoading ? (activeModal.type === 'family' ? $_('common.processing') : 'Processing...') :
-             activeModal.type === 'presets' ? (editingPresetId ? 'Save Changes' : 'Create Preset') : 
+                {modalLoading ? (activeModal.type === 'family' ? $_('common.processing') : activeModal.type === 'presets' ? $_('common.saving') : 'Processing...') :
+             activeModal.type === 'presets' ? (editingPresetId ? $_('parent.presets.saveChanges') : $_('parent.presets.createPreset')) :
              activeModal.type === 'family' ? $_('parent.family.inviteGrownup') :
              'Confirm Action'}
               </button>
@@ -2479,7 +2479,7 @@
                   onclick={cancelEditing}
                   class="w-full py-3 text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 hover:text-slate-600 transition-colors sm:tracking-[0.22em]"
                 >
-                  Cancel Edit
+                  {$_('parent.presets.cancelEdit')}
                 </button>
               {/if}
             </div>
