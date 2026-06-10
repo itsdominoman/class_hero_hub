@@ -1033,7 +1033,7 @@
   }
 
   function formatLedgerDate(value: string) {
-    return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return new Date(value).toLocaleDateString($locale || 'en', { month: 'short', day: 'numeric' });
   }
 
   function formatSavingsUnlockDate(value: string) {
@@ -1041,12 +1041,35 @@
   }
 
   function formatCalendarDate(value: string) {
-    return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    return new Date(`${value}T00:00:00`).toLocaleDateString($locale || 'en', { weekday: 'short', month: 'short', day: 'numeric' });
   }
 
   function formatCalendarTime(value: string | null) {
-    if (!value) return 'Any time';
-    return value.slice(0, 5);
+    if (!value) return $_('calendar.anyTime');
+    const [hours, minutes] = value.slice(0, 5).split(':').map((part) => Number(part));
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+      return value.slice(0, 5);
+    }
+
+    const date = new Date(Date.UTC(1970, 0, 1, hours, minutes));
+    return date.toLocaleTimeString($locale || 'en', {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: 'UTC'
+    });
+  }
+
+  function calendarEntryTypeLabel(type: string) {
+    if (type === 'task') return $_('calendar.taskType');
+    if (type === 'event') return $_('calendar.eventType');
+    return type;
+  }
+
+  function ledgerJarLabel(jar: string | null | undefined) {
+    const value = (jar || '').trim();
+    if (!value) return value;
+    if (value.toLowerCase() === 'spending') return $_('parent.pointsLog.spendingJar');
+    return value;
   }
 
   function modalCalendarItems(childSummary: any) {
@@ -2160,7 +2183,7 @@
               <div class="space-y-4">
                 {#if childCalendarLoading[activeModal.child.child.id]}
                   <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                    <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">Loading calendar</p>
+                    <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('calendar.loadingTitle')}</p>
                   </div>
                 {:else if childCalendarError[activeModal.child.child.id]}
                   <div class="rounded-[1.75rem] border border-red-100 bg-red-50 p-5 text-sm font-bold text-red-700">
@@ -2170,13 +2193,13 @@
                   <div class="rounded-[1.75rem] border border-slate-100 bg-white p-4">
                     <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('common.today')}</p>
                     {#if todayEvents.length === 0}
-                      <p class="mt-4 text-sm font-bold text-slate-500">No calendar items today.</p>
+                      <p class="mt-4 text-sm font-bold text-slate-500">{$_('calendar.noTodayItems')}</p>
                     {:else}
                       <div class="mt-4 space-y-2">
                         {#each todayEvents as item}
                           <div class="rounded-2xl bg-slate-50 p-3">
                             <p class="break-words text-sm font-black leading-snug text-slate-950">{item.entry.title}</p>
-                            <p class="mt-1 break-words text-xs font-bold leading-snug text-slate-400">{formatCalendarTime(item.entry.start_time)} · {item.entry.entry_type}</p>
+                            <p class="mt-1 break-words text-xs font-bold leading-snug text-slate-400">{formatCalendarTime(item.entry.start_time)} · {calendarEntryTypeLabel(item.entry.entry_type)}</p>
                           </div>
                         {/each}
                       </div>
@@ -2185,7 +2208,7 @@
                   <div class="rounded-[1.75rem] border border-slate-100 bg-white p-4">
                     <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('common.upcoming')}</p>
                     {#if upcomingEvents.length === 0}
-                      <p class="mt-4 text-sm font-bold text-slate-500">No upcoming calendar items found.</p>
+                      <p class="mt-4 text-sm font-bold text-slate-500">{$_('calendar.noUpcomingItems')}</p>
                     {:else}
                       <div class="mt-4 space-y-2">
                         {#each upcomingEvents as item}
@@ -2269,7 +2292,7 @@
                       <div class="mx-auto grid h-44 w-44 place-items-center rounded-full border-2 border-dashed border-slate-200 bg-white">
                         <div class="text-center">
                           <p class="text-3xl font-black text-slate-950">—</p>
-                          <p class="mt-1 text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">No behaviour points yet</p>
+                          <p class="mt-1 text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">{$_('parent.pointsLog.noBehaviour')}</p>
                         </div>
                       </div>
                     </div>
@@ -2278,19 +2301,19 @@
                       <div class="grid h-28 w-28 place-items-center rounded-full bg-white shadow-inner ring-1 ring-slate-100">
                         <div class="text-center">
                           <p class="text-3xl font-black text-slate-950">{percent === null ? '—' : `${percent}%`}</p>
-                          <p class="mt-1 text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">Good</p>
+                          <p class="mt-1 text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">{$_('parent.pointsLog.good')}</p>
                         </div>
                       </div>
                     </div>
                   {/if}
                   {#if pointLogPeriod === 'year'}
-                    <p class="mt-4 text-center text-xs font-bold text-slate-400">Showing available recent history for the yearly view.</p>
+                    <p class="mt-4 text-center text-xs font-bold text-slate-400">{$_('parent.pointsLog.yearlyNote')}</p>
                   {/if}
                 </div>
 
                 {#if childLedgerLoading[key]}
                   <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                    <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">Loading points log</p>
+                    <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.pointsLog.loading')}</p>
                   </div>
                 {:else if childLedgerError[key]}
                   <div class="rounded-[1.75rem] border border-red-100 bg-red-50 p-5 text-sm font-bold text-red-700">
@@ -2298,7 +2321,7 @@
                   </div>
                 {:else if behaviorLedger.length === 0}
                   <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                    <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">No point history for this period</p>
+                    <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.pointsLog.noHistory')}</p>
                   </div>
                 {:else}
                   <div class="space-y-2">
@@ -2306,7 +2329,7 @@
                       <div class="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 p-3">
                         <div class="min-w-0">
                           <p class="truncate text-sm font-black text-slate-950">{tx.description || tx.transaction_type}</p>
-                          <p class="text-xs font-bold text-slate-400">{formatLedgerDate(tx.created_at)} · {tx.jar}</p>
+                          <p class="text-xs font-bold text-slate-400">{formatLedgerDate(tx.created_at)} · {ledgerJarLabel(tx.jar)}</p>
                         </div>
                         <span class="shrink-0 rounded-full px-3 py-2 text-xs font-black {tx.points > 0 ? 'bg-savings/10 text-savings' : tx.points < 0 ? 'bg-penalty/10 text-penalty' : 'bg-slate-100 text-slate-600'}">
                           {tx.points > 0 ? '+' : ''}{tx.points}

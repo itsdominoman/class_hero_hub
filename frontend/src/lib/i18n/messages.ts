@@ -636,7 +636,8 @@ export const en = {
       good: 'Good',
       yearlyNote: 'Showing available recent history for the yearly view.',
       loading: 'Loading points log',
-      noHistory: 'No point history for this period'
+      noHistory: 'No point history for this period',
+      spendingJar: 'Spending'
     },
     family: {
       subtitle: 'Invite another grownup to help manage points, rewards, and routines',
@@ -948,6 +949,9 @@ export const en = {
     addEvent: 'Add event',
     loadingTitle: 'Loading calendar',
     loadingText: 'Loading calendar details.',
+    anyTime: 'Any time',
+    noTodayItems: 'No calendar items today.',
+    noUpcomingItems: 'No upcoming calendar items found.',
     errorTitle: 'Calendar unavailable',
     tryAgain: 'Try again',
     eyebrow: 'Family Calendar',
@@ -1723,7 +1727,8 @@ export const ar = {
       good: 'جيد',
       yearlyNote: 'يتم عرض السجل الحديث المتاح للعرض السنوي.',
       loading: 'جار تحميل سجل النقاط',
-      noHistory: 'لا يوجد سجل نقاط لهذه الفترة'
+      noHistory: 'لا يوجد سجل نقاط لهذه الفترة',
+      spendingJar: 'الإنفاق'
     },
     family: {
       subtitle: 'ادع شخصا موثوقا للمساعدة في إدارة النقاط والمكافآت والروتين',
@@ -2035,6 +2040,9 @@ export const ar = {
     addEvent: 'إضافة حدث',
     loadingTitle: 'جارٍ تحميل التقويم',
     loadingText: 'جارٍ تحميل تفاصيل التقويم.',
+    anyTime: 'في أي وقت',
+    noTodayItems: 'لا توجد عناصر في التقويم اليوم.',
+    noUpcomingItems: 'لا توجد عناصر تقويم قادمة.',
     errorTitle: 'التقويم غير متاح',
     tryAgain: 'أعد المحاولة',
     eyebrow: 'تقويم العائلة',
