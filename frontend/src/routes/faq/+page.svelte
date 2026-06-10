@@ -222,7 +222,7 @@
 </script>
 
 <svelte:head>
-  <title>FAQ | Family Hero Hub</title>
+  <title>{$_('faq.pageTitle')}</title>
 </svelte:head>
 
 <div class="relative overflow-hidden bg-hero-pattern">
