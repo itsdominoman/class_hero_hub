@@ -543,6 +543,9 @@ export const en = {
   },
   parent: {
     title: 'My Family',
+    loginRequired: 'Parent access required',
+    loginHint: 'Sign in with Google to open the parent dashboard and manage your family account.',
+    goToLogin: 'Go to Login',
     failedLoad: 'Failed to load dashboard',
     settings: 'Settings',
     manageRewards: 'Manage rewards',
@@ -1546,6 +1549,9 @@ export const ar = {
   },
   parent: {
     title: 'عائلتي',
+    loginRequired: 'مطلوب وصول وليّ الأمر',
+    loginHint: 'سجّل الدخول باستخدام Google لفتح لوحة وليّ الأمر وإدارة حساب عائلتك.',
+    goToLogin: 'الانتقال إلى تسجيل الدخول',
     failedLoad: 'تعذر تحميل اللوحة',
     settings: 'الإعدادات',
     manageRewards: 'إدارة المكافآت',

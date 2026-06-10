@@ -1115,9 +1115,9 @@
         <div class="w-16 h-16 bg-hero/10 text-hero rounded-2xl flex items-center justify-center mx-auto mb-6">
           <LogIn size={32} />
         </div>
-        <h1 class="text-3xl font-black text-slate-900 mb-3">Parent access required</h1>
-        <p class="text-slate-600 mb-8">Sign in with Google to open the parent dashboard and manage your family account.</p>
-        <button onclick={openLogin} class="btn-hero w-full py-4 rounded-2xl">Go to Login</button>
+        <h1 class="text-3xl font-black text-slate-900 mb-3">{$_('parent.loginRequired')}</h1>
+        <p class="text-slate-600 mb-8">{$_('parent.loginHint')}</p>
+        <button onclick={openLogin} class="btn-hero w-full py-4 rounded-2xl">{$_('parent.goToLogin')}</button>
       </div>
     </div>
   {:else if error}
