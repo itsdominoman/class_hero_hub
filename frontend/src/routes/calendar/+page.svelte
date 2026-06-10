@@ -1339,7 +1339,7 @@
                     id={`${row.key}-class`}
                     type="text"
                     value={row.class_name}
-                    placeholder="Math"
+                    placeholder={$_('calendar.schoolClassPlaceholder')}
                     class="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-bold text-slate-900 focus:border-slate-400 focus:outline-none"
                     oninput={(event) => updateSchoolRow(row.key, 'class_name', (event.currentTarget as HTMLInputElement).value)}
                   />
@@ -1349,7 +1349,7 @@
                   <input
                     type="text"
                     value={row.needed_item}
-                    placeholder="Math book"
+                    placeholder={$_('calendar.schoolNeededItemPlaceholder')}
                     class="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-bold text-slate-900 focus:border-slate-400 focus:outline-none"
                     oninput={(event) => updateSchoolRow(row.key, 'needed_item', (event.currentTarget as HTMLInputElement).value)}
                   />
@@ -1404,7 +1404,7 @@
 
           <div class="grid gap-5 md:grid-cols-2">
             <label class="block">
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Child</span>
+              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.childLabel')}</span>
               <select
                 bind:value={form.child_id}
                 class="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-sm font-bold text-slate-900 focus:border-slate-400 focus:outline-none disabled:opacity-60"
@@ -1425,7 +1425,7 @@
               <input
                 bind:value={form.title}
                 type="text"
-                placeholder="Brush teeth"
+                placeholder={$_('calendar.titlePlaceholder')}
                 class="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-sm font-bold text-slate-900 focus:border-slate-400 focus:outline-none"
               />
             </label>
