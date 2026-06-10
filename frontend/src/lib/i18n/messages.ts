@@ -616,8 +616,14 @@ export const en = {
     },
     savings: {
       nextUnlock: 'Next unlock',
+      nextUnlockLine: '{points} points on {date}',
       noUnlock: 'No upcoming unlock listed.',
+      unlocked: 'Unlocked',
       allowanceLine: '{saved} saved · {available} available'
+    },
+    bank: {
+      moveToSavedPoints: 'Move to saved points',
+      lockedNote: 'Banked points are locked for 30 days and cannot be used until unlocked.'
     },
     pointsLog: {
       day: 'Day',
@@ -1694,8 +1700,14 @@ export const ar = {
     },
     savings: {
       nextUnlock: 'الفتح القادم',
+      nextUnlockLine: '{points} نقطة في {date}',
       noUnlock: 'لا يوجد فتح قادم مسجل.',
+      unlocked: 'مفتوح',
       allowanceLine: '{saved} مدخر · {available} متاح'
+    },
+    bank: {
+      moveToSavedPoints: 'نقل إلى النقاط المدخرة',
+      lockedNote: 'النقاط المدخرة تقفل لمدة 30 يوما ولا يمكن استخدامها حتى تُفتح.'
     },
     pointsLog: {
       day: 'اليوم',

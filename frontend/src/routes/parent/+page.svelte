@@ -1036,6 +1036,10 @@
     return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   }
 
+  function formatSavingsUnlockDate(value: string) {
+    return new Date(value).toLocaleDateString($locale || 'en', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
   function formatCalendarDate(value: string) {
     return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   }
@@ -1353,7 +1357,7 @@
                 <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight break-words leading-tight">
                   {activeModal.type === 'award' ? $_('parent.pointsActions.addPoints') :
                    activeModal.type === 'penalty' ? $_('parent.pointsActions.removePoints') :
-                  activeModal.type === 'bank' ? 'Move to saved points' :
+                  activeModal.type === 'bank' ? $_('parent.bank.moveToSavedPoints') :
                   activeModal.type === 'presets' ? (editingPresetId ? $_('parent.presets.edit') : $_('parent.presets.manage')) :
                   activeModal.type === 'family' ? $_('parent.parentsCaregivers') :
                   activeModal.type === 'calendar-week' ? $_('parent.calendarSchoolWeek') :
@@ -2216,7 +2220,7 @@
                     <p class="mt-2 text-2xl font-black text-slate-950">{childAvailablePoints(activeModal.child)}</p>
                   </div>
                   <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                    <p class="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">Unlocked</p>
+                    <p class="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">{$_('parent.savings.unlocked')}</p>
                     <p class="mt-2 text-2xl font-black text-slate-950">{activeModal.child.available_savings || 0}</p>
                   </div>
                   <div class="rounded-[1.5rem] bg-slate-50 p-4">
@@ -2233,7 +2237,7 @@
                 <div class="rounded-[1.75rem] border border-slate-100 bg-white p-4">
                   <p class="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">{$_('parent.savings.nextUnlock')}</p>
                   {#if unlock}
-                    <p class="mt-2 break-words text-sm font-bold leading-snug text-slate-700">{unlock.points} {$_('common.points')} on {formatCalendarDate(unlock.unlock_date)}</p>
+                    <p class="mt-2 break-words text-sm font-bold leading-snug text-slate-700">{$_('parent.savings.nextUnlockLine', { values: { points: unlock.points, date: formatSavingsUnlockDate(unlock.unlock_date) } })}</p>
                   {:else}
                     <p class="mt-2 break-words text-sm font-bold leading-snug text-slate-500">{$_('parent.savings.noUnlock')}</p>
                   {/if}
@@ -2451,7 +2455,7 @@
             <div class="p-4 bg-savings/5 rounded-2xl border border-savings/10 flex items-start gap-3">
               <Clock size={16} class="text-savings mt-0.5" />
               <p class="text-[10px] font-bold text-savings-dark leading-relaxed uppercase tracking-[0.12em] sm:tracking-[0.22em]">
-                Banked points are locked for 30 days and cannot be used until unlocked.
+                {$_('parent.bank.lockedNote')}
               </p>
             </div>
           {/if}
