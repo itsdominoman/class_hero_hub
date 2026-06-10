@@ -625,7 +625,7 @@
 
   async function unlinkChildDevice(device: ChildDevice) {
     if (!activeModal?.child) return;
-    if (!confirm('Unlink this child device?')) return;
+    if (!confirm($_('parent.childLink.unlinkConfirm'))) return;
     try {
       childDeviceUnlinkingId = device.id;
       childDevicesError = null;
@@ -1518,9 +1518,9 @@
           {#if activeModal.type === 'child-link'}
             <div class="space-y-4">
               <div class="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-5">
-                <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">Child</p>
+                <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.childLink.child')}</p>
                 <p class="mt-2 text-2xl font-black text-slate-950 break-words">{activeModal.child.child.display_name}</p>
-                <p class="mt-2 text-sm text-slate-600">This QR links one tablet or phone directly to this child profile.</p>
+                <p class="mt-2 text-sm text-slate-600">{$_('parent.childLink.qrHelp')}</p>
               </div>
 
               {#if childLinkLoading && !childLinkInvite}
@@ -1528,7 +1528,7 @@
                   <div class="mx-auto w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center animate-pulse">
                     <QrCode size={22} class="text-slate-400" />
                   </div>
-                  <p class="mt-4 text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">Generating QR</p>
+                  <p class="mt-4 text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.childLink.generatingQr')}</p>
                 </div>
               {:else if childLinkError}
                 <div class="rounded-[1.75rem] border border-red-100 bg-red-50 p-5 text-red-700 font-bold break-words">
@@ -1543,13 +1543,13 @@
                   {/if}
                 </div>
                     <div class="text-center">
-                      <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">Expires</p>
+                      <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.childLink.expires')}</p>
                       <p class="text-lg font-black text-slate-950 break-words">{new Date(childLinkInvite.expires_at).toLocaleString()}</p>
                     </div>
                   </div>
 
                   <div class="space-y-2">
-                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 ml-1 sm:tracking-[0.22em]">Fallback link</p>
+                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 ml-1 sm:tracking-[0.22em]">{$_('parent.childLink.fallbackLink')}</p>
                     <div class="flex flex-col sm:flex-row gap-2">
                       <input
                         readonly
@@ -1562,7 +1562,7 @@
                         class="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-white shrink-0"
                       >
                         <Copy size={14} />
-                        {childLinkCopied ? 'Copied' : 'Copy'}
+                        {childLinkCopied ? $_('parent.childLink.copied') : $_('parent.childLink.copy')}
                       </button>
                     </div>
                   </div>
@@ -1574,7 +1574,7 @@
                       class="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-hero px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-hero/20"
                     >
                       <RefreshCcw size={14} />
-                      Regenerate QR
+                      {$_('parent.childLink.regenerateQr')}
                     </button>
                     <button
                       type="button"
@@ -1582,7 +1582,7 @@
                       class="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-slate-700 border-2 border-slate-100"
                     >
                       <Link2 size={14} />
-                      Revoke access
+                      {$_('parent.childLink.revokeAccess')}
                     </button>
                   </div>
                 </div>
@@ -1592,8 +1592,8 @@
                     <QrCode size={22} class="text-slate-400" />
                   </div>
                   <div>
-                    <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">No active QR</p>
-                    <p class="text-sm text-slate-500 mt-2">Generate a fresh link to connect a tablet or phone.</p>
+                    <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.childLink.noActiveQr')}</p>
+                    <p class="text-sm text-slate-500 mt-2">{$_('parent.childLink.freshLinkHelp')}</p>
                   </div>
                   <button
                     type="button"
@@ -1601,7 +1601,7 @@
                     class="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-hero px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-hero/20"
                   >
                     <RefreshCcw size={14} />
-                    Generate QR
+                    {$_('parent.childLink.regenerateQr')}
                   </button>
                 </div>
               {/if}
@@ -1609,8 +1609,8 @@
               <div class="rounded-[1.75rem] border border-slate-100 bg-white p-5 space-y-4">
                 <div class="flex items-center justify-between gap-3">
                   <div class="min-w-0">
-                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">Linked devices</p>
-                    <p class="mt-1 text-sm text-slate-600">Remove one tablet or phone without deleting this child.</p>
+                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.childLink.linkedDevices')}</p>
+                    <p class="mt-1 text-sm text-slate-600">{$_('parent.childLink.linkedDevicesHelp')}</p>
                   </div>
                   <button
                     type="button"
@@ -1618,7 +1618,7 @@
                     disabled={childDevicesLoading}
                     class="shrink-0 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600 disabled:opacity-60"
                   >
-                    {childDevicesLoading ? 'Loading' : 'Refresh'}
+                    {childDevicesLoading ? $_('common.loading') : $_('parent.childLink.refresh')}
                   </button>
                 </div>
 
@@ -1630,20 +1630,20 @@
 
                 {#if childDevicesLoading && childDevices.length === 0}
                   <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-400">
-                    Loading linked devices.
+                    {$_('parent.childLink.loadingDevices')}
                   </div>
                 {:else if childDevices.length === 0}
                   <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-400">
-                    No linked devices yet.
+                    {$_('parent.childLink.noLinkedDevices')}
                   </div>
                 {:else}
                   <div class="space-y-2">
                     {#each childDevices as device}
                       <div class="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                         <div class="min-w-0">
-                          <p class="text-sm font-black text-slate-900">{device.label || 'Linked device'} #{device.id}</p>
-                          <p class="mt-1 text-xs font-bold text-slate-500">Last seen: {formatDeviceDate(device.last_seen_at)}</p>
-                          <p class="text-xs font-bold text-slate-400">Expires: {formatDeviceDate(device.expires_at)}</p>
+                          <p class="text-sm font-black text-slate-900">{device.label || $_('parent.childLink.linkedDevice')} #{device.id}</p>
+                          <p class="mt-1 text-xs font-bold text-slate-500">{$_('parent.childLink.lastSeen')} {formatDeviceDate(device.last_seen_at)}</p>
+                          <p class="text-xs font-bold text-slate-400">{$_('parent.childLink.expiresLabel')} {formatDeviceDate(device.expires_at)}</p>
                         </div>
                         <button
                           type="button"
@@ -1652,7 +1652,7 @@
                           class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-slate-100 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-slate-700 disabled:opacity-60 sm:w-auto"
                         >
                           <Link2 size={14} />
-                          {childDeviceUnlinkingId === device.id ? 'Removing' : 'Unlink'}
+                          {childDeviceUnlinkingId === device.id ? $_('parent.childLink.removing') : $_('parent.childLink.unlink')}
                         </button>
                       </div>
                     {/each}
@@ -1666,7 +1666,7 @@
             <div class="space-y-3">
               {#if children.length === 0}
                 <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                  <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">No children yet</p>
+                  <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.childLink.noChildren')}</p>
                 </div>
               {:else}
                 {#each children as childSummary}
