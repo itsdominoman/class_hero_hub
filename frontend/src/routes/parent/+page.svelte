@@ -772,7 +772,7 @@
       await loadDashboard();
       closeModal();
     } catch (e) {
-      modalError = e instanceof Error ? e.message : 'Action failed';
+      modalError = e instanceof Error ? e.message : $_('parent.pointsActions.errorActionFailed');
     } finally {
       modalLoading = false;
     }
@@ -783,7 +783,7 @@
 
     const points = Math.abs(Number(modalForm.points) || 0);
     if (points < 1) {
-      modalError = 'Enter at least 1 point';
+      modalError = $_('parent.pointsActions.errorMinimumOnePoint');
       return;
     }
 
@@ -813,7 +813,7 @@
       await loadDashboard();
       closeModal();
     } catch (e) {
-      modalError = e instanceof Error ? e.message : 'Action failed';
+      modalError = e instanceof Error ? e.message : $_('parent.pointsActions.errorActionFailed');
     } finally {
       modalLoading = false;
     }
@@ -1322,10 +1322,10 @@
             </div>
             <div class="hidden sm:flex shrink-0 items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-700">
               <Trophy size={14} class="text-hero" />
-              {childAvailablePoints(activeModal.child)} pts
+              {childAvailablePoints(activeModal.child)} {$_('common.pts')}
             </div>
             <div class="sm:hidden shrink-0 rounded-full bg-slate-100 px-3 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-slate-700">
-              {childAvailablePoints(activeModal.child)} pts
+              {childAvailablePoints(activeModal.child)} {$_('common.pts')}
             </div>
           {:else}
             <div class="flex min-w-0 items-center gap-3 sm:gap-4">
@@ -1978,13 +1978,13 @@
                   onclick={() => activeTab = 'positive'}
                   class="min-w-0 flex-1 rounded-xl px-2 py-2.5 text-[9px] font-black uppercase leading-none tracking-[0.08em] transition-all sm:px-4 sm:py-3 sm:text-[10px] sm:tracking-[0.08em] {activeTab === 'positive' ? 'bg-savings/15 text-savings shadow-sm ring-1 ring-savings/10' : 'text-slate-500 hover:bg-white/70 hover:text-savings'}"
                 >
-                  {$_('parent.pointsActions.add')}
+                  {$_('common.add')}
                 </button>
                 <button
                   onclick={() => activeTab = 'negative'}
                   class="min-w-0 flex-1 rounded-xl px-2 py-2.5 text-[9px] font-black uppercase leading-none tracking-[0.08em] transition-all sm:px-4 sm:py-3 sm:text-[10px] sm:tracking-[0.08em] {activeTab === 'negative' ? 'bg-penalty/15 text-penalty shadow-sm ring-1 ring-penalty/10' : 'text-slate-500 hover:bg-white/70 hover:text-penalty'}"
                 >
-                  {$_('parent.pointsActions.remove')}
+                  {$_('common.remove')}
                 </button>
                 <button 
                   onclick={() => activeTab = 'other'}
@@ -2023,7 +2023,7 @@
                       </div>
 
                       <div class="space-y-2">
-                        <label for="custom-points-jar" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.pointsActions.jar')}</label>
+                        <label for="custom-points-jar" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.pointsActions.pointDestination')}</label>
                         <select
                           id="custom-points-jar"
                           bind:value={modalForm.jar}
@@ -2384,14 +2384,14 @@
 
               {#if activeModal.type === 'award' || activeModal.type === 'penalty'}
                 <div class="space-y-2">
-                  <label for="target-jar" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Point destination</label>
+                  <label for="target-jar" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.pointsActions.pointDestination')}</label>
                   <select 
                     id="target-jar"
                     bind:value={modalForm.jar}
                     class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 sm:px-6 py-4 font-bold text-slate-900 focus:outline-none focus:border-hero/30 transition-all appearance-none cursor-pointer"
                   >
-                    <option value="spending">Points</option>
-                    <option value="savings">Saved</option>
+                    <option value="spending">{$_('common.points')}</option>
+                    <option value="savings">{$_('common.saved')}</option>
                   </select>
                 </div>
               {/if}

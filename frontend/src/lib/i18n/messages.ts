@@ -602,8 +602,11 @@ export const en = {
       reason: 'Reason',
       reasonPlaceholder: 'What happened?',
       jar: 'Jar',
+      pointDestination: 'Point destination',
       noPresets: 'No presets found',
-      addPreset: 'Add preset'
+      addPreset: 'Add preset',
+      errorMinimumOnePoint: 'Enter at least 1 point',
+      errorActionFailed: 'Action failed'
     },
     requests: {
       reviewRewardRequests: 'Review reward requests',
@@ -1686,8 +1689,11 @@ export const ar = {
       reason: 'السبب',
       reasonPlaceholder: 'ماذا حدث؟',
       jar: 'المكان',
+      pointDestination: 'وجهة النقاط',
       noPresets: 'لا توجد قوالب',
-      addPreset: 'إضافة قالب'
+      addPreset: 'إضافة قالب',
+      errorMinimumOnePoint: 'أدخل نقطة واحدة على الأقل',
+      errorActionFailed: 'فشلت العملية'
     },
     requests: {
       reviewRewardRequests: 'مراجعة طلبات المكافآت',
