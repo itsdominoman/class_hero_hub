@@ -527,14 +527,14 @@
       }
       await loadDashboard();
     } catch (e) {
-      rewardError = e instanceof Error ? e.message : 'Unable to save reward';
+      rewardError = e instanceof Error ? e.message : $_('parent.rewards.errorSave');
     } finally {
       rewardLoading = false;
     }
   }
 
   async function deleteReward(id: number) {
-    if (!confirm('Delete this reward?')) return;
+    if (!confirm($_('parent.rewards.confirmDelete'))) return;
     try {
       rewardLoading = true;
       rewardError = null;
@@ -542,7 +542,7 @@
       if (editingRewardId === id) cancelEditingReward();
       await loadDashboard();
     } catch (e) {
-      rewardError = e instanceof Error ? e.message : 'Unable to delete reward';
+      rewardError = e instanceof Error ? e.message : $_('parent.rewards.errorDelete');
     } finally {
       rewardLoading = false;
     }
@@ -1702,77 +1702,77 @@
               <section class="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-5">
                 <div class="flex items-center justify-between gap-4 mb-5">
                   <div class="min-w-0">
-                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 mb-2 sm:tracking-[0.22em]">Reward editor</p>
-                    <h4 class="text-xl font-black text-slate-950">{editingRewardId ? 'Edit reward' : 'Create a reward'}</h4>
+                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 mb-2 sm:tracking-[0.22em]">{$_('parent.rewards.editor')}</p>
+                    <h4 class="text-xl font-black text-slate-950">{editingRewardId ? $_('parent.rewards.edit') : $_('parent.rewards.create')}</h4>
                   </div>
                   <Gift size={20} class="shrink-0 text-reward" />
                 </div>
 
                 <div class="space-y-4">
                   <label class="block">
-                    <span class="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 mb-2 sm:tracking-[0.22em]">Reward name</span>
-                    <input type="text" bind:value={rewardForm.title} placeholder="Movie night" class="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30" />
+                    <span class="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 mb-2 sm:tracking-[0.22em]">{$_('parent.rewards.name')}</span>
+                    <input type="text" bind:value={rewardForm.title} placeholder={$_('parent.rewards.moviePlaceholder')} class="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30" />
                   </label>
 
                   <label class="block">
-                    <span class="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 mb-2 sm:tracking-[0.22em]">Description</span>
-                    <input type="text" bind:value={rewardForm.description} placeholder="Extra screen time" class="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30" />
+                    <span class="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 mb-2 sm:tracking-[0.22em]">{$_('parent.rewards.description')}</span>
+                    <input type="text" bind:value={rewardForm.description} placeholder={$_('parent.rewards.descriptionPlaceholder')} class="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30" />
                   </label>
 
                   <label class="block">
-                    <span class="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 mb-2 sm:tracking-[0.22em]">Points</span>
+                    <span class="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 mb-2 sm:tracking-[0.22em]">{$_('common.points')}</span>
                     <input type="number" min="1" bind:value={rewardForm.points} class="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30" />
                   </label>
 
                   <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <button type="button" onclick={saveReward} disabled={rewardLoading || !rewardForm.title.trim() || rewardForm.points < 1} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white disabled:cursor-not-allowed disabled:opacity-60">
-                      {editingRewardId ? 'Save reward' : 'Create reward'}
+                      {editingRewardId ? $_('parent.rewards.save') : $_('parent.rewards.createButton')}
                     </button>
                     <button type="button" onclick={() => rewardForm.is_active = !rewardForm.is_active} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700">
-                      {rewardForm.is_active ? 'Active' : 'Hidden'}
+                      {rewardForm.is_active ? $_('common.active') : $_('common.hidden')}
                     </button>
                   </div>
                   {#if editingRewardId}
                     <button type="button" onclick={cancelEditingReward} class="w-full rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-slate-400 transition hover:text-slate-700">
-                      Cancel edit
+                      {$_('common.cancel')}
                     </button>
                   {/if}
                 </div>
               </section>
 
               <section class="space-y-3">
-                <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 ml-1 sm:tracking-[0.22em]">Current rewards</p>
+                <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 ml-1 sm:tracking-[0.22em]">{$_('parent.rewards.current')}</p>
                 {#if rewards.length > 0}
                   {#each rewards as reward}
                     <div class="rounded-[1.5rem] border border-slate-100 bg-white p-4">
                       <div class="flex min-w-0 items-start justify-between gap-3">
                         <div class="min-w-0">
                           <h4 class="font-black text-slate-950 break-words">{reward.title}</h4>
-                          <p class="mt-1 text-sm text-slate-500 break-words">{reward.description || 'No description.'}</p>
+                          <p class="mt-1 text-sm text-slate-500 break-words">{reward.description || $_('common.noDescription')}</p>
                           <div class="mt-3 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-600">
                             <Trophy size={13} />
-                            {reward.points} points
+                            {reward.points} {$_('common.points')}
                           </div>
                         </div>
                         <span class={`shrink-0 rounded-2xl px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] ${reward.is_active ? 'bg-savings/10 text-savings' : 'bg-slate-100 text-slate-400'}`}>
-                          {reward.is_active ? 'Visible' : 'Hidden'}
+                          {reward.is_active ? $_('common.visible') : $_('common.hidden')}
                         </span>
                       </div>
                       <div class="mt-4 flex flex-wrap gap-2">
                         <button onclick={() => startEditingReward(reward)} class="inline-flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-700 border border-slate-100">
                           <Settings size={14} />
-                          Edit
+                          {$_('common.edit')}
                         </button>
                         <button onclick={() => deleteReward(reward.id)} class="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-penalty border border-slate-100">
                           <X size={14} />
-                          Delete
+                          {$_('common.delete')}
                         </button>
                       </div>
                     </div>
                   {/each}
                 {:else}
                   <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                    <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">No rewards yet</p>
+                    <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.rewards.noRewards')}</p>
                   </div>
                 {/if}
               </section>
@@ -1782,7 +1782,7 @@
           {#if activeModal.type === 'requests'}
             <div class="space-y-4">
               <div class="flex items-center justify-between gap-3 rounded-[1.75rem] border border-slate-100 bg-slate-50 p-4">
-                <span class="text-sm font-black uppercase tracking-[0.18em] text-slate-500">Pending</span>
+                <span class="text-sm font-black uppercase tracking-[0.18em] text-slate-500">{$_('common.pending')}</span>
                 <span class="rounded-2xl bg-hero/10 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-hero">{pendingRedemptions.length}</span>
               </div>
 

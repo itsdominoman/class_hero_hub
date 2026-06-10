@@ -679,7 +679,10 @@ export const en = {
       createButton: 'Create reward',
       cancelEdit: 'Cancel edit',
       current: 'Current rewards',
-      noRewards: 'No rewards yet'
+      noRewards: 'No rewards yet',
+      confirmDelete: 'Delete this reward?',
+      errorSave: 'Unable to save reward',
+      errorDelete: 'Unable to delete reward'
     }
   },
   allowance: {
@@ -1724,7 +1727,10 @@ export const ar = {
       createButton: 'إنشاء مكافأة',
       cancelEdit: 'إلغاء التعديل',
       current: 'المكافآت الحالية',
-      noRewards: 'لا توجد مكافآت بعد'
+      noRewards: 'لا توجد مكافآت بعد',
+      confirmDelete: 'حذف هذه المكافأة؟',
+      errorSave: 'تعذر حفظ المكافأة',
+      errorDelete: 'تعذر حذف المكافأة'
     }
   },
   allowance: {
