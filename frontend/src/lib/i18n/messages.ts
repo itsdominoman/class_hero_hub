@@ -626,6 +626,16 @@ export const en = {
       usedFor: 'Used for allowance, calendar, and weekly point views.',
       saved: 'Calendar and school week saved.'
     },
+    childEdit: {
+      heading: 'Update display name and avatar',
+      displayName: 'Display name',
+      avatar: 'Avatar',
+      avatarHelp: 'Pick an avatar or use initials.',
+      initials: 'Initials',
+      preview: 'Profile preview',
+      savedHint: 'Avatar and name changes apply after save.',
+      saveChild: 'Save child'
+    },
     rewards: {
       manage: 'Manage Rewards',
       subtitle: 'Family rewards',
@@ -1616,7 +1626,7 @@ export const ar = {
     family: {
       subtitle: 'ادع شخصا موثوقا للمساعدة في إدارة النقاط والمكافآت والروتين',
       refreshing: 'جار تحديث أفراد العائلة',
-    addGrownup: 'إضافة ولي أمر',
+      addGrownup: 'إضافة ولي أمر',
       inviteHelp: 'ادع ولي أمر أو مقدم رعاية آخر للمساعدة في إدارة النقاط والمكافآت والحقيبة المدرسية وروتين العائلة.',
       pendingInvites: 'الدعوات المعلقة',
       waitingForLogin: 'بانتظار تسجيل الدخول',
@@ -1631,6 +1641,16 @@ export const ar = {
       startsOn: 'يبدأ الأسبوع يوم',
       usedFor: 'يستخدم للمصروف والتقويم وعروض النقاط الأسبوعية.',
       saved: 'تم حفظ التقويم وأسبوع المدرسة.'
+    },
+    childEdit: {
+      heading: 'تحديث اسم العرض والصورة الرمزية',
+      displayName: 'اسم العرض',
+      avatar: 'الصورة الرمزية',
+      avatarHelp: 'اختر صورة رمزية أو استخدم الأحرف الأولى.',
+      initials: 'الأحرف الأولى',
+      preview: 'معاينة الملف',
+      savedHint: 'تطبق تغييرات الاسم والصورة بعد الحفظ.',
+      saveChild: 'حفظ الطفل'
     },
     rewards: {
       manage: 'إدارة المكافآت',

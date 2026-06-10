@@ -1387,7 +1387,7 @@
                   <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
                       <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.editChild')}</p>
-                      <h4 class="mt-1 text-lg font-black text-slate-950">Update display name and avatar</h4>
+                      <h4 class="mt-1 text-lg font-black text-slate-950">{$_('parent.childEdit.heading')}</h4>
                     </div>
                     <button
                       type="button"
@@ -1406,7 +1406,7 @@
 
                   <div class="mt-4 grid gap-4">
                     <label class="block min-w-0">
-                      <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.16em] text-slate-400 sm:tracking-[0.22em]">Display name</span>
+                      <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.16em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.childEdit.displayName')}</span>
                       <input
                         type="text"
                         bind:value={childEditForm.display_name}
@@ -1417,15 +1417,15 @@
                     <div class="rounded-[1.5rem] border border-slate-100 bg-white p-4">
                       <div class="flex items-center justify-between gap-3">
                         <div class="min-w-0">
-                          <p class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400 sm:tracking-[0.22em]">Avatar</p>
-                          <p class="mt-1 text-sm font-bold text-slate-600">Pick an avatar or use initials.</p>
+                          <p class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.childEdit.avatar')}</p>
+                          <p class="mt-1 text-sm font-bold text-slate-600">{$_('parent.childEdit.avatarHelp')}</p>
                         </div>
                         <button
                           type="button"
                           onclick={() => setChildEditAvatar('')}
                           class="shrink-0 rounded-full border px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] transition {childEditForm.avatar_name === '' ? 'border-hero bg-hero/10 text-hero' : 'border-slate-200 bg-white text-slate-500 hover:border-hero hover:text-hero'}"
                         >
-                          Initials
+                          {$_('parent.childEdit.initials')}
                         </button>
                       </div>
 
@@ -1467,8 +1467,8 @@
                         {/if}
                       </div>
                       <div class="min-w-0">
-                        <p class="text-sm font-black text-slate-950">Profile preview</p>
-                        <p class="text-xs font-bold text-slate-400">Avatar and name changes apply after save</p>
+                        <p class="text-sm font-black text-slate-950">{$_('parent.childEdit.preview')}</p>
+                        <p class="text-xs font-bold text-slate-400">{$_('parent.childEdit.savedHint')}</p>
                       </div>
                     </div>
                   </div>
@@ -1480,14 +1480,14 @@
                       disabled={childEditLoading || !childEditForm.display_name.trim()}
                       class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {childEditLoading ? 'Saving...' : 'Save child'}
+                      {childEditLoading ? $_('common.saving') : $_('parent.childEdit.saveChild')}
                     </button>
                     <button
                       type="button"
                       onclick={() => (childEditOpen = false)}
                       class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700"
                     >
-                      Cancel
+                      {$_('common.cancel')}
                     </button>
                   </div>
                 </div>
