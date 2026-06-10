@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { _ } from 'svelte-i18n';
+  import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
   import {
     ArrowLeft,
@@ -178,7 +178,7 @@
   }
 
   function formatLongDate(value: string) {
-    return parseDateInput(value).toLocaleDateString(undefined, {
+    return parseDateInput(value).toLocaleDateString($locale || 'en', {
       weekday: 'long',
       month: 'short',
       day: 'numeric'
@@ -186,7 +186,7 @@
   }
 
   function formatShortDate(value: string) {
-    return parseDateInput(value).toLocaleDateString(undefined, {
+    return parseDateInput(value).toLocaleDateString($locale || 'en', {
       weekday: 'short',
       month: 'short',
       day: 'numeric'
@@ -194,7 +194,7 @@
   }
 
   function formatWeekday(value: string) {
-    return parseDateInput(value).toLocaleDateString(undefined, {
+    return parseDateInput(value).toLocaleDateString($locale || 'en', {
       weekday: 'short'
     });
   }
@@ -1526,7 +1526,7 @@
                     onclick={() => toggleWeekday(day.value)}
                     disabled={form.recurrence_type !== 'weekly'}
                   >
-                    {day.label}
+                    {$_(day.label)}
                   </button>
                 {/each}
               </div>
