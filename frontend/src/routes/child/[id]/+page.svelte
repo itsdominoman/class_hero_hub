@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { _ } from 'svelte-i18n';
+  import { _, locale } from 'svelte-i18n';
   import { page } from "$app/state";
   import { api } from "$lib/api";
   import { formatAllowanceAmount } from "$lib/currencies";
@@ -187,27 +187,36 @@
   const SAVINGS_LOCK_DAYS = 30;
 
   const PET_STAGES: Record<PetStage, { label: string; image: string }> = {
-    egg: { label: "Egg", image: "/pets/dragon-1/egg.png" },
-    hatchling: { label: "Hatchling", image: "/pets/dragon-1/hatchling.png" },
-    cub: { label: "Young Dragon", image: "/pets/dragon-1/young-dragon.png" },
-    hero: { label: "Hero Dragon", image: "/pets/dragon-1/hero-dragon.png" },
+    egg: { label: "child.petStageEgg", image: "/pets/dragon-1/egg.png" },
+    hatchling: {
+      label: "child.petStageHatchling",
+      image: "/pets/dragon-1/hatchling.png",
+    },
+    cub: {
+      label: "child.petStageCub",
+      image: "/pets/dragon-1/young-dragon.png",
+    },
+    hero: {
+      label: "child.petStageHero",
+      image: "/pets/dragon-1/hero-dragon.png",
+    },
     beast: {
-      label: "Legendary Dragon",
+      label: "child.petStageBeast",
       image: "/pets/dragon-1/legendary-dragon.png",
     },
   };
 
   const ACTIVITY_LABELS: Record<string, string> = {
-    award: "Earned",
-    penalty: "Lost",
-    adjustment: "Adjusted",
-    savings_deposit: "Saved",
-    savings_withdrawal: "Unsaved",
-    savings_maturity: "Unlocked",
-    savings_bonus: "Savings bonus",
-    redemption_hold: "Reward requested",
-    redemption_rejected: "Request returned",
-    redemption_approved: "Reward approved",
+    award: "child.activityEarned",
+    penalty: "child.activityLost",
+    adjustment: "child.activityAdjusted",
+    savings_deposit: "child.activitySaved",
+    savings_withdrawal: "child.activityUnsaved",
+    savings_maturity: "child.activityUnlocked",
+    savings_bonus: "child.activitySavingsBonus",
+    redemption_hold: "child.activityRewardRequested",
+    redemption_rejected: "child.activityRequestReturned",
+    redemption_approved: "child.activityRewardApproved",
   };
 
   const ACTIVITY_TONES: Record<string, string> = {
@@ -307,7 +316,7 @@
   }
 
   function formatDate(value: string) {
-    return new Date(value).toLocaleDateString(undefined, {
+    return new Date(value).toLocaleDateString($locale || "en", {
       month: "short",
       day: "numeric",
     });
@@ -316,7 +325,7 @@
   function formatUnlockDate(value: string) {
     const [year, month, day] = value.split("-").map(Number);
     const date = new Date(year, month - 1, day);
-    return date.toLocaleDateString(undefined, {
+    return date.toLocaleDateString($locale || "en", {
       day: "numeric",
       month: "short",
       year: "numeric",
@@ -334,16 +343,13 @@
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
 
-    if (unlockDate.getTime() === today.getTime()) return "today";
-    if (unlockDate.getTime() === tomorrow.getTime()) return "tomorrow";
-    return `on ${formatUnlockDate(value)}`;
+    if (unlockDate.getTime() === today.getTime()) return $_('common.today');
+    if (unlockDate.getTime() === tomorrow.getTime()) return $_('common.tomorrow');
+    return $_('child.unlockOn', { values: { date: formatUnlockDate(value) } });
   }
 
   function unlockScheduleDateLabel(value: string) {
-    const friendlyLabel = unlockDayLabel(value);
-    return friendlyLabel.startsWith("on ")
-      ? friendlyLabel.slice(3)
-      : friendlyLabel;
+    return unlockDayLabel(value);
   }
 
   function calculateSavingsBonus(points: number) {
@@ -390,13 +396,19 @@
   }
 
   function nextUnlockText() {
-    if (!summary || summary.savings_balance <= 0) return "No saved points";
-    if (!nextSavingsUnlock) return "No saved points locked";
-    return `Next unlock: ${nextSavingsUnlock.points} pts ${unlockDayLabel(nextSavingsUnlock.unlock_date)}`;
+    if (!summary || summary.savings_balance <= 0)
+      return $_('child.noSavedPoints');
+    if (!nextSavingsUnlock) return $_('child.noSavedPointsLocked');
+    return $_('child.nextUnlock', {
+      values: {
+        points: nextSavingsUnlock.points,
+        date: unlockDayLabel(nextSavingsUnlock.unlock_date),
+      },
+    });
   }
 
   function formatDateTime(value: string) {
-    return new Date(value).toLocaleString(undefined, {
+    return new Date(value).toLocaleString($locale || "en", {
       month: "short",
       day: "numeric",
       hour: "numeric",
@@ -420,26 +432,28 @@
   }
 
   function formatCalendarTime(value: string | null) {
-    if (!value) return "All day";
+    if (!value) return $_('calendar.allDay');
     const [hours, minutes] = value.slice(0, 5).split(":").map(Number);
     const date = new Date();
     date.setHours(hours, minutes, 0, 0);
-    return date.toLocaleTimeString(undefined, {
+    return date.toLocaleTimeString($locale || "en", {
       hour: "numeric",
       minute: "2-digit",
     });
   }
 
   function recurrenceLabel(item: DayCalendarOccurrence) {
-    if (item.entry.recurrence_type === "daily") return "Repeats daily";
-    if (item.entry.recurrence_type === "weekly") return "Repeats weekly";
-    return "One time";
+    if (item.entry.recurrence_type === "daily")
+      return $_('calendar.repeatsDaily');
+    if (item.entry.recurrence_type === "weekly")
+      return $_('calendar.repeatsWeekly');
+    return $_('calendar.oneTime');
   }
 
   function statusLabel(status: string) {
-    if (status === "pending") return "Waiting for parent";
-    if (status === "approved") return "Completed";
-    if (status === "rejected") return "Not approved";
+    if (status === "pending") return $_('calendar.pendingApproval');
+    if (status === "approved") return $_('calendar.completed');
+    if (status === "rejected") return $_('calendar.rejected');
     return status;
   }
 
@@ -474,8 +488,18 @@
   function schoolNeedLabel(item: SchoolItem) {
     const listedItem = item.needed_item?.trim();
     if (listedItem) return listedItem;
-    if (/p\.?\s*e\.?/i.test(item.class_name)) return "Gym clothes";
-    return `${item.class_name} book`;
+    if (/p\.?\s*e\.?/i.test(item.class_name))
+      return $_('child.gymClothesFallback');
+    return $_('child.classBookFallback', {
+      values: { className: item.class_name },
+    });
+  }
+
+  function getJarLabel(jar: string) {
+    const normalized = jar.trim().toLowerCase();
+    if (normalized === "spending") return $_('child.spendingJar');
+    if (normalized === "savings") return $_('child.savingsJar');
+    return `${jar} ${$_('child.jarSuffix')}`;
   }
 
   function schoolItemsToday() {
@@ -585,9 +609,11 @@
 
   function getActivityLabel(tx: LedgerTransaction) {
     if (tx.transaction_type === "adjustment") {
-      return tx.points >= 0 ? "Adjusted up" : "Adjusted down";
+      return tx.points >= 0
+        ? $_('child.activityAdjustedUp')
+        : $_('child.activityAdjustedDown');
     }
-    return ACTIVITY_LABELS[tx.transaction_type] ?? "Activity";
+    return $_(ACTIVITY_LABELS[tx.transaction_type] ?? 'child.activityFallback');
   }
 
   function getActivityBadgeClass(tx: LedgerTransaction) {
@@ -923,7 +949,7 @@
                 >
                   <img
                     src={stageImage}
-                    alt={stageInfo.label}
+                    alt={$_(stageInfo.label)}
                     class="w-full h-full object-contain"
                   />
                 </div>
@@ -944,7 +970,7 @@
                   >
                     <BadgeCheck size={14} />
                     <span class="min-w-0 break-words"
-                      >{$_('child.stage', { values: { label: stageInfo.label } })}</span
+                      >{$_('child.stage', { values: { label: $_(stageInfo.label) } })}</span
                     >
                   </span>
                   <span
@@ -1393,7 +1419,7 @@
                       <p
                         class="text-xs text-slate-500 mt-1 uppercase tracking-[0.18em]"
                       >
-                        {tx.jar} jar
+                        {getJarLabel(tx.jar)}
                       </p>
                     </div>
                   </div>
@@ -1434,7 +1460,7 @@
                 </h2>
                 <p class="mt-1 text-sm text-slate-500">
                   {getLocalDateValue()
-                    ? new Date().toLocaleDateString(undefined, {
+                    ? new Date().toLocaleDateString($locale || "en", {
                         weekday: "long",
                         month: "short",
                         day: "numeric",
@@ -2103,10 +2129,12 @@
                       >
                         <span>{unlockScheduleDateLabel(unlock.unlock_date)}</span>
                         <span class="text-right">
-                          {unlock.points} pts
+                          {unlock.points} {$_('common.pts')}
                           {#if unlock.bonus_points > 0}
                             <span class="block text-[10px] font-black uppercase tracking-[0.14em] text-savings">
-                              includes +{unlock.bonus_points} savings bonus
+                              {$_('child.includesBonus', {
+                                values: { points: unlock.bonus_points },
+                              })}
                             </span>
                           {/if}
                         </span>
@@ -2223,7 +2251,7 @@
                     {savingsBankTotal()} {$_('common.pts')}
                   </p>
                   <p class="mt-1 text-xs font-bold text-slate-500">
-                    Unlocks {savingsBankUnlockLabel()}
+                    {$_('child.unlocksAt', { values: { date: savingsBankUnlockLabel() } })}
                   </p>
                 </div>
               </div>
