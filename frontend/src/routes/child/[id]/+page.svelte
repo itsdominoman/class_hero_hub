@@ -1340,8 +1340,8 @@
               <div class="space-y-2">
                 <span
                   class="hidden md:block text-[10px] font-black uppercase tracking-[0.22em] text-transparent select-none"
-                  >Action</span
-                >
+                  aria-hidden="true"
+                >Action</span>
                 <button
                   type="submit"
                   disabled={submitting ||

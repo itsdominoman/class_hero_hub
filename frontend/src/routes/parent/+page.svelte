@@ -1286,7 +1286,7 @@
                       {#if avatarCanRender(c, avatar.key)}
                         <img
                           src={avatar.path}
-                          alt={`Avatar for ${c.child.display_name}`}
+                          alt={$_('parent.childEdit.avatarAlt', { values: { name: c.child.display_name } })}
                           class="h-full w-full object-cover"
                           loading="lazy"
                           onerror={() => markAvatarFailed(c)}
@@ -1330,7 +1330,7 @@
                 {#if avatarCanRender(activeModal.child, headerAvatar.key)}
                   <img
                     src={headerAvatar.path}
-                    alt={`Avatar for ${activeModal.child.child.display_name}`}
+                    alt={$_('parent.childEdit.avatarAlt', { values: { name: activeModal.child.child.display_name } })}
                     class="h-full w-full object-cover"
                     onerror={() => markAvatarFailed(activeModal.child)}
                   />
@@ -1515,7 +1515,7 @@
                         {#if editAvatar}
                           <img
                             src={editAvatar.path}
-                            alt={`Avatar preview for ${childEditForm.display_name || activeModal.child.child.display_name}`}
+                            alt={$_('parent.childEdit.avatarPreviewAlt', { values: { name: childEditForm.display_name || activeModal.child.child.display_name } })}
                             class="h-full w-full object-cover"
                           />
                         {:else}
@@ -1595,7 +1595,7 @@
               <div class="flex flex-col items-center gap-4">
                 <div class="rounded-[1.5rem] border border-slate-100 bg-white p-4 shadow-sm w-full max-w-[18rem] sm:max-w-[20rem] flex justify-center">
                   {#if childLinkQr}
-                    <img src={childLinkQr} alt="QR code for child dashboard link" class="w-full h-auto rounded-2xl" />
+                    <img src={childLinkQr} alt={$_('parent.childLink.qrAlt')} class="w-full h-auto rounded-2xl" />
                   {/if}
                 </div>
                     <div class="text-center">
@@ -1844,7 +1844,7 @@
                   <div class="rounded-[1.5rem] border border-slate-100 bg-white p-4">
                     <div class="flex flex-wrap items-center gap-2">
                       <span class="inline-flex items-center rounded-full bg-hero/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-hero">{$_('common.pending')}</span>
-                      <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{new Date(r.created_at).toLocaleDateString()}</span>
+                      <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{new Date(r.created_at).toLocaleDateString($locale || 'en')}</span>
                     </div>
                     <h4 class="mt-3 font-black text-slate-950 break-words">{r.title}</h4>
                     <p class="mt-2 text-sm text-slate-600 break-words">{r.description || $_('common.noDescriptionProvided')}</p>
@@ -2124,7 +2124,7 @@
                     <div class="rounded-[1.5rem] border border-slate-100 bg-white p-4">
                       <div class="flex flex-wrap items-center gap-2">
                         <span class="inline-flex items-center rounded-full bg-hero/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-hero">{$_('common.pending')}</span>
-                        <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{new Date(r.created_at).toLocaleDateString()}</span>
+                        <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{new Date(r.created_at).toLocaleDateString($locale || 'en')}</span>
                       </div>
                       <h4 class="mt-3 font-black text-slate-950 break-words">{r.title}</h4>
                       <p class="mt-2 text-sm text-slate-600 break-words">{r.description || $_('common.noDescriptionProvided')}</p>

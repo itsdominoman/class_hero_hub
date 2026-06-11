@@ -220,7 +220,7 @@
     const [hours, minutes] = trimmed.split(':').map(Number);
     const date = new Date();
     date.setHours(hours, minutes, 0, 0);
-    return date.toLocaleTimeString(undefined, {
+    return date.toLocaleTimeString($locale || 'en', {
       hour: 'numeric',
       minute: '2-digit'
     });
@@ -228,10 +228,12 @@
 
   function formatDuration(minutes: number | null) {
     if (!minutes || minutes <= 0) return '';
-    if (minutes < 60) return `${minutes}m`;
+    const hoursSuffix = $_('calendar.durationHoursShort');
+    const minutesSuffix = $_('calendar.durationMinutesShort');
+    if (minutes < 60) return `${minutes}${minutesSuffix}`;
     const hours = Math.floor(minutes / 60);
     const remainder = minutes % 60;
-    return remainder > 0 ? `${hours}h ${remainder}m` : `${hours}h`;
+    return remainder > 0 ? `${hours}${hoursSuffix} ${remainder}${minutesSuffix}` : `${hours}${hoursSuffix}`;
   }
 
   function recurrenceLabel(entry: CalendarEntry) {
