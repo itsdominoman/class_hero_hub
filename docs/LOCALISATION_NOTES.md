@@ -1,6 +1,6 @@
 # Localisation Notes
 
-Last reviewed: 2026-06-09
+Last reviewed: 2026-06-11
 
 Family Hero Hub supports English and Arabic UI labels for fixed app interface text. Parent-entered content is not translated: child names, reward names, custom point reasons, task titles, calendar event titles, school bag items, and family-entered descriptions remain exactly as entered.
 
@@ -35,3 +35,66 @@ Arabic uses neutral Modern Standard Arabic with short, family-friendly labels wh
 | Custom reason | سبب مخصص / السبب | Uses simple “reason” wording in compact forms. | Yes |
 
 Known follow-up: Arabic wording should receive native-speaker review before production launch, especially allowance, caregiver, redeem/request, and child-facing encouragement copy. Terms that still need context review include Positive/Negative labels and any place where approval is used as a noun/status instead of a button action.
+
+## Arabic implementation status — 2026-06-11
+
+The Arabic localisation pass on `develop` has now covered the main non-admin app flows. Production/main was not touched during this work.
+
+Completed non-admin areas include:
+
+- public family invite flow
+- public child link flow
+- parent dashboard and parent child modals
+- parent rewards, reward request, family/caregiver, child link, savings/bank, points action, calendar-week, and behaviour preset modal text
+- child dashboard static UI and key fallback/error states
+- redemptions page
+- allowance page
+- calendar page labels, date/time formatting, duration units, and error fallbacks
+
+Admin pages are intentionally English-only and are excluded from Arabic localisation scope.
+
+### Fixed during the June 2026 Arabic pass
+
+The implementation included both static UI localisation and dynamic error fallback cleanup.
+
+Static UI fixes included:
+
+- hardcoded prompts and confirmations
+- modal labels, placeholders, headings, helper text, and buttons
+- generated date connectors such as `to`
+- generated point/unit labels such as `pts`, `point`, `points`, `h`, and `m`
+- school bag fallback labels
+- default generated transaction/reward descriptions
+- selected accessibility labels and alt text
+
+Dynamic error fallback fixes included replacing raw backend/API messages with translated app fallbacks. Non-admin pages should not directly render backend text such as:
+
+- `Not authenticated`
+- `Request failed with status 502`
+- raw `e.message` / `Error.message` values
+
+`Error.message` may still be inspected internally for known public-link mapping, but it should not be displayed directly to the user.
+
+### Final tracked commit range
+
+Key Arabic localisation commits pushed to `origin/develop` during this phase:
+
+- `31a1ca1 Localise family invite page`
+- `422936a Localise allowance page leftovers`
+- `11d5d0e Localise parent page leftover strings`
+- `c7d283b Localise child and link error fallbacks`
+- `d8ad8eb Polish final Arabic locale leaks`
+- `2d00110 Localise calendar error fallbacks`
+- `00a0654 Localise remaining raw error fallbacks`
+
+### Current non-blocking follow-up
+
+The generic framework 404 page may still show raw `404 Not Found` on mistyped or invalid URLs. This is not part of the normal Arabic app flow, but can be improved later with a branded localised not-found page.
+
+Arabic wording still needs native-speaker review before production launch, especially:
+
+- allowance/pocket money wording
+- caregiver/grownup role wording
+- redeem/request/spend wording
+- child-facing encouragement and negative-behaviour wording
+- approval/status wording where context changes the best Arabic term
