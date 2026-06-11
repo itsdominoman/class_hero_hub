@@ -11,12 +11,12 @@
     Check,
     Gift,
     History,
-    PiggyBank,
     Repeat2,
     Sparkles,
     Star,
     Trophy,
     X,
+    Wallet,
   } from "lucide-svelte";
 
   type PetStage = "egg" | "hatchling" | "cub" | "hero" | "beast";
@@ -2024,7 +2024,7 @@
                 <div
                   class="w-12 h-12 rounded-2xl bg-white/80 border border-slate-200 flex items-center justify-center text-slate-700"
                 >
-                  <PiggyBank size={22} />
+                  <Wallet size={22} />
                 </div>
               <div class="min-w-0">
                 <p
@@ -2161,7 +2161,7 @@
                     disabled={!summary || summary.available_spending <= 0}
                     onclick={openSavingsBankModal}
                   >
-                    <PiggyBank size={14} />
+                    <Wallet size={14} />
                     {$_('child.bankPoints')}
                   </button>
                   <p

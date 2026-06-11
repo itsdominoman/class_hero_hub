@@ -14,7 +14,7 @@
     Ban,
     CalendarDays,
     Coins,
-    PiggyBank,
+    Wallet,
     Save,
     ShieldCheck,
     Sparkles,
@@ -371,7 +371,7 @@
                 </div>
               </div>
               <div class="flex items-start gap-3 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
-                <PiggyBank class="mt-0.5 shrink-0 text-reward" size={22} />
+                <Wallet class="mt-0.5 shrink-0 text-reward" size={22} />
                 <div>
                   <p class="text-sm font-black text-slate-900">{$_('allowance.benefitParentTitle')}</p>
                   <p class="mt-1 text-sm font-medium leading-relaxed text-slate-600">{$_('allowance.benefitParentText')}</p>

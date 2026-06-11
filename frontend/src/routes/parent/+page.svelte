@@ -6,7 +6,7 @@
   import { _, locale } from 'svelte-i18n';
   import LanguageSelector from '$lib/components/LanguageSelector.svelte';
   import { 
-    UserPlus, Award, Ban, PiggyBank, Gift, Ticket,
+    UserPlus, Award, Ban, Gift, Ticket, Wallet,
     LayoutDashboard, Settings, LogIn, Trophy, Clock, Check, X,
     Users, QrCode, Copy, RefreshCcw, Link2, CalendarDays
   } from 'lucide-svelte';
@@ -1224,7 +1224,7 @@
                     {$_('parent.rewardRedemptions')}
                   </a>
                   <a href="/allowance" class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
-                    <PiggyBank size={15} />
+                    <Wallet size={15} />
                     {$_('parent.allowance')}
                   </a>
                   <a href="/calendar" class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
@@ -1367,7 +1367,7 @@
                  'bg-reward text-white shadow-reward/20'}">
                 {#if activeModal.type === 'award'}<Award size={32} />
                 {:else if activeModal.type === 'penalty'}<Ban size={32} />
-                {:else if activeModal.type === 'bank'}<PiggyBank size={32} />
+                {:else if activeModal.type === 'bank'}<Wallet size={32} />
                 {:else if activeModal.type === 'presets'}<Settings size={32} />
                 {:else if activeModal.type === 'family'}<Users size={32} />
                 {:else if activeModal.type === 'calendar-week'}<CalendarDays size={32} />
