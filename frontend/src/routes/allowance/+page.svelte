@@ -230,8 +230,7 @@
       applySettingsToForm(settingsResponse);
       preview = previewResponse;
     } catch (e) {
-      const message = e instanceof Error ? e.message : $_('allowance.errorLoadSettings');
-      formError = message;
+      formError = $_('allowance.errorLoadSettings');
       preview = null;
     } finally {
       childLoading = false;
@@ -252,11 +251,11 @@
         await loadAllowanceForChild(selectedChildId);
       }
     } catch (e) {
-      const message = e instanceof Error ? e.message : $_('allowance.errorLoadSetup');
+      const message = e instanceof Error ? e['message'] : '';
       if (isAuthError(message)) {
         needsLogin = true;
       } else {
-        error = message;
+        error = $_('allowance.errorLoadSetup');
       }
     } finally {
       loading = false;
@@ -309,7 +308,7 @@
       await loadAllowanceForChild(selectedChildId);
       statusMessage = nextEnabled ? $_('allowance.saved') : $_('allowance.disabledSaved');
     } catch (e) {
-      formError = e instanceof Error ? e.message : $_('allowance.errorSaveSettings');
+      formError = $_('allowance.errorSaveSettings');
     } finally {
       saving = false;
     }

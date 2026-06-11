@@ -593,7 +593,7 @@
       );
       await refreshMyDay();
     } catch (e) {
-      dayError = e instanceof Error ? e.message : $_('child.unableToMarkTaskDone');
+      dayError = $_('child.unableToMarkTaskDone');
     } finally {
       daySubmittingId = null;
     }

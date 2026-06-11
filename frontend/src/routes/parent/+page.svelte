@@ -392,13 +392,13 @@
         console.warn('Failed to load school prep', error);
       });
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Unable to load dashboard';
+      const message = e instanceof Error ? e['message'] : '';
       if (isAuthError(message)) {
         parent = null;
         children = [];
         needsLogin = true;
       } else {
-        error = message;
+        error = $_('parent.failedLoad');
       }
     } finally {
       loading = false;
@@ -423,7 +423,7 @@
       familySettings = settings;
       familySettingsForm = { week_start_day: settings.week_start_day };
     } catch (e) {
-      familySettingsError = e instanceof Error ? e.message : 'Unable to load family settings';
+      familySettingsError = $_('parent.family.errorLoadSettings');
     } finally {
       loadingFamilySettings = false;
     }
@@ -441,7 +441,7 @@
       familySettingsForm = { week_start_day: updated.week_start_day };
       familySettingsMessage = $_('parent.week.saved');
     } catch (e) {
-      familySettingsError = e instanceof Error ? e.message : 'Unable to save family settings';
+      familySettingsError = $_('parent.family.errorSaveSettings');
     } finally {
       familySettingsSaving = false;
     }
@@ -461,7 +461,7 @@
       });
       await loadDashboard();
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Unable to add child';
+      error = $_('parent.errorAddChild');
     } finally {
       loadingChildren = false;
     }
@@ -547,7 +547,7 @@
       }
       await loadDashboard();
     } catch (e) {
-      rewardError = e instanceof Error ? e.message : $_('parent.rewards.errorSave');
+      rewardError = $_('parent.rewards.errorSave');
     } finally {
       rewardLoading = false;
     }
@@ -562,7 +562,7 @@
       if (editingRewardId === id) cancelEditingReward();
       await loadDashboard();
     } catch (e) {
-      rewardError = e instanceof Error ? e.message : $_('parent.rewards.errorDelete');
+      rewardError = $_('parent.rewards.errorDelete');
     } finally {
       rewardLoading = false;
     }
@@ -582,7 +582,7 @@
         errorCorrectionLevel: 'M'
       });
     } catch (e) {
-      childLinkError = e instanceof Error ? e.message : 'Unable to create child dashboard link';
+      childLinkError = $_('parent.childLink.errorCreate');
       childLinkInvite = null;
       childLinkQr = '';
     } finally {
@@ -596,7 +596,7 @@
       childDevicesError = null;
       childDevices = await api.get(`/children/${childSummary.child.id}/devices`);
     } catch (e) {
-      childDevicesError = e instanceof Error ? e.message : 'Unable to load linked devices';
+      childDevicesError = $_('parent.childLink.errorLoadDevices');
       childDevices = [];
     } finally {
       childDevicesLoading = false;
@@ -637,7 +637,7 @@
       await loadChildDevices(activeModal.child);
       await loadDashboard();
     } catch (e) {
-      childLinkError = e instanceof Error ? e.message : 'Failed to revoke child device access';
+      childLinkError = $_('parent.childLink.errorRevokeAccess');
     } finally {
       childLinkLoading = false;
     }
@@ -652,7 +652,7 @@
       await api.delete(`/children/${activeModal.child.child.id}/devices/${device.id}`);
       await loadChildDevices(activeModal.child);
     } catch (e) {
-      childDevicesError = e instanceof Error ? e.message : 'Failed to unlink child device';
+      childDevicesError = $_('parent.childLink.errorUnlinkDevice');
     } finally {
       childDeviceUnlinkingId = null;
     }
@@ -773,7 +773,7 @@
       await loadDashboard();
       closeModal();
     } catch (e) {
-      modalError = e instanceof Error ? e.message : $_('parent.pointsActions.errorActionFailed');
+      modalError = $_('parent.pointsActions.errorActionFailed');
     } finally {
       modalLoading = false;
     }
@@ -814,7 +814,7 @@
       await loadDashboard();
       closeModal();
     } catch (e) {
-      modalError = e instanceof Error ? e.message : $_('parent.pointsActions.errorActionFailed');
+      modalError = $_('parent.pointsActions.errorActionFailed');
     } finally {
       modalLoading = false;
     }
@@ -843,7 +843,7 @@
       await loadDashboard();
       closeModal();
     } catch (e) {
-      alert(e instanceof Error ? e.message : $_('parent.presets.applyError'));
+      alert($_('parent.presets.applyError'));
     }
   }
 
@@ -853,7 +853,7 @@
       await api.delete(`/presets/${id}`);
       await loadDashboard();
     } catch (e) {
-      alert(e instanceof Error ? e.message : $_('parent.presets.deleteError'));
+      alert($_('parent.presets.deleteError'));
     }
   }
 
@@ -864,7 +864,7 @@
       await loadDashboard();
       await loadFamilySettings();
     } catch (e) {
-      alert(e instanceof Error ? e.message : $_('parent.family.errorCancelInvite'));
+      alert($_('parent.family.errorCancelInvite'));
     }
   }
 
@@ -877,7 +877,7 @@
       await loadDashboard();
       await loadFamilySettings();
     } catch (e) {
-      alert(e instanceof Error ? e.message : $_('parent.family.errorRemoveGrownup'));
+      alert($_('parent.family.errorRemoveGrownup'));
     } finally {
       familyGrownupRemovingId = null;
     }
@@ -972,7 +972,7 @@
       }
       childEditOpen = false;
     } catch (e) {
-      childEditError = e instanceof Error ? e.message : 'Unable to save child';
+      childEditError = $_('parent.childEdit.errorSaveChild');
     } finally {
       childEditLoading = false;
     }
@@ -1102,7 +1102,7 @@
       const response = await api.get(`/calendar?${query.toString()}`);
       childCalendarById = { ...childCalendarById, [childId]: Array.isArray(response) ? response : [] };
     } catch (e) {
-      childCalendarError = { ...childCalendarError, [childId]: e instanceof Error ? e.message : 'Unable to load calendar' };
+      childCalendarError = { ...childCalendarError, [childId]: $_('parent.childCalendar.errorLoad') };
       childCalendarById = { ...childCalendarById, [childId]: [] };
     } finally {
       childCalendarLoading = { ...childCalendarLoading, [childId]: false };
@@ -1121,7 +1121,7 @@
       const response = await api.get(`/children/${childId}/ledger?period=${ledgerApiPeriod(period)}&type=all`);
       childLedgerByKey = { ...childLedgerByKey, [key]: Array.isArray(response) ? response : [] };
     } catch (e) {
-      childLedgerError = { ...childLedgerError, [key]: e instanceof Error ? e.message : 'Unable to load point history' };
+      childLedgerError = { ...childLedgerError, [key]: $_('parent.childCalendar.errorLoadHistory') };
       childLedgerByKey = { ...childLedgerByKey, [key]: [] };
     } finally {
       childLedgerLoading = { ...childLedgerLoading, [key]: false };

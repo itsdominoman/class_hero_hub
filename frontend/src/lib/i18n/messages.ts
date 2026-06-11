@@ -562,6 +562,7 @@ export const en = {
     loginHint: 'Sign in with Google to open the parent dashboard and manage your family account.',
     goToLogin: 'Go to Login',
     failedLoad: 'Failed to load dashboard',
+    errorAddChild: 'Unable to add child',
     settings: 'Settings',
     manageRewards: 'Manage rewards',
     parentsCaregivers: 'Parents & Caregivers',
@@ -675,6 +676,8 @@ export const en = {
       currentGrownups: 'Current grownups',
       confirmCancelInvite: 'Cancel this invite? The invite link will no longer work.',
       confirmRemoveGrownup: 'Remove this grownup from your family? They will no longer be able to manage children or points.',
+      errorLoadSettings: 'Unable to load family settings',
+      errorSaveSettings: 'Unable to save family settings',
       errorCancelInvite: 'Failed to cancel invite',
       errorRemoveGrownup: 'Failed to remove grownup',
       you: 'You',
@@ -701,7 +704,8 @@ export const en = {
       avatarAlt: 'Avatar for {name}',
       avatarPreviewAlt: 'Avatar preview for {name}',
       savedHint: 'Avatar and name changes apply after save.',
-      saveChild: 'Save child'
+      saveChild: 'Save child',
+      errorSaveChild: 'Unable to save child'
     },
     childLink: {
       child: 'Child',
@@ -732,7 +736,15 @@ export const en = {
       unlink: 'Unlink',
       notSeenYet: 'Not seen yet',
       unlinkConfirm: 'Unlink this child device?',
-      noChildren: 'No children yet'
+      noChildren: 'No children yet',
+      errorCreate: 'Unable to create child dashboard link',
+      errorLoadDevices: 'Unable to load linked devices',
+      errorRevokeAccess: 'Failed to revoke child device access',
+      errorUnlinkDevice: 'Failed to unlink child device'
+    },
+    childCalendar: {
+      errorLoad: 'Unable to load calendar',
+      errorLoadHistory: 'Unable to load point history'
     },
     rewards: {
       manage: 'Manage Rewards',
@@ -1702,6 +1714,7 @@ export const ar = {
     loginHint: 'سجّل الدخول باستخدام Google لفتح لوحة وليّ الأمر وإدارة حساب عائلتك.',
     goToLogin: 'الانتقال إلى تسجيل الدخول',
     failedLoad: 'تعذر تحميل اللوحة',
+    errorAddChild: 'تعذر إضافة طفل',
     settings: 'الإعدادات',
     manageRewards: 'إدارة المكافآت',
     parentsCaregivers: 'الوالدان ومقدمو الرعاية',
@@ -1815,6 +1828,8 @@ export const ar = {
       currentGrownups: 'البالغون الحاليون',
       confirmCancelInvite: 'إلغاء هذه الدعوة؟ لن يعود رابط الدعوة صالحًا.',
       confirmRemoveGrownup: 'إزالة هذا البالغ من عائلتك؟ لن يعود بإمكانه إدارة الأطفال أو النقاط.',
+      errorLoadSettings: 'تعذر تحميل إعدادات العائلة',
+      errorSaveSettings: 'تعذر حفظ إعدادات العائلة',
       errorCancelInvite: 'تعذر إلغاء الدعوة',
       errorRemoveGrownup: 'تعذر إزالة البالغ',
       you: 'أنت',
@@ -1841,7 +1856,8 @@ export const ar = {
       avatarAlt: 'صورة رمزية لـ {name}',
       avatarPreviewAlt: 'معاينة الصورة الرمزية لـ {name}',
       savedHint: 'تطبق تغييرات الاسم والصورة بعد الحفظ.',
-      saveChild: 'حفظ الطفل'
+      saveChild: 'حفظ الطفل',
+      errorSaveChild: 'تعذر حفظ الطفل'
     },
     childLink: {
       child: 'الطفل',
@@ -1872,7 +1888,15 @@ export const ar = {
       unlink: 'إلغاء الربط',
       notSeenYet: 'لم يظهر بعد',
       unlinkConfirm: 'إلغاء ربط جهاز هذا الطفل؟',
-      noChildren: 'لا يوجد أطفال بعد'
+      noChildren: 'لا يوجد أطفال بعد',
+      errorCreate: 'تعذر إنشاء رابط لوحة الطفل',
+      errorLoadDevices: 'تعذر تحميل الأجهزة المرتبطة',
+      errorRevokeAccess: 'تعذر إلغاء وصول جهاز الطفل',
+      errorUnlinkDevice: 'تعذر إلغاء ربط جهاز الطفل'
+    },
+    childCalendar: {
+      errorLoad: 'تعذر تحميل التقويم',
+      errorLoadHistory: 'تعذر تحميل سجل النقاط'
     },
     rewards: {
       manage: 'إدارة المكافآت',

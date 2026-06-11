@@ -13,7 +13,7 @@
       loading = true;
       redemptions = await api.get('/redemptions');
     } catch (e) {
-      error = e instanceof Error ? e.message : $_('redemptions.errorLoad');
+      error = $_('redemptions.errorLoad');
     } finally {
       loading = false;
     }
@@ -55,7 +55,7 @@
       await api.post(`/redemptions/${id}/${action}`, payload);
       await loadRedemptions();
     } catch (e) {
-      alert(e instanceof Error ? e.message : $_('redemptions.errorActionFailed'));
+      alert($_('redemptions.errorActionFailed'));
     }
   }
 </script>
