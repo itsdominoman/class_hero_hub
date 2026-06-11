@@ -293,9 +293,10 @@
   function schoolNeedLabel(item: SchoolItem) {
     const listedItem = (item?.needed_item || '').trim();
     if (listedItem) return listedItem;
-    const title = item?.class_name || 'School item';
-    if (/p\.?\s*e\.?/i.test(title)) return 'Gym clothes';
-    return `${title} book`;
+    const title = item?.class_name?.trim();
+    if (!title) return $_('parent.school.itemFallback');
+    if (/p\.?\s*e\.?/i.test(title)) return $_('parent.school.gymClothesFallback');
+    return $_('parent.school.classBookFallback', { values: { className: title } });
   }
 
   function formatAllowanceMinorAmount(minor: number, currency: string, exponent: number) {
@@ -447,7 +448,7 @@
   }
 
   async function addChild() {
-    const childName = window.prompt('Enter your child\'s display name');
+    const childName = window.prompt($_('parent.childEdit.displayNamePrompt'));
     if (!childName || !childName.trim()) return;
 
     try {
@@ -626,7 +627,7 @@
 
   async function revokeChildLink() {
     if (!activeModal?.child) return;
-    if (!confirm('Revoke all child device access for this child?')) return;
+    if (!confirm($_('parent.childLink.revokeConfirmAllAccess'))) return;
     try {
       childLinkLoading = true;
       childLinkError = null;
@@ -747,24 +748,24 @@
       if (activeModal.type === 'award') {
         await api.post(`/children/${childId}/award`, {
           points: modalForm.points,
-          description: modalForm.description || 'Parent Award',
+          description: modalForm.description || $_('parent.pointsActions.defaultAwardDescription'),
           jar: modalForm.jar
         });
       } else if (activeModal.type === 'penalty') {
         await api.post(`/children/${childId}/penalty`, {
           points: modalForm.points,
-          description: modalForm.description || 'Parent Penalty',
+          description: modalForm.description || $_('parent.pointsActions.defaultPenaltyDescription'),
           jar: modalForm.jar
         });
       } else if (activeModal.type === 'bank') {
         await api.post(`/children/${childId}/savings/deposit`, {
           points: modalForm.points,
-          description: modalForm.description || 'Banking points'
+          description: modalForm.description || $_('parent.bank.bankingDescription')
         });
       } else if (activeModal.type === 'redeem') {
         await api.post(`/children/${childId}/redemptions`, {
           points: modalForm.points,
-          title: modalForm.title || 'Reward Request',
+          title: modalForm.title || $_('parent.redemptions.defaultTitle'),
           description: modalForm.description || ''
         });
       }
@@ -797,14 +798,14 @@
       if (direction === 'award') {
         await api.post(`/children/${childId}/award`, {
           points,
-          description: modalForm.description || 'Parent Award',
+          description: modalForm.description || $_('parent.pointsActions.defaultAwardDescription'),
           jar: modalForm.jar
         });
         playPositiveSound();
       } else {
         await api.post(`/children/${childId}/penalty`, {
           points,
-          description: modalForm.description || 'Parent Penalty',
+          description: modalForm.description || $_('parent.pointsActions.defaultPenaltyDescription'),
           jar: modalForm.jar
         });
         playNegativeSound();
@@ -890,7 +891,7 @@
       });
       await loadDashboard();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to process redemption');
+      alert($_('parent.redemptions.processError'));
     }
   }
 
@@ -952,7 +953,7 @@
     const childId = activeModal.child.child.id;
     const displayName = childEditForm.display_name.trim();
     if (!displayName) {
-      childEditError = 'Display name is required';
+      childEditError = $_('parent.childEdit.displayNameRequired');
       return;
     }
 
@@ -1388,7 +1389,7 @@
                   activeModal.type === 'child-link-select' ? $_('parent.childLink.modalTitle') :
                   activeModal.type === 'rewards' ? $_('parent.rewards.manage') :
                   activeModal.type === 'requests' ? $_('parent.requests.reviewRewardRequests') :
-                  'Redeem Points'}
+                  $_('parent.redeem.title')}
                 </h3>
                 <p class="text-slate-400 font-black text-[10px] sm:text-xs uppercase tracking-[0.14em] sm:tracking-[0.2em] break-words">
                   {activeModal.type === 'presets' ? (editingPresetId ? $_('parent.presets.update') : $_('parent.presets.subtitle')) :
@@ -2346,7 +2347,7 @@
           {#if activeModal.type === 'redeem' || activeModal.type === 'presets'}
             <div class="space-y-2">
               <label for="modal-title" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">
-                {activeModal.type === 'presets' ? $_('parent.presets.titleLabel') : 'Reward Name'}
+                {activeModal.type === 'presets' ? $_('parent.presets.titleLabel') : $_('parent.redeem.rewardNameLabel')}
               </label>
               <div class="flex gap-3 min-w-0">
                 {#if activeModal.type === 'presets'}
@@ -2358,7 +2359,7 @@
                   id="modal-title"
                   type="text" 
                   bind:value={modalForm.title}
-                  placeholder={activeModal.type === 'presets' ? $_('parent.presets.titlePlaceholder') : "e.g., 30 mins Screen Time"}
+                  placeholder={activeModal.type === 'presets' ? $_('parent.presets.titlePlaceholder') : $_('parent.redeem.rewardNamePlaceholder')}
                   class="min-w-0 flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 sm:px-6 py-4 font-bold text-slate-900 focus:outline-none focus:border-reward/30 transition-all"
                 />
               </div>
@@ -2424,11 +2425,11 @@
 
           {#if activeModal.type !== 'presets' && activeModal.type !== 'picker' && activeModal.type !== 'family' && activeModal.type !== 'calendar-week' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests'}
             <div class="space-y-2">
-              <label for="modal-description" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Description / Reason</label>
+              <label for="modal-description" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.redeem.descriptionLabel')}</label>
               <textarea 
                 id="modal-description"
                 bind:value={modalForm.description}
-                placeholder="What happened? (optional)"
+                placeholder={$_('parent.redeem.descriptionPlaceholder')}
                 rows="3"
                 class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-medium text-slate-900 focus:outline-none focus:border-hero/30 transition-all resize-none"
               ></textarea>
@@ -2497,10 +2498,10 @@
                  activeModal.type === 'presets' ? 'bg-hero text-white shadow-hero/20 hover:bg-hero-dark' :
                  'bg-reward text-white shadow-reward/30 hover:bg-reward-dark'}"
               >
-                {modalLoading ? (activeModal.type === 'family' ? $_('common.processing') : activeModal.type === 'presets' ? $_('common.saving') : 'Processing...') :
+                {modalLoading ? (activeModal.type === 'family' ? $_('common.processing') : activeModal.type === 'presets' ? $_('common.saving') : $_('common.processing')) :
              activeModal.type === 'presets' ? (editingPresetId ? $_('parent.presets.saveChanges') : $_('parent.presets.createPreset')) :
              activeModal.type === 'family' ? $_('parent.family.inviteGrownup') :
-             'Confirm Action'}
+             $_('common.confirmAction')}
               </button>
               {#if editingPresetId}
                 <button 

@@ -74,7 +74,8 @@ export const en = {
     unknownChild: 'Unknown child',
     noDescription: 'No description.',
     noDescriptionProvided: 'No description provided.',
-    processing: 'Processing...'
+    processing: 'Processing...',
+    confirmAction: 'Confirm Action'
   },
   home: {
     title: 'Family Hero Hub | Parent-led family rewards and routines',
@@ -619,7 +620,10 @@ export const en = {
       noPresets: 'No presets found',
       addPreset: 'Add preset',
       errorMinimumOnePoint: 'Enter at least 1 point',
-      errorActionFailed: 'Action failed'
+      errorActionFailed: 'Action failed',
+      displayNameRequired: 'Display name is required',
+      defaultAwardDescription: 'Parent Award',
+      defaultPenaltyDescription: 'Parent Penalty'
     },
     requests: {
       reviewRewardRequests: 'Review reward requests',
@@ -628,7 +632,10 @@ export const en = {
     },
     school: {
       loading: 'Loading school bag.',
-      nothingListed: 'Nothing listed.'
+      nothingListed: 'Nothing listed.',
+      itemFallback: 'School item',
+      gymClothesFallback: 'Gym clothes',
+      classBookFallback: '{className} book'
     },
     savings: {
       nextUnlock: 'Next unlock',
@@ -639,7 +646,8 @@ export const en = {
     },
     bank: {
       moveToSavedPoints: 'Move to saved points',
-      lockedNote: 'Banked points are locked for 30 days and cannot be used until unlocked.'
+      lockedNote: 'Banked points are locked for 30 days and cannot be used until unlocked.',
+      bankingDescription: 'Banking points'
     },
     pointsLog: {
       day: 'Day',
@@ -682,6 +690,8 @@ export const en = {
     childEdit: {
       heading: 'Update display name and avatar',
       displayName: 'Display name',
+      displayNamePrompt: "Enter your child's display name",
+      displayNameRequired: 'Display name is required',
       avatar: 'Avatar',
       avatarHelp: 'Pick an avatar or use initials.',
       avatarOption: 'Avatar {number}',
@@ -695,6 +705,7 @@ export const en = {
       qrHelp: 'This QR links one tablet or phone directly to this child profile.',
       generatingQr: 'Generating QR',
       modalTitle: 'Link child device',
+      revokeConfirmAllAccess: 'Revoke all child device access for this child?',
       chooseChildFirst: 'Choose a child first',
       dashboardLink: 'Child dashboard link',
       expires: 'Expires',
@@ -737,6 +748,17 @@ export const en = {
       confirmDelete: 'Delete this reward?',
       errorSave: 'Unable to save reward',
       errorDelete: 'Unable to delete reward'
+    },
+    redemptions: {
+      defaultTitle: 'Reward Request',
+      processError: 'Failed to process redemption'
+    },
+    redeem: {
+      title: 'Redeem Points',
+      rewardNameLabel: 'Reward Name',
+      rewardNamePlaceholder: 'e.g., 30 mins Screen Time',
+      descriptionLabel: 'Description / Reason',
+      descriptionPlaceholder: 'What happened? (optional)'
     }
   },
   allowance: {
@@ -1185,7 +1207,8 @@ export const ar = {
     unknownChild: 'طفل غير معروف',
     noDescription: 'لا يوجد وصف.',
     noDescriptionProvided: 'لا يوجد وصف.',
-    processing: 'جار المعالجة...'
+    processing: 'جار المعالجة...',
+    confirmAction: 'تأكيد الإجراء'
   },
   home: {
     title: 'Family Hero Hub | مكافآت وروتين عائلي بقيادة الوالدين',
@@ -1730,7 +1753,10 @@ export const ar = {
       noPresets: 'لا توجد قوالب',
       addPreset: 'إضافة قالب',
       errorMinimumOnePoint: 'أدخل نقطة واحدة على الأقل',
-      errorActionFailed: 'فشلت العملية'
+      errorActionFailed: 'فشلت العملية',
+      displayNameRequired: 'اسم العرض مطلوب',
+      defaultAwardDescription: 'مكافأة من الوالدين',
+      defaultPenaltyDescription: 'عقوبة من الوالدين'
     },
     requests: {
       reviewRewardRequests: 'مراجعة طلبات المكافآت',
@@ -1739,7 +1765,10 @@ export const ar = {
     },
     school: {
       loading: 'جار تحميل الحقيبة المدرسية.',
-      nothingListed: 'لا يوجد شيء مسجل.'
+      nothingListed: 'لا يوجد شيء مسجل.',
+      itemFallback: 'عنصر مدرسي',
+      gymClothesFallback: 'ملابس الرياضة',
+      classBookFallback: 'كتاب {className}'
     },
     savings: {
       nextUnlock: 'الفتح القادم',
@@ -1750,7 +1779,8 @@ export const ar = {
     },
     bank: {
       moveToSavedPoints: 'نقل إلى النقاط المدخرة',
-      lockedNote: 'النقاط المدخرة تقفل لمدة 30 يوما ولا يمكن استخدامها حتى تُفتح.'
+      lockedNote: 'النقاط المدخرة تقفل لمدة 30 يوما ولا يمكن استخدامها حتى تُفتح.',
+      bankingDescription: 'إيداع النقاط'
     },
     pointsLog: {
       day: 'اليوم',
@@ -1793,6 +1823,8 @@ export const ar = {
     childEdit: {
       heading: 'تحديث اسم العرض والصورة الرمزية',
       displayName: 'اسم العرض',
+      displayNamePrompt: 'أدخل اسم العرض لطفلك',
+      displayNameRequired: 'اسم العرض مطلوب',
       avatar: 'الصورة الرمزية',
       avatarHelp: 'اختر صورة رمزية أو استخدم الأحرف الأولى.',
       avatarOption: 'الصورة الرمزية {number}',
@@ -1806,6 +1838,7 @@ export const ar = {
       qrHelp: 'يربط رمز QR هذا جهازًا لوحيًا أو هاتفًا واحدًا مباشرةً بملف هذا الطفل.',
       generatingQr: 'جارٍ إنشاء رمز QR',
       modalTitle: 'ربط جهاز الطفل',
+      revokeConfirmAllAccess: 'إلغاء جميع صلاحيات الوصول إلى أجهزة هذا الطفل؟',
       chooseChildFirst: 'اختر طفلًا أولًا',
       dashboardLink: 'رابط لوحة الطفل',
       expires: 'ينتهي',
@@ -1848,6 +1881,17 @@ export const ar = {
       confirmDelete: 'حذف هذه المكافأة؟',
       errorSave: 'تعذر حفظ المكافأة',
       errorDelete: 'تعذر حذف المكافأة'
+    },
+    redemptions: {
+      defaultTitle: 'طلب مكافأة',
+      processError: 'تعذر معالجة الاستبدال'
+    },
+    redeem: {
+      title: 'استبدال النقاط',
+      rewardNameLabel: 'اسم المكافأة',
+      rewardNamePlaceholder: 'مثال: 30 دقيقة من وقت الشاشة',
+      descriptionLabel: 'الوصف / السبب',
+      descriptionPlaceholder: 'ماذا حدث؟ (اختياري)'
     }
   },
   allowance: {
