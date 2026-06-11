@@ -438,7 +438,7 @@
     } catch (e) {
       schoolExistingRows = [];
       schoolRows = [newSchoolRow()];
-      schoolError = e instanceof Error ? e.message : $_('calendar.unableToLoadSchoolItems');
+      schoolError = $_('calendar.unableToLoadSchoolItems');
     } finally {
       schoolLoading = false;
     }
@@ -513,7 +513,7 @@
         schoolError = $_('calendar.sessionExpired');
         calendarNotice = $_('calendar.sessionExpired');
       } else {
-        schoolError = e instanceof Error ? e.message : $_('calendar.unableToSaveSchoolItems');
+        schoolError = $_('calendar.unableToSaveSchoolItems');
       }
     } finally {
       schoolSaving = false;
@@ -561,7 +561,7 @@
       await loadChildren();
       await loadCalendar();
     } catch (e) {
-      error = e instanceof Error ? e.message : $_('calendar.unableToLoadCalendar');
+      error = $_('calendar.unableToLoadCalendar');
     } finally {
       loading = false;
     }
@@ -576,7 +576,7 @@
     try {
       await loadCalendar();
     } catch (e) {
-      calendarNotice = e instanceof Error ? e.message : $_('calendar.unableToLoadCalendar');
+      calendarNotice = $_('calendar.unableToLoadCalendar');
     }
   }
 
@@ -680,7 +680,7 @@
         formError = $_('calendar.sessionExpired');
         calendarNotice = $_('calendar.sessionExpired');
       } else {
-        formError = e instanceof Error ? e.message : $_('calendar.unableToSave');
+        formError = $_('calendar.unableToSave');
       }
     } finally {
       saving = false;
@@ -704,7 +704,7 @@
         calendarNotice = $_('calendar.itemAlreadyRemoved');
         await refreshCalendar();
       } else {
-        calendarNotice = e instanceof Error ? e.message : $_('calendar.unableToDisable');
+        calendarNotice = $_('calendar.unableToDisable');
       }
     }
   }
@@ -721,7 +721,7 @@
         calendarNotice = $_('calendar.itemNoLongerAvailable');
         await refreshCalendar();
       } else {
-        calendarNotice = e instanceof Error ? e.message : $_('calendar.unableToComplete');
+        calendarNotice = $_('calendar.unableToComplete');
       }
     }
   }
@@ -739,7 +739,7 @@
         calendarNotice = $_('calendar.completionAlreadyHandled');
         await refreshCalendar();
       } else {
-        calendarNotice = e instanceof Error ? e.message : $_('calendar.unableToApprove');
+        calendarNotice = $_('calendar.unableToApprove');
       }
     }
   }
@@ -757,7 +757,7 @@
         calendarNotice = $_('calendar.completionAlreadyHandled');
         await refreshCalendar();
       } else {
-        calendarNotice = e instanceof Error ? e.message : $_('calendar.unableToReject');
+        calendarNotice = $_('calendar.unableToReject');
       }
     }
   }
