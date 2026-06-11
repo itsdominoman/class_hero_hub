@@ -541,6 +541,19 @@ export const en = {
     requestAccess: 'Request access',
     errorSubmit: 'Failed to submit request. Please try again later.'
   },
+  familyInvite: {
+    loadingTitle: 'Verifying Invite',
+    loadingText: 'One moment while we check your invitation...',
+    errorTitle: 'Invitation Error',
+    errorText: 'This link may be expired, already used, or revoked.',
+    backHome: 'Back to Home',
+    invitedTitle: "You're Invited!",
+    invitedText: "You've been invited to join a family on {appName}.",
+    emailLabel: 'Invited Email',
+    loginRequirement: 'You must sign in with this Google account to join.',
+    benefitsText: "By joining, you'll be able to manage chores, awards, and rewards for this family.",
+    invalidOrExpired: 'Invalid or expired invitation'
+  },
   parent: {
     title: 'My Family',
     loginRequired: 'Parent access required',
@@ -1377,6 +1390,19 @@ export const ar = {
     noAccess: 'ليس لديك وصول بعد؟',
     requestAccess: 'اطلب الوصول',
     errorSubmit: 'فشل إرسال الطلب. يرجى المحاولة مرة أخرى لاحقًا.'
+  },
+  familyInvite: {
+    loadingTitle: 'جارٍ التحقق من الدعوة',
+    loadingText: 'لحظة واحدة بينما نتحقق من دعوتك...',
+    errorTitle: 'خطأ في الدعوة',
+    errorText: 'قد يكون هذا الرابط منتهي الصلاحية أو استُخدم بالفعل أو أُلغي.',
+    backHome: 'العودة إلى الصفحة الرئيسية',
+    invitedTitle: 'أنت مدعو!',
+    invitedText: 'تمت دعوتك للانضمام إلى عائلة على {appName}.',
+    emailLabel: 'البريد الإلكتروني المدعو',
+    loginRequirement: 'يجب تسجيل الدخول باستخدام حساب Google هذا للانضمام.',
+    benefitsText: 'بعد الانضمام، ستتمكن من إدارة المهام والجوائز والمكافآت لهذه العائلة.',
+    invalidOrExpired: 'الدعوة غير صالحة أو انتهت صلاحيتها'
   },
   faq: {
     pageTitle: 'الأسئلة الشائعة | Family Hero Hub',

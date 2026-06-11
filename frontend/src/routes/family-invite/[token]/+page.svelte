@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { _ } from 'svelte-i18n';
   import { page } from '$app/state';
   import { api } from '$lib/api';
   import { LogIn, UserPlus, CheckCircle2, AlertCircle, Loader2, ArrowRight } from 'lucide-svelte';
@@ -9,6 +10,24 @@
   let error = $state<string | null>(null);
   let inviteEmail = $state<string | null>(null);
 
+  function inviteErrorMessage(e: unknown) {
+    const message = e instanceof Error ? e.message : '';
+
+    const normalisedMessage = message.toLowerCase();
+
+    if (
+      normalisedMessage.includes('invalid') ||
+      normalisedMessage.includes('expired') ||
+      normalisedMessage.includes('not found') ||
+      normalisedMessage.includes('already used') ||
+      normalisedMessage.includes('revoked')
+    ) {
+      return $_('familyInvite.invalidOrExpired');
+    }
+
+    return message || $_('familyInvite.invalidOrExpired');
+  }
+
   async function verifyInvite() {
     try {
       loading = true;
@@ -16,7 +35,7 @@
       const data = await api.get(`/auth/invite/verify/${token}`);
       inviteEmail = data.email;
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Invalid or expired invitation';
+      error = inviteErrorMessage(e);
     } finally {
       loading = false;
     }
@@ -40,8 +59,8 @@
             </div>
           </div>
           <div>
-            <h1 class="text-2xl font-black text-slate-900 uppercase tracking-tight">Verifying Invite</h1>
-            <p class="text-slate-500 font-medium mt-2">One moment while we check your invitation...</p>
+            <h1 class="text-2xl font-black text-slate-900 uppercase tracking-tight">{$_('familyInvite.loadingTitle')}</h1>
+            <p class="text-slate-500 font-medium mt-2">{$_('familyInvite.loadingText')}</p>
           </div>
         </div>
       {:else if error}
@@ -50,12 +69,12 @@
             <AlertCircle size={40} />
           </div>
           <div>
-            <h1 class="text-2xl font-black text-slate-900 uppercase tracking-tight">Invitation Error</h1>
+            <h1 class="text-2xl font-black text-slate-900 uppercase tracking-tight">{$_('familyInvite.errorTitle')}</h1>
             <p class="text-red-500 font-bold mt-2">{error}</p>
-            <p class="text-slate-500 text-sm mt-4">This link may be expired, already used, or revoked.</p>
+            <p class="text-slate-500 text-sm mt-4">{$_('familyInvite.errorText')}</p>
           </div>
           <a href="/" class="btn-secondary w-full py-4 rounded-2xl flex items-center justify-center gap-2">
-            Back to Home
+            {$_('familyInvite.backHome')}
           </a>
         </div>
       {:else}
@@ -64,24 +83,24 @@
             <UserPlus size={40} />
           </div>
           <div>
-            <h1 class="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tight">You're Invited!</h1>
+            <h1 class="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tight">{$_('familyInvite.invitedTitle')}</h1>
             <p class="text-slate-600 font-medium mt-3">
-              You've been invited to join a family on <strong>Family Hero Hub</strong>.
+              {$_('familyInvite.invitedText', { values: { appName: $_('app.name') } })}
             </p>
           </div>
 
           <div class="w-full bg-slate-50 rounded-2xl p-6 border-2 border-dashed border-slate-200">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Invited Email</p>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{$_('familyInvite.emailLabel')}</p>
             <p class="text-lg font-black text-slate-900 break-all">{inviteEmail}</p>
-            <p class="text-[10px] text-slate-400 font-bold mt-2">MUST login with this Google account to join.</p>
+            <p class="text-[10px] text-slate-400 font-bold mt-2">{$_('familyInvite.loginRequirement')}</p>
           </div>
 
           <div class="space-y-4 w-full pt-4">
             <button onclick={goToLogin} class="btn-hero w-full py-5 rounded-2xl flex items-center justify-center gap-3 text-base sm:text-lg shadow-xl shadow-hero/20 hover:scale-[1.02] active:scale-95 transition-all">
-              <LogIn size={24} /> Login with Google
+              <LogIn size={24} /> {$_('login.continueGoogle')}
             </button>
             <p class="text-xs text-slate-400 font-medium">
-              By joining, you'll be able to manage chores, awards, and rewards for this family.
+              {$_('familyInvite.benefitsText')}
             </p>
           </div>
         </div>
