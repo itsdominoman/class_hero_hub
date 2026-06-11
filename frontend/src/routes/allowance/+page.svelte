@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { _ } from 'svelte-i18n';
+  import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
   import {
     CURRENCY_EXPONENTS,
@@ -181,7 +181,7 @@
   }
 
   function formatPeriodDate(value: string) {
-    return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, {
+    return new Date(`${value}T00:00:00`).toLocaleDateString($locale || 'en', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
@@ -432,8 +432,8 @@
 
             {#if childLoading}
               <div class="card border-slate-100 bg-white p-6 shadow-xl">
-                <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Loading child settings</p>
-                <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">{$_('allowance.loadingDetails', { values: { name: selectedChild?.child.display_name || 'this child' } })}</p>
+                <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('allowance.loadingChildSettings')}</p>
+                <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">{$_('allowance.loadingDetails', { values: { name: selectedChild?.child.display_name || $_('allowance.thisChild') } })}</p>
               </div>
             {:else}
               <div class="card border-slate-100 bg-white p-5 shadow-xl sm:p-6">
@@ -511,7 +511,9 @@
                               >
                                 <span class="min-w-0">
                                   <span class="block text-sm font-black">{currency.code} — {currency.symbol} {currency.name}</span>
-                                  <span class="block text-xs font-bold text-slate-500">{currency.exponent} decimal{currency.exponent === 1 ? '' : 's'}</span>
+                                  <span class="block text-xs font-bold text-slate-500">
+                                    {currency.exponent} {currency.exponent === 1 ? $_('allowance.decimalSingular') : $_('allowance.decimalPlural')}
+                                  </span>
                                 </span>
                               </button>
                             {/each}
@@ -605,7 +607,7 @@
                     <div class="mt-5 rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4">
                       <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('allowance.currentPeriodLabel')}</p>
                       <p class="mt-2 text-lg font-black text-slate-950">
-                        {formatPeriodDate(preview.period_start)} to {formatPeriodDate(preview.period_end)}
+                        {formatPeriodDate(preview.period_start)} {$_('allowance.periodRangeSeparator')} {formatPeriodDate(preview.period_end)}
                       </p>
                     </div>
 
@@ -616,7 +618,7 @@
 
                       {#if preview.allowance_enabled_at}
                         <p class="mt-4 text-sm font-medium leading-relaxed text-slate-600">
-                          {$_('allowance.enabledHistoryNote', { values: { date: new Date(preview.allowance_enabled_at).toLocaleString(undefined, {
+                          {$_('allowance.enabledHistoryNote', { values: { date: new Date(preview.allowance_enabled_at).toLocaleString($locale || 'en', {
                             month: 'short',
                             day: 'numeric',
                             hour: 'numeric',
