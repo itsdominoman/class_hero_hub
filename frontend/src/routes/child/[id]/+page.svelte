@@ -660,7 +660,11 @@
       return $_('child.sessionMissing');
     }
 
-    return error || "";
+    if (errorKind === "server-error") {
+      return $_('child.failedLoad');
+    }
+
+    return error || $_('child.failedLoad');
   }
 
   async function loadData() {
@@ -732,10 +736,9 @@
           allowanceSummary = parentAllowance;
           await loadMyDay();
         } catch (parentError) {
-          const message =
-            parentError instanceof Error
-              ? parentError.message
-              : "Unable to load child dashboard";
+          const message = parentError instanceof Error
+            ? parentError.message
+            : $_('child.failedLoad');
           if (isAuthError(message)) {
             if (isExpiredChildLinkError(childAuthMessage)) {
               errorKind = "link-expired";
@@ -749,7 +752,7 @@
             error = $_('child.notFound');
           } else {
             errorKind = "server-error";
-            error = message;
+            error = $_('child.failedLoad');
           }
           summary = null;
           ledger = [];
@@ -760,7 +763,7 @@
       }
     } catch (e) {
       errorKind = "server-error";
-      error = e instanceof Error ? e.message : "Failed to load dashboard";
+      error = $_('child.failedLoad');
       summary = null;
       ledger = [];
       redemptions = [];
@@ -799,7 +802,7 @@
       await loadData();
     } catch (e) {
       setStatus(
-        e instanceof Error ? e.message : $_('child.rewardRequestFailed'),
+        $_('child.rewardRequestFailed'),
         "error",
       );
     } finally {
@@ -861,7 +864,7 @@
       await loadData();
     } catch (e) {
       setStatus(
-        e instanceof Error ? e.message : $_('child.bankFailed'),
+        $_('child.bankFailed'),
         "error",
       );
     } finally {
@@ -2181,7 +2184,7 @@
         <button
           type="button"
           class="absolute inset-0 cursor-default"
-          aria-label="Close savings modal"
+          aria-label={$_('common.close')}
           onclick={closeSavingsBankModal}
         ></button>
         <div
@@ -2206,7 +2209,7 @@
             <button
               type="button"
               class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-              aria-label="Close savings modal"
+              aria-label={$_('common.close')}
               onclick={closeSavingsBankModal}
             >
               <X size={18} />

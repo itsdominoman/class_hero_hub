@@ -553,7 +553,8 @@ export const en = {
     emailLabel: 'Invited Email',
     loginRequirement: 'You must sign in with this Google account to join.',
     benefitsText: "By joining, you'll be able to manage chores, awards, and rewards for this family.",
-    invalidOrExpired: 'Invalid or expired invitation'
+    invalidOrExpired: 'Invalid or expired invitation',
+    genericInviteError: 'Could not verify this invitation'
   },
   parent: {
     title: 'My Family',
@@ -953,6 +954,7 @@ export const en = {
     bankingDescription: 'Banking points',
     gymClothesFallback: 'Gym clothes',
     classBookFallback: '{className} book',
+    failedLoad: 'Failed to load dashboard',
     activityEarned: 'Earned',
     activityLost: 'Lost',
     activityAdjusted: 'Adjusted',
@@ -1430,7 +1432,8 @@ export const ar = {
     emailLabel: 'البريد الإلكتروني المدعو',
     loginRequirement: 'يجب تسجيل الدخول باستخدام حساب Google هذا للانضمام.',
     benefitsText: 'بعد الانضمام، ستتمكن من إدارة المهام والجوائز والمكافآت لهذه العائلة.',
-    invalidOrExpired: 'الدعوة غير صالحة أو انتهت صلاحيتها'
+    invalidOrExpired: 'الدعوة غير صالحة أو انتهت صلاحيتها',
+    genericInviteError: 'تعذر التحقق من هذه الدعوة'
   },
   faq: {
     pageTitle: 'الأسئلة الشائعة | Family Hero Hub',
@@ -2086,6 +2089,7 @@ export const ar = {
     bankingDescription: 'إيداع النقاط',
     gymClothesFallback: 'ملابس الرياضة',
     classBookFallback: 'كتاب {className}',
+    failedLoad: 'تعذر تحميل اللوحة',
     activityEarned: 'مكتسب',
     activityLost: 'مفقود',
     activityAdjusted: 'تم التعديل',

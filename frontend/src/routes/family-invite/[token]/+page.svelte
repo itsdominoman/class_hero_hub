@@ -10,10 +10,11 @@
   let error = $state<string | null>(null);
   let inviteEmail = $state<string | null>(null);
 
-  function inviteErrorMessage(e: unknown) {
-    const message = e instanceof Error ? e.message : '';
+  const getErrorMessageText = (e: unknown) =>
+    e instanceof Error ? e.message : typeof e === 'string' ? e : '';
 
-    const normalisedMessage = message.toLowerCase();
+  function inviteErrorMessage(e: unknown) {
+    const normalisedMessage = getErrorMessageText(e).trim().toLowerCase();
 
     if (
       normalisedMessage.includes('invalid') ||
@@ -25,7 +26,7 @@
       return $_('familyInvite.invalidOrExpired');
     }
 
-    return message || $_('familyInvite.invalidOrExpired');
+    return $_('familyInvite.genericInviteError');
   }
 
   async function verifyInvite() {

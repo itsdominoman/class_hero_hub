@@ -18,12 +18,18 @@
   let error = $state<string | null>(null);
   let childName = $state('');
 
+  const getErrorMessageText = (e: unknown) =>
+    e instanceof Error ? e.message : typeof e === 'string' ? e : '';
+
   const getLinkErrorMessage = (e: unknown) => {
-    if (e instanceof Error) {
-      if (e.message.trim().toLowerCase() === 'invalid or expired child link') {
-        return $_('childLink.invalidOrExpired');
-      }
-      return e.message;
+    const message = getErrorMessageText(e).trim().toLowerCase();
+
+    if (
+      message.includes('invalid or expired child link') ||
+      message.includes('invalid child link') ||
+      message.includes('expired child link')
+    ) {
+      return $_('childLink.invalidOrExpired');
     }
 
     return $_('childLink.genericLinkError');
