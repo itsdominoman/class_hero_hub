@@ -655,6 +655,14 @@
   const isNotFoundError = (message: string) =>
     message.toLowerCase().includes("not found");
 
+  function displayErrorMessage() {
+    if (error?.toLowerCase().includes("child session missing")) {
+      return $_('child.sessionMissing');
+    }
+
+    return error || "";
+  }
+
   async function loadData() {
     try {
       loading = true;
@@ -899,7 +907,7 @@
                   ? $_('child.notFound')
                   : $_('child.unavailable')}
         </h1>
-        <p class="text-slate-600 mb-6 break-words">{error}</p>
+        <p class="text-slate-600 mb-6 break-words">{displayErrorMessage()}</p>
         {#if errorKind === "wrong-child"}
           <a
             href="/parent"

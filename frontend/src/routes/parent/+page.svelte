@@ -1484,7 +1484,8 @@
                       </div>
 
                       <div class="mt-4 grid max-h-72 grid-cols-3 gap-2 overflow-y-auto pr-1 sm:grid-cols-4">
-                        {#each AVATAR_OPTIONS as option}
+                        {#each AVATAR_OPTIONS as option, index}
+                          {@const avatarOptionLabel = $_('parent.childEdit.avatarOption', { values: { number: index + 1 } })}
                           {@const selected = childEditForm.avatar_name === option.key}
                           <button
                             type="button"
@@ -1495,13 +1496,13 @@
                             <div class="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-slate-50">
                               <img
                                 src={option.path}
-                                alt={option.label}
+                                alt={avatarOptionLabel}
                                 class="h-full w-full object-cover"
                                 loading="lazy"
                               />
                             </div>
                             <span class="w-full truncate text-[10px] font-black uppercase tracking-[0.08em] text-slate-500">
-                              {option.label}
+                              {avatarOptionLabel}
                             </span>
                           </button>
                         {/each}
