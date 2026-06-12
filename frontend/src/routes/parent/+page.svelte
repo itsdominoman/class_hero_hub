@@ -1496,8 +1496,10 @@
     ></div>
 
     <!-- Modal Content -->
-    <div class="bg-white rounded-t-[2rem] sm:rounded-[2.5rem] w-full max-w-lg shadow-2xl relative z-10 overflow-hidden animate-in fade-in zoom-in duration-300 max-h-[calc(100dvh-var(--safe-top))] sm:max-h-[92dvh] flex flex-col">
-      <div class="p-5 sm:p-8 md:p-10 flex flex-col min-h-0 overflow-hidden pb-[calc(1rem+var(--safe-bottom))] sm:pb-4">
+    <!-- The picker gets a fixed height so switching tabs (points / savings /
+         points log / …) doesn't resize the sheet; tabs scroll internally. -->
+    <div class="bg-white rounded-t-[2rem] sm:rounded-[2.5rem] w-full max-w-lg shadow-2xl relative z-10 overflow-hidden animate-in fade-in zoom-in duration-300 max-h-[calc(100dvh-var(--safe-top))] sm:max-h-[92dvh] flex flex-col {activeModal.type === 'picker' ? 'h-[calc(100dvh-var(--safe-top))] sm:h-[min(50rem,92dvh)]' : ''}">
+      <div class="flex-1 p-5 sm:p-8 md:p-10 flex flex-col min-h-0 overflow-hidden pb-[calc(1rem+var(--safe-bottom))] sm:pb-4">
         <div class="flex items-start gap-3 sm:gap-4 mb-6 sm:mb-8 shrink-0">
           {#if activeModal.type === 'picker'}
             {@const headerAvatar = childAvatarAsset(activeModal.child)}
