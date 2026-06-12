@@ -792,7 +792,49 @@
     }
   }
 
-  async function submitCustomPoints(direction: 'award' | 'penalty') {
+  // Keeps the open picker modal's child object in sync after a reload,
+  // so the points pill in the header updates without closing the modal.
+  function refreshActiveModalChild() {
+    if (!activeModal?.child) return;
+    const refreshed = children.find(
+      (childSummary) => childSummary.child.id === activeModal.child.child.id
+    );
+    if (refreshed) {
+      activeModal = { ...activeModal, child: refreshed };
+    }
+  }
+
+  type PointFloat = { id: number; label: string; tone: 'gain' | 'loss'; x: number; y: number };
+  let pointFloats = $state<PointFloat[]>([]);
+  let pointFloatSeq = 0;
+
+  function captureFloatOrigin(event?: Event) {
+    const target = event?.currentTarget as HTMLElement | null;
+    const rect = target?.getBoundingClientRect();
+    if (!rect) return null;
+    return { x: rect.left + rect.width / 2, y: rect.top + 8 };
+  }
+
+  // Brief "+N"/"−N" confirmation that floats up from the tapped control.
+  function showPointFloat(origin: { x: number; y: number } | null, delta: number) {
+    if (typeof window === 'undefined' || !origin) return;
+    const id = ++pointFloatSeq;
+    pointFloats = [
+      ...pointFloats,
+      {
+        id,
+        label: `${delta > 0 ? '+' : '−'}${Math.abs(delta)}`,
+        tone: delta > 0 ? 'gain' : 'loss',
+        x: origin.x,
+        y: origin.y
+      }
+    ];
+    window.setTimeout(() => {
+      pointFloats = pointFloats.filter((float) => float.id !== id);
+    }, 1300);
+  }
+
+  async function submitCustomPoints(direction: 'award' | 'penalty', event?: Event) {
     if (!activeModal?.child) return;
 
     const points = Math.abs(Number(modalForm.points) || 0);
@@ -801,6 +843,7 @@
       return;
     }
 
+    const floatOrigin = captureFloatOrigin(event);
     preparePointSound();
 
     try {
@@ -815,6 +858,7 @@
           jar: modalForm.jar
         });
         playPositiveSound();
+        showPointFloat(floatOrigin, points);
       } else {
         await api.post(`/children/${childId}/penalty`, {
           points,
@@ -822,10 +866,12 @@
           jar: modalForm.jar
         });
         playNegativeSound();
+        showPointFloat(floatOrigin, -points);
       }
 
+      modalForm.description = '';
       await loadDashboard();
-      closeModal();
+      refreshActiveModalChild();
     } catch (e) {
       modalError = $_('parent.pointsActions.errorActionFailed');
     } finally {
@@ -833,7 +879,8 @@
     }
   }
 
-  async function applyPreset(childSummary: any, preset: any) {
+  async function applyPreset(childSummary: any, preset: any, event?: Event) {
+    const floatOrigin = captureFloatOrigin(event);
     preparePointSound();
 
     try {
@@ -853,11 +900,19 @@
         });
         playNegativeSound();
       }
+      showPointFloat(floatOrigin, preset.points);
       await loadDashboard();
-      closeModal();
+      refreshActiveModalChild();
     } catch (e) {
       alert($_('parent.presets.applyError'));
     }
+  }
+
+  // "+" / "−" tiles in the points grids: open the existing preset
+  // creation modal with the sign pre-selected.
+  function openPresetCreate(sign: 1 | -1) {
+    openModal('presets', null);
+    modalForm = { ...modalForm, points: sign };
   }
 
   async function deletePreset(id: number) {
@@ -2166,7 +2221,7 @@
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <button
                         type="button"
-                        onclick={() => submitCustomPoints('award')}
+                        onclick={(e) => submitCustomPoints('award', e)}
                         disabled={modalLoading || Math.abs(Number(modalForm.points) || 0) < 1}
                         class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-4 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-savings/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
@@ -2175,7 +2230,7 @@
                       </button>
                       <button
                         type="button"
-                        onclick={() => submitCustomPoints('penalty')}
+                        onclick={(e) => submitCustomPoints('penalty', e)}
                         disabled={modalLoading || Math.abs(Number(modalForm.points) || 0) < 1}
                         class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-penalty px-4 py-4 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-penalty/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
@@ -2188,7 +2243,7 @@
                   <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 pb-4">
                     {#each presets.filter(p => p.is_active && (activeTab === 'positive' ? p.points > 0 : p.points < 0)) as p}
                       <button
-                        onclick={() => applyPreset(activeModal.child, p)}
+                        onclick={(e) => applyPreset(activeModal.child, p, e)}
                         title={p.title}
                         class="group flex min-h-40 flex-col items-center gap-2 rounded-3xl border-2 p-3 text-center transition-all sm:min-h-44 sm:p-4 {p.points > 0 ? 'border-slate-50 hover:border-savings/20 hover:bg-savings/5' : 'border-slate-50 hover:border-penalty/20 hover:bg-penalty/5'}"
                       >
@@ -2210,6 +2265,15 @@
                         </button>
                       </div>
                     {/each}
+                    <button
+                      type="button"
+                      onclick={() => openPresetCreate(activeTab === 'positive' ? 1 : -1)}
+                      aria-label={$_('parent.pointsActions.newPreset')}
+                      class="group flex min-h-40 flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed p-3 text-center transition-all sm:min-h-44 sm:p-4 {activeTab === 'positive' ? 'border-savings/30 text-savings hover:bg-savings/5' : 'border-penalty/30 text-penalty hover:bg-penalty/5'}"
+                    >
+                      <span class="text-4xl leading-none" aria-hidden="true">{activeTab === 'positive' ? '+' : '−'}</span>
+                      <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{$_('parent.pointsActions.newPreset')}</span>
+                    </button>
                   </div>
                 {/if}
               </div>
@@ -2622,9 +2686,45 @@
     </div>
   </div>
 {/if}
+
+{#each pointFloats as float (float.id)}
+  <div
+    class="point-float {float.tone === 'gain' ? 'text-savings' : 'text-penalty'}"
+    style={`left: ${float.x}px; top: ${float.y}px;`}
+    aria-hidden="true"
+  >
+    {float.label}
+  </div>
+{/each}
 </div>
 <style>
   /* Color, card, and button styles come from tailwind.config.js and app.css. */
+  .point-float {
+    position: fixed;
+    z-index: 130;
+    transform: translateX(-50%);
+    pointer-events: none;
+    font-weight: 800;
+    font-size: 1.25rem;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9);
+    animation: point-float-up 1.1s ease-out forwards;
+  }
+
+  @keyframes point-float-up {
+    0% {
+      opacity: 0;
+      transform: translateX(-50%) translateY(4px) scale(0.9);
+    }
+    15% {
+      opacity: 1;
+      transform: translateX(-50%) translateY(-4px) scale(1.05);
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-44px) scale(1);
+    }
+  }
+
   @keyframes fade-in {
     from { opacity: 0; }
     to { opacity: 1; }
