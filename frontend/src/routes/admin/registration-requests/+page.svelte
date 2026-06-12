@@ -134,12 +134,12 @@
             </div>
           {:else if req.status === 'approved'}
             <div class="text-right">
-              <p class="text-xs text-slate-400 font-bold uppercase tracking-widest mb-1">Approved On</p>
+              <p class="text-xs text-slate-400 font-bold uppercase tracking-wide mb-1">Approved On</p>
               <p class="text-sm text-emerald-600 font-bold">{formatDate(req.approved_at)}</p>
             </div>
           {:else if req.status === 'rejected'}
             <div class="text-right">
-              <p class="text-xs text-slate-400 font-bold uppercase tracking-widest mb-1">Rejected On</p>
+              <p class="text-xs text-slate-400 font-bold uppercase tracking-wide mb-1">Rejected On</p>
               <p class="text-sm text-slate-500 font-bold">{formatDate(req.rejected_at)}</p>
               {#if req.rejection_reason}
                 <p class="text-xs text-slate-400 mt-1 max-w-[200px] truncate" title={req.rejection_reason}>

@@ -91,8 +91,8 @@
           </div>
 
           <div class="w-full bg-slate-50 rounded-2xl p-6 border-2 border-dashed border-slate-200">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{$_('familyInvite.emailLabel')}</p>
-            <p class="text-lg font-black text-slate-900 break-all">{inviteEmail}</p>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">{$_('familyInvite.emailLabel')}</p>
+            <p class="text-lg font-bold text-slate-900 break-all">{inviteEmail}</p>
             <p class="text-[10px] text-slate-400 font-bold mt-2">{$_('familyInvite.loginRequirement')}</p>
           </div>
 
@@ -111,7 +111,7 @@
     <!-- Branding -->
     <div class="mt-12 flex flex-col items-center gap-4 opacity-40 grayscale">
         <img src="/family-hero-hub-logo.png" alt="Family Hero Hub" class="h-12 w-auto" />
-        <span class="text-[10px] font-black uppercase tracking-[0.4em] text-slate-900">Family Hero Hub</span>
+        <span class="text-[10px] font-semibold uppercase tracking-wide text-slate-900">Family Hero Hub</span>
     </div>
   </div>
 </div>

@@ -235,9 +235,9 @@
       <div class="grid lg:grid-cols-[1.1fr_0.9fr] gap-6 sm:gap-8 items-stretch">
         <div class="card p-6 sm:p-8 lg:p-10 relative overflow-hidden">
           <div class="relative z-10">
-            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-hero/10 text-hero text-sm font-black mb-6 border border-hero/20">
+            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-hero/10 text-hero text-sm font-bold mb-6 border border-hero/20">
               <HelpCircle size={16} />
-              <span class="uppercase tracking-[0.14em]">{$_('faq.heroEyebrow')}</span>
+              <span class="uppercase tracking-wide">{$_('faq.heroEyebrow')}</span>
             </div>
 
             <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 leading-[0.95] mb-5">
@@ -257,13 +257,13 @@
               </a>
             </div>
 
-            <p class="mt-6 text-xs font-black uppercase tracking-[0.2em] text-slate-400">{$_('faq.heroLastReviewed')}</p>
+            <p class="mt-6 text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('faq.heroLastReviewed')}</p>
           </div>
         </div>
 
         <div class="card p-6 sm:p-8 lg:p-10 !bg-slate-900 text-white relative overflow-hidden">
           <div class="relative z-10">
-            <h2 class="text-2xl sm:text-3xl font-black mb-4">{$_('faq.jumpHeading')}</h2>
+            <h2 class="text-2xl sm:text-3xl font-bold mb-4">{$_('faq.jumpHeading')}</h2>
             <p class="text-slate-300 leading-relaxed mb-6">
               {$_('faq.jumpIntro')}
             </p>
@@ -296,7 +296,7 @@
               <SectionIcon size={28} />
             </div>
             <div class="min-w-0">
-              <h2 class="text-2xl sm:text-3xl font-black text-slate-900">{$_(section.label)}</h2>
+              <h2 class="text-2xl sm:text-3xl font-bold text-slate-900">{$_(section.label)}</h2>
               <p class="text-slate-600 mt-1 leading-relaxed max-w-3xl">{$_(section.description)}</p>
             </div>
           </div>
@@ -304,7 +304,7 @@
           <div class="grid gap-4 sm:gap-5">
             {#each section.items as item}
               <div class="rounded-3xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5 shadow-sm">
-                <h3 class="text-base sm:text-lg font-black text-slate-900 leading-snug">{item.question.startsWith('faq.') ? $_(item.question) : item.question}</h3>
+                <h3 class="text-base sm:text-lg font-bold text-slate-900 leading-snug">{item.question.startsWith('faq.') ? $_(item.question) : item.question}</h3>
                 <p class="mt-2 text-sm sm:text-base text-slate-600 leading-relaxed">{item.answer.startsWith('faq.') ? $_(item.answer) : item.answer}</p>
               </div>
             {/each}

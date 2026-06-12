@@ -18,7 +18,7 @@
 
 <div class="max-w-5xl mx-auto px-4 py-16">
   <div class="mb-12">
-    <p class="text-xs font-black uppercase tracking-[0.2em] text-savings">{$_('childGuide.eyebrow')}</p>
+    <p class="text-xs font-semibold uppercase tracking-wide text-savings">{$_('childGuide.eyebrow')}</p>
     <h1 class="mt-3 text-4xl md:text-5xl font-black text-slate-900">{$_('childGuide.heading')}</h1>
     <p class="mt-5 max-w-3xl text-lg leading-relaxed text-slate-600">
       {$_('childGuide.intro1')}
@@ -34,7 +34,7 @@
   <div class="grid gap-5 md:grid-cols-2">
     {#each cards as item}
       <section class="card p-6">
-        <h2 class="text-xl font-black text-slate-900">{$_(item[0])}</h2>
+        <h2 class="text-xl font-bold text-slate-900">{$_(item[0])}</h2>
         <p class="mt-3 leading-relaxed text-slate-600">{$_(item[1])}</p>
       </section>
     {/each}

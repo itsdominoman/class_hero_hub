@@ -12,7 +12,7 @@
 </script>
 
 <label class={compact ? 'inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm' : 'block rounded-xl border border-slate-100 bg-slate-50 px-3 py-3'}>
-  <span class={compact ? 'font-black uppercase tracking-[0.12em] text-slate-400' : 'block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.14em]'}>
+  <span class={compact ? 'font-semibold uppercase tracking-wide text-slate-400' : 'block text-[10px] font-semibold uppercase tracking-wide text-slate-400'}>
     {$_('language.label')}
   </span>
   <select

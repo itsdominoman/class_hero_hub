@@ -15,10 +15,10 @@
 
     <div class="space-y-8">
       <div>
-        <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">{$_('contact.emailSupport')}</h2>
+        <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">{$_('contact.emailSupport')}</h2>
         <a
           href="mailto:support@familyherohub.com"
-          class="inline-block max-w-full whitespace-nowrap font-black leading-tight text-hero hover:underline"
+          class="inline-block max-w-full whitespace-nowrap font-bold leading-tight text-hero hover:underline"
           style="font-size: clamp(0.78rem, 3.5vw, 1.25rem);"
         >
           {$_('contact.emailAddress')}

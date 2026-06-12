@@ -69,7 +69,7 @@
         </div>
         <h1 class="text-2xl sm:text-3xl font-black text-slate-950">{$_('childLink.errorTitle')}</h1>
         <p class="text-slate-600 max-w-md break-words">{error}</p>
-        <p class="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">
           {$_('childLink.errorHint')}
         </p>
       </div>

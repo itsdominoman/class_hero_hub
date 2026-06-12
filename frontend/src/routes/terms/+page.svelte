@@ -9,7 +9,7 @@
 <div class="max-w-4xl mx-auto px-4 py-16">
   <div class="card p-8 md:p-12">
     <h1 class="text-4xl font-black text-slate-900 mb-3">{$_('terms.heading')}</h1>
-    <p class="text-sm font-bold uppercase tracking-[0.18em] text-slate-400 mb-8">{$_('terms.lastUpdated')}</p>
+    <p class="text-sm font-semibold uppercase tracking-wide text-slate-400 mb-8">{$_('terms.lastUpdated')}</p>
 
     <div class="prose prose-slate max-w-none space-y-8 text-slate-600">
       <p class="text-lg leading-relaxed">

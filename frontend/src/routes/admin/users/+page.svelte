@@ -351,7 +351,7 @@
       </label>
 
       <label class="flex flex-col gap-1">
-        <span class="text-xs font-semibold uppercase tracking-widest text-slate-400">Status</span>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Status</span>
         <select bind:value={statusFilter} class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm">
           {#each statusOptions as option}
             <option value={option.value}>{option.label}</option>
@@ -360,7 +360,7 @@
       </label>
 
       <label class="flex flex-col gap-1">
-        <span class="text-xs font-semibold uppercase tracking-widest text-slate-400">Source</span>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Source</span>
         <select bind:value={sourceFilter} class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm">
           {#each sourceOptions as option}
             <option value={option.value}>{option.label}</option>
@@ -369,7 +369,7 @@
       </label>
 
       <label class="flex flex-col gap-1">
-        <span class="text-xs font-semibold uppercase tracking-widest text-slate-400">Family</span>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Family</span>
         <select bind:value={familyStatusFilter} class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm">
           {#each familyStatusOptions as option}
             <option value={option.value}>{option.label}</option>
@@ -378,7 +378,7 @@
       </label>
 
       <label class="flex flex-col gap-1">
-        <span class="text-xs font-semibold uppercase tracking-widest text-slate-400">Sort</span>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Sort</span>
         <select bind:value={sortBy} class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm">
           {#each sortOptions as option}
             <option value={option.value}>{option.label}</option>
@@ -387,7 +387,7 @@
       </label>
 
       <label class="flex flex-col gap-1">
-        <span class="text-xs font-semibold uppercase tracking-widest text-slate-400">Direction</span>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Direction</span>
         <select bind:value={sortDir} class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm">
           <option value="desc">Descending</option>
           <option value="asc">Ascending</option>
@@ -395,7 +395,7 @@
       </label>
 
       <label class="flex flex-col gap-1">
-        <span class="text-xs font-semibold uppercase tracking-widest text-slate-400">Page size</span>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Page size</span>
         <select bind:value={pageSize} class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm">
           {#each pageSizeOptions as option}
             <option value={option}>{option}</option>
@@ -466,7 +466,7 @@
               </div>
 
               <div>
-                <h2 class="text-xl font-black text-slate-900">
+                <h2 class="text-xl font-bold text-slate-900">
                   {user.name || user.email || user.normalized_email}
                 </h2>
                 <p class="text-sm text-slate-500">{user.email || user.normalized_email}</p>
@@ -542,22 +542,22 @@
 
           <div class="grid gap-3 text-sm text-slate-600 md:grid-cols-2 xl:grid-cols-4">
             <div class="rounded-2xl bg-slate-50 p-4">
-              <p class="text-xs font-bold uppercase tracking-widest text-slate-400">Family</p>
+              <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Family</p>
               <p class="mt-1 font-semibold text-slate-900">{familyLabel(user)}</p>
               <p class="text-xs text-slate-500">{summaryText(user)}</p>
             </div>
             <div class="rounded-2xl bg-slate-50 p-4">
-              <p class="text-xs font-bold uppercase tracking-widest text-slate-400">Last login</p>
+              <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Last login</p>
               <p class="mt-1 font-semibold text-slate-900">{formatDate(user.last_login_at)}</p>
               <p class="text-xs text-slate-500">Joined {formatDateShort(user.created_at)}</p>
             </div>
             <div class="rounded-2xl bg-slate-50 p-4">
-              <p class="text-xs font-bold uppercase tracking-widest text-slate-400">Approval</p>
+              <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Approval</p>
               <p class="mt-1 font-semibold text-slate-900">{user.approval_status || 'None'}</p>
               <p class="text-xs text-slate-500">Approved {formatDateShort(user.approved_at)}</p>
             </div>
             <div class="rounded-2xl bg-slate-50 p-4">
-              <p class="text-xs font-bold uppercase tracking-widest text-slate-400">Status</p>
+              <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Status</p>
               <p class="mt-1 font-semibold text-slate-900">{user.user_status}</p>
               <p class="text-xs text-slate-500">Revoked {formatDateShort(user.revoked_at)}</p>
             </div>
@@ -587,8 +587,8 @@
     <div class="card p-6 space-y-4">
       <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <p class="text-xs font-bold uppercase tracking-widest text-slate-400">Selected user</p>
-          <h3 class="text-2xl font-black text-slate-900">{selectedUser.name || selectedUser.email || selectedUser.normalized_email}</h3>
+          <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Selected user</p>
+          <h3 class="text-2xl font-bold text-slate-900">{selectedUser.name || selectedUser.email || selectedUser.normalized_email}</h3>
           <p class="text-sm text-slate-500">{selectedUser.email || selectedUser.normalized_email}</p>
         </div>
         <div class="flex flex-wrap gap-2">
@@ -611,21 +611,21 @@
 
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div class="rounded-2xl bg-slate-50 p-4">
-          <p class="text-xs font-bold uppercase tracking-widest text-slate-400">Family ID</p>
+          <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Family ID</p>
           <p class="mt-1 font-semibold text-slate-900">{selectedUser.family_id ?? 'None'}</p>
           <p class="text-xs text-slate-500">Children: {selectedUser.children_count} • Coparents: {selectedUser.coparents_count}</p>
         </div>
         <div class="rounded-2xl bg-slate-50 p-4">
-          <p class="text-xs font-bold uppercase tracking-widest text-slate-400">Google Sub</p>
+          <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Google Sub</p>
           <p class="mt-1 font-semibold text-slate-900">{selectedUser.google_sub_masked ?? 'Hidden'}</p>
         </div>
         <div class="rounded-2xl bg-slate-50 p-4">
-          <p class="text-xs font-bold uppercase tracking-widest text-slate-400">Registration request</p>
+          <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Registration request</p>
           <p class="mt-1 font-semibold text-slate-900">{selectedUser.registration_request_status || 'None'}</p>
           <p class="text-xs text-slate-500">{selectedUser.registration_request_family_name || 'No family name on request'}</p>
         </div>
         <div class="rounded-2xl bg-slate-50 p-4">
-          <p class="text-xs font-bold uppercase tracking-widest text-slate-400">Dates</p>
+          <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Dates</p>
           <p class="mt-1 text-sm text-slate-600">Created {formatDate(selectedUser.created_at)}</p>
           <p class="text-sm text-slate-600">Last login {formatDate(selectedUser.last_login_at)}</p>
         </div>
@@ -633,7 +633,7 @@
 
       {#if selectedUser.registration_request_message}
         <div class="rounded-2xl border border-slate-200 bg-white p-4">
-          <p class="text-xs font-bold uppercase tracking-widest text-slate-400">Request note</p>
+          <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Request note</p>
           <p class="mt-2 whitespace-pre-wrap text-sm text-slate-600">{selectedUser.registration_request_message}</p>
         </div>
       {/if}
@@ -690,8 +690,8 @@
     <div class="card w-full max-w-lg p-6 shadow-2xl">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <p class="text-xs font-bold uppercase tracking-widest text-slate-400">Confirm action</p>
-          <h3 class="mt-1 text-2xl font-black text-slate-900">
+          <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Confirm action</p>
+          <h3 class="mt-1 text-2xl font-bold text-slate-900">
             {#if pendingAction.type === 'revoke'}
               Revoke parent access
             {:else if pendingAction.type === 'restore'}
@@ -721,7 +721,7 @@
 
       {#if pendingAction.type === 'revoke' || pendingAction.type === 'suspend-family'}
         <label class="mt-4 block space-y-2">
-          <span class="text-xs font-bold uppercase tracking-widest text-slate-400">
+          <span class="text-xs font-bold uppercase tracking-wide text-slate-400">
             {pendingAction.type === 'revoke' ? 'Revoke reason' : 'Suspend reason'}
           </span>
           <textarea
