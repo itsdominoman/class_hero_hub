@@ -130,6 +130,19 @@ Production remains at https://familyherohub.com on the US VPS.
 
 ---
 
+## 🎨 Design System & Localisation
+
+- Frontend design conventions (type scale, color tokens including the
+  warm child palette vs cool parent palette, card classes) are
+  documented in [docs/DESIGN.md](docs/DESIGN.md).
+- English and Arabic strings live side by side in
+  `frontend/src/lib/i18n/messages.ts` and must keep full key parity.
+  Verify with `npm run check:i18n` (run inside `frontend/`); CI-worthy,
+  it exits non-zero when the locales diverge. See
+  [docs/LOCALISATION_NOTES.md](docs/LOCALISATION_NOTES.md).
+
+---
+
 ## ⚙️ Quick Start
 
 ### 1. Configure Environment

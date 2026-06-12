@@ -98,3 +98,18 @@ Arabic wording still needs native-speaker review before production launch, espec
 - redeem/request/spend wording
 - child-facing encouragement and negative-behaviour wording
 - approval/status wording where context changes the best Arabic term
+
+## i18n key-parity check (added 2026-06-12)
+
+English and Arabic in `frontend/src/lib/i18n/messages.ts` must always
+contain exactly the same keys. A guard script now enforces this:
+
+```
+cd frontend
+npm run check:i18n
+```
+
+It exits non-zero and lists missing keys per locale. Run it whenever
+message keys are added, renamed, or removed. On its first run it caught
+`faq.gettingStartedQuestion7/Answer7` existing only in Arabic (the
+English FAQ rendered the raw key ids); the English strings were added.

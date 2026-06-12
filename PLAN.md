@@ -113,28 +113,84 @@
 - Keeping the `window.prompt` rejection-note flow (small, works, and a
   modal rebuild risks regressions in the approval path).
 
-## CHANGELOG (updated as work lands)
+## CHANGELOG
 
-### Design system
-- (pending)
+### Design system (`be7c3d5`)
+- `tailwind.config.js`: added `child-*` semantic tokens for the warm
+  child palette; aligned `hero/savings/reward/penalty` (+`dark` shades)
+  with the values pages actually rendered via per-page overrides.
+- `app.css`: new `card-lg`, `card-flat`, `eyebrow` classes; brand CSS
+  vars updated to match.
+- Deleted the duplicated `:global(.card)`, `.btn-*`, and color-utility
+  declarations from parent/child page `<style>` blocks (they shipped
+  three different greens and two card radii).
+- Typography sweep across home, login, parent, child, calendar,
+  allowance, redemptions, request-access: `font-black` now only on page
+  H1s and primary numbers; section headings `font-bold`; labels, tabs,
+  badges, buttons `font-semibold`; all `tracking-[0.12–0.3em]` arbitrary
+  letter-spacing collapsed to `tracking-wide`; 9px text bumped to 10px.
+- All hardcoded child-dashboard hex values replaced with tokens.
 
-### Login
-- (pending)
+### Login (`d72631f`)
+- Inline Google "G" SVG replaces the hotlinked google.com favicon.
+- Blur-blob decorations removed; hero-dragon artwork added as a mascot
+  beneath the card (decorative, `aria-hidden`).
 
-### Child dashboard
-- (pending)
+### Child dashboard (`18d9828` partly, mainly `b0a…`/phase-4 commit)
+- "Available to spend" is now the single dominant number (5xl–6xl, in a
+  highlighted mint panel); previously the big number was
+  `spending_balance` labelled "Available points" while the actual
+  spendable figure sat in a small tile.
+- Saved / locked / on-hold demoted to one compact 3-tile secondary row
+  (all values + allowance equivalents preserved).
+- Loading state and empty states (no rewards / no activity / nothing
+  waiting) use the dragon artwork instead of spinner/plain text.
+- Redundant uppercase section eyebrows removed (kept ≤3 per page).
 
-### Parent dashboard
-- (pending)
+### Parent dashboard (`be0…` phase-5 commit)
+- New at-a-glance summary strip above the children grid: total
+  available points, pending reward requests (card links to
+  /redemptions), school items needed today. Uses only already-fetched
+  client-side data; no new endpoints.
+- Loading spinner and the no-children empty state use dragon egg art.
 
-### Homepage
-- (pending)
+### Homepage (`phase-6 commit`)
+- Removed the hero card's Rewards/Access/Devices mini-tile grid, which
+  duplicated the Trust/Routines/Momentum strip directly below; three
+  distinct tiles remain. (Keys retained in messages.ts.)
 
-### Workflows
-- (pending)
+### Workflows (`18d9828`)
+- Add child: `window.prompt()` replaced with the standard modal
+  (labelled input, Enter-to-submit, inline validation + error display).
+- Parent settings dropdown closes after choosing an item.
+- Child dashboard "back to parent" link: normal case, ≥44px tall, arrow
+  direction flips correctly in RTL (`rtl:rotate-0`).
+- Left alone deliberately: the reject-redemption note still uses
+  `window.prompt` (single optional field; a modal rebuild risks the
+  approval path), and `/calendar` + `/allowance` got only the shared
+  typography/token sweep, not a structural redesign.
 
-### i18n
-- (pending)
+### i18n (`884d105`)
+- `frontend/scripts/check-i18n-parity.mjs` + `npm run check:i18n` —
+  fails when en/ar key trees diverge.
+- Fixed a real pre-existing divergence it caught:
+  `faq.gettingStartedQuestion7/Answer7` existed only in Arabic, so the
+  English FAQ rendered raw key ids. English strings added.
+- New keys (both locales, Arabic phrased naturally): `parent.summary.*`,
+  `parent.addChildHint`.
 
-### Docs
-- (pending)
+### Docs (phase-9 commit)
+- `docs/DESIGN.md` (type scale, tokens, card classes, child-vs-parent
+  palette rationale, empty-state artwork, i18n/RTL rules).
+- README section linking design system + parity check.
+- `docs/LOCALISATION_NOTES.md` documents the parity check.
+
+## Needs human judgement
+- Arabic phrasing of the new strings (`parent.summary.*`,
+  `parent.addChildHint`, `faq.gettingStartedAnswer7`) deserves the same
+  native-speaker review already flagged in LOCALISATION_NOTES.md.
+- The English `gettingStartedAnswer7` mentions "an affordable
+  subscription" (mirroring the Arabic) while `home.faqAnswer7` quotes
+  "$4–$5 per month" — confirm which pricing wording should be canonical.
+- Savings green standardised on #10b981 (the in-app value); marketing
+  pages previously rendered the darker #16a34a from the old config.
