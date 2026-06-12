@@ -562,6 +562,14 @@ export const en = {
   },
   parent: {
     title: 'My Family',
+    summary: {
+      label: 'Family overview',
+      totalPoints: 'Points available across your children',
+      pendingRequests: 'Reward requests waiting for your review',
+      noPendingRequests: 'No reward requests waiting',
+      schoolToday: 'School items needed today',
+      noSchoolToday: 'Nothing needed for school today'
+    },
     loginRequired: 'Parent access required',
     loginHint: 'Sign in with Google to open the parent dashboard and manage your family account.',
     goToLogin: 'Go to Login',
@@ -1720,6 +1728,14 @@ export const ar = {
   },
   parent: {
     title: 'عائلتي',
+    summary: {
+      label: 'نظرة عامة على العائلة',
+      totalPoints: 'النقاط المتاحة لدى أطفالك',
+      pendingRequests: 'طلبات مكافآت بانتظار مراجعتك',
+      noPendingRequests: 'لا توجد طلبات مكافآت بالانتظار',
+      schoolToday: 'أغراض مطلوبة للمدرسة اليوم',
+      noSchoolToday: 'لا شيء مطلوب للمدرسة اليوم'
+    },
     loginRequired: 'مطلوب وصول وليّ الأمر',
     loginHint: 'سجّل الدخول باستخدام Google لفتح لوحة وليّ الأمر وإدارة حساب عائلتك.',
     goToLogin: 'الانتقال إلى تسجيل الدخول',

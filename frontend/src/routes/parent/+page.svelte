@@ -1157,12 +1157,31 @@
   onMount(loadDashboard);
 
   const pendingRedemptions = $derived(redemptions.filter((request) => request.status === 'pending'));
+
+  const totalAvailablePoints = $derived(
+    children.reduce((sum, childSummary) => sum + childAvailablePoints(childSummary), 0)
+  );
+
+  const schoolItemsTodayCount = $derived(
+    children.reduce(
+      (sum, childSummary) => sum + (schoolTodayByChild[childSummary.child.id]?.length || 0),
+      0
+    )
+  );
 </script>
 
 <div class="bg-slate-50 min-h-dvh max-w-full overflow-x-hidden pb-[var(--safe-bottom)]">
   {#if loading}
     <div class="flex justify-center py-24">
-      <div class="animate-spin w-12 h-12 border-4 border-hero border-t-transparent rounded-full"></div>
+      <div class="flex flex-col items-center gap-4">
+        <img
+          src="/pets/dragon-1/egg.png"
+          alt=""
+          aria-hidden="true"
+          class="w-16 h-16 object-contain animate-bounce"
+        />
+        <p class="text-sm font-semibold text-slate-500">{$_('common.loadingDashboard')}</p>
+      </div>
     </div>
   {:else if needsLogin}
     <div class="max-w-xl mx-auto px-4 py-20">
@@ -1243,6 +1262,45 @@
       </div>
 
       <div class="max-w-5xl mx-auto px-3 sm:px-4 py-6 md:py-8 space-y-6">
+        {#if children.length > 0}
+          <section aria-label={$_('parent.summary.label')} class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div class="card p-4 sm:p-5 flex items-center gap-4">
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-hero/10 text-hero">
+                <Trophy size={22} />
+              </div>
+              <div class="min-w-0">
+                <p class="text-2xl font-black text-slate-950 leading-tight">{totalAvailablePoints}</p>
+                <p class="text-xs font-semibold text-slate-500">{$_('parent.summary.totalPoints')}</p>
+              </div>
+            </div>
+            <a
+              href="/redemptions"
+              class="card p-4 sm:p-5 flex items-center gap-4 transition hover:border-hero/40 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-hero/15"
+            >
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl {pendingRedemptions.length > 0 ? 'bg-reward/10 text-reward-dark' : 'bg-slate-100 text-slate-400'}">
+                <Ticket size={22} />
+              </div>
+              <div class="min-w-0">
+                <p class="text-2xl font-black text-slate-950 leading-tight">{pendingRedemptions.length}</p>
+                <p class="text-xs font-semibold text-slate-500">
+                  {pendingRedemptions.length > 0 ? $_('parent.summary.pendingRequests') : $_('parent.summary.noPendingRequests')}
+                </p>
+              </div>
+            </a>
+            <div class="card p-4 sm:p-5 flex items-center gap-4">
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl {schoolItemsTodayCount > 0 ? 'bg-savings/10 text-savings-dark' : 'bg-slate-100 text-slate-400'}">
+                <CalendarDays size={22} />
+              </div>
+              <div class="min-w-0">
+                <p class="text-2xl font-black text-slate-950 leading-tight">{schoolItemsTodayCount}</p>
+                <p class="text-xs font-semibold text-slate-500">
+                  {schoolItemsTodayCount > 0 ? $_('parent.summary.schoolToday') : $_('parent.summary.noSchoolToday')}
+                </p>
+              </div>
+            </div>
+          </section>
+        {/if}
+
         <section class="space-y-4">
           <div class="flex flex-wrap items-center justify-end gap-3">
             <button
@@ -1258,9 +1316,13 @@
 
           {#if children.length === 0}
             <div class="card-flat border-dashed border-2 p-8 sm:p-10 text-center">
-              <div class="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[1.75rem] bg-slate-100 text-slate-400">
-                <UserPlus size={36} />
-              </div>
+              <img
+                src="/pets/dragon-1/egg.png"
+                alt=""
+                aria-hidden="true"
+                class="mx-auto mb-5 h-20 w-20 object-contain"
+                loading="lazy"
+              />
               <h3 class="text-2xl font-bold text-slate-900">{$_('parent.emptyTitle')}</h3>
               <p class="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-500">
                 {$_('parent.emptyText')}
