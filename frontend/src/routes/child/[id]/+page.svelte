@@ -881,10 +881,13 @@
   {#if loading}
     <div class="flex justify-center py-40">
       <div class="flex flex-col items-center gap-4">
-        <div
-          class="animate-spin w-14 h-14 border-4 border-hero border-t-transparent rounded-full"
-        ></div>
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">
+        <img
+          src="/pets/dragon-1/egg.png"
+          alt=""
+          aria-hidden="true"
+          class="w-20 h-20 object-contain animate-bounce"
+        />
+        <p class="text-sm font-semibold text-slate-500">
           {$_('child.loading')}
         </p>
       </div>
@@ -1016,15 +1019,13 @@
           <div
             class="card-lg p-6 md:p-8"
           >
-            <div class="flex items-center justify-between mb-5">
+            <div class="flex items-center justify-between mb-5 rounded-2xl bg-child-spend-bg border border-child-spend-border p-4 md:p-5">
               <div>
-                <p
-                  class="text-[10px] font-semibold uppercase tracking-wide text-slate-400"
-                >
-                  {$_('child.availablePoints')}
+                <p class="eyebrow text-savings-dark">
+                  {$_('child.availableToSpend')}
                 </p>
-                <p class="text-4xl md:text-5xl font-black text-slate-950 mt-1">
-                  {summary.spending_balance}
+                <p class="text-5xl md:text-6xl font-black text-slate-950 mt-1">
+                  {summary.available_spending}
                 </p>
                 {#if allowanceActive}
                   <p class="mt-2 text-sm font-bold text-slate-600">
@@ -1059,20 +1060,20 @@
                 </div>
               </div>
 
-              <div class="grid grid-cols-2 gap-3">
+              <div class="grid grid-cols-3 gap-2">
                 <div
-                  class="rounded-2xl bg-child-savings-bg border border-child-savings-border p-4"
+                  class="rounded-2xl bg-child-savings-bg border border-child-savings-border p-3"
                 >
                   <p
                     class="text-[10px] font-semibold uppercase tracking-wide text-child-savings-text"
                   >
                     {$_('child.savedPoints')}
                   </p>
-                  <p class="text-2xl font-bold text-slate-950 mt-1">
+                  <p class="text-lg font-bold text-slate-950 mt-0.5">
                     {summary.savings_balance}
                   </p>
                   {#if allowanceActive}
-                    <p class="mt-1 text-xs font-bold text-slate-500">
+                    <p class="text-xs font-semibold text-slate-500">
                       {formatMinorAmount(
                         allowanceActive.saved_allowance_minor,
                         allowanceActive.currency,
@@ -1082,42 +1083,18 @@
                   {/if}
                 </div>
                 <div
-                  class="rounded-2xl bg-child-spend-bg border border-child-spend-border p-4"
-                >
-                  <p
-                    class="text-[10px] font-semibold uppercase tracking-wide text-savings"
-                  >
-                    {$_('child.availableToSpend')}
-                  </p>
-                  <p class="text-2xl font-bold text-slate-950 mt-1">
-                    {summary.available_spending}
-                  </p>
-                  {#if allowanceActive}
-                    <p class="mt-1 text-xs font-bold text-slate-500">
-                      {formatMinorAmount(
-                        allowanceActive.available_allowance_minor,
-                        allowanceActive.currency,
-                        allowanceActive.currency_exponent,
-                      )}
-                    </p>
-                  {/if}
-                </div>
-              </div>
-
-              <div class="grid grid-cols-2 gap-3">
-                <div
-                  class="rounded-2xl bg-slate-50 border border-slate-200 p-4"
+                  class="rounded-2xl bg-slate-50 border border-slate-200 p-3"
                 >
                   <p
                     class="text-[10px] font-semibold uppercase tracking-wide text-slate-400"
                   >
                     {$_('child.lockedSaved')}
                   </p>
-                  <p class="text-xl font-bold text-slate-950 mt-1">
+                  <p class="text-lg font-bold text-slate-950 mt-0.5">
                     {summary.locked_savings}
                   </p>
                   {#if allowanceActive}
-                    <p class="mt-1 text-xs font-bold text-slate-500">
+                    <p class="text-xs font-semibold text-slate-500">
                       {formatMinorAmount(
                         allowanceActive.locked_saved_allowance_minor,
                         allowanceActive.currency,
@@ -1127,18 +1104,18 @@
                   {/if}
                 </div>
                 <div
-                  class="rounded-2xl bg-child-hold-bg border border-child-hold-border p-4"
+                  class="rounded-2xl bg-child-hold-bg border border-child-hold-border p-3"
                 >
                   <p
                     class="text-[10px] font-semibold uppercase tracking-wide text-penalty"
                   >
                     {$_('child.pointsOnHold')}
                   </p>
-                  <p class="text-xl font-bold text-slate-950 mt-1">
+                  <p class="text-lg font-bold text-slate-950 mt-0.5">
                     {summary.pending_redemptions}
                   </p>
                   {#if allowanceActive}
-                    <p class="mt-1 text-xs font-bold text-slate-500">
+                    <p class="text-xs font-semibold text-slate-500">
                       {formatMinorAmount(
                         allowanceActive.pending_allowance_minor,
                         allowanceActive.currency,
@@ -1164,11 +1141,6 @@
               class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 mb-6"
             >
               <div class="min-w-0">
-                <p
-                  class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2"
-                >
-                  {$_('child.rewardsEyebrow')}
-                </p>
                 <h2 class="text-2xl md:text-3xl font-bold text-slate-950">
                   {$_('child.chooseReward')}
                 </h2>
@@ -1249,9 +1221,14 @@
               <div
                 class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center"
               >
-                <p
-                  class="text-sm font-semibold uppercase tracking-wide text-slate-400"
-                >
+                <img
+                  src="/pets/dragon-1/hatchling.png"
+                  alt=""
+                  aria-hidden="true"
+                  class="mx-auto mb-3 w-16 h-16 object-contain"
+                  loading="lazy"
+                />
+                <p class="text-sm font-bold text-slate-600">
                   {$_('child.noRewards')}
                 </p>
                 <p class="text-sm text-slate-500 mt-2">
@@ -1268,11 +1245,6 @@
               class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 mb-6"
             >
               <div class="min-w-0">
-                <p
-                  class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2"
-                >
-                  {$_('child.customRequest')}
-                </p>
                 <h2 class="text-2xl md:text-3xl font-bold text-slate-950">
                   {$_('child.askSpend')}
                 </h2>
@@ -1381,11 +1353,6 @@
               class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 mb-6"
             >
               <div class="min-w-0">
-                <p
-                  class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2"
-                >
-                  {$_('child.recentActivity')}
-                </p>
                 <h2 class="text-2xl md:text-3xl font-bold text-slate-950">
                   {$_('child.pointsLog')}
                 </h2>
@@ -1440,9 +1407,14 @@
               <div
                 class="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-8 text-center"
               >
-                <p
-                  class="text-sm font-semibold uppercase tracking-wide text-slate-400"
-                >
+                <img
+                  src="/pets/dragon-1/egg.png"
+                  alt=""
+                  aria-hidden="true"
+                  class="mx-auto mb-3 w-16 h-16 object-contain"
+                  loading="lazy"
+                />
+                <p class="text-sm font-bold text-slate-600">
                   {$_('child.noActivity')}
                 </p>
                 <p class="text-sm text-slate-500 mt-2">
@@ -1461,11 +1433,6 @@
               class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6"
             >
               <div>
-                <p
-                  class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2"
-                >
-                  {$_('child.myDay')}
-                </p>
                 <h2 class="text-2xl font-bold text-slate-950">
                   {$_('child.todaySchedule')}
                 </h2>
@@ -1942,11 +1909,6 @@
               class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 mb-6"
             >
               <div class="min-w-0">
-                <p
-                  class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2"
-                >
-                  {$_('child.pendingRequests')}
-                </p>
                 <h2 class="text-2xl font-bold text-slate-950">
                   {$_('child.waitingRequests')}
                 </h2>
@@ -2001,9 +1963,14 @@
               <div
                 class="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center"
               >
-                <p
-                  class="text-sm font-semibold uppercase tracking-wide text-slate-400"
-                >
+                <img
+                  src="/pets/dragon-1/young-dragon.png"
+                  alt=""
+                  aria-hidden="true"
+                  class="mx-auto mb-3 w-16 h-16 object-contain"
+                  loading="lazy"
+                />
+                <p class="text-sm font-bold text-slate-600">
                   {$_('child.nothingWaiting')}
                 </p>
                 <p class="text-sm text-slate-500 mt-2">
