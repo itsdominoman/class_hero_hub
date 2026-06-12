@@ -115,7 +115,7 @@
 
 ## CHANGELOG
 
-### Design system (`be7c3d5`)
+### Design system (`be7c3d5`, `bf25f59`, `a7433ea`)
 - `tailwind.config.js`: added `child-*` semantic tokens for the warm
   child palette; aligned `hero/savings/reward/penalty` (+`dark` shades)
   with the values pages actually rendered via per-page overrides.
@@ -136,7 +136,7 @@
 - Blur-blob decorations removed; hero-dragon artwork added as a mascot
   beneath the card (decorative, `aria-hidden`).
 
-### Child dashboard (`18d9828` partly, mainly `b0a…`/phase-4 commit)
+### Child dashboard (`86473f7`, `18d9828`)
 - "Available to spend" is now the single dominant number (5xl–6xl, in a
   highlighted mint panel); previously the big number was
   `spending_balance` labelled "Available points" while the actual
@@ -147,14 +147,14 @@
   waiting) use the dragon artwork instead of spinner/plain text.
 - Redundant uppercase section eyebrows removed (kept ≤3 per page).
 
-### Parent dashboard (`be0…` phase-5 commit)
+### Parent dashboard (`4a32ed4`)
 - New at-a-glance summary strip above the children grid: total
   available points, pending reward requests (card links to
   /redemptions), school items needed today. Uses only already-fetched
   client-side data; no new endpoints.
 - Loading spinner and the no-children empty state use dragon egg art.
 
-### Homepage (`phase-6 commit`)
+### Homepage (`f9822bb`)
 - Removed the hero card's Rewards/Access/Devices mini-tile grid, which
   duplicated the Trust/Routines/Momentum strip directly below; three
   distinct tiles remain. (Keys retained in messages.ts.)
@@ -179,7 +179,7 @@
 - New keys (both locales, Arabic phrased naturally): `parent.summary.*`,
   `parent.addChildHint`.
 
-### Docs (phase-9 commit)
+### Docs (`8e4edc5`)
 - `docs/DESIGN.md` (type scale, tokens, card classes, child-vs-parent
   palette rationale, empty-state artwork, i18n/RTL rules).
 - README section linking design system + parity check.
