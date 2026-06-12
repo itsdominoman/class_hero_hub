@@ -814,7 +814,7 @@
     <div class="flex justify-center py-24">
       <div class="flex flex-col items-center gap-4">
         <div class="w-12 h-12 animate-spin rounded-full border-4 border-slate-300 border-t-hero"></div>
-        <p class="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">{$_('calendar.loadingTitle')}</p>
+        <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.loadingTitle')}</p>
       </div>
     </div>
   {:else if error}
@@ -823,7 +823,7 @@
         <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
           <CalendarDays size={32} />
         </div>
-        <h1 class="text-2xl font-black text-slate-950">{$_('calendar.errorTitle')}</h1>
+        <h1 class="text-2xl font-bold text-slate-950">{$_('calendar.errorTitle')}</h1>
         <p class="mt-3 break-words text-slate-600">{error}</p>
         <button type="button" class="btn-hero mt-8 w-full rounded-2xl px-6 py-4" onclick={loadPage}>{$_('calendar.tryAgain')}</button>
       </div>
@@ -833,32 +833,32 @@
       <div class="mx-auto max-w-7xl px-3 py-5 sm:px-4 md:px-6 md:py-8">
         <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div class="min-w-0">
-            <div class="mb-3 inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 sm:tracking-[0.24em]">
+            <div class="mb-3 inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
               <CalendarDays size={14} />
               {$_('calendar.eyebrow')}
             </div>
-            <h1 class="break-words text-3xl font-black tracking-tight text-slate-950 md:text-5xl">{$_('calendar.heading')}</h1>
+            <h1 class="break-words text-3xl font-bold tracking-tight text-slate-950 md:text-5xl">{$_('calendar.heading')}</h1>
             <p class="mt-3 max-w-2xl text-sm font-medium leading-6 text-slate-500 md:text-base">
               {$_('calendar.intro')}
             </p>
           </div>
 
           <div class="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto lg:justify-end">
-            <a href="/parent" class="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-2xl border border-hero/15 bg-hero/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-hero shadow-sm transition hover:border-hero/30 hover:bg-hero/15 hover:shadow-md sm:w-auto sm:tracking-[0.18em]">
+            <a href="/parent" class="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-2xl border border-hero/15 bg-hero/10 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-hero shadow-sm transition hover:border-hero/30 hover:bg-hero/15 hover:shadow-md sm:w-auto">
               <ArrowLeft size={16} />
               {$_('calendar.backToParentDashboard')}
             </a>
             <div class="grid w-full grid-cols-2 rounded-2xl border border-slate-200 bg-slate-50 p-1 sm:w-auto">
               <button
                 type="button"
-                class={`rounded-xl px-4 py-3 text-xs font-black uppercase tracking-[0.14em] transition sm:tracking-[0.18em] ${viewMode === 'today' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                class={`rounded-xl px-4 py-3 text-xs font-semibold uppercase tracking-wide transition ${viewMode === 'today' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
                 onclick={() => (viewMode = 'today')}
               >
                 {$_('calendar.today')}
               </button>
               <button
                 type="button"
-                class={`rounded-xl px-4 py-3 text-xs font-black uppercase tracking-[0.14em] transition sm:tracking-[0.18em] ${viewMode === 'week' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                class={`rounded-xl px-4 py-3 text-xs font-semibold uppercase tracking-wide transition ${viewMode === 'week' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
                 onclick={() => (viewMode = 'week')}
               >
                 {$_('calendar.week')}
@@ -866,7 +866,7 @@
             </div>
             <button
               type="button"
-              class="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-4 text-xs font-black uppercase tracking-[0.14em] text-white shadow-lg shadow-slate-200 transition hover:-translate-y-0.5 hover:shadow-xl sm:w-auto sm:tracking-[0.2em]"
+              class="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-4 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-slate-200 transition hover:-translate-y-0.5 hover:shadow-xl sm:w-auto"
               onclick={openCreateModal}
             >
               <Plus size={16} />
@@ -874,7 +874,7 @@
             </button>
             <button
               type="button"
-              class="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm transition hover:border-slate-300 hover:shadow-md sm:w-auto sm:tracking-[0.18em]"
+              class="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-slate-300 hover:shadow-md sm:w-auto"
               onclick={openSchoolModal}
             >
               <CalendarDays size={16} />
@@ -887,7 +887,7 @@
           <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5">
             <div class="flex flex-col gap-4 md:flex-row md:flex-wrap md:items-end md:justify-between">
               <div class="min-w-0 md:flex-1">
-                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">{$_('calendar.childLabel')}</p>
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.childLabel')}</p>
                 <div class="mt-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                   <select
                     class="w-full min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none"
@@ -903,7 +903,7 @@
                       {/each}
                     {/if}
                   </select>
-                  <div class="inline-flex max-w-full items-center gap-2 overflow-hidden rounded-full bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600 shadow-sm sm:shrink-0 sm:tracking-[0.18em]">
+                  <div class="inline-flex max-w-full items-center gap-2 overflow-hidden rounded-full bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-600 shadow-sm sm:shrink-0">
                     <Sparkles size={12} />
                     <span class="min-w-0 truncate">{getSelectedChildLabel()}</span>
                   </div>
@@ -911,7 +911,7 @@
               </div>
 
               <div class="min-w-0 md:flex-1">
-                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">{$_('calendar.selectedDateLabel')}</p>
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.selectedDateLabel')}</p>
                 <div class="mt-2 grid min-w-0 grid-cols-[48px_minmax(0,1fr)_48px] items-center gap-2">
                   <button type="button" class="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm" aria-label={$_('calendar.previousDayAria')} onclick={() => changeSelectedDate(-1)}>
                     <ChevronLeft size={18} />
@@ -930,7 +930,7 @@
 
               <button
                 type="button"
-                class="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm transition hover:border-slate-300 md:w-auto md:tracking-[0.18em]"
+                class="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-slate-300 md:w-auto md:tracking-wide"
                 onclick={setToday}
               >
                 <Sparkles size={16} />
@@ -942,10 +942,10 @@
           <div class="rounded-3xl border border-slate-200 bg-white p-4 md:p-5">
             <div class="flex items-center justify-between gap-3">
               <div>
-                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">{$_('calendar.selectedWeekLabel')}</p>
-                <p class="mt-2 text-base font-black text-slate-950">{formatShortDate(selectedDate)}</p>
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.selectedWeekLabel')}</p>
+                <p class="mt-2 text-base font-bold text-slate-950">{formatShortDate(selectedDate)}</p>
               </div>
-              <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+              <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                 {calendarItems.length} {$_('calendar.itemsLabel')}
               </span>
             </div>
@@ -961,7 +961,7 @@
       <div class="mx-auto max-w-7xl px-3 pt-4 sm:px-4 md:px-6">
         <div class="flex items-start justify-between gap-3 rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm">
           <p class="min-w-0 break-words">{calendarNotice}</p>
-          <button type="button" class="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500" onclick={() => (calendarNotice = null)}>
+          <button type="button" class="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500" onclick={() => (calendarNotice = null)}>
             {$_('calendar.dismiss')}
           </button>
         </div>
@@ -974,11 +974,11 @@
           <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
             <CalendarDays size={30} />
           </div>
-          <h2 class="mt-5 text-2xl font-black text-slate-950">{$_('calendar.noChildrenTitle')}</h2>
+          <h2 class="mt-5 text-2xl font-bold text-slate-950">{$_('calendar.noChildrenTitle')}</h2>
           <p class="mx-auto mt-3 max-w-xl text-sm font-medium leading-6 text-slate-500">
             {$_('calendar.noChildrenText')}
           </p>
-          <a href="/parent" class="mt-8 inline-flex items-center justify-center gap-2 rounded-2xl bg-hero px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-white shadow-lg shadow-hero/20">
+          <a href="/parent" class="mt-8 inline-flex items-center justify-center gap-2 rounded-2xl bg-hero px-5 py-4 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-hero/20">
             {$_('calendar.goToParentDashboard')}
           </a>
         </div>
@@ -988,10 +988,10 @@
             <div class="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
               <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div class="min-w-0">
-                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">{$_('calendar.weeklyStripLabel')}</p>
-                  <h2 class="mt-1 text-xl font-black text-slate-950">{$_('calendar.moveThroughWeek')}</h2>
+                  <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.weeklyStripLabel')}</p>
+                  <h2 class="mt-1 text-xl font-bold text-slate-950">{$_('calendar.moveThroughWeek')}</h2>
                 </div>
-                <span class="w-fit rounded-full bg-slate-100 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                <span class="w-fit rounded-full bg-slate-100 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                   {$_('calendar.sundayStart')}
                 </span>
               </div>
@@ -1007,9 +1007,9 @@
                       await refreshCalendar();
                     }}
                   >
-                    <div class="text-[10px] font-black uppercase tracking-normal opacity-70 sm:tracking-[0.16em]">{formatWeekdayLetter(weekDate)}</div>
-                    <div class="mt-1 text-lg font-black leading-none sm:mt-2">{parseDateInput(weekDate).getDate()}</div>
-                    <div class="mt-2 flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-normal text-current sm:text-[10px]">
+                    <div class="text-[10px] font-bold uppercase tracking-normal opacity-70">{formatWeekdayLetter(weekDate)}</div>
+                    <div class="mt-1 text-lg font-bold leading-none sm:mt-2">{parseDateInput(weekDate).getDate()}</div>
+                    <div class="mt-2 flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-normal text-current sm:text-[10px]">
                       <span class={`h-1.5 w-1.5 rounded-full ${dayItems.length > 0 ? 'bg-current' : 'bg-transparent'}`}></span>
                       <span>{dayItems.length}</span>
                       {#if dayItems.some((item) => item.completion?.status === 'pending')}
@@ -1028,10 +1028,10 @@
               <section class="rounded-[2rem] border border-amber-200 bg-amber-50/70 p-4 shadow-sm md:p-5">
                 <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div class="min-w-0">
-                    <p class="text-[10px] font-black uppercase tracking-[0.24em] text-amber-600">{$_('calendar.pendingApprovals')}</p>
-                    <h2 class="mt-1 text-xl font-black text-slate-950">{$_('calendar.waitingForReview', { values: { count: pendingItems().length } })}</h2>
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-amber-600">{$_('calendar.pendingApprovals')}</p>
+                    <h2 class="mt-1 text-xl font-bold text-slate-950">{$_('calendar.waitingForReview', { values: { count: pendingItems().length } })}</h2>
                   </div>
-                  <div class="rounded-full bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
+                  <div class="rounded-full bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
                     {$_('calendar.parentReview')}
                   </div>
                 </div>
@@ -1042,25 +1042,25 @@
                       <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                         <div class="min-w-0 flex-1">
                           <div class="mb-3 flex flex-wrap items-center gap-2">
-                            <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${typeBadgeClass(item.entry.entry_type)}`}>
+                            <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${typeBadgeClass(item.entry.entry_type)}`}>
                               {item.entry.entry_type === 'event' ? $_('calendar.eventType') : $_('calendar.taskType')}
                             </span>
                             {#if item.entry.is_rewardable && item.entry.entry_type === 'task'}
-                              <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
+                              <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
                                 {entryPointsLabel(item.entry)}
                               </span>
                             {/if}
-                            <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${statusBadgeClass(item.completion?.status || '')}`}>
+                            <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${statusBadgeClass(item.completion?.status || '')}`}>
                               {statusLabel(item.completion?.status || '')}
                             </span>
                           </div>
 
-                          <h3 class="text-lg font-black text-slate-950 break-words">{item.entry.title}</h3>
+                          <h3 class="text-lg font-bold text-slate-950 break-words">{item.entry.title}</h3>
                           {#if cleanDescription(item.entry)}
                             <p class="mt-2 text-sm font-medium leading-6 text-slate-600 break-words">{cleanDescription(item.entry)}</p>
                           {/if}
 
-                          <div class="mt-3 flex flex-wrap gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+                          <div class="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                             <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
                               <Clock3 size={12} />
                               {formatShortDate(item.occurrence_date)}
@@ -1082,11 +1082,11 @@
                         </div>
 
                         <div class="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-2 md:flex md:shrink-0 md:flex-wrap">
-                          <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white shadow-sm sm:tracking-[0.18em]" onclick={() => approveCompletion(item)}>
+                          <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-white shadow-sm" onclick={() => approveCompletion(item)}>
                             <Check size={16} />
                             {$_('common.approve')}
                           </button>
-                          <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-rose-700 shadow-sm sm:tracking-[0.18em]" onclick={() => rejectCompletion(item)}>
+                          <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wide text-rose-700 shadow-sm" onclick={() => rejectCompletion(item)}>
                             <X size={16} />
                             {$_('common.reject')}
                           </button>
@@ -1101,12 +1101,12 @@
             <section class="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
               <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div class="min-w-0">
-                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">{$_('calendar.agenda')}</p>
-                  <h2 class="mt-1 text-xl font-black text-slate-950">
+                  <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.agenda')}</p>
+                  <h2 class="mt-1 text-xl font-bold text-slate-950">
                     {viewMode === 'today' ? $_('calendar.today') : $_('calendar.week')}
                   </h2>
                 </div>
-                <div class="flex w-fit items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 sm:tracking-[0.18em]">
+                <div class="flex w-fit items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                   <BadgeCheck size={14} />
                   {loadingCalendar ? $_('calendar.refreshing') : `${calendarItems.length} ${$_('calendar.occurrencesLabel')}`}
                 </div>
@@ -1119,9 +1119,9 @@
                     <div class="flex flex-col gap-3 border-b border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between md:px-5">
                       <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-2">
-                          <h3 class="break-words text-lg font-black text-slate-950">{formatLongDate(day)}</h3>
+                          <h3 class="break-words text-lg font-bold text-slate-950">{formatLongDate(day)}</h3>
                           {#if day === selectedDate}
-                            <span class="rounded-full bg-slate-900 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white">{$_('calendar.selected')}</span>
+                            <span class="rounded-full bg-slate-900 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">{$_('calendar.selected')}</span>
                           {/if}
                         </div>
                         <p class="mt-1 text-sm font-medium text-slate-500">
@@ -1130,7 +1130,7 @@
                       </div>
                       <button
                         type="button"
-                        class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm sm:w-auto sm:tracking-[0.18em]"
+                        class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm sm:w-auto"
                         onclick={() => {
                           selectedDate = day;
                           viewMode = 'today';
@@ -1144,7 +1144,7 @@
                     <div class="space-y-3 p-4 md:p-5">
                       {#if dayItems.length === 0}
                         <div class="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center">
-                          <p class="text-sm font-black uppercase tracking-[0.2em] text-slate-400">{$_('calendar.noItemsYet')}</p>
+                          <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.noItemsYet')}</p>
                           <p class="mt-2 text-sm font-medium text-slate-500">{$_('calendar.addScheduleForDay')}</p>
                         </div>
                       {:else}
@@ -1153,36 +1153,36 @@
                             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                               <div class="min-w-0 flex-1">
                                 <div class="mb-3 flex flex-wrap items-center gap-2">
-                                  <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${typeBadgeClass(item.entry.entry_type)}`}>
+                                  <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${typeBadgeClass(item.entry.entry_type)}`}>
                                     {item.entry.entry_type === 'event' ? $_('calendar.eventType') : $_('calendar.taskType')}
                                   </span>
                                   {#if item.entry.is_rewardable && item.entry.entry_type === 'task'}
-                                    <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
+                                    <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
                                       {$_('calendar.rewardTask')}
                                     </span>
                                   {/if}
                                   {#if item.entry.is_rewardable && item.entry.points_value}
-                                    <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
+                                    <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
                                       {$_('calendar.pointsCount', { values: { count: item.entry.points_value } })}
                                     </span>
                                   {/if}
-                                  <span class={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${recurrenceBadgeClass(item.entry)} sm:tracking-[0.18em]`}>
+                                  <span class={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${recurrenceBadgeClass(item.entry)}`}>
                                     <Repeat2 size={12} />
                                     {item.entry.recurrence_type === 'none' ? $_('calendar.oneTime') : item.entry.recurrence_type === 'daily' ? $_('calendar.daily') : $_('calendar.weekly')}
                                   </span>
                                   {#if item.completion}
-                                    <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${statusBadgeClass(item.completion.status)}`}>
+                                    <span class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${statusBadgeClass(item.completion.status)}`}>
                                       {statusLabel(item.completion.status)}
                                     </span>
                                   {/if}
                                 </div>
 
-                                <h4 class="text-xl font-black text-slate-950 break-words">{item.entry.title}</h4>
+                                <h4 class="text-xl font-bold text-slate-950 break-words">{item.entry.title}</h4>
                                 {#if cleanDescription(item.entry)}
                                   <p class="mt-2 max-w-3xl text-sm font-medium leading-6 text-slate-600 break-words">{cleanDescription(item.entry)}</p>
                                 {/if}
 
-                                <div class="mt-4 flex flex-wrap gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+                                <div class="mt-4 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                                   <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
                                     <Clock3 size={12} />
                                     {formatTime(item.entry.start_time)}
@@ -1204,16 +1204,16 @@
 
                               <div class="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 lg:w-auto lg:min-w-[260px] lg:justify-end">
                                 {#if !item.completion}
-                                  <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white shadow-sm sm:tracking-[0.18em]" onclick={() => completeEntry(item)}>
+                                  <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-white shadow-sm" onclick={() => completeEntry(item)}>
                                     <Check size={16} />
                                     {$_('calendar.complete')}
                                   </button>
                                 {/if}
-                                <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm sm:tracking-[0.18em]" onclick={() => openEditModal(item)}>
+                                <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm" onclick={() => openEditModal(item)}>
                                   <PencilLine size={16} />
                                   {$_('calendar.edit')}
                                 </button>
-                                <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-rose-700 shadow-sm sm:tracking-[0.18em]" onclick={() => disableEntry(item)}>
+                                <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wide text-rose-700 shadow-sm" onclick={() => disableEntry(item)}>
                                   <Trash2 size={16} />
                                   {$_('calendar.disable')}
                                 </button>
@@ -1233,25 +1233,25 @@
             <div class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
               <div class="flex items-start justify-between gap-3">
                 <div>
-                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">{$_('calendar.parentView')}</p>
-                  <h2 class="mt-1 text-xl font-black text-slate-950">{$_('calendar.overview')}</h2>
+                  <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.parentView')}</p>
+                  <h2 class="mt-1 text-xl font-bold text-slate-950">{$_('calendar.overview')}</h2>
                 </div>
-                <div class="rounded-2xl bg-slate-900 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white">
+                <div class="rounded-2xl bg-slate-900 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-white">
                   {getSelectedChildLabel()}
                 </div>
               </div>
               <div class="mt-4 space-y-3 text-sm text-slate-600">
                 <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
                   <span class="font-bold text-slate-500">{$_('calendar.visibleOccurrences')}</span>
-                  <span class="font-black text-slate-950">{calendarItems.length}</span>
+                  <span class="font-bold text-slate-950">{calendarItems.length}</span>
                 </div>
                 <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
                   <span class="font-bold text-slate-500">{$_('calendar.pendingApprovalsCount')}</span>
-                  <span class="font-black text-slate-950">{pendingItems().length}</span>
+                  <span class="font-bold text-slate-950">{pendingItems().length}</span>
                 </div>
                 <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
                   <span class="font-bold text-slate-500">{$_('calendar.weekMode')}</span>
-                  <span class="font-black text-slate-950">{viewMode === 'today' ? $_('calendar.day') : $_('calendar.week')}</span>
+                  <span class="font-bold text-slate-950">{viewMode === 'today' ? $_('calendar.day') : $_('calendar.week')}</span>
                 </div>
               </div>
             </div>
@@ -1272,8 +1272,8 @@
     <div class="relative z-10 flex max-h-[calc(100dvh-var(--safe-top))] w-full flex-col overflow-hidden bg-white shadow-2xl md:max-h-[92dvh] md:max-w-2xl md:rounded-[2rem]">
       <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-4 md:px-6 md:py-5">
         <div class="min-w-0">
-          <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.schoolModalTitle')}</p>
-          <h2 class="mt-1 text-2xl font-black text-slate-950">{$_('calendar.schoolModalHeading')}</h2>
+          <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.schoolModalTitle')}</p>
+          <h2 class="mt-1 text-2xl font-bold text-slate-950">{$_('calendar.schoolModalHeading')}</h2>
           <p class="mt-2 text-sm font-medium leading-6 text-slate-500">
             {$_('calendar.schoolModalIntro')}
           </p>
@@ -1292,7 +1292,7 @@
 
         <div class="grid gap-4 sm:grid-cols-2">
           <label class="block min-w-0">
-            <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.childLabel')}</span>
+            <span class="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.childLabel')}</span>
             <select
               class="w-full min-w-0 rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-sm font-bold text-slate-900 focus:border-slate-400 focus:outline-none"
               bind:value={schoolChildId}
@@ -1305,12 +1305,12 @@
           </label>
 
           <div class="min-w-0">
-            <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.weekdayLabel')}</span>
+            <span class="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.weekdayLabel')}</span>
             <div class="grid grid-cols-7 gap-1">
               {#each SCHOOL_WEEKDAY_OPTIONS as day}
                 <button
                   type="button"
-                  class={`min-w-0 rounded-2xl border px-2 py-3 text-xs font-black uppercase transition ${schoolWeekday === day.value ? 'border-slate-900 bg-slate-900 text-white shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+                  class={`min-w-0 rounded-2xl border px-2 py-3 text-xs font-bold uppercase transition ${schoolWeekday === day.value ? 'border-slate-900 bg-slate-900 text-white shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
                   title={$_(day.name)}
                   onclick={() => handleSchoolWeekdayChange(day.value)}
                 >
@@ -1324,10 +1324,10 @@
         <div class="mt-6 rounded-[1.75rem] border border-slate-200 bg-slate-50 p-3 md:p-4">
           <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p class="text-sm font-black text-slate-950">{$_('calendar.classesAndItems')}</p>
+              <p class="text-sm font-bold text-slate-950">{$_('calendar.classesAndItems')}</p>
               <p class="mt-1 text-xs font-medium text-slate-500">{$_('calendar.schoolExamples')}</p>
             </div>
-            <button type="button" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-slate-700 sm:w-auto" onclick={addSchoolRow}>
+            <button type="button" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 sm:w-auto" onclick={addSchoolRow}>
               <Plus size={14} />
               {$_('calendar.addRow')}
             </button>
@@ -1336,14 +1336,14 @@
           <div class="space-y-3">
             {#if schoolLoading && schoolRows.length === 0}
               <div class="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center">
-                <p class="text-sm font-black uppercase tracking-[0.18em] text-slate-400">{$_('calendar.loadingSchoolItems')}</p>
+                <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.loadingSchoolItems')}</p>
               </div>
             {/if}
 
             {#each schoolRows as row}
               <div class="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto]">
                 <label class="block min-w-0">
-                  <span class="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{$_('calendar.classLabel')}</span>
+                  <span class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.classLabel')}</span>
                   <input
                     id={`${row.key}-class`}
                     type="text"
@@ -1354,7 +1354,7 @@
                   />
                 </label>
                 <label class="block min-w-0">
-                  <span class="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{$_('calendar.neededItemLabel')}</span>
+                  <span class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.neededItemLabel')}</span>
                   <input
                     type="text"
                     value={row.needed_item}
@@ -1363,7 +1363,7 @@
                     oninput={(event) => updateSchoolRow(row.key, 'needed_item', (event.currentTarget as HTMLInputElement).value)}
                   />
                 </label>
-                <button type="button" class="inline-flex h-12 items-center justify-center rounded-xl border border-rose-200 bg-white px-3 text-xs font-black uppercase tracking-[0.14em] text-rose-700 sm:self-end" onclick={() => removeSchoolRow(row.key)}>
+                <button type="button" class="inline-flex h-12 items-center justify-center rounded-xl border border-rose-200 bg-white px-3 text-xs font-semibold uppercase tracking-wide text-rose-700 sm:self-end" onclick={() => removeSchoolRow(row.key)}>
                   {$_('calendar.remove')}
                 </button>
               </div>
@@ -1372,10 +1372,10 @@
         </div>
 
         <div class="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button type="button" class="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-slate-700" onclick={closeSchoolModal}>
+          <button type="button" class="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs font-semibold uppercase tracking-wide text-slate-700" onclick={closeSchoolModal}>
             {$_('calendar.cancel')}
           </button>
-          <button type="submit" disabled={schoolSaving} class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-white disabled:opacity-60">
+          <button type="submit" disabled={schoolSaving} class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-4 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-60">
             <Check size={16} />
             {schoolSaving ? $_('calendar.saving') : $_('calendar.saveSchoolDay')}
           </button>
@@ -1394,8 +1394,8 @@
     <div class="relative z-10 flex h-[100dvh] max-h-[calc(100dvh-var(--safe-top))] w-full flex-col overflow-hidden bg-white shadow-2xl md:h-auto md:max-h-[92dvh] md:max-w-3xl md:rounded-[2rem]">
       <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-4 md:px-6 md:py-5">
         <div class="min-w-0">
-          <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">{$_('calendar.scheduleModalLabel')}</p>
-          <h2 class="mt-1 text-2xl font-black text-slate-950">{editingEntryId ? $_('calendar.editScheduleItem') : $_('calendar.addScheduleItemModal')}</h2>
+          <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.scheduleModalLabel')}</p>
+          <h2 class="mt-1 text-2xl font-bold text-slate-950">{editingEntryId ? $_('calendar.editScheduleItem') : $_('calendar.addScheduleItemModal')}</h2>
           <p class="mt-2 text-sm font-medium text-slate-500">{$_('calendar.scheduleModalIntro')}</p>
         </div>
         <button type="button" class="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 transition hover:bg-slate-200" onclick={clearModal}>
@@ -1413,7 +1413,7 @@
 
           <div class="grid gap-5 md:grid-cols-2">
             <label class="block">
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.childLabel')}</span>
+              <span class="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.childLabel')}</span>
               <select
                 bind:value={form.child_id}
                 class="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-sm font-bold text-slate-900 focus:border-slate-400 focus:outline-none disabled:opacity-60"
@@ -1430,7 +1430,7 @@
             </label>
 
             <label class="block">
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.titleLabel')}</span>
+              <span class="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.titleLabel')}</span>
               <input
                 bind:value={form.title}
                 type="text"
@@ -1440,7 +1440,7 @@
             </label>
 
             <label class="block md:col-span-2">
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.descriptionLabel')}</span>
+              <span class="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.descriptionLabel')}</span>
               <textarea
                 bind:value={form.description}
                 rows="3"
@@ -1450,18 +1450,18 @@
             </label>
 
             <div class="md:col-span-2">
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.typeLabel')}</span>
+              <span class="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.typeLabel')}</span>
               <div class="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  class={`rounded-2xl border px-4 py-4 text-sm font-black uppercase tracking-[0.18em] transition ${form.entry_type === 'task' ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+                  class={`rounded-2xl border px-4 py-4 text-sm font-semibold uppercase tracking-wide transition ${form.entry_type === 'task' ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
                   onclick={() => toggleRewardable('task')}
                 >
                   {$_('calendar.task')}
                 </button>
                 <button
                   type="button"
-                  class={`rounded-2xl border px-4 py-4 text-sm font-black uppercase tracking-[0.18em] transition ${form.entry_type === 'event' ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+                  class={`rounded-2xl border px-4 py-4 text-sm font-semibold uppercase tracking-wide transition ${form.entry_type === 'event' ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
                   onclick={() => toggleRewardable('event')}
                 >
                   {$_('calendar.event')}
@@ -1470,7 +1470,7 @@
             </div>
 
             <label class="block">
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.startDate')}</span>
+              <span class="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.startDate')}</span>
               <input
                 bind:value={form.start_date}
                 type="date"
@@ -1479,7 +1479,7 @@
             </label>
 
             <label class="block">
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.startTime')}</span>
+              <span class="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.startTime')}</span>
               <input
                 bind:value={form.start_time}
                 type="time"
@@ -1488,7 +1488,7 @@
             </label>
 
             <label class="block">
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.durationMinutes')}</span>
+              <span class="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.durationMinutes')}</span>
               <input
                 bind:value={form.duration_minutes}
                 type="number"
@@ -1499,25 +1499,25 @@
             </label>
 
             <div>
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.recurrence')}</span>
+              <span class="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.recurrence')}</span>
               <div class="grid grid-cols-3 gap-3">
                 <button
                   type="button"
-                  class={`rounded-2xl border px-4 py-4 text-xs font-black uppercase tracking-[0.18em] transition ${form.recurrence_type === 'none' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+                  class={`rounded-2xl border px-4 py-4 text-xs font-semibold uppercase tracking-wide transition ${form.recurrence_type === 'none' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
                   onclick={() => (form.recurrence_type = 'none')}
                 >
                   {$_('calendar.none')}
                 </button>
                 <button
                   type="button"
-                  class={`rounded-2xl border px-4 py-4 text-xs font-black uppercase tracking-[0.18em] transition ${form.recurrence_type === 'daily' ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+                  class={`rounded-2xl border px-4 py-4 text-xs font-semibold uppercase tracking-wide transition ${form.recurrence_type === 'daily' ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
                   onclick={() => (form.recurrence_type = 'daily')}
                 >
                   {$_('calendar.daily')}
                 </button>
                 <button
                   type="button"
-                  class={`rounded-2xl border px-4 py-4 text-xs font-black uppercase tracking-[0.18em] transition ${form.recurrence_type === 'weekly' ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+                  class={`rounded-2xl border px-4 py-4 text-xs font-semibold uppercase tracking-wide transition ${form.recurrence_type === 'weekly' ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
                   onclick={() => (form.recurrence_type = 'weekly')}
                 >
                   {$_('calendar.weekly')}
@@ -1526,12 +1526,12 @@
             </div>
 
             <div class="md:col-span-2">
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.weekdays')}</span>
+              <span class="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.weekdays')}</span>
               <div class="grid grid-cols-4 gap-2 md:grid-cols-7">
                 {#each WEEKDAY_OPTIONS as day}
                   <button
                     type="button"
-                    class={`rounded-2xl border px-2 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition ${form.recurrence_days.includes(day.value) ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+                    class={`rounded-2xl border px-2 py-3 text-[10px] font-semibold uppercase tracking-wide transition ${form.recurrence_days.includes(day.value) ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
                     onclick={() => toggleWeekday(day.value)}
                     disabled={form.recurrence_type !== 'weekly'}
                   >
@@ -1545,12 +1545,12 @@
             </div>
 
             <div class="md:col-span-2">
-              <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.rewardSettings')}</span>
+              <span class="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.rewardSettings')}</span>
               <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 {#if form.entry_type === 'task'}
                   <label class="flex items-center justify-between gap-4">
                     <div class="min-w-0">
-                      <p class="text-sm font-black text-slate-900">{$_('calendar.rewardableTask')}</p>
+                      <p class="text-sm font-bold text-slate-900">{$_('calendar.rewardableTask')}</p>
                       <p class="mt-1 text-xs font-medium leading-5 text-slate-500">{$_('calendar.rewardTaskHelp')}</p>
                     </div>
                     <input
@@ -1563,7 +1563,7 @@
 
                   {#if form.is_rewardable}
                     <label class="mt-4 block">
-                      <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{$_('calendar.points')}</span>
+                      <span class="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.points')}</span>
                       <input
                         bind:value={form.points_value}
                         type="number"
@@ -1585,10 +1585,10 @@
 
         <div class="border-t border-slate-100 bg-white px-4 py-4 pb-[calc(1rem+var(--safe-bottom))] md:px-6 md:pb-4">
           <div class="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
-            <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-slate-700" onclick={clearModal}>
+            <button type="button" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs font-semibold uppercase tracking-wide text-slate-700" onclick={clearModal}>
             {$_('calendar.cancel')}
             </button>
-            <button type="submit" disabled={saving} class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-white disabled:opacity-60">
+            <button type="submit" disabled={saving} class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-4 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-60">
               <Plus size={16} />
               {saving ? $_('calendar.saving') : editingEntryId ? $_('calendar.saveChanges') : $_('calendar.createItem')}
             </button>

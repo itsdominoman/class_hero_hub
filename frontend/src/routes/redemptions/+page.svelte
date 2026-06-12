@@ -63,10 +63,10 @@
 <div class="bg-slate-50 min-h-dvh max-w-full overflow-x-hidden pb-[calc(5rem+var(--safe-bottom))]">
   <div class="bg-white border-b border-slate-200 mb-12">
     <div class="max-w-4xl mx-auto px-3 sm:px-4 py-6 md:py-8">
-      <a href="/parent" class="inline-flex items-center gap-2 text-slate-400 hover:text-hero font-black text-xs uppercase tracking-widest mb-6 transition-colors">
+      <a href="/parent" class="inline-flex items-center gap-2 text-slate-400 hover:text-hero font-bold text-xs uppercase tracking-wide mb-6 transition-colors">
         <ChevronLeft size={16} /> {$_('redemptions.backToParentDashboard')}
       </a>
-      <h1 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3 sm:gap-4">
+      <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight flex items-center gap-3 sm:gap-4">
         <div class="w-11 h-11 sm:w-12 sm:h-12 bg-reward/10 text-reward rounded-2xl flex shrink-0 items-center justify-center">
           <Trophy size={24} />
         </div>
@@ -84,7 +84,7 @@
       <div class="card bg-red-50 p-8 text-red-600 font-bold text-center border-red-100">{error}</div>
     {:else if redemptions.length === 0}
       <div class="card p-10 md:p-20 text-center bg-white border-dashed border-4 border-slate-100 shadow-none">
-        <p class="text-slate-300 font-black uppercase tracking-[0.18em] sm:tracking-[0.3em]">{$_('redemptions.noRequests')}</p>
+        <p class="text-slate-300 font-semibold uppercase tracking-wide">{$_('redemptions.noRequests')}</p>
       </div>
     {:else}
       <div class="space-y-6">
@@ -94,19 +94,19 @@
             
             <div class="flex-1 min-w-0">
               <div class="flex flex-wrap items-center gap-3 mb-3">
-                <span class="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full
+                <span class="text-[10px] font-bold uppercase tracking-wide px-3 py-1 rounded-full
                   {r.status === 'pending' ? 'bg-hero/10 text-hero' : 
                    r.status === 'approved' ? 'bg-savings/10 text-savings' : 'bg-slate-100 text-slate-500'}">
                   {getStatusLabel(r.status)}
                 </span>
-                <span class="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase tracking-widest">
+                <span class="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wide">
                   <Clock size={12} /> {formatCreatedAt(r.created_at)}
                 </span>
               </div>
-              <h3 class="text-xl sm:text-2xl font-black text-slate-900 mb-1 break-words">{r.title}</h3>
+              <h3 class="text-xl sm:text-2xl font-bold text-slate-900 mb-1 break-words">{r.title}</h3>
               <p class="text-slate-600 font-medium mb-4 break-words">{r.description || $_('common.noDescriptionProvided')}</p>
               
-              <div class="flex items-center gap-2 text-hero font-black text-xl">
+              <div class="flex items-center gap-2 text-hero font-bold text-xl">
                 <Trophy size={20} /> {$_('redemptions.points', { values: { points: r.points } })}
               </div>
             </div>
@@ -115,13 +115,13 @@
               <div class="grid grid-cols-1 gap-3 shrink-0 sm:grid-cols-2 md:flex md:flex-col">
                 <button 
                   onclick={() => processRedemption(r.id, 'approve')}
-                  class="w-full md:w-40 py-4 bg-savings text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-lg shadow-savings/20 hover:scale-[1.02] transition-all"
+                  class="w-full md:w-40 py-4 bg-savings text-white rounded-2xl font-bold uppercase tracking-wide text-xs flex items-center justify-center gap-2 shadow-lg shadow-savings/20 hover:scale-[1.02] transition-all"
                 >
                   <Check size={18} /> {$_('common.approve')}
                 </button>
                 <button 
                   onclick={() => processRedemption(r.id, 'reject')}
-                  class="w-full md:w-40 py-4 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:border-penalty hover:text-penalty transition-all"
+                  class="w-full md:w-40 py-4 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl font-bold uppercase tracking-wide text-xs flex items-center justify-center gap-2 hover:border-penalty hover:text-penalty transition-all"
                 >
                   <X size={18} /> {$_('common.reject')}
                 </button>
@@ -129,7 +129,7 @@
             {:else}
               <div class="text-left md:text-right shrink-0 min-w-0">
                 {#if r.parent_note}
-                  <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">{$_('redemptions.parentNote')}</p>
+                  <p class="text-[10px] font-bold text-slate-300 uppercase tracking-wide mb-1">{$_('redemptions.parentNote')}</p>
                   <p class="text-sm italic text-slate-500 max-w-full md:max-w-[200px] break-words">{r.parent_note}</p>
                 {/if}
               </div>

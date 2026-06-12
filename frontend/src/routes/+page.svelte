@@ -194,9 +194,9 @@
     </div>
     <div class="max-w-7xl mx-auto grid gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
       <div class="relative z-10 text-left">
-        <div class="inline-flex max-w-full items-center gap-2 rounded-full border border-hero/20 bg-hero/10 px-4 py-2 text-sm font-black text-hero mb-6">
+        <div class="inline-flex max-w-full items-center gap-2 rounded-full border border-hero/20 bg-hero/10 px-4 py-2 text-sm font-bold text-hero mb-6">
           <Sparkles size={16} />
-          <span class="uppercase tracking-[0.12em] sm:tracking-[0.2em]">{$_('home.eyebrow')}</span>
+          <span class="uppercase tracking-wide">{$_('home.eyebrow')}</span>
         </div>
         <h1 class="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-slate-900 leading-[0.96] max-w-2xl">
           {$_('home.heading')}
@@ -233,19 +233,19 @@
         <div class="card relative z-10 overflow-hidden border border-white/80 bg-white/95 p-5 sm:p-6 lg:p-8 shadow-2xl">
           <div class="grid gap-4 sm:grid-cols-2">
             <div class="rounded-3xl border border-slate-100 bg-slate-50 p-5">
-              <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('home.parentView')}</p>
-              <p class="mt-3 text-xl font-black text-slate-900">{$_('home.parentViewTitle')}</p>
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('home.parentView')}</p>
+              <p class="mt-3 text-xl font-bold text-slate-900">{$_('home.parentViewTitle')}</p>
               <p class="mt-2 text-sm leading-relaxed text-slate-600">{$_('home.parentViewText')}</p>
             </div>
             <div class="rounded-3xl border border-slate-100 bg-hero/5 p-5">
-              <p class="text-xs font-black uppercase tracking-[0.18em] text-hero">{$_('home.childView')}</p>
-              <p class="mt-3 text-xl font-black text-slate-900">{$_('home.childViewTitle')}</p>
+              <p class="text-xs font-semibold uppercase tracking-wide text-hero">{$_('home.childView')}</p>
+              <p class="mt-3 text-xl font-bold text-slate-900">{$_('home.childViewTitle')}</p>
               <p class="mt-2 text-sm leading-relaxed text-slate-600">{$_('home.childViewText')}</p>
             </div>
           </div>
 
           <div class="mt-4 rounded-3xl bg-slate-900 p-5 sm:p-6 text-white">
-            <div class="flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-hero">
+            <div class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-hero">
               <ShieldCheck size={16} />
               <span>{$_('home.privateByDesign')}</span>
             </div>
@@ -256,15 +256,15 @@
 
           <div class="mt-4 grid gap-3 sm:grid-cols-3">
             <div class="rounded-2xl border border-slate-100 bg-white p-4">
-              <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('home.heroRewardLabel')}</p>
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('home.heroRewardLabel')}</p>
               <p class="mt-2 text-sm font-semibold text-slate-700">{$_('home.heroRewardValue')}</p>
             </div>
             <div class="rounded-2xl border border-slate-100 bg-white p-4">
-              <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('home.heroAccessLabel')}</p>
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('home.heroAccessLabel')}</p>
               <p class="mt-2 text-sm font-semibold text-slate-700">{$_('home.heroAccessValue')}</p>
             </div>
             <div class="rounded-2xl border border-slate-100 bg-white p-4">
-              <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('home.heroDevicesLabel')}</p>
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('home.heroDevicesLabel')}</p>
               <p class="mt-2 text-sm font-semibold text-slate-700">{$_('home.heroDevicesValue')}</p>
             </div>
           </div>
@@ -277,16 +277,16 @@
     <div class="max-w-7xl mx-auto">
       <div class="grid gap-4 sm:grid-cols-3">
         <div class="rounded-3xl bg-white/95 p-5 sm:p-6 shadow-lg border border-slate-100">
-          <p class="text-xs font-black uppercase tracking-[0.18em] text-hero">{$_('home.heroTrustLabel')}</p>
-          <p class="mt-3 text-lg font-black text-slate-900">{$_('home.heroTrustText')}</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-hero">{$_('home.heroTrustLabel')}</p>
+          <p class="mt-3 text-lg font-bold text-slate-900">{$_('home.heroTrustText')}</p>
         </div>
         <div class="rounded-3xl bg-white/95 p-5 sm:p-6 shadow-lg border border-slate-100">
-          <p class="text-xs font-black uppercase tracking-[0.18em] text-savings">{$_('home.heroRoutinesLabel')}</p>
-          <p class="mt-3 text-lg font-black text-slate-900">{$_('home.heroRoutinesText')}</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-savings">{$_('home.heroRoutinesLabel')}</p>
+          <p class="mt-3 text-lg font-bold text-slate-900">{$_('home.heroRoutinesText')}</p>
         </div>
         <div class="rounded-3xl bg-white/95 p-5 sm:p-6 shadow-lg border border-slate-100">
-          <p class="text-xs font-black uppercase tracking-[0.18em] text-reward">{$_('home.heroMomentumLabel')}</p>
-          <p class="mt-3 text-lg font-black text-slate-900">{$_('home.heroMomentumText')}</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-reward">{$_('home.heroMomentumLabel')}</p>
+          <p class="mt-3 text-lg font-bold text-slate-900">{$_('home.heroMomentumText')}</p>
         </div>
       </div>
     </div>
@@ -295,8 +295,8 @@
   <section class="bg-white px-3 sm:px-4 py-16 md:py-24">
     <div class="max-w-7xl mx-auto grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
       <div>
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{$_('home.storyEyebrow')}</p>
-        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">{$_('home.storyHeading')}</h2>
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('home.storyEyebrow')}</p>
+        <h2 class="mt-3 text-3xl md:text-4xl font-bold text-slate-900">{$_('home.storyHeading')}</h2>
       </div>
       <div class="space-y-5 text-base md:text-lg leading-relaxed text-slate-600">
         <p>
@@ -315,8 +315,8 @@
   <section class="px-3 sm:px-4 py-16 md:py-24">
     <div class="max-w-7xl mx-auto">
       <div class="max-w-3xl mb-10">
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{$_('home.parentProblemEyebrow')}</p>
-        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">{$_('home.parentProblemHeading')}</h2>
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('home.parentProblemEyebrow')}</p>
+        <h2 class="mt-3 text-3xl md:text-4xl font-bold text-slate-900">{$_('home.parentProblemHeading')}</h2>
         <p class="mt-5 text-base md:text-lg leading-relaxed text-slate-600">
           {$_('home.parentProblemParagraph1')}
         </p>
@@ -329,7 +329,7 @@
         {#each parentProblemItems as item}
           <div class="card p-5 flex items-start gap-3">
             <CheckCircle2 size={22} class="mt-0.5 shrink-0 text-savings" />
-            <p class="font-black leading-relaxed text-slate-900">{$_(item)}</p>
+            <p class="font-bold leading-relaxed text-slate-900">{$_(item)}</p>
           </div>
         {/each}
       </div>
@@ -339,8 +339,8 @@
   <section id="what-it-does" class="bg-white px-3 sm:px-4 py-16 md:py-24">
     <div class="max-w-7xl mx-auto">
       <div class="text-center mb-12 md:mb-16">
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{$_('home.whatItDoesEyebrow')}</p>
-        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">{$_('home.whatItDoesHeading')}</h2>
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('home.whatItDoesEyebrow')}</p>
+        <h2 class="mt-3 text-3xl md:text-4xl font-bold text-slate-900">{$_('home.whatItDoesHeading')}</h2>
         <p class="mx-auto mt-4 max-w-3xl text-base md:text-lg leading-relaxed text-slate-600">
           {$_('home.whatItDoesIntro')}
         </p>
@@ -353,7 +353,7 @@
             <div class="mb-6 flex h-14 w-14 items-center justify-center rounded-3xl bg-hero/10 text-hero group-hover:scale-105 transition-transform">
               <Icon size={28} />
             </div>
-            <h3 class="text-xl font-black text-slate-900">{$_(card.title)}</h3>
+            <h3 class="text-xl font-bold text-slate-900">{$_(card.title)}</h3>
             <p class="mt-3 leading-relaxed text-slate-600">{$_(card.text)}</p>
           </div>
         {/each}
@@ -364,8 +364,8 @@
   <section id="how-it-works" class="px-3 sm:px-4 py-16 md:py-24">
     <div class="max-w-7xl mx-auto">
       <div class="text-center mb-12 md:mb-16">
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{$_('home.howItWorksEyebrow')}</p>
-        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">{$_('home.howItWorksHeading')}</h2>
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('home.howItWorksEyebrow')}</p>
+        <h2 class="mt-3 text-3xl md:text-4xl font-bold text-slate-900">{$_('home.howItWorksHeading')}</h2>
         <p class="mx-auto mt-4 max-w-3xl text-base md:text-lg leading-relaxed text-slate-600">
           {$_('home.howItWorksIntro')}
         </p>
@@ -374,10 +374,10 @@
       <div class="grid gap-5 lg:grid-cols-5">
         {#each steps as step, index}
           <div class="card p-6 md:p-7">
-            <div class="inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white">
+            <div class="inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
               0{index + 1}
             </div>
-            <h3 class="mt-5 text-xl font-black text-slate-900">{$_(step.title)}</h3>
+            <h3 class="mt-5 text-xl font-bold text-slate-900">{$_(step.title)}</h3>
             <p class="mt-3 leading-relaxed text-slate-600">{$_(step.text)}</p>
           </div>
         {/each}
@@ -388,8 +388,8 @@
   <section class="bg-white px-3 sm:px-4 py-16 md:py-24">
     <div class="max-w-7xl mx-auto grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
       <div>
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{$_('home.childBenefitEyebrow')}</p>
-        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">{$_('home.childBenefitHeading')}</h2>
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('home.childBenefitEyebrow')}</p>
+        <h2 class="mt-3 text-3xl md:text-4xl font-bold text-slate-900">{$_('home.childBenefitHeading')}</h2>
         <p class="mt-5 text-base md:text-lg leading-relaxed text-slate-600">
           {$_('home.childBenefitParagraph1')}
         </p>
@@ -404,17 +404,17 @@
       <div class="grid gap-4 sm:grid-cols-2">
         <div class="card p-6">
           <Clock size={28} class="text-hero" />
-          <h3 class="mt-5 text-xl font-black text-slate-900">{$_('home.childBenefitCard1Title')}</h3>
+          <h3 class="mt-5 text-xl font-bold text-slate-900">{$_('home.childBenefitCard1Title')}</h3>
           <p class="mt-3 leading-relaxed text-slate-600">{$_('home.childBenefitCard1Text')}</p>
         </div>
         <div class="card p-6">
           <Star size={28} class="text-reward" />
-          <h3 class="mt-5 text-xl font-black text-slate-900">{$_('home.childBenefitCard2Title')}</h3>
+          <h3 class="mt-5 text-xl font-bold text-slate-900">{$_('home.childBenefitCard2Title')}</h3>
           <p class="mt-3 leading-relaxed text-slate-600">{$_('home.childBenefitCard2Text')}</p>
         </div>
         <div class="card p-6 sm:col-span-2">
           <Coins size={28} class="text-savings" />
-          <h3 class="mt-5 text-xl font-black text-slate-900">{$_('home.childBenefitCard3Title')}</h3>
+          <h3 class="mt-5 text-xl font-bold text-slate-900">{$_('home.childBenefitCard3Title')}</h3>
           <p class="mt-3 leading-relaxed text-slate-600">{$_('home.childBenefitCard3Text')}</p>
         </div>
       </div>
@@ -424,8 +424,8 @@
   <section class="px-3 sm:px-4 py-16 md:py-24">
     <div class="max-w-7xl mx-auto">
       <div class="max-w-3xl mb-10">
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{$_('home.notJustChoresEyebrow')}</p>
-        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">{$_('home.notJustChoresHeading')}</h2>
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('home.notJustChoresEyebrow')}</p>
+        <h2 class="mt-3 text-3xl md:text-4xl font-bold text-slate-900">{$_('home.notJustChoresHeading')}</h2>
         <p class="mt-5 text-base md:text-lg leading-relaxed text-slate-600">
           {$_('home.notJustChoresIntro')}
         </p>
@@ -435,7 +435,7 @@
         {#each choreChartCards as card}
           <div class="card p-6">
             <Lightbulb size={26} class="text-hero" />
-            <h3 class="mt-5 text-xl font-black text-slate-900">{$_(card.title)}</h3>
+            <h3 class="mt-5 text-xl font-bold text-slate-900">{$_(card.title)}</h3>
             <p class="mt-3 leading-relaxed text-slate-600">{$_(card.text)}</p>
           </div>
         {/each}
@@ -448,8 +448,8 @@
       <div class="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
         <div class="card !bg-slate-900 text-white p-6 sm:p-8 md:p-10 relative overflow-hidden">
           <div class="relative z-10">
-            <p class="text-xs font-black uppercase tracking-[0.2em] text-hero">{$_('home.trustSafetyEyebrow')}</p>
-            <h2 class="mt-3 text-3xl md:text-4xl font-black leading-tight">{$_('home.trustSafetyHeading')}</h2>
+            <p class="text-xs font-semibold uppercase tracking-wide text-hero">{$_('home.trustSafetyEyebrow')}</p>
+            <h2 class="mt-3 text-3xl md:text-4xl font-bold leading-tight">{$_('home.trustSafetyHeading')}</h2>
             <p class="mt-5 text-base md:text-lg leading-relaxed text-slate-300">
               {$_('home.trustSafetyParagraph1')}
             </p>
@@ -457,7 +457,7 @@
               {$_('home.trustSafetyParagraph2')}
             </p>
             <div class="mt-6 rounded-3xl border border-white/10 bg-white/5 p-4 text-slate-300">
-              <h3 class="text-xl font-black text-white">{$_('home.trustSafetySubcardHeading')}</h3>
+              <h3 class="text-xl font-bold text-white">{$_('home.trustSafetySubcardHeading')}</h3>
               <p class="mt-3 leading-relaxed">
                 {$_('home.trustSafetySubcardParagraph1')}
               </p>
@@ -465,7 +465,7 @@
                 {$_('home.trustSafetySubcardParagraph2')}
               </p>
             </div>
-            <a href="/safety-privacy" class="mt-6 inline-flex items-center gap-2 font-black text-hero hover:underline">
+            <a href="/safety-privacy" class="mt-6 inline-flex items-center gap-2 font-bold text-hero hover:underline">
               {$_('home.trustSafetyLink')}
               <ArrowRight size={18} />
             </a>
@@ -473,7 +473,7 @@
         </div>
 
         <div class="card p-6 sm:p-8 md:p-10">
-          <h3 class="text-2xl font-black text-slate-900">{$_('home.trustSafetyControlsHeading')}</h3>
+          <h3 class="text-2xl font-bold text-slate-900">{$_('home.trustSafetyControlsHeading')}</h3>
           <div class="mt-6 grid gap-4 sm:grid-cols-2">
             {#each trustItems as item}
               <div class="rounded-3xl border border-slate-200 bg-slate-50/80 p-4 text-sm font-semibold leading-relaxed text-slate-700">
@@ -489,8 +489,8 @@
   <section class="bg-white px-3 sm:px-4 py-16 md:py-24">
     <div class="max-w-7xl mx-auto grid gap-8 lg:grid-cols-[0.92fr_1.08fr] lg:items-start">
       <div>
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-savings">{$_('home.rewardsSavingsEyebrow')}</p>
-        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">{$_('home.rewardsSavingsHeading')}</h2>
+        <p class="text-xs font-semibold uppercase tracking-wide text-savings">{$_('home.rewardsSavingsEyebrow')}</p>
+        <h2 class="mt-3 text-3xl md:text-4xl font-bold text-slate-900">{$_('home.rewardsSavingsHeading')}</h2>
       </div>
 
       <div class="space-y-5 text-base md:text-lg leading-relaxed text-slate-600">
@@ -513,14 +513,14 @@
   <section class="px-3 sm:px-4 py-16 md:py-24">
     <div class="max-w-7xl mx-auto">
       <div class="text-center mb-12 md:mb-16">
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{$_('home.faqEyebrow')}</p>
-        <h2 class="mt-3 text-3xl md:text-4xl font-black text-slate-900">{$_('home.faqHeading')}</h2>
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('home.faqEyebrow')}</p>
+        <h2 class="mt-3 text-3xl md:text-4xl font-bold text-slate-900">{$_('home.faqHeading')}</h2>
       </div>
 
       <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {#each faqs as item}
           <div class="card p-6">
-            <h3 class="text-lg font-black text-slate-900">{$_(item.question)}</h3>
+            <h3 class="text-lg font-bold text-slate-900">{$_(item.question)}</h3>
             <p class="mt-3 leading-relaxed text-slate-600">{$_(item.answer)}</p>
           </div>
         {/each}

@@ -1166,22 +1166,22 @@
     </div>
   {:else if needsLogin}
     <div class="max-w-xl mx-auto px-4 py-20">
-      <div class="card p-10 md:p-12 text-center bg-white">
+      <div class="card-lg p-10 md:p-12 text-center">
         <div class="w-16 h-16 bg-hero/10 text-hero rounded-2xl flex items-center justify-center mx-auto mb-6">
           <LogIn size={32} />
         </div>
-        <h1 class="text-3xl font-black text-slate-900 mb-3">{$_('parent.loginRequired')}</h1>
+        <h1 class="text-3xl font-bold text-slate-900 mb-3">{$_('parent.loginRequired')}</h1>
         <p class="text-slate-600 mb-8">{$_('parent.loginHint')}</p>
         <button onclick={openLogin} class="btn-hero w-full py-4 rounded-2xl">{$_('parent.goToLogin')}</button>
       </div>
     </div>
   {:else if error}
     <div class="max-w-lg mx-auto px-4 py-20">
-      <div class="card bg-red-50 border-red-100 p-8 text-center">
+      <div class="card-lg bg-red-50 border-red-100 p-8 text-center">
         <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
           <Ban size={32} />
         </div>
-        <p class="text-red-600 font-black mb-4 uppercase tracking-[0.12em] text-sm sm:tracking-[0.2em]">{$_('parent.failedLoad')}</p>
+        <p class="text-red-600 font-bold mb-4 uppercase tracking-wide text-sm">{$_('parent.failedLoad')}</p>
         <p class="text-slate-600 mb-8 break-words">{error}</p>
         <button onclick={loadDashboard} class="btn-secondary w-full py-4">{$_('common.tryAgain')}</button>
       </div>
@@ -1197,41 +1197,41 @@
 
             <div class="flex flex-wrap items-center gap-2">
               <details class="relative w-full sm:w-auto">
-                <summary class="inline-flex w-full cursor-pointer list-none items-center justify-center gap-2 rounded-full bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:text-hero sm:w-auto sm:tracking-[0.16em]">
+                <summary class="inline-flex w-full cursor-pointer list-none items-center justify-center gap-2 rounded-full bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:text-hero sm:w-auto">
                   <Settings size={14} />
                   {$_('parent.settings')}
                 </summary>
                 <div class="absolute right-0 z-30 mt-2 grid w-full min-w-64 gap-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl sm:w-72">
                   <LanguageSelector />
-                  <button type="button" onclick={() => openModal('rewards', null)} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
+                  <button type="button" onclick={() => openModal('rewards', null)} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50">
                     <Gift size={15} />
                     {$_('parent.manageRewards')}
                   </button>
-                  <button type="button" onclick={() => openModal('family', null)} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
+                  <button type="button" onclick={() => openModal('family', null)} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50">
                     <Users size={15} />
                     {$_('parent.parentsCaregivers')}
                   </button>
-                  <button type="button" onclick={() => openModal('calendar-week', null)} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
+                  <button type="button" onclick={() => openModal('calendar-week', null)} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50">
                     <CalendarDays size={15} />
                     {$_('parent.calendarSchoolWeek')}
                   </button>
-                  <button type="button" onclick={() => openModal('presets', null)} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
+                  <button type="button" onclick={() => openModal('presets', null)} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50">
                     <Settings size={15} />
                     {$_('parent.behaviourPresets')}
                   </button>
-                  <a href="/redemptions" class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
+                  <a href="/redemptions" class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50">
                     <Ticket size={15} />
                     {$_('parent.rewardRedemptions')}
                   </a>
-                  <a href="/allowance" class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
+                  <a href="/allowance" class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50">
                     <Wallet size={15} />
                     {$_('parent.allowance')}
                   </a>
-                  <a href="/calendar" class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 sm:tracking-[0.14em]">
+                  <a href="/calendar" class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50">
                     <CalendarDays size={15} />
                     {$_('parent.calendar')}
                   </a>
-                  <button type="button" onclick={() => openModal('child-link-select', null)} disabled={children.length === 0} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:tracking-[0.14em]">
+                  <button type="button" onclick={() => openModal('child-link-select', null)} disabled={children.length === 0} class="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
                     <QrCode size={15} />
                     {$_('parent.childDeviceLinks')}
                   </button>
@@ -1249,7 +1249,7 @@
               type="button"
               onclick={addChild}
               disabled={loadingChildren}
-              class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:text-hero disabled:cursor-not-allowed disabled:opacity-60 sm:tracking-[0.14em]"
+              class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:text-hero disabled:cursor-not-allowed disabled:opacity-60"
             >
               <UserPlus size={14} />
               {$_('parent.addChild')}
@@ -1257,11 +1257,11 @@
           </div>
 
           {#if children.length === 0}
-            <div class="card overflow-hidden border-dashed border-2 border-slate-200 bg-white p-8 sm:p-10 text-center shadow-none">
+            <div class="card-flat border-dashed border-2 p-8 sm:p-10 text-center">
               <div class="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[1.75rem] bg-slate-100 text-slate-400">
                 <UserPlus size={36} />
               </div>
-              <h3 class="text-2xl font-black text-slate-900">{$_('parent.emptyTitle')}</h3>
+              <h3 class="text-2xl font-bold text-slate-900">{$_('parent.emptyTitle')}</h3>
               <p class="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-500">
                 {$_('parent.emptyText')}
               </p>
@@ -1279,7 +1279,7 @@
                   aria-label={$_('parent.openPointActions', { values: { name: c.child.display_name } })}
                 >
                   <div class="relative">
-                    <div class="absolute -top-3 left-1/2 z-10 -translate-x-1/2 min-w-[2.75rem] max-w-[4.25rem] truncate rounded-full bg-slate-900 px-2.5 py-1 text-center text-[10px] font-black leading-none tabular-nums text-white shadow-lg">
+                    <div class="absolute -top-3 left-1/2 z-10 -translate-x-1/2 min-w-[2.75rem] max-w-[4.25rem] truncate rounded-full bg-slate-900 px-2.5 py-1 text-center text-[10px] font-bold leading-none tabular-nums text-white shadow-lg">
                       {childAvailablePoints(c)}
                     </div>
                     <div class="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-white shadow-md ring-4 ring-white transition group-hover:scale-[1.03] sm:h-28 sm:w-28">
@@ -1292,11 +1292,11 @@
                           onerror={() => markAvatarFailed(c)}
                         />
                       {:else}
-                        <span class="text-3xl font-black text-slate-900">{childAvatarLabel(c)}</span>
+                        <span class="text-3xl font-bold text-slate-900">{childAvatarLabel(c)}</span>
                       {/if}
                     </div>
                   </div>
-                  <span class="mt-3 w-full truncate text-sm font-black text-slate-950 sm:text-base">
+                  <span class="mt-3 w-full truncate text-sm font-bold text-slate-950 sm:text-base">
                     {c.child.display_name}
                   </span>
                 </button>
@@ -1335,20 +1335,20 @@
                     onerror={() => markAvatarFailed(activeModal.child)}
                   />
                 {:else}
-                  <span class="text-lg sm:text-2xl font-black">{childAvatarLabel(activeModal.child)}</span>
+                  <span class="text-lg sm:text-2xl font-bold">{childAvatarLabel(activeModal.child)}</span>
                 {/if}
               </div>
               <div class="min-w-0">
-                <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight break-words leading-tight">
+                <h3 class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight break-words leading-tight">
                   {activeModal.child?.child?.display_name}
                 </h3>
               </div>
             </div>
-            <div class="hidden sm:flex shrink-0 items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-700">
+            <div class="hidden sm:flex shrink-0 items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700">
               <Trophy size={14} class="text-hero" />
               {childAvailablePoints(activeModal.child)} {$_('common.pts')}
             </div>
-            <div class="sm:hidden shrink-0 rounded-full bg-slate-100 px-3 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-slate-700">
+            <div class="sm:hidden shrink-0 rounded-full bg-slate-100 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
               {childAvailablePoints(activeModal.child)} {$_('common.pts')}
             </div>
           {:else}
@@ -1378,7 +1378,7 @@
                 {:else}<Trophy size={32} />{/if}
               </div>
               <div class="min-w-0">
-                <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight break-words leading-tight">
+                <h3 class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight break-words leading-tight">
                   {activeModal.type === 'award' ? $_('parent.pointsActions.addPoints') :
                    activeModal.type === 'penalty' ? $_('parent.pointsActions.removePoints') :
                   activeModal.type === 'bank' ? $_('parent.bank.moveToSavedPoints') :
@@ -1391,7 +1391,7 @@
                   activeModal.type === 'requests' ? $_('parent.requests.reviewRewardRequests') :
                   $_('parent.redeem.title')}
                 </h3>
-                <p class="text-slate-400 font-black text-[10px] sm:text-xs uppercase tracking-[0.14em] sm:tracking-[0.2em] break-words">
+                <p class="text-slate-400 font-bold text-[10px] sm:text-xs uppercase tracking-wide break-words">
                   {activeModal.type === 'presets' ? (editingPresetId ? $_('parent.presets.update') : $_('parent.presets.subtitle')) :
                    activeModal.type === 'family' ? $_('parent.family.subtitle') :
                    activeModal.type === 'calendar-week' ? $_('parent.week.subtitle') :
@@ -1420,7 +1420,7 @@
               <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <a
                   href={`/child/${activeModal.child.child.id}`}
-                  class="inline-flex min-w-0 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.1em] text-slate-700 transition hover:border-hero hover:text-hero sm:tracking-[0.14em]"
+                  class="inline-flex min-w-0 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-hero hover:text-hero"
                 >
                   <LayoutDashboard size={15} />
                   <span class="sm:hidden">{$_('parent.childDashboard')}</span>
@@ -1429,7 +1429,7 @@
                 <button
                   type="button"
                   onclick={() => openChildEdit(activeModal.child)}
-                  class="inline-flex min-w-0 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.1em] text-slate-700 transition hover:border-hero hover:text-hero sm:tracking-[0.14em]"
+                  class="inline-flex min-w-0 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-hero hover:text-hero"
                 >
                   <Settings size={15} />
                   {$_('parent.editChild')}
@@ -1441,13 +1441,13 @@
                 <div class="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-4 sm:p-5">
                   <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
-                      <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.editChild')}</p>
-                      <h4 class="mt-1 text-lg font-black text-slate-950">{$_('parent.childEdit.heading')}</h4>
+                      <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('parent.editChild')}</p>
+                      <h4 class="mt-1 text-lg font-bold text-slate-950">{$_('parent.childEdit.heading')}</h4>
                     </div>
                     <button
                       type="button"
                       onclick={() => (childEditOpen = false)}
-                      class="rounded-xl bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 shadow-sm ring-1 ring-slate-200"
+                      class="rounded-xl bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500 shadow-sm ring-1 ring-slate-200"
                     >
                       {$_('common.close')}
                     </button>
@@ -1461,7 +1461,7 @@
 
                   <div class="mt-4 grid gap-4">
                     <label class="block min-w-0">
-                      <span class="mb-2 block text-[10px] font-black uppercase tracking-[0.16em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.childEdit.displayName')}</span>
+                      <span class="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('parent.childEdit.displayName')}</span>
                       <input
                         type="text"
                         bind:value={childEditForm.display_name}
@@ -1472,13 +1472,13 @@
                     <div class="rounded-[1.5rem] border border-slate-100 bg-white p-4">
                       <div class="flex items-center justify-between gap-3">
                         <div class="min-w-0">
-                          <p class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.childEdit.avatar')}</p>
+                          <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('parent.childEdit.avatar')}</p>
                           <p class="mt-1 text-sm font-bold text-slate-600">{$_('parent.childEdit.avatarHelp')}</p>
                         </div>
                         <button
                           type="button"
                           onclick={() => setChildEditAvatar('')}
-                          class="shrink-0 rounded-full border px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] transition {childEditForm.avatar_name === '' ? 'border-hero bg-hero/10 text-hero' : 'border-slate-200 bg-white text-slate-500 hover:border-hero hover:text-hero'}"
+                          class="shrink-0 rounded-full border px-3 py-2 text-[10px] font-semibold uppercase tracking-wide transition {childEditForm.avatar_name === '' ? 'border-hero bg-hero/10 text-hero' : 'border-slate-200 bg-white text-slate-500 hover:border-hero hover:text-hero'}"
                         >
                           {$_('parent.childEdit.initials')}
                         </button>
@@ -1502,7 +1502,7 @@
                                 loading="lazy"
                               />
                             </div>
-                            <span class="w-full truncate text-[10px] font-black uppercase tracking-[0.08em] text-slate-500">
+                            <span class="w-full truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                               {avatarOptionLabel}
                             </span>
                           </button>
@@ -1511,7 +1511,7 @@
                     </div>
 
                     <div class="flex items-center gap-3 rounded-2xl bg-white p-3">
-                      <div class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-lg font-black text-slate-950">
+                      <div class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-lg font-bold text-slate-950">
                         {#if editAvatar}
                           <img
                             src={editAvatar.path}
@@ -1523,7 +1523,7 @@
                         {/if}
                       </div>
                       <div class="min-w-0">
-                        <p class="text-sm font-black text-slate-950">{$_('parent.childEdit.preview')}</p>
+                        <p class="text-sm font-bold text-slate-950">{$_('parent.childEdit.preview')}</p>
                         <p class="text-xs font-bold text-slate-400">{$_('parent.childEdit.savedHint')}</p>
                       </div>
                     </div>
@@ -1534,14 +1534,14 @@
                       type="button"
                       onclick={saveChildEdit}
                       disabled={childEditLoading || !childEditForm.display_name.trim()}
-                      class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-4 text-xs font-semibold uppercase tracking-wide text-white disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {childEditLoading ? $_('common.saving') : $_('parent.childEdit.saveChild')}
                     </button>
                     <button
                       type="button"
                       onclick={() => (childEditOpen = false)}
-                      class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700"
+                      class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-semibold uppercase tracking-wide text-slate-700"
                     >
                       {$_('common.cancel')}
                     </button>
@@ -1561,7 +1561,7 @@
                   <button
                     type="button"
                     onclick={() => setChildModalTab(tab[0])}
-                    class="min-w-0 rounded-xl px-2.5 py-3 text-[9px] font-black uppercase tracking-[0.03em] leading-tight whitespace-normal transition-all sm:px-4 sm:py-3.5 sm:text-[10px] sm:tracking-[0.08em] {childModalTab === tab[0] ? 'bg-hero text-white shadow-md shadow-hero/20' : 'text-slate-500 hover:bg-white/70 hover:text-hero'}"
+                    class="min-w-0 rounded-xl px-2.5 py-3 text-[10px] font-semibold uppercase tracking-wide leading-tight whitespace-normal transition-all sm:px-4 sm:py-3.5 sm:text-[10px] {childModalTab === tab[0] ? 'bg-hero text-white shadow-md shadow-hero/20' : 'text-slate-500 hover:bg-white/70 hover:text-hero'}"
                   >
                     <span class="block min-w-0 break-words text-center">{tab[1]}</span>
                   </button>
@@ -1574,8 +1574,8 @@
           {#if activeModal.type === 'child-link'}
             <div class="space-y-4">
               <div class="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-5">
-                <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.childLink.child')}</p>
-                <p class="mt-2 text-2xl font-black text-slate-950 break-words">{activeModal.child.child.display_name}</p>
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('parent.childLink.child')}</p>
+                <p class="mt-2 text-2xl font-bold text-slate-950 break-words">{activeModal.child.child.display_name}</p>
                 <p class="mt-2 text-sm text-slate-600">{$_('parent.childLink.qrHelp')}</p>
               </div>
 
@@ -1584,7 +1584,7 @@
                   <div class="mx-auto w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center animate-pulse">
                     <QrCode size={22} class="text-slate-400" />
                   </div>
-                  <p class="mt-4 text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.childLink.generatingQr')}</p>
+                  <p class="mt-4 text-sm font-semibold uppercase tracking-wide text-slate-400">{$_('parent.childLink.generatingQr')}</p>
                 </div>
               {:else if childLinkError}
                 <div class="rounded-[1.75rem] border border-red-100 bg-red-50 p-5 text-red-700 font-bold break-words">
@@ -1599,13 +1599,13 @@
                   {/if}
                 </div>
                     <div class="text-center">
-                      <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.childLink.expires')}</p>
-                      <p class="text-lg font-black text-slate-950 break-words">{new Date(childLinkInvite.expires_at).toLocaleString($locale || 'en')}</p>
+                      <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('parent.childLink.expires')}</p>
+                      <p class="text-lg font-bold text-slate-950 break-words">{new Date(childLinkInvite.expires_at).toLocaleString($locale || 'en')}</p>
                     </div>
                   </div>
 
                   <div class="space-y-2">
-                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 ml-1 sm:tracking-[0.22em]">{$_('parent.childLink.fallbackLink')}</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 ml-1">{$_('parent.childLink.fallbackLink')}</p>
                     <div class="flex flex-col sm:flex-row gap-2">
                       <input
                         readonly
@@ -1615,7 +1615,7 @@
                       <button
                         type="button"
                         onclick={copyChildInviteLink}
-                        class="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-white shrink-0"
+                        class="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-white shrink-0"
                       >
                         <Copy size={14} />
                         {childLinkCopied ? $_('parent.childLink.copied') : $_('parent.childLink.copy')}
@@ -1627,7 +1627,7 @@
                     <button
                       type="button"
                       onclick={regenerateChildLink}
-                      class="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-hero px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-hero/20"
+                      class="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-hero px-4 py-3 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-hero/20"
                     >
                       <RefreshCcw size={14} />
                       {$_('parent.childLink.regenerateQr')}
@@ -1635,7 +1635,7 @@
                     <button
                       type="button"
                       onclick={revokeChildLink}
-                      class="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-slate-700 border-2 border-slate-100"
+                      class="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 border-2 border-slate-100"
                     >
                       <Link2 size={14} />
                       {$_('parent.childLink.revokeAccess')}
@@ -1648,13 +1648,13 @@
                     <QrCode size={22} class="text-slate-400" />
                   </div>
                   <div>
-                    <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.childLink.noActiveQr')}</p>
+                    <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">{$_('parent.childLink.noActiveQr')}</p>
                     <p class="text-sm text-slate-500 mt-2">{$_('parent.childLink.freshLinkHelp')}</p>
                   </div>
                   <button
                     type="button"
                     onclick={regenerateChildLink}
-                    class="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-hero px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-hero/20"
+                    class="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-hero px-4 py-3 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-hero/20"
                   >
                     <RefreshCcw size={14} />
                     {$_('parent.childLink.regenerateQr')}
@@ -1665,14 +1665,14 @@
               <div class="rounded-[1.75rem] border border-slate-100 bg-white p-5 space-y-4">
                 <div class="flex items-center justify-between gap-3">
                   <div class="min-w-0">
-                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.childLink.linkedDevices')}</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('parent.childLink.linkedDevices')}</p>
                     <p class="mt-1 text-sm text-slate-600">{$_('parent.childLink.linkedDevicesHelp')}</p>
                   </div>
                   <button
                     type="button"
                     onclick={() => loadChildDevices(activeModal.child)}
                     disabled={childDevicesLoading}
-                    class="shrink-0 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600 disabled:opacity-60"
+                    class="shrink-0 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-600 disabled:opacity-60"
                   >
                     {childDevicesLoading ? $_('common.loading') : $_('parent.childLink.refresh')}
                   </button>
@@ -1697,7 +1697,7 @@
                     {#each childDevices as device}
                       <div class="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                         <div class="min-w-0">
-                          <p class="text-sm font-black text-slate-900">{childLinkDeviceLabel(device)} #{device.id}</p>
+                          <p class="text-sm font-bold text-slate-900">{childLinkDeviceLabel(device)} #{device.id}</p>
                           <p class="mt-1 text-xs font-bold text-slate-500">{$_('parent.childLink.lastSeen')} {formatDeviceDate(device.last_seen_at)}</p>
                           <p class="text-xs font-bold text-slate-400">{$_('parent.childLink.expiresLabel')} {formatDeviceDate(device.expires_at)}</p>
                         </div>
@@ -1705,7 +1705,7 @@
                           type="button"
                           onclick={() => unlinkChildDevice(device)}
                           disabled={childDeviceUnlinkingId === device.id}
-                          class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-slate-100 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-slate-700 disabled:opacity-60 sm:w-auto"
+                          class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-slate-100 bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 disabled:opacity-60 sm:w-auto"
                         >
                           <Link2 size={14} />
                           {childDeviceUnlinkingId === device.id ? $_('parent.childLink.removing') : $_('parent.childLink.unlink')}
@@ -1722,14 +1722,14 @@
             <div class="space-y-3">
               {#if children.length === 0}
                 <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                  <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.childLink.noChildren')}</p>
+                  <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">{$_('parent.childLink.noChildren')}</p>
                 </div>
               {:else}
                 {#each children as childSummary}
                   <button
                     type="button"
                     onclick={() => openChildLink(childSummary)}
-                    class="inline-flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left font-black text-slate-800 transition hover:border-hero hover:text-hero"
+                    class="inline-flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left font-bold text-slate-800 transition hover:border-hero hover:text-hero"
                   >
                     <span class="min-w-0 truncate">{childSummary.child.display_name}</span>
                     <QrCode size={16} class="shrink-0" />
@@ -1750,38 +1750,38 @@
               <section class="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-5">
                 <div class="flex items-center justify-between gap-4 mb-5">
                   <div class="min-w-0">
-                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 mb-2 sm:tracking-[0.22em]">{$_('parent.rewards.editor')}</p>
-                    <h4 class="text-xl font-black text-slate-950">{editingRewardId ? $_('parent.rewards.edit') : $_('parent.rewards.create')}</h4>
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">{$_('parent.rewards.editor')}</p>
+                    <h4 class="text-xl font-bold text-slate-950">{editingRewardId ? $_('parent.rewards.edit') : $_('parent.rewards.create')}</h4>
                   </div>
                   <Gift size={20} class="shrink-0 text-reward" />
                 </div>
 
                 <div class="space-y-4">
                   <label class="block">
-                    <span class="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 mb-2 sm:tracking-[0.22em]">{$_('parent.rewards.name')}</span>
+                    <span class="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">{$_('parent.rewards.name')}</span>
                     <input type="text" bind:value={rewardForm.title} placeholder={$_('parent.rewards.moviePlaceholder')} class="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30" />
                   </label>
 
                   <label class="block">
-                    <span class="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 mb-2 sm:tracking-[0.22em]">{$_('parent.rewards.description')}</span>
+                    <span class="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">{$_('parent.rewards.description')}</span>
                     <input type="text" bind:value={rewardForm.description} placeholder={$_('parent.rewards.descriptionPlaceholder')} class="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30" />
                   </label>
 
                   <label class="block">
-                    <span class="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 mb-2 sm:tracking-[0.22em]">{$_('common.points')}</span>
+                    <span class="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">{$_('common.points')}</span>
                     <input type="number" min="1" bind:value={rewardForm.points} class="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30" />
                   </label>
 
                   <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <button type="button" onclick={saveReward} disabled={rewardLoading || !rewardForm.title.trim() || rewardForm.points < 1} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white disabled:cursor-not-allowed disabled:opacity-60">
+                    <button type="button" onclick={saveReward} disabled={rewardLoading || !rewardForm.title.trim() || rewardForm.points < 1} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-4 text-xs font-semibold uppercase tracking-wide text-white disabled:cursor-not-allowed disabled:opacity-60">
                       {editingRewardId ? $_('parent.rewards.save') : $_('parent.rewards.createButton')}
                     </button>
-                    <button type="button" onclick={() => rewardForm.is_active = !rewardForm.is_active} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700">
+                    <button type="button" onclick={() => rewardForm.is_active = !rewardForm.is_active} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-semibold uppercase tracking-wide text-slate-700">
                       {rewardForm.is_active ? $_('common.active') : $_('common.hidden')}
                     </button>
                   </div>
                   {#if editingRewardId}
-                    <button type="button" onclick={cancelEditingReward} class="w-full rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-slate-400 transition hover:text-slate-700">
+                    <button type="button" onclick={cancelEditingReward} class="w-full rounded-2xl px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 transition hover:text-slate-700">
                       {$_('common.cancel')}
                     </button>
                   {/if}
@@ -1789,29 +1789,29 @@
               </section>
 
               <section class="space-y-3">
-                <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 ml-1 sm:tracking-[0.22em]">{$_('parent.rewards.current')}</p>
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 ml-1">{$_('parent.rewards.current')}</p>
                 {#if rewards.length > 0}
                   {#each rewards as reward}
                     <div class="rounded-[1.5rem] border border-slate-100 bg-white p-4">
                       <div class="flex min-w-0 items-start justify-between gap-3">
                         <div class="min-w-0">
-                          <h4 class="font-black text-slate-950 break-words">{reward.title}</h4>
+                          <h4 class="font-bold text-slate-950 break-words">{reward.title}</h4>
                           <p class="mt-1 text-sm text-slate-500 break-words">{reward.description || $_('common.noDescription')}</p>
-                          <div class="mt-3 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-600">
+                          <div class="mt-3 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
                             <Trophy size={13} />
                             {reward.points} {$_('common.points')}
                           </div>
                         </div>
-                        <span class={`shrink-0 rounded-2xl px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] ${reward.is_active ? 'bg-savings/10 text-savings' : 'bg-slate-100 text-slate-400'}`}>
+                        <span class={`shrink-0 rounded-2xl px-3 py-2 text-[10px] font-semibold uppercase tracking-wide ${reward.is_active ? 'bg-savings/10 text-savings' : 'bg-slate-100 text-slate-400'}`}>
                           {reward.is_active ? $_('common.visible') : $_('common.hidden')}
                         </span>
                       </div>
                       <div class="mt-4 flex flex-wrap gap-2">
-                        <button onclick={() => startEditingReward(reward)} class="inline-flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-700 border border-slate-100">
+                        <button onclick={() => startEditingReward(reward)} class="inline-flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-700 border border-slate-100">
                           <Settings size={14} />
                           {$_('common.edit')}
                         </button>
-                        <button onclick={() => deleteReward(reward.id)} class="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-penalty border border-slate-100">
+                        <button onclick={() => deleteReward(reward.id)} class="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-penalty border border-slate-100">
                           <X size={14} />
                           {$_('common.delete')}
                         </button>
@@ -1820,7 +1820,7 @@
                   {/each}
                 {:else}
                   <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                    <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.rewards.noRewards')}</p>
+                    <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">{$_('parent.rewards.noRewards')}</p>
                   </div>
                 {/if}
               </section>
@@ -1830,39 +1830,39 @@
           {#if activeModal.type === 'requests'}
             <div class="space-y-4">
               <div class="flex items-center justify-between gap-3 rounded-[1.75rem] border border-slate-100 bg-slate-50 p-4">
-                <span class="text-sm font-black uppercase tracking-[0.18em] text-slate-500">{$_('common.pending')}</span>
-                <span class="rounded-2xl bg-hero/10 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-hero">{pendingRedemptions.length}</span>
+                <span class="text-sm font-semibold uppercase tracking-wide text-slate-500">{$_('common.pending')}</span>
+                <span class="rounded-2xl bg-hero/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-hero">{pendingRedemptions.length}</span>
               </div>
 
               {#if pendingRedemptions.length === 0}
                 <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                  <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.requests.noPending')}</p>
+                  <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">{$_('parent.requests.noPending')}</p>
                 </div>
               {:else}
                 {#each pendingRedemptions as r}
                   {@const child = children.find((ch) => ch.child.id === r.child_id)}
                   <div class="rounded-[1.5rem] border border-slate-100 bg-white p-4">
                     <div class="flex flex-wrap items-center gap-2">
-                      <span class="inline-flex items-center rounded-full bg-hero/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-hero">{$_('common.pending')}</span>
-                      <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{new Date(r.created_at).toLocaleDateString($locale || 'en')}</span>
+                      <span class="inline-flex items-center rounded-full bg-hero/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-hero">{$_('common.pending')}</span>
+                      <span class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{new Date(r.created_at).toLocaleDateString($locale || 'en')}</span>
                     </div>
-                    <h4 class="mt-3 font-black text-slate-950 break-words">{r.title}</h4>
+                    <h4 class="mt-3 font-bold text-slate-950 break-words">{r.title}</h4>
                     <p class="mt-2 text-sm text-slate-600 break-words">{r.description || $_('common.noDescriptionProvided')}</p>
                     <div class="mt-4 flex flex-wrap items-center gap-2">
-                      <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-700">
+                      <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700">
                         {child?.child.display_name || $_('common.unknownChild')}
                       </span>
-                      <span class="inline-flex items-center gap-2 rounded-full bg-hero/10 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-hero">
+                      <span class="inline-flex items-center gap-2 rounded-full bg-hero/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-hero">
                         <Trophy size={13} />
                         {r.points} {$_('common.points')}
                       </span>
                     </div>
                     <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <button onclick={() => processRedemption(r.id, 'approve')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-savings/20">
+                      <button onclick={() => processRedemption(r.id, 'approve')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-4 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-savings/20">
                         <Check size={16} />
                         {$_('common.approve')}
                       </button>
-                      <button onclick={() => processRedemption(r.id, 'reject')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700">
+                      <button onclick={() => processRedemption(r.id, 'reject')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-semibold uppercase tracking-wide text-slate-700">
                         <X size={16} />
                         {$_('common.reject')}
                       </button>
@@ -1877,13 +1877,13 @@
             {#if loadingFamilySettings}
               <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
                 <div class="mx-auto mb-4 w-10 h-10 animate-spin rounded-full border-4 border-hero border-t-transparent"></div>
-                <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.family.refreshing')}</p>
+                <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">{$_('parent.family.refreshing')}</p>
               </div>
             {/if}
 
             <!-- Invite Form -->
             <div class="space-y-3 pt-4 border-t border-slate-100">
-              <label for="co-parent-email" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.family.emailLabel')}</label>
+              <label for="co-parent-email" class="text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">{$_('parent.family.emailLabel')}</label>
               <div class="space-y-2">
                 <input 
                   id="co-parent-email"
@@ -1899,7 +1899,7 @@
             <!-- Pending Invites -->
             {#if familyInvites.filter(i => i.status === 'pending').length > 0}
               <div class="space-y-3 pt-4 border-t border-slate-100">
-                <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.family.pendingInvites')}</span>
+                <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">{$_('parent.family.pendingInvites')}</span>
                 <div class="grid gap-2">
                   {#each familyInvites.filter(i => i.status === 'pending') as invite}
                     <div class="flex min-w-0 items-start justify-between gap-3 p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
@@ -1907,7 +1907,7 @@
                         <p class="font-bold text-slate-900 text-sm break-all">{invite.email}</p>
                         <p class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{$_('parent.family.waitingForLogin')}</p>
                       </div>
-                      <button onclick={() => revokeInvite(invite.id)} class="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 transition-colors hover:border-red-100 hover:bg-red-50 hover:text-red-500 sm:tracking-[0.18em]" aria-label={$_('parent.family.cancelInvite')}>
+                      <button onclick={() => revokeInvite(invite.id)} class="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500 transition-colors hover:border-red-100 hover:bg-red-50 hover:text-red-500" aria-label={$_('parent.family.cancelInvite')}>
                         {$_('parent.family.cancelInvite')}
                       </button>
                     </div>
@@ -1918,12 +1918,12 @@
 
             <!-- Members List -->
             <div class="space-y-3">
-              <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.family.currentGrownups')}</span>
+              <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">{$_('parent.family.currentGrownups')}</span>
               <div class="grid gap-2">
                 {#each familyMembers as member}
                   <div class="flex min-w-0 flex-col gap-3 p-4 bg-slate-50 rounded-2xl">
                     <div class="flex min-w-0 items-start gap-3">
-                      <div class="w-10 h-10 bg-white rounded-xl flex shrink-0 items-center justify-center text-hero font-black shadow-sm">
+                      <div class="w-10 h-10 bg-white rounded-xl flex shrink-0 items-center justify-center text-hero font-bold shadow-sm">
                         {member.name ? member.name[0].toUpperCase() : member.email[0].toUpperCase()}
                       </div>
                       <div class="min-w-0 flex-1">
@@ -1931,7 +1931,7 @@
                         <p class="text-[10px] text-slate-400 font-medium uppercase tracking-normal sm:tracking-wider break-all">{member.email}</p>
                       </div>
                       {#if member.id === parent?.id}
-                        <span class="shrink-0 px-3 py-1 bg-hero/10 text-hero rounded-lg text-[10px] font-black uppercase tracking-[0.12em] sm:tracking-[0.22em]">{$_('parent.family.you')}</span>
+                        <span class="shrink-0 px-3 py-1 bg-hero/10 text-hero rounded-lg text-[10px] font-semibold uppercase tracking-wide">{$_('parent.family.you')}</span>
                       {/if}
                     </div>
                     {#if member.can_remove}
@@ -1939,7 +1939,7 @@
                         type="button"
                         onclick={() => removeGrownup(member)}
                         disabled={familyGrownupRemovingId === member.id}
-                        class="self-start rounded-xl border border-red-100 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50 sm:tracking-[0.18em]"
+                        class="self-start rounded-xl border border-red-100 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50"
                       >
                         {familyGrownupRemovingId === member.id ? $_('common.removing') : $_('common.remove')}
                       </button>
@@ -1954,15 +1954,15 @@
             {#if loadingFamilySettings}
               <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
                 <div class="mx-auto mb-4 w-10 h-10 animate-spin rounded-full border-4 border-hero border-t-transparent"></div>
-                <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.week.loading')}</p>
+                <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">{$_('parent.week.loading')}</p>
               </div>
             {/if}
             <div class="space-y-3">
               <div class="rounded-[1.75rem] border border-slate-100 bg-white p-4">
-                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{$_('parent.calendarSchoolWeek')}</p>
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('parent.calendarSchoolWeek')}</p>
                 <p class="mt-2 text-sm font-bold text-slate-600">{$_('parent.week.text')}</p>
                 <div class="mt-4">
-                  <label for="family-week-start" class="mb-2 block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{$_('parent.week.startsOn')}</label>
+                  <label for="family-week-start" class="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('parent.week.startsOn')}</label>
                   <div class="flex flex-col gap-3 sm:flex-row">
                     <select
                       id="family-week-start"
@@ -1978,12 +1978,12 @@
                       type="button"
                       onclick={saveFamilySettings}
                       disabled={loadingFamilySettings || familySettingsSaving || !familySettings || familySettingsForm.week_start_day === familySettings.week_start_day}
-                      class="rounded-2xl bg-slate-900 px-5 py-3 text-xs font-black uppercase tracking-[0.16em] text-white transition-all disabled:opacity-50"
+                      class="rounded-2xl bg-slate-900 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-white transition-all disabled:opacity-50"
                     >
                       {familySettingsSaving ? $_('common.saving') : $_('common.save')}
                     </button>
                   </div>
-                  <p class="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">{$_('parent.week.usedFor')}</p>
+                  <p class="mt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('parent.week.usedFor')}</p>
                 </div>
                 {#if familySettingsMessage}
                   <p class="mt-3 text-xs font-bold text-hero">{familySettingsMessage}</p>
@@ -2001,19 +2001,19 @@
               <div class="flex gap-2 rounded-2xl bg-hero/5 p-1 ring-1 ring-hero/10">
                 <button
                   onclick={() => activeTab = 'positive'}
-                  class="min-w-0 flex-1 rounded-xl px-2 py-2.5 text-[9px] font-black uppercase leading-none tracking-[0.08em] transition-all sm:px-4 sm:py-3 sm:text-[10px] sm:tracking-[0.08em] {activeTab === 'positive' ? 'bg-savings/15 text-savings shadow-sm ring-1 ring-savings/10' : 'text-slate-500 hover:bg-white/70 hover:text-savings'}"
+                  class="min-w-0 flex-1 rounded-xl px-2 py-2.5 text-[10px] font-bold uppercase leading-none tracking-wide transition-all sm:px-4 sm:py-3 sm:text-[10px] {activeTab === 'positive' ? 'bg-savings/15 text-savings shadow-sm ring-1 ring-savings/10' : 'text-slate-500 hover:bg-white/70 hover:text-savings'}"
                 >
                   {$_('common.add')}
                 </button>
                 <button
                   onclick={() => activeTab = 'negative'}
-                  class="min-w-0 flex-1 rounded-xl px-2 py-2.5 text-[9px] font-black uppercase leading-none tracking-[0.08em] transition-all sm:px-4 sm:py-3 sm:text-[10px] sm:tracking-[0.08em] {activeTab === 'negative' ? 'bg-penalty/15 text-penalty shadow-sm ring-1 ring-penalty/10' : 'text-slate-500 hover:bg-white/70 hover:text-penalty'}"
+                  class="min-w-0 flex-1 rounded-xl px-2 py-2.5 text-[10px] font-bold uppercase leading-none tracking-wide transition-all sm:px-4 sm:py-3 sm:text-[10px] {activeTab === 'negative' ? 'bg-penalty/15 text-penalty shadow-sm ring-1 ring-penalty/10' : 'text-slate-500 hover:bg-white/70 hover:text-penalty'}"
                 >
                   {$_('common.remove')}
                 </button>
                 <button 
                   onclick={() => activeTab = 'other'}
-                  class="min-w-0 flex-1 rounded-xl px-2 py-2.5 text-[9px] font-black uppercase leading-none tracking-[0.08em] transition-all sm:px-4 sm:py-3 sm:text-[10px] sm:tracking-[0.08em] {activeTab === 'other' ? 'bg-hero/15 text-hero shadow-sm ring-1 ring-hero/10' : 'text-slate-500 hover:bg-white/70 hover:text-hero'}"
+                  class="min-w-0 flex-1 rounded-xl px-2 py-2.5 text-[10px] font-bold uppercase leading-none tracking-wide transition-all sm:px-4 sm:py-3 sm:text-[10px] {activeTab === 'other' ? 'bg-hero/15 text-hero shadow-sm ring-1 ring-hero/10' : 'text-slate-500 hover:bg-white/70 hover:text-hero'}"
                 >
                   {$_('parent.pointsActions.custom')}
                 </button>
@@ -2022,7 +2022,7 @@
                 {#if activeTab === 'other'}
                   <div class="space-y-4 pb-4">
                     <div class="space-y-2">
-                      <label for="custom-points-description" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.pointsActions.reason')}</label>
+                      <label for="custom-points-description" class="text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">{$_('parent.pointsActions.reason')}</label>
                       <textarea
                         id="custom-points-description"
                         bind:value={modalForm.description}
@@ -2034,21 +2034,21 @@
 
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div class="space-y-2">
-                        <label for="custom-points-amount" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('common.points')}</label>
+                        <label for="custom-points-amount" class="text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">{$_('common.points')}</label>
                         <div class="relative">
                           <input
                             id="custom-points-amount"
                             type="number"
                             min="1"
                             bind:value={modalForm.points}
-                            class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 pr-12 font-black text-slate-900 focus:outline-none focus:border-hero/30 transition-all text-2xl"
+                            class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 pr-12 font-bold text-slate-900 focus:outline-none focus:border-hero/30 transition-all text-2xl"
                           />
-                          <span class="absolute right-5 top-1/2 -translate-y-1/2 font-black text-slate-300 text-sm">{$_('common.pts')}</span>
+                          <span class="absolute right-5 top-1/2 -translate-y-1/2 font-bold text-slate-300 text-sm">{$_('common.pts')}</span>
                         </div>
                       </div>
 
                       <div class="space-y-2">
-                        <label for="custom-points-jar" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.pointsActions.pointDestination')}</label>
+                        <label for="custom-points-jar" class="text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">{$_('parent.pointsActions.pointDestination')}</label>
                         <select
                           id="custom-points-jar"
                           bind:value={modalForm.jar}
@@ -2065,7 +2065,7 @@
                         type="button"
                         onclick={() => submitCustomPoints('award')}
                         disabled={modalLoading || Math.abs(Number(modalForm.points) || 0) < 1}
-                        class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-savings/20 disabled:cursor-not-allowed disabled:opacity-60"
+                        class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-4 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-savings/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <Award size={16} />
                         {$_('parent.pointsActions.addPoints')}
@@ -2074,7 +2074,7 @@
                         type="button"
                         onclick={() => submitCustomPoints('penalty')}
                         disabled={modalLoading || Math.abs(Number(modalForm.points) || 0) < 1}
-                        class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-penalty px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-penalty/20 disabled:cursor-not-allowed disabled:opacity-60"
+                        class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-penalty px-4 py-4 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-penalty/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <Ban size={16} />
                         {$_('parent.pointsActions.removePoints')}
@@ -2092,7 +2092,7 @@
                         <div class="text-4xl mb-1 h-12 flex items-center justify-center">
                           {p.icon || '✨'}
                         </div>
-                        <div class="rounded-lg px-2 py-0.5 text-xs font-black {p.points > 0 ? 'bg-savings text-white' : 'bg-penalty text-white'}">
+                        <div class="rounded-lg px-2 py-0.5 text-xs font-bold {p.points > 0 ? 'bg-savings text-white' : 'bg-penalty text-white'}">
                           {p.points > 0 ? '+' : ''}{p.points} {$_('common.pts')}
                         </div>
                         <div class="min-w-0 mt-1">
@@ -2101,8 +2101,8 @@
                       </button>
                     {:else}
                       <div class="col-span-full py-12 text-center text-slate-300">
-                        <p class="font-black uppercase tracking-[0.12em] text-xs">{$_('parent.pointsActions.noPresets')}</p>
-                        <button onclick={() => openModal('presets', null)} class="text-hero text-[10px] font-black uppercase tracking-[0.12em] mt-2 hover:underline">
+                        <p class="font-semibold uppercase tracking-wide text-xs">{$_('parent.pointsActions.noPresets')}</p>
+                        <button onclick={() => openModal('presets', null)} class="text-hero text-[10px] font-semibold uppercase tracking-wide mt-2 hover:underline">
                           {$_('parent.pointsActions.addPreset')}
                         </button>
                       </div>
@@ -2117,27 +2117,27 @@
               <div class="space-y-4">
                 {#if childRequests.length === 0}
                   <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                    <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.requests.noPending')}</p>
+                    <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">{$_('parent.requests.noPending')}</p>
                   </div>
                 {:else}
                   {#each childRequests as r}
                     <div class="rounded-[1.5rem] border border-slate-100 bg-white p-4">
                       <div class="flex flex-wrap items-center gap-2">
-                        <span class="inline-flex items-center rounded-full bg-hero/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-hero">{$_('common.pending')}</span>
-                        <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{new Date(r.created_at).toLocaleDateString($locale || 'en')}</span>
+                        <span class="inline-flex items-center rounded-full bg-hero/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-hero">{$_('common.pending')}</span>
+                        <span class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{new Date(r.created_at).toLocaleDateString($locale || 'en')}</span>
                       </div>
-                      <h4 class="mt-3 font-black text-slate-950 break-words">{r.title}</h4>
+                      <h4 class="mt-3 font-bold text-slate-950 break-words">{r.title}</h4>
                       <p class="mt-2 text-sm text-slate-600 break-words">{r.description || $_('common.noDescriptionProvided')}</p>
-                      <div class="mt-3 inline-flex items-center gap-2 rounded-full bg-hero/10 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-hero">
+                      <div class="mt-3 inline-flex items-center gap-2 rounded-full bg-hero/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-hero">
                         <Trophy size={13} />
                         {r.points} {$_('common.points')}
                       </div>
                       <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <button onclick={() => processRedemption(r.id, 'approve')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-savings/20">
+                        <button onclick={() => processRedemption(r.id, 'approve')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-4 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-savings/20">
                           <Check size={16} />
                           {$_('common.approve')}
                         </button>
-                        <button onclick={() => processRedemption(r.id, 'reject')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700">
+                        <button onclick={() => processRedemption(r.id, 'reject')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-semibold uppercase tracking-wide text-slate-700">
                           <X size={16} />
                           {$_('common.reject')}
                         </button>
@@ -2145,7 +2145,7 @@
                     </div>
                   {/each}
                 {/if}
-                <a href="/redemptions" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-slate-700 transition hover:border-hero hover:text-hero">
+                <a href="/redemptions" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-hero hover:text-hero">
                   <Check size={15} />
                   <span class="sm:hidden">{$_('parent.requests.reviewRewardRequests')}</span>
                   <span class="hidden sm:inline">{$_('parent.requests.openReview')}</span>
@@ -2159,7 +2159,7 @@
               <div class="grid gap-4 sm:grid-cols-2">
                 {#each ([['Today', todayItems], ['Tomorrow', tomorrowItems]] as [string, SchoolItem[]][]) as group}
                   <div class="rounded-[1.75rem] border border-slate-100 bg-white p-4">
-                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{group[0] === 'Today' ? $_('common.today') : $_('common.tomorrow')}</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{group[0] === 'Today' ? $_('common.today') : $_('common.tomorrow')}</p>
                     {#if loadingSchoolPrep}
                       <p class="mt-4 text-sm font-bold text-slate-400">{$_('parent.school.loading')}</p>
                     {:else if group[1].length === 0}
@@ -2168,7 +2168,7 @@
                       <div class="mt-4 space-y-2">
                         {#each group[1] as item}
                           <div class="rounded-2xl bg-slate-50 p-3">
-                            <p class="text-sm font-black text-slate-950">{schoolNeedLabel(item)}</p>
+                            <p class="text-sm font-bold text-slate-950">{schoolNeedLabel(item)}</p>
                             <p class="mt-1 text-xs font-bold text-slate-400">{item.class_name}</p>
                           </div>
                         {/each}
@@ -2185,7 +2185,7 @@
               <div class="space-y-4">
                 {#if childCalendarLoading[activeModal.child.child.id]}
                   <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                    <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('calendar.loadingTitle')}</p>
+                    <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">{$_('calendar.loadingTitle')}</p>
                   </div>
                 {:else if childCalendarError[activeModal.child.child.id]}
                   <div class="rounded-[1.75rem] border border-red-100 bg-red-50 p-5 text-sm font-bold text-red-700">
@@ -2193,14 +2193,14 @@
                   </div>
                 {:else}
                   <div class="rounded-[1.75rem] border border-slate-100 bg-white p-4">
-                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('common.today')}</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('common.today')}</p>
                     {#if todayEvents.length === 0}
                       <p class="mt-4 text-sm font-bold text-slate-500">{$_('calendar.noTodayItems')}</p>
                     {:else}
                       <div class="mt-4 space-y-2">
                         {#each todayEvents as item}
                           <div class="rounded-2xl bg-slate-50 p-3">
-                            <p class="break-words text-sm font-black leading-snug text-slate-950">{item.entry.title}</p>
+                            <p class="break-words text-sm font-bold leading-snug text-slate-950">{item.entry.title}</p>
                             <p class="mt-1 break-words text-xs font-bold leading-snug text-slate-400">{formatCalendarTime(item.entry.start_time)} · {calendarEntryTypeLabel(item.entry.entry_type)}</p>
                           </div>
                         {/each}
@@ -2208,14 +2208,14 @@
                     {/if}
                   </div>
                   <div class="rounded-[1.75rem] border border-slate-100 bg-white p-4">
-                    <p class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('common.upcoming')}</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('common.upcoming')}</p>
                     {#if upcomingEvents.length === 0}
                       <p class="mt-4 text-sm font-bold text-slate-500">{$_('calendar.noUpcomingItems')}</p>
                     {:else}
                       <div class="mt-4 space-y-2">
                         {#each upcomingEvents as item}
                           <div class="rounded-2xl bg-slate-50 p-3">
-                            <p class="break-words text-sm font-black leading-snug text-slate-950">{item.entry.title}</p>
+                            <p class="break-words text-sm font-bold leading-snug text-slate-950">{item.entry.title}</p>
                             <p class="mt-1 break-words text-xs font-bold leading-snug text-slate-400">{formatCalendarDate(item.occurrence_date)} · {formatCalendarTime(item.entry.start_time)}</p>
                           </div>
                         {/each}
@@ -2223,7 +2223,7 @@
                     {/if}
                   </div>
                 {/if}
-                <a href="/calendar" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-slate-700 transition hover:border-hero hover:text-hero">
+                <a href="/calendar" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-hero hover:text-hero">
                   <CalendarDays size={15} />
                   <span class="sm:hidden">{$_('parent.tabs.calendar')}</span>
                   <span class="hidden sm:inline">{$_('parent.calendar')}</span>
@@ -2237,30 +2237,30 @@
               <div class="space-y-4">
                 <div class="grid grid-cols-2 gap-3">
                   <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                    <p class="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">{$_('common.saved')}</p>
-                    <p class="mt-2 text-2xl font-black text-slate-950">{activeModal.child.savings_balance || 0}</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('common.saved')}</p>
+                    <p class="mt-2 text-2xl font-bold text-slate-950">{activeModal.child.savings_balance || 0}</p>
                   </div>
                   <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                    <p class="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">{$_('common.points')}</p>
-                    <p class="mt-2 text-2xl font-black text-slate-950">{childAvailablePoints(activeModal.child)}</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('common.points')}</p>
+                    <p class="mt-2 text-2xl font-bold text-slate-950">{childAvailablePoints(activeModal.child)}</p>
                   </div>
                   <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                    <p class="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">{$_('parent.savings.unlocked')}</p>
-                    <p class="mt-2 text-2xl font-black text-slate-950">{activeModal.child.available_savings || 0}</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('parent.savings.unlocked')}</p>
+                    <p class="mt-2 text-2xl font-bold text-slate-950">{activeModal.child.available_savings || 0}</p>
                   </div>
                   <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                    <p class="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">{$_('common.held')}</p>
-                    <p class="mt-2 text-2xl font-black text-slate-950">{activeModal.child.locked_savings || 0}</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('common.held')}</p>
+                    <p class="mt-2 text-2xl font-bold text-slate-950">{activeModal.child.locked_savings || 0}</p>
                   </div>
                 </div>
                 {#if allowance}
                   <div class="rounded-[1.75rem] border border-savings/10 bg-savings/5 p-4">
-                    <p class="text-[10px] font-black uppercase tracking-[0.08em] text-savings-dark sm:tracking-[0.18em]">{$_('parent.allowance')}</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-savings-dark">{$_('parent.allowance')}</p>
                     <p class="mt-2 break-words text-sm font-bold leading-snug text-slate-700">{$_('parent.savings.allowanceLine', { values: { saved: formatAllowanceMinorAmount(allowance.saved_allowance_minor, allowance.currency, allowance.currency_exponent), available: formatAllowanceMinorAmount(allowance.available_allowance_minor, allowance.currency, allowance.currency_exponent) } })}</p>
                   </div>
                 {/if}
                 <div class="rounded-[1.75rem] border border-slate-100 bg-white p-4">
-                  <p class="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">{$_('parent.savings.nextUnlock')}</p>
+                  <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('parent.savings.nextUnlock')}</p>
                   {#if unlock}
                     <p class="mt-2 break-words text-sm font-bold leading-snug text-slate-700">{$_('parent.savings.nextUnlockLine', { values: { points: unlock.points, date: formatSavingsUnlockDate(unlock.unlock_date) } })}</p>
                   {:else}
@@ -2281,7 +2281,7 @@
                   <button
                     type="button"
                     onclick={() => setPointLogPeriod(period[0])}
-                    class="rounded-xl py-3 text-[9px] font-black uppercase tracking-[0.03em] transition-all sm:text-[10px] sm:tracking-[0.08em] {pointLogPeriod === period[0] ? 'bg-hero text-white shadow-md shadow-hero/20' : 'text-slate-500 hover:bg-white/70 hover:text-hero'}"
+                    class="rounded-xl py-3 text-[10px] font-semibold uppercase tracking-wide transition-all sm:text-[10px] {pointLogPeriod === period[0] ? 'bg-hero text-white shadow-md shadow-hero/20' : 'text-slate-500 hover:bg-white/70 hover:text-hero'}"
                   >
                     {period[1]}
                   </button>
@@ -2293,8 +2293,8 @@
                     <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
                       <div class="mx-auto grid h-44 w-44 place-items-center rounded-full border-2 border-dashed border-slate-200 bg-white">
                         <div class="text-center">
-                          <p class="text-3xl font-black text-slate-950">—</p>
-                          <p class="mt-1 text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">{$_('parent.pointsLog.noBehaviour')}</p>
+                          <p class="text-3xl font-bold text-slate-950">—</p>
+                          <p class="mt-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('parent.pointsLog.noBehaviour')}</p>
                         </div>
                       </div>
                     </div>
@@ -2302,8 +2302,8 @@
                     <div class="mx-auto grid h-44 w-44 place-items-center rounded-full" style={ringStyle(percent)}>
                       <div class="grid h-28 w-28 place-items-center rounded-full bg-white shadow-inner ring-1 ring-slate-100">
                         <div class="text-center">
-                          <p class="text-3xl font-black text-slate-950">{percent === null ? '—' : `${percent}%`}</p>
-                          <p class="mt-1 text-[10px] font-black uppercase tracking-[0.08em] text-slate-400 sm:tracking-[0.18em]">{$_('parent.pointsLog.good')}</p>
+                          <p class="text-3xl font-bold text-slate-950">{percent === null ? '—' : `${percent}%`}</p>
+                          <p class="mt-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('parent.pointsLog.good')}</p>
                         </div>
                       </div>
                     </div>
@@ -2315,7 +2315,7 @@
 
                 {#if childLedgerLoading[key]}
                   <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                    <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.pointsLog.loading')}</p>
+                    <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">{$_('parent.pointsLog.loading')}</p>
                   </div>
                 {:else if childLedgerError[key]}
                   <div class="rounded-[1.75rem] border border-red-100 bg-red-50 p-5 text-sm font-bold text-red-700">
@@ -2323,17 +2323,17 @@
                   </div>
                 {:else if behaviorLedger.length === 0}
                   <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                    <p class="text-sm font-black uppercase tracking-[0.12em] text-slate-400 sm:tracking-[0.22em]">{$_('parent.pointsLog.noHistory')}</p>
+                    <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">{$_('parent.pointsLog.noHistory')}</p>
                   </div>
                 {:else}
                   <div class="space-y-2">
                     {#each behaviorLedger.slice(0, 8) as tx}
                       <div class="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 p-3">
                         <div class="min-w-0">
-                          <p class="truncate text-sm font-black text-slate-950">{tx.description || tx.transaction_type}</p>
+                          <p class="truncate text-sm font-bold text-slate-950">{tx.description || tx.transaction_type}</p>
                           <p class="text-xs font-bold text-slate-400">{formatLedgerDate(tx.created_at)} · {ledgerJarLabel(tx.jar)}</p>
                         </div>
-                        <span class="shrink-0 rounded-full px-3 py-2 text-xs font-black {tx.points > 0 ? 'bg-savings/10 text-savings' : tx.points < 0 ? 'bg-penalty/10 text-penalty' : 'bg-slate-100 text-slate-600'}">
+                        <span class="shrink-0 rounded-full px-3 py-2 text-xs font-bold {tx.points > 0 ? 'bg-savings/10 text-savings' : tx.points < 0 ? 'bg-penalty/10 text-penalty' : 'bg-slate-100 text-slate-600'}">
                           {tx.points > 0 ? '+' : ''}{tx.points}
                         </span>
                       </div>
@@ -2346,7 +2346,7 @@
 
           {#if activeModal.type === 'redeem' || activeModal.type === 'presets'}
             <div class="space-y-2">
-              <label for="modal-title" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">
+              <label for="modal-title" class="text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">
                 {activeModal.type === 'presets' ? $_('parent.presets.titleLabel') : $_('parent.redeem.rewardNameLabel')}
               </label>
               <div class="flex gap-3 min-w-0">
@@ -2367,7 +2367,7 @@
 
             {#if activeModal.type === 'presets'}
               <div class="space-y-2">
-                <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.presets.visualLabel')}</span>
+                <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">{$_('parent.presets.visualLabel')}</span>
                 <div class="flex flex-wrap gap-2 p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
                   <button 
                     onclick={() => modalForm.icon = ''}
@@ -2392,15 +2392,15 @@
           {#if activeModal.type !== 'picker' && activeModal.type !== 'family' && activeModal.type !== 'calendar-week' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests'}
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
               <div class="space-y-2">
-                <label for="points-amount" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.presets.pointsLabel')}</label>
+                <label for="points-amount" class="text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">{$_('parent.presets.pointsLabel')}</label>
                 <div class="relative">
                   <input 
                     id="points-amount"
                     type="number" 
                     bind:value={modalForm.points}
-                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 sm:px-6 py-4 font-black text-slate-900 focus:outline-none focus:border-hero/30 transition-all text-2xl"
+                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 sm:px-6 py-4 font-bold text-slate-900 focus:outline-none focus:border-hero/30 transition-all text-2xl"
                   />
-                  <span class="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 font-black text-slate-300 text-sm">{$_('common.pts')}</span>
+                  <span class="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 font-bold text-slate-300 text-sm">{$_('common.pts')}</span>
                 </div>
                 {#if activeModal.type === 'presets'}
                   <p class="text-[10px] text-slate-400 ml-2">{$_('parent.presets.pointsHint')}</p>
@@ -2409,7 +2409,7 @@
 
               {#if activeModal.type === 'award' || activeModal.type === 'penalty'}
                 <div class="space-y-2">
-                  <label for="target-jar" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.pointsActions.pointDestination')}</label>
+                  <label for="target-jar" class="text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">{$_('parent.pointsActions.pointDestination')}</label>
                   <select 
                     id="target-jar"
                     bind:value={modalForm.jar}
@@ -2425,7 +2425,7 @@
 
           {#if activeModal.type !== 'presets' && activeModal.type !== 'picker' && activeModal.type !== 'family' && activeModal.type !== 'calendar-week' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests'}
             <div class="space-y-2">
-              <label for="modal-description" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.redeem.descriptionLabel')}</label>
+              <label for="modal-description" class="text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">{$_('parent.redeem.descriptionLabel')}</label>
               <textarea 
                 id="modal-description"
                 bind:value={modalForm.description}
@@ -2438,7 +2438,7 @@
 
           {#if activeModal.type === 'presets'}
             <div class="space-y-2">
-              <label for="preset-details" class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.presets.detailsLabel')}</label>
+              <label for="preset-details" class="text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">{$_('parent.presets.detailsLabel')}</label>
               <textarea 
                 id="preset-details"
                 bind:value={modalForm.description}
@@ -2450,7 +2450,7 @@
 
             {#if presets.length > 0}
               <div class="space-y-3 pt-4 border-t border-slate-100">
-                <span class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">{$_('parent.presets.existing')}</span>
+                <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">{$_('parent.presets.existing')}</span>
                 <div class="grid gap-2">
                   {#each presets as p}
                     <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
@@ -2479,7 +2479,7 @@
           {#if activeModal.type === 'bank'}
             <div class="p-4 bg-savings/5 rounded-2xl border border-savings/10 flex items-start gap-3">
               <Clock size={16} class="text-savings mt-0.5" />
-              <p class="text-[10px] font-bold text-savings-dark leading-relaxed uppercase tracking-[0.12em] sm:tracking-[0.22em]">
+              <p class="text-[10px] font-bold text-savings-dark leading-relaxed uppercase tracking-wide">
                 {$_('parent.bank.lockedNote')}
               </p>
             </div>
@@ -2491,7 +2491,7 @@
               <button 
                 onclick={handleModalSubmit}
                 disabled={modalLoading}
-                class="w-full py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-sm shadow-xl transition-all active:scale-[0.98] disabled:opacity-50
+                class="w-full py-5 rounded-[1.5rem] font-semibold uppercase tracking-wide text-sm shadow-xl transition-all active:scale-[0.98] disabled:opacity-50
                 {activeModal.type === 'award' ? 'bg-savings text-white shadow-savings/20 hover:bg-savings-dark' : 
                  activeModal.type === 'penalty' ? 'bg-penalty text-white shadow-penalty/30 hover:bg-penalty-dark' :
                  activeModal.type === 'bank' ? 'bg-reward text-white shadow-reward/30 hover:bg-reward-dark' :
@@ -2506,7 +2506,7 @@
               {#if editingPresetId}
                 <button 
                   onclick={cancelEditing}
-                  class="w-full py-3 text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 hover:text-slate-600 transition-colors sm:tracking-[0.22em]"
+                  class="w-full py-3 text-[10px] font-semibold uppercase tracking-wide text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   {$_('parent.presets.cancelEdit')}
                 </button>
@@ -2519,50 +2519,7 @@
 {/if}
 </div>
 <style>
-  :global(.card) {
-    border: 1px solid rgba(0,0,0,0.05);
-    border-radius: 2rem;
-    box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05);
-  }
-  
-  :global(.btn-hero) {
-    background: #7C3AED;
-    color: white;
-    font-weight: 900;
-  }
-  
-  :global(.btn-secondary) {
-    background: white;
-    border: 2px solid #F1F5F9;
-    color: #64748B;
-    font-weight: 800;
-  }
-
-  .text-hero { color: #7C3AED; }
-  .text-hero-dark { color: #5B21B6; }
-  .bg-hero { background: #7C3AED; }
-  .bg-hero-dark { background: #5B21B6; }
-  .shadow-hero\/20 { box-shadow: 0 10px 20px -5px rgba(124, 58, 237, 0.2); }
-  
-  .text-savings { color: #10B981; }
-  .text-savings-dark { color: #047857; }
-  .bg-savings { background: #10B981; }
-  .bg-savings-dark { background: #047857; }
-  .shadow-savings\/20 { box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.2); }
-  .shadow-savings\/30 { box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.3); }
-
-  .text-reward { color: #F59E0B; }
-  .bg-reward { background: #F59E0B; }
-  .bg-reward-dark { background: #92400E; }
-  .shadow-reward\/20 { box-shadow: 0 10px 20px -5px rgba(245, 158, 11, 0.2); }
-  .shadow-reward\/30 { box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.3); }
-
-  .text-penalty { color: #F43F5E; }
-  .bg-penalty { background: #F43F5E; }
-  .bg-penalty-dark { background: #BE123C; }
-  .shadow-penalty\/20 { box-shadow: 0 10px 20px -5px rgba(244, 63, 94, 0.2); }
-  .shadow-penalty\/30 { box-shadow: 0 10px 25px -5px rgba(244, 63, 94, 0.3); }
-
+  /* Color, card, and button styles come from tailwind.config.js and app.css. */
   @keyframes fade-in {
     from { opacity: 0; }
     to { opacity: 1; }

@@ -4,9 +4,9 @@
 
 :root {
   --hero-color: #7c3aed;
-  --savings-color: #16a34a;
-  --reward-color: #ca8a04;
-  --penalty-color: #e11d48;
+  --savings-color: #10b981;
+  --reward-color: #f59e0b;
+  --penalty-color: #f43f5e;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -81,8 +81,25 @@ textarea {
   @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl;
 }
 
+/* Card scale — see docs/DESIGN.md. Use these instead of ad-hoc
+   rounded-[...] + shadow combinations. */
 .card {
   @apply bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden;
+}
+
+.card-lg {
+  @apply bg-white rounded-[2rem] border border-slate-100 overflow-hidden;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08);
+}
+
+.card-flat {
+  @apply bg-white rounded-2xl border border-slate-200 overflow-hidden;
+}
+
+/* The one sanctioned uppercase micro-label style. Use sparingly:
+   at most 2–3 per page. */
+.eyebrow {
+  @apply text-[11px] font-semibold uppercase tracking-wider text-slate-400;
 }
 
 .btn-hero {

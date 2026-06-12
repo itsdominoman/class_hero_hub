@@ -330,7 +330,7 @@
   <section class="px-3 py-8 sm:px-4 sm:py-10 lg:py-14">
     <div class="mx-auto max-w-7xl">
       <div class="mb-6">
-        <a href="/parent" class="inline-flex items-center gap-2 rounded-full border border-hero/15 bg-hero/10 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-hero shadow-sm transition hover:border-hero/30 hover:bg-hero/15">
+        <a href="/parent" class="inline-flex items-center gap-2 rounded-full border border-hero/15 bg-hero/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-hero shadow-sm transition hover:border-hero/30 hover:bg-hero/15">
           <ArrowLeft size={14} />
           {$_('allowance.back')}
         </a>
@@ -340,11 +340,11 @@
         <section class="card h-fit overflow-hidden border-slate-200 bg-white p-6 text-slate-950 shadow-xl sm:p-8">
           <div class="space-y-5">
             <div>
-              <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-hero/15 bg-hero/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-hero">
+              <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-hero/15 bg-hero/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-hero">
                 <Sparkles size={15} />
                 {$_('allowance.optional')}
               </div>
-              <h1 class="max-w-xl text-4xl font-black leading-[0.95] tracking-tighter sm:text-5xl lg:text-6xl">
+              <h1 class="max-w-xl text-4xl font-bold leading-[0.95] tracking-tighter sm:text-5xl lg:text-6xl">
                 {$_('allowance.heading')}
               </h1>
               <p class="mt-5 max-w-xl text-base font-medium leading-relaxed text-slate-700 sm:text-lg">
@@ -359,21 +359,21 @@
               <div class="flex items-start gap-3 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
                 <ShieldCheck class="mt-0.5 shrink-0 text-savings" size={22} />
                 <div>
-                  <p class="text-sm font-black text-slate-900">{$_('allowance.benefitRewardsTitle')}</p>
+                  <p class="text-sm font-bold text-slate-900">{$_('allowance.benefitRewardsTitle')}</p>
                   <p class="mt-1 text-sm font-medium leading-relaxed text-slate-600">{$_('allowance.benefitRewardsText')}</p>
                 </div>
               </div>
               <div class="flex items-start gap-3 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
                 <CalendarDays class="mt-0.5 shrink-0 text-hero" size={22} />
                 <div>
-                  <p class="text-sm font-black text-slate-900">{$_('allowance.benefitPeriodTitle')}</p>
+                  <p class="text-sm font-bold text-slate-900">{$_('allowance.benefitPeriodTitle')}</p>
                   <p class="mt-1 text-sm font-medium leading-relaxed text-slate-600">{$_('allowance.benefitPeriodText')}</p>
                 </div>
               </div>
               <div class="flex items-start gap-3 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
                 <Wallet class="mt-0.5 shrink-0 text-reward" size={22} />
                 <div>
-                  <p class="text-sm font-black text-slate-900">{$_('allowance.benefitParentTitle')}</p>
+                  <p class="text-sm font-bold text-slate-900">{$_('allowance.benefitParentTitle')}</p>
                   <p class="mt-1 text-sm font-medium leading-relaxed text-slate-600">{$_('allowance.benefitParentText')}</p>
                 </div>
               </div>
@@ -387,16 +387,16 @@
               <div class="flex items-center gap-3">
                 <div class="h-11 w-11 animate-spin rounded-full border-4 border-hero border-t-transparent"></div>
                 <div>
-                  <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('allowance.loadingTitle')}</p>
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.loadingTitle')}</p>
                   <p class="text-sm font-medium text-slate-600">{$_('allowance.loadingText')}</p>
                 </div>
               </div>
             </div>
           {:else if needsLogin}
             <div class="card border-slate-100 bg-white p-6 shadow-xl">
-              <h2 class="text-2xl font-black text-slate-950">{$_('allowance.signInTitle')}</h2>
+              <h2 class="text-2xl font-bold text-slate-950">{$_('allowance.signInTitle')}</h2>
               <p class="mt-2 text-sm font-medium text-slate-600">{$_('allowance.signInText')}</p>
-              <a href="/login" class="btn-hero mt-5 inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm uppercase tracking-[0.14em]">
+              <a href="/login" class="btn-hero mt-5 inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm uppercase tracking-wide">
                 {$_('allowance.signInCta')}
               </a>
             </div>
@@ -406,22 +406,22 @@
             </div>
           {:else if children.length === 0}
             <div class="card border-slate-100 bg-white p-6 shadow-xl">
-              <h2 class="text-2xl font-black text-slate-950">{$_('allowance.emptyTitle')}</h2>
+              <h2 class="text-2xl font-bold text-slate-950">{$_('allowance.emptyTitle')}</h2>
               <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">{$_('allowance.emptyText')}</p>
-              <a href="/parent" class="btn-secondary mt-5 inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm uppercase tracking-[0.14em]">
+              <a href="/parent" class="btn-secondary mt-5 inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm uppercase tracking-wide">
                 {$_('allowance.emptyCta')}
               </a>
             </div>
           {:else}
             <div class="card border-slate-100 bg-white p-5 shadow-xl sm:p-6">
-              <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('allowance.stepChooseChild')}</p>
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.stepChooseChild')}</p>
               <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">{$_('allowance.selectChildHelp')}</p>
               <label for="child-select" class="sr-only">{$_('allowance.child')}</label>
               <select
                 id="child-select"
                 bind:value={selectedChildId}
                 onchange={handleChildChange}
-                class="mt-4 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-black text-slate-900 outline-none transition focus:border-hero focus:ring-4 focus:ring-hero/10"
+                class="mt-4 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-bold text-slate-900 outline-none transition focus:border-hero focus:ring-4 focus:ring-hero/10"
               >
                 {#each children as child}
                   <option value={String(child.child.id)}>{child.child.display_name}</option>
@@ -431,22 +431,22 @@
 
             {#if childLoading}
               <div class="card border-slate-100 bg-white p-6 shadow-xl">
-                <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('allowance.loadingChildSettings')}</p>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.loadingChildSettings')}</p>
                 <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">{$_('allowance.loadingDetails', { values: { name: selectedChild?.child.display_name || $_('allowance.thisChild') } })}</p>
               </div>
             {:else}
               <div class="card border-slate-100 bg-white p-5 shadow-xl sm:p-6">
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('allowance.onOff')}</p>
-                    <h2 class="mt-2 text-2xl font-black text-slate-950">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.onOff')}</p>
+                    <h2 class="mt-2 text-2xl font-bold text-slate-950">
                       {$_('allowance.status', { values: { status: form.is_enabled ? $_('allowance.enabled') : $_('allowance.disabled') } })}
                     </h2>
                     <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">
                       {$_('allowance.reducesAvailableNote')}
                     </p>
                   </div>
-                  <div class={`inline-flex w-fit items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em] ${form.is_enabled ? 'bg-savings/10 text-savings' : 'bg-slate-100 text-slate-500'}`}>
+                  <div class={`inline-flex w-fit items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide ${form.is_enabled ? 'bg-savings/10 text-savings' : 'bg-slate-100 text-slate-500'}`}>
                     {#if form.is_enabled}
                       <BadgeCheck size={15} />
                       {$_('allowance.enabled')}
@@ -461,8 +461,8 @@
               <div class="card border-slate-100 bg-white p-5 shadow-xl sm:p-6">
                 <div class="flex items-start justify-between gap-4">
                   <div>
-                    <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('allowance.stepAmountCurrencyGoal')}</p>
-                    <h2 class="mt-2 text-2xl font-black text-slate-950">{$_('allowance.setLinked')}</h2>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.stepAmountCurrencyGoal')}</p>
+                    <h2 class="mt-2 text-2xl font-bold text-slate-950">{$_('allowance.setLinked')}</h2>
                     <p class="mt-2 text-sm font-medium leading-relaxed text-slate-600">{$_('allowance.setHelp')}</p>
                   </div>
                 </div>
@@ -475,14 +475,14 @@
                       class="mt-1 h-5 w-5 rounded border-slate-300 text-hero focus:ring-hero"
                     />
                     <span>
-                      <span class="block text-sm font-black text-slate-900">{$_('allowance.enableLinked')}</span>
+                      <span class="block text-sm font-bold text-slate-900">{$_('allowance.enableLinked')}</span>
                       <span class="mt-1 block text-sm font-medium leading-relaxed text-slate-600">{$_('allowance.optionalPerChildNote')}</span>
                       <span class="mt-2 block text-sm font-bold leading-relaxed text-amber-700">{$_('allowance.enableWarning')}</span>
                     </span>
                   </label>
 
                   <label class="relative">
-                    <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('allowance.currency')}</span>
+                    <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.currency')}</span>
                       <input
                         value={currencySearch}
                         oninput={handleCurrencySearchInput}
@@ -493,7 +493,7 @@
                         aria-controls="currency-options"
                         autocomplete="off"
                         placeholder={$_('allowance.currencySearchPlaceholder')}
-                        class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-black text-slate-900 outline-none transition focus:border-hero focus:ring-4 focus:ring-hero/10"
+                        class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-bold text-slate-900 outline-none transition focus:border-hero focus:ring-4 focus:ring-hero/10"
                       />
                       {#if showCurrencyOptions}
                         <div
@@ -509,7 +509,7 @@
                                 onclick={() => selectCurrency(currency.code)}
                               >
                                 <span class="min-w-0">
-                                  <span class="block text-sm font-black">{currency.code} — {currency.symbol} {currency.name}</span>
+                                  <span class="block text-sm font-bold">{currency.code} — {currency.symbol} {currency.name}</span>
                                   <span class="block text-xs font-bold text-slate-500">
                                     {currency.exponent} {currency.exponent === 1 ? $_('allowance.decimalSingular') : $_('allowance.decimalPlural')}
                                   </span>
@@ -524,21 +524,21 @@
                   </label>
 
                   <label>
-                    <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('allowance.amount')}</span>
+                    <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.amount')}</span>
                     <input
                       bind:value={form.allowance_amount}
                       inputmode="decimal"
                       placeholder={activeExponent === 3 ? '10.000' : activeExponent === 0 ? '10' : '10.00'}
-                      class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-black text-slate-900 outline-none transition focus:border-hero focus:ring-4 focus:ring-hero/10"
+                      class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-bold text-slate-900 outline-none transition focus:border-hero focus:ring-4 focus:ring-hero/10"
                     />
                     <p class="mt-2 text-xs font-medium leading-relaxed text-slate-500">{$_('allowance.currencyMinorUnitsNote')}</p>
                   </label>
 
                   <label>
-                    <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('allowance.period')}</span>
+                    <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.period')}</span>
                     <select
                       bind:value={form.period}
-                      class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-black text-slate-900 outline-none transition focus:border-hero focus:ring-4 focus:ring-hero/10"
+                      class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-bold text-slate-900 outline-none transition focus:border-hero focus:ring-4 focus:ring-hero/10"
                     >
                       <option value="weekly">{$_('allowance.weekly')}</option>
                       <option value="monthly">{$_('allowance.monthly')}</option>
@@ -546,13 +546,13 @@
                   </label>
 
                   <label class="sm:col-span-2">
-                    <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('allowance.pointGoalLabel')}</span>
+                    <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.pointGoalLabel')}</span>
                     <input
                       type="number"
                       min="1"
                       step="1"
                       bind:value={form.point_goal}
-                      class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-black text-slate-900 outline-none transition focus:border-hero focus:ring-4 focus:ring-hero/10"
+                      class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base font-bold text-slate-900 outline-none transition focus:border-hero focus:ring-4 focus:ring-hero/10"
                     />
                   </label>
                 </div>
@@ -574,7 +574,7 @@
                     type="button"
                     onclick={() => saveSettings()}
                     disabled={saving}
-                    class="btn-hero inline-flex flex-1 items-center justify-center gap-2 rounded-2xl px-5 py-4 text-xs font-black uppercase tracking-[0.16em] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="btn-hero inline-flex flex-1 items-center justify-center gap-2 rounded-2xl px-5 py-4 text-xs font-semibold uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Save size={16} />
                     {saving ? $_('common.saving') : $_('allowance.saveSettings')}
@@ -583,7 +583,7 @@
                     type="button"
                     onclick={disableAllowance}
                     disabled={saving || !form.is_enabled}
-                    class="btn-secondary inline-flex flex-1 items-center justify-center gap-2 rounded-2xl px-5 py-4 text-xs font-black uppercase tracking-[0.16em] disabled:cursor-not-allowed disabled:opacity-60"
+                    class="btn-secondary inline-flex flex-1 items-center justify-center gap-2 rounded-2xl px-5 py-4 text-xs font-semibold uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {$_('allowance.disabled')}
                   </button>
@@ -594,8 +594,8 @@
                 <div class="card border-slate-100 bg-white p-5 shadow-xl sm:p-6">
                   <div class="flex items-start justify-between gap-4">
                     <div>
-                      <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('allowance.stepCurrentSummary')}</p>
-                      <h2 class="mt-2 text-2xl font-black text-slate-950">{$_('allowance.availableBalanceHeading')}</h2>
+                      <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.stepCurrentSummary')}</p>
+                      <h2 class="mt-2 text-2xl font-bold text-slate-950">{$_('allowance.availableBalanceHeading')}</h2>
                     </div>
                     <div class="rounded-2xl bg-hero/10 p-3 text-hero">
                       <Coins size={22} />
@@ -604,15 +604,15 @@
 
                   {#if preview}
                     <div class="mt-5 rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4">
-                      <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('allowance.currentPeriodLabel')}</p>
-                      <p class="mt-2 text-lg font-black text-slate-950">
+                      <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.currentPeriodLabel')}</p>
+                      <p class="mt-2 text-lg font-bold text-slate-950">
                         {formatPeriodDate(preview.period_start)} {$_('allowance.periodRangeSeparator')} {formatPeriodDate(preview.period_end)}
                       </p>
                     </div>
 
                     <div class="mt-4 rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4">
-                      <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('allowance.pointValueLabel')}</p>
-                      <p class="mt-2 text-lg font-black text-slate-950">{$_('allowance.onePointEquals', { values: { value: formatPointValueDisplay() } })}</p>
+                      <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.pointValueLabel')}</p>
+                      <p class="mt-2 text-lg font-bold text-slate-950">{$_('allowance.onePointEquals', { values: { value: formatPointValueDisplay() } })}</p>
                     </div>
 
                       {#if preview.allowance_enabled_at}
@@ -628,42 +628,42 @@
 
                     <div class="mt-5 grid gap-3 sm:grid-cols-2">
                       <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('allowance.earnedThisPeriod')}</p>
-                        <p class="mt-2 text-3xl font-black text-slate-950">{formatMinorAmount(preview.earned_allowance_minor_period, preview.currency, preview.currency_exponent)}</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.earnedThisPeriod')}</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-950">{formatMinorAmount(preview.earned_allowance_minor_period, preview.currency, preview.currency_exponent)}</p>
                         <p class="mt-1 text-sm font-medium text-slate-500">{preview.earned_points_period} {$_('allowance.pointsUnit')}</p>
                       </div>
                       <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('allowance.availableToSpend')}</p>
-                        <p class="mt-2 text-3xl font-black text-slate-950">{formatMinorAmount(preview.available_allowance_minor, preview.currency, preview.currency_exponent)}</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.availableToSpend')}</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-950">{formatMinorAmount(preview.available_allowance_minor, preview.currency, preview.currency_exponent)}</p>
                         <p class="mt-1 text-sm font-medium text-slate-500">{preview.available_points} {$_('allowance.pointsUnit')}</p>
                       </div>
                       <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('allowance.spentThisPeriod')}</p>
-                        <p class="mt-2 text-3xl font-black text-slate-950">{formatMinorAmount(preview.spent_allowance_minor_period, preview.currency, preview.currency_exponent)}</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.spentThisPeriod')}</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-950">{formatMinorAmount(preview.spent_allowance_minor_period, preview.currency, preview.currency_exponent)}</p>
                         <p class="mt-1 text-sm font-medium text-slate-500">{preview.spent_points_period} {$_('allowance.pointsUnit')}</p>
                       </div>
                       <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('allowance.carriedOverLabel')}</p>
-                        <p class="mt-2 text-3xl font-black text-slate-950">{formatMinorAmount(preview.carried_over_allowance_minor, preview.currency, preview.currency_exponent)}</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.carriedOverLabel')}</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-950">{formatMinorAmount(preview.carried_over_allowance_minor, preview.currency, preview.currency_exponent)}</p>
                         <p class="mt-1 text-sm font-medium text-slate-500">{preview.carried_over_points} {$_('allowance.pointsUnit')}</p>
                       </div>
                     </div>
 
                     <div class="mt-5 grid gap-3 sm:grid-cols-2">
                       <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('allowance.pointsOnHoldLabel')}</p>
-                        <p class="mt-2 text-3xl font-black text-slate-950">{formatMinorAmount(preview.pending_allowance_minor, preview.currency, preview.currency_exponent)}</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.pointsOnHoldLabel')}</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-950">{formatMinorAmount(preview.pending_allowance_minor, preview.currency, preview.currency_exponent)}</p>
                         <p class="mt-1 text-sm font-medium text-slate-500">{preview.pending_points} {$_('allowance.pointsUnit')}</p>
                       </div>
                       <div class="rounded-[1.5rem] bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{$_('allowance.savedLabel')}</p>
-                        <p class="mt-2 text-3xl font-black text-slate-950">{formatMinorAmount(preview.saved_allowance_minor, preview.currency, preview.currency_exponent)}</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.savedLabel')}</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-950">{formatMinorAmount(preview.saved_allowance_minor, preview.currency, preview.currency_exponent)}</p>
                         <p class="mt-1 text-sm font-medium text-slate-500">{preview.saved_points} {$_('allowance.pointsUnit')}</p>
                       </div>
                     </div>
 
                     <div class="mt-5">
-                      <div class="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                      <div class="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-400">
                         <span>{$_('allowance.progressToGoal')}</span>
                         <span>{previewProgress}%</span>
                       </div>
@@ -683,8 +683,8 @@
                       <Star size={22} fill="currentColor" />
                     </div>
                     <div>
-                      <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{$_('allowance.quickExamplesHeading')}</p>
-                      <h2 class="mt-2 text-2xl font-black text-slate-950">{$_('allowance.pointsToAllowanceHeading')}</h2>
+                      <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('allowance.quickExamplesHeading')}</p>
+                      <h2 class="mt-2 text-2xl font-bold text-slate-950">{$_('allowance.pointsToAllowanceHeading')}</h2>
                     </div>
                   </div>
 
@@ -692,8 +692,8 @@
                     {#if exampleRows.length > 0}
                       {#each exampleRows as row}
                         <div class="flex items-center justify-between gap-4 rounded-[1.25rem] border border-slate-100 bg-slate-50 p-4">
-                          <span class="text-sm font-black text-slate-950">{row.points} {$_('allowance.pointsUnit')}</span>
-                          <span class="text-sm font-black text-savings">{row.amount}</span>
+                          <span class="text-sm font-bold text-slate-950">{row.points} {$_('allowance.pointsUnit')}</span>
+                          <span class="text-sm font-bold text-savings">{row.amount}</span>
                         </div>
                       {/each}
                     {:else}

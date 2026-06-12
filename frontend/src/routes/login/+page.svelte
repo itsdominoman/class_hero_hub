@@ -35,7 +35,7 @@
         <img src="/family-hero-hub-logo.png" alt="Family Hero Hub" class="w-full h-full object-cover" />
       </div>
 
-      <h1 class="text-3xl font-black text-slate-900 mb-3">{$_('login.title')}</h1>
+      <h1 class="text-3xl font-bold text-slate-900 mb-3">{$_('login.title')}</h1>
       <p class="text-slate-600 text-base sm:text-lg leading-relaxed">
         {$_('login.intro')}
       </p>
@@ -59,7 +59,7 @@
       </div>
 
       <div class="mt-8 pt-8 border-t border-slate-100 text-left">
-        <p class="text-xs font-black uppercase tracking-widest text-slate-400">{$_('login.childrenDoNotSignIn')}</p>
+        <p class="text-xs font-bold uppercase tracking-wide text-slate-400">{$_('login.childrenDoNotSignIn')}</p>
         <p class="mt-3 text-sm text-slate-500 leading-relaxed">
           {$_('login.childHelp')}
         </p>

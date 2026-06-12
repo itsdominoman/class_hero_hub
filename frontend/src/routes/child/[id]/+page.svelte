@@ -876,7 +876,7 @@
 </script>
 
 <div
-  class="min-h-dvh max-w-full bg-[#fffaf4] pb-[calc(4rem+var(--safe-bottom))] overflow-x-hidden"
+  class="min-h-dvh max-w-full bg-child-bg pb-[calc(4rem+var(--safe-bottom))] overflow-x-hidden"
 >
   {#if loading}
     <div class="flex justify-center py-40">
@@ -884,7 +884,7 @@
         <div
           class="animate-spin w-14 h-14 border-4 border-hero border-t-transparent rounded-full"
         ></div>
-        <p class="text-xs font-black uppercase tracking-[0.3em] text-slate-400">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">
           {$_('child.loading')}
         </p>
       </div>
@@ -892,14 +892,14 @@
   {:else if error}
     <div class="max-w-xl mx-auto px-4 py-24">
       <div
-        class="card bg-white p-8 md:p-10 text-center border border-red-100 shadow-xl"
+        class="card-lg p-8 md:p-10 text-center border-red-100"
       >
         <div
           class="w-16 h-16 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-6"
         >
           <History size={30} />
         </div>
-        <h1 class="text-2xl md:text-3xl font-black text-slate-900 mb-2">
+        <h1 class="text-2xl md:text-3xl font-bold text-slate-900 mb-2">
           {errorKind === "not-linked"
             ? $_('child.deviceNotLinked')
             : errorKind === "link-expired"
@@ -928,7 +928,7 @@
     </div>
   {:else if summary}
     <section
-      class="border-b border-[#f0e4d7] bg-[linear-gradient(180deg,#fffaf4_0%,#ffffff_100%)]"
+      class="border-b border-child-border bg-[linear-gradient(180deg,theme(colors.child.bg)_0%,#ffffff_100%)]"
     >
       <div class="max-w-7xl mx-auto px-3 sm:px-4 py-8 md:py-12">
         <div
@@ -938,14 +938,14 @@
             {#if accessMode === "parent"}
               <a
                 href="/parent"
-                class="inline-flex items-center gap-2 rounded-full border border-hero/15 bg-hero/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-hero transition hover:border-hero/30 hover:bg-hero/15 sm:tracking-[0.18em]"
+                class="inline-flex items-center gap-2 rounded-full border border-hero/15 bg-hero/10 px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-hero transition hover:border-hero/30 hover:bg-hero/15"
               >
                 <ArrowRight class="rotate-180" size={14} />
                 {$_('child.backParent')}
               </a>
             {/if}
             <div
-              class="inline-flex max-w-full items-center gap-2 px-4 py-2 rounded-full bg-hero/10 text-hero border border-hero/20 text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.22em]"
+              class="inline-flex max-w-full items-center gap-2 px-4 py-2 rounded-full bg-hero/10 text-hero border border-hero/20 text-xs font-semibold uppercase tracking-wide"
             >
               <Sparkles size={14} />
               {$_('child.kidDashboard')}
@@ -956,7 +956,7 @@
                 class="w-24 h-24 md:w-28 md:h-28 rounded-[2rem] bg-white border-4 border-white shadow-[0_16px_40px_-18px_rgba(0,0,0,0.35)] flex items-center justify-center text-slate-900 overflow-hidden"
               >
                 <div
-                  class="w-full h-full bg-gradient-to-br from-[#ffe7cb] via-[#fff] to-[#dff7ee] flex flex-col items-center justify-center text-slate-900 p-4"
+                  class="w-full h-full bg-gradient-to-br from-child-savings-bg via-white to-child-spend-bg flex flex-col items-center justify-center text-slate-900 p-4"
                 >
                   <img
                     src={stageImage}
@@ -977,7 +977,7 @@
                 </p>
                 <div class="mt-4 flex flex-wrap gap-3">
                   <span
-                    class="inline-flex max-w-full items-center gap-2 px-3 py-2 rounded-full bg-slate-900 text-white text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.2em]"
+                    class="inline-flex max-w-full items-center gap-2 px-3 py-2 rounded-full bg-slate-900 text-white text-xs font-semibold uppercase tracking-wide"
                   >
                     <BadgeCheck size={14} />
                     <span class="min-w-0 break-words"
@@ -985,7 +985,7 @@
                     >
                   </span>
                   <span
-                    class="inline-flex max-w-full items-center gap-2 px-3 py-2 rounded-full bg-white text-slate-700 border border-slate-200 text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.2em]"
+                    class="inline-flex max-w-full items-center gap-2 px-3 py-2 rounded-full bg-white text-slate-700 border border-slate-200 text-xs font-semibold uppercase tracking-wide"
                   >
                     {accessMode === "child"
                       ? $_('child.childSession')
@@ -993,7 +993,7 @@
                   </span>
                   {#if avatarLabel}
                     <span
-                      class="inline-flex max-w-full items-center gap-2 px-3 py-2 rounded-full bg-white text-slate-700 border border-slate-200 text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.2em]"
+                      class="inline-flex max-w-full items-center gap-2 px-3 py-2 rounded-full bg-white text-slate-700 border border-slate-200 text-xs font-semibold uppercase tracking-wide"
                     >
                       <span class="min-w-0 break-words"
                         >{$_('child.avatar', { values: { label: avatarLabel } })}</span
@@ -1014,12 +1014,12 @@
           </div>
 
           <div
-            class="card bg-white p-6 md:p-8 shadow-xl border border-slate-100"
+            class="card-lg p-6 md:p-8"
           >
             <div class="flex items-center justify-between mb-5">
               <div>
                 <p
-                  class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400"
+                  class="text-[10px] font-semibold uppercase tracking-wide text-slate-400"
                 >
                   {$_('child.availablePoints')}
                 </p>
@@ -1046,14 +1046,14 @@
             <div class="space-y-4">
               <div>
                 <div
-                  class="flex items-center justify-between text-xs font-black uppercase tracking-[0.22em] text-slate-400 mb-2"
+                  class="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2"
                 >
                   <span>{$_('child.nextDragon')}</span>
                   <span>{$_('child.earned', { values: { points: summary.pet_progress.lifetime_points } })}</span>
                 </div>
                 <div class="h-4 rounded-full bg-slate-100 overflow-hidden">
                   <div
-                    class="h-full rounded-full bg-gradient-to-r from-hero to-[#ff8d59]"
+                    class="h-full rounded-full bg-gradient-to-r from-hero to-child-accent"
                     style={`width: ${progressToNextStage}%`}
                   ></div>
                 </div>
@@ -1061,14 +1061,14 @@
 
               <div class="grid grid-cols-2 gap-3">
                 <div
-                  class="rounded-2xl bg-[#fff8e9] border border-[#f4e3b2] p-4"
+                  class="rounded-2xl bg-child-savings-bg border border-child-savings-border p-4"
                 >
                   <p
-                    class="text-[10px] font-black uppercase tracking-[0.22em] text-[#b98612]"
+                    class="text-[10px] font-semibold uppercase tracking-wide text-child-savings-text"
                   >
                     {$_('child.savedPoints')}
                   </p>
-                  <p class="text-2xl font-black text-slate-950 mt-1">
+                  <p class="text-2xl font-bold text-slate-950 mt-1">
                     {summary.savings_balance}
                   </p>
                   {#if allowanceActive}
@@ -1082,14 +1082,14 @@
                   {/if}
                 </div>
                 <div
-                  class="rounded-2xl bg-[#f0fbf7] border border-[#cdeee2] p-4"
+                  class="rounded-2xl bg-child-spend-bg border border-child-spend-border p-4"
                 >
                   <p
-                    class="text-[10px] font-black uppercase tracking-[0.22em] text-savings"
+                    class="text-[10px] font-semibold uppercase tracking-wide text-savings"
                   >
                     {$_('child.availableToSpend')}
                   </p>
-                  <p class="text-2xl font-black text-slate-950 mt-1">
+                  <p class="text-2xl font-bold text-slate-950 mt-1">
                     {summary.available_spending}
                   </p>
                   {#if allowanceActive}
@@ -1109,11 +1109,11 @@
                   class="rounded-2xl bg-slate-50 border border-slate-200 p-4"
                 >
                   <p
-                    class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400"
+                    class="text-[10px] font-semibold uppercase tracking-wide text-slate-400"
                   >
                     {$_('child.lockedSaved')}
                   </p>
-                  <p class="text-xl font-black text-slate-950 mt-1">
+                  <p class="text-xl font-bold text-slate-950 mt-1">
                     {summary.locked_savings}
                   </p>
                   {#if allowanceActive}
@@ -1127,14 +1127,14 @@
                   {/if}
                 </div>
                 <div
-                  class="rounded-2xl bg-[#fff1f1] border border-[#f0c6c6] p-4"
+                  class="rounded-2xl bg-child-hold-bg border border-child-hold-border p-4"
                 >
                   <p
-                    class="text-[10px] font-black uppercase tracking-[0.22em] text-penalty"
+                    class="text-[10px] font-semibold uppercase tracking-wide text-penalty"
                   >
                     {$_('child.pointsOnHold')}
                   </p>
-                  <p class="text-xl font-black text-slate-950 mt-1">
+                  <p class="text-xl font-bold text-slate-950 mt-1">
                     {summary.pending_redemptions}
                   </p>
                   {#if allowanceActive}
@@ -1158,23 +1158,23 @@
       <div class="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
         <div class="order-2 space-y-8 lg:order-1">
           <section
-            class="card bg-white p-6 md:p-8 border border-slate-100 shadow-xl"
+            class="card-lg p-6 md:p-8"
           >
             <div
               class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 mb-6"
             >
               <div class="min-w-0">
                 <p
-                  class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2"
+                  class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2"
                 >
                   {$_('child.rewardsEyebrow')}
                 </p>
-                <h2 class="text-2xl md:text-3xl font-black text-slate-950">
+                <h2 class="text-2xl md:text-3xl font-bold text-slate-950">
                   {$_('child.chooseReward')}
                 </h2>
               </div>
               <div
-                class="inline-flex w-fit items-center gap-2 px-3 py-2 rounded-full bg-slate-100 text-slate-700 text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.22em]"
+                class="inline-flex w-fit items-center gap-2 px-3 py-2 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold uppercase tracking-wide"
               >
                 <Gift size={14} />
                 {$_('child.availableRewards', { values: { count: rewardOptions.length } })}
@@ -1188,20 +1188,20 @@
                     reward.points <= summary.available_spending}
                   <div
                     data-qa="child-reward-card"
-                    class={`rounded-[1.75rem] border p-4 md:p-5 flex flex-col gap-4 min-w-0 ${affordable ? "border-slate-200 bg-[#fffefb]" : "border-slate-200 bg-slate-50 opacity-80"}`}
+                    class={`rounded-[1.75rem] border p-4 md:p-5 flex flex-col gap-4 min-w-0 ${affordable ? "border-slate-200 bg-child-card" : "border-slate-200 bg-slate-50 opacity-80"}`}
                   >
                     <div class="flex flex-col gap-3">
                       <div class="min-w-0">
                         <h3
                           data-qa="child-reward-title"
-                          class="text-lg font-black text-slate-950 break-words"
+                          class="text-lg font-bold text-slate-950 break-words"
                         >
                           {reward.title}
                         </h3>
                       </div>
                       <div
                         data-qa="child-reward-value"
-                        class={`inline-flex w-fit max-w-full rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-[0.12em] sm:tracking-[0.15em] border leading-snug whitespace-normal break-words ${affordable ? "bg-savings/10 text-savings border-savings/20" : "bg-slate-100 text-slate-400 border-slate-200"}`}
+                        class={`inline-flex w-fit max-w-full rounded-2xl px-3 py-2 text-xs font-semibold uppercase tracking-wide border leading-snug whitespace-normal break-words ${affordable ? "bg-savings/10 text-savings border-savings/20" : "bg-slate-100 text-slate-400 border-slate-200"}`}
                       >
                         {#if allowanceActive}
                           {reward.points} {$_('common.points')} / {formatMinorAmount(
@@ -1223,7 +1223,7 @@
 
                     <div class="flex flex-col gap-2">
                       <span
-                        class="inline-flex w-fit max-w-full items-center rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] sm:tracking-[0.16em] leading-none bg-slate-100 text-slate-500"
+                        class="inline-flex w-fit max-w-full items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide leading-none bg-slate-100 text-slate-500"
                       >
                         {affordable
                           ? $_('child.affordable')
@@ -1234,7 +1234,7 @@
                         disabled={!affordable ||
                           submittingRewardId === reward.id}
                         onclick={() => requestPresetReward(reward)}
-                        class="inline-flex w-full max-w-full justify-center items-center gap-2 rounded-2xl px-3 py-3 text-[10px] sm:text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] bg-hero text-white shadow-lg shadow-hero/20 disabled:opacity-50 disabled:shadow-none shrink-0"
+                        class="inline-flex w-full max-w-full justify-center items-center gap-2 rounded-2xl px-3 py-3 text-[10px] sm:text-xs font-semibold uppercase tracking-wide bg-hero text-white shadow-lg shadow-hero/20 disabled:opacity-50 disabled:shadow-none shrink-0"
                       >
                         {submittingRewardId === reward.id
                           ? $_('common.sending')
@@ -1250,7 +1250,7 @@
                 class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center"
               >
                 <p
-                  class="text-sm font-black uppercase tracking-[0.22em] text-slate-400"
+                  class="text-sm font-semibold uppercase tracking-wide text-slate-400"
                 >
                   {$_('child.noRewards')}
                 </p>
@@ -1262,24 +1262,24 @@
           </section>
 
           <section
-            class="card bg-white p-6 md:p-8 border border-slate-100 shadow-xl"
+            class="card-lg p-6 md:p-8"
           >
             <div
               class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 mb-6"
             >
               <div class="min-w-0">
                 <p
-                  class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2"
+                  class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2"
                 >
                   {$_('child.customRequest')}
                 </p>
-                <h2 class="text-2xl md:text-3xl font-black text-slate-950">
+                <h2 class="text-2xl md:text-3xl font-bold text-slate-950">
                   {$_('child.askSpend')}
                 </h2>
                 {#if allowanceActive}
                   <p
                     data-qa="child-custom-request-conversion"
-                    class="mt-2 text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-50 w-fit px-3 py-1.5 rounded-full border border-slate-200/60 shadow-sm"
+                    class="mt-2 text-[10px] font-bold uppercase tracking-wide text-slate-500 bg-slate-50 w-fit px-3 py-1.5 rounded-full border border-slate-200/60 shadow-sm"
                   >
                     {$_('child.onePointValue', { values: { value: formatMinorAmount(
                       Math.floor(
@@ -1306,7 +1306,7 @@
             >
               <label class="block space-y-2 min-w-0">
                 <span
-                  class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 ml-1"
+                  class="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 ml-1"
                   >{$_('child.requestName')}</span
                 >
                 <input
@@ -1319,7 +1319,7 @@
 
               <label class="block space-y-2 min-w-0">
                 <span
-                  class="block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 ml-1"
+                  class="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 ml-1"
                   >{$_('common.points')}</span
                 >
                 <div class="relative">
@@ -1331,7 +1331,7 @@
                     class="h-14 w-full rounded-2xl border-2 border-slate-200 bg-slate-50 pl-4 pr-12 text-slate-900 font-bold focus:outline-none focus:border-hero/30 transition-all"
                   />
                   <span
-                    class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black uppercase text-slate-300"
+                    class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase text-slate-300"
                     >{$_('common.pts')}</span
                   >
                 </div>
@@ -1339,7 +1339,7 @@
 
               <div class="space-y-2">
                 <span
-                  class="hidden md:block text-[10px] font-black uppercase tracking-[0.22em] text-transparent select-none"
+                  class="hidden md:block text-[10px] font-semibold uppercase tracking-wide text-transparent select-none"
                   aria-hidden="true"
                 >Action</span>
                 <button
@@ -1348,7 +1348,7 @@
                     !customRewardTitle.trim() ||
                     customRewardPoints < 1 ||
                     customRewardPoints > summary.available_spending}
-                  class="btn-hero h-14 px-8 w-full md:w-auto rounded-2xl flex items-center justify-center gap-2 text-sm uppercase tracking-widest shadow-xl shadow-hero/20 disabled:opacity-50 whitespace-nowrap"
+                  class="btn-hero h-14 px-8 w-full md:w-auto rounded-2xl flex items-center justify-center gap-2 text-sm uppercase tracking-wide shadow-xl shadow-hero/20 disabled:opacity-50 whitespace-nowrap"
                 >
                   {submitting ? $_('common.sending') : $_('common.request')}
                   <ArrowRight size={18} />
@@ -1362,7 +1362,7 @@
               >
                 <p
                   data-qa="child-custom-request-value"
-                  class="text-[10px] font-black uppercase tracking-wider text-slate-500 bg-slate-100/50 px-3 py-1.5 rounded-full border border-slate-200/40"
+                  class="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100/50 px-3 py-1.5 rounded-full border border-slate-200/40"
                 >
                   {$_('child.calculatedValue', { values: { value: formatMinorAmount(
                     rewardValueMinor(customRewardPoints) || 0,
@@ -1375,23 +1375,23 @@
           </section>
 
           <section
-            class="card bg-white p-6 md:p-8 border border-slate-100 shadow-xl"
+            class="card-lg p-6 md:p-8"
           >
             <div
               class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 mb-6"
             >
               <div class="min-w-0">
                 <p
-                  class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2"
+                  class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2"
                 >
                   {$_('child.recentActivity')}
                 </p>
-                <h2 class="text-2xl md:text-3xl font-black text-slate-950">
+                <h2 class="text-2xl md:text-3xl font-bold text-slate-950">
                   {$_('child.pointsLog')}
                 </h2>
               </div>
               <div
-                class="inline-flex w-fit items-center gap-2 px-3 py-2 rounded-full bg-slate-100 text-slate-700 text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.22em]"
+                class="inline-flex w-fit items-center gap-2 px-3 py-2 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold uppercase tracking-wide"
               >
                 <Clock3 size={14} />
                 {$_('child.latestEntries')}
@@ -1402,10 +1402,10 @@
               <div class="space-y-3">
                 {#each recentActivity as tx}
                   <div
-                    class="rounded-[1.5rem] border p-4 md:p-5 flex flex-col sm:flex-row sm:items-start gap-4 min-w-0 bg-[#fffefb]"
+                    class="rounded-[1.5rem] border p-4 md:p-5 flex flex-col sm:flex-row sm:items-start gap-4 min-w-0 bg-child-card"
                   >
                     <div
-                      class={`shrink-0 w-14 h-14 rounded-2xl border flex flex-col items-center justify-center text-xs font-black uppercase tracking-[0.15em] ${getActivityBadgeClass(tx)}`}
+                      class={`shrink-0 w-14 h-14 rounded-2xl border flex flex-col items-center justify-center text-xs font-semibold uppercase tracking-wide ${getActivityBadgeClass(tx)}`}
                     >
                       <span class="text-base leading-none"
                         >{formatPoints(tx.points)}</span
@@ -1415,20 +1415,20 @@
                     <div class="min-w-0 flex-1">
                       <div class="flex flex-wrap items-center gap-2 mb-2">
                         <span
-                          class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-500"
+                          class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500"
                         >
                           {getActivityLabel(tx)}
                         </span>
                         <span
-                          class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300"
+                          class="text-[10px] font-semibold uppercase tracking-wide text-slate-300"
                           >{formatDate(tx.created_at)}</span
                         >
                       </div>
-                      <p class="font-black text-slate-950 break-words">
+                      <p class="font-bold text-slate-950 break-words">
                         {tx.description}
                       </p>
                       <p
-                        class="text-xs text-slate-500 mt-1 uppercase tracking-[0.18em]"
+                        class="text-xs text-slate-500 mt-1 uppercase tracking-wide"
                       >
                         {getJarLabel(tx.jar)}
                       </p>
@@ -1441,7 +1441,7 @@
                 class="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-8 text-center"
               >
                 <p
-                  class="text-sm font-black uppercase tracking-[0.22em] text-slate-400"
+                  class="text-sm font-semibold uppercase tracking-wide text-slate-400"
                 >
                   {$_('child.noActivity')}
                 </p>
@@ -1455,18 +1455,18 @@
 
         <aside class="order-1 space-y-8 lg:order-2">
           <section
-            class="card bg-white p-6 md:p-8 border border-slate-100 shadow-xl"
+            class="card-lg p-6 md:p-8"
           >
             <div
               class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6"
             >
               <div>
                 <p
-                  class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2"
+                  class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2"
                 >
                   {$_('child.myDay')}
                 </p>
-                <h2 class="text-2xl font-black text-slate-950">
+                <h2 class="text-2xl font-bold text-slate-950">
                   {$_('child.todaySchedule')}
                 </h2>
                 <p class="mt-1 text-sm text-slate-500">
@@ -1491,7 +1491,7 @@
                 class="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center"
               >
                 <p
-                  class="text-sm font-black uppercase tracking-[0.22em] text-slate-400"
+                  class="text-sm font-semibold uppercase tracking-wide text-slate-400"
                 >
                   {$_('child.loadingTodaySchedule')}
                 </p>
@@ -1510,22 +1510,22 @@
                   <div class="mb-4 flex items-center justify-between gap-3">
                     <div>
                       <p
-                        class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400"
+                        class="text-[10px] font-semibold uppercase tracking-wide text-slate-400"
                       >
                         {$_('child.schoolBag')}
                       </p>
-                      <h3 class="mt-1 text-lg font-black text-slate-950">
+                      <h3 class="mt-1 text-lg font-bold text-slate-950">
                         {$_('child.packTomorrow')}
                       </h3>
                     </div>
                     <span
-                      class="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-amber-700"
+                      class="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700"
                     >
                       {schoolItemsTomorrow().length}
                     </span>
                   </div>
                   <p
-                    class="mb-4 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500"
+                    class="mb-4 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500"
                   >
                     {$_('child.checkStationery')}
                   </p>
@@ -1548,11 +1548,11 @@
                             <Check size={13} />
                           </span>
                           <div class="min-w-0">
-                            <p class="font-black text-slate-950 break-words">
+                            <p class="font-bold text-slate-950 break-words">
                               {schoolNeedLabel(item)}
                             </p>
                             <p
-                              class="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-400 break-words"
+                              class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400 break-words"
                             >
                               {item.class_name}
                             </p>
@@ -1574,16 +1574,16 @@
                     <div class="mb-3 flex items-center justify-between gap-3">
                       <div>
                         <p
-                          class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-600"
+                          class="text-[10px] font-semibold uppercase tracking-wide text-sky-600"
                         >
                           {$_('child.neededToday')}
                         </p>
-                        <h4 class="mt-1 text-base font-black text-slate-950">
+                        <h4 class="mt-1 text-base font-bold text-slate-950">
                           {$_('child.neededNow')}
                         </h4>
                       </div>
                       <span
-                        class="rounded-full bg-sky-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-sky-700"
+                        class="rounded-full bg-sky-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-sky-700"
                       >
                         {schoolItemsToday().length}
                       </span>
@@ -1607,11 +1607,11 @@
                               <Check size={13} />
                             </span>
                             <div class="min-w-0">
-                              <p class="font-black text-slate-950 break-words">
+                              <p class="font-bold text-slate-950 break-words">
                                 {schoolNeedLabel(item)}
                               </p>
                               <p
-                                class="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-400 break-words"
+                                class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400 break-words"
                               >
                                 {item.class_name}
                               </p>
@@ -1639,22 +1639,22 @@
                   <div class="mb-4 flex items-center justify-between gap-3">
                     <div>
                       <p
-                        class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400"
+                        class="text-[10px] font-semibold uppercase tracking-wide text-slate-400"
                       >
                         {$_('child.schoolBag')}
                       </p>
-                      <h3 class="mt-1 text-lg font-black text-slate-950">
+                      <h3 class="mt-1 text-lg font-bold text-slate-950">
                         {$_('child.packTomorrow')}
                       </h3>
                     </div>
                     <span
-                      class="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-amber-700"
+                      class="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700"
                     >
                       {schoolItemsTomorrow().length}
                     </span>
                   </div>
                   <p
-                    class="mb-4 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500"
+                    class="mb-4 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500"
                   >
                     {$_('child.checkStationery')}
                   </p>
@@ -1677,11 +1677,11 @@
                             <Check size={13} />
                           </span>
                           <div class="min-w-0">
-                            <p class="font-black text-slate-950 break-words">
+                            <p class="font-bold text-slate-950 break-words">
                               {schoolNeedLabel(item)}
                             </p>
                             <p
-                              class="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-400 break-words"
+                              class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400 break-words"
                             >
                               {item.class_name}
                             </p>
@@ -1703,16 +1703,16 @@
                     <div class="mb-3 flex items-center justify-between gap-3">
                       <div>
                         <p
-                          class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-600"
+                          class="text-[10px] font-semibold uppercase tracking-wide text-sky-600"
                         >
                           {$_('child.neededToday')}
                         </p>
-                        <h4 class="mt-1 text-base font-black text-slate-950">
+                        <h4 class="mt-1 text-base font-bold text-slate-950">
                           {$_('child.neededNow')}
                         </h4>
                       </div>
                       <span
-                        class="rounded-full bg-sky-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-sky-700"
+                        class="rounded-full bg-sky-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-sky-700"
                       >
                         {schoolItemsToday().length}
                       </span>
@@ -1736,11 +1736,11 @@
                               <Check size={13} />
                             </span>
                             <div class="min-w-0">
-                              <p class="font-black text-slate-950 break-words">
+                              <p class="font-bold text-slate-950 break-words">
                                 {schoolNeedLabel(item)}
                               </p>
                               <p
-                                class="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-400 break-words"
+                                class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400 break-words"
                               >
                                 {item.class_name}
                               </p>
@@ -1762,11 +1762,11 @@
 
                 <div>
                   <div class="mb-3 flex items-center justify-between gap-3">
-                    <h3 class="text-lg font-black text-slate-950">
+                    <h3 class="text-lg font-bold text-slate-950">
                       {$_('child.tasksToday')}
                     </h3>
                     <span
-                      class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500"
+                      class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500"
                       >{tasksToday().length}</span
                     >
                   </div>
@@ -1774,7 +1774,7 @@
                     <div class="space-y-3">
                       {#each tasksToday() as item}
                         <article
-                          class="min-w-0 rounded-[1.5rem] border border-slate-100 bg-[#fffefb] p-4 shadow-sm"
+                          class="min-w-0 rounded-[1.5rem] border border-slate-100 bg-child-card p-4 shadow-sm"
                         >
                           <div
                             class="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
@@ -1784,20 +1784,20 @@
                                 class="mb-3 flex flex-wrap items-center gap-2"
                               >
                                 <span
-                                class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${typeClass(item.entry.entry_type)}`}
+                                class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${typeClass(item.entry.entry_type)}`}
                               >
                                   {$_('child.task')}
                                 </span>
                                 {#if item.entry.is_rewardable && item.entry.points_value}
                                   <span
-                                    class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-amber-700 sm:tracking-[0.18em]"
+                                    class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700"
                                   >
                                     {item.entry.points_value} {$_('common.points')}
                                   </span>
                                 {/if}
                                 {#if item.completion}
                                   <span
-                                    class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${statusClass(item.completion.status)}`}
+                                    class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${statusClass(item.completion.status)}`}
                                   >
                                     {statusLabel(item.completion.status)}
                                   </span>
@@ -1805,7 +1805,7 @@
                               </div>
 
                               <h4
-                                class="text-lg font-black text-slate-950 break-words"
+                                class="text-lg font-bold text-slate-950 break-words"
                               >
                                 {item.entry.title}
                               </h4>
@@ -1818,7 +1818,7 @@
                               {/if}
 
                               <div
-                                class="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500"
+                                class="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500"
                               >
                                 <span
                                   class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1"
@@ -1838,7 +1838,7 @@
                             {#if accessMode === "child" && !item.completion}
                               <button
                                 type="button"
-                                class="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-white shadow-sm disabled:opacity-60 sm:w-auto sm:tracking-[0.18em]"
+                                class="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-white shadow-sm disabled:opacity-60 sm:w-auto"
                                 disabled={daySubmittingId === item.entry.id}
                                 onclick={() => completeTodayItem(item)}
                               >
@@ -1857,7 +1857,7 @@
                       class="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-5 text-center"
                     >
                       <p
-                        class="text-sm font-black uppercase tracking-[0.18em] text-slate-400"
+                        class="text-sm font-semibold uppercase tracking-wide text-slate-400"
                       >
                         {$_('child.noTasks')}
                       </p>
@@ -1867,11 +1867,11 @@
 
                 <div>
                   <div class="mb-3 flex items-center justify-between gap-3">
-                    <h3 class="text-lg font-black text-slate-950">
+                    <h3 class="text-lg font-bold text-slate-950">
                       {$_('child.eventsToday')}
                     </h3>
                     <span
-                      class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500"
+                      class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500"
                       >{eventsToday().length}</span
                     >
                   </div>
@@ -1883,19 +1883,19 @@
                         >
                           <div class="mb-3 flex flex-wrap items-center gap-2">
                             <span
-                            class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${typeClass(item.entry.entry_type)}`}
+                            class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${typeClass(item.entry.entry_type)}`}
                           >
                               {$_('child.event')}
                             </span>
                             <span
-                              class={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] ${recurrenceClass(item)}`}
+                              class={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${recurrenceClass(item)}`}
                             >
                               <Repeat2 size={12} />
                               {recurrenceLabel(item)}
                             </span>
                           </div>
                           <h4
-                            class="text-lg font-black text-slate-950 break-words"
+                            class="text-lg font-bold text-slate-950 break-words"
                           >
                             {item.entry.title}
                           </h4>
@@ -1907,7 +1907,7 @@
                             </p>
                           {/if}
                           <div
-                            class="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500"
+                            class="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500"
                           >
                             <span
                               class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1"
@@ -1924,7 +1924,7 @@
                       class="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-5 text-center"
                     >
                       <p
-                        class="text-sm font-black uppercase tracking-[0.18em] text-slate-400"
+                        class="text-sm font-semibold uppercase tracking-wide text-slate-400"
                       >
                         {$_('child.noEvents')}
                       </p>
@@ -1936,18 +1936,18 @@
           </section>
 
           <section
-            class="card bg-white p-6 md:p-8 border border-slate-100 shadow-xl"
+            class="card-lg p-6 md:p-8"
           >
             <div
               class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 mb-6"
             >
               <div class="min-w-0">
                 <p
-                  class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-2"
+                  class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2"
                 >
                   {$_('child.pendingRequests')}
                 </p>
-                <h2 class="text-2xl font-black text-slate-950">
+                <h2 class="text-2xl font-bold text-slate-950">
                   {$_('child.waitingRequests')}
                 </h2>
               </div>
@@ -1968,7 +1968,7 @@
                       class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
                     >
                       <div class="min-w-0 flex-1">
-                        <h3 class="font-black text-slate-950 break-words">
+                        <h3 class="font-bold text-slate-950 break-words">
                           {request.title}
                         </h3>
                         <p class="text-sm text-slate-600 mt-1 break-words">
@@ -1976,7 +1976,7 @@
                         </p>
                       </div>
                       <span
-                        class="shrink-0 rounded-2xl bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.12em] sm:tracking-[0.2em] text-hero border border-hero/20 max-w-full sm:max-w-[45%] whitespace-normal sm:whitespace-nowrap"
+                        class="shrink-0 rounded-2xl bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-hero border border-hero/20 max-w-full sm:max-w-[45%] whitespace-normal sm:whitespace-nowrap"
                       >
                         {#if allowanceActive}
                           {request.points} {$_('common.points')} / {formatMinorAmount(
@@ -1990,7 +1990,7 @@
                       </span>
                     </div>
                     <p
-                      class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mt-3 break-words"
+                      class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mt-3 break-words"
                     >
                       {$_('child.requested', { values: { date: formatDateTime(request.created_at) } })}
                     </p>
@@ -2002,7 +2002,7 @@
                 class="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center"
               >
                 <p
-                  class="text-sm font-black uppercase tracking-[0.22em] text-slate-400"
+                  class="text-sm font-semibold uppercase tracking-wide text-slate-400"
                 >
                   {$_('child.nothingWaiting')}
                 </p>
@@ -2014,7 +2014,7 @@
           </section>
 
           <section
-            class="card bg-gradient-to-br from-[#f3efff] via-[#eef2ff] to-[#f8f8ff] text-slate-900 p-6 md:p-8 shadow-2xl relative overflow-hidden border border-slate-200"
+            class="card-lg bg-gradient-to-br from-violet-50 via-indigo-50 to-slate-50 text-slate-900 p-6 md:p-8 relative"
           >
             <div
               class="absolute inset-0 bg-gradient-to-br from-hero/20 via-transparent to-transparent"
@@ -2028,11 +2028,11 @@
                 </div>
               <div class="min-w-0">
                 <p
-                  class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-600"
+                  class="text-[10px] font-semibold uppercase tracking-wide text-slate-600"
                 >
                     {$_('child.bank')}
                   </p>
-                  <h2 class="text-2xl font-black text-slate-950">
+                  <h2 class="text-2xl font-bold text-slate-950">
                     {$_('child.savingsSnapshot')}
                   </h2>
                 </div>
@@ -2042,11 +2042,11 @@
                   class="rounded-2xl bg-white/80 border border-slate-200 p-4"
                 >
                   <p
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600"
+                    class="text-[10px] font-semibold uppercase tracking-wide text-slate-600"
                   >
                     {$_('common.saved')}
                   </p>
-                  <p class="text-3xl font-black mt-1 text-slate-950">
+                  <p class="text-3xl font-bold mt-1 text-slate-950">
                     {summary.savings_balance}
                   </p>
                   {#if allowanceActive}
@@ -2063,11 +2063,11 @@
                   class="rounded-2xl bg-white/80 border border-slate-200 p-4"
                 >
                   <p
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600"
+                    class="text-[10px] font-semibold uppercase tracking-wide text-slate-600"
                   >
                     {$_('common.available')}
                   </p>
-                  <p class="text-3xl font-black mt-1 text-slate-950">
+                  <p class="text-3xl font-bold mt-1 text-slate-950">
                     {summary.available_savings}
                   </p>
                   {#if allowanceActive}
@@ -2084,11 +2084,11 @@
                   class="rounded-2xl bg-white/80 border border-slate-200 p-4"
                 >
                   <p
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600"
+                    class="text-[10px] font-semibold uppercase tracking-wide text-slate-600"
                   >
                     {$_('common.locked')}
                   </p>
-                  <p class="text-3xl font-black mt-1 text-slate-950">
+                  <p class="text-3xl font-bold mt-1 text-slate-950">
                     {summary.locked_savings}
                   </p>
                   {#if allowanceActive}
@@ -2110,14 +2110,14 @@
                 >
                   <p
                     data-qa="child-savings-next-unlock"
-                    class="text-sm font-black text-slate-800"
+                    class="text-sm font-bold text-slate-800"
                   >
                     {nextUnlockText()}
                   </p>
                   {#if savingsUnlockSchedule.length > 0}
                     <button
                       type="button"
-                      class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-700 sm:w-auto"
+                      class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[10px] font-semibold uppercase tracking-wide text-slate-700 sm:w-auto"
                       aria-expanded={showUnlockSchedule}
                       onclick={() => (showUnlockSchedule = !showUnlockSchedule)}
                     >
@@ -2142,7 +2142,7 @@
                         <span class="text-right">
                           {unlock.points} {$_('common.pts')}
                           {#if unlock.bonus_points > 0}
-                            <span class="block text-[10px] font-black uppercase tracking-[0.14em] text-savings">
+                            <span class="block text-[10px] font-semibold uppercase tracking-wide text-savings">
                               {$_('child.includesBonus', {
                                 values: { points: unlock.bonus_points },
                               })}
@@ -2157,7 +2157,7 @@
                 <div class="mt-4 flex flex-col gap-2">
                   <button
                     type="button"
-                    class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-savings/20 transition hover:bg-[#008c81] disabled:cursor-not-allowed disabled:opacity-50"
+                    class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-3 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-savings/20 transition hover:bg-savings-dark disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={!summary || summary.available_spending <= 0}
                     onclick={openSavingsBankModal}
                   >
@@ -2165,7 +2165,7 @@
                     {$_('child.bankPoints')}
                   </button>
                   <p
-                    class="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500"
+                    class="text-[10px] font-semibold uppercase tracking-wide text-slate-500"
                   >
                     {$_('child.bankedLocked')}
                   </p>
@@ -2195,11 +2195,11 @@
           >
             <div class="min-w-0">
               <p
-                class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400"
+                class="text-[10px] font-semibold uppercase tracking-wide text-slate-400"
               >
                 {$_('child.bank')}
               </p>
-              <h3 class="mt-1 text-2xl font-black text-slate-950">
+              <h3 class="mt-1 text-2xl font-bold text-slate-950">
                 {$_('child.bankPoints')}
               </h3>
               <p class="mt-2 text-sm font-medium text-slate-600 break-words">
@@ -2220,7 +2220,7 @@
             <div class="space-y-4 px-5 py-5 sm:px-6">
               <div class="rounded-[1.5rem] border border-savings/10 bg-savings/5 p-4">
                 <p
-                  class="text-[10px] font-black uppercase tracking-[0.18em] text-savings-dark"
+                  class="text-[10px] font-semibold uppercase tracking-wide text-savings-dark"
                 >
                   {$_('child.bankedLockedLong')}
                 </p>
@@ -2228,7 +2228,7 @@
 
               <label class="block">
                 <span
-                  class="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400"
+                  class="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-400"
                 >
                   {$_('child.pointsToBank')}
                 </span>
@@ -2237,28 +2237,28 @@
                   min="1"
                   max={summary.available_spending}
                   bind:value={savingsBankPoints}
-                  class="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-2xl font-black text-slate-900 focus:border-savings/30 focus:outline-none"
+                  class="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-2xl font-bold text-slate-900 focus:border-savings/30 focus:outline-none"
                 />
               </label>
 
               <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                   <p
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400"
+                    class="text-[10px] font-semibold uppercase tracking-wide text-slate-400"
                   >
                     {$_('child.savingsBonus')}
                   </p>
-                  <p class="mt-1 text-2xl font-black text-slate-950">
+                  <p class="mt-1 text-2xl font-bold text-slate-950">
                     +{savingsBankBonus()} {$_('common.pts')}
                   </p>
                 </div>
                 <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                   <p
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400"
+                    class="text-[10px] font-semibold uppercase tracking-wide text-slate-400"
                   >
                     {$_('child.unlocksAs')}
                   </p>
-                  <p class="mt-1 text-2xl font-black text-slate-950">
+                  <p class="mt-1 text-2xl font-bold text-slate-950">
                     {savingsBankTotal()} {$_('common.pts')}
                   </p>
                   <p class="mt-1 text-xs font-bold text-slate-500">
@@ -2274,7 +2274,7 @@
               <div class="flex flex-col gap-3 sm:flex-row">
               <button
                 type="button"
-                class="inline-flex w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-slate-300"
+                class="inline-flex w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-slate-300"
                 onclick={closeSavingsBankModal}
               >
                   {$_('common.cancel')}
@@ -2286,7 +2286,7 @@
                     savingsBankAmount() < 1 ||
                     savingsBankAmount() > summary.available_spending
                   }
-                  class="inline-flex w-full items-center justify-center rounded-2xl bg-savings px-4 py-4 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-savings/20 transition hover:bg-[#008c81] disabled:cursor-not-allowed disabled:opacity-60"
+                  class="inline-flex w-full items-center justify-center rounded-2xl bg-savings px-4 py-4 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-savings/20 transition hover:bg-savings-dark disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {submitting ? $_('child.banking') : $_('child.bankPoints')}
                 </button>
@@ -2298,7 +2298,7 @@
     {/if}
   {:else}
     <div class="flex justify-center py-32">
-      <p class="text-slate-400 font-black uppercase tracking-[0.28em]">
+      <p class="text-slate-400 font-semibold uppercase tracking-wide">
         {$_('child.childNotFound')}
       </p>
     </div>
@@ -2306,47 +2306,7 @@
 </div>
 
 <style>
-  :global(.card) {
-    border-radius: 2rem;
-    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08);
-  }
-
-  .text-hero {
-    color: #7c3aed;
-  }
-
-  .text-savings {
-    color: #10b981;
-  }
-
-  .text-reward {
-    color: #f59e0b;
-  }
-
-  .text-penalty {
-    color: #f43f5e;
-  }
-
-  .bg-hero {
-    background: #7c3aed;
-  }
-
-  .bg-penalty {
-    background: #f43f5e;
-  }
-
-  .bg-savings {
-    background: #10b981;
-  }
-
-  .bg-reward {
-    background: #f59e0b;
-  }
-
-  .shadow-hero\/20 {
-    box-shadow: 0 10px 20px -5px rgba(124, 58, 237, 0.2);
-  }
-
+  /* Color and card styles come from tailwind.config.js and app.css. */
   .line-clamp-2 {
     display: -webkit-box;
     line-clamp: 2;

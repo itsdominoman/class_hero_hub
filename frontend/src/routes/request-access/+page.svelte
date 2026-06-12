@@ -49,7 +49,7 @@
           <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
           </div>
-          <h1 class="text-3xl font-black text-slate-900 mb-4">{$_('requestAccess.successHeading')}</h1>
+          <h1 class="text-3xl font-bold text-slate-900 mb-4">{$_('requestAccess.successHeading')}</h1>
           <p class="text-slate-600 mb-8 text-base sm:text-lg leading-relaxed break-words">
             {$_('requestAccess.successText')}
           </p>
@@ -57,7 +57,7 @@
         </div>
       {:else}
         <div class="mb-10 text-center">
-          <h1 class="text-3xl font-black text-slate-900 mb-3">{$_('requestAccess.heading')}</h1>
+          <h1 class="text-3xl font-bold text-slate-900 mb-3">{$_('requestAccess.heading')}</h1>
           <p class="text-slate-600 mb-6 text-base sm:text-lg leading-relaxed">
             {$_('requestAccess.intro1')}
           </p>
@@ -68,7 +68,7 @@
             {$_('requestAccess.betaTrustLine')}
           </p>
           <div class="mx-auto mt-5 max-w-2xl rounded-2xl border-2 border-slate-100 bg-white p-4 text-left text-sm leading-relaxed text-slate-600">
-            <h2 class="font-black text-slate-900">{$_('requestAccess.nextHeading')}</h2>
+            <h2 class="font-bold text-slate-900">{$_('requestAccess.nextHeading')}</h2>
             <p class="mt-2">
               {$_('requestAccess.nextText1')}
             </p>
