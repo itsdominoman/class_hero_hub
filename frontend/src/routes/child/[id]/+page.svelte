@@ -3,6 +3,7 @@
   import { _, locale } from 'svelte-i18n';
   import { page } from "$app/state";
   import { api } from "$lib/api";
+  import { getAvatarAsset, hasAvatarAssetFile } from "$lib/avatars";
   import { formatAllowanceAmount } from "$lib/currencies";
   import {
     ArrowRight,
@@ -260,7 +261,11 @@
     savingsUnlockSchedule.length > 0 ? savingsUnlockSchedule[0] : null,
   );
 
-  const avatarLabel = $derived(summary?.child.avatar_name?.trim() || "");
+  const childAvatar = $derived(
+    summary?.child.avatar_name && hasAvatarAssetFile(summary.child.avatar_name)
+      ? getAvatarAsset(summary.child.avatar_name)
+      : null,
+  );
   const stageImage = $derived(
     summary
       ? PET_STAGES[summary.pet_progress.current_stage].image
@@ -955,18 +960,27 @@
             </div>
 
             <div class="flex flex-col sm:flex-row sm:items-center gap-5">
-              <div
-                class="w-24 h-24 md:w-28 md:h-28 rounded-[2rem] bg-white border-4 border-white shadow-[0_16px_40px_-18px_rgba(0,0,0,0.35)] flex items-center justify-center text-slate-900 overflow-hidden"
-              >
+              <div class="relative w-fit">
                 <div
-                  class="w-full h-full bg-gradient-to-br from-child-savings-bg via-white to-child-spend-bg flex flex-col items-center justify-center text-slate-900 p-4"
+                  class="w-24 h-24 md:w-28 md:h-28 rounded-[2rem] bg-white border-4 border-white shadow-[0_16px_40px_-18px_rgba(0,0,0,0.35)] flex items-center justify-center text-slate-900 overflow-hidden"
                 >
-                  <img
-                    src={stageImage}
-                    alt={$_(stageInfo.label)}
-                    class="w-full h-full object-contain"
-                  />
+                  <div
+                    class="w-full h-full bg-gradient-to-br from-child-savings-bg via-white to-child-spend-bg flex flex-col items-center justify-center text-slate-900 p-4"
+                  >
+                    <img
+                      src={stageImage}
+                      alt={$_(stageInfo.label)}
+                      class="w-full h-full object-contain"
+                    />
+                  </div>
                 </div>
+                {#if childAvatar}
+                  <img
+                    src={childAvatar.path}
+                    alt={$_('child.avatarAlt', { values: { name: summary.child.display_name } })}
+                    class="absolute -bottom-2 -end-2 h-12 w-12 rounded-full border-4 border-white bg-white object-cover shadow-lg"
+                  />
+                {/if}
               </div>
 
               <div class="min-w-0">
@@ -994,15 +1008,6 @@
                       ? $_('child.childSession')
                       : $_('child.parentPreview')}
                   </span>
-                  {#if avatarLabel}
-                    <span
-                      class="inline-flex max-w-full items-center gap-2 px-3 py-2 rounded-full bg-white text-slate-700 border border-slate-200 text-xs font-semibold uppercase tracking-wide"
-                    >
-                      <span class="min-w-0 break-words"
-                        >{$_('child.avatar', { values: { label: avatarLabel } })}</span
-                      >
-                    </span>
-                  {/if}
                 </div>
               </div>
             </div>
@@ -1062,14 +1067,14 @@
 
               <div class="grid grid-cols-3 gap-2">
                 <div
-                  class="rounded-2xl bg-child-savings-bg border border-child-savings-border p-3"
+                  class="flex flex-col rounded-2xl bg-child-savings-bg border border-child-savings-border p-3"
                 >
                   <p
                     class="text-[10px] font-semibold uppercase tracking-wide text-child-savings-text"
                   >
                     {$_('child.savedPoints')}
                   </p>
-                  <p class="text-lg font-bold text-slate-950 mt-0.5">
+                  <p class="mt-auto pt-0.5 text-lg font-bold text-slate-950">
                     {summary.savings_balance}
                   </p>
                   {#if allowanceActive}
@@ -1083,14 +1088,14 @@
                   {/if}
                 </div>
                 <div
-                  class="rounded-2xl bg-slate-50 border border-slate-200 p-3"
+                  class="flex flex-col rounded-2xl bg-slate-50 border border-slate-200 p-3"
                 >
                   <p
                     class="text-[10px] font-semibold uppercase tracking-wide text-slate-400"
                   >
                     {$_('child.lockedSaved')}
                   </p>
-                  <p class="text-lg font-bold text-slate-950 mt-0.5">
+                  <p class="mt-auto pt-0.5 text-lg font-bold text-slate-950">
                     {summary.locked_savings}
                   </p>
                   {#if allowanceActive}
@@ -1104,14 +1109,14 @@
                   {/if}
                 </div>
                 <div
-                  class="rounded-2xl bg-child-hold-bg border border-child-hold-border p-3"
+                  class="flex flex-col rounded-2xl bg-child-hold-bg border border-child-hold-border p-3"
                 >
                   <p
                     class="text-[10px] font-semibold uppercase tracking-wide text-penalty"
                   >
                     {$_('child.pointsOnHold')}
                   </p>
-                  <p class="text-lg font-bold text-slate-950 mt-0.5">
+                  <p class="mt-auto pt-0.5 text-lg font-bold text-slate-950">
                     {summary.pending_redemptions}
                   </p>
                   {#if allowanceActive}
