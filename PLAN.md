@@ -354,3 +354,24 @@ With existing data only:
 ### Docs
 - docs/DESIGN.md gained a "Motion & feedback" section covering the two
   animations and the stay-open modal rule.
+
+---
+
+# PLAN — Quick fixes (branch `claude-3`, off `claude-2`)
+
+- **C3**: move the dashed "create preset" +/− tile to the FRONT of the
+  Add and Remove grids in the picker's Points tab, so it's visible
+  without scrolling past existing presets.
+- **C4**: the preset-creation modal must open scrolled to the top with
+  the Preset Title input focused (it currently opens with whatever
+  scroll position/focus falls out of rendering; `startEditing` already
+  scrolls to top but plain opening does not, and nothing receives
+  focus).
+- **C5**: review-only — A6 and B1/B2 proposals re-presented for
+  discussion (see sections above); explicitly NOT implemented here,
+  awaiting go-ahead.
+- C1/C2 were referenced in the brief but never defined in any prompt
+  available to this branch; skipped and flagged.
+
+## CHANGELOG (claude-3)
+- (updated as work lands)
