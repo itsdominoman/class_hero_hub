@@ -77,3 +77,25 @@ images `alt=""` + `aria-hidden="true"` — they are decorative.
 - RTL: layout direction flips via `dir` on `<html>`. When a directional
   icon implies "back/forward", add `rtl:` rotation variants (see the
   child dashboard back link). Prefer `gap-*` over `ml-*`/`mr-*` spacing.
+
+## Motion & feedback (branch `claude-2`)
+
+- **Parent point confirmation** (`point-float` in `parent/+page.svelte`):
+  a small `+N`/`−N` chip floats ~44px up from the tapped preset/button
+  and fades over ~1.1s, colored `savings`/`penalty`, paired with the
+  existing award/penalty sounds. Decorative (`aria-hidden`); keep it
+  subtle — parents tap several presets in a row, so no blocking or
+  full-screen effects here.
+- **Child celebration** (`celebration-*`/`confetti-*` in
+  `child/[id]/+page.svelte`): a one-time overlay when the child opens
+  the dashboard and has newly earned points since their last visit
+  (cursor in `localStorage`, child sessions only). Bouncing dragon
+  stage image, eased count-up of the summed new points, light CSS
+  confetti, explicit dismiss button. Never triggered by point
+  removals; never triggered while a parent previews.
+- Keep these two interactions distinct: the parent one is synchronous
+  "that worked" feedback; the child one is asynchronous "look what you
+  earned" delight.
+- The points modal stays open after awards/removals; the exit is the
+  existing X. The picker's Add/Remove grids end with a dashed +/− tile
+  that opens preset creation pre-signed.

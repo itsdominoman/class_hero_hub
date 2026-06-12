@@ -317,4 +317,40 @@ With existing data only:
   to avoid shipping the entire ledger.
 
 ## CHANGELOG (claude-2)
-- (updated as work lands)
+
+### Parent points flow
+- A1: awarding/removing points keeps the picker modal open on the
+  Points tab; the header points pill refreshes in place
+  (`refreshActiveModalChild`). Exit remains the X button.
+- A2: `point-float` confirmation chip (+N/−N) floats up from the
+  tapped control and fades (~1.1s), paired with the existing sounds.
+- A3: dashed +/− tiles at the end of the Add/Remove grids open the
+  existing preset-creation modal with points pre-set to +1/−1;
+  Settings > Behaviour presets unchanged.
+
+### Child dashboard
+- A4: saved/locked/on-hold summary tiles are flex columns with values
+  pinned to the bottom edge so numbers and currency lines align.
+- A5: "Avatar: N" badge removed; the child's avatar image renders as a
+  badge on the dragon tile (RTL-safe `-end-2`).
+- A8: one-time celebration overlay for newly earned points since the
+  child's last visit (localStorage cursor, child sessions only;
+  negative-only changes update totals silently). Dragon bounce,
+  count-up, CSS confetti, dismiss button.
+
+### Points logs
+- A7: "Show older (N more)" reveals the rest of the already-fetched
+  period window in both the parent picker log and the child activity
+  list (was hard-truncated at 8 rows). Counter resets on period/modal
+  change.
+- A6: **not implemented** — requires a backend delete/reverse endpoint
+  (see "Needs Scope B" above).
+
+### i18n
+- New keys, both locales: `parent.pointsActions.newPreset`,
+  `parent.addChildHint` (claude), `child.avatarAlt`,
+  `child.celebration{Title,Body,Total,Dismiss}`, `common.showOlder`.
+
+### Docs
+- docs/DESIGN.md gained a "Motion & feedback" section covering the two
+  animations and the stay-open modal rule.
