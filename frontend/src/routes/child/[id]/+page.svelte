@@ -674,9 +674,9 @@
     return error || $_('child.failedLoad');
   }
 
-  async function loadData() {
+  async function loadData(silent = false) {
     try {
-      loading = true;
+      if (!silent) loading = true;
       error = null;
       errorKind = null;
       linkedChildName = "";
@@ -965,7 +965,8 @@
     // Re-check for new points when the app regains focus.
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible' && accessMode === 'child' && !loading) {
-        void loadData();
+        // Silent refresh: no full-page loading flash on tab return.
+        void loadData(true);
       }
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
@@ -1023,7 +1024,7 @@
         <button
           type="button"
           class="btn-hero px-6 py-4 rounded-2xl"
-          onclick={loadData}>{$_('common.tryAgain')}</button
+          onclick={() => loadData()}>{$_('common.tryAgain')}</button
         >
       </div>
     </div>
