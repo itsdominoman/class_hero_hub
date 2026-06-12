@@ -254,20 +254,6 @@
             </p>
           </div>
 
-          <div class="mt-4 grid gap-3 sm:grid-cols-3">
-            <div class="rounded-2xl border border-slate-100 bg-white p-4">
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('home.heroRewardLabel')}</p>
-              <p class="mt-2 text-sm font-semibold text-slate-700">{$_('home.heroRewardValue')}</p>
-            </div>
-            <div class="rounded-2xl border border-slate-100 bg-white p-4">
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('home.heroAccessLabel')}</p>
-              <p class="mt-2 text-sm font-semibold text-slate-700">{$_('home.heroAccessValue')}</p>
-            </div>
-            <div class="rounded-2xl border border-slate-100 bg-white p-4">
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('home.heroDevicesLabel')}</p>
-              <p class="mt-2 text-sm font-semibold text-slate-700">{$_('home.heroDevicesValue')}</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>
