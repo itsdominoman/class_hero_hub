@@ -75,6 +75,7 @@ export const en = {
     noDescription: 'No description.',
     noDescriptionProvided: 'No description provided.',
     processing: 'Processing...',
+    showOlder: 'Show older ({count} more)',
     confirmAction: 'Confirm Action'
   },
   home: {
@@ -1244,6 +1245,7 @@ export const ar = {
     noDescription: 'لا يوجد وصف.',
     noDescriptionProvided: 'لا يوجد وصف.',
     processing: 'جار المعالجة...',
+    showOlder: 'عرض الأقدم ({count} إضافية)',
     confirmAction: 'تأكيد الإجراء'
   },
   home: {

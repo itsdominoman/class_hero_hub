@@ -251,7 +251,9 @@
       ),
   );
 
-  const recentActivity = $derived(ledger.slice(0, 8));
+  const ACTIVITY_PAGE_SIZE = 8;
+  let activityVisible = $state(8);
+  const recentActivity = $derived(ledger.slice(0, activityVisible));
 
   const savingsUnlockSchedule = $derived(
     summary?.savings_unlock_schedule ?? [],
@@ -1407,6 +1409,15 @@
                     </div>
                   </div>
                 {/each}
+                {#if ledger.length > activityVisible}
+                  <button
+                    type="button"
+                    onclick={() => (activityVisible += ACTIVITY_PAGE_SIZE)}
+                    class="inline-flex w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-hero hover:text-hero"
+                  >
+                    {$_('common.showOlder', { values: { count: ledger.length - activityVisible } })}
+                  </button>
+                {/if}
               </div>
             {:else}
               <div

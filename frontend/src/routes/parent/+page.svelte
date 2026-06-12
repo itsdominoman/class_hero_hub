@@ -49,6 +49,8 @@
   let activeTab = $state('positive');
   let childModalTab = $state('points');
   let pointLogPeriod = $state<'day' | 'week' | 'year'>('week');
+  const POINT_LOG_PAGE_SIZE = 8;
+  let pointLogVisible = $state(8);
   let childCalendarById = $state<Record<number, CalendarOccurrence[]>>({});
   let childCalendarLoading = $state<Record<number, boolean>>({});
   let childCalendarError = $state<Record<number, string>>({});
@@ -480,6 +482,7 @@
     activeTab = 'positive';
     childModalTab = 'points';
     pointLogPeriod = 'week';
+    pointLogVisible = POINT_LOG_PAGE_SIZE;
     childEditOpen = false;
     childEditError = null;
     editingPresetId = null;
@@ -1217,6 +1220,7 @@
 
   function setPointLogPeriod(period: 'day' | 'week' | 'year') {
     pointLogPeriod = period;
+    pointLogVisible = POINT_LOG_PAGE_SIZE;
     if (activeModal?.type === 'picker' && activeModal.child) {
       void loadChildLedger(activeModal.child, period);
     }
@@ -2494,7 +2498,7 @@
                   </div>
                 {:else}
                   <div class="space-y-2">
-                    {#each behaviorLedger.slice(0, 8) as tx}
+                    {#each behaviorLedger.slice(0, pointLogVisible) as tx}
                       <div class="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 p-3">
                         <div class="min-w-0">
                           <p class="truncate text-sm font-bold text-slate-950">{tx.description || tx.transaction_type}</p>
@@ -2506,6 +2510,15 @@
                       </div>
                     {/each}
                   </div>
+                  {#if behaviorLedger.length > pointLogVisible}
+                    <button
+                      type="button"
+                      onclick={() => (pointLogVisible += 12)}
+                      class="inline-flex w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-hero hover:text-hero"
+                    >
+                      {$_('common.showOlder', { values: { count: behaviorLedger.length - pointLogVisible } })}
+                    </button>
+                  {/if}
                 {/if}
               </div>
             {/if}
