@@ -97,5 +97,7 @@ images `alt=""` + `aria-hidden="true"` — they are decorative.
   "that worked" feedback; the child one is asynchronous "look what you
   earned" delight.
 - The points modal stays open after awards/removals; the exit is the
-  existing X. The picker's Add/Remove grids end with a dashed +/− tile
-  that opens preset creation pre-signed.
+  existing X. The picker's Add/Remove grids lead with a dashed +/− tile
+  that opens preset creation pre-signed (first so it needs no
+  scrolling); the preset editor opens scrolled to the top with the
+  title field focused.

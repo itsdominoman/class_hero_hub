@@ -374,4 +374,14 @@ With existing data only:
   available to this branch; skipped and flagged.
 
 ## CHANGELOG (claude-3)
-- (updated as work lands)
+
+- C3 (`e380c55`): the dashed create-preset tile is now the FIRST tile
+  in both the Add and Remove grids.
+- C4 (`218333c`): opening the preset editor (settings entry or +/−
+  tile) focuses the Preset Title input with `preventScroll` and resets
+  the modal scroll area to the top, so it no longer opens mid-form.
+- C5: review-only — A6 and B1/B2 proposals summarized and presented
+  for discussion; no implementation in this branch.
+- C1/C2: referenced in the brief but never defined in any prompt this
+  branch received; skipped and flagged for the requester.
+- docs/DESIGN.md motion section updated (tile position, editor focus).
