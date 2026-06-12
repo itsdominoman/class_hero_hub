@@ -385,3 +385,16 @@ With existing data only:
 - C1/C2: referenced in the brief but never defined in any prompt this
   branch received; skipped and flagged for the requester.
 - docs/DESIGN.md motion section updated (tile position, editor focus).
+- C1 (defined in follow-up, `72ee866`): submitting a behaviour preset
+  with an empty title no longer reaches the backend ("Action failed").
+  Client-side check in `handleModalSubmit` shows an inline error under
+  the Preset Title field (`parent.presets.titleRequired`, en/ar), adds
+  an error border + `aria-invalid`/`aria-describedby`, and refocuses
+  the field. Error clears on input/open/edit-toggle. Covers both the
+  +/− quick tiles and Settings > Manage Behaviours (shared form).
+  C2 remains undefined.
+- C6 (`a3283e3`): the per-child picker modal holds a constant height
+  across its tabs (full sheet on mobile, `min(50rem, 92dvh)` on
+  desktop) with internal scrolling, instead of resizing per tab.
+  Swept other modals (calendar, child dashboard, admin) — single-view
+  forms, no tab size-jumping, unchanged.

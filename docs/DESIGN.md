@@ -100,4 +100,8 @@ images `alt=""` + `aria-hidden="true"` — they are decorative.
   existing X. The picker's Add/Remove grids lead with a dashed +/− tile
   that opens preset creation pre-signed (first so it needs no
   scrolling); the preset editor opens scrolled to the top with the
-  title field focused.
+  title field focused, and an empty title is rejected inline (no
+  backend round-trip, no generic error banner).
+- Modals that switch tabs/views internally must keep a constant height
+  (see the child picker: fixed sheet height, tabs scroll internally) —
+  don't let the sheet grow/shrink as content changes.
