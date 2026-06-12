@@ -713,6 +713,7 @@
         redemptions = childRedemptions;
         rewards = childRewards;
         allowanceSummary = childAllowance;
+        maybeCelebrateNewPoints();
         await loadMyDay();
       } catch (childError) {
         if (
@@ -879,7 +880,97 @@
     }
   }
 
-  onMount(loadData);
+  // ---- A8: one-time celebration when the child sees newly earned points.
+  // Child-session only (parent preview must not mark entries as seen).
+  // The newest ledger created_at the child has seen is kept client-side.
+  type Celebration = { points: number; total: number };
+  type ConfettiPiece = { left: number; delay: number; color: string; size: number };
+
+  let celebration = $state<Celebration | null>(null);
+  let celebrationCount = $state(0);
+  let confettiPieces = $state<ConfettiPiece[]>([]);
+
+  const CONFETTI_COLORS = ['#7c3aed', '#10b981', '#f59e0b', '#f43f5e', '#38bdf8'];
+
+  function lastSeenLedgerKey() {
+    return `familyHeroHub.lastSeenLedger.${summary?.child.id}`;
+  }
+
+  function isEarnedEntry(tx: LedgerTransaction) {
+    if (tx.points <= 0) return false;
+    return ['award', 'adjustment', 'savings_bonus'].includes(tx.transaction_type);
+  }
+
+  function maybeCelebrateNewPoints() {
+    if (accessMode !== 'child' || !summary || typeof window === 'undefined') return;
+
+    let stored: string | null = null;
+    try {
+      stored = window.localStorage.getItem(lastSeenLedgerKey());
+    } catch {
+      return; // Storage unavailable: never celebrate rather than repeat.
+    }
+
+    const newest = ledger[0]?.created_at ?? null;
+    if (newest) {
+      try {
+        window.localStorage.setItem(lastSeenLedgerKey(), newest);
+      } catch {
+        return;
+      }
+    }
+
+    // First-ever visit just records the cursor silently.
+    if (!stored || !newest || newest <= stored) return;
+    if (celebration) return; // One celebration at a time.
+
+    const earned = ledger
+      .filter((tx) => tx.created_at > stored)
+      .filter(isEarnedEntry)
+      .reduce((sum, tx) => sum + tx.points, 0);
+    // Negative-only updates: totals refresh silently, no animation.
+    if (earned <= 0) return;
+
+    startCelebration(earned);
+  }
+
+  function startCelebration(points: number) {
+    confettiPieces = Array.from({ length: 18 }, () => ({
+      left: 4 + Math.random() * 92,
+      delay: Math.random() * 0.6,
+      color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+      size: 6 + Math.random() * 6,
+    }));
+    celebration = { points, total: summary?.available_spending ?? 0 };
+    celebrationCount = 0;
+
+    const duration = 900;
+    const start = performance.now();
+    const tick = (now: number) => {
+      if (!celebration) return;
+      const t = Math.min(1, (now - start) / duration);
+      celebrationCount = Math.round(points * (1 - Math.pow(1 - t, 3)));
+      if (t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  function dismissCelebration() {
+    celebration = null;
+    confettiPieces = [];
+  }
+
+  onMount(() => {
+    void loadData();
+    // Re-check for new points when the app regains focus.
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && accessMode === 'child' && !loading) {
+        void loadData();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  });
 </script>
 
 <div
@@ -2286,10 +2377,110 @@
       </p>
     </div>
   {/if}
+
+  {#if celebration}
+    <div
+      class="fixed inset-0 z-[90] flex items-center justify-center px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={$_('child.celebrationTitle')}
+    >
+      <button
+        type="button"
+        class="absolute inset-0 cursor-default bg-slate-950/60 backdrop-blur-sm"
+        aria-label={$_('common.close')}
+        onclick={dismissCelebration}
+      ></button>
+      <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        {#each confettiPieces as piece}
+          <span
+            class="confetti-piece"
+            style={`left: ${piece.left}%; animation-delay: ${piece.delay}s; background: ${piece.color}; width: ${piece.size}px; height: ${piece.size}px;`}
+          ></span>
+        {/each}
+      </div>
+      <div
+        class="celebration-card relative z-10 w-full max-w-sm rounded-[2rem] bg-white p-8 text-center shadow-2xl"
+      >
+        <img
+          src={stageImage}
+          alt=""
+          aria-hidden="true"
+          class="celebration-dragon mx-auto h-28 w-28 object-contain"
+        />
+        <h2 class="mt-4 text-2xl font-black text-slate-950">
+          {$_('child.celebrationTitle')}
+        </h2>
+        <p class="mt-3 text-5xl font-black text-savings" aria-hidden="true">
+          +{celebrationCount}
+        </p>
+        <p class="mt-3 text-sm font-medium text-slate-600">
+          {$_('child.celebrationBody', { values: { points: celebration.points } })}
+        </p>
+        <p class="mt-1 text-sm font-bold text-slate-700">
+          {$_('child.celebrationTotal', { values: { total: celebration.total } })}
+        </p>
+        <button
+          type="button"
+          class="btn-hero mt-6 w-full rounded-2xl py-4"
+          onclick={dismissCelebration}
+        >
+          {$_('child.celebrationDismiss')}
+        </button>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
   /* Color and card styles come from tailwind.config.js and app.css. */
+  .celebration-card {
+    animation: celebration-pop 0.45s cubic-bezier(0.2, 1.4, 0.4, 1);
+  }
+
+  @keyframes celebration-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.7) translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  .celebration-dragon {
+    animation: celebration-bounce 1.2s ease-in-out infinite;
+  }
+
+  @keyframes celebration-bounce {
+    0%,
+    100% {
+      transform: translateY(0) rotate(-2deg);
+    }
+    50% {
+      transform: translateY(-10px) rotate(2deg);
+    }
+  }
+
+  .confetti-piece {
+    position: absolute;
+    top: -16px;
+    border-radius: 2px;
+    animation: confetti-fall 2.4s linear forwards;
+  }
+
+  @keyframes confetti-fall {
+    0% {
+      opacity: 1;
+      transform: translateY(0) rotate(0deg);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(105vh) rotate(540deg);
+    }
+  }
+
   .line-clamp-2 {
     display: -webkit-box;
     line-clamp: 2;
