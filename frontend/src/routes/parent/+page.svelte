@@ -46,6 +46,7 @@
   });
   let modalLoading = $state(false);
   let modalError = $state<string | null>(null);
+  let presetTitleError = $state<string | null>(null);
   let activeTab = $state('positive');
   let childModalTab = $state('points');
   let pointLogPeriod = $state<'day' | 'week' | 'year'>('week');
@@ -495,6 +496,7 @@
       jar: 'spending'
     };
     modalError = null;
+    presetTitleError = null;
 
     if (type === 'family' || type === 'calendar-week') {
       void loadFamilySettings();
@@ -708,6 +710,7 @@
 
   function startEditing(preset: any) {
     editingPresetId = preset.id;
+    presetTitleError = null;
     modalForm = {
       points: preset.points,
       description: preset.description || '',
@@ -723,6 +726,7 @@
 
   function cancelEditing() {
     editingPresetId = null;
+    presetTitleError = null;
     modalForm = {
       points: 1,
       description: '',
@@ -740,6 +744,15 @@
       await submitAddChild();
       return;
     }
+
+    // Presets need a title; catch it here instead of letting the backend
+    // reject with a generic "Action failed".
+    if (activeModal.type === 'presets' && !modalForm.title.trim()) {
+      presetTitleError = $_('parent.presets.titleRequired');
+      focusPresetTitle();
+      return;
+    }
+    presetTitleError = null;
 
     try {
       modalLoading = true;
@@ -2554,14 +2567,20 @@
                     {modalForm.icon || '✨'}
                   </div>
                 {/if}
-                <input 
+                <input
                   id="modal-title"
-                  type="text" 
+                  type="text"
                   bind:value={modalForm.title}
+                  oninput={() => (presetTitleError = null)}
                   placeholder={activeModal.type === 'presets' ? $_('parent.presets.titlePlaceholder') : $_('parent.redeem.rewardNamePlaceholder')}
-                  class="min-w-0 flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 sm:px-6 py-4 font-bold text-slate-900 focus:outline-none focus:border-reward/30 transition-all"
+                  aria-invalid={presetTitleError ? 'true' : undefined}
+                  aria-describedby={presetTitleError ? 'modal-title-error' : undefined}
+                  class="min-w-0 flex-1 bg-slate-50 border-2 rounded-2xl px-4 sm:px-6 py-4 font-bold text-slate-900 focus:outline-none transition-all {presetTitleError ? 'border-penalty/50 focus:border-penalty' : 'border-slate-100 focus:border-reward/30'}"
                 />
               </div>
+              {#if presetTitleError}
+                <p id="modal-title-error" class="ml-2 text-xs font-bold text-penalty">{presetTitleError}</p>
+              {/if}
             </div>
 
             {#if activeModal.type === 'presets'}
