@@ -42,20 +42,24 @@
 
 - **Headline:** Less nagging. Clearer routines. Rewards kids can actually earn.
 - **Subheadline:** Family Hero Hub helps parents track points, approve rewards, and keep routines clear — while kids build progress on their own dragon dashboard.
-- **Primary CTA:** Request access
+- **Primary CTA:** Join the Free Beta
 - **Secondary CTA:** See how it works
 
 ## 5. Approved login direction
 
 - **Parent sign-in**
 - **Continue with Google**
-- **Don’t have access yet? Request access**
+- **Don’t have beta access yet? Join the Free Beta**
 - Trust copy must explain that Family Hero Hub never asks for or stores Google passwords.
 
 ## 6. Approved request-access direction
 
-- Make clear that requesting access does not create an account immediately.
-- Approval happens first.
+- Make clear that the public CTA now says **Join the Free Beta**.
+- Explain that beta access is free and no payment details are required.
+- Explain that the team plans an affordable parent subscription after public launch.
+- Explain that family data will not be sold and ads will not be shown to children.
+- Explain that beta families will receive notice before any pricing changes.
+- Keep the approval flow before account creation.
 - After approval, parents sign in with Google.
 - Children do not need Google accounts.
 
@@ -89,3 +93,4 @@
 - Copy changes must keep frontend and docs/manuals consistent.
 - Run frontend build after implementation.
 - Report changed files, build/test results, git diff summary, and confirm no deploy occurred.
+- Public beta messaging now uses **Join the Free Beta** and clarifies free beta access, no payment details required, future parent subscription intent, no ads to children, and no selling family data.

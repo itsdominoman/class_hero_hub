@@ -1,6 +1,6 @@
 # Family Hero Hub FAQ
 
-Last reviewed: 2026-06-08
+Last reviewed: 2026-06-12
 
 ## Getting started
 ### What is Family Hero Hub?
@@ -17,6 +17,11 @@ No. Children use linked child dashboards. Parent accounts use Google sign-in.
 
 ### Is the app mobile-friendly?
 Yes. Family Hero Hub is designed mobile-first, so parents and children can use it comfortably on phones.
+
+Public messaging now uses **Join the Free Beta** on the website and request-access flow.
+
+### Is Family Hero Hub free during beta?
+Yes. Family Hero Hub is currently in closed beta while we prepare for Google Play and Apple App Store launch. Beta access is free, and no payment details are required. After public launch, we plan to offer an affordable parent subscription. We will never sell family data or show ads to children, and beta families will receive notice before any pricing changes.
 
 ### Does Family Hero Hub support Arabic?
 Yes. The main fixed app interface supports English and Arabic. Parents can change the language from **Settings** on the parent dashboard.

@@ -64,6 +64,9 @@
           <p class="mx-auto max-w-2xl rounded-2xl border-2 border-slate-100 bg-slate-50 p-4 text-left text-sm leading-relaxed text-slate-600">
             {$_('requestAccess.intro2')}
           </p>
+          <p class="mx-auto mt-4 max-w-2xl rounded-2xl border border-hero/10 bg-hero/5 px-4 py-3 text-left text-sm font-semibold leading-relaxed text-slate-700">
+            {$_('requestAccess.betaTrustLine')}
+          </p>
           <div class="mx-auto mt-5 max-w-2xl rounded-2xl border-2 border-slate-100 bg-white p-4 text-left text-sm leading-relaxed text-slate-600">
             <h2 class="font-black text-slate-900">{$_('requestAccess.nextHeading')}</h2>
             <p class="mt-2">

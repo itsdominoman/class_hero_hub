@@ -44,15 +44,17 @@ In simple terms:
 - Parent sessions stay active for convenience.
 - Always log out on shared devices or any device you do not control.
 
-## 3) Request access if you are new
+## 3) Join the Free Beta if you are new
 
 If your account is not approved yet:
 
-1. Go to **Request access**.
+1. Go to **Join the Free Beta**.
 2. Enter your name, email, family name, and optional message.
 3. Submit the request.
 4. Wait for approval.
 5. After approval, sign in with Google.
+
+Public messaging now uses **Join the Free Beta** to make the closed-beta, free-access status clearer.
 
 ## 4) Parent dashboard overview
 

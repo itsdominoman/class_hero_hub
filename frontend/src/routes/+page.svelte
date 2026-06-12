@@ -171,6 +171,10 @@
     {
       question: 'home.faqQuestion6',
       answer: 'home.faqAnswer6'
+    },
+    {
+      question: 'home.faqQuestion7',
+      answer: 'home.faqAnswer7'
     }
   ];
 </script>
@@ -211,7 +215,11 @@
           </a>
         </div>
 
-        <p class="mt-5 max-w-2xl text-sm sm:text-base font-semibold text-slate-500 leading-relaxed">
+        <p class="mt-4 max-w-2xl text-sm font-semibold text-slate-500 leading-relaxed">
+          {$_('home.betaTrustLine')}
+        </p>
+
+        <p class="mt-4 max-w-2xl text-sm sm:text-base font-semibold text-slate-500 leading-relaxed">
           {$_('home.strapline')}
         </p>
         <p class="mt-3 text-sm font-semibold text-slate-500">

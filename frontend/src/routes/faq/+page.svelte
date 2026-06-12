@@ -54,6 +54,10 @@
         {
           question: 'faq.gettingStartedQuestion6',
           answer: 'faq.gettingStartedAnswer6'
+        },
+        {
+          question: 'faq.gettingStartedQuestion7',
+          answer: 'faq.gettingStartedAnswer7'
         }
       ]
     },
