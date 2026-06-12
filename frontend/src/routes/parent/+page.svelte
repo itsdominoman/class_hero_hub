@@ -447,23 +447,31 @@
     }
   }
 
-  async function addChild() {
-    const childName = window.prompt($_('parent.childEdit.displayNamePrompt'));
-    if (!childName || !childName.trim()) return;
+  function addChild() {
+    openModal('add-child', null);
+  }
+
+  async function submitAddChild() {
+    const childName = modalForm.title.trim();
+    if (!childName) {
+      modalError = $_('parent.childEdit.displayNameRequired');
+      return;
+    }
 
     try {
-      loadingChildren = true;
-      error = null;
+      modalLoading = true;
+      modalError = null;
       await api.post('/children/', {
-        display_name: childName.trim(),
+        display_name: childName,
         avatar_name: null,
         active: true
       });
       await loadDashboard();
+      closeModal();
     } catch (e) {
-      error = $_('parent.errorAddChild');
+      modalError = $_('parent.errorAddChild');
     } finally {
-      loadingChildren = false;
+      modalLoading = false;
     }
   }
 
@@ -705,7 +713,12 @@
 
   async function handleModalSubmit() {
     if (!activeModal) return;
-    
+
+    if (activeModal.type === 'add-child') {
+      await submitAddChild();
+      return;
+    }
+
     try {
       modalLoading = true;
       modalError = null;
@@ -1215,7 +1228,17 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
-              <details class="relative w-full sm:w-auto">
+              <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+              <details
+                class="relative w-full sm:w-auto"
+                onclick={(e) => {
+                  // Close the menu once an action inside it is chosen.
+                  const target = e.target as HTMLElement;
+                  if (target.closest('a, button')) {
+                    e.currentTarget.removeAttribute('open');
+                  }
+                }}
+              >
                 <summary class="inline-flex w-full cursor-pointer list-none items-center justify-center gap-2 rounded-full bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:text-hero sm:w-auto">
                   <Settings size={14} />
                   {$_('parent.settings')}
@@ -1416,7 +1439,8 @@
           {:else}
             <div class="flex min-w-0 items-center gap-3 sm:gap-4">
               <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-3xl flex items-center justify-center shadow-lg shrink-0
-                {activeModal.type === 'award' ? 'bg-savings text-white shadow-savings/20' : 
+                {activeModal.type === 'award' ? 'bg-savings text-white shadow-savings/20' :
+                 activeModal.type === 'add-child' ? 'bg-hero text-white shadow-hero/20' :
                  activeModal.type === 'penalty' ? 'bg-penalty text-white shadow-penalty/20' :
                  activeModal.type === 'bank' ? 'bg-reward text-white shadow-reward/20' :
                  activeModal.type === 'presets' ? 'bg-hero text-white shadow-hero/20' :
@@ -1428,6 +1452,7 @@
                  activeModal.type === 'requests' ? 'bg-savings text-white shadow-savings/20' :
                  'bg-reward text-white shadow-reward/20'}">
                 {#if activeModal.type === 'award'}<Award size={32} />
+                {:else if activeModal.type === 'add-child'}<UserPlus size={32} />
                 {:else if activeModal.type === 'penalty'}<Ban size={32} />
                 {:else if activeModal.type === 'bank'}<Wallet size={32} />
                 {:else if activeModal.type === 'presets'}<Settings size={32} />
@@ -1442,6 +1467,7 @@
               <div class="min-w-0">
                 <h3 class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight break-words leading-tight">
                   {activeModal.type === 'award' ? $_('parent.pointsActions.addPoints') :
+                   activeModal.type === 'add-child' ? $_('parent.addChild') :
                    activeModal.type === 'penalty' ? $_('parent.pointsActions.removePoints') :
                   activeModal.type === 'bank' ? $_('parent.bank.moveToSavedPoints') :
                   activeModal.type === 'presets' ? (editingPresetId ? $_('parent.presets.edit') : $_('parent.presets.manage')) :
@@ -1630,6 +1656,21 @@
                 {/each}
               </div>
 
+            </div>
+          {/if}
+
+          {#if activeModal.type === 'add-child'}
+            <div class="space-y-2">
+              <label for="add-child-name" class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide ml-2">{$_('parent.childEdit.displayName')}</label>
+              <input
+                id="add-child-name"
+                type="text"
+                bind:value={modalForm.title}
+                placeholder={$_('parent.childEdit.displayNamePrompt')}
+                onkeydown={(e) => { if (e.key === 'Enter') handleModalSubmit(); }}
+                class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 font-bold text-slate-900 focus:outline-none focus:border-hero/30 transition-all"
+              />
+              <p class="text-xs text-slate-500 ml-2">{$_('parent.addChildHint')}</p>
             </div>
           {/if}
 
@@ -2451,7 +2492,7 @@
             {/if}
           {/if}
 
-          {#if activeModal.type !== 'picker' && activeModal.type !== 'family' && activeModal.type !== 'calendar-week' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests'}
+          {#if activeModal.type !== 'picker' && activeModal.type !== 'add-child' && activeModal.type !== 'family' && activeModal.type !== 'calendar-week' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests'}
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
               <div class="space-y-2">
                 <label for="points-amount" class="text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">{$_('parent.presets.pointsLabel')}</label>
@@ -2485,7 +2526,7 @@
             </div>
           {/if}
 
-          {#if activeModal.type !== 'presets' && activeModal.type !== 'picker' && activeModal.type !== 'family' && activeModal.type !== 'calendar-week' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests'}
+          {#if activeModal.type !== 'presets' && activeModal.type !== 'picker' && activeModal.type !== 'add-child' && activeModal.type !== 'family' && activeModal.type !== 'calendar-week' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests'}
             <div class="space-y-2">
               <label for="modal-description" class="text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">{$_('parent.redeem.descriptionLabel')}</label>
               <textarea 
@@ -2554,7 +2595,8 @@
                 onclick={handleModalSubmit}
                 disabled={modalLoading}
                 class="w-full py-5 rounded-[1.5rem] font-semibold uppercase tracking-wide text-sm shadow-xl transition-all active:scale-[0.98] disabled:opacity-50
-                {activeModal.type === 'award' ? 'bg-savings text-white shadow-savings/20 hover:bg-savings-dark' : 
+                {activeModal.type === 'award' ? 'bg-savings text-white shadow-savings/20 hover:bg-savings-dark' :
+                 activeModal.type === 'add-child' ? 'bg-hero text-white shadow-hero/20 hover:bg-hero-dark' :
                  activeModal.type === 'penalty' ? 'bg-penalty text-white shadow-penalty/30 hover:bg-penalty-dark' :
                  activeModal.type === 'bank' ? 'bg-reward text-white shadow-reward/30 hover:bg-reward-dark' :
                  activeModal.type === 'presets' ? 'bg-hero text-white shadow-hero/20 hover:bg-hero-dark' :
@@ -2563,6 +2605,7 @@
                 {modalLoading ? (activeModal.type === 'family' ? $_('common.processing') : activeModal.type === 'presets' ? $_('common.saving') : $_('common.processing')) :
              activeModal.type === 'presets' ? (editingPresetId ? $_('parent.presets.saveChanges') : $_('parent.presets.createPreset')) :
              activeModal.type === 'family' ? $_('parent.family.inviteGrownup') :
+             activeModal.type === 'add-child' ? $_('parent.addChild') :
              $_('common.confirmAction')}
               </button>
               {#if editingPresetId}

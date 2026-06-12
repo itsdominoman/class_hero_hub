@@ -941,9 +941,9 @@
             {#if accessMode === "parent"}
               <a
                 href="/parent"
-                class="inline-flex items-center gap-2 rounded-full border border-hero/15 bg-hero/10 px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-hero transition hover:border-hero/30 hover:bg-hero/15"
+                class="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-hero/15 bg-hero/10 px-4 py-2 text-sm font-semibold text-hero transition hover:border-hero/30 hover:bg-hero/15"
               >
-                <ArrowRight class="rotate-180" size={14} />
+                <ArrowRight class="rotate-180 rtl:rotate-0" size={14} />
                 {$_('child.backParent')}
               </a>
             {/if}
