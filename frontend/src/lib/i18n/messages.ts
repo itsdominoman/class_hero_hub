@@ -311,6 +311,8 @@ export const en = {
     gettingStartedAnswer5: 'No. Children use linked child dashboards. Parent accounts use Google sign-in.',
     gettingStartedQuestion6: 'Is the app mobile-friendly?',
     gettingStartedAnswer6: 'Yes. Family Hero Hub is designed mobile-first, so parents and children can use it comfortably on phones.',
+    gettingStartedQuestion7: 'Is Family Hero Hub free during beta?',
+    gettingStartedAnswer7: 'Yes. Family Hero Hub is in closed beta while we prepare for launch on Google Play and the Apple App Store. Beta access is free and no payment details are needed. After public launch we plan to offer an affordable subscription for parents; beta families get advance notice before any pricing change. We will never sell family data or show ads to children.',
     pointsRewardsQuestion1: 'Who controls points?',
     pointsRewardsAnswer1: 'Parents do. They decide when to award or remove points and what counts in their own family.',
     pointsRewardsQuestion2: 'Can children approve their own rewards?',
@@ -1733,7 +1735,7 @@ export const ar = {
       label: 'نظرة عامة على العائلة',
       totalPoints: 'النقاط المتاحة لدى أطفالك',
       pendingRequests: 'طلبات مكافآت بانتظار مراجعتك',
-      noPendingRequests: 'لا توجد طلبات مكافآت بالانتظار',
+      noPendingRequests: 'لا توجد طلبات مكافآت قيد الانتظار',
       schoolToday: 'أغراض مطلوبة للمدرسة اليوم',
       noSchoolToday: 'لا شيء مطلوب للمدرسة اليوم'
     },
