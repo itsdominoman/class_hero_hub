@@ -503,6 +503,25 @@
     if (type === 'picker' && child) {
       void ensureChildModalData(child);
     }
+
+    if (type === 'presets') {
+      focusPresetTitle();
+    }
+  }
+
+  // The preset editor must open scrolled to the top with the title
+  // input focused (focus first with preventScroll so the browser does
+  // not yank the scroll area to the middle of the form).
+  function focusPresetTitle() {
+    if (typeof window === 'undefined') return;
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const titleInput = document.getElementById('modal-title') as HTMLInputElement | null;
+        titleInput?.focus({ preventScroll: true });
+        const scrollArea = document.getElementById('modal-scroll-area');
+        if (scrollArea) scrollArea.scrollTop = 0;
+      });
+    });
   }
 
   function closeModal() {
