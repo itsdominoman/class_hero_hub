@@ -2245,6 +2245,15 @@
                   </div>
                 {:else}
                   <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 pb-4">
+                    <button
+                      type="button"
+                      onclick={() => openPresetCreate(activeTab === 'positive' ? 1 : -1)}
+                      aria-label={$_('parent.pointsActions.newPreset')}
+                      class="group flex min-h-40 flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed p-3 text-center transition-all sm:min-h-44 sm:p-4 {activeTab === 'positive' ? 'border-savings/30 text-savings hover:bg-savings/5' : 'border-penalty/30 text-penalty hover:bg-penalty/5'}"
+                    >
+                      <span class="text-4xl leading-none" aria-hidden="true">{activeTab === 'positive' ? '+' : '−'}</span>
+                      <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{$_('parent.pointsActions.newPreset')}</span>
+                    </button>
                     {#each presets.filter(p => p.is_active && (activeTab === 'positive' ? p.points > 0 : p.points < 0)) as p}
                       <button
                         onclick={(e) => applyPreset(activeModal.child, p, e)}
@@ -2269,15 +2278,6 @@
                         </button>
                       </div>
                     {/each}
-                    <button
-                      type="button"
-                      onclick={() => openPresetCreate(activeTab === 'positive' ? 1 : -1)}
-                      aria-label={$_('parent.pointsActions.newPreset')}
-                      class="group flex min-h-40 flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed p-3 text-center transition-all sm:min-h-44 sm:p-4 {activeTab === 'positive' ? 'border-savings/30 text-savings hover:bg-savings/5' : 'border-penalty/30 text-penalty hover:bg-penalty/5'}"
-                    >
-                      <span class="text-4xl leading-none" aria-hidden="true">{activeTab === 'positive' ? '+' : '−'}</span>
-                      <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{$_('parent.pointsActions.newPreset')}</span>
-                    </button>
                   </div>
                 {/if}
               </div>
