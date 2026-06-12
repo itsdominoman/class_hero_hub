@@ -54,9 +54,9 @@
 
 ## 6. Approved request-access direction
 
-- Make clear that the public CTA now says **Join the Free Beta** and that post-launch pricing is expected to be around $4–$5 per family per month.
+- Make clear that the public CTA says **Join the Free Beta**, the homepage stays value-focused, and pricing discussion lives in the beta signup flow.
 - Explain that beta access is free, no payment details are required during beta, and families can export or delete their data anytime.
-- Explain that the team expects an affordable parent subscription of around $4–$5 per family per month after public launch.
+- Explain that the team expects pricing of around $4–$5 per family per month after public launch.
 - Explain that family data will not be sold and ads will not be shown to children.
 - Explain that beta families will receive notice before any pricing changes, and that there are no ads or family-data sales.
 - Keep the approval flow before account creation.
@@ -93,4 +93,4 @@
 - Copy changes must keep frontend and docs/manuals consistent.
 - Run frontend build after implementation.
 - Report changed files, build/test results, git diff summary, and confirm no deploy occurred.
-- Public beta messaging now uses **Join the Free Beta** and clarifies free beta access, expected post-launch pricing around $4–$5 per family per month, advance notice before paid plans, no payment details required during beta, export/delete availability, no ads to children, and no selling family data.
+- Public beta messaging now keeps the homepage focused on value and privacy, while the beta signup flow clarifies free beta access, expected post-launch pricing around $4–$5 per family per month, advance notice before paid plans, no payment details required during beta, export/delete availability, no ads to children, and no selling family data.

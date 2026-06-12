@@ -54,7 +54,7 @@ If your account is not approved yet:
 4. Wait for approval.
 5. After approval, sign in with Google.
 
-Public messaging now uses **Join the Free Beta** to make the closed-beta, free-access status clearer, and it now sets expectations that post-launch pricing is around $4–$5 per family per month with advance notice before any paid plan, no payment details during beta, export/delete availability, no ads, and no selling family data.
+Public messaging now keeps pricing discussion in the **Join the Free Beta** flow rather than the homepage hero, and it now sets expectations that post-launch pricing is around $4–$5 per family per month with advance notice before any paid plan, no payment details during beta, export/delete availability, no ads, and no selling family data.
 
 ## 4) Parent dashboard overview
 
