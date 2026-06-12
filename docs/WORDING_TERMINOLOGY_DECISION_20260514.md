@@ -54,11 +54,11 @@
 
 ## 6. Approved request-access direction
 
-- Make clear that the public CTA now says **Join the Free Beta**.
-- Explain that beta access is free and no payment details are required.
-- Explain that the team plans an affordable parent subscription after public launch.
+- Make clear that the public CTA now says **Join the Free Beta** and that post-launch pricing is expected to be around $4–$5 per family per month.
+- Explain that beta access is free, no payment details are required during beta, and families can export or delete their data anytime.
+- Explain that the team expects an affordable parent subscription of around $4–$5 per family per month after public launch.
 - Explain that family data will not be sold and ads will not be shown to children.
-- Explain that beta families will receive notice before any pricing changes.
+- Explain that beta families will receive notice before any pricing changes, and that there are no ads or family-data sales.
 - Keep the approval flow before account creation.
 - After approval, parents sign in with Google.
 - Children do not need Google accounts.
@@ -93,4 +93,4 @@
 - Copy changes must keep frontend and docs/manuals consistent.
 - Run frontend build after implementation.
 - Report changed files, build/test results, git diff summary, and confirm no deploy occurred.
-- Public beta messaging now uses **Join the Free Beta** and clarifies free beta access, no payment details required, future parent subscription intent, no ads to children, and no selling family data.
+- Public beta messaging now uses **Join the Free Beta** and clarifies free beta access, expected post-launch pricing around $4–$5 per family per month, advance notice before paid plans, no payment details required during beta, export/delete availability, no ads to children, and no selling family data.

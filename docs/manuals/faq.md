@@ -18,7 +18,7 @@ No. Children use linked child dashboards. Parent accounts use Google sign-in.
 ### Is the app mobile-friendly?
 Yes. Family Hero Hub is designed mobile-first, so parents and children can use it comfortably on phones.
 
-Public messaging now uses **Join the Free Beta** on the website and request-access flow.
+Public messaging now uses **Join the Free Beta** on the website and request-access flow, and now also sets expectations that pricing after launch is around $4–$5 per family per month with advance notice before any paid plan, no payment details during beta, export/delete availability, no ads, and no selling family data.
 
 ### Is Family Hero Hub free during beta?
 Yes. Family Hero Hub is currently in closed beta while we prepare for Google Play and Apple App Store launch. Beta access is free, and no payment details are required. After public launch, we plan to offer an affordable parent subscription. We will never sell family data or show ads to children, and beta families will receive notice before any pricing changes.
