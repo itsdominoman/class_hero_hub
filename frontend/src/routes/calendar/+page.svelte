@@ -837,7 +837,7 @@
               <CalendarDays size={14} />
               {$_('calendar.eyebrow')}
             </div>
-            <h1 class="break-words text-3xl font-bold tracking-tight text-slate-950 md:text-5xl">{$_('calendar.heading')}</h1>
+            <h1 class="break-words text-3xl font-black tracking-tight text-slate-950 md:text-5xl">{$_('calendar.heading')}</h1>
             <p class="mt-3 max-w-2xl text-sm font-medium leading-6 text-slate-500 md:text-base">
               {$_('calendar.intro')}
             </p>

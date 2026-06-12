@@ -66,7 +66,7 @@
       <a href="/parent" class="inline-flex items-center gap-2 text-slate-400 hover:text-hero font-bold text-xs uppercase tracking-wide mb-6 transition-colors">
         <ChevronLeft size={16} /> {$_('redemptions.backToParentDashboard')}
       </a>
-      <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight flex items-center gap-3 sm:gap-4">
+      <h1 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3 sm:gap-4">
         <div class="w-11 h-11 sm:w-12 sm:h-12 bg-reward/10 text-reward rounded-2xl flex shrink-0 items-center justify-center">
           <Trophy size={24} />
         </div>

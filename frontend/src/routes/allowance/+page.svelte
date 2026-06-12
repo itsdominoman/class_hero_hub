@@ -344,7 +344,7 @@
                 <Sparkles size={15} />
                 {$_('allowance.optional')}
               </div>
-              <h1 class="max-w-xl text-4xl font-bold leading-[0.95] tracking-tighter sm:text-5xl lg:text-6xl">
+              <h1 class="max-w-xl text-4xl font-black leading-[0.95] tracking-tighter sm:text-5xl lg:text-6xl">
                 {$_('allowance.heading')}
               </h1>
               <p class="mt-5 max-w-xl text-base font-medium leading-relaxed text-slate-700 sm:text-lg">
