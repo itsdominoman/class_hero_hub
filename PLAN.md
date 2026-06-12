@@ -194,3 +194,127 @@
   "$4–$5 per month" — confirm which pricing wording should be canonical.
 - Savings green standardised on #10b981 (the in-app value); marketing
   pages previously rendered the darker #16a34a from the old config.
+
+---
+
+# PLAN — Interaction polish pass (branch `claude-2`, off `claude`)
+
+Baseline: the `claude` design-system branch (tokens, type scale,
+card classes, i18n parity check). All new work extends it.
+
+## Scope A plan
+
+- **A1 — keep points modal open**: `applyPreset()` and
+  `submitCustomPoints()` currently call `closeModal()` after a
+  successful award/penalty. Stop closing; refresh the open modal's
+  child reference after `loadDashboard()` (same pattern as
+  `saveChildEdit`) so the header points pill updates live.
+- **A2 — "+N" confirmation float**: capture the tapped element's
+  viewport position, render a small fixed-position `+N`/`−N` chip that
+  floats up ~40px and fades over ~1.1s (CSS animation, removed from a
+  list on `animationend`/timeout). Green for award, red for removal.
+  Decorative: `aria-hidden`, paired with the existing sounds.
+- **A3 — "+"/"−" tiles**: append one dashed tile to the Add grid and
+  one to the Remove grid in the picker's Points tab; both open the
+  existing `presets` modal with `modalForm.points` pre-set to +1 / −1.
+  Settings → Behaviour presets unchanged.
+- **A4 — child summary tile alignment**: secondary-row tiles become
+  `flex flex-col` with the value block pinned via `mt-auto`, so values
+  and currency lines align even when one label wraps to two lines.
+- **A5 — avatar in child header**: drop the "Avatar: N" badge; render
+  the child's actual avatar image (via `$lib/avatars`) as a small
+  circle overlapping the dragon-stage tile next to the name.
+- **A7 — points-log "show older"**: backend returns the full period
+  window (up to a month) but both UIs slice to 8 rows. Add a "show
+  older" control revealing more of the already-fetched window
+  (parent picker points-log tab + child Recent Activity). History
+  beyond one month needs backend work — see "Needs Scope B".
+- **A8 — child celebration on new points**: child-session only
+  (parent preview never marks entries seen). Track the newest ledger
+  `created_at` the child has seen in `localStorage`
+  (`familyHeroHub.lastSeenLedger.<childId>`). On dashboard load (and
+  `visibilitychange` back to visible → light refetch), collect entries
+  newer than the stored cursor: if earned entries (`award`,
+  positive `adjustment`, `savings_bonus`) net positive, show a one-time
+  overlay — dragon artwork, count-up of the summed new points, small
+  CSS confetti — then store the new cursor. If only negative/neutral
+  entries, just store the cursor and let the totals update silently.
+  First-ever visit stores the cursor without celebrating.
+
+## Needs Scope B (discovered gaps — not implemented)
+
+- **A6 — delete a points-log entry**: there is no backend endpoint to
+  delete or reverse a ledger transaction (`backend/app/routes/ledger.py`
+  only creates entries; nothing exposes DELETE, and balances are
+  derived from the full ledger). A correct implementation needs e.g.
+  `DELETE /children/{id}/ledger/{tx_id}` that either hard-deletes the
+  row (simple, loses audit trail) or writes a linked reversing entry
+  (`source_transaction_id` already exists on the model and would suit
+  this), plus rules for entries with downstream effects (savings
+  deposits with bonus rows, redemption holds, pet lifetime points from
+  awards). Skipped rather than approximating client-side.
+- **A7 beyond one month**: `get_ledger_transactions` filters by a
+  day/week/month window with no offset/limit. Older history needs a
+  paged endpoint (e.g. `?before=<cursor>&limit=50`). The UI's "Year"
+  tab already silently maps to "month" — worth fixing alongside.
+
+## Scope B — Proposals for Discussion (DO NOT IMPLEMENT)
+
+### B1 — Meaningful "School items needed today"
+Tapping the parent summary tile should show which items, for which
+children, are still unpacked. Depends on B2's per-item packed state.
+Backend: B2's data plus either a parent query endpoint
+(`GET /school-items/packing-status?date=`) returning items with
+`packed_at` per child, or extending the existing
+`/school-items/today` response with the packed flag. Open questions:
+does "still unpacked" mean today's items (morning view) or last
+night's pack-for-tomorrow list (accountability view)? Probably both,
+labelled differently.
+
+### B2 — Child ticks off "Pack for tomorrow" items
+Needs a per-item, per-date "packed" state, resettable daily:
+- New table `school_item_checks(id, school_item_id, child_id,
+  check_date, packed_at)` — one row per item per date keeps history
+  for B1 without a scheduled reset job (the "reset" is implicit:
+  no row for today's date = unpacked).
+- Endpoints: child-scope `POST /child/school-items/{id}/pack` and
+  `DELETE .../pack` (untick), date defaulting to the offset the list
+  was shown for; parent-scope read access (feeds B1).
+- Open questions: can a child untick after midnight (probably no —
+  lock once the target day starts); should packing award points
+  (ties into rewardable tasks — suggest no for v1); offline taps on
+  the child device (retry queue or accept loss).
+
+### B3 — Child-initiated avatar changes
+Two options, no recommendation:
+1. **Child picks freely** (no backend change): expose the existing
+   avatar set in the child session; reuse `PATCH /children/{id}`…
+   except that endpoint is parent-authenticated, so it *does* need a
+   child-scope variant (`PATCH /child/me/avatar`) — small but real
+   backend change. Trade-offs: maximal child agency, zero parent
+   friction; risk is churn/novelty-clicking and parents losing the
+   "reward" lever of avatar changes.
+2. **Request + parent approval**: child taps a new avatar → creates a
+   pending request the parent approves (new table or reuse of the
+   redemption-request pattern with a special type). Trade-offs: keeps
+   parents in control and makes avatar changes feel earned; costs a
+   new approval flow, more backend surface, and slower gratification
+   for something cosmetically harmless.
+
+### B4 — Child-facing longer history + visual summary
+With existing data only:
+- History: same gap as A7 — child ledger endpoint is window-bound to
+  a month; a child-scope paged endpoint would be needed for "show me
+  everything". Within a month, the UI can already show all rows.
+- Visual summary: the parent picker's "good %" donut derives entirely
+  from ledger rows already sent to the child
+  (`/child/ledger?period=month`), so a child-friendly version (e.g.
+  "8 of 10 green days this month" or a weekly bar of net points)
+  needs **no new aggregation** for one month. A "good days" ratio per
+  calendar day = group fetched rows client-side by date. Anything
+  spanning multiple months (streaks, all-time bests) would need a new
+  aggregation endpoint (`GET /child/ledger/daily-summary?months=6`)
+  to avoid shipping the entire ledger.
+
+## CHANGELOG (claude-2)
+- (updated as work lands)
