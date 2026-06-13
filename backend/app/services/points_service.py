@@ -17,6 +17,17 @@ PET_THRESHOLDS = {
 
 SAVINGS_LOCK_DAYS = 30
 SAVINGS_LOCK_DAYS_DELTA = timedelta(days=SAVINGS_LOCK_DAYS)
+
+# A6 — parent "Correct this entry". A correction is a linked reversing row
+# (transaction_type=reversal, source_transaction_id -> original). Only plain
+# spending-jar award/penalty/adjustment entries that have no downstream rows
+# and are still inside the window may be corrected.
+CORRECTION_WINDOW = timedelta(days=7)
+CORRECTABLE_TYPES = {
+    models.TransactionType.award,
+    models.TransactionType.penalty,
+    models.TransactionType.adjustment,
+}
 SAVINGS_BONUS_RATE_BPS = 1000
 SAVINGS_BONUS_ROUND_UP_REMAINDER = 6
 # Rollout cutoff: bonus applies to deposits that were still locked when this feature shipped,
@@ -139,6 +150,78 @@ def create_savings_deposit(
     db.refresh(spending_tx)
     db.refresh(savings_tx)
     return [spending_tx, savings_tx]
+
+
+class CorrectionError(Exception):
+    """Raised when a ledger entry cannot be corrected. ``code`` is a stable
+    machine-readable reason the frontend maps to a localized message."""
+
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
+
+
+def _to_naive_utc(value: datetime) -> datetime:
+    if value.tzinfo is not None:
+        return value.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+    return value
+
+
+def correct_transaction(
+    db: Session,
+    child_id: int,
+    tx_id: int,
+    reason: str | None = None,
+    created_by_parent_id: int | None = None,
+    now: datetime | None = None,
+) -> models.LedgerTransaction | None:
+    """Create a linked reversing entry that cancels ``tx_id`` while keeping the
+    original row for history. Returns ``None`` if the entry does not exist for
+    this child (route turns that into a 404); raises ``CorrectionError`` for an
+    ineligible entry. Deliberately does NOT touch pet progress: lifetime points
+    are a monotonic high-water-mark and never regress on a correction."""
+    current = now or datetime.utcnow()
+
+    tx = (
+        db.query(models.LedgerTransaction)
+        .filter(
+            models.LedgerTransaction.id == tx_id,
+            models.LedgerTransaction.child_id == child_id,
+        )
+        .first()
+    )
+    if tx is None:
+        return None
+
+    # Eligible kinds only: a plain award / penalty / adjustment.
+    if tx.transaction_type not in CORRECTABLE_TYPES:
+        raise CorrectionError("correction_ineligible_type")
+    # Savings-jar entries spawn maturity/bonus rows downstream — refuse.
+    if tx.jar != models.JarType.spending:
+        raise CorrectionError("correction_ineligible_type")
+    # An entry that is itself derived from / a correction of another entry.
+    if tx.source_transaction_id is not None:
+        raise CorrectionError("correction_ineligible_type")
+    # Already corrected, or it spawned downstream rows (e.g. a matured deposit).
+    if _source_processed(db, tx.id):
+        raise CorrectionError("correction_already_processed")
+    # Time window: corrections are only allowed for a week after the entry.
+    if current - _to_naive_utc(tx.created_at) > CORRECTION_WINDOW:
+        raise CorrectionError("correction_window_expired")
+
+    reversal = models.LedgerTransaction(
+        child_id=tx.child_id,
+        jar=tx.jar,
+        transaction_type=models.TransactionType.reversal,
+        points=-(tx.points or 0),
+        description=(reason or "").strip(),
+        source_transaction_id=tx.id,
+        created_by_parent_id=created_by_parent_id,
+    )
+    db.add(reversal)
+    db.commit()
+    db.refresh(reversal)
+    return reversal
 
 
 def calculate_balances(db: Session, child_id: int, now: datetime | None = None):
@@ -348,10 +431,12 @@ def get_ledger_summary(
         points = transaction.points or 0
 
         if tx_type in {models.TransactionType.award, models.TransactionType.savings_bonus} or (
-            tx_type == models.TransactionType.adjustment and points > 0
+            tx_type in {models.TransactionType.adjustment, models.TransactionType.reversal} and points > 0
         ):
             totals["gained"] += points
-        elif tx_type == models.TransactionType.penalty or (tx_type == models.TransactionType.adjustment and points < 0):
+        elif tx_type == models.TransactionType.penalty or (
+            tx_type in {models.TransactionType.adjustment, models.TransactionType.reversal} and points < 0
+        ):
             totals["lost"] += abs(points)
         elif tx_type == models.TransactionType.redemption_hold and transaction.jar == models.JarType.spending and points < 0:
             # Option B: the hold is the single deduction, so count it as spent.

@@ -379,6 +379,9 @@ class PenaltyRequest(BaseModel):
     description: str
     jar: JarType = JarType.spending
 
+class CorrectionRequest(BaseModel):
+    reason: Optional[str] = None
+
 class SavingsDepositRequest(BaseModel):
     points: int
     description: str

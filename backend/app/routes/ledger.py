@@ -119,6 +119,36 @@ async def penalty_points(
     return transaction
 
 
+@router.post("/{child_id}/ledger/{tx_id}/reverse", response_model=schemas.LedgerTransaction)
+async def reverse_ledger_entry(
+    child_id: int,
+    tx_id: int,
+    req: schemas.CorrectionRequest,
+    db: Session = Depends(get_db),
+    current_parent: models.ParentUser = Depends(auth.get_current_parent),
+):
+    """Correct a points-log entry by adding a linked balancing row, keeping the
+    original for history. Only plain spending award/penalty/adjustment entries
+    within the correction window and without downstream effects are eligible."""
+    child = get_family_child_or_404(db, child_id, current_parent)
+
+    try:
+        reversal = points_service.correct_transaction(
+            db,
+            child.id,
+            tx_id,
+            reason=req.reason,
+            created_by_parent_id=current_parent.id,
+        )
+    except points_service.CorrectionError as exc:
+        raise HTTPException(status_code=400, detail=exc.code)
+
+    if reversal is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    return reversal
+
+
 @router.post("/{child_id}/savings/deposit", response_model=List[schemas.LedgerTransaction])
 async def deposit_to_savings(
     child_id: int,

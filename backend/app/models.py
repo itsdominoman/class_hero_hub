@@ -16,6 +16,7 @@ class TransactionType(enum.Enum):
     redemption_rejected = "redemption_rejected"
     adjustment = "adjustment"
     calendar_task = "calendar_task"
+    reversal = "reversal"
 
 class JarType(enum.Enum):
     spending = "spending"

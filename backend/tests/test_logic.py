@@ -1091,3 +1091,117 @@ def test_presets_reject_empty_title_and_zero_points(db):
 
     with pytest.raises(ValidationError):
         schemas.PresetBehaviourCreate(title="Valid", points=0)
+
+
+def _award(db, child_id, points=20, jar=models.JarType.spending,
+           tx_type=models.TransactionType.award, created_at=None):
+    tx = models.LedgerTransaction(
+        child_id=child_id,
+        jar=jar,
+        transaction_type=tx_type,
+        points=points,
+        description="Original",
+    )
+    if created_at is not None:
+        tx.created_at = created_at
+    db.add(tx)
+    db.commit()
+    db.refresh(tx)
+    return tx
+
+
+def test_correct_transaction_adds_linked_reversing_entry(db):
+    child = models.Child(display_name="Correct Kid")
+    db.add(child)
+    db.commit()
+    db.refresh(child)
+
+    original = _award(db, child.id, points=25)
+    reversal = points_service.correct_transaction(db, child.id, original.id, reason="mis-tap")
+
+    assert reversal is not None
+    assert reversal.transaction_type == models.TransactionType.reversal
+    assert reversal.points == -25
+    assert reversal.source_transaction_id == original.id
+    assert reversal.description == "mis-tap"
+    # Balance nets to zero, original row still present.
+    assert points_service.calculate_balances(db, child.id)["spending_balance"] == 0
+    assert db.query(models.LedgerTransaction).filter_by(id=original.id).first() is not None
+
+
+def test_correct_transaction_does_not_regress_pet_progress(db):
+    child = models.Child(display_name="Monotonic Kid")
+    db.add(child)
+    db.commit()
+    db.refresh(child)
+
+    original = _award(db, child.id, points=60)
+    points_service.update_pet_progress(db, child.id, 60, True)
+    pet_before = db.query(models.PetProgress).filter_by(child_id=child.id).first()
+    assert pet_before.current_stage == models.PetStage.hatchling
+
+    points_service.correct_transaction(db, child.id, original.id)
+
+    pet_after = db.query(models.PetProgress).filter_by(child_id=child.id).first()
+    assert pet_after.lifetime_points == 60
+    assert pet_after.current_stage == models.PetStage.hatchling
+
+
+def test_correct_transaction_rejects_ineligible_kinds(db):
+    child = models.Child(display_name="Reject Kid")
+    db.add(child)
+    db.commit()
+    db.refresh(child)
+
+    savings = _award(db, child.id, jar=models.JarType.savings)
+    with pytest.raises(points_service.CorrectionError) as exc:
+        points_service.correct_transaction(db, child.id, savings.id)
+    assert exc.value.code == "correction_ineligible_type"
+
+    deposit = _award(db, child.id, tx_type=models.TransactionType.savings_deposit)
+    with pytest.raises(points_service.CorrectionError) as exc:
+        points_service.correct_transaction(db, child.id, deposit.id)
+    assert exc.value.code == "correction_ineligible_type"
+
+
+def test_correct_transaction_rejects_double_correction(db):
+    child = models.Child(display_name="Double Kid")
+    db.add(child)
+    db.commit()
+    db.refresh(child)
+
+    original = _award(db, child.id, points=10)
+    points_service.correct_transaction(db, child.id, original.id)
+
+    with pytest.raises(points_service.CorrectionError) as exc:
+        points_service.correct_transaction(db, child.id, original.id)
+    assert exc.value.code == "correction_already_processed"
+
+    # The correction row itself cannot be corrected (it is a reversal).
+    reversal = db.query(models.LedgerTransaction).filter_by(
+        source_transaction_id=original.id).first()
+    with pytest.raises(points_service.CorrectionError) as exc:
+        points_service.correct_transaction(db, child.id, reversal.id)
+    assert exc.value.code == "correction_ineligible_type"
+
+
+def test_correct_transaction_rejects_outside_window(db):
+    child = models.Child(display_name="Stale Kid")
+    db.add(child)
+    db.commit()
+    db.refresh(child)
+
+    old = _award(db, child.id, points=10,
+                 created_at=datetime.utcnow() - timedelta(days=8))
+    with pytest.raises(points_service.CorrectionError) as exc:
+        points_service.correct_transaction(db, child.id, old.id)
+    assert exc.value.code == "correction_window_expired"
+
+
+def test_correct_transaction_missing_entry_returns_none(db):
+    child = models.Child(display_name="Ghost Kid")
+    db.add(child)
+    db.commit()
+    db.refresh(child)
+
+    assert points_service.correct_transaction(db, child.id, 999999) is None
