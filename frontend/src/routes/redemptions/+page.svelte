@@ -2,11 +2,15 @@
   import { onMount } from 'svelte';
   import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
+  import { sortRedemptions } from '$lib/redemptions';
   import { Check, X, Clock, Trophy, ChevronLeft } from 'lucide-svelte';
 
   let redemptions = $state<any[]>([]);
   let loading = $state(true);
   let error = $state<string | null>(null);
+
+  // Pending first (newest on top), then resolved (most recently reviewed first).
+  const sortedRedemptions = $derived(sortRedemptions(redemptions));
 
   async function loadRedemptions() {
     try {
@@ -88,7 +92,7 @@
       </div>
     {:else}
       <div class="space-y-6">
-        {#each redemptions as r}
+        {#each sortedRedemptions as r}
           <div class="card p-5 sm:p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-5 md:gap-8 bg-white transition-all
             {r.status === 'pending' ? 'border-l-8 border-hero shadow-xl' : 'opacity-60 grayscale-[0.5]'}">
             

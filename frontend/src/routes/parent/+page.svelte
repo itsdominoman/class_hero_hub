@@ -3,6 +3,7 @@
   import { api } from '$lib/api';
   import { AVATAR_OPTIONS, getAvatarAsset, hasAvatarAssetFile, normaliseAvatarKey } from '$lib/avatars';
   import { formatAllowanceAmount } from '$lib/currencies';
+  import { sortRedemptions } from '$lib/redemptions';
   import { _, locale } from 'svelte-i18n';
   import LanguageSelector from '$lib/components/LanguageSelector.svelte';
   import { 
@@ -1256,7 +1257,9 @@
 
   onMount(loadDashboard);
 
-  const pendingRedemptions = $derived(redemptions.filter((request) => request.status === 'pending'));
+  const pendingRedemptions = $derived(
+    sortRedemptions(redemptions.filter((request) => request.status === 'pending'))
+  );
 
   const totalAvailablePoints = $derived(
     children.reduce((sum, childSummary) => sum + childAvailablePoints(childSummary), 0)

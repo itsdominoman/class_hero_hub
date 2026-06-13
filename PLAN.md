@@ -414,6 +414,22 @@ With existing data only:
   progression. The real year/all-time view is deferred to Scope C and
   flagged in the C5 review summary.
 
+- **C8: Reward Requests ordering — pending first, newest on top.**
+  The full `/redemptions` page rendered the raw API order, and the
+  backend `order_by` is subtly wrong: `RedemptionRequest.status ==
+  pending` is a boolean, and Postgres sorts `false` before `true`, so
+  pending requests actually came **last**. Fixed client-side (no API
+  change, matching the branch convention and keeping the order
+  deterministic regardless of backend): new `$lib/redemptions.ts`
+  `sortRedemptions()` puts pending first (newest `created_at` on top),
+  then resolved by `reviewed_at` desc (fallback `created_at`). Applied
+  to the `/redemptions` page (`sortedRedemptions` derived) and to the
+  parent dashboard's `pendingRedemptions` derived (which feeds the
+  summary tile count and the pending-only picker/child request lists),
+  so both views are guaranteed newest-first. The backend boolean-order
+  quirk is left in place (the frontend now sorts authoritatively); a
+  future backend tidy could use `(status == pending).desc()`.
+
 ## Scope C — Proposals for Discussion (DO NOT IMPLEMENT)
 
 ### C2-followup — Genuine "Year" / all-time points history
