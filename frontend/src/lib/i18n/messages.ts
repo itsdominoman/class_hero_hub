@@ -571,7 +571,8 @@ export const en = {
       pendingRequests: 'Reward requests waiting for your review',
       noPendingRequests: 'No reward requests waiting',
       schoolMissing: 'School items missing — tap to see',
-      schoolAllPacked: 'School bag — all packed'
+      schoolAllPacked: 'School bag — all packed',
+      schoolPackTomorrow: 'Pack the school bag for tomorrow'
     },
     loginRequired: 'Parent access required',
     loginHint: 'Sign in with Google to open the parent dashboard and manage your family account.',
@@ -667,8 +668,9 @@ export const en = {
       packedSummary: '{packed} of {total} packed',
       missingLabel: 'Missing:',
       allPacked: 'All packed',
-      nothingForDay: 'Nothing for this day',
-      noneConfigured: 'No school bag items set up yet.'
+      packed: 'Packed',
+      markPacked: 'Mark packed',
+      nothingRightNow: 'Nothing to pack right now'
     },
     savings: {
       nextUnlock: 'Next unlock',
@@ -1789,7 +1791,8 @@ export const ar = {
       pendingRequests: 'طلبات مكافآت بانتظار مراجعتك',
       noPendingRequests: 'لا توجد طلبات مكافآت قيد الانتظار',
       schoolMissing: 'أغراض مدرسية ناقصة — اضغط للعرض',
-      schoolAllPacked: 'حقيبة المدرسة — كل شيء جاهز'
+      schoolAllPacked: 'حقيبة المدرسة — كل شيء جاهز',
+      schoolPackTomorrow: 'جهّز الحقيبة المدرسية للغد'
     },
     loginRequired: 'مطلوب وصول وليّ الأمر',
     loginHint: 'سجّل الدخول باستخدام Google لفتح لوحة وليّ الأمر وإدارة حساب عائلتك.',
@@ -1885,8 +1888,9 @@ export const ar = {
       packedSummary: 'تم تجهيز {packed} من {total}',
       missingLabel: 'ناقص:',
       allPacked: 'كل شيء جاهز',
-      nothingForDay: 'لا شيء لهذا اليوم',
-      noneConfigured: 'لم يتم إعداد أي أغراض مدرسية بعد.'
+      packed: 'تم التجهيز',
+      markPacked: 'تحديد كمجهّز',
+      nothingRightNow: 'لا شيء للتجهيز الآن'
     },
     savings: {
       nextUnlock: 'الفتح القادم',

@@ -30,9 +30,16 @@
   let loadingChildren = $state(false);
   let loadingFamilySettings = $state(false);
   let loadingSchoolPrep = $state(false);
-  let schoolTodayByChild = $state<Record<number, SchoolItem[]>>({});
-  let schoolTomorrowByChild = $state<Record<number, SchoolItem[]>>({});
-  let schoolItemsConfigured = $state(false);
+  let schoolSummary = $state<SchoolSummary>({
+    configured: false,
+    show_needed_today: false,
+    show_pack_tomorrow: false,
+    tile_count: 0,
+    tile_mode: 'none',
+    needed_today: [],
+    pack_tomorrow: []
+  });
+  let schoolPackingItemId = $state<number | null>(null); // D2 in-flight parent mark-packed
   let error = $state<string | null>(null);
   let needsLogin = $state(false);
 
@@ -57,6 +64,12 @@
   let childCalendarById = $state<Record<number, CalendarOccurrence[]>>({});
   let childCalendarLoading = $state<Record<number, boolean>>({});
   let childCalendarError = $state<Record<number, string>>({});
+  // Per-child school items for the child-detail modal's "school" tab (a
+  // non-windowed drill-down for one child, distinct from the family-wide
+  // time-windowed summary tile). Lazy-loaded when that tab is opened.
+  let childSchoolTodayById = $state<Record<number, SchoolItem[]>>({});
+  let childSchoolTomorrowById = $state<Record<number, SchoolItem[]>>({});
+  let childSchoolLoading = $state<Record<number, boolean>>({});
   let childLedgerByKey = $state<Record<string, LedgerTransaction[]>>({});
   let childLedgerLoading = $state<Record<string, boolean>>({});
   let childLedgerError = $state<Record<string, string>>({});
@@ -109,6 +122,27 @@
     check_date?: string;
     packed?: boolean;
     locked?: boolean;
+  };
+
+  // D3 — the time-windowed School Bag summary (GET /school-items/summary).
+  type SchoolSummaryChild = { child_id: number; items: SchoolItem[] };
+  type SchoolSummary = {
+    configured: boolean;
+    show_needed_today: boolean;
+    show_pack_tomorrow: boolean;
+    tile_count: number;
+    tile_mode: 'missing_today' | 'pack_tomorrow' | 'none';
+    needed_today: SchoolSummaryChild[];
+    pack_tomorrow: SchoolSummaryChild[];
+  };
+  const EMPTY_SCHOOL_SUMMARY: SchoolSummary = {
+    configured: false,
+    show_needed_today: false,
+    show_pack_tomorrow: false,
+    tile_count: 0,
+    tile_mode: 'none',
+    needed_today: [],
+    pack_tomorrow: []
   };
 
   type CalendarEntry = {
@@ -336,46 +370,37 @@
     }
   }
 
-  async function loadSchoolPrep(childSummaries = children) {
-    const nextSchoolItemsToday: Record<number, SchoolItem[]> = {};
-    const nextSchoolItemsTomorrow: Record<number, SchoolItem[]> = {};
-    if (!childSummaries.length) {
-      schoolTodayByChild = {};
-      schoolTomorrowByChild = {};
-      schoolItemsConfigured = false;
-      return;
-    }
-
-    // Family-wide existence check (any child, any weekday) — drives whether the
-    // summary tile shows at all. today/tomorrow alone can't tell a never-set-up
-    // family apart from one whose items just fall on other weekdays.
-    api
-      .get('/school-items/configured')
-      .then((res: any) => { schoolItemsConfigured = !!res?.configured; })
-      .catch(() => { schoolItemsConfigured = false; });
-
+  async function loadSchoolPrep() {
+    // D3 — a single time-windowed aggregate (GET /school-items/summary). The
+    // backend decides, in the family's local timezone, which sections to return
+    // and resolves the tile count/mode, so the client never receives data it
+    // shouldn't currently show.
     try {
       loadingSchoolPrep = true;
-      await Promise.all(
-        childSummaries.map(async (childSummary: any) => {
-          const childId = childSummary.child.id;
-          try {
-            const [todayResponse, tomorrowResponse] = await Promise.all([
-              api.get(`/school-items/today?child_id=${childId}&offset=0`),
-              api.get(`/school-items/today?child_id=${childId}&offset=1`)
-            ]);
-            nextSchoolItemsToday[childId] = Array.isArray(todayResponse) ? todayResponse : [];
-            nextSchoolItemsTomorrow[childId] = Array.isArray(tomorrowResponse) ? tomorrowResponse : [];
-          } catch {
-            nextSchoolItemsToday[childId] = [];
-            nextSchoolItemsTomorrow[childId] = [];
-          }
-        })
-      );
-      schoolTodayByChild = nextSchoolItemsToday;
-      schoolTomorrowByChild = nextSchoolItemsTomorrow;
+      const res = await api.get('/school-items/summary');
+      schoolSummary = { ...EMPTY_SCHOOL_SUMMARY, ...(res || {}) };
+    } catch {
+      schoolSummary = { ...EMPTY_SCHOOL_SUMMARY };
     } finally {
       loadingSchoolPrep = false;
+    }
+  }
+
+  // D2 — parent marks a still-missing "Needed today" item packed (the child's
+  // own today checklist stays locked; this is the parent confirming the child
+  // packed it this morning). Writes the shared row, then refreshes the summary
+  // so the count updates and the child drops out once fully resolved.
+  async function parentMarkPacked(childId: number, itemId: number) {
+    if (schoolPackingItemId !== null) return;
+    try {
+      schoolPackingItemId = itemId;
+      await api.post(`/school-items/${itemId}/pack`, { child_id: childId });
+      await loadSchoolPrep();
+    } catch {
+      // Surface nothing destructive — leave the item as-is; a reload will show
+      // current truth. (Best-effort, matches the optimistic-but-safe pattern.)
+    } finally {
+      schoolPackingItemId = null;
     }
   }
 
@@ -411,7 +436,7 @@
         })
       );
       allowanceSummaries = Object.fromEntries(allowanceEntries.filter((entry) => entry[1] !== null)) as Record<number, AllowanceSummary>;
-      void loadSchoolPrep(c).catch((error) => {
+      void loadSchoolPrep().catch((error) => {
         console.warn('Failed to load school prep', error);
       });
     } catch (e) {
@@ -1310,6 +1335,32 @@
     }
   }
 
+  async function loadChildSchool(childSummary: any) {
+    const childId = childSummary?.child?.id;
+    if (!childId || childSchoolLoading[childId]) return;
+
+    childSchoolLoading = { ...childSchoolLoading, [childId]: true };
+    try {
+      const [todayResponse, tomorrowResponse] = await Promise.all([
+        api.get(`/school-items/today?child_id=${childId}&offset=0`),
+        api.get(`/school-items/today?child_id=${childId}&offset=1`)
+      ]);
+      childSchoolTodayById = {
+        ...childSchoolTodayById,
+        [childId]: Array.isArray(todayResponse) ? todayResponse : []
+      };
+      childSchoolTomorrowById = {
+        ...childSchoolTomorrowById,
+        [childId]: Array.isArray(tomorrowResponse) ? tomorrowResponse : []
+      };
+    } catch {
+      childSchoolTodayById = { ...childSchoolTodayById, [childId]: [] };
+      childSchoolTomorrowById = { ...childSchoolTomorrowById, [childId]: [] };
+    } finally {
+      childSchoolLoading = { ...childSchoolLoading, [childId]: false };
+    }
+  }
+
   async function loadChildCalendar(childSummary: any) {
     const childId = childSummary?.child?.id;
     if (!childId || childCalendarLoading[childId]) return;
@@ -1368,6 +1419,9 @@
     if (tab === 'points-log') {
       void loadChildLedger(activeModal.child, pointLogPeriod);
     }
+    if (tab === 'school') {
+      void loadChildSchool(activeModal.child);
+    }
   }
 
   function setPointLogPeriod(period: 'day' | 'week' | 'month') {
@@ -1388,23 +1442,6 @@
     children.reduce((sum, childSummary) => sum + childAvailablePoints(childSummary), 0)
   );
 
-  const schoolItemsTodayCount = $derived(
-    children.reduce(
-      (sum, childSummary) => sum + (schoolTodayByChild[childSummary.child.id]?.length || 0),
-      0
-    )
-  );
-
-  // B1 — the summary tile badge counts items still MISSING for *today*
-  // (configured for today but not packed last night). This is the most
-  // actionable "needs attention this morning" signal, more useful than a raw
-  // count of all school items. Tomorrow's progress is shown inside the modal
-  // but deliberately not folded into the badge (it's still editable, not yet
-  // an accountability signal).
-  function missingCount(items: SchoolItem[]) {
-    return items.reduce((sum, item) => sum + (item.packed ? 0 : 1), 0);
-  }
-
   function schoolGroupSummary(items: SchoolItem[]) {
     const total = items.length;
     const missing = items.filter((item) => !item.packed);
@@ -1415,11 +1452,18 @@
     };
   }
 
-  const schoolMissingTodayCount = $derived(
-    children.reduce(
-      (sum, childSummary) => sum + missingCount(schoolTodayByChild[childSummary.child.id] || []),
-      0
-    )
+  function childDisplayName(childId: number) {
+    return children.find((c) => c.child.id === childId)?.child.display_name || $_('common.unknownChild');
+  }
+
+  // D3 — the dashboard tile reflects only what's relevant in the current time
+  // window (backend-resolved). `tile_mode` is "missing_today" (morning "you
+  // didn't pack X", penalty-tinted), "pack_tomorrow" (evening "pack the bag",
+  // hero-tinted), or "none". The tile hides when not configured OR when there's
+  // nothing to surface right now, so it naturally empties as items get resolved
+  // rather than persisting an "all packed" badge all morning.
+  const schoolTileVisible = $derived(
+    schoolSummary.configured && schoolSummary.tile_mode !== 'none'
   );
 </script>
 
@@ -1550,19 +1594,19 @@
                 </p>
               </div>
             </a>
-            {#if schoolItemsConfigured}
+            {#if schoolTileVisible}
             <button
               type="button"
               onclick={() => { activeModal = { type: 'school-summary' }; }}
               class="card p-4 sm:p-5 flex items-center gap-4 text-left transition hover:border-hero/40 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-hero/15"
             >
-              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl {schoolMissingTodayCount > 0 ? 'bg-penalty/10 text-penalty' : 'bg-savings/10 text-savings-dark'}">
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl {schoolSummary.tile_mode === 'missing_today' ? 'bg-penalty/10 text-penalty' : 'bg-hero/10 text-hero'}">
                 <CalendarDays size={22} />
               </div>
               <div class="min-w-0">
-                <p class="text-2xl font-black text-slate-950 leading-tight">{schoolMissingTodayCount}</p>
+                <p class="text-2xl font-black text-slate-950 leading-tight">{schoolSummary.tile_count}</p>
                 <p class="text-xs font-semibold text-slate-500">
-                  {schoolMissingTodayCount > 0 ? $_('parent.summary.schoolMissing') : $_('parent.summary.schoolAllPacked')}
+                  {schoolSummary.tile_mode === 'missing_today' ? $_('parent.summary.schoolMissing') : $_('parent.summary.schoolPackTomorrow')}
                 </p>
               </div>
             </button>
@@ -2234,39 +2278,83 @@
                 <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">{$_('parent.school.loading')}</p>
               </div>
             {:else}
-              {#each ([['neededToday', schoolTodayByChild, $_('parent.schoolSummary.neededTodayHint')], ['packForTomorrow', schoolTomorrowByChild, $_('parent.schoolSummary.packForTomorrowHint')]] as [string, Record<number, SchoolItem[]>, string][]) as [groupKey, byChild, hint]}
+              <!-- D3 — only the currently in-window section(s) are returned by the
+                   backend; an empty array means resolved/nothing-to-show. -->
+              {@const showNeeded = schoolSummary.show_needed_today && schoolSummary.needed_today.length > 0}
+              {@const showTomorrow = schoolSummary.show_pack_tomorrow && schoolSummary.pack_tomorrow.length > 0}
+
+              {#if showNeeded}
                 <div class="space-y-3">
                   <div>
-                    <p class="text-sm font-black text-slate-900">{$_(`parent.schoolSummary.${groupKey}`)}</p>
-                    <p class="text-[11px] font-semibold text-slate-400">{hint}</p>
+                    <p class="text-sm font-black text-slate-900">{$_('parent.schoolSummary.neededToday')}</p>
+                    <p class="text-[11px] font-semibold text-slate-400">{$_('parent.schoolSummary.neededTodayHint')}</p>
                   </div>
-                  {#each children as childSummary}
-                    {@const items = byChild[childSummary.child.id] || []}
-                    {@const summary = schoolGroupSummary(items)}
+                  {#each schoolSummary.needed_today as entry}
+                    <div class="rounded-2xl border border-slate-100 bg-white p-4">
+                      <p class="font-bold text-slate-950 break-words">{childDisplayName(entry.child_id)}</p>
+                      <div class="mt-3 space-y-2">
+                        {#each entry.items as item}
+                          <div class="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3">
+                            <div class="min-w-0">
+                              <p class="text-sm font-bold {item.packed ? 'text-slate-400 line-through' : 'text-slate-900'} break-words">{schoolNeedLabel(item)}</p>
+                              <p class="mt-0.5 text-[11px] font-bold text-slate-400 break-words">{item.class_name}</p>
+                            </div>
+                            {#if item.packed}
+                              <span class="shrink-0 inline-flex items-center gap-1 rounded-full bg-savings/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-savings-dark">
+                                <Check size={12} />{$_('parent.schoolSummary.packed')}
+                              </span>
+                            {:else}
+                              <button
+                                type="button"
+                                onclick={() => parentMarkPacked(entry.child_id, item.id)}
+                                disabled={schoolPackingItemId !== null}
+                                class="shrink-0 inline-flex items-center gap-1 rounded-full bg-savings px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm shadow-savings/20 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                <Check size={12} />{$_('parent.schoolSummary.markPacked')}
+                              </button>
+                            {/if}
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+
+              {#if showTomorrow}
+                <div class="space-y-3">
+                  <div>
+                    <p class="text-sm font-black text-slate-900">{$_('parent.schoolSummary.packForTomorrow')}</p>
+                    <p class="text-[11px] font-semibold text-slate-400">{$_('parent.schoolSummary.packForTomorrowHint')}</p>
+                  </div>
+                  {#each schoolSummary.pack_tomorrow as entry}
+                    {@const summary = schoolGroupSummary(entry.items)}
                     <div class="rounded-2xl border border-slate-100 bg-white p-4">
                       <div class="flex items-center justify-between gap-3">
-                        <p class="font-bold text-slate-950 break-words">{childSummary.child.display_name}</p>
-                        {#if items.length === 0}
-                          <span class="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('parent.schoolSummary.nothingForDay')}</span>
-                        {:else if summary.missingLabels.length === 0}
+                        <p class="font-bold text-slate-950 break-words">{childDisplayName(entry.child_id)}</p>
+                        {#if summary.missingLabels.length === 0}
                           <span class="shrink-0 rounded-full bg-savings/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-savings-dark">{$_('parent.schoolSummary.allPacked')}</span>
                         {:else}
                           <span class="shrink-0 rounded-full bg-penalty/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-penalty">{summary.missingLabels.length}</span>
                         {/if}
                       </div>
-                      {#if items.length > 0}
-                        <p class="mt-1 text-xs font-bold text-slate-500">{$_('parent.schoolSummary.packedSummary', { values: { packed: summary.packed, total: summary.total } })}</p>
-                        {#if summary.missingLabels.length > 0}
-                          <p class="mt-2 text-sm font-semibold text-slate-700 break-words">
-                            <span class="text-penalty">{$_('parent.schoolSummary.missingLabel')}</span>
-                            {summary.missingLabels.join(($locale || 'en').startsWith('ar') ? '، ' : ', ')}
-                          </p>
-                        {/if}
+                      <p class="mt-1 text-xs font-bold text-slate-500">{$_('parent.schoolSummary.packedSummary', { values: { packed: summary.packed, total: summary.total } })}</p>
+                      {#if summary.missingLabels.length > 0}
+                        <p class="mt-2 text-sm font-semibold text-slate-700 break-words">
+                          <span class="text-penalty">{$_('parent.schoolSummary.missingLabel')}</span>
+                          {summary.missingLabels.join(($locale || 'en').startsWith('ar') ? '، ' : ', ')}
+                        </p>
                       {/if}
                     </div>
                   {/each}
                 </div>
-              {/each}
+              {/if}
+
+              {#if !showNeeded && !showTomorrow}
+                <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                  <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">{$_('parent.schoolSummary.nothingRightNow')}</p>
+                </div>
+              {/if}
             {/if}
           {/if}
 
@@ -2560,13 +2648,13 @@
             {/if}
 
             {#if childModalTab === 'school'}
-              {@const todayItems = schoolTodayByChild[activeModal.child.child.id] || []}
-              {@const tomorrowItems = schoolTomorrowByChild[activeModal.child.child.id] || []}
+              {@const todayItems = childSchoolTodayById[activeModal.child.child.id] || []}
+              {@const tomorrowItems = childSchoolTomorrowById[activeModal.child.child.id] || []}
               <div class="grid gap-4 sm:grid-cols-2">
                 {#each ([['Today', todayItems], ['Tomorrow', tomorrowItems]] as [string, SchoolItem[]][]) as group}
                   <div class="rounded-[1.75rem] border border-slate-100 bg-white p-4">
                     <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{group[0] === 'Today' ? $_('common.today') : $_('common.tomorrow')}</p>
-                    {#if loadingSchoolPrep}
+                    {#if childSchoolLoading[activeModal.child.child.id]}
                       <p class="mt-4 text-sm font-bold text-slate-400">{$_('parent.school.loading')}</p>
                     {:else if group[1].length === 0}
                       <p class="mt-4 text-sm font-bold text-slate-500">{$_('parent.school.nothingListed')}</p>
