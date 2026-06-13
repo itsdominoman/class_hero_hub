@@ -976,6 +976,15 @@ export const en = {
     celebrationBody: 'You earned {points} new points since your last visit.',
     celebrationTotal: 'You now have {total} points ready to spend.',
     celebrationDismiss: 'Awesome!',
+    rewardNews: {
+      heading: 'Reward news',
+      approvedTitle: 'Reward approved!',
+      approvedBody: 'Your grown-up said yes. Enjoy it!',
+      rejectedTitle: 'About your reward request',
+      rejectedBody: 'It wasn’t approved this time, and your points are back so you can try again.',
+      parentNoteLabel: 'A note from your grown-up',
+      dismiss: 'Got it'
+    },
     noSavedPoints: 'No saved points',
     noSavedPointsLocked: 'No saved points locked',
     nextUnlock: 'Next unlock: {points} pts {date}',
@@ -2152,6 +2161,15 @@ export const ar = {
     celebrationBody: 'حصلت على {points} نقطة جديدة منذ آخر زيارة لك. أحسنت!',
     celebrationTotal: 'أصبح لديك الآن {total} نقطة جاهزة للصرف.',
     celebrationDismiss: 'رائع!',
+    rewardNews: {
+      heading: 'أخبار المكافآت',
+      approvedTitle: 'تمت الموافقة على مكافأتك!',
+      approvedBody: 'وافق ولي أمرك. استمتع بها!',
+      rejectedTitle: 'بخصوص طلب مكافأتك',
+      rejectedBody: 'لم تتم الموافقة هذه المرة، وقد عادت نقاطك إليك لتحاول من جديد.',
+      parentNoteLabel: 'رسالة من ولي أمرك',
+      dismiss: 'حسناً'
+    },
     noSavedPoints: 'لا توجد نقاط مدخرة',
     noSavedPointsLocked: 'لا توجد نقاط مدخرة مقفلة',
     nextUnlock: 'الفتح التالي: {points} نقطة {date}',

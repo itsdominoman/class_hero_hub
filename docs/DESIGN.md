@@ -93,9 +93,21 @@ images `alt=""` + `aria-hidden="true"` — they are decorative.
   stage image, eased count-up of the summed new points, light CSS
   confetti, explicit dismiss button. Never triggered by point
   removals; never triggered while a parent previews.
-- Keep these two interactions distinct: the parent one is synchronous
-  "that worked" feedback; the child one is asynchronous "look what you
-  earned" delight.
+- **Child reward news** (`rewardOutcomes` in `child/[id]/+page.svelte`,
+  C9): a one-time overlay when the child returns and a reward request
+  they made has since been approved or rejected. Same per-child
+  `localStorage` cursor idea as the celebration (keyed on the newest
+  `reviewed_at` seen), child sessions only. Approvals use a positive
+  green panel with the reward name/icon; rejections stay deliberately
+  gentle — slate panel, the parent's note if given, reassurance that the
+  points returned, and **no confetti or celebration animation**. It is
+  guarded with `!celebration` so it never stacks on the points
+  celebration; the points celebration shows first, this follows.
+- Keep these interactions distinct: the parent point-float is synchronous
+  "that worked" feedback; the child celebration is asynchronous "look
+  what you earned" delight; the child reward-news overlay is asynchronous
+  "here's what your grown-up decided" — celebratory for yes, gentle for
+  no.
 - The points modal stays open after awards/removals; the exit is the
   existing X. The picker's Add/Remove grids lead with a dashed +/− tile
   that opens preset creation pre-signed (first so it needs no

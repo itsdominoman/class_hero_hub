@@ -452,6 +452,22 @@ With existing data only:
   task dated before today won't appear here; the full `/calendar` page is
   the catch-all. Widening that window or adding a dedicated
   pending-completions feed is a possible follow-up.
+- **C9: child notification for reward-request approvals/rejections.**
+  Extended the A8 "returns and sees what happened" pattern (per-child
+  `localStorage` cursor, child sessions only) to reward requests. New
+  cursor `familyHeroHub.lastSeenRedemptions.<childId>` stores the newest
+  `reviewed_at` the child has seen among resolved requests;
+  `maybeNotifyRewardOutcomes()` (called right after
+  `maybeCelebrateNewPoints` in the child branch of `loadData`, so it also
+  runs on the visibility-return refresh) collects requests resolved since
+  the cursor and shows a "Reward news" overlay. Approved items read as a
+  happy moment (green panel, `BadgeCheck` + `Gift`, reward name);
+  rejected items stay gentle (slate panel, reward name, the parent's note
+  if one was given, reassurance that the points came back) with **no
+  celebration animation/confetti**. First-ever visit records the cursor
+  silently; parent preview never notifies. The overlay is guarded with
+  `!celebration` so it sequences *after* the points celebration rather
+  than stacking. New keys under `child.rewardNews.*` (en + natural ar).
 
 ## Scope C — Proposals for Discussion (DO NOT IMPLEMENT)
 

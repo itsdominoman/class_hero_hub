@@ -714,6 +714,7 @@
         rewards = childRewards;
         allowanceSummary = childAllowance;
         maybeCelebrateNewPoints();
+        maybeNotifyRewardOutcomes();
         await loadMyDay();
       } catch (childError) {
         if (
@@ -958,6 +959,67 @@
   function dismissCelebration() {
     celebration = null;
     confettiPieces = [];
+  }
+
+  // ---- C9: one-time notification when the child returns and a reward
+  // request they made has since been approved or rejected. Same "last seen
+  // cursor in localStorage" idea as the points celebration (A8), child
+  // sessions only. Approvals read as a happy moment; rejections stay gentle
+  // (parent's note if given, no celebration animation).
+  type RewardOutcome = {
+    id: number;
+    status: 'approved' | 'rejected';
+    title: string;
+    note: string | null;
+  };
+
+  let rewardOutcomes = $state<RewardOutcome[]>([]);
+
+  function lastSeenRedemptionsKey() {
+    return `familyHeroHub.lastSeenRedemptions.${summary?.child.id}`;
+  }
+
+  function maybeNotifyRewardOutcomes() {
+    if (accessMode !== 'child' || !summary || typeof window === 'undefined') return;
+
+    const resolved = redemptions
+      .filter((r) => (r.status === 'approved' || r.status === 'rejected') && r.reviewed_at);
+
+    let stored: string | null = null;
+    try {
+      stored = window.localStorage.getItem(lastSeenRedemptionsKey());
+    } catch {
+      return; // Storage unavailable: never notify rather than repeat.
+    }
+
+    const newest = resolved
+      .map((r) => r.reviewed_at as string)
+      .reduce((max, ts) => (max === null || ts > max ? ts : max), null as string | null);
+
+    if (newest) {
+      try {
+        window.localStorage.setItem(lastSeenRedemptionsKey(), newest);
+      } catch {
+        return;
+      }
+    }
+
+    // First-ever visit (or nothing resolved yet) just records the cursor.
+    if (!stored || !newest || newest <= stored) return;
+
+    rewardOutcomes = resolved
+      .filter((r) => (r.reviewed_at as string) > stored)
+      .sort((a, b) => (b.reviewed_at as string).localeCompare(a.reviewed_at as string))
+      .map((r) => ({
+        id: r.id,
+        status: r.status as 'approved' | 'rejected',
+        title: r.title,
+        note: r.parent_note,
+      }));
+  }
+
+  function dismissRewardOutcomes() {
+    rewardOutcomes = [];
   }
 
   onMount(() => {
@@ -2427,6 +2489,69 @@
           onclick={dismissCelebration}
         >
           {$_('child.celebrationDismiss')}
+        </button>
+      </div>
+    </div>
+  {/if}
+
+  {#if rewardOutcomes.length > 0 && !celebration}
+    <div
+      class="fixed inset-0 z-[90] flex items-center justify-center px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={$_('child.rewardNews.heading')}
+    >
+      <button
+        type="button"
+        class="absolute inset-0 cursor-default bg-slate-950/60 backdrop-blur-sm"
+        aria-label={$_('common.close')}
+        onclick={dismissRewardOutcomes}
+      ></button>
+      <div
+        class="relative z-10 w-full max-w-sm rounded-[2rem] bg-white p-7 shadow-2xl"
+      >
+        <h2 class="text-center text-xl font-black text-slate-950">
+          {$_('child.rewardNews.heading')}
+        </h2>
+        <div class="mt-5 space-y-3">
+          {#each rewardOutcomes as outcome (outcome.id)}
+            {#if outcome.status === 'approved'}
+              <div class="rounded-2xl border border-savings/20 bg-savings/5 p-4">
+                <div class="flex items-center gap-2 text-savings-dark">
+                  <BadgeCheck size={18} />
+                  <p class="text-sm font-bold">{$_('child.rewardNews.approvedTitle')}</p>
+                </div>
+                <p class="mt-2 flex items-center gap-2 text-base font-black text-slate-950">
+                  <Gift size={16} class="shrink-0 text-savings-dark" />
+                  <span class="break-words">{outcome.title}</span>
+                </p>
+                <p class="mt-1 text-sm font-medium text-slate-600">
+                  {$_('child.rewardNews.approvedBody')}
+                </p>
+              </div>
+            {:else}
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-sm font-bold text-slate-700">{$_('child.rewardNews.rejectedTitle')}</p>
+                <p class="mt-2 break-words text-base font-bold text-slate-900">{outcome.title}</p>
+                <p class="mt-1 text-sm font-medium text-slate-600">
+                  {$_('child.rewardNews.rejectedBody')}
+                </p>
+                {#if outcome.note}
+                  <div class="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{$_('child.rewardNews.parentNoteLabel')}</p>
+                    <p class="mt-1 break-words text-sm font-medium text-slate-700">{outcome.note}</p>
+                  </div>
+                {/if}
+              </div>
+            {/if}
+          {/each}
+        </div>
+        <button
+          type="button"
+          class="btn-hero mt-6 w-full rounded-2xl py-4"
+          onclick={dismissRewardOutcomes}
+        >
+          {$_('child.rewardNews.dismiss')}
         </button>
       </div>
     </div>
