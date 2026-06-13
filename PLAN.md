@@ -883,18 +883,18 @@ With existing data only:
     the item from the list while preserving its packing history. Mirrored as a SQLite
     behavioural test in `test_school_items.py`. Full backend suite: 163 passed.
 - **FIX 2 (implemented, audit finding #2 — Critical, privacy/trust): stop promising
-  "export/delete anytime".** Public copy claimed families "can export or delete your
-  family data anytime", but no self-serve export/delete endpoint or UI exists.
+  self-serve export/delete anytime.** Public copy previously implied families could
+  self-serve export/delete, but no self-serve export/delete endpoint or UI exists.
   Re-worded to reflect the actual (contact-us) capability — **copy-only, no feature
-  built**. New phrasing: "to get a copy of your family data or delete your account,
-  just contact us and we will action it promptly".
-  - *All occurrences updated (EN + AR, parity held at 1150 keys):* `messages.ts`
+  built**. Current phrasing: "You can contact us to request a copy of your
+  family data or ask us to delete it."
+  - *All occurrences updated (EN + AR, parity held at 1151 keys):* `messages.ts`
     `faqAnswer7` (en 226 / ar 1463) and the long `betaTrustLine` (en 468 / ar 1766);
     the short `betaTrustLine` (89/1326) never carried the claim. AR re-worded
-    naturally ("ولطلب نسخة من بيانات عائلتك أو حذف حسابك، تواصل معنا وسننفّذ ذلك فورًا").
-    Docs: `manuals/faq.md` (answer + summary line), `manuals/parent-user-manual.md`,
-    and the dated `WORDING_TERMINOLOGY_DECISION_20260514.md` — the vaguer
-    "export/delete availability" → "data export/deletion on request".
+    naturally ("يمكنك التواصل معنا لطلب نسخة من بيانات عائلتك أو طلب حذفها.").
+    Docs: `manuals/faq.md`, `ROADMAP.md`, and the dated
+    `WORDING_TERMINOLOGY_DECISION_20260514.md`; privacy-page `section10Text`
+    also uses the same family-data wording.
   - *Note:* avoided contractions in the i18n strings (single-quoted JS) — "we will"
     not "we'll" — so the apostrophe doesn't break the parity loader's eval.
   - **Self-serve data export/delete remains unbuilt** — tracked as future work in
@@ -972,9 +972,9 @@ With existing data only:
   point — do not re-introduce a forward-looking bound. Pairs naturally with
   the same paged-ledger backend pass noted for the C2-followup.
 
-- **Self-serve data export & account deletion (FIX 2 follow-up).** Public copy
-  now says families can *contact us* to get a copy of their data or delete their
-  account (FIX 2 removed the false "anytime" self-serve claim). The actual
+- **Self-serve data export & family data deletion (FIX 2 follow-up).** Public copy
+  now says families can *contact us* to request a copy of their family data or
+  ask us to delete it (FIX 2 removed the false "anytime" self-serve claim). The actual
   self-serve capability is unbuilt. A future pass should add: a data-export
   endpoint (family-scoped dump — children, ledger, rewards, calendar, school
   items — as JSON/CSV) and an account/family deletion flow (hard-delete vs

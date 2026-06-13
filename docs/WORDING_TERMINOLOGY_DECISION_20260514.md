@@ -55,7 +55,7 @@
 ## 6. Approved request-access direction
 
 - Make clear that the public CTA says **Join the Free Beta**, the homepage stays value-focused, and pricing discussion lives in the beta signup flow.
-- Explain that beta access is free, no payment details are required during beta, and families can request a copy of their data or account deletion by contacting us.
+- Explain that beta access is free, no payment details are required during beta, and families can contact us to request a copy of their family data or ask us to delete it.
 - Explain that the team expects pricing of around $4–$5 per family per month after public launch.
 - Explain that family data will not be sold and ads will not be shown to children.
 - Explain that beta families will receive notice before any pricing changes, and that there are no ads or family-data sales.

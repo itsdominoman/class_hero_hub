@@ -223,7 +223,7 @@ export const en = {
     faqQuestion6: 'Why did you build Family Hero Hub?',
     faqAnswer6: 'It started as a practical way to bring points, routines, school prep, rewards, savings-style goals, and child dashboards into one parent-led family space.',
     faqQuestion7: 'Is Family Hero Hub free during beta?',
-    faqAnswer7: 'Yes. Family Hero Hub is free during beta. After launch, we expect pricing to be around $4–$5 per month per family. Beta families get advance notice before any paid plan begins. No payment details are required during beta, and to get a copy of your family data or delete your account, just contact us and we will action it promptly. No ads. No selling family data.'
+    faqAnswer7: 'Yes. Family Hero Hub is free during beta. After launch, we expect pricing to be around $4–$5 per month per family. Beta families get advance notice before any paid plan begins. No payment details are required during beta. You can contact us to request a copy of your family data or ask us to delete it. No ads. No selling family data.'
   },
   parentGuide: {
     pageTitle: 'Parent Guide | Family Hero Hub',
@@ -441,7 +441,7 @@ export const en = {
     section9Title: '9. Payments and subscriptions',
     section9Text: 'When paid subscriptions are available through Apple App Store or Google Play, your payment method is handled by the relevant app store. Family Hero Hub may receive subscription status information needed to provide access, but does not collect or store payment card or bank account details.',
     section10Title: '10. Data retention',
-    section10Text: 'Information is kept while needed to provide the service, maintain records, support accounts, or meet legitimate operational or legal needs. Parents can contact support with questions about account deletion or data removal.',
+    section10Text: 'Information is kept while needed to provide the service, maintain records, support accounts, or meet legitimate operational or legal needs. You can contact us to request a copy of your family data or ask us to delete it.',
     section11Title: '11. Security and account protection',
     section11Text1: 'Family Hero Hub has been built with security and privacy in mind from the start. We avoid collecting financial details we do not need, do not hold money, do not store bank details, and do not pay children directly.',
     section11Text2: 'Parent accounts use Google sign-in, so Family Hero Hub never asks for or stores your Google password. Children use linked dashboards rather than parent accounts, and parents can manage caregiver access or unlink child devices when needed.',
@@ -465,7 +465,7 @@ export const en = {
     heading: 'Join the Free Beta',
     intro1: 'Family Hero Hub is currently in closed beta while we prepare for Google Play and Apple App Store launch.',
     intro2: 'Beta access is free.',
-    betaTrustLine: 'After launch, expect around $4–$5/month per family. Beta families get advance notice before any paid plan begins. No payment details are required during beta, and to get a copy of your family data or delete your account, just contact us and we will action it promptly. No ads. No selling family data.',
+    betaTrustLine: 'After launch, expect around $4–$5/month per family. Beta families get advance notice before any paid plan begins. No payment details are required during beta. You can contact us to request a copy of your family data or ask us to delete it. No ads. No selling family data.',
     nextHeading: 'What happens next?',
     nextText1: 'We review every beta request personally.',
     nextText2: 'Approved families receive onboarding instructions, and your feedback helps shape Family Hero Hub before public launch.',
@@ -1461,7 +1461,7 @@ export const ar = {
     faqQuestion6: 'لماذا أنشأت Family Hero Hub؟',
     faqAnswer6: 'بدأت كطريقة عملية لجمع النقاط والروتين وتجهيز المدرسة والمكافآت وأهداف الادخار ولوحات الأطفال في مساحة عائلية واحدة يقودها الأهل.',
     faqQuestion7: 'هل Family Hero Hub مجاني أثناء النسخة التجريبية؟',
-    faqAnswer7: 'نعم. Family Hero Hub مجاني أثناء النسخة التجريبية. بعد الإطلاق نتوقع سعرا يقارب 4-5 دولارات شهريا لكل عائلة. ستحصل العائلات التجريبية على إشعار مسبق قبل أي خطة مدفوعة. لا نحتاج إلى تفاصيل دفع أثناء النسخة التجريبية، ولطلب نسخة من بيانات عائلتك أو حذف حسابك، تواصل معنا وسننفّذ ذلك فورًا. لا إعلانات. ولا نبيع بيانات العائلة.'
+    faqAnswer7: 'نعم. Family Hero Hub مجاني أثناء النسخة التجريبية. بعد الإطلاق نتوقع سعرا يقارب 4-5 دولارات شهريا لكل عائلة. ستحصل العائلات التجريبية على إشعار مسبق قبل أي خطة مدفوعة. لا نحتاج إلى تفاصيل دفع أثناء النسخة التجريبية. يمكنك التواصل معنا لطلب نسخة من بيانات عائلتك أو طلب حذفها. لا إعلانات. ولا نبيع بيانات العائلة.'
   },
   parentGuide: {
     pageTitle: 'دليل الأهل | Family Hero Hub',
@@ -1705,7 +1705,7 @@ export const ar = {
     section9Title: '9. المدفوعات والاشتراكات',
     section9Text: 'عندما تتوفر الاشتراكات المدفوعة عبر Apple App Store أو Google Play، تتم معالجة وسيلة الدفع من خلال متجر التطبيقات ذي الصلة. قد يتلقى Family Hero Hub معلومات حالة الاشتراك اللازمة لتقديم الوصول، لكنه لا يجمع ولا يخزن بيانات بطاقات الدفع أو الحسابات البنكية.',
     section10Title: '10. الاحتفاظ بالبيانات',
-    section10Text: 'تُحفظ المعلومات طالما كانت مطلوبة لتقديم الخدمة أو حفظ السجلات أو دعم الحسابات أو تلبية الاحتياجات التشغيلية أو القانونية المشروعة. يمكن للأهل التواصل مع الدعم لطرح أسئلة حول حذف الحساب أو إزالة البيانات.',
+    section10Text: 'تُحفظ المعلومات طالما كانت مطلوبة لتقديم الخدمة أو حفظ السجلات أو دعم الحسابات أو تلبية الاحتياجات التشغيلية أو القانونية المشروعة. يمكنك التواصل معنا لطلب نسخة من بيانات عائلتك أو طلب حذفها.',
     section11Title: '11. الأمان وحماية الحساب',
     section11Text1: 'صُمم Family Hero Hub منذ البداية مع مراعاة الأمان والخصوصية. نتجنب جمع التفاصيل المالية التي لا نحتاجها، ولا نحتفظ بالمال، ولا نخزن البيانات البنكية، ولا ندفع للأطفال مباشرة.',
     section11Text2: 'تستخدم حسابات الأهل تسجيل الدخول عبر Google، لذلك لا يطلب Family Hero Hub كلمة مرور Google ولا يخزنها. يستخدم الأطفال لوحات مرتبطة بدلًا من حسابات الأهل، ويمكن للأهل إدارة وصول مقدمي الرعاية أو فصل أجهزة الأطفال عند الحاجة.',
@@ -1764,7 +1764,7 @@ export const ar = {
     heading: 'انضم إلى النسخة التجريبية المجانية',
     intro1: 'Family Hero Hub موجود حاليًا في نسخة تجريبية مغلقة بينما نستعد للإطلاق على Google Play وApple App Store.',
     intro2: 'الوصول إلى النسخة التجريبية مجاني.',
-    betaTrustLine: 'بعد الإطلاق نتوقع سعرا يقارب 4-5 دولارات شهريا لكل عائلة. ستحصل العائلات التجريبية على إشعار مسبق قبل أي خطة مدفوعة. لا نحتاج إلى تفاصيل دفع أثناء النسخة التجريبية، ولطلب نسخة من بيانات عائلتك أو حذف حسابك، تواصل معنا وسننفّذ ذلك فورًا. لا إعلانات. ولا نبيع بيانات العائلة.',
+    betaTrustLine: 'بعد الإطلاق نتوقع سعرا يقارب 4-5 دولارات شهريا لكل عائلة. ستحصل العائلات التجريبية على إشعار مسبق قبل أي خطة مدفوعة. لا نحتاج إلى تفاصيل دفع أثناء النسخة التجريبية. يمكنك التواصل معنا لطلب نسخة من بيانات عائلتك أو طلب حذفها. لا إعلانات. ولا نبيع بيانات العائلة.',
     nextHeading: 'ماذا يحدث بعد ذلك؟',
     nextText1: 'نراجع كل طلب للنسخة التجريبية بشكل شخصي.',
     nextText2: 'تتلقى العائلات المقبولة تعليمات الإعداد، وتساعد ملاحظاتك في تشكيل Family Hero Hub قبل الإطلاق العام.',

@@ -21,7 +21,7 @@ Yes. Family Hero Hub is designed mobile-first, so parents and children can use i
 Public messaging now keeps pricing discussion in the **Join the Free Beta** flow instead of the homepage hero, and it sets expectations that pricing after launch is around $4–$5 per family per month with advance notice before any paid plan, no payment details during beta, data export/deletion on request, no ads, and no selling family data.
 
 ### Is Family Hero Hub free during beta?
-Yes. Family Hero Hub is currently in closed beta while we prepare for Google Play and Apple App Store launch. Beta access is free, and no payment details are required. After public launch, we expect pricing to be around $4–$5 per month per family. Beta families will receive advance notice before any paid plan begins. To get a copy of your family data or delete your account, just contact us and we'll action it promptly. We will never sell family data or show ads to children.
+Yes. Family Hero Hub is currently in closed beta while we prepare for Google Play and Apple App Store launch. Beta access is free, and no payment details are required. After public launch, we expect pricing to be around $4–$5 per month per family. Beta families will receive advance notice before any paid plan begins. You can contact us to request a copy of your family data or ask us to delete it. We will never sell family data or show ads to children.
 
 ### Does Family Hero Hub support Arabic?
 Yes. The main fixed app interface supports English and Arabic. Parents can change the language from **Settings** on the parent dashboard.
