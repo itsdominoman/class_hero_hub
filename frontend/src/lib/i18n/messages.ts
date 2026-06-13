@@ -723,6 +723,7 @@ export const en = {
       correctErrorType: "This kind of entry can't be corrected.",
       correctErrorWindow: 'Corrections are only allowed within 7 days of the original entry.',
       correctErrorProcessed: 'This entry has already been corrected or has linked activity.',
+      correctErrorInsufficientBalance: "This entry can’t be corrected automatically because some of these points have already been spent. Add a manual adjustment instead.",
       correctErrorUnexpected: 'Something went wrong. Please try again.'
     },
     family: {
@@ -1960,6 +1961,7 @@ export const ar = {
       correctErrorType: 'لا يمكن تصحيح هذا النوع من السجلات.',
       correctErrorWindow: 'يُسمح بالتصحيح خلال 7 أيام فقط من تاريخ السجل الأصلي.',
       correctErrorProcessed: 'تم تصحيح هذا السجل من قبل أو يرتبط بنشاط آخر.',
+      correctErrorInsufficientBalance: 'لا يمكن تصحيح هذا السجل تلقائيًا لأن بعض هذه النقاط صُرفت بالفعل. أضف تعديلاً يدويًا بدلاً من ذلك.',
       correctErrorUnexpected: 'حدث خطأ ما. يرجى المحاولة مرة أخرى.'
     },
     family: {

@@ -152,6 +152,12 @@ images `alt=""` + `aria-hidden="true"` — they are decorative.
   "Correction". Entries are grouped by their source link, not by date
   order, so the pair always reads together. Per-entry corrective actions
   are parent-only and never shown on child screens.
+- **Correction balance rejection:** the correction sheet stays open for
+  expected typed rejections. When the backend returns
+  `correction_insufficient_available_balance`, show the specific parent
+  guidance that some awarded points have already been spent and a manual
+  adjustment is required instead; do not fall back to the generic unexpected
+  error copy.
 - **Child packing checklist** (`schoolItemRow` snippet in
   `child/[id]/+page.svelte`, B2): "Pack for tomorrow" items are tappable
   checkboxes — a circular toggle that is filled with the section accent

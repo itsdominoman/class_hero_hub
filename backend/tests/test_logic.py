@@ -1129,6 +1129,34 @@ def test_correct_transaction_adds_linked_reversing_entry(db):
     assert db.query(models.LedgerTransaction).filter_by(id=original.id).first() is not None
 
 
+def test_correct_transaction_rejects_negative_available_spending_projection(db):
+    child = models.Child(display_name="Spent Kid")
+    db.add(child)
+    db.commit()
+    db.refresh(child)
+
+    original = _award(db, child.id, points=10)
+    _award(
+        db,
+        child.id,
+        points=-7,
+        tx_type=models.TransactionType.redemption_hold,
+    )
+    before_balance = points_service.calculate_balances(db, child.id)["available_spending"]
+    before_count = db.query(models.LedgerTransaction).filter_by(child_id=child.id).count()
+
+    with pytest.raises(points_service.CorrectionError) as exc:
+        points_service.correct_transaction(db, child.id, original.id)
+
+    assert exc.value.code == "correction_insufficient_available_balance"
+    assert points_service.calculate_balances(db, child.id)["available_spending"] == before_balance == 3
+    assert db.query(models.LedgerTransaction).filter_by(child_id=child.id).count() == before_count
+    db.refresh(original)
+    assert original.points == 10
+    assert original.transaction_type == models.TransactionType.award
+    assert original.source_transaction_id is None
+
+
 def test_correct_transaction_does_not_regress_pet_progress(db):
     child = models.Child(display_name="Monotonic Kid")
     db.add(child)

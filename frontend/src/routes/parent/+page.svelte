@@ -1317,6 +1317,8 @@
         return $_('parent.pointsLog.correctErrorWindow');
       case 'correction_already_processed':
         return $_('parent.pointsLog.correctErrorProcessed');
+      case 'correction_insufficient_available_balance':
+        return $_('parent.pointsLog.correctErrorInsufficientBalance');
       default:
         // Any non-correction_* code (404 from a deploy gap, 500, CSRF,
         // network/transport failure) reads as an unexpected error — visually

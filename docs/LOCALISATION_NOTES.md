@@ -40,6 +40,7 @@ Arabic uses neutral Modern Standard Arabic with short, family-friendly labels wh
 | Confirm | تأكيد | One-tap action on a child-claimed task in the Today modal (G1) — approves the child's claim (same effect as the per-child review card's Approve). Reuses the shared "Reject" alongside it. | Yes |
 | Nothing on the calendar tomorrow | لا شيء على الجدول غدًا | Empty state for the "Coming up tomorrow" look-ahead (F1) when no child has an event tomorrow. | Yes |
 | Open full calendar | فتح التقويم الكامل | Footer link in the Today modal (F2) to the full `/calendar` page. | Yes |
+| This entry can't be corrected automatically because some of these points have already been spent. Add a manual adjustment instead. | لا يمكن تصحيح هذا السجل تلقائيًا لأن بعض هذه النقاط صُرفت بالفعل. أضف تعديلاً يدويًا بدلاً من ذلك. | Parent correction-sheet error for `correction_insufficient_available_balance`; keep it practical and action-oriented. | Yes |
 | Requests | الطلبات | Short UI label. | No |
 | Approve | قبول | Button action for approving a request; use “موافقة” only when approval is a noun/status. | Yes |
 | Reject | رفض | Short and standard. | No |

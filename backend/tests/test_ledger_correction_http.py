@@ -23,6 +23,7 @@ from sqlalchemy.pool import StaticPool
 from app import auth, database, models
 from app.database import Base, get_db
 from app.main import app
+from app.services import points_service
 
 engine = create_engine(
     "sqlite://",
@@ -91,6 +92,16 @@ def _add_tx(child_id, parent_id, points=1, jar=models.JarType.spending,
         db.close()
 
 
+def _ledger_count(child_id):
+    db = TestingSessionLocal()
+    try:
+        return db.query(models.LedgerTransaction).filter(
+            models.LedgerTransaction.child_id == child_id
+        ).count()
+    finally:
+        db.close()
+
+
 def _client(parent_id):
     app.dependency_overrides[get_db] = _override_get_db
 
@@ -144,6 +155,112 @@ def test_reverse_endpoint_accepts_missing_and_null_reason():
         assert client.post(
             f"/api/children/{child_id}/ledger/{tx_b}/reverse", json={"reason": None}
         ).status_code == 200
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_reverse_endpoint_allows_correction_when_available_spending_remains():
+    _, parent_id, child_id = _seed()
+    tx_id = _add_tx(child_id, parent_id, points=5)
+    _add_tx(child_id, parent_id, points=10)
+    _add_tx(
+        child_id,
+        parent_id,
+        points=-3,
+        tx_type=models.TransactionType.redemption_hold,
+    )
+    client = _client(parent_id)
+    try:
+        resp = client.post(
+            f"/api/children/{child_id}/ledger/{tx_id}/reverse",
+            json={"reason": "Awarded by mistake"},
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["points"] == -5
+        assert resp.json()["source_transaction_id"] == tx_id
+
+        db = TestingSessionLocal()
+        try:
+            assert points_service.calculate_balances(db, child_id)["available_spending"] == 7
+        finally:
+            db.close()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_reverse_endpoint_allows_correction_to_project_exactly_zero():
+    _, parent_id, child_id = _seed()
+    tx_id = _add_tx(child_id, parent_id, points=10)
+    _add_tx(
+        child_id,
+        parent_id,
+        points=-4,
+        tx_type=models.TransactionType.redemption_hold,
+    )
+    _add_tx(child_id, parent_id, points=4)
+    client = _client(parent_id)
+    try:
+        resp = client.post(
+            f"/api/children/{child_id}/ledger/{tx_id}/reverse",
+            json={"reason": "Awarded by mistake"},
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["points"] == -10
+
+        db = TestingSessionLocal()
+        try:
+            assert points_service.calculate_balances(db, child_id)["available_spending"] == 0
+        finally:
+            db.close()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_reverse_endpoint_blocks_when_award_points_were_spent():
+    _, parent_id, child_id = _seed()
+    tx_id = _add_tx(child_id, parent_id, points=10)
+    _add_tx(
+        child_id,
+        parent_id,
+        points=-7,
+        tx_type=models.TransactionType.redemption_hold,
+    )
+    client = _client(parent_id)
+    try:
+        before_count = _ledger_count(child_id)
+        db = TestingSessionLocal()
+        try:
+            before_balance = points_service.calculate_balances(db, child_id)["available_spending"]
+            original = db.get(models.LedgerTransaction, tx_id)
+            original_points = original.points
+            original_type = original.transaction_type
+            original_source = original.source_transaction_id
+        finally:
+            db.close()
+
+        resp = client.post(
+            f"/api/children/{child_id}/ledger/{tx_id}/reverse",
+            json={"reason": "Awarded by mistake"},
+        )
+
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "correction_insufficient_available_balance"
+        assert _ledger_count(child_id) == before_count
+
+        db = TestingSessionLocal()
+        try:
+            after_balance = points_service.calculate_balances(db, child_id)["available_spending"]
+            original = db.get(models.LedgerTransaction, tx_id)
+            assert after_balance == before_balance == 3
+            assert original.points == original_points == 10
+            assert original.transaction_type == original_type == models.TransactionType.award
+            assert original.source_transaction_id == original_source
+            assert db.query(models.LedgerTransaction).filter(
+                models.LedgerTransaction.source_transaction_id == tx_id,
+                models.LedgerTransaction.transaction_type == models.TransactionType.reversal,
+            ).count() == 0
+        finally:
+            db.close()
     finally:
         app.dependency_overrides.clear()
 

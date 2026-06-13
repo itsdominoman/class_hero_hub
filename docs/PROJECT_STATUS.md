@@ -82,6 +82,7 @@
 - Separated from rewards (no longer mixed)
 - Parent points modal supports Add points, Remove points, and Custom point actions
 - Custom one-off point awards and penalties are available without creating a preset
+- Points Log "Correct this entry" writes linked reversal rows, but the automatic correction flow never creates a negative available spending balance. If reversing an award would project available spending below zero because some points were already spent, the backend returns `correction_insufficient_available_balance` and the parent must use a separate manual adjustment instead.
 - Adding and removing points provide short Web Audio feedback sounds
 - Parent dashboard now opens a child action modal from each child avatar, with Points shown first, persistent Child Dashboard/Edit Child actions, and Requests, School Bag, Calendar, Savings, and Points Log available inside the same modal
 - Edit Child supports display name changes and numeric avatar selection using avatar keys `1` through `24` resolved from `/avatars/{key}.png`

@@ -209,11 +209,17 @@ def correct_transaction(
     if current - _to_naive_utc(tx.created_at) > CORRECTION_WINDOW:
         raise CorrectionError("correction_window_expired")
 
+    reversal_points = -(tx.points or 0)
+    balances = calculate_balances(db, child_id, now=current)
+    projected_available_spending = balances["available_spending"] + reversal_points
+    if projected_available_spending < 0:
+        raise CorrectionError("correction_insufficient_available_balance")
+
     reversal = models.LedgerTransaction(
         child_id=tx.child_id,
         jar=tx.jar,
         transaction_type=models.TransactionType.reversal,
-        points=-(tx.points or 0),
+        points=reversal_points,
         description=(reason or "").strip(),
         source_transaction_id=tx.id,
         created_by_parent_id=created_by_parent_id,

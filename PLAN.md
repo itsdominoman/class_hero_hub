@@ -514,6 +514,15 @@ With existing data only:
     (`correction_ineligible_type` / `_window_expired` /
     `_already_processed`) → HTTP 400; the frontend maps codes to localized
     messages (both languages).
+  - *Balance guard (`this session`):* the correction flow never creates a
+    negative available spending balance. Before writing the reversal row the
+    backend calculates the authoritative current `available_spending`, applies
+    the proposed reversal amount, and rejects projected balances below zero
+    with `correction_insufficient_available_balance`. Exactly zero is allowed.
+    If some awarded points have already been spent, the parent must use a
+    separate manual adjustment instead. This is **not** a general concurrency
+    fix for reward/savings double-submit races; that remains tracked
+    separately in Scope C.
   - *Monotonic pet progress:* the reverse path **deliberately does not
     touch `pet.lifetime_points`**. Lifetime points were already an
     award-only high-water-mark (penalties/adjustments never decremented
