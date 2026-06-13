@@ -32,6 +32,11 @@ Arabic uses neutral Modern Standard Arabic with short, family-friendly labels wh
 | Packed | تم التجهيز | Read-only state badge on an already-packed "Needed today" item (D2). | Yes |
 | Pack the school bag for tomorrow | جهّز الحقيبة المدرسية للغد | Evening tile label (D3) when the tile is in pack-tomorrow mode (6pm→midnight). | Yes |
 | Nothing to pack right now | لا شيء للتجهيز الآن | Empty state in the time-windowed school-summary modal (D3) when no section is currently in-window/unresolved. | Yes |
+| On the calendar today | على جدول اليوم | Parent dashboard "Today" tile label (E1) when something is on; replaced the old "Points available" tile. | Yes |
+| Coming up tomorrow | قادم غدًا | De-emphasized look-ahead heading in the Today modal (E1). | Yes |
+| {events} events · {tasks} tasks | {events} فعاليات · {tasks} مهام | Per-child counts line in the Today modal (E1); interpolated numbers. | Yes |
+| Mark complete | تحديد كمكتمل | Parent action button on a task in the Today modal (E2) — parent records it done themselves; immediately final. Distinct from "Approve" (reviewing a child's claim). | Yes |
+| Awaiting your review | بانتظار مراجعتك | Read-only pill on a child-claimed task in the Today modal (E2) — directs the parent to the review card rather than offering a duplicate complete action. | Yes |
 | Requests | الطلبات | Short UI label. | No |
 | Approve | قبول | Button action for approving a request; use “موافقة” only when approval is a noun/status. | Yes |
 | Reject | رفض | Short and standard. | No |

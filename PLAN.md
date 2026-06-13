@@ -732,6 +732,58 @@ With existing data only:
     pattern), ROADMAP.md, PROJECT_STATUS.md, QA_COVERAGE_MATRIX.md.
   - *Deploy:* backend image rebuilt (new routes + migration-free service) +
     frontend, per the standing rule.
+- **E1 (implemented): replaced the "Points available" tile with a Calendar
+  "Today" tile.** The dashboard summary-strip's first tile was a static
+  total-points number with no action. It's now a tappable **Today** tile
+  following the school-bag tile pattern (count → tap → modal with per-child
+  breakdown).
+  - *Backend:* new aggregate `GET /api/calendar/summary` — `configured`
+    (family ever set up any active calendar entry → hide-when-unused, exactly
+    like the school bag tile), `tile_count` (today's events + still-outstanding
+    tasks across all children), and per-child `today` (primary) + `tomorrow`
+    (lighter look-ahead) occurrence lists. Per-child occurrence resolution was
+    factored out of `get_calendar` into a shared `_resolve_child_occurrences`
+    helper used by both. The "what's outstanding" rule is a **pure** function in
+    `calendar_service` (`task_is_outstanding`, `count_attention_items`) — no DB,
+    so a future reminder scheduler can reuse it (see Scope C note).
+  - *Outstanding definition (documented):* events always count (they occur); a
+    **task** counts as outstanding until it has an *approved* completion —
+    so a child-claimed (`pending`) or `rejected` task is still outstanding.
+    Approved tasks drop out of both the count and the listed items.
+  - *Tile/empty-state:* tile hidden entirely when the family has **no** calendar
+    entries ever; when configured but nothing is on today it shows **0** with a
+    "Nothing on today" label (the school-bag "feature unused vs nothing right
+    now" distinction). `tomorrow` is shown in the modal, de-emphasized below
+    today, and never folded into the badge.
+  - *Latent bug fixed:* `CalendarCompletion` schema lacked `from_attributes`, so
+    `model_validate` on an ORM completion (any `/calendar` response carrying a
+    completion) would raise — added the config.
+- **E2 (implemented): parent marks a task complete from the Today modal.** Each
+  open task in E1's modal gets a **Mark complete** button.
+  - *No new backend:* `POST /api/calendar/{entry_id}/complete` already existed
+    and is **immediately final** — it creates the completion with
+    `status="approved"` and runs identical streak/ledger/pet-progress logic to
+    the approve path (confirmed by the existing streak-multiplier test). So a
+    parent-initiated completion awards points exactly like an approved
+    child-completion, with **no second approval step** — correct, since the
+    parent *is* the approver (there is no one above them to approve it).
+  - *Distinct from C10 "Tasks to review" (documented):* E2 is the parent
+    recording a task done **themselves** (any task); C10 is the parent
+    **approving a child's claim**. In E1's modal a child-claimed (`pending`)
+    task shows an **"Awaiting your review"** pill with **no** Mark-complete
+    button — the approve/reject action stays in the child-modal review card.
+    This avoids the `/complete` route's `409 "Already completed"` (it rejects
+    when any completion row exists) and keeps the two flows from offering
+    duplicate actions on the same task. A pending task **still appears** in E1
+    (and counts) because from "what's outstanding today" it genuinely is.
+  - *Both layers tested:* pure `task_is_outstanding` / `count_attention_items`;
+    the summary endpoint (unconfigured empty; configured count with an approved
+    task excluded; a pending child-claim still counted). The parent-complete
+    route's finality + streak award were already covered.
+  - *Docs synced:* this entry, ROADMAP.md, PROJECT_STATUS.md,
+    QA_COVERAGE_MATRIX.md, LOCALISATION_NOTES.md, DESIGN.md.
+  - *Deploy:* backend image rebuilt (new `/calendar/summary` route) + frontend,
+    routes verified live (not 404), per the standing rule.
 
 ## Scope C — Future
 
@@ -751,6 +803,16 @@ With existing data only:
   `compute_tile_state` returning `"pack_tomorrow"` is the evening-reminder
   trigger, `"missing_today"` the morning-notification trigger. Don't duplicate
   the hour constants in the scheduler — import them.
+- **Calendar "today" reminders can reuse the E1 outstanding rules.** A morning
+  "here's what's on today" / "these tasks are still outstanding" notification
+  shares E1's definition of outstanding, which is likewise a **pure, DB-free**
+  function in `backend/app/services/calendar_service.py`
+  (`task_is_outstanding(entry_type, completion_status)` and
+  `count_attention_items(items)`) — the route only gathers occurrences and calls
+  in. A scheduler should call these rather than re-deriving "a task counts until
+  approved; events always count". (No time-of-day window here yet — if a
+  send-time is wanted later, add a named-constant hour like the school-bag
+  `*_VISIBLE_FROM_HOUR` rather than a magic number.)
 - **Pending task-approvals are window-bound (C10 follow-up).** The parent
   child-modal **Calendar** tab's "Tasks to review" card is fed by the
   picker's `/calendar` query, which is a **today → +14d** window. A child

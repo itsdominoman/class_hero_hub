@@ -54,9 +54,11 @@
 - Completed: Simple recurrence (`none`, `daily`, `weekly`)
 - Completed: Mobile-responsive calendar layout with compact week strip
 - Completed: Child My Day integration for today's tasks/events
+- Completed (E1): Parent dashboard "Today" summary tile (replaced the static "Points available" tile) — `GET /calendar/summary` aggregates today's events + outstanding tasks across children; tap opens a modal with a per-child today breakdown ("N events · M tasks") plus a lighter "Coming up tomorrow" look-ahead. Tile hides until the calendar is used at all; shows 0 when configured-but-empty.
+- Completed (E2): Parent can mark a task complete directly from the Today modal (`POST /calendar/{id}/complete`) — immediately final (no approval loop) and awards points/streak like an approved child-completion. Distinct from the C10 "Tasks to review" approval flow; child-claimed tasks show "Awaiting your review" instead.
 - Future: Full monthly calendar view
 - Future: Drag-and-drop calendar editing
-- Future: Notification/reminder system
+- Future: Notification/reminder system (can reuse E1's pure `task_is_outstanding` / `count_attention_items` rules for a morning "what's on / still outstanding today" push)
 - Future: Calendar warning cleanup and backend deprecation cleanup
 
 ### 🎒 School Bag / School Prep

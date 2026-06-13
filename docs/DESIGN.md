@@ -176,3 +176,25 @@ images `alt=""` + `aria-hidden="true"` — they are decorative.
   dashboard tile **hide** when nothing is currently in-window rather than
   showing a lingering zero (this is separate from, and stacks with, hiding a
   whole opt-in feature that was never configured).
+- **Dashboard summary tiles (count → tap → per-child modal)** (school bag,
+  Today calendar): the parent dashboard's summary strip favours *actionable*
+  tiles over inert numbers — each tile shows a single count and opens a modal
+  with a per-child breakdown and any inline actions. New tiles should follow
+  this shape rather than adding a static stat. Back each with a **single
+  aggregate endpoint** (`/school-items/summary`, `/calendar/summary`) that
+  returns the count, the per-child sections, and a `configured` flag, so the
+  dashboard makes one call and the **hide-until-configured** rule (don't show an
+  opt-in module a family has never used; once used, show it even at zero) is a
+  server-decided boolean, not a frontend guess.
+- **"Do it yourself" vs "approve a claim" are distinct actions** (E2 vs C10):
+  when both a subordinate (child) and an authority (parent) can advance the same
+  record, keep the two actions visually and behaviourally separate. A parent
+  marking a task complete *themselves* is **immediately final** (no second
+  approval — the parent is the approver) and runs the same rewards side-effects
+  as an approved claim; approving a *child's* claim stays its own review
+  affordance. Don't offer both on the same item at once: an item already claimed
+  by the child (pending) shows a read-only "awaiting your review" state in the
+  do-it-yourself surface and routes the actual approve/reject to the review
+  card — avoiding a duplicate action (and the backend's "already completed"
+  conflict). The item can still appear as outstanding in both places while
+  unresolved, since from each viewpoint it genuinely is.
