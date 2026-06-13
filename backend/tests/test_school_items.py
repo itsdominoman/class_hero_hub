@@ -138,6 +138,54 @@ def test_replace_updates_and_deletes_rows(db, client):
     del app.dependency_overrides[get_current_parent]
 
 
+def test_replace_soft_deletes_packed_item_and_keeps_history(db, client):
+    """FIX 1 — removing a previously-packed item must not error and must keep its
+    packing history. The row is soft-deleted (is_active=False) so it drops off
+    the parent's list while its school_item_checks history survives. (The FK
+    enforcement itself is exercised at the PG level in
+    test_school_items_fk_pg.py; SQLite doesn't enforce FKs by default.)"""
+    family, parent, child = _create_family_with_parent_and_child(db)
+
+    from app.auth import get_current_parent
+    app.dependency_overrides[get_current_parent] = lambda: parent
+
+    created = client.put(
+        f"/api/school-items/?child_id={child.id}&weekday=2",
+        json=[{"class_name": "Math", "needed_item": "Math book", "sort_order": 0}],
+    )
+    assert created.status_code == 200
+    item_id = created.json()[0]["id"]
+
+    # The child packs it, creating a school_item_checks row referencing the item.
+    check = models.SchoolItemCheck(
+        school_item_id=item_id, child_id=child.id, check_date=date(2026, 6, 17)
+    )
+    db.add(check)
+    db.commit()
+    check_id = check.id
+
+    # Parent edits the list to remove the packed item.
+    replaced = client.put(
+        f"/api/school-items/?child_id={child.id}&weekday=2",
+        json=[{"class_name": "Science", "needed_item": "Lab coat", "sort_order": 0}],
+    )
+    assert replaced.status_code == 200
+    assert [i["class_name"] for i in replaced.json()] == ["Science"]
+
+    # Removed item is soft-deleted, not gone; its packing history survives.
+    db.expire_all()
+    removed = db.query(models.SchoolItem).filter(models.SchoolItem.id == item_id).one()
+    assert removed.is_active is False
+    surviving = (
+        db.query(models.SchoolItemCheck)
+        .filter(models.SchoolItemCheck.id == check_id)
+        .one()
+    )
+    assert surviving.school_item_id == item_id
+
+    del app.dependency_overrides[get_current_parent]
+
+
 def test_today_endpoints_use_family_timezone(db, client, monkeypatch):
     family, parent, child = _create_family_with_parent_and_child(db)
     db.add(models.SchoolItem(

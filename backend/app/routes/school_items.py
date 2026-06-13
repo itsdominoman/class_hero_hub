@@ -223,9 +223,17 @@ async def replace_school_items(
             db.add(school_item)
         saved_items.append(school_item)
 
+    # FIX 1 — soft-delete removed items rather than hard-deleting. A SchoolItem
+    # may be referenced by school_item_checks rows (packing history), and that FK
+    # is ON DELETE NO ACTION, so a hard DELETE raises an FK violation in
+    # PostgreSQL the moment an item has ever been packed. Soft-delete also
+    # preserves the packing history the B2/D-series "needed today" / "pack for
+    # tomorrow" logic relies on. Every read path already filters is_active, so an
+    # inactive item simply disappears from the current list while its history and
+    # FK references stay intact. (No migration: is_active already exists.)
     for existing_item in existing_items:
         if existing_item.id not in kept_ids:
-            db.delete(existing_item)
+            existing_item.is_active = False
 
     db.commit()
     for item in saved_items:
