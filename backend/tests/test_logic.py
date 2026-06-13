@@ -864,11 +864,13 @@ def test_child_reward_request_surfaces_to_parent_and_respects_balance(db):
     ))
     assert request.status == models.RedemptionStatus.pending
     assert request.child_id == child.id
+    assert schemas.RedemptionRequest.model_validate(request).child_name == "Kid"
 
     parent_redemptions = asyncio.run(redemption_routes.get_all_redemptions(db, parent))
     assert len(parent_redemptions) == 1
     assert parent_redemptions[0].id == request.id
     assert parent_redemptions[0].title == "Movie night"
+    assert schemas.RedemptionRequest.model_validate(parent_redemptions[0]).child_name == "Kid"
 
     balances = points_service.calculate_balances(db, child.id)
     assert balances["spending_balance"] == 30
@@ -977,6 +979,7 @@ def test_child_dashboard_routes_survive_rejected_child_redemption(db):
     assert summary["released"] == 5
     assert any(tx.created_by_parent_id is None for tx in ledger)
     assert any(req.status == models.RedemptionStatus.rejected for req in redemptions)
+    assert schemas.RedemptionRequest.model_validate(redemptions[0]).child_name == "Jackson"
 
     serialized_ledger = [schemas.LedgerTransaction.model_validate(tx) for tx in ledger]
     assert any(tx.created_by_parent_id is None for tx in serialized_ledger)

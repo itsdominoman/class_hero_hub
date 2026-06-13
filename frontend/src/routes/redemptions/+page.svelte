@@ -106,6 +106,9 @@
                 <span class="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wide">
                   <Clock size={12} /> {formatCreatedAt(r.created_at)}
                 </span>
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                  {$_('redemptions.requestedBy', { values: { childName: r.child_name || `#${r.child_id}` } })}
+                </span>
               </div>
               <h3 class="text-xl sm:text-2xl font-bold text-slate-900 mb-1 break-words">{r.title}</h3>
               <p class="text-slate-600 font-medium mb-4 break-words">{r.description || $_('common.noDescriptionProvided')}</p>

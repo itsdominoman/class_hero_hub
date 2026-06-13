@@ -367,6 +367,7 @@ class RedemptionRequestCreate(RedemptionRequestBase):
 class RedemptionRequest(RedemptionRequestBase):
     id: int
     child_id: int
+    child_name: Optional[str] = None
     status: RedemptionStatus
     parent_note: Optional[str] = None
     created_at: datetime

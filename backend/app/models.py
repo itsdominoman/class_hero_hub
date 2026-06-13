@@ -331,6 +331,10 @@ class RedemptionRequest(Base):
 
     child = relationship("Child", back_populates="redemptions")
 
+    @property
+    def child_name(self):
+        return self.child.display_name if self.child else None
+
 class PetProgress(Base):
     __tablename__ = "pet_progress"
 

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Literal
 
 from ..database import get_db
@@ -93,6 +93,7 @@ async def get_my_redemptions(
 ):
     return (
         db.query(models.RedemptionRequest)
+        .options(joinedload(models.RedemptionRequest.child))
         .filter(models.RedemptionRequest.child_id == current_child.id)
         .order_by(
             models.RedemptionRequest.status == models.RedemptionStatus.pending,
@@ -139,6 +140,7 @@ async def request_my_redemption(
     db.add(hold_tx)
     db.commit()
     db.refresh(db_request)
+    db_request.child = current_child
 
     return db_request
 

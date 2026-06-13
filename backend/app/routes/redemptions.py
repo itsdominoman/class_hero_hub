@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 from ..database import get_db
 from .. import models, schemas, auth
@@ -16,6 +16,7 @@ async def get_all_redemptions(
 ):
     return (
         db.query(models.RedemptionRequest)
+        .options(joinedload(models.RedemptionRequest.child))
         .join(models.Child)
         .filter(models.Child.family_id == current_parent.family_id)
         .order_by(
@@ -66,6 +67,7 @@ async def request_redemption(
     db.add(hold_tx)
     db.commit()
     db.refresh(db_request)
+    db_request.child = child
     
     return db_request
 
@@ -78,6 +80,7 @@ async def approve_redemption(
 ):
     db_request = (
         db.query(models.RedemptionRequest)
+        .options(joinedload(models.RedemptionRequest.child))
         .join(models.Child)
         .filter(
             models.RedemptionRequest.id == request_id,
@@ -112,6 +115,7 @@ async def reject_redemption(
 ):
     db_request = (
         db.query(models.RedemptionRequest)
+        .options(joinedload(models.RedemptionRequest.child))
         .join(models.Child)
         .filter(
             models.RedemptionRequest.id == request_id,

@@ -330,6 +330,11 @@ def test_reward_hold_and_rejection_update_allowance_balance(db, client):
         json={"title": "Robux", "points": 30, "description": "Spend points"},
     )
     assert reward_request.status_code == 200
+    assert reward_request.json()["child_name"] == "Kid"
+
+    redemptions_response = client.get("/api/redemptions", headers=headers)
+    assert redemptions_response.status_code == 200
+    assert redemptions_response.json()[0]["child_name"] == "Kid"
 
     summary_response = client.get(f"/api/allowance/children/{child.id}/summary", headers=headers)
     assert summary_response.status_code == 200
