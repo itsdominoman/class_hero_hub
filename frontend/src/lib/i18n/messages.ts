@@ -691,7 +691,7 @@ export const en = {
       correctErrorType: "This kind of entry can't be corrected.",
       correctErrorWindow: 'Corrections are only allowed within 7 days of the original entry.',
       correctErrorProcessed: 'This entry has already been corrected or has linked activity.',
-      correctErrorGeneric: 'Unable to add correction. Please try again.'
+      correctErrorUnexpected: 'Something went wrong. Please try again.'
     },
     family: {
       subtitle: 'Invite another grownup to help manage points, rewards, and routines',
@@ -958,6 +958,12 @@ export const en = {
     neededNow: 'What is still needed now',
     nothingTomorrow: 'Nothing set for tomorrow.',
     nothingToday: 'Nothing set for today.',
+    tapToPack: 'Tap to tick off what you have packed',
+    packedLabel: 'Packed',
+    notPackedLabel: 'Not packed yet',
+    packedCount: '{packed} of {total} packed',
+    packLockedError: 'This list is locked for today — ask a grown-up.',
+    packError: "Couldn't save that. Please try again.",
     tasksToday: 'Tasks today',
     eventsToday: 'Events today',
     noTasks: 'No tasks today.',
@@ -1890,7 +1896,7 @@ export const ar = {
       correctErrorType: 'لا يمكن تصحيح هذا النوع من السجلات.',
       correctErrorWindow: 'يُسمح بالتصحيح خلال 7 أيام فقط من تاريخ السجل الأصلي.',
       correctErrorProcessed: 'تم تصحيح هذا السجل من قبل أو يرتبط بنشاط آخر.',
-      correctErrorGeneric: 'تعذرت إضافة التصحيح. يرجى المحاولة مرة أخرى.'
+      correctErrorUnexpected: 'حدث خطأ ما. يرجى المحاولة مرة أخرى.'
     },
     family: {
       subtitle: 'ادع شخصا موثوقا للمساعدة في إدارة النقاط والمكافآت والروتين',
@@ -2157,6 +2163,12 @@ export const ar = {
     neededNow: 'ما الذي ما زال مطلوبا الآن',
     nothingTomorrow: 'لا يوجد شيء للغد.',
     nothingToday: 'لا يوجد شيء لليوم.',
+    tapToPack: 'اضغط لتعليم ما جهزته',
+    packedLabel: 'تم التجهيز',
+    notPackedLabel: 'لم يُجهز بعد',
+    packedCount: 'تم تجهيز {packed} من {total}',
+    packLockedError: 'قائمة اليوم مقفلة — اطلب المساعدة من شخص بالغ.',
+    packError: 'تعذر الحفظ. يرجى المحاولة مرة أخرى.',
     tasksToday: 'مهام اليوم',
     eventsToday: 'أحداث اليوم',
     noTasks: 'لا توجد مهام اليوم.',

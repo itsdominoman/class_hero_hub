@@ -1156,7 +1156,10 @@
       case 'correction_already_processed':
         return $_('parent.pointsLog.correctErrorProcessed');
       default:
-        return $_('parent.pointsLog.correctErrorGeneric');
+        // Any non-correction_* code (404 from a deploy gap, 500, CSRF,
+        // network/transport failure) reads as an unexpected error — visually
+        // distinct from a correction-specific rejection above.
+        return $_('parent.pointsLog.correctErrorUnexpected');
     }
   }
 

@@ -152,6 +152,10 @@
     created_by_parent_id: number;
     created_at: string;
     updated_at: string | null;
+    // B2 — packing state for the date this list was requested for.
+    check_date?: string;
+    packed?: boolean;
+    locked?: boolean;
   };
 
   let childId = $derived(page.params.id);
@@ -515,6 +519,58 @@
 
   function schoolItemsTomorrow() {
     return schoolTomorrowItems;
+  }
+
+  // B2 — packing checklist state. Per-item inline error + in-flight guard.
+  let packErrorByItem = $state<Record<number, string>>({});
+  let packingItemId = $state<number | null>(null);
+
+  function packedCountLabel(items: SchoolItem[]) {
+    const packed = items.filter((item) => item.packed).length;
+    return $_('child.packedCount', { values: { packed, total: items.length } });
+  }
+
+  function canTogglePacking(item: SchoolItem) {
+    return accessMode === 'child' && !item.locked && Boolean(item.check_date);
+  }
+
+  function applyPackedState(itemId: number, packed: boolean) {
+    schoolTomorrowItems = schoolTomorrowItems.map((item) =>
+      item.id === itemId ? { ...item, packed } : item
+    );
+    schoolTodayItems = schoolTodayItems.map((item) =>
+      item.id === itemId ? { ...item, packed } : item
+    );
+  }
+
+  function mapPackError(reason: unknown) {
+    const code = reason instanceof Error ? reason.message : '';
+    if (code === 'checklist_locked') return $_('child.packLockedError');
+    return $_('child.packError');
+  }
+
+  async function togglePacked(item: SchoolItem) {
+    if (!canTogglePacking(item) || packingItemId === item.id) return;
+    const checkDate = item.check_date;
+    if (!checkDate) return;
+
+    const nextPacked = !item.packed;
+    packingItemId = item.id;
+    packErrorByItem = { ...packErrorByItem, [item.id]: '' };
+    // Optimistic: flip immediately, revert on failure so the state never lies.
+    applyPackedState(item.id, nextPacked);
+    try {
+      if (nextPacked) {
+        await api.post(`/child/school-items/${item.id}/pack`, { check_date: checkDate });
+      } else {
+        await api.delete(`/child/school-items/${item.id}/pack?check_date=${checkDate}`);
+      }
+    } catch (reason) {
+      applyPackedState(item.id, !nextPacked);
+      packErrorByItem = { ...packErrorByItem, [item.id]: mapPackError(reason) };
+    } finally {
+      packingItemId = null;
+    }
   }
 
   function tasksToday() {
@@ -1039,6 +1095,50 @@
 <div
   class="min-h-dvh max-w-full bg-child-bg pb-[calc(4rem+var(--safe-bottom))] overflow-x-hidden"
 >
+  {#snippet schoolItemRow(item: SchoolItem, tone: 'amber' | 'sky')}
+    {@const interactive = canTogglePacking(item)}
+    {@const packed = Boolean(item.packed)}
+    {@const busy = packingItemId === item.id}
+    {@const box = packed
+      ? (tone === 'amber' ? 'bg-amber-500 text-white border-amber-500' : 'bg-sky-500 text-white border-sky-500')
+      : (tone === 'amber' ? 'border-amber-300 text-transparent' : 'border-sky-300 text-transparent')}
+    {@const card = tone === 'amber' ? 'border-amber-100 bg-amber-50/80' : 'border-sky-100 bg-sky-50/60'}
+    <div>
+      <div class="flex items-start gap-3 rounded-2xl border {card} px-3 py-3">
+        {#if interactive}
+          <button
+            type="button"
+            onclick={() => togglePacked(item)}
+            disabled={busy}
+            aria-pressed={packed}
+            aria-label={packed ? $_('child.notPackedLabel') : $_('child.packedLabel')}
+            class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all disabled:opacity-50 {box}"
+          >
+            <Check size={13} />
+          </button>
+        {:else}
+          <span
+            aria-label={packed ? $_('child.packedLabel') : $_('child.notPackedLabel')}
+            class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 {box}"
+          >
+            <Check size={13} />
+          </span>
+        {/if}
+        <div class="min-w-0">
+          <p class="font-bold break-words {packed ? 'text-slate-400 line-through' : 'text-slate-950'}">
+            {schoolNeedLabel(item)}
+          </p>
+          <p class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400 break-words">
+            {item.class_name}
+          </p>
+        </div>
+      </div>
+      {#if packErrorByItem[item.id]}
+        <p class="mt-1 px-1 text-xs font-bold text-rose-600 break-words">{packErrorByItem[item.id]}</p>
+      {/if}
+    </div>
+  {/snippet}
+
   {#if loading}
     <div class="flex justify-center py-40">
       <div class="flex flex-col items-center gap-4">
@@ -1664,7 +1764,11 @@
                   <p
                     class="mb-4 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500"
                   >
-                    {$_('child.checkStationery')}
+                    {#if schoolItemsTomorrow().length > 0 && accessMode === 'child' && !schoolItemsTomorrow()[0].locked}
+                      {$_('child.tapToPack')} · {packedCountLabel(schoolItemsTomorrow())}
+                    {:else}
+                      {$_('child.checkStationery')}
+                    {/if}
                   </p>
 
                   {#if schoolTomorrowError}
@@ -1676,25 +1780,7 @@
                   {:else if schoolItemsTomorrow().length > 0}
                     <div class="space-y-2">
                       {#each schoolItemsTomorrow() as item}
-                        <div
-                          class="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50/80 px-3 py-3"
-                        >
-                          <span
-                            class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700"
-                          >
-                            <Check size={13} />
-                          </span>
-                          <div class="min-w-0">
-                            <p class="font-bold text-slate-950 break-words">
-                              {schoolNeedLabel(item)}
-                            </p>
-                            <p
-                              class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400 break-words"
-                            >
-                              {item.class_name}
-                            </p>
-                          </div>
-                        </div>
+                        {@render schoolItemRow(item, 'amber')}
                       {/each}
                     </div>
                   {:else}
@@ -1735,25 +1821,7 @@
                     {:else if schoolItemsToday().length > 0}
                       <div class="space-y-2">
                         {#each schoolItemsToday() as item}
-                          <div
-                            class="flex items-start gap-3 rounded-2xl border border-sky-100 bg-sky-50/60 px-3 py-3"
-                          >
-                            <span
-                              class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700"
-                            >
-                              <Check size={13} />
-                            </span>
-                            <div class="min-w-0">
-                              <p class="font-bold text-slate-950 break-words">
-                                {schoolNeedLabel(item)}
-                              </p>
-                              <p
-                                class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400 break-words"
-                              >
-                                {item.class_name}
-                              </p>
-                            </div>
-                          </div>
+                          {@render schoolItemRow(item, 'sky')}
                         {/each}
                       </div>
                     {:else}
@@ -1793,7 +1861,11 @@
                   <p
                     class="mb-4 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500"
                   >
-                    {$_('child.checkStationery')}
+                    {#if schoolItemsTomorrow().length > 0 && accessMode === 'child' && !schoolItemsTomorrow()[0].locked}
+                      {$_('child.tapToPack')} · {packedCountLabel(schoolItemsTomorrow())}
+                    {:else}
+                      {$_('child.checkStationery')}
+                    {/if}
                   </p>
 
                   {#if schoolTomorrowError}
@@ -1805,25 +1877,7 @@
                   {:else if schoolItemsTomorrow().length > 0}
                     <div class="space-y-2">
                       {#each schoolItemsTomorrow() as item}
-                        <div
-                          class="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50/80 px-3 py-3"
-                        >
-                          <span
-                            class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700"
-                          >
-                            <Check size={13} />
-                          </span>
-                          <div class="min-w-0">
-                            <p class="font-bold text-slate-950 break-words">
-                              {schoolNeedLabel(item)}
-                            </p>
-                            <p
-                              class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400 break-words"
-                            >
-                              {item.class_name}
-                            </p>
-                          </div>
-                        </div>
+                        {@render schoolItemRow(item, 'amber')}
                       {/each}
                     </div>
                   {:else}
@@ -1864,25 +1918,7 @@
                     {:else if schoolItemsToday().length > 0}
                       <div class="space-y-2">
                         {#each schoolItemsToday() as item}
-                          <div
-                            class="flex items-start gap-3 rounded-2xl border border-sky-100 bg-sky-50/60 px-3 py-3"
-                          >
-                            <span
-                              class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700"
-                            >
-                              <Check size={13} />
-                            </span>
-                            <div class="min-w-0">
-                              <p class="font-bold text-slate-950 break-words">
-                                {schoolNeedLabel(item)}
-                              </p>
-                              <p
-                                class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400 break-words"
-                              >
-                                {item.class_name}
-                              </p>
-                            </div>
-                          </div>
+                          {@render schoolItemRow(item, 'sky')}
                         {/each}
                       </div>
                     {:else}
