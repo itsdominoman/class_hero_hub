@@ -375,6 +375,11 @@ With existing data only:
 
 ## CHANGELOG (claude-3)
 
+- Pricing-copy fix (`958d5ac`→`88a6aac`): `gettingStartedAnswer7` (en + ar)
+  now states the concrete "$4-5/month per family" figure, consistent with
+  `betaTrustLine`, replacing the vaguer "affordable subscription" /
+  "اشتراك ميسور التكلفة" phrasing. Both languages updated; i18n parity
+  confirmed at 1102/1102.
 - C3 (`e380c55`): the dashed create-preset tile is now the FIRST tile
   in both the Add and Remove grids.
 - C4 (`218333c`): opening the preset editor (settings entry or +/−
