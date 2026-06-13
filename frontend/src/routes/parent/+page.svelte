@@ -1509,6 +1509,16 @@
     );
   }
 
+  // F1 — the "Coming up tomorrow" look-ahead lists EVENT TITLES only. Tomorrow's
+  // tasks are intentionally dropped: they surface in tomorrow's own "Today"
+  // section when actionable, so showing them a day early is just noise. Children
+  // with no events tomorrow fall out, so the section reads as a real preview.
+  const calendarTomorrowEvents = $derived(
+    calendarSummary.tomorrow
+      .map((entry) => ({ child_id: entry.child_id, events: calendarEvents(entry.items) }))
+      .filter((entry) => entry.events.length > 0)
+  );
+
   function schoolGroupSummary(items: SchoolItem[]) {
     const total = items.length;
     const missing = items.filter((item) => !item.packed);
@@ -2504,20 +2514,31 @@
                 {/if}
               </div>
 
-              <!-- SECONDARY: lighter "coming up tomorrow" look-ahead -->
-              {#if calendarSummary.tomorrow.length > 0}
-                <div class="mt-2 space-y-2 border-t border-slate-100 pt-4">
-                  <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">{$_('parent.todaySummary.tomorrowHeading')}</p>
-                  {#each calendarSummary.tomorrow as entry}
-                    {@const events = entry.items.filter((i) => i.entry.entry_type === 'event')}
-                    {@const tasks = entry.items.filter((i) => i.entry.entry_type === 'task')}
-                    <div class="flex items-center justify-between gap-3 rounded-xl bg-slate-50/70 px-3 py-2">
+              <!-- SECONDARY: lighter "coming up tomorrow" look-ahead — event
+                   titles only (F1); tasks are dropped until they're current -->
+              <div class="mt-2 space-y-2 border-t border-slate-100 pt-4">
+                <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">{$_('parent.todaySummary.tomorrowHeading')}</p>
+                {#if calendarTomorrowEvents.length === 0}
+                  <p class="text-xs font-semibold text-slate-400">{$_('parent.todaySummary.nothingTomorrow')}</p>
+                {:else}
+                  {#each calendarTomorrowEvents as entry}
+                    <div class="rounded-xl bg-slate-50/70 px-3 py-2">
                       <p class="text-xs font-bold text-slate-500 break-words">{childDisplayName(entry.child_id)}</p>
-                      <p class="shrink-0 text-[11px] font-semibold text-slate-400">{$_('parent.todaySummary.counts', { values: { events: events.length, tasks: tasks.length } })}</p>
+                      <div class="mt-1 space-y-1">
+                        {#each entry.events as occ}
+                          <p class="text-[11px] font-semibold text-slate-500 break-words">{occ.entry.title}{#if occ.entry.start_time} · {formatCalendarTime(occ.entry.start_time)}{/if}</p>
+                        {/each}
+                      </div>
                     </div>
                   {/each}
-                </div>
-              {/if}
+                {/if}
+              </div>
+
+              <!-- F2 — jump to the full calendar -->
+              <a href="/calendar" class="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-hero hover:text-hero">
+                <CalendarDays size={15} />
+                {$_('parent.todaySummary.openCalendar')}
+              </a>
             {/if}
           {/if}
 

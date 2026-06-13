@@ -293,6 +293,11 @@ def test_calendar_summary_endpoint(db, client):
         assert len(body["today"][0]["items"]) == 3  # all 3 of today's items listed
         assert [c["child_id"] for c in body["tomorrow"]] == [child.id]
         assert len(body["tomorrow"][0]["items"]) == 1
+        # F1: the tomorrow occurrence carries the event title (the look-ahead
+        # lists titles, not just counts) and is an event.
+        tomorrow_item = body["tomorrow"][0]["items"][0]
+        assert tomorrow_item["entry"]["title"] == "Dentist"
+        assert tomorrow_item["entry"]["entry_type"] == "event"
 
         # A child-claimed (pending) completion still counts as outstanding.
         from datetime import datetime as _dt, timezone as _tz

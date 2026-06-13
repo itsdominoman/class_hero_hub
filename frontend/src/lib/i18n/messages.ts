@@ -583,10 +583,12 @@ export const en = {
       todayHint: 'Events and tasks for today',
       tomorrowHeading: 'Coming up tomorrow',
       nothingToday: 'Nothing on the calendar today',
+      nothingTomorrow: 'Nothing on the calendar tomorrow',
       allDone: 'All done for today',
       counts: '{events} events · {tasks} tasks',
       markComplete: 'Mark complete',
-      awaitingReview: 'Awaiting your review'
+      awaitingReview: 'Awaiting your review',
+      openCalendar: 'Open full calendar'
     },
     loginRequired: 'Parent access required',
     loginHint: 'Sign in with Google to open the parent dashboard and manage your family account.',
@@ -1817,10 +1819,12 @@ export const ar = {
       todayHint: 'فعاليات ومهام اليوم',
       tomorrowHeading: 'قادم غدًا',
       nothingToday: 'لا شيء على الجدول اليوم',
+      nothingTomorrow: 'لا شيء على الجدول غدًا',
       allDone: 'انتهى كل شيء لليوم',
       counts: '{events} فعاليات · {tasks} مهام',
       markComplete: 'تحديد كمكتمل',
-      awaitingReview: 'بانتظار مراجعتك'
+      awaitingReview: 'بانتظار مراجعتك',
+      openCalendar: 'فتح التقويم الكامل'
     },
     loginRequired: 'مطلوب وصول وليّ الأمر',
     loginHint: 'سجّل الدخول باستخدام Google لفتح لوحة وليّ الأمر وإدارة حساب عائلتك.',
