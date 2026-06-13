@@ -68,7 +68,11 @@
 - Completed (B2): Children tick "Pack for tomorrow" items off (per-item `school_item_checks`); the list locks at local-family midnight and "Needed today" then shows the final read-only state. No points awarded.
 - Completed (B1): The parent summary tile "School items missing" is now tappable, opening a family-wide modal with, per child, "Needed today" (packed last night) and "Pack for tomorrow" (tonight's progress) as "N of M packed, Missing: …". Badge = total items still missing for today. Pure frontend read on B2's existing `/school-items/today` packed state — no new endpoint.
 - Completed (B1 follow-up): The tile is hidden until the family has configured at least one school item (any child, any weekday), via read-only `GET /school-items/configured`. Families using the feature still see the tile even when everything is packed (positive state); only never-set-up families lose it.
+- Completed (D1): Removed an unintended (and non-functional) custom-points form that was falling through into the School Bag summary modal — it is now a read-only summary. Points for packing behaviour are done via a behaviour preset.
+- Completed (D2): Parents can mark a "Needed today" item packed from the summary modal (`POST /school-items/{id}/pack`), resolving the morning gap where a child packs a missing item after the day's checklist has locked. Writes the same shared `school_item_checks` row; the child's own today checklist stays locked read-only.
+- Completed (D3): The summary is time-windowed in the family's local timezone via a single `GET /school-items/summary` aggregate — "Pack for tomorrow" shows 6pm→midnight, "Needed today" from midnight, and resolved children drop out so sections empty as the morning progresses. The tile shows a backend-resolved count/mode (missing-today vs pack-tomorrow) and hides when nothing is in-window. Window/tile rules are pure functions, ready to drive future pack/missing push notifications.
 - Future: Optional school timetable improvements
+- Future: School Bag push notifications (evening "pack the bag" + morning "what's missing") reusing the D3 pure window-logic functions
 
 ### ⚙️ Parent Productivity
 - Completed: English/Arabic fixed UI localisation foundation with a parent Settings language selector, browser-local language persistence, English fallback, and Arabic right-to-left document direction.

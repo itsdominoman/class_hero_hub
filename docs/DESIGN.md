@@ -157,3 +157,22 @@ images `alt=""` + `aria-hidden="true"` — they are decorative.
   infrastructure problem (a 404 from a stale deploy, a 500, a CSRF/network
   failure) stays visually distinct from a legitimate "you can't do that"
   rejection.
+- **Time-windowed visibility (decide on the backend; keep the rule pure)**
+  (D3, School Bag summary): when a surface is only relevant during part of
+  the day in the **family's local timezone** (e.g. "Pack for tomorrow" is a
+  6pm→midnight evening nudge, "Needed today" a midnight-onward morning
+  check), compute *which sections/data to return* on the **backend** so the
+  client never receives — and can't accidentally render — content outside
+  its window. Express the boundaries as **named hour constants** (here
+  `PACK_TOMORROW_VISIBLE_FROM_HOUR = 18`, `NEEDED_TODAY_VISIBLE_FROM_HOUR = 0`
+  in `school_items_service`) rather than magic numbers, so they're trivial to
+  retune. Keep the window decision itself a **pure function of (local time,
+  state counts)** — no DB, no request object — so the same rule can back a UI
+  endpoint *and* a future scheduler (push notifications) without re-derivation;
+  the HTTP handler only gathers data and calls into it. Pair the time window
+  with a **resolution drop-out**: an item/child leaves its section once
+  resolved (everything packed), so the section empties naturally instead of
+  persisting a stale "all done" badge for the rest of the window — and let the
+  dashboard tile **hide** when nothing is currently in-window rather than
+  showing a lingering zero (this is separate from, and stacks with, hiding a
+  whole opt-in feature that was never configured).

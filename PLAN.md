@@ -665,9 +665,92 @@ With existing data only:
   non-`correction_*` error (a deploy-gap 404, 500, CSRF, network), separate
   from the specific correction rejections — so an infra problem is visually
   distinguishable from a legitimate "can't correct this" rejection.
+- **D1 (implemented): removed the unintended points-action UI from the School
+  Bag summary modal.** The B1 `school-summary` modal was falling through to the
+  shared generic points-amount input, description textarea, and "Confirm Action"
+  footer button (it had simply not been excluded from those conditionals). That
+  form had **no `child_id`** so it could never post (confirmed failing on both
+  positive and negative values) and duplicated the behaviour-preset flow (A3).
+  Fix is three exclusions in `parent/+page.svelte` so the modal is a read-only
+  summary closed by the top-right ✕ (same as the `rewards`/`requests` modals).
+  Parents who want points for packing create a behaviour preset ("Packed school
+  bag" / "Forgot PE kit") — already works, no change. Frontend-only.
+- **D2 (implemented): parent can mark "Needed today" items packed (morning-gap
+  fix).** Once a school day begins, that day's checklist is locked read-only for
+  the **child** (B2 accountability — what they did the night before). If the
+  child packs a missing item *that morning* there was previously no way to
+  reflect it, so the parent summary showed "Missing" all day.
+  - *Backend:* `set_packed` gained `enforce_lock` (default `True`); child paths
+    keep the midnight lock, a new **parent** route `POST /api/school-items/
+    {item_id}/pack` (parent auth, body `{child_id}`) passes `enforce_lock=False`
+    and always targets the family's local **today**. It writes the **same shared
+    `school_item_checks` row** the child view reads.
+  - *Shared-state decision (documented):* the unique constraint
+    `(school_item_id, check_date)` makes one row per item per date the single
+    source of truth for "is this packed?". Rather than fork that into a separate
+    "parent-confirmed" column (two sources of truth — exactly what we want to
+    avoid), the parent override **writes the same row**. The child's own
+    *today* checklist stays **locked read-only** (they still can't change it, so
+    the accountability record is preserved); the parent action is a forward
+    correction of current reality, consistent everywhere the data is read. The
+    only visible effect on the child side is that, on reload, the locked item
+    shows as packed — which is true, and the child still can't game it.
+  - *Frontend:* each still-missing "Needed today" item carries a **Mark packed**
+    button that POSTs then refreshes the summary; packed items show a read-only
+    "Packed" check. New `parent.schoolSummary.packed` / `markPacked` (en+ar).
+- **D3 (implemented): time-windowed visibility for the School Bag summary.** The
+  modal used to show **both** sections all day for all children — too much noise.
+  - *Where the logic lives:* **backend**, so the client never receives sections
+    it shouldn't show. A new aggregate `GET /api/school-items/summary` (replaces
+    the dashboard's per-child `today`+`tomorrow` fan-out and the separate
+    `/configured` call) returns, time-windowed in the family's local timezone:
+    `configured`, `show_needed_today`, `show_pack_tomorrow`, the resolved
+    `tile_count`+`tile_mode`, and the per-child `needed_today` / `pack_tomorrow`
+    sections.
+  - *Boundary times (named constants in `school_items_service`):*
+    `PACK_TOMORROW_VISIBLE_FROM_HOUR = 18` (6pm → midnight, "tonight's
+    checklist"; a single family-wide nudge, **not** per-child/per-family) and
+    `NEEDED_TODAY_VISIBLE_FROM_HOUR = 0` (midnight onward, "did you pack last
+    night?"). Easy to retune in one place.
+  - *Resolve-drop-out:* a child appears in `needed_today` only while they still
+    have an unpacked item; fully-resolved children (packed last night, or via D2)
+    drop out, so the section empties through the morning instead of persisting
+    "all packed" badges.
+  - *Tile logic (documented choice):* `compute_tile_state` resolves a single
+    number + mode — `missing_today` (morning, penalty tint) takes priority over
+    the evening `pack_tomorrow` nudge (hero tint); `none` when nothing is
+    currently relevant, and the tile then **hides** (separate from the
+    feature-never-configured hide, which also still applies). So outside any
+    actionable window the tile simply disappears rather than showing a stale 0.
+  - *Pure-function structure (for future notifications):* `needed_today_window_open`,
+    `pack_tomorrow_window_open`, and `compute_tile_state` are **pure** (functions
+    of local time / counts only, no DB) so a push-notification scheduler can call
+    the exact same relevance rules — see Scope C note below.
+  - *Tests both layers:* pure window/tile functions with fixed datetimes; parent
+    override + lock bypass + ownership 404; summary drop-out + unconfigured.
+  - *Docs synced:* this entry, DESIGN.md (new "time-windowed visibility"
+    pattern), ROADMAP.md, PROJECT_STATUS.md, QA_COVERAGE_MATRIX.md.
+  - *Deploy:* backend image rebuilt (new routes + migration-free service) +
+    frontend, per the standing rule.
 
 ## Scope C — Future
 
+- **School Bag push notifications can reuse the D3 time-window logic.** The
+  evening "time to pack tomorrow's bag" reminder and the morning "what wasn't
+  packed" notification share the exact relevance question D3 already answers:
+  *given this family's local time and each child's resolved status, is "Pack for
+  tomorrow" / "Needed today" currently relevant?* That logic is deliberately
+  factored as **pure, DB-free functions** in
+  `backend/app/services/school_items_service.py` —
+  `needed_today_window_open(now_local)`, `pack_tomorrow_window_open(now_local)`,
+  and `compute_tile_state(now_local, missing_today_count, pack_tomorrow_unpacked_count)`
+  (the same `*_VISIBLE_FROM_HOUR` constants drive both the UI windows and these)
+  — **not** tangled inside the HTTP route handler (`_build_school_summary` only
+  does the DB gathering and calls into them). A future notification scheduler
+  should call these directly rather than re-deriving the 6pm/midnight rules:
+  `compute_tile_state` returning `"pack_tomorrow"` is the evening-reminder
+  trigger, `"missing_today"` the morning-notification trigger. Don't duplicate
+  the hour constants in the scheduler — import them.
 - **Pending task-approvals are window-bound (C10 follow-up).** The parent
   child-modal **Calendar** tab's "Tasks to review" card is fed by the
   picker's `/calendar` query, which is a **today → +14d** window. A child

@@ -28,6 +28,10 @@ Arabic uses neutral Modern Standard Arabic with short, family-friendly labels wh
 | {packed} of {total} packed | تم تجهيز {packed} من {total} | Per-child progress line in the B1 modal. | Yes |
 | Missing: | ناقص: | Prefix before the comma-joined list of unpacked items (ar uses "، " separator). | Yes |
 | All packed / Nothing for this day | كل شيء جاهز / لا شيء لهذا اليوم | Per-child positive/neutral states in the B1 modal. | Yes |
+| Mark packed | تحديد كمجهّز | Parent action button on a still-missing "Needed today" item (D2) — confirms the child packed it this morning after the checklist locked. | Yes |
+| Packed | تم التجهيز | Read-only state badge on an already-packed "Needed today" item (D2). | Yes |
+| Pack the school bag for tomorrow | جهّز الحقيبة المدرسية للغد | Evening tile label (D3) when the tile is in pack-tomorrow mode (6pm→midnight). | Yes |
+| Nothing to pack right now | لا شيء للتجهيز الآن | Empty state in the time-windowed school-summary modal (D3) when no section is currently in-window/unresolved. | Yes |
 | Requests | الطلبات | Short UI label. | No |
 | Approve | قبول | Button action for approving a request; use “موافقة” only when approval is a noun/status. | Yes |
 | Reject | رفض | Short and standard. | No |
