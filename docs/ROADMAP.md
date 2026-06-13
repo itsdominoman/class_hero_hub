@@ -65,6 +65,8 @@
 - Completed: Child School Bag shows Pack for tomorrow, Needed today, and Check stationery
 - Completed: Parent School Prep shows today/tomorrow items per child
 - Completed: Family timezone-aware today/tomorrow lookup
+- Completed (B2): Children tick "Pack for tomorrow" items off (per-item `school_item_checks`); the list locks at local-family midnight and "Needed today" then shows the final read-only state. No points awarded.
+- Next (B1): Make the parent "needed today" tile meaningful — per child "N of M packed, Missing: …", reading B2's packed state
 - Future: Optional school timetable improvements
 
 ### ⚙️ Parent Productivity

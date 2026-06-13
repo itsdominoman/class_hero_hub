@@ -59,11 +59,13 @@
 - Parents can configure school books/classes per child and weekday
 - School items do not appear in the normal calendar agenda or week view
 - Child dashboard School Bag shows:
-  - Pack for tomorrow
-  - Needed today
+  - Pack for tomorrow (children can now tick items off — B2)
+  - Needed today (read-only, shows the previous evening's final packed state)
   - Check stationery
 - Parent dashboard School Prep shows today/tomorrow school items per child
 - Today/tomorrow lookup uses the family's timezone
+- B2 packing state: per-item `school_item_checks(school_item_id, child_id, check_date, packed_at)`; absence of a row = not packed (implicit daily reset). Child-scope `POST`/`DELETE /api/child/school-items/{id}/pack`. A date's checklist is editable only while it is still in the future in the family timezone; once the day begins it is locked. No points awarded for packing.
+- Parent-facing "N of M packed / Missing" summary tile is **not yet built** (B1, next)
 
 ### Behaviour System
 - Quick-tap behaviour presets (points/penalties)

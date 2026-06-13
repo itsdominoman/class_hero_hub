@@ -1,6 +1,6 @@
 # Localisation Notes
 
-Last reviewed: 2026-06-11
+Last reviewed: 2026-06-13
 
 Family Hero Hub supports English and Arabic UI labels for fixed app interface text. Parent-entered content is not translated: child names, reward names, custom point reasons, task titles, calendar event titles, school bag items, and family-entered descriptions remain exactly as entered.
 
@@ -18,6 +18,10 @@ Arabic uses neutral Modern Standard Arabic with short, family-friendly labels wh
 | Allowance | المصروف | Natural GCC/wider Arabic family term for child allowance or pocket money; shorter than literal alternatives. | Yes |
 | Savings | الادخار / النقاط المدخرة | “Savings” is rendered as saving/saved points to avoid implying real banking. | Yes |
 | School Bag | الحقيبة المدرسية | Common and clear. | No |
+| Pack for tomorrow | جهز للغد | Child action label; "جهز" (prepare/pack) is natural and short for the pack-tomorrow checklist (B2). | Yes |
+| Packed / Not packed yet | تم التجهيز / لم يُجهز بعد | Checkbox state labels on the child packing checklist. | Yes |
+| Tap to tick off what you have packed | اضغط لتعليم ما جهزته | Hint above the checkable list; "تعليم" = mark/tick. | Yes |
+| This list is locked for today | قائمة اليوم مقفلة | Shown when a child tries to change a list whose day has already begun. | Yes |
 | Requests | الطلبات | Short UI label. | No |
 | Approve | قبول | Button action for approving a request; use “موافقة” only when approval is a noun/status. | Yes |
 | Reject | رفض | Short and standard. | No |

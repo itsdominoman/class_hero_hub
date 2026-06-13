@@ -135,3 +135,25 @@ images `alt=""` + `aria-hidden="true"` — they are decorative.
   "Correction". Entries are grouped by their source link, not by date
   order, so the pair always reads together. Per-entry corrective actions
   are parent-only and never shown on child screens.
+- **Child packing checklist** (`schoolItemRow` snippet in
+  `child/[id]/+page.svelte`, B2): "Pack for tomorrow" items are tappable
+  checkboxes — a circular toggle that is filled with the section accent
+  (`amber` for tomorrow, `sky` for today) + a check when packed, and a thin
+  outline when not. Packed labels get a muted strike-through. Updates are
+  **optimistic**: the toggle flips immediately and reverts with an inline
+  per-item error if the request fails (failures are never silent). Once the
+  list's date has begun (server `locked=true`, the local-family midnight
+  boundary) the checkboxes render as read-only `<span>`s showing the final
+  state — same look, no interaction — and parent-preview mode is always
+  read-only. The repeated row markup is factored into a single Svelte
+  `{#snippet}` rendered in every school-bag branch; prefer a snippet over
+  copy-pasting when the same item row appears in multiple template
+  branches.
+- **Distinguish expected rejections from unexpected failures:** when an
+  action maps known backend error codes to specific messages (e.g. the
+  correction flow's `correction_*` codes), the catch-all must read as a
+  *generic* "Something went wrong. Please try again." — never reuse an
+  action-specific rejection message for an unknown code, so an
+  infrastructure problem (a 404 from a stale deploy, a 500, a CSRF/network
+  failure) stays visually distinct from a legitimate "you can't do that"
+  rejection.

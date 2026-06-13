@@ -140,6 +140,11 @@ You might see:
 
 Use it before school or bedtime.
 
+In **Pack for tomorrow** you can tap each thing to tick it off once it is in
+your bag. Tap again to un-tick if you take it out. When tomorrow becomes today
+the list locks, so do your packing the evening before. Ticking things off does
+not give points — it just helps you remember.
+
 ## 12) If the link stops working
 
 If you see a message saying the link expired or does not work:

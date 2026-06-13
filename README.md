@@ -93,6 +93,7 @@ Production remains at https://familyherohub.com on the US VPS.
 - Dedicated school item storage separate from calendar events/tasks
 - Parents configure books/classes per child and weekday
 - Child dashboard shows Pack for tomorrow, Needed today, and Check stationery
+- Children tick "Pack for tomorrow" items off; the list locks at local-family midnight and "Needed today" then shows the read-only final state (no points awarded)
 - Today/tomorrow lookup uses the family timezone
 
 ---

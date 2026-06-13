@@ -113,6 +113,24 @@
 - Keeping the `window.prompt` rejection-note flow (small, works, and a
   modal rebuild risks regressions in the approval path).
 
+## Standing conventions (apply every session)
+
+- **Docs-sync rule:** whenever a code change affects something documented,
+  update ALL relevant docs in the same commit or a closely-following doc
+  commit — not just this PLAN.md changelog, but also `docs/DESIGN.md`,
+  `docs/LOCALISATION_NOTES.md`, `docs/ROADMAP.md`, `docs/PROJECT_STATUS.md`,
+  `docs/QA_COVERAGE_MATRIX.md`, the README, or any other file under
+  `/opt/apps/family-hero-hub/docs/` whose content the change makes outdated
+  or incomplete. If unsure whether a doc is affected, open it and check.
+  (Mirrored in `docs/AGENT_WORKFLOW.md` Operating Rules.)
+- **Backend deploys need a container rebuild:** the backend image bakes the
+  code at build time (`build: ./backend`, only `./data` mounted), so after
+  any backend change run `docker compose build backend && docker compose up
+  -d backend` before dev testing — a frontend-only rebuild leaves the API on
+  stale code (root cause of the A6 "every correction 404s" incident).
+- **Test both layers:** service-layer tests alone don't prove an endpoint
+  exists and is wired; add HTTP route-layer tests for new/changed endpoints.
+
 ## CHANGELOG
 
 ### Design system (`be7c3d5`, `bf25f59`, `a7433ea`)
@@ -532,6 +550,48 @@ With existing data only:
     so a missing/mis-wired endpoint can't pass again. Verified end-to-end
     against the live Postgres: the new `reversal` VARCHAR value stores fine,
     success nets to zero, and each rejection returns its specific code.
+- **B2 (implemented): child-facing school-bag packing checklist.**
+  Children can tick "Pack for tomorrow" items off; the gap was that the
+  school-bag view was read-only with no per-item packed state.
+  - *Model + migration `3a7e1c9d4b52`:* `school_item_checks(id,
+    school_item_id, child_id, check_date, packed_at)`, unique on
+    (`school_item_id`, `check_date`) + a (`child_id`, `check_date`) index.
+    One row per item per date; **absence of a row = not packed** — the
+    implicit daily reset, no cron, and dated rows give B1/history for free.
+  - *Midnight lock (timezone):* `school_items_service.is_date_locked` =
+    `check_date <= family_today`, where `family_today` comes from the
+    existing `calendar_service.get_family_today(family.timezone)`. So a date
+    is editable only while still in the future locally; `offset=1`
+    (tomorrow) is editable, `offset=0` (today) is locked the moment the day
+    begins. No reset job, no stored "lock time" — the boundary is derived.
+  - *Endpoints:* child-scope `POST` / `DELETE
+    /api/child/school-items/{id}/pack` (child-session auth + CSRF like other
+    child unsafe routes), idempotent, typed `SchoolCheckError` →
+    `409 checklist_locked` / `400 weekday_mismatch` / `404 item_not_found`.
+    Both `/today` endpoints (child + parent) now return `packed` / `locked`
+    / `check_date` (backward-compatible extra fields; parent dashboard
+    ignores them, and they pre-stage B1). **No points awarded** for packing.
+  - *Frontend:* "Pack for tomorrow" rows are tappable checkboxes with an
+    **optimistic** toggle that reverts + shows a per-item inline error on
+    failure (never silent); "Needed today" renders read-only with the final
+    state. Markup factored into one `schoolItemRow` snippet. New `child.*`
+    strings (en + natural ar, parity verified). No offline/retry queue (v1).
+  - *Tests both layers (A6 lesson):* service-layer lock/idempotency/reject
+    + HTTP route tests in `tests/test_school_items.py`.
+  - *Deploy:* backend image rebuilt (`docker compose build backend && up
+    -d backend`) so the migration runs and the new routes are live —
+    per the standing rule, not a frontend-only rebuild.
+  - *Docs synced:* DESIGN.md (packing checklist + snippet pattern, and the
+    expected-rejection-vs-unexpected-failure rule), LOCALISATION_NOTES.md
+    (glossary rows + review date), ROADMAP.md, PROJECT_STATUS.md,
+    QA_COVERAGE_MATRIX.md. **B1 not built** (parent "N of M packed" tile is
+    the next session).
+- **A6 follow-up (`this session`): unexpected-error message split.** The
+  "Correct this entry" flow now shows a distinct "Something went wrong.
+  Please try again." (`correctErrorUnexpected`, en+ar) for any
+  non-`correction_*` error (a deploy-gap 404, 500, CSRF, network), separate
+  from the specific correction rejections — so an infra problem is visually
+  distinguishable from a legitimate "can't correct this" rejection.
 
 ## Scope C — Future
 
