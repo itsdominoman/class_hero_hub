@@ -308,6 +308,16 @@ def test_calendar_summary_endpoint(db, client):
         db.commit()
         resp = client.get("/api/calendar/summary")
         assert resp.json()["tile_count"] == 2  # unchanged: pending is still outstanding
+        # G1: the Today modal resolves a child's claim in place, so the summary
+        # must expose the pending completion's id + status per task (what the
+        # Confirm/Reject buttons post to /completions/{id}/approve|reject).
+        today_task_item = next(
+            item for item in resp.json()["today"][0]["items"]
+            if item["entry"]["id"] == today_task.id
+        )
+        assert today_task_item["completion"] is not None
+        assert today_task_item["completion"]["status"] == "pending"
+        assert isinstance(today_task_item["completion"]["id"], int)
     finally:
         del app.dependency_overrides[get_current_parent]
 

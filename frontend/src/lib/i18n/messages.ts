@@ -587,7 +587,8 @@ export const en = {
       allDone: 'All done for today',
       counts: '{events} events · {tasks} tasks',
       markComplete: 'Mark complete',
-      awaitingReview: 'Awaiting your review',
+      childSaysDone: 'Says done',
+      confirmDone: 'Confirm',
       openCalendar: 'Open full calendar'
     },
     loginRequired: 'Parent access required',
@@ -1823,7 +1824,8 @@ export const ar = {
       allDone: 'انتهى كل شيء لليوم',
       counts: '{events} فعاليات · {tasks} مهام',
       markComplete: 'تحديد كمكتمل',
-      awaitingReview: 'بانتظار مراجعتك',
+      childSaysDone: 'يقول إنه أنجزها',
+      confirmDone: 'تأكيد',
       openCalendar: 'فتح التقويم الكامل'
     },
     loginRequired: 'مطلوب وصول وليّ الأمر',

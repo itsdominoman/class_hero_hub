@@ -460,6 +460,30 @@
     }
   }
 
+  // G1 — resolve a CHILD's claim straight from the Today modal. Unlike
+  // parentCompleteTask (the parent doing the task themselves → /complete), this
+  // approves/rejects an existing pending completion the child submitted via the
+  // same backend endpoints as C10's per-child "Tasks to review" card. Surfacing
+  // both completion types in one place makes the Today tile the primary
+  // "is this done?" surface; the per-child card is kept as a secondary path.
+  // Reject is offered here too (one-tap, no reason — matching processCompletion)
+  // so a parent who disagrees with a claim never has to leave this view.
+  // Shares calendarCompletingKey so only one calendar action runs at a time.
+  async function reviewCalendarCompletion(completionId: number, action: 'approve' | 'reject') {
+    const key = `review:${completionId}`;
+    if (calendarCompletingKey !== null) return;
+    try {
+      calendarCompletingKey = key;
+      await api.post(`/calendar/completions/${completionId}/${action}`, {});
+      await Promise.all([loadCalendarSummary(), loadDashboard()]);
+    } catch {
+      // Best-effort: a reload reflects current truth (e.g. already reviewed).
+      await loadCalendarSummary();
+    } finally {
+      calendarCompletingKey = null;
+    }
+  }
+
   async function loadDashboard() {
     try {
       loading = true;
@@ -2492,10 +2516,34 @@
                                 {calendarEntryTypeLabel('task')}{#if occ.entry.is_rewardable && occ.entry.points_value} · {occ.entry.points_value} {$_('common.pts')}{/if}
                               </p>
                             </div>
-                            {#if occ.completion?.status === 'pending'}
-                              <span class="shrink-0 inline-flex items-center gap-1 rounded-full bg-reward/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-reward-dark">
-                                <Clock size={12} />{$_('parent.todaySummary.awaitingReview')}
-                              </span>
+                            {#if occ.completion?.status === 'pending' && occ.completion?.id}
+                              <!-- G1 — the child claimed this done; resolve it
+                                   right here (primary path) instead of only in
+                                   the per-child review card. Confirm approves the
+                                   claim; Reject sends it back (one-tap, no reason). -->
+                              <div class="shrink-0 flex flex-col items-end gap-1.5">
+                                <span class="inline-flex items-center gap-1 rounded-full bg-reward/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-reward-dark">
+                                  <Clock size={12} />{$_('parent.todaySummary.childSaysDone')}
+                                </span>
+                                <div class="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onclick={() => reviewCalendarCompletion(occ.completion!.id, 'approve')}
+                                    disabled={calendarCompletingKey !== null}
+                                    class="inline-flex items-center gap-1 rounded-full bg-savings px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm shadow-savings/20 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    <Check size={12} />{$_('parent.todaySummary.confirmDone')}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onclick={() => reviewCalendarCompletion(occ.completion!.id, 'reject')}
+                                    disabled={calendarCompletingKey !== null}
+                                    class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    <X size={12} />{$_('common.reject')}
+                                  </button>
+                                </div>
+                              </div>
                             {:else}
                               <button
                                 type="button"
