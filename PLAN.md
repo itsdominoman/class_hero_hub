@@ -486,3 +486,119 @@ This shares the same root cause as the deferred **A7 beyond-one-month**
 note: the ledger is window-bound with no pagination. Worth doing the
 paged endpoint once and letting both the parent "Year" tab and the
 child longer-history view consume it.
+
+---
+
+# C5 — Review summary (REVIEW-ONLY, awaiting go-ahead)
+
+Nothing in this section is implemented. It re-presents the two proposals
+the brief asked to surface for a human decision, with the specific
+angles requested, so a yes/no (and which-variant) can be given before
+any code is written. Related deferred items already written up above:
+A6 / A7 (Scope B, claude-2) and the C2-followup (Scope C).
+
+## A6 — Reverse / undo a points-log entry
+
+**Why it keeps coming back:** parents fat-finger an award or a penalty
+and there is currently no way to take it back — balances are derived
+from the full ledger and `ledger.py` only ever *creates* rows. This is
+the single most-requested correction affordance.
+
+**Backend shape (decision needed):** the cleanest audit-preserving
+option is a **linked reversing entry**, not a hard delete. The model
+already has `LedgerTransaction.source_transaction_id`
+(self-FK, `models.py:292`) made for exactly this — a reversal row points
+at the row it cancels, the original stays for history, and balances
+stay a pure sum. Either add a `reversal` value to `TransactionType`
+(`models.py:7`) or reuse `adjustment` with the source FK set. A new
+endpoint, e.g. `POST /children/{id}/ledger/{tx_id}/reverse`.
+
+**Three decisions to make:**
+
+1. **UI wording — "Undo" vs "Reverse" vs "Correct this".**
+   - *Undo* — friendliest, implies "as if it never happened"; but the
+     audit row makes it a reversal, not a true erase, so "Undo" slightly
+     over-promises.
+   - *Reverse* — accurate to the linked-entry model; reads slightly
+     technical to non-finance parents.
+   - *Correct this* — frames it as fixing a mistake (warm + honest);
+     pairs well with the audit trail and avoids implying deletion.
+   - Recommendation to confirm: **"Correct this"** as the action label,
+     with a one-line explainer ("Adds a balancing entry — the history is
+     kept"). Reject the temptation to literally hide the original.
+
+2. **Time-limiting.** Should reversal be allowed only for a window
+   (e.g. the entry is still the most recent, or < 24h old, or before the
+   child has "seen" it via the A8 cursor)? Trade-off: a short window
+   keeps the ledger trustworthy and avoids re-litigating old history,
+   but a parent may only notice a mistake days later. Options:
+   (a) no limit; (b) fixed window (24–48h); (c) "latest entry only";
+   (d) allow any, but entries already consumed downstream (a savings
+   deposit's bonus row, a redemption hold) are blocked. Recommendation
+   to confirm: **(d) + a soft 7-day default**, configurable later.
+
+3. **Dragon stage-up clawback.** This is the sharp edge.
+   `update_pet_progress` (`points_service.py`) only ever *adds* to
+   `pet.lifetime_points` on awards, and the dragon stage is derived from
+   lifetime points via `PET_THRESHOLDS`. Reversing an **award** therefore
+   raises the question: do we subtract those lifetime points?
+   - *Clawback (subtract):* keeps lifetime points honest, but the dragon
+     can visibly **regress a stage** (hero → young) — punishing and
+     confusing for a child, especially if the correction is the parent's
+     own mis-tap.
+   - *Monotonic (don't subtract):* the dragon never goes backwards
+     (kind, predictable), but lifetime-points no longer equal the summed
+     ledger, so the two diverge.
+   - Recommendation to confirm: **keep pet progress monotonic — never
+     regress the dragon.** Treat lifetime pet points as a "best ever"
+     measure decoupled from spendable balance. If a true clawback is
+     wanted, gate it so it can *never* drop a stage mid-week, and never
+     as a result of a parent-side correction.
+
+**Scope guard:** redemption holds, savings deposits (which spawn a bonus
+row) and calendar-task awards (which may carry streak bonuses) all have
+downstream rows; v1 should **refuse** to reverse those and only allow
+plain `award` / `penalty` / `adjustment` corrections, surfacing a clear
+"can't auto-correct this kind of entry" message.
+
+## B1 / B2 — School "pack for tomorrow" checklist
+
+**The gap today:** the parent summary tile "School items needed today"
+and the child school-bag view are **read-only** — there is no per-item
+"packed" state, so nothing is actually checkable and the tile can't show
+*what's still unpacked*.
+
+**B2 — child ticks items off (the foundation):**
+- New table **`school_item_checks(id, school_item_id, child_id,
+  check_date, packed_at)`** — one row per item per date. No reset job
+  needed: "no row for today = unpacked" is the implicit daily reset, and
+  keeping dated rows gives B1/history for free.
+- Child-scope endpoints `POST /child/school-items/{id}/pack` and
+  `DELETE …/pack` (date defaults to the offset the list was shown for).
+- Decisions: can a child untick after the target day starts (suggest
+  **no — lock at midnight**); does packing award points (suggest
+  **no for v1** — keep it a routine, not a points farm); offline taps on
+  the child device (retry queue vs. accept loss — suggest accept loss
+  for v1).
+
+**B1 — make the parent "needed today" tile meaningful:**
+- Tappable tile → list of still-unpacked items per child, fed by B2's
+  state. Either a new `GET /school-items/packing-status?date=` or extend
+  the existing `/school-items/today` response with a `packed` flag.
+- Open question to settle: does "needed today" mean **this morning's**
+  items (did they pack for today?) or **last night's pack-for-tomorrow**
+  list (accountability)? Likely both, surfaced as two labelled views.
+
+**Sequencing:** B2 is the prerequisite; B1 is a thin read on top. Both
+are net-new backend surface (one table, a few endpoints) — genuinely
+new feature work, not polish, hence review-only here.
+
+## Recommendation to the requester
+
+Both are worth doing; both need backend work this branch chain has
+deliberately avoided. Suggested order if approved: **A6 first** (highest
+demand, smallest surface, mostly a guarded reversing-entry endpoint +
+one modal action) with the monotonic-dragon decision locked in, then
+**B2 → B1** as a small self-contained feature. The C2-followup year/
+all-time view can ride along with whichever backend pass happens first,
+since it is the same "the ledger needs pagination" root cause.
