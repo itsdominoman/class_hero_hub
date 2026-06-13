@@ -785,6 +785,28 @@ With existing data only:
   - *Deploy:* backend image rebuilt (new `/calendar/summary` route) + frontend,
     routes verified live (not 404), per the standing rule.
 
+- **F1 (implemented): "Coming up tomorrow" lists event titles, drops tasks.**
+  The look-ahead previously showed per-child counts only ("N events · M tasks"),
+  useless as a preview. It now lists tomorrow's **event titles** per child (with
+  start time when set) and **drops tomorrow's tasks** entirely — a task surfaces in
+  its own day's primary "Today" section when actionable, so a day-early task is
+  noise (consistent with the school bag not showing things before they're
+  actionable). Children with no event tomorrow fall out; when no child has an event
+  the section collapses to a muted "Nothing on the calendar tomorrow". A
+  `calendarTomorrowEvents` `$derived` does the events-only/empty-child filtering.
+  **Frontend-only:** `/calendar/summary` already returns full tomorrow occurrences,
+  so no backend/query change.
+- **F2 (implemented): full-calendar link in the Today modal.** The modal footer
+  gets an "Open full calendar" link to `/calendar`, matching the full-width bordered
+  footer-link style used by the Reward Requests ("open review", `/redemptions`) and
+  child Calendar modals.
+  - *Both layers:* no backend change → no new backend test; the existing summary
+    test already asserts the tomorrow occurrence (title on `entry`) is returned,
+    covering the data F1 renders. svelte-check clean (parent page), i18n parity OK
+    (1149 keys), build green.
+  - *Docs synced:* this entry, ROADMAP.md, QA_COVERAGE_MATRIX.md,
+    LOCALISATION_NOTES.md, DESIGN.md (look-ahead = identity-not-counts pattern).
+
 ## Scope C — Future
 
 - **School Bag push notifications can reuse the D3 time-window logic.** The

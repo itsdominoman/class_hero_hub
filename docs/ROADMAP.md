@@ -56,6 +56,8 @@
 - Completed: Child My Day integration for today's tasks/events
 - Completed (E1): Parent dashboard "Today" summary tile (replaced the static "Points available" tile) — `GET /calendar/summary` aggregates today's events + outstanding tasks across children; tap opens a modal with a per-child today breakdown ("N events · M tasks") plus a lighter "Coming up tomorrow" look-ahead. Tile hides until the calendar is used at all; shows 0 when configured-but-empty.
 - Completed (E2): Parent can mark a task complete directly from the Today modal (`POST /calendar/{id}/complete`) — immediately final (no approval loop) and awards points/streak like an approved child-completion. Distinct from the C10 "Tasks to review" approval flow; child-claimed tasks show "Awaiting your review" instead.
+- Completed (F1): The Today modal's "Coming up tomorrow" look-ahead now lists tomorrow's event TITLES per child (was per-child counts only) and drops tomorrow's tasks entirely — tomorrow's tasks reappear in tomorrow's "Today" section when actionable, so showing them a day early is noise. Children with no events tomorrow fall out; when no child has any event tomorrow the section shows "Nothing on the calendar tomorrow". Pure frontend — the existing `/calendar/summary` already returns full tomorrow occurrences.
+- Completed (F2): The Today modal footer links to the full `/calendar` view, matching the "open review"/"open calendar" footer-link pattern used by the Reward Requests and child Calendar modals.
 - Future: Full monthly calendar view
 - Future: Drag-and-drop calendar editing
 - Future: Notification/reminder system (can reuse E1's pure `task_is_outstanding` / `count_attention_items` rules for a morning "what's on / still outstanding today" push)

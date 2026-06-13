@@ -37,6 +37,8 @@ Arabic uses neutral Modern Standard Arabic with short, family-friendly labels wh
 | {events} events · {tasks} tasks | {events} فعاليات · {tasks} مهام | Per-child counts line in the Today modal (E1); interpolated numbers. | Yes |
 | Mark complete | تحديد كمكتمل | Parent action button on a task in the Today modal (E2) — parent records it done themselves; immediately final. Distinct from "Approve" (reviewing a child's claim). | Yes |
 | Awaiting your review | بانتظار مراجعتك | Read-only pill on a child-claimed task in the Today modal (E2) — directs the parent to the review card rather than offering a duplicate complete action. | Yes |
+| Nothing on the calendar tomorrow | لا شيء على الجدول غدًا | Empty state for the "Coming up tomorrow" look-ahead (F1) when no child has an event tomorrow. | Yes |
+| Open full calendar | فتح التقويم الكامل | Footer link in the Today modal (F2) to the full `/calendar` page. | Yes |
 | Requests | الطلبات | Short UI label. | No |
 | Approve | قبول | Button action for approving a request; use “موافقة” only when approval is a noun/status. | Yes |
 | Reject | رفض | Short and standard. | No |

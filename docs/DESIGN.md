@@ -185,7 +185,15 @@ images `alt=""` + `aria-hidden="true"` — they are decorative.
   returns the count, the per-child sections, and a `configured` flag, so the
   dashboard makes one call and the **hide-until-configured** rule (don't show an
   opt-in module a family has never used; once used, show it even at zero) is a
-  server-decided boolean, not a frontend guess.
+  server-decided boolean, not a frontend guess. A **look-ahead section** inside such
+  a modal (the Today modal's "Coming up tomorrow", F1) should preview **item identity,
+  not just counts** — list the actual event titles so the parent learns something
+  without opening the full view; a bare "1 event · 2 tasks" is noise. Show only what's
+  *actionable as a preview*: future tasks are dropped (they resurface in their own day's
+  primary section when current), children with nothing fall out, and an all-empty
+  look-ahead collapses to a single muted "nothing tomorrow" line. Close such a modal
+  with a footer **link to the full surface** (`/calendar`, `/redemptions`) using the
+  shared full-width bordered footer-link style, so the summary stays a summary.
 - **"Do it yourself" vs "approve a claim" are distinct actions** (E2 vs C10):
   when both a subordinate (child) and an authority (parent) can advance the same
   record, keep the two actions visually and behaviourally separate. A parent
