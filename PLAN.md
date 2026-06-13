@@ -853,6 +853,26 @@ With existing data only:
     parity OK (1150 keys), svelte-check clean (parent page), build green.
   - *Docs synced:* this entry, ROADMAP.md, PROJECT_STATUS.md, QA_COVERAGE_MATRIX.md,
     DESIGN.md (new "Visual picker" section).
+- **FIX 1 (implemented, audit finding #1 — Critical): School Bag item deletion
+  fails after packing.** `replace_school_items` (PUT `/school-items/`) hard-deleted
+  any item not kept in the new list, but `school_item_checks.school_item_id` is an
+  **ON DELETE NO ACTION** FK (confirmed against the live PG schema: `confdeltype='a'`).
+  So once a child had packed an item — creating a `school_item_checks` row — a parent
+  editing the weekly list to remove it raised an FK violation in PostgreSQL.
+  - *Chose Option B (soft-delete) over Option A (ON DELETE CASCADE):* the B2/D-series
+    "needed today" / "pack for tomorrow" logic relies on packing **history**; cascade
+    would silently erase it. Soft-delete sets `is_active = False` on removed items.
+  - *No migration needed:* `SchoolItem.is_active` **already exists** (the column was
+    already in the model and **every** read path — `_school_items_query`,
+    `family_has_school_items`, `_require_item_for_child` — already filters
+    `is_active.is_(True)`), so an inactive item simply drops off the current list while
+    its row and FK references stay intact. The audit assumed a new column; it wasn't.
+  - *Both layers + the coverage-gap #1 fix:* added `test_school_items_fk_pg.py`, a
+    **real-PostgreSQL** test (throwaway DB, skips when `POSTGRES_*` unset) that proves
+    the FK is enforced — a raw hard-delete of a packed item raises `IntegrityError`,
+    the exact failure **SQLite silently hides** — and that the soft-delete fix removes
+    the item from the list while preserving its packing history. Mirrored as a SQLite
+    behavioural test in `test_school_items.py`. Full backend suite: 163 passed.
 
 ## Scope C — Future
 
