@@ -1,5 +1,5 @@
 import os
-from datetime import date, time, datetime
+from datetime import date, time, datetime, timedelta
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
@@ -211,6 +211,100 @@ def test_streak_bonus_multiplier(db, client):
     assert resp.json()["bonus_multiplier_applied"] == 1.0
 
     del app.dependency_overrides[get_current_parent]
+
+
+# E1 — "what's outstanding today" pure rules (no DB), so the dashboard tile and
+# any future scheduler share one definition.
+
+def test_task_is_outstanding():
+    # Events are never "outstanding" (they just occur).
+    assert calendar_service.task_is_outstanding("event", None) is False
+    assert calendar_service.task_is_outstanding("event", "approved") is False
+    # A task is outstanding until APPROVED — including child-claimed (pending)
+    # and rejected.
+    assert calendar_service.task_is_outstanding("task", None) is True
+    assert calendar_service.task_is_outstanding("task", "pending") is True
+    assert calendar_service.task_is_outstanding("task", "rejected") is True
+    assert calendar_service.task_is_outstanding("task", "approved") is False
+
+
+def test_count_attention_items():
+    items = [
+        ("event", None),          # +1 (events always count)
+        ("event", "approved"),    # +1
+        ("task", None),           # +1 (not done)
+        ("task", "pending"),      # +1 (child claimed, still outstanding)
+        ("task", "rejected"),     # +1
+        ("task", "approved"),     # +0 (done)
+    ]
+    assert calendar_service.count_attention_items(items) == 5
+    assert calendar_service.count_attention_items([]) == 0
+
+
+# E1 — the dashboard summary endpoint.
+
+def test_calendar_summary_endpoint(db, client):
+    family = models.Family(timezone="Asia/Muscat", week_start_day=6)
+    db.add(family)
+    db.commit()
+    parent = models.ParentUser(email="p@f.com", family_id=family.id, google_sub="s")
+    child = models.Child(display_name="Kid", family_id=family.id)
+    db.add_all([parent, child])
+    db.commit()
+
+    from app.auth import get_current_parent
+    app.dependency_overrides[get_current_parent] = lambda: parent
+    try:
+        # No entries yet -> tile hidden (configured False), nothing to show.
+        resp = client.get("/api/calendar/summary")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body == {"configured": False, "tile_count": 0, "today": [], "tomorrow": []}
+
+        today = calendar_service.get_family_today(family.timezone)
+        tomorrow = today + timedelta(days=1)
+
+        def _entry(title, entry_type, start, rewardable=False, points=None):
+            e = models.CalendarEntry(
+                family_id=family.id, child_id=child.id, created_by_parent_id=parent.id,
+                title=title, entry_type=entry_type, is_rewardable=rewardable,
+                points_value=points, start_date=start, recurrence_type="none",
+            )
+            db.add(e)
+            db.commit()
+            db.refresh(e)
+            return e
+
+        today_event = _entry("Soccer", "event", today)
+        today_task = _entry("Walk the dog", "task", today, rewardable=True, points=5)
+        done_task = _entry("Brush teeth", "task", today, rewardable=True, points=2)
+        _entry("Dentist", "event", tomorrow)
+
+        # Mark one of today's tasks done (approved) — should drop from the count.
+        resp = client.post(f"/api/calendar/{done_task.id}/complete?occurrence_date={today.isoformat()}")
+        assert resp.status_code == 200
+
+        resp = client.get("/api/calendar/summary")
+        body = resp.json()
+        assert body["configured"] is True
+        # today: 1 event + 1 outstanding task + 0 (approved task excluded) = 2
+        assert body["tile_count"] == 2
+        assert [c["child_id"] for c in body["today"]] == [child.id]
+        assert len(body["today"][0]["items"]) == 3  # all 3 of today's items listed
+        assert [c["child_id"] for c in body["tomorrow"]] == [child.id]
+        assert len(body["tomorrow"][0]["items"]) == 1
+
+        # A child-claimed (pending) completion still counts as outstanding.
+        from datetime import datetime as _dt, timezone as _tz
+        db.add(models.CalendarCompletion(
+            entry_id=today_task.id, child_id=child.id, occurrence_date=today,
+            status="pending", completed_at=_dt.now(_tz.utc),
+        ))
+        db.commit()
+        resp = client.get("/api/calendar/summary")
+        assert resp.json()["tile_count"] == 2  # unchanged: pending is still outstanding
+    finally:
+        del app.dependency_overrides[get_current_parent]
 
 def test_duplicate_completion_blocked(db, client):
     family = models.Family()

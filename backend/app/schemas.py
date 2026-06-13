@@ -210,6 +210,31 @@ class CalendarCompletion(CalendarCompletionBase):
     class Config:
         from_attributes = True
 
+class CalendarOccurrence(BaseModel):
+    # One resolved instance of a calendar entry on a specific date, with its
+    # completion state (if any). Same shape the GET /calendar list returns.
+    entry: CalendarEntry
+    occurrence_date: date
+    completion: Optional[CalendarCompletion] = None
+
+class CalendarSummaryChild(BaseModel):
+    child_id: int
+    items: List[CalendarOccurrence]
+
+class CalendarSummary(BaseModel):
+    # E1 — the parent dashboard "Today" tile + modal. `tile_count` is today's
+    # events + outstanding tasks across all children. `today` is the primary
+    # per-child breakdown; `tomorrow` is a lighter look-ahead. `configured` is
+    # whether the family has ever set up any calendar entry (drives the tile's
+    # hide-when-unused behaviour, like the school bag tile).
+    configured: bool
+    tile_count: int
+    today: List[CalendarSummaryChild]
+    tomorrow: List[CalendarSummaryChild]
+
+    class Config:
+        from_attributes = True
+
 class SchoolItemBase(BaseModel):
     class_name: str
     needed_item: Optional[str] = None

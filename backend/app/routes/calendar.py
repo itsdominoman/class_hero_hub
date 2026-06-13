@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from ..database import get_db
 from .. import models, schemas, auth
 from ..services import calendar_service, points_service
@@ -12,6 +12,44 @@ LEGACY_SCHOOL_MARKER = "[[school-item]]"
 
 def _is_legacy_school_entry(entry: models.CalendarEntry) -> bool:
     return bool(entry.description and entry.description.startswith(LEGACY_SCHOOL_MARKER))
+
+
+def _family_timezone(db: Session, family_id: int) -> str:
+    family = db.query(models.Family).filter(models.Family.id == family_id).first()
+    return family.timezone if family and family.timezone else "UTC"
+
+
+def _resolve_child_occurrences(
+    db: Session,
+    child_id: int,
+    from_date: date,
+    to_date: date,
+) -> list[dict]:
+    """Resolve a child's active (non-legacy) calendar entries into dated
+    occurrences over [from_date, to_date], each annotated with its completion.
+    Shared by the per-child list endpoint and the dashboard summary so both read
+    occurrences the same way."""
+    entries = db.query(models.CalendarEntry).filter(
+        models.CalendarEntry.child_id == child_id,
+        models.CalendarEntry.is_active == True
+    ).all()
+    entries = [entry for entry in entries if not _is_legacy_school_entry(entry)]
+
+    resolved = []
+    for entry in entries:
+        for d in calendar_service.resolve_occurrences(entry, from_date, to_date):
+            completion = db.query(models.CalendarCompletion).filter(
+                models.CalendarCompletion.entry_id == entry.id,
+                models.CalendarCompletion.occurrence_date == d
+            ).first()
+            resolved.append({
+                "entry": schemas.CalendarEntry.model_validate(entry),
+                "occurrence_date": d,
+                "completion": schemas.CalendarCompletion.model_validate(completion) if completion else None
+            })
+
+    return sorted(resolved, key=lambda x: (x["occurrence_date"], x["entry"].start_time or datetime.min.time()))
+
 
 @router.get("/", response_model=List[dict])
 async def get_calendar(
@@ -29,29 +67,62 @@ async def get_calendar(
     if not child:
         raise HTTPException(status_code=404, detail="Child not found")
 
-    entries = db.query(models.CalendarEntry).filter(
-        models.CalendarEntry.child_id == child_id,
-        models.CalendarEntry.is_active == True
-    ).all()
-    entries = [entry for entry in entries if not _is_legacy_school_entry(entry)]
+    return _resolve_child_occurrences(db, child_id, from_date, to_date)
 
-    resolved = []
-    for entry in entries:
-        dates = calendar_service.resolve_occurrences(entry, from_date, to_date)
-        for d in dates:
-            # Check for existing completions
-            completion = db.query(models.CalendarCompletion).filter(
-                models.CalendarCompletion.entry_id == entry.id,
-                models.CalendarCompletion.occurrence_date == d
-            ).first()
-            
-            resolved.append({
-                "entry": schemas.CalendarEntry.model_validate(entry),
-                "occurrence_date": d,
-                "completion": schemas.CalendarCompletion.model_validate(completion) if completion else None
-            })
-    
-    return sorted(resolved, key=lambda x: (x["occurrence_date"], x["entry"].start_time or datetime.min.time()))
+
+@router.get("/summary", response_model=schemas.CalendarSummary)
+async def get_calendar_summary(
+    db: Session = Depends(get_db),
+    current_parent: models.ParentUser = Depends(auth.get_current_parent)
+):
+    """E1 — the parent dashboard "Today" tile + modal. Returns today's per-child
+    events/tasks (primary) and a lighter tomorrow look-ahead, plus the badge
+    count (today's events + outstanding tasks) and whether the family has ever
+    configured any calendar entry (hide-when-unused, like the school bag tile).
+    """
+    family_id = current_parent.family_id
+    today = calendar_service.get_family_today(_family_timezone(db, family_id))
+    tomorrow = today + timedelta(days=1)
+
+    configured = db.query(models.CalendarEntry.id).filter(
+        models.CalendarEntry.family_id == family_id,
+        models.CalendarEntry.is_active == True
+    ).first() is not None
+
+    children = db.query(models.Child).filter(
+        models.Child.family_id == family_id,
+        models.Child.active == True
+    ).order_by(models.Child.id.asc()).all()
+
+    today_by_child: list[schemas.CalendarSummaryChild] = []
+    tomorrow_by_child: list[schemas.CalendarSummaryChild] = []
+    tile_count = 0
+
+    for child in children:
+        today_items = _resolve_child_occurrences(db, child.id, today, today)
+        tomorrow_items = _resolve_child_occurrences(db, child.id, tomorrow, tomorrow)
+
+        if today_items:
+            today_by_child.append(
+                schemas.CalendarSummaryChild(child_id=child.id, items=today_items)
+            )
+            tile_count += calendar_service.count_attention_items(
+                [
+                    (occ["entry"].entry_type, occ["completion"].status if occ["completion"] else None)
+                    for occ in today_items
+                ]
+            )
+        if tomorrow_items:
+            tomorrow_by_child.append(
+                schemas.CalendarSummaryChild(child_id=child.id, items=tomorrow_items)
+            )
+
+    return schemas.CalendarSummary(
+        configured=configured,
+        tile_count=tile_count,
+        today=today_by_child,
+        tomorrow=tomorrow_by_child,
+    )
 
 @router.post("/", response_model=schemas.CalendarEntry)
 async def create_calendar_entry(

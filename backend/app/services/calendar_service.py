@@ -13,6 +13,32 @@ def get_family_now(family_timezone: str) -> datetime:
 def get_family_today(family_timezone: str) -> date:
     return get_family_now(family_timezone).date()
 
+
+# E1/E2 — "what's outstanding on the calendar" rules. Kept as pure functions
+# (of entry_type + completion status only, no DB) so the dashboard summary
+# endpoint and any future reminder/notification scheduler share one definition
+# of "still needs attention".
+def task_is_outstanding(entry_type: str, completion_status: str | None) -> bool:
+    """A TASK counts as outstanding (still needs doing) until it has an
+    *approved* completion. A child-claimed task awaiting review (status
+    "pending") or a rejected one is still outstanding from the parent's
+    "what's left today" view. Events are never "outstanding" — they simply
+    occur — so they're excluded here (the tile counts them separately)."""
+    if entry_type != "task":
+        return False
+    return completion_status != "approved"
+
+
+def count_attention_items(items: List[Tuple[str, str | None]]) -> int:
+    """Count of things on a day that warrant a glance: every event, plus every
+    outstanding task. ``items`` is a list of (entry_type, completion_status).
+    This is the badge number for the dashboard "Today" tile."""
+    return sum(
+        1
+        for entry_type, status in items
+        if entry_type == "event" or task_is_outstanding(entry_type, status)
+    )
+
 def get_week_bounds(ref_date: date, week_start_day: int) -> Tuple[date, date]:
     """
     Returns (start_date, end_date) for the week containing ref_date.
