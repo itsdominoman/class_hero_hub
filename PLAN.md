@@ -890,6 +890,36 @@ With existing data only:
     not "we'll" — so the apostrophe doesn't break the parity loader's eval.
   - **Self-serve data export/delete remains unbuilt** — tracked as future work in
     Scope C below. This fix only stops over-promising it.
+- **FIX 3 (implemented, audit findings #2/#5 — MITIGATION ONLY, NOT the real fix):
+  debounce rapid double-taps on balance-affecting submits.** Reward request
+  submission (parent `redeem` → `/redemptions` AND child reward/custom request →
+  `/child/redemptions`), savings deposit (parent `bank` and child →
+  `/savings/deposit`), and points-correction submit (`/ledger/{id}/reverse`) could
+  each fire twice from a fast double-tap, creating duplicate holds / deposits /
+  reversals.
+  - **⚠️ MITIGATION, NOT A FIX.** This only makes a fast *accidental* second tap
+    unlikely — it does **not** prevent a deliberate or scripted concurrent request;
+    two requests sent in parallel still both reach the backend. The proper fix is
+    **server-side** (transaction-level locking, idempotency keys, or DB
+    constraints) and **remains outstanding** — see Scope C — Future below.
+  - *One reusable helper, applied everywhere:* `src/lib/submitGuard.ts` exports
+    `releaseAfterMinLock(startedAt, release, minLockMs = 2000)`. Each handler already
+    set a per-flow busy flag (`modalLoading`, `correctLoading`, `submitting`,
+    `submittingRewardId`) that its button's `disabled` binds to, and already showed a
+    loading label (`common.processing` / `common.saving` / `pointsLog.correcting` /
+    `common.sending` / `child.banking`). The change: capture `Date.now()` when the
+    flag goes true and, in `finally`, release it via `releaseAfterMinLock` so the
+    button stays disabled a **minimum ~2s** from the action start (longer if the
+    request itself takes longer) instead of clearing the instant the request returns.
+    Extends the existing "one action in flight" idea (`calendarCompletingKey`) with a
+    minimum-lock window rather than inventing four bespoke mechanisms.
+  - *Scope note:* the parent points-action modal submit shares `modalLoading` across
+    `award`/`penalty`/`presets` too, so those harmlessly get the same min-lock; only
+    `redeem` + `bank` were in the brief's scope. `submitCustomRequest` (child) reuses
+    `requestReward`, so it's covered transitively.
+  - *Both layers:* **frontend-only**, no backend touch. **No new i18n keys** (reused
+    the existing loading labels). i18n parity OK (1150 keys), svelte-check clean
+    (parent + child pages; only the 30 pre-existing admin errors remain), build green.
 
 ## Scope C — Future
 
@@ -942,6 +972,21 @@ With existing data only:
   anonymise decision, with the same FK-cascade care FIX 1 raised for
   `school_item_checks`). Until then the contact-us wording is the honest
   description. GDPR-style "right to access / erasure" is the framing.
+- **Concurrency protection for balance-affecting writes (the real fix behind
+  FIX 3, audit #2/#5).** Reward redemptions/requests, savings deposits, and
+  ledger corrections (`/redemptions`, `/child/redemptions`, `/savings/deposit`,
+  `/ledger/{id}/reverse`) have **no server-side guard** against duplicate
+  submission — two concurrent requests both succeed, creating duplicate
+  holds / deposits / reversals. FIX 3 added a **client-side ~2s button lock**
+  (`src/lib/submitGuard.ts`) that mitigates *accidental* fast double-taps only;
+  it does nothing against parallel/scripted requests. The proper fix is one (or
+  more) of: **idempotency keys** (client sends a key per logical action; the
+  backend dedupes), **transaction-level row locking** (`SELECT ... FOR UPDATE`
+  on the child's balance/holds while applying), or a **DB uniqueness constraint**
+  on a natural key (e.g. one pending redemption per (child, title, ~window)).
+  Idempotency keys are the most general and also protect against client retries.
+  Until this lands, the client lock is the only protection — do not treat FIX 3
+  as having closed audit #2/#5.
 
 ## Scope C — Proposals for Discussion (DO NOT IMPLEMENT)
 

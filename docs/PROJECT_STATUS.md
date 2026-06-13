@@ -180,6 +180,7 @@
 - Child reward request CSRF recovery for existing linked devices
 - Parent pending reward request card receives child requests
 - Reward request hold/reserve behavior is enforced by the existing redemption hold ledger flow
+- Balance-affecting submit buttons (reward redemption/request, savings deposit, points correction) hold a client-side ~2s disabled lock after tap (FIX 3, shared `src/lib/submitGuard.ts`) to reduce accidental double-tap duplicates. **Mitigation only** — server-side concurrency protection (idempotency keys / row locking / DB constraints) is still outstanding and tracked in PLAN.md "Scope C — Future".
 - Reward rejection releases points on hold
 - Reward approval finalizes points
 - Parent dashboard + child dashboard interaction

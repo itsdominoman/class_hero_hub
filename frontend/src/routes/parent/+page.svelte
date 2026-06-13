@@ -4,6 +4,7 @@
   import { AVATAR_OPTIONS, getAvatarAsset, hasAvatarAssetFile, normaliseAvatarKey } from '$lib/avatars';
   import { formatAllowanceAmount } from '$lib/currencies';
   import { sortRedemptions } from '$lib/redemptions';
+  import { releaseAfterMinLock } from '$lib/submitGuard';
   import { _, locale } from 'svelte-i18n';
   import LanguageSelector from '$lib/components/LanguageSelector.svelte';
   import { 
@@ -920,6 +921,7 @@
     }
     presetTitleError = null;
 
+    const startedAt = Date.now(); // FIX 3 — min-lock window for redeem / savings deposit
     try {
       modalLoading = true;
       modalError = null;
@@ -989,7 +991,7 @@
     } catch (e) {
       modalError = $_('parent.pointsActions.errorActionFailed');
     } finally {
-      modalLoading = false;
+      releaseAfterMinLock(startedAt, () => (modalLoading = false));
     }
   }
 
@@ -1325,6 +1327,7 @@
 
   async function submitCorrectEntry() {
     if (!correctingEntry || !activeModal?.child || correctLoading) return;
+    const startedAt = Date.now(); // FIX 3 — min-lock window for points correction submit
     correctLoading = true;
     correctError = '';
     try {
@@ -1338,7 +1341,7 @@
     } catch (e: any) {
       correctError = correctionErrorMessage(e?.message);
     } finally {
-      correctLoading = false;
+      releaseAfterMinLock(startedAt, () => (correctLoading = false));
     }
   }
 

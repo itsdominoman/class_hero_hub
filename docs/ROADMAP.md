@@ -160,6 +160,8 @@
 - Future: real-device mobile QA on Android Chrome and iPhone Safari
 - Completed (FIX 2, audit #2): removed the inaccurate "export or delete your family data anytime" claim from public copy (FAQ, beta trust line, manuals, wording-decision doc) in EN + AR. Re-worded to the honest contact-us capability ("to get a copy of your family data or delete your account, just contact us and we will action it promptly"); no self-serve export/delete exists yet. Copy-only — the actual feature is tracked in PLAN.md "Scope C — Future".
 - Future: self-serve data export + account deletion (the real feature behind FIX 2's contact-us wording; GDPR-style access/erasure)
+- Completed (FIX 3, audit #2/#5 — MITIGATION ONLY): client-side ~2s button lock on balance-affecting submits (reward redemption/request, savings deposit, points correction) to reduce accidental double-tap duplicates, via the shared `src/lib/submitGuard.ts` `releaseAfterMinLock` helper. Frontend-only, no new i18n keys. NOT a real concurrency fix — does not stop deliberate/scripted concurrent requests.
+- Future: server-side concurrency protection for balance-affecting writes (idempotency keys / row locking / DB constraints) — the real fix behind FIX 3; until it lands, audit #2/#5 is only mitigated, not closed.
 - Future: trust/privacy copy improvements and clearer family-safe wording
 - Future: onboarding simplification and stronger parent-facing conversion flow
 - Future: reward history, reminders, and longer-term retention loops

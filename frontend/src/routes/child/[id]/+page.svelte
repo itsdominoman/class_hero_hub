@@ -5,6 +5,7 @@
   import { api } from "$lib/api";
   import { getAvatarAsset, hasAvatarAssetFile } from "$lib/avatars";
   import { formatAllowanceAmount } from "$lib/currencies";
+  import { releaseAfterMinLock } from "$lib/submitGuard";
   import {
     ArrowRight,
     BadgeCheck,
@@ -850,6 +851,7 @@
       return;
     }
 
+    const startedAt = Date.now(); // FIX 3 — min-lock window for reward/custom request
     try {
       submitting = true;
       const requestPath =
@@ -871,12 +873,13 @@
         "error",
       );
     } finally {
-      submitting = false;
+      releaseAfterMinLock(startedAt, () => (submitting = false));
     }
   }
 
   async function requestPresetReward(reward: Reward) {
     if (!summary) return;
+    const startedAt = Date.now(); // FIX 3 — min-lock window for preset reward request
     try {
       submittingRewardId = reward.id;
       await requestReward(
@@ -885,7 +888,7 @@
         reward.description?.trim() || $_('child.requestedFromDashboard'),
       );
     } finally {
-      submittingRewardId = null;
+      releaseAfterMinLock(startedAt, () => (submittingRewardId = null));
     }
   }
 
@@ -908,6 +911,7 @@
       return;
     }
 
+    const startedAt = Date.now(); // FIX 3 — min-lock window for savings deposit
     try {
       submitting = true;
       const requestPath =
@@ -933,7 +937,7 @@
         "error",
       );
     } finally {
-      submitting = false;
+      releaseAfterMinLock(startedAt, () => (submitting = false));
     }
   }
 
