@@ -58,6 +58,23 @@ Do not use `child-*` tokens on parent-facing screens or vice versa.
 Buttons: `.btn-hero` / `.btn-secondary` from `app.css`; minimum tap
 target 44px is enforced globally for buttons and these classes.
 
+## Visual picker (behaviour presets & rewards)
+
+The "Select Visual (Optional)" picker in the behaviour-preset editor and the
+reward editor is **emoji-based**, sourced from one shared `DEFAULT_EMOJIS` array
+in `parent/+page.svelte` — the single source of truth for both editors. Emoji are
+deliberate over an icon library: they are font-rendered (no assets, no bundle
+cost), need **no per-icon i18n** (the picker is visual-only), and render correctly
+in both LTR and RTL. The array is **ordered by loose category** (hygiene, chores,
+food, school, sport, screen & entertainment, outdoors & nature, pets, music &
+creativity, sleep, social/family, treats & rewards, transport, health, plus a few
+behaviour-feedback markers like 👍/🚫/😡) so the `flex-wrap` grid reads in groups;
+**extend a category in place** rather than appending randomly. The grid keeps its
+shape (40px tappable tiles, a leading "clear/none" `X` tile, `border-hero` on the
+selected tile); growing the set just wraps more rows. Both editors live inside the
+scrollable `#modal-scroll-area` (not the C6 fixed-height *tabbed* picker modal), so
+a taller grid simply scrolls — it does not affect C6's constant-height rule.
+
 ## Empty / loading states
 
 Use the dragon pet artwork (`/pets/dragon-1/*.png`) instead of bare

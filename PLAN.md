@@ -833,6 +833,26 @@ With existing data only:
     svelte-check clean (parent page), i18n parity OK (1150 keys), build green.
   - *Docs synced:* this entry, ROADMAP.md, PROJECT_STATUS.md, QA_COVERAGE_MATRIX.md,
     LOCALISATION_NOTES.md, DESIGN.md (extended the E2-vs-C10 pattern note).
+- **H1 (implemented): expand the visual picker for presets & rewards.** Parent
+  feedback: the "Select Visual (Optional)" emoji picker had too few options. The
+  shared `DEFAULT_EMOJIS` array (single source of truth in `parent/+page.svelte`)
+  grew from **24 → 69**, ordered by category (hygiene, chores, food, school, sport,
+  screen & entertainment, outdoors & nature, pets, music & creativity, sleep,
+  social/family, treats & rewards, transport, health, plus the existing 👍/🚫/😡
+  behaviour markers) so the wrapping grid reads in loose groups. **Emoji kept** (not
+  an icon library): font-rendered, no assets, no per-icon i18n, LTR/RTL-safe.
+  - *Also surfaced the picker in the reward editor:* `rewardForm.icon` was already
+    persisted but had **no picker UI** — only the preset modal did. Added the same
+    grid + selection behaviour to the reward editor (reusing `presets.visualLabel`),
+    so the parent feedback about "the reward picker" is now actually true.
+  - *No redesign / no C6 conflict:* same grid, tiles, and "clear" tile; both editors
+    live in the scrollable `#modal-scroll-area`, not the C6 fixed-height *tabbed*
+    picker modal, so the taller grid just scrolls.
+  - *Both layers:* **frontend-only**, no backend touch. Picker is visual-only →
+    **no new i18n keys** (reused the existing `parent.presets.visualLabel`); i18n
+    parity OK (1150 keys), svelte-check clean (parent page), build green.
+  - *Docs synced:* this entry, ROADMAP.md, PROJECT_STATUS.md, QA_COVERAGE_MATRIX.md,
+    DESIGN.md (new "Visual picker" section).
 
 ## Scope C — Future
 
