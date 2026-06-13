@@ -343,8 +343,9 @@ With existing data only:
   period window in both the parent picker log and the child activity
   list (was hard-truncated at 8 rows). Counter resets on period/modal
   change.
-- A6: **not implemented** — requires a backend delete/reverse endpoint
-  (see "Needs Scope B" above).
+- A6: was deferred here (needed a backend reverse endpoint) — **now
+  implemented** as the "Correct this entry" linked-reversal flow; see the
+  A6 entry in CHANGELOG (claude-3).
 
 ### i18n
 - New keys, both locales: `parent.pointsActions.newPreset`,
@@ -473,6 +474,65 @@ With existing data only:
   silently; parent preview never notifies. The overlay is guarded with
   `!celebration` so it sequences *after* the points celebration rather
   than stacking. New keys under `child.rewardNews.*` (en + natural ar).
+- **A6 (implemented): "Correct this entry" for points-log entries.**
+  Parents can now correct a fat-fingered award/penalty/adjustment via a
+  **linked reversing row**, not a delete — the original stays for history.
+  - *Model:* added `TransactionType.reversal`. Because `string_enum` uses
+    `native_enum=False` (values are stored as VARCHAR, not a DB enum
+    type), **no migration is needed** for the new value; the reversing
+    row reuses the existing `source_transaction_id` self-FK
+    (`2f3c4d5e6a7b`) to point at the entry it cancels. Judgement call per
+    the PLAN discussion: a dedicated `reversal` type (over reusing
+    `adjustment`) keeps display, eligibility and summary logic
+    unambiguous.
+  - *Endpoint:* `POST /children/{id}/ledger/{tx_id}/reverse` (parent-auth,
+    optional `reason`). Logic lives in `points_service.correct_transaction`
+    (unit-tested). Eligibility: type ∈ {award, penalty, adjustment},
+    **spending jar only** (savings spawns maturity/bonus rows), not itself
+    derived/a correction (`source_transaction_id is None`), nothing
+    already references it (`_source_processed` — catches double-correction
+    and matured deposits), and within a **7-day** window of `created_at`.
+    Ineligible cases raise `CorrectionError` with a stable code
+    (`correction_ineligible_type` / `_window_expired` /
+    `_already_processed`) → HTTP 400; the frontend maps codes to localized
+    messages (both languages).
+  - *Monotonic pet progress:* the reverse path **deliberately does not
+    touch `pet.lifetime_points`**. Lifetime points were already an
+    award-only high-water-mark (penalties/adjustments never decremented
+    them, and stage is derived from that field, never recomputed from the
+    ledger sum), so a correction that reduces spendable points can never
+    regress a dragon stage. Covered by
+    `test_correct_transaction_does_not_regress_pet_progress`.
+  - *Ledger/summary:* `get_ledger_summary` now folds `reversal` into the
+    gained/lost/net tallies (like `adjustment`, by sign) so period totals
+    stay honest. The correction row carries the parent's reason as its
+    description.
+  - *UI:* points-log entries (parent child-modal only — children never see
+    it) show a "Correct this entry" pencil action when eligible; it opens
+    a small confirm sheet with the explainer "This adds a balancing entry
+    while keeping the original history." + an optional reason field. The
+    correction renders as a dashed accent row **directly beneath its
+    original** (front-end groups by `source_transaction_id`, independent of
+    the date sort), and the original gains a "Corrected" badge with its
+    action removed. New keys under `parent.pointsLog.correct*` (en +
+    natural ar, parity confirmed). New confirm-sheet pattern documented in
+    DESIGN.md.
+
+## Scope C — Future
+
+- **Pending task-approvals are window-bound (C10 follow-up).** The parent
+  child-modal **Calendar** tab's "Tasks to review" card is fed by the
+  picker's `/calendar` query, which is a **today → +14d** window. A child
+  task-done completion whose `occurrence_date` is **before today** (an
+  overdue task the child only just marked done) therefore **never appears**
+  in that card — the full `/calendar` page is the only catch-all today.
+  Proposed fix (not implemented here): a dedicated
+  `GET /calendar/completions?status=pending` endpoint, **decoupled from any
+  date window**, returning all pending completions for the family's
+  children (newest first), so the Calendar tab can surface **every** pending
+  approval regardless of age. Decoupling from the date window is the whole
+  point — do not re-introduce a forward-looking bound. Pairs naturally with
+  the same paged-ledger backend pass noted for the C2-followup.
 
 ## Scope C — Proposals for Discussion (DO NOT IMPLEMENT)
 

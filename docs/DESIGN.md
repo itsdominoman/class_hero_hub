@@ -117,3 +117,21 @@ images `alt=""` + `aria-hidden="true"` — they are decorative.
 - Modals that switch tabs/views internally must keep a constant height
   (see the child picker: fixed sheet height, tabs scroll internally) —
   don't let the sheet grow/shrink as content changes.
+- **Confirm-with-reason sheet** (A6 "Correct this entry"): for a
+  consequential action that needs a quick confirmation plus an *optional*
+  short note, use a compact secondary sheet stacked above the current
+  modal (`z-[110]`, same bottom-sheet-on-mobile / centered-card-on-desktop
+  chrome and dimmed backdrop as the primary modal). Pattern: a title, one
+  plain-language explainer line (what the action actually does — here,
+  "This adds a balancing entry while keeping the original history."), a
+  read-only echo of the affected item, a single optional reason input, an
+  inline error slot, and a Cancel / confirm button pair. Reserve this for
+  destructive-feeling-but-reversible actions where a free-text reason adds
+  value; simple yes/no confirmations still use the native `confirm()`.
+- **Correction rows in the points log:** a correction is shown, never
+  hidden — the original entry keeps its place with a muted "Corrected"
+  badge (and its action removed), and the balancing entry renders
+  immediately beneath it as a dashed `hero`-accent row labelled
+  "Correction". Entries are grouped by their source link, not by date
+  order, so the pair always reads together. Per-entry corrective actions
+  are parent-only and never shown on child screens.
