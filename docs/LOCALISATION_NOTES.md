@@ -33,6 +33,8 @@ Arabic uses neutral Modern Standard Arabic with short, family-friendly labels wh
 | Positive behaviour | سلوك إيجابي | Child-facing behaviour label. Keep it gentle and non-shaming. | Yes |
 | Negative behaviour | سلوك سلبي | Child-facing behaviour label. Keep it gentle and non-shaming. | Yes |
 | Custom reason | سبب مخصص / السبب | Uses simple “reason” wording in compact forms. | Yes |
+| Preset (saved point action) | قالب | Standardised term for a reusable saved point action/template. Always use قالب for the saved item — do **not** mix in إجراء (“action”) or use سلوك for the preset itself. | Yes |
+| Behaviour (the thing a preset rewards) | سلوك | Use سلوك only for the behaviour concept itself (e.g. “Edit Behaviour” تعديل السلوك, positive/negative behaviour labels), not for the saved preset. “Behaviour presets” = قوالب السلوك keeps the two words distinct. | Yes |
 
 Known follow-up: Arabic wording should receive native-speaker review before production launch, especially allowance, caregiver, redeem/request, and child-facing encouragement copy. Terms that still need context review include Positive/Negative labels and any place where approval is used as a noun/status instead of a button action.
 
@@ -98,6 +100,25 @@ Arabic wording still needs native-speaker review before production launch, espec
 - redeem/request/spend wording
 - child-facing encouragement and negative-behaviour wording
 - approval/status wording where context changes the best Arabic term
+
+## Preset terminology standardisation (C7, 2026-06-13)
+
+The Arabic preset/behaviour strings used three synonyms for the same
+saved point-action: قالب (template/preset), سلوك (behaviour), and إجراء
+(action). قالب was already the dominant term (~11 strings: titles,
+existing list, edit/delete/create/apply, errors, behaviourPresets).
+Standardised on:
+
+- **قالب = preset** (the saved item) everywhere.
+- **سلوك = behaviour** only where the English source says “behaviour”
+  (Manage Behaviours, Edit Behaviour, “title for this behaviour”, the
+  New behaviour quick tile) and for the positive/negative behaviour
+  labels. “Behaviour presets” stays قوالب السلوك.
+- The stray **إجراء (action)** term was removed from the preset modal:
+  `presets.subtitle` and `presets.update` now use قالب
+  (إعداد قوالب قابلة لإعادة الاستخدام / تحديث هذا القالب). إجراء is still
+  used elsewhere only for genuine “point actions” menus (إجراءات النقاط),
+  a different concept.
 
 ## i18n key-parity check (added 2026-06-12)
 
