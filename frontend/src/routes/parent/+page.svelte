@@ -107,7 +107,45 @@
   let avatarImageErrors = $state<Record<number, boolean>>({});
   let pointAudioContext: AudioContext | null = null;
 
-  const DEFAULT_EMOJIS = ['🪥', '📚', '🛏️', '⏰', '🧹', '🧺', '🍎', '🥦', '👍', '❤️', '⭐', '👑', '🎮', '🖥️', '📱', '😴', '😡', '🚫', '🧸', '🏃', '🎒', '✏️', '🧼', '🍽️'];
+  // H1 — shared visual set for the behaviour-preset and reward editors. Emoji
+  // (not an icon library): font-rendered, no assets, no per-icon i18n, and they
+  // render correctly in both LTR and RTL. Ordered by category so the wrapping
+  // grid reads in loose groups; expand a category in place rather than appending
+  // randomly. Categories: hygiene · chores · food · school · sport · screen &
+  // entertainment · outdoors & nature · pets · music & creativity · sleep ·
+  // social/family · treats & rewards · transport · health · feedback markers.
+  const DEFAULT_EMOJIS = [
+    // hygiene & self-care
+    '🪥', '🧼', '🚿', '🛁', '🦷',
+    // chores & cleaning
+    '🧹', '🧺', '🧽', '🗑️',
+    // food & meals
+    '🍎', '🥦', '🥕', '🍌', '🥛', '🍳', '🍽️',
+    // school & learning
+    '📚', '🎒', '✏️', '📝', '🔢', '🌍',
+    // exercise & sports
+    '🏃', '⚽', '🏀', '🚴', '🏊',
+    // screen time & entertainment
+    '🎮', '🖥️', '📱', '📺', '🎬',
+    // outdoor & nature
+    '🌳', '🌻', '☀️', '🪴',
+    // pets & animals
+    '🐶', '🐱', '🐾', '🐟',
+    // music & creativity
+    '🎵', '🎨', '🎸', '🖍️',
+    // sleep & bedtime
+    '🛏️', '😴', '🌙', '⏰',
+    // social & family time
+    '❤️', '🫂', '🤝',
+    // treats & rewards
+    '⭐', '👑', '🎁', '🍦', '🍬', '🏆', '🎉', '💰', '🧸',
+    // transport
+    '🚗', '🚌', '✈️',
+    // health
+    '💊', '🩺', '😷',
+    // feedback markers
+    '👍', '🚫', '😡'
+  ];
 
   type SchoolItem = {
     id: number;
@@ -2283,6 +2321,32 @@
                     <span class="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">{$_('common.points')}</span>
                     <input type="number" min="1" bind:value={rewardForm.points} class="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-4 text-slate-900 font-bold focus:outline-none focus:border-hero/30" />
                   </label>
+
+                  <!-- H1 — visual picker for rewards, same shared DEFAULT_EMOJIS
+                       and selection behaviour as the behaviour-preset editor.
+                       rewardForm.icon was already persisted; this exposes it. -->
+                  <div class="space-y-2">
+                    <span class="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">{$_('parent.presets.visualLabel')}</span>
+                    <div class="flex flex-wrap gap-2 p-4 bg-white rounded-2xl border-2 border-slate-200">
+                      <button
+                        type="button"
+                        onclick={() => rewardForm.icon = ''}
+                        class="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-50 border border-slate-100 hover:border-hero/30 transition-all"
+                      >
+                        <X size={16} class="text-slate-300" />
+                      </button>
+                      {#each DEFAULT_EMOJIS as emoji}
+                        <button
+                          type="button"
+                          onclick={() => rewardForm.icon = emoji}
+                          class="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-50 border transition-all text-xl
+                            {rewardForm.icon === emoji ? 'border-hero shadow-sm' : 'border-slate-100 hover:border-hero/30'}"
+                        >
+                          {emoji}
+                        </button>
+                      {/each}
+                    </div>
+                  </div>
 
                   <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <button type="button" onclick={saveReward} disabled={rewardLoading || !rewardForm.title.trim() || rewardForm.points < 1} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-4 text-xs font-semibold uppercase tracking-wide text-white disabled:cursor-not-allowed disabled:opacity-60">
