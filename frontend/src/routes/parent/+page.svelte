@@ -2877,7 +2877,7 @@
             {/if}
           {/if}
 
-          {#if activeModal.type !== 'picker' && activeModal.type !== 'add-child' && activeModal.type !== 'family' && activeModal.type !== 'calendar-week' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests'}
+          {#if activeModal.type !== 'picker' && activeModal.type !== 'add-child' && activeModal.type !== 'family' && activeModal.type !== 'calendar-week' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests' && activeModal.type !== 'school-summary'}
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
               <div class="space-y-2">
                 <label for="points-amount" class="text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">{$_('parent.presets.pointsLabel')}</label>
@@ -2911,7 +2911,7 @@
             </div>
           {/if}
 
-          {#if activeModal.type !== 'presets' && activeModal.type !== 'picker' && activeModal.type !== 'add-child' && activeModal.type !== 'family' && activeModal.type !== 'calendar-week' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests'}
+          {#if activeModal.type !== 'presets' && activeModal.type !== 'picker' && activeModal.type !== 'add-child' && activeModal.type !== 'family' && activeModal.type !== 'calendar-week' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests' && activeModal.type !== 'school-summary'}
             <div class="space-y-2">
               <label for="modal-description" class="text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">{$_('parent.redeem.descriptionLabel')}</label>
               <textarea 
@@ -2974,7 +2974,7 @@
           {/if}
         </div>
 
-          {#if activeModal.type !== 'picker' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests' && activeModal.type !== 'calendar-week'}
+          {#if activeModal.type !== 'picker' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests' && activeModal.type !== 'calendar-week' && activeModal.type !== 'school-summary'}
             <div class="pt-6 shrink-0 flex flex-col gap-3 bg-white">
               <button 
                 onclick={handleModalSubmit}
