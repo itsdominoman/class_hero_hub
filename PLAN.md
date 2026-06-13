@@ -517,6 +517,21 @@ With existing data only:
     action removed. New keys under `parent.pointsLog.correct*` (en +
     natural ar, parity confirmed). New confirm-sheet pattern documented in
     DESIGN.md.
+  - *Dev-deploy bug (fixed, `09b7924`):* corrections failed on dev for
+    **every** attempt with the generic "Unable to add correction" toast.
+    Root cause was **not** the A6 code — the backend image (`build:
+    ./backend`, code baked at build, only `./data` mounted) had not been
+    rebuilt after the A6 commits, so the running container lacked the
+    `/reverse` route. Every POST got a 404 `"Not Found"`, which the
+    frontend's code-based mapper doesn't recognise → generic fallback. The
+    138 unit tests passed because the A6 tests called
+    `points_service.correct_transaction` **directly** and never exercised
+    the API route/contract. Fix: redeploy (`docker compose build backend`)
+    **and** add HTTP-level regression tests
+    (`tests/test_ledger_correction_http.py`) that go through the real route
+    so a missing/mis-wired endpoint can't pass again. Verified end-to-end
+    against the live Postgres: the new `reversal` VARCHAR value stores fine,
+    success nets to zero, and each rejection returns its specific code.
 
 ## Scope C — Future
 
