@@ -761,7 +761,9 @@ export const en = {
     },
     childCalendar: {
       errorLoad: 'Unable to load calendar',
-      errorLoadHistory: 'Unable to load point history'
+      errorLoadHistory: 'Unable to load point history',
+      reviewHeading: 'Tasks to review',
+      reviewError: 'Could not update this task'
     },
     rewards: {
       manage: 'Manage Rewards',
@@ -1935,7 +1937,9 @@ export const ar = {
     },
     childCalendar: {
       errorLoad: 'تعذر تحميل التقويم',
-      errorLoadHistory: 'تعذر تحميل سجل النقاط'
+      errorLoadHistory: 'تعذر تحميل سجل النقاط',
+      reviewHeading: 'مهام للمراجعة',
+      reviewError: 'تعذر تحديث هذه المهمة'
     },
     rewards: {
       manage: 'إدارة المكافآت',

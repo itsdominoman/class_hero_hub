@@ -429,6 +429,29 @@ With existing data only:
   so both views are guaranteed newest-first. The backend boolean-order
   quirk is left in place (the frontend now sorts authoritatively); a
   future backend tidy could use `(status == pending).desc()`.
+- **C10: surfaced the child task-done → parent approval flow.**
+  Investigated first: the flow is **fully backend-supported and was
+  simply not surfaced**. A child marking a My-Day task done POSTs
+  `/child/calendar/{entry_id}/complete`, which creates a
+  `CalendarCompletion` with `status="pending"`; parents already have
+  `POST /calendar/completions/{id}/approve` and `/reject`
+  (`backend/app/routes/calendar.py`) — approve awards the task's points
+  (with the existing weekly-streak bonus logic) and writes the ledger
+  entry, reject just marks it rejected. The parent calendar GET already
+  returns each occurrence's `completion` (id + status + points_awarded).
+  No backend change needed. Built the missing UI: a "Tasks to review"
+  card at the top of the child picker's **Calendar** tab listing pending
+  task completions (newest occurrence first) with Approve/Reject buttons,
+  mirroring the C8 reward-request pattern. `processCompletion` posts the
+  decision then refreshes the dashboard totals + the child's calendar and
+  re-syncs the open modal, so the points pill and the pending list update
+  in place. New keys `parent.childCalendar.reviewHeading` / `reviewError`
+  (en/ar); status/points labels reuse existing `calendar.pendingApproval`
+  and `common.*`. Known limitation (documented, not a workaround): the
+  picker's calendar query is a today→+14d window, so a completion for a
+  task dated before today won't appear here; the full `/calendar` page is
+  the catch-all. Widening that window or adding a dedicated
+  pending-completions feed is a possible follow-up.
 
 ## Scope C — Proposals for Discussion (DO NOT IMPLEMENT)
 

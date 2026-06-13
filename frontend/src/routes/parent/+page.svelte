@@ -120,7 +120,9 @@
     entry: CalendarEntry;
     occurrence_date: string;
     completion: {
+      id: number;
       status: 'pending' | 'approved' | 'rejected' | string;
+      points_awarded: number | null;
     } | null;
   };
 
@@ -1185,6 +1187,30 @@
   function upcomingCalendarItems(childSummary: any) {
     const today = getLocalDateValue();
     return modalCalendarItems(childSummary).filter((item) => item.occurrence_date !== today).slice(0, 6);
+  }
+
+  // Task completions the child has marked done that are awaiting a parent
+  // decision. Newest occurrence first so the most recent submission is on top.
+  function pendingCompletions(childSummary: any) {
+    return modalCalendarItems(childSummary)
+      .filter((item) => item.entry.entry_type === 'task' && item.completion?.status === 'pending')
+      .sort((a, b) => b.occurrence_date.localeCompare(a.occurrence_date));
+  }
+
+  async function processCompletion(childSummary: any, completionId: number, action: 'approve' | 'reject') {
+    try {
+      await api.post(`/calendar/completions/${completionId}/${action}`, {});
+      // Approval awards points, so refresh the dashboard totals and the
+      // calendar occurrences (to clear the pending state), then re-sync the
+      // open modal's child reference.
+      await Promise.all([loadDashboard(), loadChildCalendar(childSummary)]);
+      refreshActiveModalChild();
+    } catch (e) {
+      childCalendarError = {
+        ...childCalendarError,
+        [childSummary?.child?.id]: $_('parent.childCalendar.reviewError')
+      };
+    }
   }
 
   async function loadChildCalendar(childSummary: any) {
@@ -2396,6 +2422,42 @@
                     {childCalendarError[activeModal.child.child.id]}
                   </div>
                 {:else}
+                  {@const reviewItems = pendingCompletions(activeModal.child)}
+                  {#if reviewItems.length > 0}
+                    <div class="rounded-[1.75rem] border border-hero/20 bg-hero/5 p-4">
+                      <div class="flex items-center justify-between gap-3">
+                        <p class="text-[10px] font-semibold uppercase tracking-wide text-hero">{$_('parent.childCalendar.reviewHeading')}</p>
+                        <span class="rounded-2xl bg-hero/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-hero">{reviewItems.length}</span>
+                      </div>
+                      <div class="mt-4 space-y-3">
+                        {#each reviewItems as item (item.completion?.id)}
+                          <div class="rounded-2xl border border-slate-100 bg-white p-4">
+                            <div class="flex flex-wrap items-center gap-2">
+                              <span class="inline-flex items-center rounded-full bg-hero/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-hero">{$_('calendar.pendingApproval')}</span>
+                              <span class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{formatCalendarDate(item.occurrence_date)}</span>
+                            </div>
+                            <p class="mt-3 break-words font-bold leading-snug text-slate-950">{item.entry.title}</p>
+                            {#if item.entry.is_rewardable && item.entry.points_value}
+                              <span class="mt-3 inline-flex items-center gap-2 rounded-full bg-savings/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-savings-dark">
+                                <Trophy size={13} />
+                                +{item.entry.points_value} {$_('common.points')}
+                              </span>
+                            {/if}
+                            <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                              <button onclick={() => processCompletion(activeModal.child, item.completion!.id, 'approve')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-4 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-savings/20">
+                                <Check size={16} />
+                                {$_('common.approve')}
+                              </button>
+                              <button onclick={() => processCompletion(activeModal.child, item.completion!.id, 'reject')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-semibold uppercase tracking-wide text-slate-700">
+                                <X size={16} />
+                                {$_('common.reject')}
+                              </button>
+                            </div>
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
+                  {/if}
                   <div class="rounded-[1.75rem] border border-slate-100 bg-white p-4">
                     <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('common.today')}</p>
                     {#if todayEvents.length === 0}
