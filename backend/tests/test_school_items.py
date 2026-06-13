@@ -431,3 +431,52 @@ def test_http_child_pack_unknown_item_404(db, client):
         assert resp.json()["detail"] == "item_not_found"
     finally:
         app.dependency_overrides.pop(__import__("app.child_auth", fromlist=["get_current_child"]).get_current_child, None)
+
+
+# B1 follow-up — "does the family have any school items configured" existence
+# check that drives whether the parent dashboard shows the school summary tile.
+
+def test_service_family_has_school_items(db):
+    family, parent, child = _create_family_with_parent_and_child(db)
+    assert school_items_service.family_has_school_items(db, family.id) is False
+
+    item = _make_school_item(db, child, 2)
+    assert school_items_service.family_has_school_items(db, family.id) is True
+
+    # Soft-deleting (is_active False) the only item => no longer "configured".
+    item.is_active = False
+    db.commit()
+    assert school_items_service.family_has_school_items(db, family.id) is False
+
+
+def test_service_family_has_school_items_scoped_per_family(db):
+    family1, parent1, child1 = _create_family_with_parent_and_child(db)
+    family2 = models.Family(timezone="Asia/Muscat", week_start_day=6)
+    db.add(family2)
+    db.commit()
+    child2 = models.Child(display_name="Other", family_id=family2.id)
+    db.add(child2)
+    db.commit()
+
+    _make_school_item(db, child1, 2)
+    # family1 has an item, family2 does not — the check must not leak across.
+    assert school_items_service.family_has_school_items(db, family1.id) is True
+    assert school_items_service.family_has_school_items(db, family2.id) is False
+
+
+def test_http_parent_school_items_configured(db, client):
+    family, parent, child = _create_family_with_parent_and_child(db)
+
+    from app.auth import get_current_parent
+    app.dependency_overrides[get_current_parent] = lambda: parent
+    try:
+        resp = client.get("/api/school-items/configured")
+        assert resp.status_code == 200
+        assert resp.json() == {"configured": False}
+
+        _make_school_item(db, child, 2)
+        resp = client.get("/api/school-items/configured")
+        assert resp.status_code == 200
+        assert resp.json() == {"configured": True}
+    finally:
+        del app.dependency_overrides[get_current_parent]

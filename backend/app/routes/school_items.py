@@ -236,6 +236,18 @@ async def replace_school_items(
     )
 
 
+@router.get("/configured", response_model=schemas.SchoolItemsConfigured)
+async def get_school_items_configured(
+    db: Session = Depends(get_db),
+    current_parent: models.ParentUser = Depends(auth.get_current_parent),
+):
+    """Whether this family has set up any school items at all. The parent
+    dashboard uses this to hide the school summary tile for families not using
+    the feature (rather than showing a permanent "0")."""
+    configured = school_items_service.family_has_school_items(db, current_parent.family_id)
+    return schemas.SchoolItemsConfigured(configured=configured)
+
+
 @router.get("/today", response_model=List[schemas.SchoolItemForDate])
 async def get_school_items_today(
     child_id: int = Query(...),

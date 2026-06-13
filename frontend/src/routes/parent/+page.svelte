@@ -32,6 +32,7 @@
   let loadingSchoolPrep = $state(false);
   let schoolTodayByChild = $state<Record<number, SchoolItem[]>>({});
   let schoolTomorrowByChild = $state<Record<number, SchoolItem[]>>({});
+  let schoolItemsConfigured = $state(false);
   let error = $state<string | null>(null);
   let needsLogin = $state(false);
 
@@ -341,8 +342,17 @@
     if (!childSummaries.length) {
       schoolTodayByChild = {};
       schoolTomorrowByChild = {};
+      schoolItemsConfigured = false;
       return;
     }
+
+    // Family-wide existence check (any child, any weekday) — drives whether the
+    // summary tile shows at all. today/tomorrow alone can't tell a never-set-up
+    // family apart from one whose items just fall on other weekdays.
+    api
+      .get('/school-items/configured')
+      .then((res: any) => { schoolItemsConfigured = !!res?.configured; })
+      .catch(() => { schoolItemsConfigured = false; });
 
     try {
       loadingSchoolPrep = true;
@@ -1540,6 +1550,7 @@
                 </p>
               </div>
             </a>
+            {#if schoolItemsConfigured}
             <button
               type="button"
               onclick={() => { activeModal = { type: 'school-summary' }; }}
@@ -1555,6 +1566,7 @@
                 </p>
               </div>
             </button>
+            {/if}
           </section>
         {/if}
 

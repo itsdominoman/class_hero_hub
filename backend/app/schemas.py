@@ -239,6 +239,11 @@ class SchoolItemForDate(SchoolItem):
     packed: bool = False
     locked: bool = False
 
+class SchoolItemsConfigured(BaseModel):
+    # Whether the family has any active school item configured (any child, any
+    # weekday). Drives whether the parent dashboard shows the school summary tile.
+    configured: bool
+
 class SchoolItemPackRequest(BaseModel):
     check_date: date
 

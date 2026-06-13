@@ -31,6 +31,22 @@ def is_date_locked(check_date: date, family_today: date) -> bool:
     return check_date <= family_today
 
 
+def family_has_school_items(db: Session, family_id: int) -> bool:
+    """True if any child in the family has at least one active school item
+    configured (on any weekday). Feeds the parent dashboard's decision to show
+    or hide the "School items missing" summary tile — families that have never
+    set up the feature shouldn't see a permanent "0" tile."""
+    return (
+        db.query(models.SchoolItem.id)
+        .filter(
+            models.SchoolItem.family_id == family_id,
+            models.SchoolItem.is_active.is_(True),
+        )
+        .first()
+        is not None
+    )
+
+
 def packed_item_ids(db: Session, child_id: int, item_ids: list[int], check_date: date) -> set[int]:
     if not item_ids:
         return set()

@@ -66,6 +66,7 @@
 - Today/tomorrow lookup uses the family's timezone
 - B2 packing state: per-item `school_item_checks(school_item_id, child_id, check_date, packed_at)`; absence of a row = not packed (implicit daily reset). Child-scope `POST`/`DELETE /api/child/school-items/{id}/pack`. A date's checklist is editable only while it is still in the future in the family timezone; once the day begins it is locked. No points awarded for packing.
 - Parent-facing "School items missing" summary tile (B1): the dashboard summary-strip tile is tappable, opening a family-wide modal that shows, per child, "Needed today" (packed last night) and "Pack for tomorrow" (tonight's progress) as "N of M packed / Missing: …", with positive "All packed" / "Nothing for this day" states. The tile badge counts items still missing for *today* across all children; an empty positive state reads "School bag — all packed". Reads B2's existing `/school-items/today` packed state — no new backend endpoint.
+- The school summary tile is hidden until the family has configured at least one school item (any child, any weekday), checked via read-only `GET /school-items/configured` → `{configured: bool}`. Families that have set things up still see the tile when everything is packed (positive state); only never-set-up families lose it. The other two summary tiles (points, reward requests) are core always-on flows and stay visible.
 
 ### Behaviour System
 - Quick-tap behaviour presets (points/penalties)

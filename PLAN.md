@@ -632,6 +632,33 @@ With existing data only:
     errors are unrelated and unchanged), build passing.
   - *Docs synced:* PLAN.md (this entry), ROADMAP.md, PROJECT_STATUS.md,
     QA_COVERAGE_MATRIX.md, LOCALISATION_NOTES.md.
+- **B1 follow-up (implemented): hide the tile until the feature is set up.**
+  The "School items missing" tile previously rendered a permanent "0" for any
+  family that had never configured school-bag items — clutter for non-users.
+  - *Minimal backend:* one read-only endpoint `GET /api/school-items/
+    configured` (parent auth) → `{configured: bool}`, backed by
+    `school_items_service.family_has_school_items(db, family_id)` (does any
+    **active** SchoolItem exist for the family, any child/any weekday).
+    Read-only on B2's schema — **no migration**. The today/tomorrow arrays the
+    dashboard already had can't answer this (a family with items only on, say,
+    Wednesday looks empty on a Monday load), so a family-wide existence check
+    is the cleanest signal; rejected folding a flag onto the children-summary
+    response as more surface for no gain.
+  - *Frontend:* dashboard fetches `/configured` in `loadSchoolPrep`; the tile
+    is wrapped in `{#if schoolItemsConfigured}`. A family that **has** set up
+    items but packed everything still sees the tile (positive "all packed"
+    state) — only never-configured families lose it. Tests both layers
+    (service existence + soft-delete + family-scoping; HTTP false→true).
+  - *Sibling-tile audit (requested):* checked the other two summary-strip
+    tiles for the same "nothing configured yet looks like clutter" problem.
+    **None found** — "Points available across your children" and "Reward
+    requests waiting" are **core always-on** parent flows, not optional
+    modules: their zero states ("0" points, "No reward requests waiting") are
+    genuine real-time signals for an active family, not "feature unused"
+    noise. School Bag is the only opt-in module with a meaningful
+    never-set-up state, so the hide-until-configured rule applies to it alone.
+  - *Deploy:* backend image rebuilt (new route) + frontend — both containers,
+    per the standing rule. No migration to apply.
 - **A6 follow-up (`this session`): unexpected-error message split.** The
   "Correct this entry" flow now shows a distinct "Something went wrong.
   Please try again." (`correctErrorUnexpected`, en+ar) for any

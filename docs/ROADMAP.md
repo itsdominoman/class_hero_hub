@@ -67,6 +67,7 @@
 - Completed: Family timezone-aware today/tomorrow lookup
 - Completed (B2): Children tick "Pack for tomorrow" items off (per-item `school_item_checks`); the list locks at local-family midnight and "Needed today" then shows the final read-only state. No points awarded.
 - Completed (B1): The parent summary tile "School items missing" is now tappable, opening a family-wide modal with, per child, "Needed today" (packed last night) and "Pack for tomorrow" (tonight's progress) as "N of M packed, Missing: …". Badge = total items still missing for today. Pure frontend read on B2's existing `/school-items/today` packed state — no new endpoint.
+- Completed (B1 follow-up): The tile is hidden until the family has configured at least one school item (any child, any weekday), via read-only `GET /school-items/configured`. Families using the feature still see the tile even when everything is packed (positive state); only never-set-up families lose it.
 - Future: Optional school timetable improvements
 
 ### ⚙️ Parent Productivity
