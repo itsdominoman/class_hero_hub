@@ -253,6 +253,32 @@ class SchoolItemCheckState(BaseModel):
     packed: bool
     locked: bool
 
+class ParentPackTodayRequest(BaseModel):
+    # D2 — parent marks a "Needed today" item packed for a given child. The
+    # date is always the family's local "today" (server-derived), so only the
+    # child needs to be named here.
+    child_id: int
+
+class SchoolSummaryChild(BaseModel):
+    # One child's slice of a summary section. `items` carries each school item
+    # for the relevant date with its B2 packing state.
+    child_id: int
+    items: List[SchoolItemForDate]
+
+class SchoolSummary(BaseModel):
+    # D3 — the whole parent "School Bag" summary, already time-windowed in the
+    # family's local timezone so the client only receives what it should show.
+    # `needed_today` lists only children with at least one still-unpacked item
+    # for today (resolved children drop out); `pack_tomorrow` lists children who
+    # have items for tomorrow. Each section is empty unless its window is open.
+    configured: bool
+    show_needed_today: bool
+    show_pack_tomorrow: bool
+    tile_count: int
+    tile_mode: str  # "missing_today" | "pack_tomorrow" | "none"
+    needed_today: List[SchoolSummaryChild]
+    pack_tomorrow: List[SchoolSummaryChild]
+
 class WeeklyStreakBase(BaseModel):
     child_id: int
     week_start_date: date

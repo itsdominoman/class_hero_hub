@@ -265,6 +265,131 @@ async def get_school_items_today(
     return _school_items_for_date_with_packing(db, child, target_date, family_today)
 
 
+def _build_school_summary(
+    db: Session,
+    family: models.Family,
+) -> schemas.SchoolSummary:
+    """D3 — assemble the time-windowed parent School Bag summary. Pure window /
+    tile rules live in school_items_service (reusable for notifications); this
+    function only does the DB gathering and stitches them together.
+
+    - "Needed today" (today's items) is included per child only when its window
+      is open AND the child still has an unpacked item — resolved children drop
+      out so the section empties as the morning progresses.
+    - "Pack for tomorrow" (tomorrow's items) is included per child only when its
+      window is open and the child has items for tomorrow (all-packed children
+      still show, as a positive evening checklist)."""
+    now_local = calendar_service.get_family_now(family.timezone)
+    family_today = now_local.date()
+    tomorrow = family_today + timedelta(days=1)
+
+    configured = school_items_service.family_has_school_items(db, family.id)
+    show_needed_today = school_items_service.needed_today_window_open(now_local)
+    show_pack_tomorrow = school_items_service.pack_tomorrow_window_open(now_local)
+
+    children = (
+        db.query(models.Child)
+        .filter(models.Child.family_id == family.id, models.Child.active.is_(True))
+        .order_by(models.Child.id.asc())
+        .all()
+    )
+
+    needed_today: list[schemas.SchoolSummaryChild] = []
+    pack_tomorrow: list[schemas.SchoolSummaryChild] = []
+    missing_today_count = 0
+    pack_tomorrow_unpacked_count = 0
+
+    if show_needed_today:
+        for child in children:
+            items = _school_items_for_date_with_packing(db, child, family_today, family_today)
+            missing = [item for item in items if not item.packed]
+            if missing:  # resolved children drop out of the section entirely
+                needed_today.append(
+                    schemas.SchoolSummaryChild(child_id=child.id, items=items)
+                )
+                missing_today_count += len(missing)
+
+    if show_pack_tomorrow:
+        for child in children:
+            items = _school_items_for_date_with_packing(db, child, tomorrow, family_today)
+            if items:
+                pack_tomorrow.append(
+                    schemas.SchoolSummaryChild(child_id=child.id, items=items)
+                )
+                pack_tomorrow_unpacked_count += sum(1 for item in items if not item.packed)
+
+    tile_mode, tile_count = school_items_service.compute_tile_state(
+        now_local, missing_today_count, pack_tomorrow_unpacked_count
+    )
+
+    return schemas.SchoolSummary(
+        configured=configured,
+        show_needed_today=show_needed_today,
+        show_pack_tomorrow=show_pack_tomorrow,
+        tile_count=tile_count,
+        tile_mode=tile_mode,
+        needed_today=needed_today,
+        pack_tomorrow=pack_tomorrow,
+    )
+
+
+@router.get("/summary", response_model=schemas.SchoolSummary)
+async def get_school_summary(
+    db: Session = Depends(get_db),
+    current_parent: models.ParentUser = Depends(auth.get_current_parent),
+):
+    """D3 — the parent dashboard's single source for the School Bag tile + modal.
+    Time-windowed in the family's local timezone so the client only receives the
+    sections it should currently show."""
+    family = db.query(models.Family).filter(models.Family.id == current_parent.family_id).first()
+    if not family:
+        return schemas.SchoolSummary(
+            configured=False,
+            show_needed_today=False,
+            show_pack_tomorrow=False,
+            tile_count=0,
+            tile_mode=school_items_service.TILE_MODE_NONE,
+            needed_today=[],
+            pack_tomorrow=[],
+        )
+    return _build_school_summary(db, family)
+
+
+@router.post("/{item_id}/pack", response_model=schemas.SchoolItemCheckState)
+async def parent_pack_today_item(
+    item_id: int,
+    req: schemas.ParentPackTodayRequest,
+    db: Session = Depends(get_db),
+    current_parent: models.ParentUser = Depends(auth.get_current_parent),
+):
+    """D2 — parent marks a still-missing "Needed today" item as packed for today.
+
+    Unlike the child pack route this bypasses the midnight lock (the child's own
+    today checklist stays locked read-only — their record of last night), and
+    only ever targets today: the parent is confirming current reality after the
+    school day has begun. Writes the shared school_item_checks row so the
+    resolution is reflected everywhere the data is read."""
+    child = _require_child_for_parent(db, current_parent, req.child_id)
+    family_today = _child_family_today(child)
+    try:
+        school_items_service.set_packed(
+            db, child.id, item_id, family_today, family_today, packed=True, enforce_lock=False
+        )
+    except school_items_service.SchoolCheckError as exc:
+        status_code = {
+            "item_not_found": status.HTTP_404_NOT_FOUND,
+            "weekday_mismatch": status.HTTP_400_BAD_REQUEST,
+        }.get(exc.code, status.HTTP_400_BAD_REQUEST)
+        raise HTTPException(status_code=status_code, detail=exc.code)
+
+    return schemas.SchoolItemCheckState(
+        school_item_id=item_id,
+        check_date=family_today,
+        packed=True,
+        locked=school_items_service.is_date_locked(family_today, family_today),
+    )
+
+
 @child_router.get("/today", response_model=List[schemas.SchoolItemForDate])
 async def get_my_school_items_today(
     offset: int = Query(0, ge=0, le=1),

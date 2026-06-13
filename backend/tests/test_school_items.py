@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 import os
 
 os.environ["DATABASE_URL"] = "sqlite://"
@@ -478,5 +478,164 @@ def test_http_parent_school_items_configured(db, client):
         resp = client.get("/api/school-items/configured")
         assert resp.status_code == 200
         assert resp.json() == {"configured": True}
+    finally:
+        del app.dependency_overrides[get_current_parent]
+
+
+# D3 — time-window pure functions (functions of local time only, so a future
+# notification scheduler can reuse them). Tested directly with fixed datetimes.
+
+def test_needed_today_window_open_all_day():
+    # "Needed today" is visible from midnight onward — open at every hour.
+    for hour in (0, 6, 12, 17, 18, 23):
+        assert school_items_service.needed_today_window_open(datetime(2026, 6, 13, hour)) is True
+
+
+def test_pack_tomorrow_window_open_from_6pm():
+    assert school_items_service.pack_tomorrow_window_open(datetime(2026, 6, 13, 17, 59)) is False
+    assert school_items_service.pack_tomorrow_window_open(datetime(2026, 6, 13, 18, 0)) is True
+    assert school_items_service.pack_tomorrow_window_open(datetime(2026, 6, 13, 23, 30)) is True
+
+
+def test_compute_tile_state():
+    morning = datetime(2026, 6, 13, 8, 0)
+    evening = datetime(2026, 6, 13, 20, 0)
+
+    # Morning, items still missing today -> missing_today wins.
+    assert school_items_service.compute_tile_state(morning, 3, 0) == ("missing_today", 3)
+    # Morning, today resolved, pack-tomorrow window not open yet -> nothing.
+    assert school_items_service.compute_tile_state(morning, 0, 5) == ("none", 0)
+    # Evening, today resolved -> pack_tomorrow nudge.
+    assert school_items_service.compute_tile_state(evening, 0, 5) == ("pack_tomorrow", 5)
+    # Evening, both present -> missing_today takes priority.
+    assert school_items_service.compute_tile_state(evening, 2, 5) == ("missing_today", 2)
+    # Nothing anywhere -> none.
+    assert school_items_service.compute_tile_state(evening, 0, 0) == ("none", 0)
+
+
+# D2 — parent marks a "Needed today" (locked) item packed; overrides the lock.
+
+def test_service_parent_override_bypasses_lock(db):
+    family, parent, child = _create_family_with_parent_and_child(db)
+    today = calendar_service.get_family_today(family.timezone)
+    item = _make_school_item(db, child, today.weekday())
+
+    # Child path is locked for today.
+    with pytest.raises(school_items_service.SchoolCheckError) as exc:
+        school_items_service.set_packed(db, child.id, item.id, today, today, packed=True)
+    assert exc.value.code == "checklist_locked"
+
+    # Parent override succeeds and writes the shared row.
+    row = school_items_service.set_packed(
+        db, child.id, item.id, today, today, packed=True, enforce_lock=False
+    )
+    assert row is not None
+    assert school_items_service.packed_item_ids(db, child.id, [item.id], today) == {item.id}
+
+
+def test_http_parent_pack_today_item(db, client):
+    family, parent, child = _create_family_with_parent_and_child(db)
+    today = calendar_service.get_family_today(family.timezone)
+    item = _make_school_item(db, child, today.weekday())
+
+    from app.auth import get_current_parent
+    app.dependency_overrides[get_current_parent] = lambda: parent
+    try:
+        resp = client.post(
+            f"/api/school-items/{item.id}/pack", json={"child_id": child.id}
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["packed"] is True
+        assert body["locked"] is True  # today is locked for the child; parent overrode
+        assert body["check_date"] == today.isoformat()
+
+        # Reflected in the shared state (same row the child's view reads).
+        assert school_items_service.packed_item_ids(db, child.id, [item.id], today) == {item.id}
+
+        # Idempotent.
+        resp = client.post(
+            f"/api/school-items/{item.id}/pack", json={"child_id": child.id}
+        )
+        assert resp.status_code == 200
+        assert db.query(models.SchoolItemCheck).count() == 1
+    finally:
+        del app.dependency_overrides[get_current_parent]
+
+
+def test_http_parent_pack_rejects_other_family_child(db, client):
+    family, parent, child = _create_family_with_parent_and_child(db)
+    other_family = models.Family(timezone="Asia/Muscat", week_start_day=6)
+    db.add(other_family)
+    db.commit()
+    other_child = models.Child(display_name="Stranger", family_id=other_family.id)
+    db.add(other_child)
+    db.commit()
+    today = calendar_service.get_family_today(other_family.timezone)
+    item = _make_school_item(db, other_child, today.weekday())
+
+    from app.auth import get_current_parent
+    app.dependency_overrides[get_current_parent] = lambda: parent
+    try:
+        resp = client.post(
+            f"/api/school-items/{item.id}/pack", json={"child_id": other_child.id}
+        )
+        assert resp.status_code == 404  # child not in parent's family
+    finally:
+        del app.dependency_overrides[get_current_parent]
+
+
+# D3 — the aggregate summary endpoint. "Needed today" is always within its
+# window, so we can assert its drop-out behaviour deterministically; the
+# evening "Pack for tomorrow" flag is derived from the real family clock.
+
+def test_http_school_summary_needed_today_dropout(db, client):
+    family, parent, child = _create_family_with_parent_and_child(db)
+    now_local = calendar_service.get_family_now(family.timezone)
+    today = now_local.date()
+    item = _make_school_item(db, child, today.weekday())
+
+    from app.auth import get_current_parent
+    app.dependency_overrides[get_current_parent] = lambda: parent
+    try:
+        resp = client.get("/api/school-items/summary")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["configured"] is True
+        assert body["show_needed_today"] is True
+        # Window flag matches the family clock at request time.
+        assert body["show_pack_tomorrow"] == (now_local.hour >= 18)
+        # Child has an unpacked today item -> appears, tile flags it missing.
+        assert [c["child_id"] for c in body["needed_today"]] == [child.id]
+        assert body["tile_mode"] == "missing_today"
+        assert body["tile_count"] == 1
+
+        # Parent resolves it -> child drops out of needed_today.
+        resp = client.post(
+            f"/api/school-items/{item.id}/pack", json={"child_id": child.id}
+        )
+        assert resp.status_code == 200
+        resp = client.get("/api/school-items/summary")
+        body = resp.json()
+        assert body["needed_today"] == []
+        # Tile mode is none unless the evening pack-tomorrow window is open with
+        # unpacked tomorrow items (no tomorrow items configured here).
+        assert body["tile_mode"] == "none"
+    finally:
+        del app.dependency_overrides[get_current_parent]
+
+
+def test_http_school_summary_unconfigured(db, client):
+    family, parent, child = _create_family_with_parent_and_child(db)
+    from app.auth import get_current_parent
+    app.dependency_overrides[get_current_parent] = lambda: parent
+    try:
+        resp = client.get("/api/school-items/summary")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["configured"] is False
+        assert body["needed_today"] == []
+        assert body["pack_tomorrow"] == []
+        assert body["tile_mode"] == "none"
     finally:
         del app.dependency_overrides[get_current_parent]
