@@ -9,7 +9,7 @@
   import { 
     UserPlus, Award, Ban, Gift, Ticket, Wallet,
     LayoutDashboard, Settings, LogIn, Trophy, Clock, Check, X,
-    Users, QrCode, Copy, RefreshCcw, Link2, CalendarDays
+    Users, QrCode, Copy, RefreshCcw, Link2, CalendarDays, Pencil
   } from 'lucide-svelte';
 
   let parent = $state<any>(null);
@@ -127,12 +127,15 @@
   };
 
   type LedgerTransaction = {
+    id: number;
+    child_id: number;
     jar: string;
     transaction_type: string;
     points: number;
     description: string;
     created_at: string;
     locked_until: string | null;
+    source_transaction_id: number | null;
   };
 
   type ChildDevice = {
@@ -1097,6 +1100,83 @@
     const childId = childSummary?.child?.id;
     if (!childId) return [];
     return childLedgerByKey[ledgerKey(childId)] || [];
+  }
+
+  // A6 — "Correct this entry". A correction is a linked reversing row the
+  // backend creates (transaction_type 'reversal', source_transaction_id ->
+  // original). Only plain spending award/penalty/adjustment rows inside the
+  // 7-day window with no downstream effects can be corrected.
+  const CORRECTABLE_TYPES = ['award', 'penalty', 'adjustment'];
+  const CORRECTION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+  let correctingEntry = $state<LedgerTransaction | null>(null);
+  let correctReason = $state('');
+  let correctLoading = $state(false);
+  let correctError = $state('');
+
+  // Map original-entry id -> its correction row, so each corrected entry can
+  // render its balancing row directly beneath it regardless of date sort.
+  function buildCorrectionMap(ledger: LedgerTransaction[]) {
+    const map: Record<number, LedgerTransaction> = {};
+    for (const tx of ledger) {
+      if (tx.transaction_type === 'reversal' && tx.source_transaction_id) {
+        map[tx.source_transaction_id] = tx;
+      }
+    }
+    return map;
+  }
+
+  function canCorrectEntry(tx: LedgerTransaction, corrections: Record<number, LedgerTransaction>) {
+    if (!CORRECTABLE_TYPES.includes(tx.transaction_type)) return false;
+    if ((tx.jar || '').toLowerCase() !== 'spending') return false;
+    if (tx.source_transaction_id) return false;
+    if (corrections[tx.id]) return false;
+    const age = Date.now() - new Date(tx.created_at).getTime();
+    return age <= CORRECTION_WINDOW_MS;
+  }
+
+  function openCorrectEntry(tx: LedgerTransaction) {
+    correctingEntry = tx;
+    correctReason = '';
+    correctError = '';
+  }
+
+  function closeCorrectEntry() {
+    correctingEntry = null;
+    correctReason = '';
+    correctError = '';
+  }
+
+  function correctionErrorMessage(code: string | undefined) {
+    switch (code) {
+      case 'correction_ineligible_type':
+        return $_('parent.pointsLog.correctErrorType');
+      case 'correction_window_expired':
+        return $_('parent.pointsLog.correctErrorWindow');
+      case 'correction_already_processed':
+        return $_('parent.pointsLog.correctErrorProcessed');
+      default:
+        return $_('parent.pointsLog.correctErrorGeneric');
+    }
+  }
+
+  async function submitCorrectEntry() {
+    if (!correctingEntry || !activeModal?.child || correctLoading) return;
+    correctLoading = true;
+    correctError = '';
+    try {
+      const childId = activeModal.child.child.id;
+      await api.post(`/children/${childId}/ledger/${correctingEntry.id}/reverse`, {
+        reason: correctReason.trim() || null
+      });
+      closeCorrectEntry();
+      await Promise.all([loadDashboard(), loadChildLedger(activeModal.child, pointLogPeriod)]);
+      refreshActiveModalChild();
+    } catch (e: any) {
+      correctError = correctionErrorMessage(e?.message);
+    } finally {
+      correctLoading = false;
+    }
   }
 
   function isBehaviorLedgerEntry(tx: LedgerTransaction) {
@@ -2538,6 +2618,7 @@
 
             {#if childModalTab === 'points-log'}
               {@const ledger = currentLedger(activeModal.child)}
+              {@const corrections = buildCorrectionMap(ledger)}
               {@const behaviorLedger = ledger.filter((tx) => isBehaviorLedgerEntry(tx))}
               {@const percent = goodPercentage(behaviorLedger)}
               {@const key = ledgerKey(activeModal.child.child.id)}
@@ -2591,14 +2672,47 @@
                 {:else}
                   <div class="space-y-2">
                     {#each behaviorLedger.slice(0, pointLogVisible) as tx}
-                      <div class="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 p-3">
-                        <div class="min-w-0">
-                          <p class="truncate text-sm font-bold text-slate-950">{tx.description || tx.transaction_type}</p>
-                          <p class="text-xs font-bold text-slate-400">{formatLedgerDate(tx.created_at)} · {ledgerJarLabel(tx.jar)}</p>
+                      {@const correction = corrections[tx.id]}
+                      <div class="space-y-1.5">
+                        <div class="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 p-3 {correction ? 'opacity-70' : ''}">
+                          <div class="min-w-0">
+                            <p class="truncate text-sm font-bold text-slate-950">{tx.description || tx.transaction_type}</p>
+                            <p class="text-xs font-bold text-slate-400">{formatLedgerDate(tx.created_at)} · {ledgerJarLabel(tx.jar)}</p>
+                          </div>
+                          <div class="flex shrink-0 items-center gap-2">
+                            {#if correction}
+                              <span class="rounded-full bg-slate-200 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">{$_('parent.pointsLog.correctedBadge')}</span>
+                            {/if}
+                            <span class="rounded-full px-3 py-2 text-xs font-bold {tx.points > 0 ? 'bg-savings/10 text-savings' : tx.points < 0 ? 'bg-penalty/10 text-penalty' : 'bg-slate-100 text-slate-600'}">
+                              {tx.points > 0 ? '+' : ''}{tx.points}
+                            </span>
+                          </div>
                         </div>
-                        <span class="shrink-0 rounded-full px-3 py-2 text-xs font-bold {tx.points > 0 ? 'bg-savings/10 text-savings' : tx.points < 0 ? 'bg-penalty/10 text-penalty' : 'bg-slate-100 text-slate-600'}">
-                          {tx.points > 0 ? '+' : ''}{tx.points}
-                        </span>
+                        {#if correction}
+                          <div class="flex items-center justify-between gap-3 rounded-2xl border border-dashed border-hero/30 bg-hero/5 p-3">
+                            <div class="min-w-0">
+                              <p class="text-[10px] font-bold uppercase tracking-wide text-hero">{$_('parent.pointsLog.correctionBadge')}</p>
+                              {#if correction.description}
+                                <p class="truncate text-sm font-semibold text-slate-700">{correction.description}</p>
+                              {/if}
+                              <p class="text-xs font-bold text-slate-400">{formatLedgerDate(correction.created_at)}</p>
+                            </div>
+                            <span class="shrink-0 rounded-full px-3 py-2 text-xs font-bold {correction.points > 0 ? 'bg-savings/10 text-savings' : 'bg-penalty/10 text-penalty'}">
+                              {correction.points > 0 ? '+' : ''}{correction.points}
+                            </span>
+                          </div>
+                        {:else if canCorrectEntry(tx, corrections)}
+                          <div class="flex justify-end">
+                            <button
+                              type="button"
+                              onclick={() => openCorrectEntry(tx)}
+                              class="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 transition hover:bg-hero/5 hover:text-hero"
+                            >
+                              <Pencil size={13} />
+                              {$_('parent.pointsLog.correct')}
+                            </button>
+                          </div>
+                        {/if}
                       </div>
                     {/each}
                   </div>
@@ -2793,6 +2907,73 @@
               {/if}
             </div>
           {/if}
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- A6 — Correct-this-entry confirmation with optional reason -->
+{#if correctingEntry}
+  <div class="fixed inset-0 z-[110] flex items-end justify-center p-0 sm:items-center sm:p-4">
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+      onclick={closeCorrectEntry}
+    ></div>
+
+    <div class="bg-white rounded-t-[2rem] sm:rounded-[2.5rem] w-full max-w-md shadow-2xl relative z-10 overflow-hidden animate-in fade-in zoom-in duration-300">
+      <div class="p-6 sm:p-8 space-y-5 pb-[calc(1.5rem+var(--safe-bottom))] sm:pb-8">
+        <div class="space-y-2">
+          <h3 class="text-lg font-bold text-slate-950">{$_('parent.pointsLog.correctTitle')}</h3>
+          <p class="text-sm font-semibold text-slate-500">{$_('parent.pointsLog.correctExplainer')}</p>
+        </div>
+
+        <div class="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 p-3">
+          <div class="min-w-0">
+            <p class="truncate text-sm font-bold text-slate-950">{correctingEntry.description || correctingEntry.transaction_type}</p>
+            <p class="text-xs font-bold text-slate-400">{formatLedgerDate(correctingEntry.created_at)} · {ledgerJarLabel(correctingEntry.jar)}</p>
+          </div>
+          <span class="shrink-0 rounded-full px-3 py-2 text-xs font-bold {correctingEntry.points > 0 ? 'bg-savings/10 text-savings' : 'bg-penalty/10 text-penalty'}">
+            {correctingEntry.points > 0 ? '+' : ''}{correctingEntry.points}
+          </span>
+        </div>
+
+        <div class="space-y-2">
+          <label for="correct-reason" class="block text-[10px] font-bold uppercase tracking-wide text-slate-400 ml-2">
+            {$_('parent.pointsLog.correctReasonLabel')}
+          </label>
+          <input
+            id="correct-reason"
+            type="text"
+            bind:value={correctReason}
+            placeholder={$_('parent.pointsLog.correctReasonPlaceholder')}
+            class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 font-semibold text-slate-900 focus:outline-none focus:border-hero/30 transition-all"
+          />
+        </div>
+
+        {#if correctError}
+          <p class="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{correctError}</p>
+        {/if}
+
+        <div class="flex gap-3">
+          <button
+            type="button"
+            onclick={closeCorrectEntry}
+            disabled={correctLoading}
+            class="flex-1 rounded-2xl border-2 border-slate-100 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+          >
+            {$_('parent.pointsLog.correctCancel')}
+          </button>
+          <button
+            type="button"
+            onclick={submitCorrectEntry}
+            disabled={correctLoading}
+            class="flex-1 rounded-2xl bg-hero px-4 py-3 text-sm font-bold text-white shadow-md shadow-hero/20 transition hover:bg-hero/90 disabled:opacity-50"
+          >
+            {correctLoading ? $_('parent.pointsLog.correcting') : $_('parent.pointsLog.correctConfirm')}
+          </button>
+        </div>
       </div>
     </div>
   </div>
