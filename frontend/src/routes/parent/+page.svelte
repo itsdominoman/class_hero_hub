@@ -9,7 +9,7 @@
   import { 
     UserPlus, Award, Ban, Gift, Ticket, Wallet,
     LayoutDashboard, Settings, LogIn, Trophy, Clock, Check, X,
-    Users, QrCode, Copy, RefreshCcw, Link2, CalendarDays, Pencil
+    Users, QrCode, Copy, RefreshCcw, Link2, CalendarDays, Pencil, CalendarClock
   } from 'lucide-svelte';
 
   let parent = $state<any>(null);
@@ -40,6 +40,9 @@
     pack_tomorrow: []
   });
   let schoolPackingItemId = $state<number | null>(null); // D2 in-flight parent mark-packed
+  let loadingCalendarSummary = $state(false);
+  let calendarSummary = $state<CalendarSummary>({ configured: false, tile_count: 0, today: [], tomorrow: [] });
+  let calendarCompletingKey = $state<string | null>(null); // E2 in-flight parent mark-complete
   let error = $state<string | null>(null);
   let needsLogin = $state(false);
 
@@ -163,6 +166,15 @@
       status: 'pending' | 'approved' | 'rejected' | string;
       points_awarded: number | null;
     } | null;
+  };
+
+  // E1 — the dashboard "Today" calendar summary (GET /calendar/summary).
+  type CalendarSummaryChild = { child_id: number; items: CalendarOccurrence[] };
+  type CalendarSummary = {
+    configured: boolean;
+    tile_count: number;
+    today: CalendarSummaryChild[];
+    tomorrow: CalendarSummaryChild[];
   };
 
   type LedgerTransaction = {
@@ -404,6 +416,50 @@
     }
   }
 
+  async function loadCalendarSummary() {
+    // E1 — single family-wide aggregate (GET /calendar/summary): today's
+    // events + outstanding tasks per child (primary), a lighter tomorrow
+    // look-ahead, the tile badge count, and whether the calendar is configured
+    // at all (drives hide-when-unused, like the school bag tile).
+    try {
+      loadingCalendarSummary = true;
+      const res = await api.get('/calendar/summary');
+      calendarSummary = {
+        configured: !!res?.configured,
+        tile_count: Number(res?.tile_count) || 0,
+        today: Array.isArray(res?.today) ? res.today : [],
+        tomorrow: Array.isArray(res?.tomorrow) ? res.tomorrow : []
+      };
+    } catch {
+      calendarSummary = { configured: false, tile_count: 0, today: [], tomorrow: [] };
+    } finally {
+      loadingCalendarSummary = false;
+    }
+  }
+
+  // E2 — parent marks a task complete directly from the Today modal. Distinct
+  // from the C10 "Tasks to review" flow (approving a child's claim): this is the
+  // parent recording the task done themselves, which the backend treats as
+  // IMMEDIATELY FINAL (status=approved, no second approval step) and awards
+  // points/streak/pet exactly like an approved child-completion. We only offer
+  // it for tasks with no completion yet (or a rejected one); a child-claimed
+  // "pending" task is routed to the review card instead (avoids a 409 and
+  // keeps the two flows distinct). Refreshes the summary and dashboard totals.
+  async function parentCompleteTask(entryId: number, occurrenceDate: string) {
+    const key = `${entryId}:${occurrenceDate}`;
+    if (calendarCompletingKey !== null) return;
+    try {
+      calendarCompletingKey = key;
+      await api.post(`/calendar/${entryId}/complete?occurrence_date=${occurrenceDate}`, {});
+      await Promise.all([loadCalendarSummary(), loadDashboard()]);
+    } catch {
+      // Best-effort: a reload reflects current truth (e.g. already completed).
+      await loadCalendarSummary();
+    } finally {
+      calendarCompletingKey = null;
+    }
+  }
+
   async function loadDashboard() {
     try {
       loading = true;
@@ -438,6 +494,9 @@
       allowanceSummaries = Object.fromEntries(allowanceEntries.filter((entry) => entry[1] !== null)) as Record<number, AllowanceSummary>;
       void loadSchoolPrep().catch((error) => {
         console.warn('Failed to load school prep', error);
+      });
+      void loadCalendarSummary().catch((error) => {
+        console.warn('Failed to load calendar summary', error);
       });
     } catch (e) {
       const message = e instanceof Error ? e['message'] : '';
@@ -1438,9 +1497,17 @@
     sortRedemptions(redemptions.filter((request) => request.status === 'pending'))
   );
 
-  const totalAvailablePoints = $derived(
-    children.reduce((sum, childSummary) => sum + childAvailablePoints(childSummary), 0)
-  );
+  // E1 — split a child's day into events vs the tasks still worth showing.
+  // Events always show; tasks show until APPROVED (an approved task is done and
+  // drops off — matching the backend's tile_count and "incomplete tasks" view).
+  function calendarEvents(items: CalendarOccurrence[]) {
+    return items.filter((item) => item.entry.entry_type === 'event');
+  }
+  function calendarOpenTasks(items: CalendarOccurrence[]) {
+    return items.filter(
+      (item) => item.entry.entry_type === 'task' && item.completion?.status !== 'approved'
+    );
+  }
 
   function schoolGroupSummary(items: SchoolItem[]) {
     const total = items.length;
@@ -1571,15 +1638,23 @@
       <div class="max-w-5xl mx-auto px-3 sm:px-4 py-6 md:py-8 space-y-6">
         {#if children.length > 0}
           <section aria-label={$_('parent.summary.label')} class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div class="card p-4 sm:p-5 flex items-center gap-4">
-              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-hero/10 text-hero">
-                <Trophy size={22} />
+            {#if calendarSummary.configured}
+            <button
+              type="button"
+              onclick={() => { activeModal = { type: 'today-summary' }; }}
+              class="card p-4 sm:p-5 flex items-center gap-4 text-left transition hover:border-hero/40 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-hero/15"
+            >
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl {calendarSummary.tile_count > 0 ? 'bg-hero/10 text-hero' : 'bg-slate-100 text-slate-400'}">
+                <CalendarClock size={22} />
               </div>
               <div class="min-w-0">
-                <p class="text-2xl font-black text-slate-950 leading-tight">{totalAvailablePoints}</p>
-                <p class="text-xs font-semibold text-slate-500">{$_('parent.summary.totalPoints')}</p>
+                <p class="text-2xl font-black text-slate-950 leading-tight">{calendarSummary.tile_count}</p>
+                <p class="text-xs font-semibold text-slate-500">
+                  {calendarSummary.tile_count > 0 ? $_('parent.summary.today') : $_('parent.summary.todayEmpty')}
+                </p>
               </div>
-            </div>
+            </button>
+            {/if}
             <a
               href="/redemptions"
               class="card p-4 sm:p-5 flex items-center gap-4 transition hover:border-hero/40 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-hero/15"
@@ -1743,6 +1818,7 @@
                  activeModal.type === 'rewards' ? 'bg-reward text-white shadow-reward/20' :
                  activeModal.type === 'requests' ? 'bg-savings text-white shadow-savings/20' :
                  activeModal.type === 'school-summary' ? 'bg-savings text-white shadow-savings/20' :
+                 activeModal.type === 'today-summary' ? 'bg-hero text-white shadow-hero/20' :
                  'bg-reward text-white shadow-reward/20'}">
                 {#if activeModal.type === 'award'}<Award size={32} />
                 {:else if activeModal.type === 'add-child'}<UserPlus size={32} />
@@ -1756,6 +1832,7 @@
                 {:else if activeModal.type === 'rewards'}<Gift size={32} />
                 {:else if activeModal.type === 'requests'}<Check size={32} />
                 {:else if activeModal.type === 'school-summary'}<CalendarDays size={32} />
+                {:else if activeModal.type === 'today-summary'}<CalendarClock size={32} />
                 {:else}<Trophy size={32} />{/if}
               </div>
               <div class="min-w-0">
@@ -1772,6 +1849,7 @@
                   activeModal.type === 'rewards' ? $_('parent.rewards.manage') :
                   activeModal.type === 'requests' ? $_('parent.requests.reviewRewardRequests') :
                   activeModal.type === 'school-summary' ? $_('parent.schoolSummary.title') :
+                  activeModal.type === 'today-summary' ? $_('parent.todaySummary.title') :
                   $_('parent.redeem.title')}
                 </h3>
                 <p class="text-slate-400 font-bold text-[10px] sm:text-xs uppercase tracking-wide break-words">
@@ -1782,7 +1860,8 @@
                    activeModal.type === 'child-link-select' ? $_('parent.childLink.chooseChildFirst') :
                    activeModal.type === 'rewards' ? $_('parent.rewards.subtitle') :
                    activeModal.type === 'requests' ? $_('parent.tabs.requests') :
-                   activeModal.type === 'school-summary' ? $_('parent.schoolSummary.subtitle') : ''}
+                   activeModal.type === 'school-summary' ? $_('parent.schoolSummary.subtitle') :
+                   activeModal.type === 'today-summary' ? $_('parent.todaySummary.subtitle') : ''}
                 </p>
               </div>
             </div>
@@ -2353,6 +2432,90 @@
               {#if !showNeeded && !showTomorrow}
                 <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
                   <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">{$_('parent.schoolSummary.nothingRightNow')}</p>
+                </div>
+              {/if}
+            {/if}
+          {/if}
+
+          {#if activeModal.type === 'today-summary'}
+            {#if loadingCalendarSummary}
+              <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">{$_('parent.todaySummary.loading')}</p>
+              </div>
+            {:else}
+              <!-- PRIMARY: today's events + outstanding tasks, per child -->
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-black text-slate-900">{$_('parent.todaySummary.todayHeading')}</p>
+                  <p class="text-[11px] font-semibold text-slate-400">{$_('parent.todaySummary.todayHint')}</p>
+                </div>
+                {#if calendarSummary.today.length === 0}
+                  <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center">
+                    <p class="text-sm font-semibold text-slate-400">{$_('parent.todaySummary.nothingToday')}</p>
+                  </div>
+                {:else}
+                  {#each calendarSummary.today as entry}
+                    {@const events = calendarEvents(entry.items)}
+                    {@const tasks = calendarOpenTasks(entry.items)}
+                    <div class="rounded-2xl border border-slate-100 bg-white p-4">
+                      <div class="flex items-center justify-between gap-3">
+                        <p class="font-bold text-slate-950 break-words">{childDisplayName(entry.child_id)}</p>
+                        <span class="shrink-0 rounded-full bg-hero/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-hero">{$_('parent.todaySummary.counts', { values: { events: events.length, tasks: tasks.length } })}</span>
+                      </div>
+                      {#if events.length === 0 && tasks.length === 0}
+                        <p class="mt-2 text-xs font-semibold text-slate-400">{$_('parent.todaySummary.allDone')}</p>
+                      {/if}
+                      <div class="mt-3 space-y-2">
+                        {#each events as occ}
+                          <div class="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3">
+                            <div class="min-w-0">
+                              <p class="text-sm font-bold text-slate-900 break-words">{occ.entry.title}</p>
+                              <p class="mt-0.5 text-[11px] font-bold text-slate-400">{calendarEntryTypeLabel('event')} · {formatCalendarTime(occ.entry.start_time)}</p>
+                            </div>
+                          </div>
+                        {/each}
+                        {#each tasks as occ}
+                          <div class="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3">
+                            <div class="min-w-0">
+                              <p class="text-sm font-bold text-slate-900 break-words">{occ.entry.title}</p>
+                              <p class="mt-0.5 text-[11px] font-bold text-slate-400">
+                                {calendarEntryTypeLabel('task')}{#if occ.entry.is_rewardable && occ.entry.points_value} · {occ.entry.points_value} {$_('common.pts')}{/if}
+                              </p>
+                            </div>
+                            {#if occ.completion?.status === 'pending'}
+                              <span class="shrink-0 inline-flex items-center gap-1 rounded-full bg-reward/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-reward-dark">
+                                <Clock size={12} />{$_('parent.todaySummary.awaitingReview')}
+                              </span>
+                            {:else}
+                              <button
+                                type="button"
+                                onclick={() => parentCompleteTask(occ.entry.id, occ.occurrence_date)}
+                                disabled={calendarCompletingKey !== null}
+                                class="shrink-0 inline-flex items-center gap-1 rounded-full bg-savings px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm shadow-savings/20 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                <Check size={12} />{$_('parent.todaySummary.markComplete')}
+                              </button>
+                            {/if}
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
+                  {/each}
+                {/if}
+              </div>
+
+              <!-- SECONDARY: lighter "coming up tomorrow" look-ahead -->
+              {#if calendarSummary.tomorrow.length > 0}
+                <div class="mt-2 space-y-2 border-t border-slate-100 pt-4">
+                  <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">{$_('parent.todaySummary.tomorrowHeading')}</p>
+                  {#each calendarSummary.tomorrow as entry}
+                    {@const events = entry.items.filter((i) => i.entry.entry_type === 'event')}
+                    {@const tasks = entry.items.filter((i) => i.entry.entry_type === 'task')}
+                    <div class="flex items-center justify-between gap-3 rounded-xl bg-slate-50/70 px-3 py-2">
+                      <p class="text-xs font-bold text-slate-500 break-words">{childDisplayName(entry.child_id)}</p>
+                      <p class="shrink-0 text-[11px] font-semibold text-slate-400">{$_('parent.todaySummary.counts', { values: { events: events.length, tasks: tasks.length } })}</p>
+                    </div>
+                  {/each}
                 </div>
               {/if}
             {/if}
@@ -2965,7 +3128,7 @@
             {/if}
           {/if}
 
-          {#if activeModal.type !== 'picker' && activeModal.type !== 'add-child' && activeModal.type !== 'family' && activeModal.type !== 'calendar-week' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests' && activeModal.type !== 'school-summary'}
+          {#if activeModal.type !== 'picker' && activeModal.type !== 'add-child' && activeModal.type !== 'family' && activeModal.type !== 'calendar-week' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests' && activeModal.type !== 'school-summary' && activeModal.type !== 'today-summary'}
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
               <div class="space-y-2">
                 <label for="points-amount" class="text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">{$_('parent.presets.pointsLabel')}</label>
@@ -2999,7 +3162,7 @@
             </div>
           {/if}
 
-          {#if activeModal.type !== 'presets' && activeModal.type !== 'picker' && activeModal.type !== 'add-child' && activeModal.type !== 'family' && activeModal.type !== 'calendar-week' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests' && activeModal.type !== 'school-summary'}
+          {#if activeModal.type !== 'presets' && activeModal.type !== 'picker' && activeModal.type !== 'add-child' && activeModal.type !== 'family' && activeModal.type !== 'calendar-week' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests' && activeModal.type !== 'school-summary' && activeModal.type !== 'today-summary'}
             <div class="space-y-2">
               <label for="modal-description" class="text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-2">{$_('parent.redeem.descriptionLabel')}</label>
               <textarea 
@@ -3062,7 +3225,7 @@
           {/if}
         </div>
 
-          {#if activeModal.type !== 'picker' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests' && activeModal.type !== 'calendar-week' && activeModal.type !== 'school-summary'}
+          {#if activeModal.type !== 'picker' && activeModal.type !== 'child-link' && activeModal.type !== 'child-link-select' && activeModal.type !== 'rewards' && activeModal.type !== 'requests' && activeModal.type !== 'calendar-week' && activeModal.type !== 'school-summary' && activeModal.type !== 'today-summary'}
             <div class="pt-6 shrink-0 flex flex-col gap-3 bg-white">
               <button 
                 onclick={handleModalSubmit}
