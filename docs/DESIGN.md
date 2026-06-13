@@ -206,3 +206,20 @@ images `alt=""` + `aria-hidden="true"` — they are decorative.
   card — avoiding a duplicate action (and the backend's "already completed"
   conflict). The item can still appear as outstanding in both places while
   unresolved, since from each viewpoint it genuinely is.
+- **One surface should answer "is this done?" regardless of who claimed it** (G1):
+  once a primary surface exists (the Today modal), make it resolve *both* completion
+  paths in place rather than bouncing the parent elsewhere for one of them. A task
+  with no claim yet shows the parent's own "do it myself" action (immediately final);
+  a task the child has **claimed (pending)** shows a distinct read-but-actionable
+  state — a "[someone] says done" pill plus a one-tap **Confirm** (approve) **and
+  Reject** — posting to the same review endpoints the per-child card already uses.
+  Offer Reject on the primary surface too: if a parent can only confirm there but
+  must leave to decline, the surface isn't really the single answer. (This *supersedes*
+  the earlier read-only "awaiting your review" pill, which routed approve/reject away.)
+  Keep the older per-record review affordance as a **secondary path** rather than
+  deleting it the moment a unified surface ships — some users are habituated to it,
+  and per-record review is a legitimate alternative workflow; flag it for a later pass
+  once the unified surface proves fully redundant. The **badge/outstanding count is
+  unaffected**: a pending claim still counts as outstanding until *approved* (the
+  parent hasn't agreed yet), so unifying *where* it's resolved doesn't change *what*
+  counts.

@@ -806,6 +806,33 @@ With existing data only:
     (1149 keys), build green.
   - *Docs synced:* this entry, ROADMAP.md, QA_COVERAGE_MATRIX.md,
     LOCALISATION_NOTES.md, DESIGN.md (look-ahead = identity-not-counts pattern).
+- **G1 (implemented): unify task completion in the Today modal.** There were two
+  disconnected ways to resolve a task: E2 (parent marks it done themselves, in the
+  Today modal → immediately final) and C10 (child claims it done → pending → parent
+  could only approve/reject inside that child's picker-modal Calendar tab). The Today
+  modal now handles **both** per today-task: with no completion yet it shows E2's
+  "Mark complete"; with a child's **pending** claim it shows a distinct "Says done"
+  state plus a one-tap **Confirm** (approve) **and Reject**, posting to the existing
+  `/calendar/completions/{id}/approve|reject`. A new `reviewCalendarCompletion()`
+  handler reloads the summary + dashboard (parallel to `parentCompleteTask`); both
+  share `calendarCompletingKey` so only one calendar action runs at a time.
+  - *Reject offered here (judgement):* the Today tile is the primary "is this done?"
+    surface, so a parent who disagrees with a claim must be able to act without
+    leaving it. Calendar-completion reject is one-tap (no reason prompt, matching the
+    existing `processCompletion`), so it's cheap and symmetric with Confirm.
+  - *C10's per-child "Tasks to review" card is KEPT* as a secondary path (some
+    parents may prefer per-child review). The Today tile is now the recommended path
+    by handling both completion types. A future session could revisit removing the
+    C10 card if the Today tile makes it fully redundant in practice.
+  - *Badge unchanged:* a pending child-claim still counts as outstanding for the
+    Today tile's `tile_count` (`task_is_outstanding` returns True for status != approved),
+    confirmed by `test_count_attention_items`/`test_task_is_outstanding` — the E1 rule.
+  - *Both layers:* **frontend-only** — `/calendar/summary` already returns the pending
+    completion's `id` + `status` per task (the contract Confirm/Reject read). Extended
+    the summary-endpoint test to assert that contract; backend `pytest` 16 passed.
+    svelte-check clean (parent page), i18n parity OK (1150 keys), build green.
+  - *Docs synced:* this entry, ROADMAP.md, PROJECT_STATUS.md, QA_COVERAGE_MATRIX.md,
+    LOCALISATION_NOTES.md, DESIGN.md (extended the E2-vs-C10 pattern note).
 
 ## Scope C — Future
 
