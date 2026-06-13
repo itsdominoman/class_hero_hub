@@ -398,3 +398,36 @@ With existing data only:
   desktop) with internal scrolling, instead of resizing per tab.
   Swept other modals (calendar, child dashboard, admin) — single-view
   forms, no tab size-jumping, unchanged.
+- **C2 (now defined): the points-log "Year" tab showed month data.**
+  Investigated: the backend `get_ledger`/`get_ledger_summary` routes
+  only accept `period ∈ {day, week, month}` and `get_period_bounds`
+  has no `year` case, so a genuine year/all-time view is **backend-only**
+  work (see Scope C below). The frontend silently mapped `year → month`
+  (`ledgerApiPeriod`) and showed an apologetic `yearlyNote` caption — a
+  tab labelled "Year" that actually rendered the current calendar month.
+  Decision (judgement call): rather than ship a tab that lies, relabel
+  the third tab to **Month**, which is honest for the data already
+  returned and needs no backend change. Renamed the period token
+  `'year' → 'month'` throughout `parent/+page.svelte`, removed the
+  `ledgerApiPeriod` mapping hack (now identity) and the `yearlyNote`
+  caption + key (en/ar), giving a coherent Day / Week / Month
+  progression. The real year/all-time view is deferred to Scope C and
+  flagged in the C5 review summary.
+
+## Scope C — Proposals for Discussion (DO NOT IMPLEMENT)
+
+### C2-followup — Genuine "Year" / all-time points history
+The points-log periods are bounded windows (current day / current week
+/ current calendar **month**) with no offset or limit, computed in
+`points_service.get_period_bounds`. A real "Year" view (or "all time")
+needs backend work:
+- extend the `Literal["day","week","month"]` on `GET /children/{id}/ledger`
+  and `/ledger/summary` to include `year` (and/or a paged
+  `?before=<cursor>&limit=50` endpoint for true all-time scrolling),
+- add a `year` branch to `get_period_bounds` (Jan 1 → Jan 1 next year),
+- decide whether the child-facing ledger endpoint mirrors it (ties into
+  the A7 "beyond one month" gap and B4 child-history proposal).
+This shares the same root cause as the deferred **A7 beyond-one-month**
+note: the ledger is window-bound with no pagination. Worth doing the
+paged endpoint once and letting both the parent "Year" tab and the
+child longer-history view consume it.

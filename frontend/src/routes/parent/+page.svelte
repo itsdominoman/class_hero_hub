@@ -49,7 +49,7 @@
   let presetTitleError = $state<string | null>(null);
   let activeTab = $state('positive');
   let childModalTab = $state('points');
-  let pointLogPeriod = $state<'day' | 'week' | 'year'>('week');
+  let pointLogPeriod = $state<'day' | 'week' | 'month'>('week');
   const POINT_LOG_PAGE_SIZE = 8;
   let pointLogVisible = $state(8);
   let childCalendarById = $state<Record<number, CalendarOccurrence[]>>({});
@@ -1086,12 +1086,8 @@
     return Array.isArray(schedule) && schedule.length > 0 ? schedule[0] : null;
   }
 
-  function ledgerApiPeriod(period: 'day' | 'week' | 'year') {
-    return period === 'year' ? 'month' : period;
-  }
-
   function ledgerKey(childId: number, period = pointLogPeriod) {
-    return `${childId}:${ledgerApiPeriod(period)}`;
+    return `${childId}:${period}`;
   }
 
   function currentLedger(childSummary: any) {
@@ -1221,7 +1217,7 @@
     childLedgerLoading = { ...childLedgerLoading, [key]: true };
     childLedgerError = { ...childLedgerError, [key]: '' };
     try {
-      const response = await api.get(`/children/${childId}/ledger?period=${ledgerApiPeriod(period)}&type=all`);
+      const response = await api.get(`/children/${childId}/ledger?period=${period}&type=all`);
       childLedgerByKey = { ...childLedgerByKey, [key]: Array.isArray(response) ? response : [] };
     } catch (e) {
       childLedgerError = { ...childLedgerError, [key]: $_('parent.childCalendar.errorLoadHistory') };
@@ -1250,7 +1246,7 @@
     }
   }
 
-  function setPointLogPeriod(period: 'day' | 'week' | 'year') {
+  function setPointLogPeriod(period: 'day' | 'week' | 'month') {
     pointLogPeriod = period;
     pointLogVisible = POINT_LOG_PAGE_SIZE;
     if (activeModal?.type === 'picker' && activeModal.child) {
@@ -2482,7 +2478,7 @@
               {@const key = ledgerKey(activeModal.child.child.id)}
               <div class="space-y-5">
               <div class="grid grid-cols-3 gap-2 rounded-2xl bg-hero/5 p-1 ring-1 ring-hero/10">
-                {#each ([['day', $_('parent.pointsLog.day')], ['week', $_('parent.pointsLog.week')], ['year', $_('parent.pointsLog.year')]] as ['day' | 'week' | 'year', string][]) as period}
+                {#each ([['day', $_('parent.pointsLog.day')], ['week', $_('parent.pointsLog.week')], ['month', $_('parent.pointsLog.month')]] as ['day' | 'week' | 'month', string][]) as period}
                   <button
                     type="button"
                     onclick={() => setPointLogPeriod(period[0])}
@@ -2512,9 +2508,6 @@
                         </div>
                       </div>
                     </div>
-                  {/if}
-                  {#if pointLogPeriod === 'year'}
-                    <p class="mt-4 text-center text-xs font-bold text-slate-400">{$_('parent.pointsLog.yearlyNote')}</p>
                   {/if}
                 </div>
 

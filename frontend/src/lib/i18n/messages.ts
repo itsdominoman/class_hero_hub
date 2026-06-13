@@ -672,10 +672,9 @@ export const en = {
     pointsLog: {
       day: 'Day',
       week: 'Week',
-      year: 'Year',
+      month: 'Month',
       noBehaviour: 'No behaviour points yet',
       good: 'Good',
-      yearlyNote: 'Showing available recent history for the yearly view.',
       loading: 'Loading points log',
       noHistory: 'No point history for this period',
       spendingJar: 'Spending'
@@ -1847,10 +1846,9 @@ export const ar = {
     pointsLog: {
       day: 'اليوم',
       week: 'الأسبوع',
-      year: 'السنة',
+      month: 'الشهر',
       noBehaviour: 'لا توجد نقاط سلوك بعد',
       good: 'جيد',
-      yearlyNote: 'يتم عرض السجل الحديث المتاح للعرض السنوي.',
       loading: 'جار تحميل سجل النقاط',
       noHistory: 'لا يوجد سجل نقاط لهذه الفترة',
       spendingJar: 'الإنفاق'
