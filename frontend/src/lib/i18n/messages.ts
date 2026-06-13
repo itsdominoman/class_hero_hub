@@ -570,8 +570,8 @@ export const en = {
       totalPoints: 'Points available across your children',
       pendingRequests: 'Reward requests waiting for your review',
       noPendingRequests: 'No reward requests waiting',
-      schoolToday: 'School items needed today',
-      noSchoolToday: 'Nothing needed for school today'
+      schoolMissing: 'School items missing — tap to see',
+      schoolAllPacked: 'School bag — all packed'
     },
     loginRequired: 'Parent access required',
     loginHint: 'Sign in with Google to open the parent dashboard and manage your family account.',
@@ -656,6 +656,19 @@ export const en = {
       itemFallback: 'School item',
       gymClothesFallback: 'Gym clothes',
       classBookFallback: '{className} book'
+    },
+    schoolSummary: {
+      title: 'School bag',
+      subtitle: "What's packed and what's missing",
+      neededToday: 'Needed today',
+      packForTomorrow: 'Pack for tomorrow',
+      neededTodayHint: 'Packed last night for school today',
+      packForTomorrowHint: "Tonight's checklist for tomorrow",
+      packedSummary: '{packed} of {total} packed',
+      missingLabel: 'Missing:',
+      allPacked: 'All packed',
+      nothingForDay: 'Nothing for this day',
+      noneConfigured: 'No school bag items set up yet.'
     },
     savings: {
       nextUnlock: 'Next unlock',
@@ -1775,8 +1788,8 @@ export const ar = {
       totalPoints: 'النقاط المتاحة لدى أطفالك',
       pendingRequests: 'طلبات مكافآت بانتظار مراجعتك',
       noPendingRequests: 'لا توجد طلبات مكافآت قيد الانتظار',
-      schoolToday: 'أغراض مطلوبة للمدرسة اليوم',
-      noSchoolToday: 'لا شيء مطلوب للمدرسة اليوم'
+      schoolMissing: 'أغراض مدرسية ناقصة — اضغط للعرض',
+      schoolAllPacked: 'حقيبة المدرسة — كل شيء جاهز'
     },
     loginRequired: 'مطلوب وصول وليّ الأمر',
     loginHint: 'سجّل الدخول باستخدام Google لفتح لوحة وليّ الأمر وإدارة حساب عائلتك.',
@@ -1861,6 +1874,19 @@ export const ar = {
       itemFallback: 'عنصر مدرسي',
       gymClothesFallback: 'ملابس الرياضة',
       classBookFallback: 'كتاب {className}'
+    },
+    schoolSummary: {
+      title: 'الحقيبة المدرسية',
+      subtitle: 'ما تم تجهيزه وما هو ناقص',
+      neededToday: 'مطلوب اليوم',
+      packForTomorrow: 'جهّز للغد',
+      neededTodayHint: 'ما تم تجهيزه ليلة أمس لمدرسة اليوم',
+      packForTomorrowHint: 'قائمة الليلة استعدادًا للغد',
+      packedSummary: 'تم تجهيز {packed} من {total}',
+      missingLabel: 'ناقص:',
+      allPacked: 'كل شيء جاهز',
+      nothingForDay: 'لا شيء لهذا اليوم',
+      noneConfigured: 'لم يتم إعداد أي أغراض مدرسية بعد.'
     },
     savings: {
       nextUnlock: 'الفتح القادم',

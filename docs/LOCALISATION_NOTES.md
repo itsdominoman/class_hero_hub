@@ -22,6 +22,12 @@ Arabic uses neutral Modern Standard Arabic with short, family-friendly labels wh
 | Packed / Not packed yet | تم التجهيز / لم يُجهز بعد | Checkbox state labels on the child packing checklist. | Yes |
 | Tap to tick off what you have packed | اضغط لتعليم ما جهزته | Hint above the checkable list; "تعليم" = mark/tick. | Yes |
 | This list is locked for today | قائمة اليوم مقفلة | Shown when a child tries to change a list whose day has already begun. | Yes |
+| School items missing — tap to see | أغراض مدرسية ناقصة — اضغط للعرض | Parent summary tile (B1); signals the tile is tappable, not just a count. | Yes |
+| School bag — all packed | حقيبة المدرسة — كل شيء جاهز | Positive empty state of the same tile when nothing is missing. | Yes |
+| Needed today / Pack for tomorrow | مطلوب اليوم / جهّز للغد | Section headers in the parent B1 school-summary modal. | Yes |
+| {packed} of {total} packed | تم تجهيز {packed} من {total} | Per-child progress line in the B1 modal. | Yes |
+| Missing: | ناقص: | Prefix before the comma-joined list of unpacked items (ar uses "، " separator). | Yes |
+| All packed / Nothing for this day | كل شيء جاهز / لا شيء لهذا اليوم | Per-child positive/neutral states in the B1 modal. | Yes |
 | Requests | الطلبات | Short UI label. | No |
 | Approve | قبول | Button action for approving a request; use “موافقة” only when approval is a noun/status. | Yes |
 | Reject | رفض | Short and standard. | No |

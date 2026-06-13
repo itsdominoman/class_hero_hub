@@ -586,6 +586,52 @@ With existing data only:
     (glossary rows + review date), ROADMAP.md, PROJECT_STATUS.md,
     QA_COVERAGE_MATRIX.md. **B1 not built** (parent "N of M packed" tile is
     the next session).
+- **B1 (implemented): parent "School items missing" summary tile.** The
+  parent-dashboard summary-strip tile (was the static "School items needed
+  today" count) is now a **tappable** button opening a family-wide modal.
+  - *Backend: no new endpoint needed.* The existing parent `/school-items/
+    today?child_id=&offset=0|1` already returns, per child, every item for
+    that weekday with B2's `packed` / `locked` / `check_date` fields. The
+    dashboard already fetches both offsets per child (`loadSchoolPrep`), so
+    B1 is a **pure frontend read** on data already in hand — confirmed
+    before adding any aggregation. (A family-scope aggregate was considered
+    and rejected as redundant.)
+  - *Tile rename + states:* "School items needed today" → **"School items
+    missing — tap to see"** (en) / natural ar, with a positive
+    **"School bag — all packed"** state when nothing is missing. Icon turns
+    `penalty`-tinted when something is missing, `savings`-tinted when all
+    packed.
+  - *Badge meaning (documented decision):* the number is the **total count
+    of items still MISSING for _today_** across all children (configured for
+    today but not packed last night) — the most actionable "needs attention
+    this morning" signal. Tomorrow's progress is shown inside the modal but
+    deliberately **excluded from the badge** (tomorrow is still editable, not
+    yet an accountability signal).
+  - *Modal:* two sections — **Needed today** ("Packed last night for school
+    today") and **Pack for tomorrow** ("Tonight's checklist for tomorrow") —
+    each listing every child with `{packed} of {total} packed` and, when
+    short, a `Missing: …` line. Per child: `Nothing for this day` when
+    nothing is configured for that weekday, `All packed` (positive) when
+    everything is packed — never a bare empty/error state. Missing-item
+    labels reuse B2's `schoolNeedLabel` and join with a locale-aware
+    separator (`، ` for ar). New `parent.summary.*` + `parent.schoolSummary.*`
+    strings (en + natural ar, parity verified — 1133 keys both sides).
+  - *Midnight-lock verification (code review only, no new code):* traced
+    `is_date_locked(check_date, family_today)` = `check_date <= family_today`
+    with `family_today = get_family_today(tz)` =
+    `datetime.now(ZoneInfo(tz)).date()`. Because "today" is computed **in the
+    family's local timezone**, the lock boundary is **local midnight**, not
+    UTC. Checked two zones: **Asia/Dubai (UTC+4)** — at 20:00 UTC the local
+    clock hits 00:00, `get_family_today` rolls to the new date, and
+    `is_date_locked(tomorrow, …)` flips `True` exactly at local midnight;
+    **America/New_York (UTC-5)** — today's checklist locks at 05:00 UTC =
+    local midnight. **Result: PASS** — tomorrow becomes locked "today" at the
+    correct local midnight for each family; no bug, no fix needed.
+  - *No backend changes → no container rebuild for B1* (frontend rebuilt for
+    deploy as usual). `svelte-check` clean (the 30 pre-existing admin-page
+    errors are unrelated and unchanged), build passing.
+  - *Docs synced:* PLAN.md (this entry), ROADMAP.md, PROJECT_STATUS.md,
+    QA_COVERAGE_MATRIX.md, LOCALISATION_NOTES.md.
 - **A6 follow-up (`this session`): unexpected-error message split.** The
   "Correct this entry" flow now shows a distinct "Something went wrong.
   Please try again." (`correctErrorUnexpected`, en+ar) for any

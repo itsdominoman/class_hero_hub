@@ -104,6 +104,10 @@
     created_by_parent_id: number;
     created_at: string;
     updated_at: string | null;
+    // Present on the /school-items/today response (B2 packing state).
+    check_date?: string;
+    packed?: boolean;
+    locked?: boolean;
   };
 
   type CalendarEntry = {
@@ -1380,6 +1384,33 @@
       0
     )
   );
+
+  // B1 — the summary tile badge counts items still MISSING for *today*
+  // (configured for today but not packed last night). This is the most
+  // actionable "needs attention this morning" signal, more useful than a raw
+  // count of all school items. Tomorrow's progress is shown inside the modal
+  // but deliberately not folded into the badge (it's still editable, not yet
+  // an accountability signal).
+  function missingCount(items: SchoolItem[]) {
+    return items.reduce((sum, item) => sum + (item.packed ? 0 : 1), 0);
+  }
+
+  function schoolGroupSummary(items: SchoolItem[]) {
+    const total = items.length;
+    const missing = items.filter((item) => !item.packed);
+    return {
+      total,
+      packed: total - missing.length,
+      missingLabels: missing.map((item) => schoolNeedLabel(item))
+    };
+  }
+
+  const schoolMissingTodayCount = $derived(
+    children.reduce(
+      (sum, childSummary) => sum + missingCount(schoolTodayByChild[childSummary.child.id] || []),
+      0
+    )
+  );
 </script>
 
 <div class="bg-slate-50 min-h-dvh max-w-full overflow-x-hidden pb-[var(--safe-bottom)]">
@@ -1509,17 +1540,21 @@
                 </p>
               </div>
             </a>
-            <div class="card p-4 sm:p-5 flex items-center gap-4">
-              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl {schoolItemsTodayCount > 0 ? 'bg-savings/10 text-savings-dark' : 'bg-slate-100 text-slate-400'}">
+            <button
+              type="button"
+              onclick={() => { activeModal = { type: 'school-summary' }; }}
+              class="card p-4 sm:p-5 flex items-center gap-4 text-left transition hover:border-hero/40 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-hero/15"
+            >
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl {schoolMissingTodayCount > 0 ? 'bg-penalty/10 text-penalty' : 'bg-savings/10 text-savings-dark'}">
                 <CalendarDays size={22} />
               </div>
               <div class="min-w-0">
-                <p class="text-2xl font-black text-slate-950 leading-tight">{schoolItemsTodayCount}</p>
+                <p class="text-2xl font-black text-slate-950 leading-tight">{schoolMissingTodayCount}</p>
                 <p class="text-xs font-semibold text-slate-500">
-                  {schoolItemsTodayCount > 0 ? $_('parent.summary.schoolToday') : $_('parent.summary.noSchoolToday')}
+                  {schoolMissingTodayCount > 0 ? $_('parent.summary.schoolMissing') : $_('parent.summary.schoolAllPacked')}
                 </p>
               </div>
-            </div>
+            </button>
           </section>
         {/if}
 
@@ -1651,6 +1686,7 @@
                  activeModal.type === 'child-link-select' ? 'bg-slate-900 text-white shadow-slate-200' :
                  activeModal.type === 'rewards' ? 'bg-reward text-white shadow-reward/20' :
                  activeModal.type === 'requests' ? 'bg-savings text-white shadow-savings/20' :
+                 activeModal.type === 'school-summary' ? 'bg-savings text-white shadow-savings/20' :
                  'bg-reward text-white shadow-reward/20'}">
                 {#if activeModal.type === 'award'}<Award size={32} />
                 {:else if activeModal.type === 'add-child'}<UserPlus size={32} />
@@ -1663,6 +1699,7 @@
                 {:else if activeModal.type === 'child-link-select'}<QrCode size={32} />
                 {:else if activeModal.type === 'rewards'}<Gift size={32} />
                 {:else if activeModal.type === 'requests'}<Check size={32} />
+                {:else if activeModal.type === 'school-summary'}<CalendarDays size={32} />
                 {:else}<Trophy size={32} />{/if}
               </div>
               <div class="min-w-0">
@@ -1678,6 +1715,7 @@
                   activeModal.type === 'child-link-select' ? $_('parent.childLink.modalTitle') :
                   activeModal.type === 'rewards' ? $_('parent.rewards.manage') :
                   activeModal.type === 'requests' ? $_('parent.requests.reviewRewardRequests') :
+                  activeModal.type === 'school-summary' ? $_('parent.schoolSummary.title') :
                   $_('parent.redeem.title')}
                 </h3>
                 <p class="text-slate-400 font-bold text-[10px] sm:text-xs uppercase tracking-wide break-words">
@@ -1687,7 +1725,8 @@
                    activeModal.type === 'child-link' ? $_('parent.childLink.dashboardLink') :
                    activeModal.type === 'child-link-select' ? $_('parent.childLink.chooseChildFirst') :
                    activeModal.type === 'rewards' ? $_('parent.rewards.subtitle') :
-                   activeModal.type === 'requests' ? $_('parent.tabs.requests') : ''}
+                   activeModal.type === 'requests' ? $_('parent.tabs.requests') :
+                   activeModal.type === 'school-summary' ? $_('parent.schoolSummary.subtitle') : ''}
                 </p>
               </div>
             </div>
@@ -2175,6 +2214,48 @@
                 {/each}
               {/if}
             </div>
+          {/if}
+
+          {#if activeModal.type === 'school-summary'}
+            {#if loadingSchoolPrep}
+              <div class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">{$_('parent.school.loading')}</p>
+              </div>
+            {:else}
+              {#each ([['neededToday', schoolTodayByChild, $_('parent.schoolSummary.neededTodayHint')], ['packForTomorrow', schoolTomorrowByChild, $_('parent.schoolSummary.packForTomorrowHint')]] as [string, Record<number, SchoolItem[]>, string][]) as [groupKey, byChild, hint]}
+                <div class="space-y-3">
+                  <div>
+                    <p class="text-sm font-black text-slate-900">{$_(`parent.schoolSummary.${groupKey}`)}</p>
+                    <p class="text-[11px] font-semibold text-slate-400">{hint}</p>
+                  </div>
+                  {#each children as childSummary}
+                    {@const items = byChild[childSummary.child.id] || []}
+                    {@const summary = schoolGroupSummary(items)}
+                    <div class="rounded-2xl border border-slate-100 bg-white p-4">
+                      <div class="flex items-center justify-between gap-3">
+                        <p class="font-bold text-slate-950 break-words">{childSummary.child.display_name}</p>
+                        {#if items.length === 0}
+                          <span class="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{$_('parent.schoolSummary.nothingForDay')}</span>
+                        {:else if summary.missingLabels.length === 0}
+                          <span class="shrink-0 rounded-full bg-savings/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-savings-dark">{$_('parent.schoolSummary.allPacked')}</span>
+                        {:else}
+                          <span class="shrink-0 rounded-full bg-penalty/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-penalty">{summary.missingLabels.length}</span>
+                        {/if}
+                      </div>
+                      {#if items.length > 0}
+                        <p class="mt-1 text-xs font-bold text-slate-500">{$_('parent.schoolSummary.packedSummary', { values: { packed: summary.packed, total: summary.total } })}</p>
+                        {#if summary.missingLabels.length > 0}
+                          <p class="mt-2 text-sm font-semibold text-slate-700 break-words">
+                            <span class="text-penalty">{$_('parent.schoolSummary.missingLabel')}</span>
+                            {summary.missingLabels.join(($locale || 'en').startsWith('ar') ? '، ' : ', ')}
+                          </p>
+                        {/if}
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
+              {/each}
+            {/if}
           {/if}
 
           {#if activeModal.type === 'family'}
