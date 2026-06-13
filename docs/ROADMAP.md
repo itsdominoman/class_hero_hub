@@ -158,6 +158,8 @@
 - Future: optional office site mesh spoke at `10.250.50.10`
 - Future: narrow sudo permissions for Hermes if needed
 - Future: real-device mobile QA on Android Chrome and iPhone Safari
+- Completed (FIX 2, audit #2): removed the inaccurate "export or delete your family data anytime" claim from public copy (FAQ, beta trust line, manuals, wording-decision doc) in EN + AR. Re-worded to the honest contact-us capability ("to get a copy of your family data or delete your account, just contact us and we will action it promptly"); no self-serve export/delete exists yet. Copy-only — the actual feature is tracked in PLAN.md "Scope C — Future".
+- Future: self-serve data export + account deletion (the real feature behind FIX 2's contact-us wording; GDPR-style access/erasure)
 - Future: trust/privacy copy improvements and clearer family-safe wording
 - Future: onboarding simplification and stronger parent-facing conversion flow
 - Future: reward history, reminders, and longer-term retention loops

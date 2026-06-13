@@ -223,7 +223,7 @@ export const en = {
     faqQuestion6: 'Why did you build Family Hero Hub?',
     faqAnswer6: 'It started as a practical way to bring points, routines, school prep, rewards, savings-style goals, and child dashboards into one parent-led family space.',
     faqQuestion7: 'Is Family Hero Hub free during beta?',
-    faqAnswer7: 'Yes. Family Hero Hub is free during beta. After launch, we expect pricing to be around $4–$5 per month per family. Beta families get advance notice before any paid plan begins. No payment details are required during beta, and you can export or delete your family data anytime. No ads. No selling family data.'
+    faqAnswer7: 'Yes. Family Hero Hub is free during beta. After launch, we expect pricing to be around $4–$5 per month per family. Beta families get advance notice before any paid plan begins. No payment details are required during beta, and to get a copy of your family data or delete your account, just contact us and we will action it promptly. No ads. No selling family data.'
   },
   parentGuide: {
     pageTitle: 'Parent Guide | Family Hero Hub',
@@ -465,7 +465,7 @@ export const en = {
     heading: 'Join the Free Beta',
     intro1: 'Family Hero Hub is currently in closed beta while we prepare for Google Play and Apple App Store launch.',
     intro2: 'Beta access is free.',
-    betaTrustLine: 'After launch, expect around $4–$5/month per family. Beta families get advance notice before any paid plan begins. No payment details are required during beta, and you can export or delete your family data anytime. No ads. No selling family data.',
+    betaTrustLine: 'After launch, expect around $4–$5/month per family. Beta families get advance notice before any paid plan begins. No payment details are required during beta, and to get a copy of your family data or delete your account, just contact us and we will action it promptly. No ads. No selling family data.',
     nextHeading: 'What happens next?',
     nextText1: 'We review every beta request personally.',
     nextText2: 'Approved families receive onboarding instructions, and your feedback helps shape Family Hero Hub before public launch.',
@@ -1460,7 +1460,7 @@ export const ar = {
     faqQuestion6: 'لماذا أنشأت Family Hero Hub؟',
     faqAnswer6: 'بدأت كطريقة عملية لجمع النقاط والروتين وتجهيز المدرسة والمكافآت وأهداف الادخار ولوحات الأطفال في مساحة عائلية واحدة يقودها الأهل.',
     faqQuestion7: 'هل Family Hero Hub مجاني أثناء النسخة التجريبية؟',
-    faqAnswer7: 'نعم. Family Hero Hub مجاني أثناء النسخة التجريبية. بعد الإطلاق نتوقع سعرا يقارب 4-5 دولارات شهريا لكل عائلة. ستحصل العائلات التجريبية على إشعار مسبق قبل أي خطة مدفوعة. لا نحتاج إلى تفاصيل دفع أثناء النسخة التجريبية، ويمكنك تصدير بيانات عائلتك أو حذفها في أي وقت. لا إعلانات. ولا نبيع بيانات العائلة.'
+    faqAnswer7: 'نعم. Family Hero Hub مجاني أثناء النسخة التجريبية. بعد الإطلاق نتوقع سعرا يقارب 4-5 دولارات شهريا لكل عائلة. ستحصل العائلات التجريبية على إشعار مسبق قبل أي خطة مدفوعة. لا نحتاج إلى تفاصيل دفع أثناء النسخة التجريبية، ولطلب نسخة من بيانات عائلتك أو حذف حسابك، تواصل معنا وسننفّذ ذلك فورًا. لا إعلانات. ولا نبيع بيانات العائلة.'
   },
   parentGuide: {
     pageTitle: 'دليل الأهل | Family Hero Hub',
@@ -1763,7 +1763,7 @@ export const ar = {
     heading: 'انضم إلى النسخة التجريبية المجانية',
     intro1: 'Family Hero Hub موجود حاليًا في نسخة تجريبية مغلقة بينما نستعد للإطلاق على Google Play وApple App Store.',
     intro2: 'الوصول إلى النسخة التجريبية مجاني.',
-    betaTrustLine: 'بعد الإطلاق نتوقع سعرا يقارب 4-5 دولارات شهريا لكل عائلة. ستحصل العائلات التجريبية على إشعار مسبق قبل أي خطة مدفوعة. لا نحتاج إلى تفاصيل دفع أثناء النسخة التجريبية، ويمكنك تصدير بيانات عائلتك أو حذفها في أي وقت. لا إعلانات. ولا نبيع بيانات العائلة.',
+    betaTrustLine: 'بعد الإطلاق نتوقع سعرا يقارب 4-5 دولارات شهريا لكل عائلة. ستحصل العائلات التجريبية على إشعار مسبق قبل أي خطة مدفوعة. لا نحتاج إلى تفاصيل دفع أثناء النسخة التجريبية، ولطلب نسخة من بيانات عائلتك أو حذف حسابك، تواصل معنا وسننفّذ ذلك فورًا. لا إعلانات. ولا نبيع بيانات العائلة.',
     nextHeading: 'ماذا يحدث بعد ذلك؟',
     nextText1: 'نراجع كل طلب للنسخة التجريبية بشكل شخصي.',
     nextText2: 'تتلقى العائلات المقبولة تعليمات الإعداد، وتساعد ملاحظاتك في تشكيل Family Hero Hub قبل الإطلاق العام.',
