@@ -231,6 +231,23 @@ class SchoolItem(SchoolItemBase):
     class Config:
         from_attributes = True
 
+class SchoolItemForDate(SchoolItem):
+    # The same school-item definition, annotated with its packing state for a
+    # specific date (B2). `locked` means the date has begun (>= family today)
+    # so the checklist is read-only.
+    check_date: date
+    packed: bool = False
+    locked: bool = False
+
+class SchoolItemPackRequest(BaseModel):
+    check_date: date
+
+class SchoolItemCheckState(BaseModel):
+    school_item_id: int
+    check_date: date
+    packed: bool
+    locked: bool
+
 class WeeklyStreakBase(BaseModel):
     child_id: int
     week_start_date: date

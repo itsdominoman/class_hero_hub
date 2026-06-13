@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from .. import auth, child_auth, models, schemas
-from ..services import calendar_service
+from ..services import calendar_service, school_items_service
 
 router = APIRouter()
 child_router = APIRouter()
@@ -141,6 +141,31 @@ def _school_items_for_date(db: Session, child: models.Child, target_date: date) 
     return _serialize_school_items(_school_items_query(db, child.id, target_date.weekday()).all())
 
 
+def _school_items_for_date_with_packing(
+    db: Session,
+    child: models.Child,
+    target_date: date,
+    family_today: date,
+) -> list[schemas.SchoolItemForDate]:
+    """School items for a date, annotated with B2 packing state. `locked` means
+    the date has begun (>= family today) so the checklist is read-only."""
+    _migrate_legacy_school_items_for_child(db, child)
+    items = _school_items_query(db, child.id, target_date.weekday()).all()
+    packed_ids = school_items_service.packed_item_ids(
+        db, child.id, [item.id for item in items], target_date
+    )
+    locked = school_items_service.is_date_locked(target_date, family_today)
+    return [
+        schemas.SchoolItemForDate(
+            **schemas.SchoolItem.model_validate(item).model_dump(),
+            check_date=target_date,
+            packed=item.id in packed_ids,
+            locked=locked,
+        )
+        for item in items
+    ]
+
+
 @router.get("/", response_model=List[schemas.SchoolItem])
 async def get_school_items(
     child_id: int = Query(...),
@@ -211,7 +236,7 @@ async def replace_school_items(
     )
 
 
-@router.get("/today", response_model=List[schemas.SchoolItem])
+@router.get("/today", response_model=List[schemas.SchoolItemForDate])
 async def get_school_items_today(
     child_id: int = Query(...),
     offset: int = Query(0, ge=0, le=1),
@@ -223,11 +248,12 @@ async def get_school_items_today(
     if not family:
         return []
 
-    target_date = calendar_service.get_family_today(family.timezone) + timedelta(days=offset)
-    return _school_items_for_date(db, child, target_date)
+    family_today = calendar_service.get_family_today(family.timezone)
+    target_date = family_today + timedelta(days=offset)
+    return _school_items_for_date_with_packing(db, child, target_date, family_today)
 
 
-@child_router.get("/today", response_model=List[schemas.SchoolItem])
+@child_router.get("/today", response_model=List[schemas.SchoolItemForDate])
 async def get_my_school_items_today(
     offset: int = Query(0, ge=0, le=1),
     db: Session = Depends(get_db),
@@ -238,5 +264,60 @@ async def get_my_school_items_today(
     if not family:
         return []
 
-    target_date = calendar_service.get_family_today(family.timezone) + timedelta(days=offset)
-    return _school_items_for_date(db, child, target_date)
+    family_today = calendar_service.get_family_today(family.timezone)
+    target_date = family_today + timedelta(days=offset)
+    return _school_items_for_date_with_packing(db, child, target_date, family_today)
+
+
+def _child_family_today(child: models.Child) -> date:
+    family = child.family
+    timezone = family.timezone if family else "UTC"
+    return calendar_service.get_family_today(timezone)
+
+
+def _pack_state_or_error(
+    db: Session,
+    child: models.Child,
+    item_id: int,
+    check_date: date,
+    packed: bool,
+) -> schemas.SchoolItemCheckState:
+    family_today = _child_family_today(child)
+    try:
+        school_items_service.set_packed(
+            db, child.id, item_id, check_date, family_today, packed=packed
+        )
+    except school_items_service.SchoolCheckError as exc:
+        status_code = {
+            "item_not_found": status.HTTP_404_NOT_FOUND,
+            "checklist_locked": status.HTTP_409_CONFLICT,
+            "weekday_mismatch": status.HTTP_400_BAD_REQUEST,
+        }.get(exc.code, status.HTTP_400_BAD_REQUEST)
+        raise HTTPException(status_code=status_code, detail=exc.code)
+
+    return schemas.SchoolItemCheckState(
+        school_item_id=item_id,
+        check_date=check_date,
+        packed=packed,
+        locked=school_items_service.is_date_locked(check_date, family_today),
+    )
+
+
+@child_router.post("/{item_id}/pack", response_model=schemas.SchoolItemCheckState)
+async def pack_my_school_item(
+    item_id: int,
+    req: schemas.SchoolItemPackRequest,
+    db: Session = Depends(get_db),
+    current_child: models.Child = Depends(child_auth.get_current_child),
+):
+    return _pack_state_or_error(db, current_child, item_id, req.check_date, packed=True)
+
+
+@child_router.delete("/{item_id}/pack", response_model=schemas.SchoolItemCheckState)
+async def unpack_my_school_item(
+    item_id: int,
+    check_date: date = Query(...),
+    db: Session = Depends(get_db),
+    current_child: models.Child = Depends(child_auth.get_current_child),
+):
+    return _pack_state_or_error(db, current_child, item_id, check_date, packed=False)

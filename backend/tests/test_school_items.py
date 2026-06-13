@@ -276,3 +276,158 @@ def test_legacy_school_items_migrate_and_are_hidden_from_calendar(db, client):
     assert calendar_resp.json() == []
 
     del app.dependency_overrides[get_current_parent]
+
+
+# ---------------------------------------------------------------------------
+# B2 — school-bag "pack for tomorrow" checklist
+# ---------------------------------------------------------------------------
+from datetime import timedelta
+
+from app.services import school_items_service
+
+
+def _make_school_item(db, child, weekday, class_name="Math", needed_item="Math book"):
+    created_by = db.query(models.ParentUser).filter(
+        models.ParentUser.family_id == child.family_id
+    ).first()
+    item = models.SchoolItem(
+        family_id=child.family_id,
+        child_id=child.id,
+        weekday=weekday,
+        class_name=class_name,
+        needed_item=needed_item,
+        sort_order=0,
+        is_active=True,
+        created_by_parent_id=created_by.id if created_by else None,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def test_is_date_locked_boundary():
+    today = date(2026, 6, 13)
+    assert school_items_service.is_date_locked(today, today) is True          # today has begun
+    assert school_items_service.is_date_locked(today - timedelta(days=1), today) is True   # past
+    assert school_items_service.is_date_locked(today + timedelta(days=1), today) is False  # future = editable
+
+
+def test_service_pack_and_unpack_future_date(db):
+    family, parent, child = _create_family_with_parent_and_child(db)
+    today = calendar_service.get_family_today(family.timezone)
+    tomorrow = today + timedelta(days=1)
+    item = _make_school_item(db, child, tomorrow.weekday())
+
+    # Pack
+    row = school_items_service.set_packed(db, child.id, item.id, tomorrow, today, packed=True)
+    assert row is not None
+    assert school_items_service.packed_item_ids(db, child.id, [item.id], tomorrow) == {item.id}
+
+    # Idempotent pack
+    school_items_service.set_packed(db, child.id, item.id, tomorrow, today, packed=True)
+    assert db.query(models.SchoolItemCheck).count() == 1
+
+    # Unpack
+    assert school_items_service.set_packed(db, child.id, item.id, tomorrow, today, packed=False) is None
+    assert school_items_service.packed_item_ids(db, child.id, [item.id], tomorrow) == set()
+    # Idempotent unpack
+    school_items_service.set_packed(db, child.id, item.id, tomorrow, today, packed=False)
+    assert db.query(models.SchoolItemCheck).count() == 0
+
+
+def test_service_rejects_locked_weekday_mismatch_and_missing(db):
+    family, parent, child = _create_family_with_parent_and_child(db)
+    today = calendar_service.get_family_today(family.timezone)
+    tomorrow = today + timedelta(days=1)
+
+    # Locked: packing for today (already begun)
+    today_item = _make_school_item(db, child, today.weekday())
+    with pytest.raises(school_items_service.SchoolCheckError) as exc:
+        school_items_service.set_packed(db, child.id, today_item.id, today, today, packed=True)
+    assert exc.value.code == "checklist_locked"
+
+    # Weekday mismatch: item for tomorrow's weekday, packed for a date 2 days out
+    tomorrow_item = _make_school_item(db, child, tomorrow.weekday())
+    two_days = today + timedelta(days=2)
+    if two_days.weekday() != tomorrow_item.weekday:
+        with pytest.raises(school_items_service.SchoolCheckError) as exc:
+            school_items_service.set_packed(db, child.id, tomorrow_item.id, two_days, today, packed=True)
+        assert exc.value.code == "weekday_mismatch"
+
+    # Missing / not owned
+    with pytest.raises(school_items_service.SchoolCheckError) as exc:
+        school_items_service.set_packed(db, child.id, 999999, tomorrow, today, packed=True)
+    assert exc.value.code == "item_not_found"
+
+
+def _override_child(child):
+    from app.child_auth import get_current_child
+    app.dependency_overrides[get_current_child] = lambda: child
+
+
+def test_http_child_today_returns_packing_state_and_pack_unpack(db, client):
+    family, parent, child = _create_family_with_parent_and_child(db)
+    today = calendar_service.get_family_today(family.timezone)
+    tomorrow = today + timedelta(days=1)
+    item = _make_school_item(db, child, tomorrow.weekday())
+    _override_child(child)
+    try:
+        # Tomorrow list: editable (locked=False), not yet packed
+        resp = client.get("/api/child/school-items/today?offset=1")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert len(body) == 1
+        assert body[0]["packed"] is False
+        assert body[0]["locked"] is False
+        assert body[0]["check_date"] == tomorrow.isoformat()
+
+        # Pack it
+        resp = client.post(f"/api/child/school-items/{item.id}/pack", json={"check_date": tomorrow.isoformat()})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["packed"] is True
+
+        # Reflected in the list
+        resp = client.get("/api/child/school-items/today?offset=1")
+        assert resp.json()[0]["packed"] is True
+
+        # Unpack it
+        resp = client.request("DELETE", f"/api/child/school-items/{item.id}/pack",
+                              params={"check_date": tomorrow.isoformat()})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["packed"] is False
+        resp = client.get("/api/child/school-items/today?offset=1")
+        assert resp.json()[0]["packed"] is False
+    finally:
+        app.dependency_overrides.pop(__import__("app.child_auth", fromlist=["get_current_child"]).get_current_child, None)
+
+
+def test_http_child_today_offset_zero_is_locked(db, client):
+    family, parent, child = _create_family_with_parent_and_child(db)
+    today = calendar_service.get_family_today(family.timezone)
+    item = _make_school_item(db, child, today.weekday())
+    _override_child(child)
+    try:
+        resp = client.get("/api/child/school-items/today?offset=0")
+        assert resp.status_code == 200
+        assert resp.json()[0]["locked"] is True
+
+        # Packing for today is rejected (checklist has begun)
+        resp = client.post(f"/api/child/school-items/{item.id}/pack", json={"check_date": today.isoformat()})
+        assert resp.status_code == 409
+        assert resp.json()["detail"] == "checklist_locked"
+    finally:
+        app.dependency_overrides.pop(__import__("app.child_auth", fromlist=["get_current_child"]).get_current_child, None)
+
+
+def test_http_child_pack_unknown_item_404(db, client):
+    family, parent, child = _create_family_with_parent_and_child(db)
+    today = calendar_service.get_family_today(family.timezone)
+    tomorrow = today + timedelta(days=1)
+    _override_child(child)
+    try:
+        resp = client.post("/api/child/school-items/999999/pack", json={"check_date": tomorrow.isoformat()})
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "item_not_found"
+    finally:
+        app.dependency_overrides.pop(__import__("app.child_auth", fromlist=["get_current_child"]).get_current_child, None)

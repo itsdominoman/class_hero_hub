@@ -232,6 +232,24 @@ class SchoolItem(Base):
     child = relationship("Child", back_populates="school_items")
     created_by = relationship("ParentUser")
 
+class SchoolItemCheck(Base):
+    __tablename__ = "school_item_checks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_item_id = Column(Integer, ForeignKey("school_items.id"), nullable=False)
+    child_id = Column(Integer, ForeignKey("children.id"), nullable=False)
+    check_date = Column(Date, nullable=False)  # local family date the item was packed for
+    packed_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    school_item = relationship("SchoolItem")
+    child = relationship("Child")
+
+    # One pack row per item per date; absence of a row = "not packed".
+    __table_args__ = (
+        UniqueConstraint("school_item_id", "check_date", name="_school_item_check_uc"),
+    )
+
+
 class CalendarCompletion(Base):
     __tablename__ = "calendar_task_completions"
 
