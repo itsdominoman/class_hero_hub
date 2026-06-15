@@ -46,6 +46,8 @@
 
 ## 📅 Phase 3 – Structure & Habit Building (IN PROGRESS)
 
+- In progress: security and environment hardening for Phase 3, including canonical `APP_ENV`, fail-fast startup validation, loopback-only forwarded-header trust, explicit CORS origins, and an enforcing CSP.
+
 ### 📆 Family Calendar
 - Completed: Parent-facing calendar page
 - Completed: Normal events

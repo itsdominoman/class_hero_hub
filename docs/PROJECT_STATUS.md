@@ -146,6 +146,7 @@
 - DNS is aligned for dev: `dev.familyherohub.com` -> `213.199.61.244` and PTR `213.199.61.244` -> `dev.familyherohub.com`
 - Mail remains on the US server only; production DNS records were not changed
 - Dev access is locked down at Caddy with `remote_ip` allowlisting; off-VPN/untrusted clients receive HTTP 403
+- Phase 3 security hardening is in progress: canonical `APP_ENV`, fail-fast startup validation, loopback-only proxy trust, explicit CORS validation, and an enforcing CSP header.
 - WireGuard site mesh is live on `10.250.50.0/24` with Europe as hub, US/UK/Singapore as spokes, and the restore node at `10.250.50.5`
 - Europe personal VPN is working on `10.60.0.0/24`
 - UK personal VPN is working on `10.70.0.0/24`

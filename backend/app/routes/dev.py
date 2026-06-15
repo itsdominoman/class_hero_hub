@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import logging
 from datetime import datetime, timezone
 from urllib.parse import urlparse
@@ -12,20 +13,19 @@ from sqlalchemy.orm import Session
 from .. import auth, models
 from .. import child_auth
 from ..database import get_db, settings
+from ..security import BoundedInMemoryRateLimiter, get_client_ip_from_scope, parse_csv_values
 from ..services.qa_seed import ensure_qa_child_session, seed_qa_child_dashboard, seed_qa_parent_dashboard
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+QA_TOKEN_ATTEMPT_WINDOW_SECONDS = 60
+QA_TOKEN_ATTEMPT_MAX = 12
 
-PRODUCTION_HOSTS = {"familyherohub.com", "www.familyherohub.com"}
+_qa_login_rate_limiter = BoundedInMemoryRateLimiter(QA_TOKEN_ATTEMPT_WINDOW_SECONDS, QA_TOKEN_ATTEMPT_MAX)
 
 
 def _runtime_environment() -> str:
-    return (
-        getattr(settings, "ENVIRONMENT", "")
-        or getattr(settings, "APP_ENV", "")
-        or ""
-    ).strip().lower()
+    return settings.runtime_environment
 
 
 def _host_from_url(value: str | None) -> str:
@@ -34,24 +34,40 @@ def _host_from_url(value: str | None) -> str:
 
 
 def _request_host(request: Request) -> str:
-    forwarded_host = (request.headers.get("x-forwarded-host") or "").split(",")[0].strip().lower()
-    if forwarded_host:
-        return forwarded_host
     host = (request.headers.get("host") or "").split(",")[0].strip().lower()
     if host:
         return host
     return (request.url.hostname or "").strip().lower()
 
 
-def _is_production_context(request: Request) -> bool:
+def _blocked_hostnames() -> set[str]:
+    return {hostname.lower() for hostname in parse_csv_values(settings.QA_BLOCKED_HOSTNAMES)}
+
+
+def _request_context_hostnames(request: Request) -> set[str]:
     request_hosts = {
         _request_host(request),
         _host_from_url(request.headers.get("origin")),
         _host_from_url(request.headers.get("referer")),
-        _host_from_url(settings.PUBLIC_APP_URL),
-        _host_from_url(settings.API_BASE_URL),
     }
-    return any(host in PRODUCTION_HOSTS for host in request_hosts if host)
+    return {host for host in request_hosts if host}
+
+
+def _is_blocked_context(request: Request) -> bool:
+    blocked = _blocked_hostnames()
+    return any(host in blocked for host in _request_context_hostnames(request))
+
+
+def _rate_limit_qa_login(request: Request) -> None:
+    client_ip = get_client_ip_from_scope(request.scope) or "unknown"
+    if not _qa_login_rate_limiter.allow(client_ip):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many QA login attempts")
+
+
+def _token_matches(expected_token: str, provided_token: str) -> bool:
+    if not expected_token or not provided_token:
+        return False
+    return hmac.compare_digest(provided_token, expected_token)
 
 
 async def _qa_login_from_request(request: Request, db: Session) -> JSONResponse:
@@ -65,8 +81,10 @@ async def _qa_login_from_request(request: Request, db: Session) -> JSONResponse:
     if not configured_token:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
 
-    if _is_production_context(request):
+    if _is_blocked_context(request):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="QA login refused")
+
+    _rate_limit_qa_login(request)
 
     try:
         payload = await request.json()
@@ -74,7 +92,7 @@ async def _qa_login_from_request(request: Request, db: Session) -> JSONResponse:
         payload = {}
 
     provided_token = (payload.get("token") or "").strip()
-    if not provided_token or provided_token != configured_token:
+    if not _token_matches(configured_token, provided_token):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="QA login refused")
 
     email = auth.normalize_email(settings.QA_LOGIN_EMAIL)
@@ -163,8 +181,10 @@ async def _qa_child_login_from_request(request: Request, db: Session) -> JSONRes
     if not configured_token:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
 
-    if _is_production_context(request):
+    if _is_blocked_context(request):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="QA child login refused")
+
+    _rate_limit_qa_login(request)
 
     try:
         payload = await request.json()
@@ -172,7 +192,7 @@ async def _qa_child_login_from_request(request: Request, db: Session) -> JSONRes
         payload = {}
 
     provided_token = (payload.get("token") or "").strip()
-    if not provided_token or provided_token != configured_token:
+    if not _token_matches(configured_token, provided_token):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="QA child login refused")
 
     try:

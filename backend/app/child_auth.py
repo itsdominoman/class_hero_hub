@@ -2,13 +2,13 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import hashlib
 import secrets
-from collections import defaultdict, deque
 
 from fastapi import Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from .database import get_db, settings
 from . import auth, models
+from .security import BoundedInMemoryRateLimiter, get_client_ip_from_scope
 
 CHILD_SESSION_COOKIE = "child_session"
 CHILD_SESSION_TTL = timedelta(days=30)
@@ -16,7 +16,10 @@ CHILD_INVITE_TTL = timedelta(days=1)
 EXCHANGE_RATE_LIMIT_WINDOW_SECONDS = 60
 EXCHANGE_RATE_LIMIT_MAX_ATTEMPTS = 20
 
-_exchange_attempts: dict[str, deque[datetime]] = defaultdict(deque)
+_exchange_rate_limiter = BoundedInMemoryRateLimiter(
+    EXCHANGE_RATE_LIMIT_WINDOW_SECONDS,
+    EXCHANGE_RATE_LIMIT_MAX_ATTEMPTS,
+)
 
 
 @dataclass
@@ -147,16 +150,9 @@ def revoke_child_device_access(db: Session, child: models.Child, family_id: int)
 
 
 def _rate_limit_exchange(request: Request) -> None:
-    client_ip = request.client.host if request.client else "unknown"
-    bucket = _exchange_attempts[client_ip]
-    current = now_utc()
-    while bucket and (current - bucket[0]).total_seconds() > EXCHANGE_RATE_LIMIT_WINDOW_SECONDS:
-        bucket.popleft()
-
-    if len(bucket) >= EXCHANGE_RATE_LIMIT_MAX_ATTEMPTS:
+    client_ip = get_client_ip_from_scope(request.scope) or "unknown"
+    if not _exchange_rate_limiter.allow(client_ip, now=now_utc()):
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many child link attempts")
-
-    bucket.append(current)
 
 
 def exchange_child_link(db: Session, raw_token: str) -> tuple[models.ChildDeviceInvite, models.ChildDeviceSession, str]:

@@ -15,6 +15,8 @@ from sqlalchemy.pool import StaticPool
 from app import database, models
 from app.database import Base, get_db
 from app.main import app
+from app.routes import dev as dev_routes
+from app.security import BoundedInMemoryRateLimiter
 
 engine = create_engine(
     "sqlite://",
@@ -58,7 +60,6 @@ def configure_qa_login(
 ):
     monkeypatch.setattr(database.settings, "QA_LOGIN_ENABLED", enabled)
     monkeypatch.setattr(database.settings, "APP_ENV", runtime_environment)
-    monkeypatch.setattr(database.settings, "ENVIRONMENT", runtime_environment)
     monkeypatch.setattr(database.settings, "QA_LOGIN_TOKEN", qa_token)
     monkeypatch.setattr(database.settings, "QA_LOGIN_EMAIL", qa_email)
     monkeypatch.setattr(database.settings, "QA_LOGIN_NAME", qa_name)
@@ -125,6 +126,7 @@ def test_qa_login_creates_reuses_qa_user_and_preserves_csrf(client, monkeypatch,
         "family_id": 1,
         "reused": False,
     }
+    assert "qa-token" not in caplog.text
     assert "QA login issued for qa-parent@dev.familyherohub.com" in caplog.text
     assert client.cookies.get("access_token")
     assert client.cookies.get("csrf_token")
@@ -167,3 +169,34 @@ def test_qa_login_creates_reuses_qa_user_and_preserves_csrf(client, monkeypatch,
         assert check_db.query(models.RedemptionRequest).count() == 1
     finally:
         check_db.close()
+
+
+def test_qa_login_ignores_spoofed_forwarded_host_and_proto(client, monkeypatch):
+    configure_qa_login(monkeypatch, enabled=True, runtime_environment="development")
+
+    response = client.post(
+        "/api/dev/qa-login",
+        headers={
+            "Host": "localhost:8000",
+            "Origin": "http://localhost:5173",
+            "X-Forwarded-Host": "familyherohub.com",
+            "X-Forwarded-Proto": "https",
+        },
+        json={"token": "qa-token"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+
+
+def test_qa_login_rate_limit_uses_trusted_client_ip(client, monkeypatch):
+    configure_qa_login(monkeypatch, enabled=True, runtime_environment="development")
+    monkeypatch.setattr(dev_routes, "_qa_login_rate_limiter", BoundedInMemoryRateLimiter(60, 1))
+    client_ips = iter(["203.0.113.20", "203.0.113.21"])
+    monkeypatch.setattr(dev_routes, "get_client_ip_from_scope", lambda scope: next(client_ips))
+
+    first_response = client.post("/api/dev/qa-login", json={"token": "qa-token"})
+    second_response = client.post("/api/dev/qa-login", json={"token": "qa-token"})
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200

@@ -236,7 +236,7 @@ load_stateful_qa_env() {
 validate_stateful_qa_env() {
   local expected_values=(
     "QA_LOGIN_ENABLED=true"
-    "ENVIRONMENT=development"
+    "APP_ENV=development"
     "QA_LOGIN_API_BASE_URL=http://127.0.0.1:8000"
     "PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173"
     "QA_LOGIN_EMAIL=qa-parent@dev.familyherohub.com"

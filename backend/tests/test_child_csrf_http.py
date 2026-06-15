@@ -12,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 from app import child_auth, database, models
 from app.database import Base, get_db
 from app.main import app, run_savings_maturity_sweep
+from app.security import BoundedInMemoryRateLimiter
 from app.services import points_service
 
 engine = create_engine(
@@ -362,6 +363,38 @@ def test_child_link_exchange_rejects_expired_invite_cleanly():
             assert refreshed_invite.used_at is None
         finally:
             check_db.close()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_child_link_rate_limit_uses_trusted_client_ip():
+    client = make_client()
+    try:
+        db = TestingSessionLocal()
+        try:
+            family = create_family(db)
+            parent = create_parent(db, family, "trusted-ip-parent@example.com", "Parent", "sub-trusted-ip")
+            first_child = create_child(db, family, "First Kid")
+            second_child = create_child(db, family, "Second Kid")
+            _, first_token = child_auth.issue_child_device_invite(db, first_child, family.id, parent.id)
+            _, second_token = child_auth.issue_child_device_invite(db, second_child, family.id, parent.id)
+        finally:
+            db.close()
+
+        original_rate_limiter = child_auth._exchange_rate_limiter
+        child_auth._exchange_rate_limiter = BoundedInMemoryRateLimiter(60, 1)
+        client_ips = iter(["203.0.113.30", "203.0.113.31"])
+        original_get_client_ip_from_scope = child_auth.get_client_ip_from_scope
+        child_auth.get_client_ip_from_scope = lambda scope: next(client_ips)
+        try:
+            first_response = client.post("/api/child-link/exchange", json={"token": first_token})
+            second_response = client.post("/api/child-link/exchange", json={"token": second_token})
+        finally:
+            child_auth._exchange_rate_limiter = original_rate_limiter
+            child_auth.get_client_ip_from_scope = original_get_client_ip_from_scope
+
+        assert first_response.status_code == 200
+        assert second_response.status_code == 200
     finally:
         app.dependency_overrides.clear()
 

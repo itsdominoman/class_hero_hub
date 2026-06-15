@@ -42,6 +42,8 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 - Europe dev/Hermes daily QA uses `/opt/apps/family-hero-hub/scripts/qa/europe-dev-qa.sh` in read-only daily mode; it runs backend pytest, frontend build, Playwright read-only E2E, and smoke checks.
 - The daily QA harness loads `/home/administrator/.hermes/fhh-qa.env`.
 - `POST /api/dev/qa-login` is the token-based dev QA login helper. It requires `QA_LOGIN_TOKEN`, must not log the token, and must stay blocked in production and on production/public domains.
+- `APP_ENV` is the canonical runtime environment variable. `ENVIRONMENT` is no longer supported and startup must fail if it is still present.
+- QA helpers and startup validation fail closed when QA tokens, proxy trust, or origin settings are missing or placeholder values.
 - Stateful QA stays separate and must remain backup-gated before restoration or use.
 - SQLite rollback copy remains available at `/opt/apps/family-hero-hub/tmp/runtime-db-switch/sqlite_before_postgres_switch_20260509_164727.sqlite`
 - Europe dev PostgreSQL backups now use pgBackRest with WAL archiving; a first full backup and a separate restore rehearsal both completed successfully
@@ -103,6 +105,8 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 - `dev.familyherohub.com` is restricted at the Caddy layer with `remote_ip` allowlisting
 - Trusted access includes `96.9.135.3` (home public), `45.155.44.72` (work public), `204.12.209.190` (US), `213.199.61.244` (Europe), `87.106.54.49` (UK), `194.233.71.132` (Singapore), `95.111.243.235` (restore), and trusted WireGuard/VPN paths
 - Off-VPN or untrusted clients receive HTTP 403 on dev
+- Backend proxy trust is loopback-only in the current host/Docker path (`127.0.0.1,::1`), and forwarded headers from untrusted clients are ignored.
+- Caddy now serves an enforcing Content-Security-Policy header in addition to the existing HSTS/X-Frame-Options/nosniff/Referrer-Policy/Permissions-Policy headers.
 - OAuth still works from trusted IPs or VPN because the browser can reach `dev.familyherohub.com`
 - SQLite is no longer the live runtime on Europe dev, but the backup remains for rollback
 - The current PostgreSQL database contains imported dev app data and now serves the Europe dev runtime
@@ -134,6 +138,11 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 ## Deployment Command
 
 `sudo /usr/local/bin/family-hero-deploy`
+
+## Preflight Checks
+
+- Validate hardened config before any deploy or restart: `cd backend && APP_ENV=production python -c "from app.database import settings, validate_runtime_configuration; validate_runtime_configuration(settings)"`
+- Run the focused security suite before merging deployment changes: `cd backend && APP_ENV=test DATABASE_URL=sqlite:// python -m pytest tests/test_security_hardening.py`
 
 ## Recent Production Fixes
 

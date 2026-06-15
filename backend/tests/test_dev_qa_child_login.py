@@ -60,7 +60,6 @@ def configure_qa_child_login(
     monkeypatch.setattr(database.settings, "QA_CHILD_LOGIN_ENABLED", enabled)
     monkeypatch.setattr(database.settings, "QA_LOGIN_ENABLED", enabled)
     monkeypatch.setattr(database.settings, "APP_ENV", runtime_environment)
-    monkeypatch.setattr(database.settings, "ENVIRONMENT", runtime_environment)
     monkeypatch.setattr(database.settings, "QA_CHILD_LOGIN_TOKEN", qa_child_token)
     monkeypatch.setattr(database.settings, "QA_LOGIN_TOKEN", qa_parent_token)
     monkeypatch.setattr(database.settings, "PUBLIC_APP_URL", public_app_url)
@@ -141,6 +140,7 @@ def test_qa_child_login_seeds_a_deterministic_child_session(client, monkeypatch,
         "child_route": "/child/1",
         "reused": False,
     }
+    assert "qa-child-token" not in caplog.text
     assert "QA child login issued for qa-child-parent@dev.familyherohub.com child=1" in caplog.text
     assert client.cookies.get("child_session")
 
@@ -233,3 +233,21 @@ def test_qa_child_login_seeds_a_deterministic_child_session(client, monkeypatch,
         assert db.query(models.ChildDeviceSession).count() == 1
     finally:
         db.close()
+
+
+def test_qa_child_login_ignores_spoofed_forwarded_host_and_proto(client, monkeypatch):
+    configure_qa_child_login(monkeypatch, enabled=True, runtime_environment="development")
+
+    response = client.post(
+        "/api/dev/qa-child-login",
+        headers={
+            "Host": "localhost:8000",
+            "Origin": "http://localhost:5173",
+            "X-Forwarded-Host": "familyherohub.com",
+            "X-Forwarded-Proto": "https",
+        },
+        json={"token": "qa-child-token"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
