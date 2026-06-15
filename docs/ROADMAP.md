@@ -46,7 +46,7 @@
 
 ## 📅 Phase 3 – Structure & Habit Building (IN PROGRESS)
 
-- In progress: security and environment hardening for Phase 3, including canonical `APP_ENV`, fail-fast startup validation, loopback-only forwarded-header trust, explicit CORS origins, and an enforcing CSP.
+- In progress: security and environment hardening for Phase 3, including canonical `APP_ENV`, fail-fast startup validation, loopback-only forwarded-header trust, and explicit CORS origins. CSP is deferred because the earlier enforcing policy white-screened the current Svelte static build by blocking the inline bootstrap script under `script-src 'self'`; reintroduce it only with a tested nonce/hash-compatible approach or another Svelte-compatible build strategy.
 
 ### 📆 Family Calendar
 - Completed: Parent-facing calendar page

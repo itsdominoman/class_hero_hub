@@ -106,7 +106,8 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 - Trusted access includes `96.9.135.3` (home public), `45.155.44.72` (work public), `204.12.209.190` (US), `213.199.61.244` (Europe), `87.106.54.49` (UK), `194.233.71.132` (Singapore), `95.111.243.235` (restore), and trusted WireGuard/VPN paths
 - Off-VPN or untrusted clients receive HTTP 403 on dev
 - Backend proxy trust is loopback-only in the current host/Docker path (`127.0.0.1,::1`), and forwarded headers from untrusted clients are ignored.
-- Caddy now serves an enforcing Content-Security-Policy header in addition to the existing HSTS/X-Frame-Options/nosniff/Referrer-Policy/Permissions-Policy headers.
+- The live Europe dev Caddy config currently does not serve a Content-Security-Policy header. The earlier enforcing CSP white-screened the current Svelte static build because the browser blocked the inline Svelte bootstrap script under `script-src 'self'`, so CSP is deferred until a tested nonce/hash-compatible approach or another Svelte-compatible build strategy is available.
+- The active security headers remain HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, and Permissions-Policy.
 - OAuth still works from trusted IPs or VPN because the browser can reach `dev.familyherohub.com`
 - SQLite is no longer the live runtime on Europe dev, but the backup remains for rollback
 - The current PostgreSQL database contains imported dev app data and now serves the Europe dev runtime

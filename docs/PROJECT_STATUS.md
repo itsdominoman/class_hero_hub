@@ -146,7 +146,7 @@
 - DNS is aligned for dev: `dev.familyherohub.com` -> `213.199.61.244` and PTR `213.199.61.244` -> `dev.familyherohub.com`
 - Mail remains on the US server only; production DNS records were not changed
 - Dev access is locked down at Caddy with `remote_ip` allowlisting; off-VPN/untrusted clients receive HTTP 403
-- Phase 3 security hardening is in progress: canonical `APP_ENV`, fail-fast startup validation, loopback-only proxy trust, explicit CORS validation, and an enforcing CSP header.
+- Phase 3 security hardening is in progress: canonical `APP_ENV`, fail-fast startup validation, loopback-only proxy trust, explicit CORS validation, and deferred CSP work. The enforcing CSP was removed after it white-screened the current Svelte static build by blocking the inline bootstrap script under `script-src 'self'`.
 - WireGuard site mesh is live on `10.250.50.0/24` with Europe as hub, US/UK/Singapore as spokes, and the restore node at `10.250.50.5`
 - Europe personal VPN is working on `10.60.0.0/24`
 - UK personal VPN is working on `10.70.0.0/24`
@@ -171,6 +171,7 @@
 - The child visual suite now covers the real seeded child route, reward cards, custom request form, pending requests, tasks, events, savings snapshot, savings popup, unlock schedule, and points log, with a 1024px parent alignment check for child dashboard cards
 - Europe PostgreSQL runtime smoke test now handles expired child-device links cleanly with HTTP 401 instead of a 500
 - US production smoke tests and manual verification passed after the PostgreSQL cutover
+- CSP is not currently an App Store or Google Play submission blocker; it remains a deferred follow-up because the current Svelte build needs a nonce/hash-compatible or otherwise Svelte-compatible CSP strategy.
 
 ---
 
