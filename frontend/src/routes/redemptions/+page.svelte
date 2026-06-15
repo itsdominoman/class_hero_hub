@@ -3,11 +3,12 @@
   import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
   import { sortRedemptions } from '$lib/redemptions';
-  import { Check, X, Clock, Trophy, ChevronLeft } from 'lucide-svelte';
+  import { Check, X, Clock, Trophy, ChevronLeft, RefreshCcw } from 'lucide-svelte';
 
   let redemptions = $state<any[]>([]);
   let loading = $state(true);
   let error = $state<string | null>(null);
+  let processingRedemptionsById = $state<Record<number, 'approve' | 'reject'>>({});
 
   // Pending first (newest on top), then resolved (most recently reviewed first).
   const sortedRedemptions = $derived(sortRedemptions(redemptions));
@@ -42,24 +43,36 @@
     return new Date(createdAt).toLocaleDateString($locale || 'en');
   }
 
-  async function processRedemption(id: number, action: string) {
-    try {
-      const payload: { parent_note?: string } = {};
+  async function processRedemption(id: number, action: 'approve' | 'reject', event?: Event) {
+    if (processingRedemptionsById[id] != null) return;
 
-      if (action === 'reject') {
-        const note = window.prompt($_('common.rejectionReasonPrompt'));
-        if (note === null) return;
+    const payload: { parent_note?: string } = {};
 
-        const trimmedNote = note.trim();
-        if (trimmedNote) {
-          payload.parent_note = trimmedNote;
-        }
+    if (action === 'reject') {
+      const note = window.prompt($_('common.rejectionReasonPrompt'));
+      if (note === null) return;
+
+      const trimmedNote = note.trim();
+      if (trimmedNote) {
+        payload.parent_note = trimmedNote;
       }
+    }
 
+    const trigger = event?.currentTarget as HTMLButtonElement | null;
+    const actionGroup = trigger?.closest('[data-redemption-actions]') as HTMLElement | null;
+    processingRedemptionsById = { ...processingRedemptionsById, [id]: action };
+    if (trigger) trigger.disabled = true;
+    actionGroup?.querySelectorAll('button').forEach((button) => {
+      (button as HTMLButtonElement).disabled = true;
+    });
+    try {
       await api.post(`/redemptions/${id}/${action}`, payload);
       await loadRedemptions();
     } catch (e) {
       alert($_('redemptions.errorActionFailed'));
+    } finally {
+      const { [id]: _released, ...remaining } = processingRedemptionsById;
+      processingRedemptionsById = remaining;
     }
   }
 </script>
@@ -119,18 +132,30 @@
             </div>
 
             {#if r.status === 'pending'}
-              <div class="grid grid-cols-1 gap-3 shrink-0 sm:grid-cols-2 md:flex md:flex-col">
+              <div class="grid grid-cols-1 gap-3 shrink-0 sm:grid-cols-2 md:flex md:flex-col" data-redemption-actions>
                 <button 
-                  onclick={() => processRedemption(r.id, 'approve')}
-                  class="w-full md:w-40 py-4 bg-savings text-white rounded-2xl font-bold uppercase tracking-wide text-xs flex items-center justify-center gap-2 shadow-lg shadow-savings/20 hover:scale-[1.02] transition-all"
+                  onclick={(e) => processRedemption(r.id, 'approve', e)}
+                  disabled={processingRedemptionsById[r.id] != null}
+                  class="w-full md:w-40 py-4 bg-savings text-white rounded-2xl font-bold uppercase tracking-wide text-xs flex items-center justify-center gap-2 shadow-lg shadow-savings/20 hover:scale-[1.02] transition-all disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <Check size={18} /> {$_('common.approve')}
+                  {#if processingRedemptionsById[r.id] === 'approve'}
+                    <RefreshCcw size={18} class="animate-spin" />
+                  {:else}
+                    <Check size={18} />
+                  {/if}
+                  {$_('common.approve')}
                 </button>
                 <button 
-                  onclick={() => processRedemption(r.id, 'reject')}
-                  class="w-full md:w-40 py-4 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl font-bold uppercase tracking-wide text-xs flex items-center justify-center gap-2 hover:border-penalty hover:text-penalty transition-all"
+                  onclick={(e) => processRedemption(r.id, 'reject', e)}
+                  disabled={processingRedemptionsById[r.id] != null}
+                  class="w-full md:w-40 py-4 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl font-bold uppercase tracking-wide text-xs flex items-center justify-center gap-2 hover:border-penalty hover:text-penalty transition-all disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <X size={18} /> {$_('common.reject')}
+                  {#if processingRedemptionsById[r.id] === 'reject'}
+                    <RefreshCcw size={18} class="animate-spin" />
+                  {:else}
+                    <X size={18} />
+                  {/if}
+                  {$_('common.reject')}
                 </button>
               </div>
             {:else}

@@ -16,6 +16,12 @@ def _child_week_start_day(child: models.Child) -> int:
     return 6
 
 
+def _balance_for_adjustment_jar(balances: dict[str, int], jar: models.JarType) -> int:
+    if jar == models.JarType.savings:
+        return balances["savings_balance"]
+    return balances["spending_balance"]
+
+
 @router.get("/{child_id}/ledger", response_model=List[schemas.LedgerTransaction])
 async def get_ledger(
     child_id: int,
@@ -229,6 +235,13 @@ async def admin_adjustment(
     current_parent: models.ParentUser = Depends(auth.get_current_parent),
 ):
     child = get_family_child_or_404(db, child_id, current_parent)
+
+    if points < 0:
+        balances = points_service.calculate_balances(db, child.id)
+        current_balance = _balance_for_adjustment_jar(balances, jar)
+        if current_balance < abs(points):
+            detail = "Insufficient savings points" if jar == models.JarType.savings else "Insufficient spending points"
+            raise HTTPException(status_code=400, detail=detail)
 
     transaction = models.LedgerTransaction(
         child_id=child.id,

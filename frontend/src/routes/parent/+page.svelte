@@ -60,6 +60,8 @@
   let modalLoading = $state(false);
   let modalError = $state<string | null>(null);
   let presetTitleError = $state<string | null>(null);
+  let presetProcessingByChildAndId = $state<Record<string, number>>({});
+  let redemptionProcessingById = $state<Record<number, 'approve' | 'reject'>>({});
   let activeTab = $state('positive');
   let childModalTab = $state('points');
   let pointLogPeriod = $state<'day' | 'week' | 'month'>('week');
@@ -1039,6 +1041,7 @@
 
   async function submitCustomPoints(direction: 'award' | 'penalty', event?: Event) {
     if (!activeModal?.child) return;
+    if (modalLoading) return;
 
     const points = Math.abs(Number(modalForm.points) || 0);
     if (points < 1) {
@@ -1047,10 +1050,17 @@
     }
 
     const floatOrigin = captureFloatOrigin(event);
+    const trigger = event?.currentTarget as HTMLButtonElement | null;
+    const buttonGroup = trigger?.closest('[data-custom-point-actions]') as HTMLElement | null;
+    const startedAt = Date.now(); // FIX 3 — min-lock window for custom point submits
+    modalLoading = true;
+    if (trigger) trigger.disabled = true;
+    buttonGroup?.querySelectorAll('button').forEach((button) => {
+      (button as HTMLButtonElement).disabled = true;
+    });
     preparePointSound();
 
     try {
-      modalLoading = true;
       modalError = null;
       const childId = activeModal.child.child.id;
 
@@ -1078,12 +1088,18 @@
     } catch (e) {
       modalError = $_('parent.pointsActions.errorActionFailed');
     } finally {
-      modalLoading = false;
+      releaseAfterMinLock(startedAt, () => (modalLoading = false));
     }
   }
 
   async function applyPreset(childSummary: any, preset: any, event?: Event) {
+    if (!childSummary?.child || !preset?.id) return;
+    const presetKey = `${childSummary.child.id}:${preset.id}`;
+    if (presetProcessingByChildAndId[presetKey] != null) return;
+
     const floatOrigin = captureFloatOrigin(event);
+    const startedAt = Date.now();
+    presetProcessingByChildAndId = { ...presetProcessingByChildAndId, [presetKey]: startedAt };
     preparePointSound();
 
     try {
@@ -1108,6 +1124,11 @@
       refreshActiveModalChild();
     } catch (e) {
       alert($_('parent.presets.applyError'));
+    } finally {
+      releaseAfterMinLock(startedAt, () => {
+        const { [presetKey]: _released, ...remaining } = presetProcessingByChildAndId;
+        presetProcessingByChildAndId = remaining;
+      });
     }
   }
 
@@ -1154,15 +1175,31 @@
     }
   }
 
-  async function processRedemption(id: number, action: string) {
+  async function processRedemption(id: number, action: 'approve' | 'reject', event?: Event) {
+    if (redemptionProcessingById[id] != null) return;
+
+    const note = action === 'reject'
+      ? window.prompt($_('common.rejectionReasonPrompt'))
+      : $_('common.approvedByParent');
+    if (action === 'reject' && note === null) return;
+
+    const trigger = event?.currentTarget as HTMLButtonElement | null;
+    const actionGroup = trigger?.closest('[data-redemption-actions]') as HTMLElement | null;
+    redemptionProcessingById = { ...redemptionProcessingById, [id]: action };
+    if (trigger) trigger.disabled = true;
+    actionGroup?.querySelectorAll('button').forEach((button) => {
+      (button as HTMLButtonElement).disabled = true;
+    });
     try {
-      const note = action === 'reject' ? window.prompt($_('common.rejectionReasonPrompt')) : $_('common.approvedByParent');
       await api.post(`/redemptions/${id}/${action}`, {
         parent_note: note || ''
       });
       await loadDashboard();
     } catch (e) {
       alert($_('parent.redemptions.processError'));
+    } finally {
+      const { [id]: _released, ...remaining } = redemptionProcessingById;
+      redemptionProcessingById = remaining;
     }
   }
 
@@ -2438,13 +2475,29 @@
                         {r.points} {$_('common.points')}
                       </span>
                     </div>
-                    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <button onclick={() => processRedemption(r.id, 'approve')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-4 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-savings/20">
-                        <Check size={16} />
+                    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2" data-redemption-actions>
+                      <button
+                        onclick={(e) => processRedemption(r.id, 'approve', e)}
+                        disabled={redemptionProcessingById[r.id] != null}
+                        class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-4 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-savings/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {#if redemptionProcessingById[r.id] === 'approve'}
+                          <RefreshCcw size={16} class="animate-spin" />
+                        {:else}
+                          <Check size={16} />
+                        {/if}
                         {$_('common.approve')}
                       </button>
-                      <button onclick={() => processRedemption(r.id, 'reject')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-semibold uppercase tracking-wide text-slate-700">
-                        <X size={16} />
+                      <button
+                        onclick={(e) => processRedemption(r.id, 'reject', e)}
+                        disabled={redemptionProcessingById[r.id] != null}
+                        class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-semibold uppercase tracking-wide text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {#if redemptionProcessingById[r.id] === 'reject'}
+                          <RefreshCcw size={16} class="animate-spin" />
+                        {:else}
+                          <X size={16} />
+                        {/if}
                         {$_('common.reject')}
                       </button>
                     </div>
@@ -2846,14 +2899,18 @@
                       </div>
                     </div>
 
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2" data-custom-point-actions>
                       <button
                         type="button"
                         onclick={(e) => submitCustomPoints('award', e)}
                         disabled={modalLoading || Math.abs(Number(modalForm.points) || 0) < 1}
                         class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-4 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-savings/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <Award size={16} />
+                        {#if modalLoading}
+                          <RefreshCcw size={16} class="animate-spin" />
+                        {:else}
+                          <Award size={16} />
+                        {/if}
                         {$_('parent.pointsActions.addPoints')}
                       </button>
                       <button
@@ -2862,7 +2919,11 @@
                         disabled={modalLoading || Math.abs(Number(modalForm.points) || 0) < 1}
                         class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-penalty px-4 py-4 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-penalty/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <Ban size={16} />
+                        {#if modalLoading}
+                          <RefreshCcw size={16} class="animate-spin" />
+                        {:else}
+                          <Ban size={16} />
+                        {/if}
                         {$_('parent.pointsActions.removePoints')}
                       </button>
                     </div>
@@ -2881,11 +2942,16 @@
                     {#each presets.filter(p => p.is_active && (activeTab === 'positive' ? p.points > 0 : p.points < 0)) as p}
                       <button
                         onclick={(e) => applyPreset(activeModal.child, p, e)}
+                        disabled={presetProcessingByChildAndId[`${activeModal.child.child.id}:${p.id}`] != null}
                         title={p.title}
-                        class="group flex min-h-40 flex-col items-center gap-2 rounded-3xl border-2 p-3 text-center transition-all sm:min-h-44 sm:p-4 {p.points > 0 ? 'border-slate-50 hover:border-savings/20 hover:bg-savings/5' : 'border-slate-50 hover:border-penalty/20 hover:bg-penalty/5'}"
+                        class="group flex min-h-40 flex-col items-center gap-2 rounded-3xl border-2 p-3 text-center transition-all sm:min-h-44 sm:p-4 disabled:cursor-not-allowed disabled:opacity-60 {p.points > 0 ? 'border-slate-50 hover:border-savings/20 hover:bg-savings/5' : 'border-slate-50 hover:border-penalty/20 hover:bg-penalty/5'}"
                       >
                         <div class="text-4xl mb-1 h-12 flex items-center justify-center">
-                          {p.icon || '✨'}
+                          {#if presetProcessingByChildAndId[`${activeModal.child.child.id}:${p.id}`] != null}
+                            <RefreshCcw size={20} class="animate-spin" />
+                          {:else}
+                            {p.icon || '✨'}
+                          {/if}
                         </div>
                         <div class="rounded-lg px-2 py-0.5 text-xs font-bold {p.points > 0 ? 'bg-savings text-white' : 'bg-penalty text-white'}">
                           {p.points > 0 ? '+' : ''}{p.points} {$_('common.pts')}
@@ -2927,13 +2993,29 @@
                         <Trophy size={13} />
                         {r.points} {$_('common.points')}
                       </div>
-                      <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <button onclick={() => processRedemption(r.id, 'approve')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-4 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-savings/20">
-                          <Check size={16} />
+                      <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2" data-redemption-actions>
+                        <button
+                          onclick={(e) => processRedemption(r.id, 'approve', e)}
+                          disabled={redemptionProcessingById[r.id] != null}
+                          class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-savings px-4 py-4 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-savings/20 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {#if redemptionProcessingById[r.id] === 'approve'}
+                            <RefreshCcw size={16} class="animate-spin" />
+                          {:else}
+                            <Check size={16} />
+                          {/if}
                           {$_('common.approve')}
                         </button>
-                        <button onclick={() => processRedemption(r.id, 'reject')} class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-semibold uppercase tracking-wide text-slate-700">
-                          <X size={16} />
+                        <button
+                          onclick={(e) => processRedemption(r.id, 'reject', e)}
+                          disabled={redemptionProcessingById[r.id] != null}
+                          class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs font-semibold uppercase tracking-wide text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {#if redemptionProcessingById[r.id] === 'reject'}
+                            <RefreshCcw size={16} class="animate-spin" />
+                          {:else}
+                            <X size={16} />
+                          {/if}
                           {$_('common.reject')}
                         </button>
                       </div>
