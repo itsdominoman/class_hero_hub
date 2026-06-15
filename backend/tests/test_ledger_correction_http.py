@@ -287,7 +287,7 @@ def test_reverse_endpoint_rejects_with_specific_codes():
         tx = _add_tx(child_id, parent_id, points=1)
         assert client.post(f"/api/children/{child_id}/ledger/{tx}/reverse", json={}).status_code == 200
         r = client.post(f"/api/children/{child_id}/ledger/{tx}/reverse", json={})
-        assert r.status_code == 400
+        assert r.status_code == 409
         assert r.json()["detail"] == "correction_already_processed"
 
         # Unknown transaction id -> 404.

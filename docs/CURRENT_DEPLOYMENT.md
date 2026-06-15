@@ -149,6 +149,15 @@ Cloudflare Tunnel is **not** the current production deployment method. The Cloud
 - Commit only after deployed/visual approval.
 - Push only after explicit approval.
 
+## Migration Notes
+
+- Phase 2 backend concurrency remediation adds Alembic revision `7c2b9f1a0d4e_add_ledger_idempotency_constraints.py`.
+- Apply `alembic upgrade head` before deploying backend code that contains the Phase 2 models/routes. The new column is nullable, so migration-before-code is safe; backend-before-migration is not safe because ORM reads/writes expect `ledger_transactions.redemption_request_id`.
+- The migration adds nullable `ledger_transactions.redemption_request_id`, a composite foreign key to `redemption_requests(id, child_id)`, and partial unique indexes for correction reversals, savings maturity/bonus rows, redemption holds, and redemption releases.
+- Upgrade checks for existing duplicate reversal or savings maturity rows and fails clearly instead of deleting or rewriting data. Review and resolve any reported duplicates manually before retrying.
+- Savings maturity is no longer triggered by ordinary GET/balance reads. It is processed automatically by the backend savings-maturity sweep worker on app startup and every `SAVINGS_MATURITY_SWEEP_INTERVAL_SECONDS` seconds, and can also be invoked explicitly with `POST /api/children/{child_id}/savings/mature` for a parent-scoped child.
+- CI should set `REQUIRE_PHASE2_PG_TESTS=1` with `POSTGRES_USER`/`POSTGRES_PASSWORD` so the PostgreSQL concurrency/idempotency suite fails closed instead of skipping.
+
 ## Notes
 
 Before changing deployment, inspect the real Caddy/server configuration first.

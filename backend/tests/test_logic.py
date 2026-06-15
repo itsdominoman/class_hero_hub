@@ -3,6 +3,7 @@ import asyncio
 from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app import models, schemas
@@ -238,6 +239,37 @@ def test_mature_savings_moves_principal_and_bonus_to_spending_once(db):
     assert balances["spending_balance"] == 33
 
 
+def test_calculate_balances_does_not_mature_savings_as_read_side_effect(db):
+    child = models.Child(display_name="Read Only Balance Kid")
+    db.add(child)
+    db.commit()
+    db.refresh(child)
+
+    now = datetime(2026, 6, 3, 12, 0, 0)
+    db.add(
+        models.LedgerTransaction(
+            child_id=child.id,
+            jar=models.JarType.savings,
+            transaction_type=models.TransactionType.savings_deposit,
+            points=30,
+            description="Banked points",
+            locked_until=now - timedelta(minutes=1),
+        )
+    )
+    db.commit()
+
+    balances = points_service.calculate_balances(db, child.id, now=now)
+
+    assert balances["spending_balance"] == 0
+    assert balances["savings_balance"] == 30
+    assert (
+        db.query(models.LedgerTransaction)
+        .filter(models.LedgerTransaction.transaction_type == models.TransactionType.savings_maturity)
+        .count()
+        == 0
+    )
+
+
 def test_mature_savings_handles_direct_savings_award(db):
     child = models.Child(display_name="Savings Award Kid")
     db.add(child)
@@ -257,9 +289,40 @@ def test_mature_savings_handles_direct_savings_award(db):
     )
     db.commit()
 
+    points_service.mature_savings_deposits(db, child.id, now=now)
     balances = points_service.calculate_balances(db, child.id, now=now)
     assert balances["spending_balance"] == 30
     assert balances["savings_balance"] == 0
+
+
+def test_parent_can_explicitly_process_savings_maturity(db):
+    family = models.Family()
+    db.add(family)
+    db.commit()
+    parent = models.ParentUser(email="mature-parent@example.com", name="Parent", family_id=family.id)
+    child = models.Child(display_name="Maturity Route Kid", family_id=family.id)
+    db.add_all([parent, child])
+    db.commit()
+    db.refresh(parent)
+    db.refresh(child)
+
+    now = datetime.utcnow() - timedelta(minutes=1)
+    db.add(
+        models.LedgerTransaction(
+            child_id=child.id,
+            jar=models.JarType.savings,
+            transaction_type=models.TransactionType.savings_deposit,
+            points=30,
+            description="Route deposit",
+            locked_until=now,
+        )
+    )
+    db.commit()
+
+    matured = asyncio.run(ledger_routes.mature_savings(child.id, db, parent))
+
+    assert [tx.points for tx in matured] == [-30, 30, 3]
+    assert points_service.calculate_balances(db, child.id)["spending_balance"] == 33
 
 
 def test_mature_savings_does_not_backfill_historical_unlocked_savings(db):
@@ -289,6 +352,34 @@ def test_mature_savings_does_not_backfill_historical_unlocked_savings(db):
     assert balances["savings_balance"] == 30
     assert balances["locked_savings"] == 0
     assert balances["available_savings"] == 30
+
+
+def test_mature_savings_reraises_unrelated_integrity_errors(db, monkeypatch):
+    child = models.Child(display_name="Integrity Kid")
+    db.add(child)
+    db.commit()
+    db.refresh(child)
+
+    now = datetime(2026, 6, 3, 12, 0, 0)
+    db.add(
+        models.LedgerTransaction(
+            child_id=child.id,
+            jar=models.JarType.savings,
+            transaction_type=models.TransactionType.savings_deposit,
+            points=30,
+            description="Banked points",
+            locked_until=now - timedelta(minutes=1),
+        )
+    )
+    db.commit()
+
+    def fail_flush(*args, **kwargs):
+        raise IntegrityError("INSERT", {}, Exception("unrelated_constraint"))
+
+    monkeypatch.setattr(db, "flush", fail_flush)
+
+    with pytest.raises(IntegrityError):
+        points_service.mature_savings_deposits(db, child.id, now=now)
 
 
 def test_redemption_hold_and_release(db):
@@ -1214,6 +1305,27 @@ def test_correct_transaction_rejects_double_correction(db):
     with pytest.raises(points_service.CorrectionError) as exc:
         points_service.correct_transaction(db, child.id, reversal.id)
     assert exc.value.code == "correction_ineligible_type"
+
+
+def test_correct_transaction_reraises_unrelated_integrity_errors(db, monkeypatch):
+    child = models.Child(display_name="Unknown Integrity Kid")
+    db.add(child)
+    db.commit()
+    db.refresh(child)
+
+    original = _award(db, child.id, points=10)
+
+    def fail_flush(*args, **kwargs):
+        raise IntegrityError("INSERT", {}, Exception("unrelated_constraint"))
+
+    def fail_rollback():
+        raise AssertionError("service should not rollback caller session")
+
+    monkeypatch.setattr(db, "flush", fail_flush)
+    monkeypatch.setattr(db, "rollback", fail_rollback)
+
+    with pytest.raises(IntegrityError):
+        points_service.correct_transaction(db, child.id, original.id)
 
 
 def test_correct_transaction_rejects_outside_window(db):

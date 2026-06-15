@@ -11,7 +11,7 @@ from sqlalchemy.pool import StaticPool
 
 from app import child_auth, database, models
 from app.database import Base, get_db
-from app.main import app
+from app.main import app, run_savings_maturity_sweep
 from app.services import points_service
 
 engine = create_engine(
@@ -81,6 +81,9 @@ def create_award(db, child, parent, points=50):
 
 
 def make_client():
+    database.settings.APP_ENV = "test"
+    database.engine = engine
+    database.SessionLocal = TestingSessionLocal
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     app.dependency_overrides[get_db] = override_get_db
@@ -111,6 +114,45 @@ def test_child_me_mints_csrf_for_valid_child_session():
         assert "csrf_token" in (response.headers.get("set-cookie") or "")
     finally:
         app.dependency_overrides.clear()
+
+
+def test_savings_maturity_sweep_processes_due_deposits_without_read_side_effect():
+    database.settings.APP_ENV = "test"
+    database.engine = engine
+    database.SessionLocal = TestingSessionLocal
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    db = TestingSessionLocal()
+    try:
+        family = create_family(db)
+        parent = create_parent(db, family, "sweep-parent@example.com", "Parent", "sub-sweep-parent")
+        child = create_child(db, family)
+        child_id = child.id
+        db.add(
+            models.LedgerTransaction(
+                child_id=child_id,
+                jar=models.JarType.savings,
+                transaction_type=models.TransactionType.savings_deposit,
+                points=30,
+                description="Swept deposit",
+                locked_until=datetime.utcnow() - timedelta(minutes=1),
+                created_by_parent_id=parent.id,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    assert run_savings_maturity_sweep() == 3
+
+    check_db = TestingSessionLocal()
+    try:
+        balances = points_service.calculate_balances(check_db, child_id)
+        assert balances["spending_balance"] == 33
+        assert balances["savings_balance"] == 0
+        assert run_savings_maturity_sweep() == 0
+    finally:
+        check_db.close()
 
 
 def test_child_redemption_missing_csrf_is_blocked_before_handler():

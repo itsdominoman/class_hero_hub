@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from typing import List, Literal
 from ..database import get_db
@@ -146,8 +146,13 @@ async def reverse_ledger_entry(
             reason=req.reason,
             created_by_parent_id=current_parent.id,
         )
+        if reversal is not None:
+            db.commit()
+            db.refresh(reversal)
     except points_service.CorrectionError as exc:
-        raise HTTPException(status_code=400, detail=exc.code)
+        db.rollback()
+        status_code = status.HTTP_409_CONFLICT if exc.code == "correction_already_processed" else 400
+        raise HTTPException(status_code=status_code, detail=exc.code)
 
     if reversal is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
@@ -171,13 +176,40 @@ async def deposit_to_savings(
     if balances["spending_balance"] < req.points:
         raise HTTPException(status_code=400, detail="Insufficient spending points")
 
-    return points_service.create_savings_deposit(
-        db,
-        child.id,
-        req.points,
-        req.description,
-        created_by_parent_id=current_parent.id,
-    )
+    try:
+        transactions = points_service.create_savings_deposit(
+            db,
+            child.id,
+            req.points,
+            req.description,
+            created_by_parent_id=current_parent.id,
+        )
+        db.commit()
+        for transaction in transactions:
+            db.refresh(transaction)
+        return transactions
+    except Exception:
+        db.rollback()
+        raise
+
+
+@router.post("/{child_id}/savings/mature", response_model=List[schemas.LedgerTransaction])
+async def mature_savings(
+    child_id: int,
+    db: Session = Depends(get_db),
+    current_parent: models.ParentUser = Depends(auth.get_current_parent),
+):
+    child = get_family_child_or_404(db, child_id, current_parent)
+
+    try:
+        transactions = points_service.mature_savings_deposits(db, child.id)
+        db.commit()
+        for transaction in transactions:
+            db.refresh(transaction)
+        return transactions
+    except Exception:
+        db.rollback()
+        raise
 
 
 @router.post("/{child_id}/savings/withdraw", response_model=List[schemas.LedgerTransaction])

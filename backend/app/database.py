@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     QA_CHILD_LOGIN_ENABLED: bool = False
     QA_CHILD_LOGIN_TOKEN: str = ""
     CORS_ORIGINS: str = "https://families.loginto.me,http://localhost:5173,http://localhost:8000"
+    SAVINGS_MATURITY_SWEEP_INTERVAL_SECONDS: int = 3600
 
     # SMTP Settings
     SMTP_HOST: str = "mail.familyherohub.com"

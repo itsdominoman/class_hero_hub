@@ -1,12 +1,21 @@
+import asyncio
+import logging
+from contextlib import suppress
+
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from . import database
 from .database import engine, Base, get_db, settings, ensure_runtime_schema
 from . import models, schemas, auth
+from .services import points_service
 from .routes import children, ledger, redemptions, authentication, presets, rewards, family, child_devices, child_access, child_link, registration, admin, calendar, child_calendar, school_items, allowance, dev
 from starlette.middleware.sessions import SessionMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+logger = logging.getLogger(__name__)
+_savings_maturity_task: asyncio.Task | None = None
 
 if settings.DATABASE_URL.startswith("sqlite"):
     Base.metadata.create_all(bind=engine)
@@ -47,6 +56,48 @@ async def csrf_protection_middleware(request: Request, call_next):
 @app.get("/api/health")
 def health_check():
     return {"status": "ok"}
+
+
+def run_savings_maturity_sweep() -> int:
+    db = database.SessionLocal()
+    try:
+        transactions = points_service.mature_savings_deposits(db)
+        db.commit()
+        return len(transactions)
+    except Exception:
+        db.rollback()
+        logger.exception("Savings maturity sweep failed")
+        raise
+    finally:
+        db.close()
+
+
+async def _savings_maturity_loop() -> None:
+    interval = max(settings.SAVINGS_MATURITY_SWEEP_INTERVAL_SECONDS, 60)
+    while True:
+        with suppress(Exception):
+            await asyncio.to_thread(run_savings_maturity_sweep)
+        await asyncio.sleep(interval)
+
+
+@app.on_event("startup")
+async def start_savings_maturity_worker() -> None:
+    global _savings_maturity_task
+    if settings.APP_ENV == "test":
+        return
+    if _savings_maturity_task is None or _savings_maturity_task.done():
+        _savings_maturity_task = asyncio.create_task(_savings_maturity_loop())
+
+
+@app.on_event("shutdown")
+async def stop_savings_maturity_worker() -> None:
+    global _savings_maturity_task
+    if _savings_maturity_task is None:
+        return
+    _savings_maturity_task.cancel()
+    with suppress(asyncio.CancelledError):
+        await _savings_maturity_task
+    _savings_maturity_task = None
 
 @app.get("/api/me", response_model=schemas.ParentUser)
 async def read_current_parent(current_parent: models.ParentUser = Depends(auth.get_current_parent)):

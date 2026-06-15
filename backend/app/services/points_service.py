@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from .. import models, schemas
 from datetime import datetime, timedelta
 try:
@@ -33,6 +34,8 @@ SAVINGS_BONUS_ROUND_UP_REMAINDER = 6
 # Rollout cutoff: bonus applies to deposits that were still locked when this feature shipped,
 # and to all future deposits. Older already-unlocked savings are intentionally not backfilled.
 SAVINGS_BONUS_ROLLOUT_CUTOFF = datetime(2026, 6, 3, 0, 0, 0)
+CORRECTION_UNIQUE_CONSTRAINTS = {"uq_ledger_reversal_source"}
+SAVINGS_MATURITY_UNIQUE_CONSTRAINTS = {"uq_ledger_savings_maturity_source_type_jar"}
 
 
 def calculate_savings_bonus(points: int) -> int:
@@ -53,6 +56,33 @@ def _source_processed(db: Session, source_transaction_id: int) -> bool:
     )
 
 
+def _source_processed_for_types(
+    db: Session,
+    source_transaction_id: int,
+    transaction_types: set[models.TransactionType],
+) -> bool:
+    return (
+        db.query(models.LedgerTransaction.id)
+        .filter(
+            models.LedgerTransaction.source_transaction_id == source_transaction_id,
+            models.LedgerTransaction.transaction_type.in_(transaction_types),
+        )
+        .first()
+        is not None
+    )
+
+
+def _integrity_error_matches(exc: IntegrityError, constraint_names: set[str]) -> bool:
+    orig = getattr(exc, "orig", None)
+    diag = getattr(orig, "diag", None)
+    constraint_name = getattr(diag, "constraint_name", None)
+    if constraint_name in constraint_names:
+        return True
+
+    text = str(orig or exc)
+    return any(name in text for name in constraint_names)
+
+
 def mature_savings_deposits(db: Session, child_id: int | None = None, now: datetime | None = None) -> list[models.LedgerTransaction]:
     current = now or datetime.utcnow()
     query = db.query(models.LedgerTransaction).filter(
@@ -70,7 +100,11 @@ def mature_savings_deposits(db: Session, child_id: int | None = None, now: datet
 
     matured_rows: list[models.LedgerTransaction] = []
     for deposit in query.order_by(models.LedgerTransaction.locked_until.asc(), models.LedgerTransaction.id.asc()).all():
-        if _source_processed(db, deposit.id):
+        if _source_processed_for_types(
+            db,
+            deposit.id,
+            {models.TransactionType.savings_maturity, models.TransactionType.savings_bonus},
+        ):
             continue
 
         principal = deposit.points or 0
@@ -82,26 +116,24 @@ def mature_savings_deposits(db: Session, child_id: int | None = None, now: datet
             "created_by_parent_id": deposit.created_by_parent_id,
         }
 
-        matured_rows.extend(
-            [
-                models.LedgerTransaction(
-                    **common_kwargs,
-                    jar=models.JarType.savings,
-                    transaction_type=models.TransactionType.savings_maturity,
-                    points=-principal,
-                    description=f"Savings unlocked: {description}",
-                ),
-                models.LedgerTransaction(
-                    **common_kwargs,
-                    jar=models.JarType.spending,
-                    transaction_type=models.TransactionType.savings_maturity,
-                    points=principal,
-                    description=f"Savings returned to available points: {description}",
-                ),
-            ]
-        )
+        deposit_rows = [
+            models.LedgerTransaction(
+                **common_kwargs,
+                jar=models.JarType.savings,
+                transaction_type=models.TransactionType.savings_maturity,
+                points=-principal,
+                description=f"Savings unlocked: {description}",
+            ),
+            models.LedgerTransaction(
+                **common_kwargs,
+                jar=models.JarType.spending,
+                transaction_type=models.TransactionType.savings_maturity,
+                points=principal,
+                description=f"Savings returned to available points: {description}",
+            ),
+        ]
         if bonus > 0:
-            matured_rows.append(
+            deposit_rows.append(
                 models.LedgerTransaction(
                     **common_kwargs,
                     jar=models.JarType.spending,
@@ -111,9 +143,17 @@ def mature_savings_deposits(db: Session, child_id: int | None = None, now: datet
                 )
             )
 
-    if matured_rows:
-        db.add_all(matured_rows)
-        db.commit()
+        try:
+            with db.begin_nested():
+                db.add_all(deposit_rows)
+                db.flush()
+            matured_rows.extend(deposit_rows)
+        except IntegrityError as exc:
+            if not _integrity_error_matches(exc, SAVINGS_MATURITY_UNIQUE_CONSTRAINTS):
+                raise
+            # Another worker already matured this deposit. The partial unique
+            # indexes are the authority; this worker skips the duplicate set.
+            continue
 
     return matured_rows
 
@@ -146,9 +186,7 @@ def create_savings_deposit(
 
     db.add(spending_tx)
     db.add(savings_tx)
-    db.commit()
-    db.refresh(spending_tx)
-    db.refresh(savings_tx)
+    db.flush()
     return [spending_tx, savings_tx]
 
 
@@ -224,15 +262,18 @@ def correct_transaction(
         source_transaction_id=tx.id,
         created_by_parent_id=created_by_parent_id,
     )
-    db.add(reversal)
-    db.commit()
-    db.refresh(reversal)
+    try:
+        with db.begin_nested():
+            db.add(reversal)
+            db.flush()
+    except IntegrityError as exc:
+        if not _integrity_error_matches(exc, CORRECTION_UNIQUE_CONSTRAINTS):
+            raise
+        raise CorrectionError("correction_already_processed") from exc
     return reversal
 
 
 def calculate_balances(db: Session, child_id: int, now: datetime | None = None):
-    mature_savings_deposits(db, child_id, now=now)
-
     # Spending balance includes the redemption hold as the single deduction.
     # Keep legacy approved rows out of the total in case older data exists.
     spending_balance = db.query(func.sum(models.LedgerTransaction.points)).filter(

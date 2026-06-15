@@ -329,6 +329,7 @@ class LedgerTransactionBase(BaseModel):
     description: str
     locked_until: Optional[datetime] = None
     source_transaction_id: Optional[int] = None
+    redemption_request_id: Optional[int] = None
 
 class LedgerTransactionCreate(LedgerTransactionBase):
     pass

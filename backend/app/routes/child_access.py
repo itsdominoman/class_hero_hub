@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.exc import IntegrityError
 from typing import List, Literal
 
 from ..database import get_db
@@ -136,11 +137,17 @@ async def request_my_redemption(
         created_by_parent_id=None,
     )
 
-    db.add(db_request)
-    db.add(hold_tx)
-    db.commit()
-    db.refresh(db_request)
-    db_request.child = current_child
+    try:
+        db.add(db_request)
+        db.flush()
+        hold_tx.redemption_request_id = db_request.id
+        db.add(hold_tx)
+        db.commit()
+        db.refresh(db_request)
+        db_request.child = current_child
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Duplicate redemption hold") from exc
 
     return db_request
 
@@ -158,12 +165,20 @@ async def deposit_my_savings(
     if balances["spending_balance"] < req.points:
         raise HTTPException(status_code=400, detail="Insufficient spending points")
 
-    return points_service.create_savings_deposit(
-        db,
-        current_child.id,
-        req.points,
-        req.description,
-    )
+    try:
+        transactions = points_service.create_savings_deposit(
+            db,
+            current_child.id,
+            req.points,
+            req.description,
+        )
+        db.commit()
+        for transaction in transactions:
+            db.refresh(transaction)
+        return transactions
+    except Exception:
+        db.rollback()
+        raise
 
 
 @router.post("/logout")

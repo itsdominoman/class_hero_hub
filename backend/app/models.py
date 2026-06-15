@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum, Date, Time, Float, UniqueConstraint, CheckConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum, Date, Time, Float, UniqueConstraint, CheckConstraint, Index, ForeignKeyConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
@@ -309,14 +309,65 @@ class LedgerTransaction(Base):
     description = Column(String)
     locked_until = Column(DateTime(timezone=True), nullable=True)
     source_transaction_id = Column(Integer, ForeignKey("ledger_transactions.id"), nullable=True)
+    redemption_request_id = Column(Integer, nullable=True)
     created_by_parent_id = Column(Integer, ForeignKey("parent_users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     child = relationship("Child", back_populates="transactions")
     source_transaction = relationship("LedgerTransaction", remote_side=[id])
+    redemption_request = relationship(
+        "RedemptionRequest",
+        back_populates="ledger_transactions",
+        overlaps="child,transactions",
+    )
+
+    __table_args__ = (
+        Index(
+            "uq_ledger_reversal_source",
+            "source_transaction_id",
+            unique=True,
+            sqlite_where=transaction_type == TransactionType.reversal,
+            postgresql_where=transaction_type == TransactionType.reversal,
+        ),
+        Index(
+            "uq_ledger_savings_maturity_source_type_jar",
+            "source_transaction_id",
+            "transaction_type",
+            "jar",
+            unique=True,
+            sqlite_where=transaction_type.in_(
+                [TransactionType.savings_maturity, TransactionType.savings_bonus]
+            ),
+            postgresql_where=transaction_type.in_(
+                [TransactionType.savings_maturity, TransactionType.savings_bonus]
+            ),
+        ),
+        Index(
+            "uq_ledger_redemption_hold_request",
+            "redemption_request_id",
+            unique=True,
+            sqlite_where=transaction_type == TransactionType.redemption_hold,
+            postgresql_where=transaction_type == TransactionType.redemption_hold,
+        ),
+        Index(
+            "uq_ledger_redemption_release_request",
+            "redemption_request_id",
+            unique=True,
+            sqlite_where=transaction_type == TransactionType.redemption_rejected,
+            postgresql_where=transaction_type == TransactionType.redemption_rejected,
+        ),
+        ForeignKeyConstraint(
+            ["redemption_request_id", "child_id"],
+            ["redemption_requests.id", "redemption_requests.child_id"],
+            name="fk_ledger_transactions_redemption_request_child",
+        ),
+    )
 
 class RedemptionRequest(Base):
     __tablename__ = "redemption_requests"
+    __table_args__ = (
+        UniqueConstraint("id", "child_id", name="uq_redemption_requests_id_child_id"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     child_id = Column(Integer, ForeignKey("children.id"))
@@ -330,6 +381,11 @@ class RedemptionRequest(Base):
     reviewed_by_parent_id = Column(Integer, ForeignKey("parent_users.id"), nullable=True)
 
     child = relationship("Child", back_populates="redemptions")
+    ledger_transactions = relationship(
+        "LedgerTransaction",
+        back_populates="redemption_request",
+        overlaps="child,transactions",
+    )
 
     @property
     def child_name(self):

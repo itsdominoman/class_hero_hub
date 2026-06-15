@@ -261,8 +261,6 @@ def _build_allowance_summary(
     *,
     reveal_preview_when_disabled: bool = True,
 ) -> schemas.AllowancePreview:
-    points_service.mature_savings_deposits(db, child.id, now=now)
-
     family = db.query(models.Family).filter(models.Family.id == child.family_id).first()
     period_start, period_end, start_utc, end_utc = _period_bounds_for_setting(setting, family, now=now)
     period_start_naive = start_utc.replace(tzinfo=None)
