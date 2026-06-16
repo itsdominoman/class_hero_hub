@@ -8,6 +8,7 @@ export default defineConfig({
 		strictPort: true,
 		host: true,
 		allowedHosts: [
+                        'class.familyherohub.com',
 			'families.loginto.me',
 			'familyherohub.com',
 			'www.familyherohub.com',
