@@ -668,3 +668,152 @@ Endpoint smoke through rebuilt container/TestClient:
 - The configured live Postgres service still has existing tables but no Alembic revision marker from earlier project state. Direct live QA login against that DB failed with `relation "users" does not exist`. The migration path itself passed on a temporary Postgres DB; the live DB needs a deliberate migration/stamp plan before runtime QA login can mutate it.
 - `invite_tokens.py` is generic and currently not wired to a route after child/family deletion; it is preserved for future invite flows.
 - `database.py` still has QA child settings validation compatibility even though QA child login was removed, to avoid broad validation-logic churn in this slice.
+
+## Live Development Database Reset to Alembic Head - 2026-07-07
+
+Scope: reset only the running Class Hero Hub development/proof-of-concept PostgreSQL schema for Docker Compose project `class_hero_hub`.
+
+Safety verification commands:
+
+```bash
+pwd
+git remote -v
+git status --short --branch
+git status --porcelain=v1
+docker compose config --format json
+docker compose exec -T postgres psql -U classhero -d class_hero_hub -c "select current_database(), current_user;"
+```
+
+Verified:
+
+```text
+pwd: /opt/apps/class_hero_hub
+origin: git@github.com:itsdominoman/class_hero_hub.git
+git status --short --branch: ## main...origin/main [ahead 1]
+git status --porcelain=v1: no output
+docker compose config name: class_hero_hub
+postgres POSTGRES_DB: class_hero_hub
+psql current_database/current_user: class_hero_hub / classhero
+```
+
+Disposable backup:
+
+```bash
+backup_path="/tmp/class_hero_hub_before_reset_20260707T063542Z.sql"
+docker compose exec -T postgres pg_dump -U classhero -d class_hero_hub --clean --if-exists > "$backup_path"
+ls -lh "$backup_path"
+wc -l "$backup_path"
+```
+
+Result:
+
+```text
+/tmp/class_hero_hub_before_reset_20260707T063542Z.sql
+-rw-rw-r-- 1 administrator administrator 72K Jul  7 08:35 /tmp/class_hero_hub_before_reset_20260707T063542Z.sql
+2248 /tmp/class_hero_hub_before_reset_20260707T063542Z.sql
+```
+
+Reset method:
+
+```bash
+docker compose stop backend
+docker compose exec -T postgres psql -U classhero -d class_hero_hub -v ON_ERROR_STOP=1 -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public AUTHORIZATION classhero; GRANT ALL ON SCHEMA public TO classhero; GRANT ALL ON SCHEMA public TO public;'
+```
+
+Result: `public` schema in database `class_hero_hub` was dropped and recreated. The old copied household tables were removed from this database only.
+
+Alembic upgrade:
+
+```bash
+docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic upgrade head
+```
+
+Relevant output:
+
+```text
+INFO  [alembic.runtime.migration] Running upgrade  -> 5fd2ed5269af, initial schema
+INFO  [alembic.runtime.migration] Running upgrade 7c2b9f1a0d4e -> c1a2b3d4e5f6, add school identity tenancy
+INFO  [alembic.runtime.migration] Running upgrade c1a2b3d4e5f6 -> d4e5f6a7b8c9, drop household domain
+```
+
+Alembic verification:
+
+```bash
+docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic current
+docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic heads
+docker compose exec -T postgres psql -U classhero -d class_hero_hub -c "select version_num from alembic_version;"
+docker compose exec -T postgres psql -U classhero -d class_hero_hub -c "select tablename from pg_tables where schemaname = 'public' order by tablename;"
+```
+
+Results:
+
+```text
+alembic current: d4e5f6a7b8c9 (head)
+alembic heads: d4e5f6a7b8c9 (head)
+alembic_version.version_num: d4e5f6a7b8c9
+public tables: alembic_version, audit_logs, memberships, platform_admins, schools, users
+```
+
+Backend boot and health check:
+
+```bash
+docker compose up -d backend
+docker compose ps backend
+docker compose logs --since=30s backend
+curl -i -sS http://127.0.0.1:8000/api/health
+```
+
+Results:
+
+```text
+backend status: Up
+backend logs: Application startup complete; Uvicorn running on http://0.0.0.0:8000
+/api/health: HTTP/1.1 200 OK
+/api/health body: {"status":"ok"}
+```
+
+Dev QA login verification against reset DB:
+
+```bash
+docker compose run --rm \
+  -e QA_LOGIN_ENABLED=true \
+  -e QA_LOGIN_TOKEN=qa-reset-login-token-20260707 \
+  -v /opt/apps/class_hero_hub/backend:/app \
+  -w /app \
+  backend python - <<'PY'
+from fastapi.testclient import TestClient
+from app.main import app
+
+client = TestClient(app)
+response = client.post(
+    "/api/dev/qa-login",
+    headers={"Host": "127.0.0.1:8000"},
+    json={"token": "qa-reset-login-token-20260707"},
+)
+print("qa-login", response.status_code, response.json())
+assert response.status_code == 200
+me_response = client.get("/api/me")
+print("me", me_response.status_code, me_response.json())
+assert me_response.status_code == 200
+assert me_response.json()["is_platform_admin"] is True
+PY
+```
+
+Result:
+
+```text
+qa-login 200 {'status': 'ok', 'email': 'qa-parent@dev.familyherohub.com', 'user_id': 1, 'is_platform_admin': True, 'reused': False}
+me 200 {'user': {'id': 1, 'email': 'qa-parent@dev.familyherohub.com', 'name': 'QA Parent', 'locale': 'en'}, 'is_platform_admin': True, 'memberships': []}
+```
+
+Backend tests:
+
+```bash
+docker compose exec backend python -m pytest tests -q
+```
+
+Result:
+
+```text
+47 passed, 5 warnings in 2.06s
+```
