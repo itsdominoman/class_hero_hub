@@ -235,6 +235,13 @@ class Settings(BaseSettings):
     QA_BLOCKED_HOSTNAMES: str = "familyherohub.com,www.familyherohub.com"
     TRUSTED_PROXY_IPS: str = "127.0.0.1,::1"
     CORS_ORIGINS: str = "https://families.loginto.me,http://localhost:5173,http://localhost:8000"
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_FROM_NAME: str = "Class Hero Hub"
+    SMTP_USE_TLS: bool = True
     @property
     def COOKIE_SECURE(self) -> bool:
         return _normalize_environment(self.APP_ENV) == "production"

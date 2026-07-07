@@ -1,6 +1,6 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import { Trash2 } from 'lucide-svelte';
+  import { Pencil, Trash2 } from 'lucide-svelte';
 
   type Row = {
     id: number;
@@ -20,10 +20,12 @@
   let {
     rows,
     extra = () => '',
+    onedit,
     onarchive
   } = $props<{
     rows: Row[];
     extra?: (row: Row) => string;
+    onedit: (row: Row) => void;
     onarchive: (row: Row) => void;
   }>();
 
@@ -53,9 +55,14 @@
           <td class="px-3 py-2 text-slate-500">{extra(row)}</td>
           <td class="px-3 py-2"><span class={`rounded-full px-2 py-1 text-xs font-bold ${statusClass(row.status)}`}>{row.status}</span></td>
           <td class="px-3 py-2 text-right">
-            <button class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-red-600" aria-label={$_('school.archive')} onclick={() => onarchive(row)}>
-              <Trash2 class="h-4 w-4" />
-            </button>
+            <div class="inline-flex gap-1">
+              <button class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-slate-900" aria-label={$_('school.edit')} onclick={() => onedit(row)}>
+                <Pencil class="h-4 w-4" />
+              </button>
+              <button class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-red-600" aria-label={$_('school.archive')} onclick={() => onarchive(row)}>
+                <Trash2 class="h-4 w-4" />
+              </button>
+            </div>
           </td>
         </tr>
       {:else}

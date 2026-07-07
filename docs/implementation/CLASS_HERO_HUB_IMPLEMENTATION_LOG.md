@@ -1,5 +1,138 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-07 — S4 lifecycle policy: restore archived records on recreate
+
+Branch: `main`
+
+**Issue.** Archived records still blocked recreating a record with the same natural key. Example from the field: create class section `KG1C`, archive it, later need `KG1C` again — the UI hides the archived row, but `POST` fails with a generic "Duplicate record" because the archived row still occupies the unique key. Every archive-by-mistake or later-reuse hit this wall.
+
+### Lifecycle policy (now enforced for all seven S4 setup entities)
+Entities: branches/campuses, education stages, academic years, grade/year levels, class sections/homerooms, subjects, subject groups.
+
+- **Active** — visible in tables, offered in dropdowns, usable for new relationships.
+- **Inactive** — visible and editable in tables, **not** offered in dropdowns for new relationships, existing references stay valid. Inactive is a managed, visible state, **not** a soft-delete.
+- **Archived** — hidden from normal tables and dropdowns, not selectable, existing historical references stay valid, reachable only via `include_archived=true`. Archived is the soft-delete tombstone.
+
+### Duplicate / restoration rules (confirmed policy)
+On create, the record is matched against its **natural key within the same school**:
+- BranchCampus / EducationStage / GradeLevel / Subject → `(school_id, code)`.
+- AcademicYear → `(school_id, code)` (it also has a secondary `(school_id, name)` unique constraint — see caveat).
+- ClassSection → `(school_id, branch_campus_id, academic_year_id, grade_level_id, code)`.
+- SubjectGroup → `(school_id, academic_year_id, class_section_id, subject_id, code)`.
+
+Then:
+- **Archived match → restore in place.** The archived row is reactivated (`status → active`), its editable fields are refreshed from the submitted form, its **id is preserved**, an audit entry `school.<entity>.restored` is written, and the response is `201` with `"restored": true` so the row reappears immediately as active. No duplicate row is created.
+- **Active match → rejected** `409` "An active record with this code already exists."
+- **Inactive match → rejected** `409` "This value is already used by an inactive record. Edit or reactivate that record instead." (Inactive is not deleted, so it is not silently overwritten.)
+- Any other unique violation → `409` "This value is already used by another record."
+
+### Migration / constraint changes
+**None — no Alembic migration was needed, and this is deliberate.** Because the policy is *restore-in-place*, there is always exactly one row per natural key, so the existing full unique constraints are exactly correct: the archived row is reactivated rather than a second row inserted. A partial unique index (unique among non-archived rows only) would be required *only* if we wanted an archived history row to coexist with a new active row of the same key — which directly contradicts restore-in-place. Keeping the constraints avoids data-integrity holes and needs no schema change. `school_id` scoping, cross-school isolation, wrong-role protection, and `include_archived=true` are all unchanged.
+
+### Backend changes (`backend/app/routes/school.py`)
+- `_find_by_natural_key` — resolves the archived/active/inactive row sharing a create's natural key (uses `_EXTRA_KEY_COLUMNS` for the parent-scoped entities; note grade levels are keyed on `code` only, **not** on `education_stage_id`).
+- `_restore_row` — reactivates and refreshes an archived row in place.
+- `_create_row` now returns `(row, restored)` and performs the match/restore/reject logic; `_commit_or_conflict` messages were made specific.
+- `_create_response` — shared wrapper used by all seven create routes: creates or restores, writes the restore audit entry, and returns `{...row, "restored": bool}`.
+
+### Frontend changes
+- `+page.svelte` — `saveVia` reads `restored` from the create response and shows a green **notice** banner ("This archived record was restored."); the notice is cleared on the next save/archive/cancel/tab-switch. Clearer backend `409` duplicate messages already flow through the existing error banner unchanged. Restored rows arrive active and appear in tables/dropdowns after the existing refetch.
+- `messages.ts` — added `school.restored` (en + ar); i18n parity 215 → 216 keys.
+
+### Other lifecycle traps audited
+- **Quick-create A/B/C** — the frontend loops `POST /class-sections`; an archived label now restores instead of erroring, so quick-create no longer breaks on a previously-archived section.
+- **Setup checklist counts** — already count `status != "archived"`; a restored row is active and counts again; archived rows do not. No change needed.
+- **Archived default/main branch** — `_default_branch` already reactivates an archived `MAIN` when no active branch exists, and recreating code `MAIN` now also restores it. Self-healing, no impossible state.
+- **Archived academic year blocking the same code later** — resolved by restore keyed on `code`.
+- **Inactive records in selectors** — dropdowns filter to `active` (prior cleanup); an inactive record stays out of new-relationship selectors while remaining editable.
+- **Editing records with archived parents** — unchanged from prior cleanup: an update may keep an already-referenced archived parent (`_ensure_owned(current_id=...)`).
+- **Deleting/restoring records with dependent children** — archive never hard-deletes and never cascades; children keep referencing an archived parent (historical validity) and become fully valid again if the parent is restored.
+
+### Fields / cases intentionally left as-is (documented)
+- **Archiving is not hard-blocked** for any entity (requirement 6). The only structurally-required singleton, the default branch, self-heals via `_default_branch`. Archiving the last academic year / grade level / class section only marks setup *incomplete* (recoverable by adding or restoring), never an impossible state, so blocking it would obstruct legitimate cleanup. This case is allowed by design.
+- **Restoring a child under an archived parent is blocked** (`_class_section_extra` / `_subject_group_extra` reject archived parents on the create path). Restore the parent first, then the child. This preserves the "no new relationships to archived parents" rule.
+- **AcademicYear secondary `name` uniqueness**: restore is keyed on `code`. Recreating a year with a brand-new `code` but a `name` identical to an archived year still returns a clear `409` (the archived row occupies that name); the admin restores via the matching code or picks a different name. Minor, documented; not a data-integrity hole.
+
+### Validation
+- `docker compose build backend frontend` + `docker compose up -d backend frontend` → rebuilt & restarted (images bake source via `COPY`; a rebuild is required for changes to take effect).
+- `docker compose exec backend python -m pytest tests -q` → **110 passed** (up from 106; 4 new lifecycle tests covering restore of every entity, active/inactive duplicate rejection with clear messages, cross-school isolation of restore, and wrong-role restore rejection).
+- `cd frontend && npm run check` → 0 errors, 0 warnings.
+- `cd frontend && npm run check:i18n` → parity OK, 216 keys in en and ar.
+- `cd frontend && npm run build` → built OK.
+- Alembic: no migration added; heads unchanged.
+
+Scope note: no S5 work; Docker/Caddy/OAuth/platform-admin/SMTP/auth untouched. Not committed, per instruction.
+
+## 2026-07-07 — S4 fix: edit existing school-structure records
+
+Branch: `main`
+
+**Issue.** The `/school` setup UI could add and archive records but had no edit/update action. A typo in a code or name, or a later change to sort order, status, or a parent relationship, could only be "fixed" by archiving and recreating — bad UX that produces duplicates and orphaned references.
+
+**Backend.** No changes were required: the S4 slice already exposes `PUT` update endpoints for every entity (branches, education stages, academic years, grade levels, class sections, subjects, subject groups) plus school settings, and the prior archived-records cleanup already made them enforce school ownership (`_get_owned`), the school-admin role (router dependency), archived-parent validation (`_ensure_owned`, which still allows keeping an *already-referenced* archived parent), and duplicate handling (`_commit_or_conflict` → 409). This task confirmed that and added test coverage.
+
+**Edit behaviour added (frontend).**
+- Every row in the setup tables now has an **Edit** (pencil) action beside the existing archive/trash button (`RowsTable.svelte`).
+- Clicking Edit loads that row's current values into the block's existing form and switches it into edit mode: the **Add** button becomes **Save** and a **Cancel** button appears. This reuses the existing form/inputs — no separate edit forms were built. The reusable `CrudBlock` handles branches/stages/years/subjects; the three parent-bearing blocks (grade levels, class sections, subject groups) reuse the same `editRow`/`saveVia` helpers inline in `+page.svelte`.
+- Save issues `PUT /school/<entity>/<id>` (update in place) when editing and `POST` (create) otherwise, then clears edit mode and refetches. Cancel exits without changing data and clears the form. Switching tabs also cancels an in-progress edit.
+- Relationships are edited by **id**, so changing a record's `code` never breaks children that reference it.
+- Dropdowns still offer only `active` records for new relationships, with one deliberate exception: while editing, the currently-selected row is always kept in its dropdown even if it is `inactive`, so a bound `<select>` does not silently drop an inactive parent reference (`SelectInput.svelte`).
+- Archived rows remain hidden from tables and dropdowns; you cannot open an archived row for edit through the normal UI.
+- New i18n keys `school.edit` and `school.cancel` added to `en` and `ar` (i18n parity 213 → 215 keys).
+
+**Latent bug fixed in passing.** Creating a grade level with no education stage previously sent `education_stage_id: ""`, which the backend rejects with 422 (`"" ` is not a valid `int | None`). The new shared `levelPayload()` normalises an empty parent selection to `null`, fixing both create and the new edit path.
+
+**Fields intentionally not editable / caveats (integrity):**
+- `id`, `school_id`, and `created_at` are identity/audit fields and are never editable.
+- **Academic year "date fields" do not exist in the S4 schema** — `AcademicYear` only has code/name/name_ar/sort_order/status. No start/end date columns were added, because that is a new feature requiring a migration and is out of this cleanup's scope. There is therefore nothing date-related to edit yet; add the columns (with a migration) in a later slice if year dates are wanted.
+- Editing a child whose parent has been **archived**: archived parents are excluded from the frontend lists entirely, so the parent dropdown cannot display them and the admin must choose a current active parent. The backend still permits *keeping* an existing archived reference on update (covered by `test_updates_may_keep_an_already_referenced_archived_parent`); only the UI cannot re-offer an archived option. Inactive parents are preserved on edit as described above.
+
+**Tests added (`backend/tests/test_school_structure.py`).**
+- `test_school_admin_can_update_each_structure_entity_in_place` — a school admin updates a branch, education stage, academic year, grade level, class section, subject, and subject group; asserts the row id is unchanged (updated in place, not recreated), that a renamed grade-level code does not break the class section referencing it by id, and status can be changed to `inactive`.
+- `test_updating_a_record_to_a_duplicate_code_is_rejected` — renaming one record onto another's code returns 409, while re-saving a record with its own unchanged code returns 200.
+- Wrong-school update rejection (404) is already covered by `test_cross_school_structure_references_and_mutations_are_rejected`; wrong-role/platform-only update rejection (403) by `test_update_and_archive_endpoints_reject_wrong_roles_and_platform_only_users`.
+
+**Validation.**
+- `docker compose build backend frontend` → both built (images bake source via `COPY`; a rebuild is required for changes to take effect — there is no source volume mount).
+- `docker compose up -d backend frontend` → recreated.
+- `docker compose exec backend python -m pytest tests -q` → **106 passed** (up from 104; the 2 new update tests).
+- `cd frontend && npm run check` → 0 errors, 0 warnings.
+- `cd frontend && npm run check:i18n` → parity OK, 215 keys in en and ar.
+- `cd frontend && npm run build` → built OK.
+- Alembic: no migration files added or changed; heads unchanged (no schema change).
+
+Scope note: no S5 (teachers) work and none of the explicitly-excluded features (students, enrolments, CSV import, posts, diary, points, messaging, timetables, terms, rollover, etc.). Docker/Caddy/OAuth/platform-admin/auth untouched. Not committed, per instruction.
+
+## 2026-07-07 — S4 fix: hide archived/deleted school-structure records
+
+Branch: `main`
+
+**Issue.** In `/school` setup, the trash/delete button soft-archives a record (`status = "archived"`), but archived records still appeared everywhere: in the entity tables and in every dropdown/selector used to build new relationships. Because the delete action *looks* like a delete but the row stayed visible, archived branches, education stages, class sections, etc. were confusing and were still selectable as parents for brand-new child records.
+
+**Decision.** In the normal setup UI, `archived` is treated as the soft-delete tombstone and is hidden:
+
+- Normal list endpoints return non-archived rows by default. An optional `?include_archived=true` query param returns everything for future admin/audit use and to keep archived history reachable (no admin UI for it was built — YAGNI).
+- Dropdowns/selectors offer only `active` rows. `inactive` is a user-controlled flag distinct from delete: an inactive record stays visible/editable in its own table but is not offered for new relationships. `archived` disappears entirely.
+- Creating/updating a child rejects an `archived` parent (400) — grade level → education stage; class section → branch/academic year/grade level; subject group → academic year/class section/subject.
+- Historical integrity is preserved: an update that keeps an *already-referenced* archived parent (same id as before) is still allowed, so existing records remain editable. Only *newly selecting* an archived parent is rejected.
+- No hard deletes; no schema change; Alembic heads unchanged.
+
+**Files changed.**
+- `backend/app/routes/school.py` — `_list_rows` gains `include_archived` (default excludes `status == "archived"`); all eight list endpoints accept `include_archived: bool = False`; `_ensure_owned` rejects archived parents unless the id equals the child's current reference; grade-level/class-section/subject-group update paths pass the existing row so unchanged archived references stay valid.
+- `frontend/src/lib/components/school/SelectInput.svelte` — dropdown renders only rows whose `status` is `active`.
+- `backend/tests/test_school_structure.py` — added tests: default lists exclude archived while `include_archived=true` returns them; archived education stage/branch/academic year/grade level/class section/subject are each rejected for new child records; an update keeping an already-referenced archived parent still succeeds.
+
+**Validation.**
+- `docker compose build backend frontend` → both built (backend image bakes source via `COPY`; there is no source volume mount, so a rebuild was required for the changes to take effect — the pre-rebuild container was running stale code).
+- `docker compose up -d backend frontend` → recreated; confirmed new code present in container (`grep include_archived` → 16 hits).
+- `docker compose exec backend python -m pytest tests -q` → **104 passed** (up from 101; the 3 new test functions).
+- `cd frontend && npm run check` → 0 errors, 0 warnings.
+- `cd frontend && npm run check:i18n` → parity OK, 213 keys in en and ar (no new strings added).
+- `cd frontend && npm run build` → built OK.
+- Alembic: no migration files added or changed; heads unchanged.
+
+Scope note: no S5 (teachers) work; Docker/Caddy/OAuth/platform-admin/auth/other schemas untouched.
+
 ## 2026-07-07
 
 Branch: `main`
@@ -837,3 +970,46 @@ Branch-scoped administration:
 
 - `memberships.branch_campus_id` was added as a nullable future-compatible scope field. S4 route authorization still requires an active `school_admin` membership for the school and does not enforce branch-local permissions.
 - Deferred work: define branch-scoped admin roles/permissions, update `require_school_role` or a new permission dependency to apply branch scope where appropriate, expose branch scope in admin invite/member management, and audit branch-limited access behavior. The schema now has a stable branch scope anchor and does not hard-code that every school admin must manage every branch forever.
+
+## 2026-07-07 - Real SMTP sending for staff invites
+
+Scope: `backend/app/mailer.py` was a logging-only stub — `send_staff_invite` just logged the invite and never sent mail, so platform admins creating a school-admin invite got no delivered email. This slice replaces the stub with real SMTP sending using only the Python standard library (`smtplib` + `email.message.EmailMessage`), no new dependency was needed or added.
+
+Files changed:
+
+- `backend/app/mailer.py` — builds a plain-text `EmailMessage` (subject, From/To, body with the accept link) and sends it via `smtplib`.
+- `backend/app/database.py` — added `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`, `SMTP_USE_TLS` to `Settings`.
+- `.env.example` — added the same SMTP keys with blank/placeholder values and a comment on the 587-vs-465 choice.
+- `.env` — added the non-secret SMTP values for this deployment (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`, `SMTP_USE_TLS`). `SMTP_PASSWORD` was left blank — see "Still needs to be done" below.
+- `backend/tests/test_mailer.py` (new) — unit tests for the mailer using `unittest.mock` against `smtplib.SMTP`/`smtplib.SMTP_SSL`; no test talks to a real mail server.
+
+SMTP configuration variables (`Settings` in `backend/app/database.py`, read from `.env`):
+
+| Variable | Purpose | Value used here |
+| --- | --- | --- |
+| `SMTP_HOST` | Mail server hostname | `mail.familyherohub.com` |
+| `SMTP_PORT` | 587 = STARTTLS (default), 465 = implicit SSL | `587` |
+| `SMTP_USERNAME` | SMTP auth username | `support@familyherohub.com` |
+| `SMTP_PASSWORD` | SMTP auth password | left blank in `.env` — enter manually |
+| `SMTP_FROM_EMAIL` | Envelope/header From address | `support@familyherohub.com` |
+| `SMTP_FROM_NAME` | Display name on the From header | `Class Hero Hub` |
+| `SMTP_USE_TLS` | Use STARTTLS after connecting (ignored for port 465, which always uses implicit SSL) | `true` |
+
+Behavior:
+
+- If `SMTP_HOST` or `SMTP_FROM_EMAIL` is empty, `send_staff_invite` logs a warning and returns without raising, so invite creation still succeeds in dev/test environments that have no SMTP configured (this is also why the existing platform-admin tests, which monkeypatch `send_staff_invite` directly, were unaffected).
+- When `SMTP_PORT == 465`, the mailer connects with `smtplib.SMTP_SSL` (implicit TLS) and skips `starttls()`. Otherwise it connects with plain `smtplib.SMTP` and calls `starttls()` when `SMTP_USE_TLS` is true. Per the task's stated preference, `mail.familyherohub.com:587` with STARTTLS is configured as the default; if that host later requires implicit SSL instead, switch `SMTP_PORT` to `465` — no code change is needed for that fallback, only `.env`.
+- `smtp.login()` is only called when both `SMTP_USERNAME` and `SMTP_PASSWORD` are set.
+
+Verification performed:
+
+- Added `backend/tests/test_mailer.py` covering: (1) SMTP not configured → warning logged, no `smtplib.SMTP`/`SMTP_SSL` call; (2) port 587 → `smtplib.SMTP` used, `starttls()` and `login()` called, message has correct To/From and the accept URL in the body; (3) port 465 → `smtplib.SMTP_SSL` used, `starttls()` not called.
+- Ran the full backend suite inside the running backend container: `docker exec family-hero-hub-backend python -m pytest -v` → **101 passed**, including the 3 new mailer tests and all existing `test_platform_admin.py` invite lifecycle tests (which continue to pass because they monkeypatch `send_staff_invite` and never depend on real SMTP).
+- Did not send a real email end-to-end, because `SMTP_PASSWORD` is intentionally not filled in yet (see below) and the backend container needs a rebuild to pick up the code/`.env` changes (its image bakes `COPY . .` at build time — there is no source volume mount). Copied the changed files into the running container only to execute the test suite; that copy is not a deployment and is lost on the next container recreation.
+
+Still needs to be done manually (not done by this change, per instructions):
+
+1. Add the real SMTP password for `support@familyherohub.com` to `.env` as `SMTP_PASSWORD=...` (never share it in chat).
+2. Rebuild and restart the backend container so it picks up the new code and env vars, e.g. `docker compose build backend && docker compose up -d backend`.
+3. Create or resend a school-admin invite from the platform admin UI/API and confirm the email actually arrives at the target address with a working accept link. If `mail.familyherohub.com` rejects STARTTLS on 587, try `SMTP_PORT=465` in `.env` and restart — no code change required.
+4. Do not commit these changes until the above manual test passes (per instruction not to commit yet).

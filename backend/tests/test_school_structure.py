@@ -13,7 +13,7 @@ from sqlalchemy.pool import StaticPool
 from app import auth, database
 from app.database import Base, get_db
 from app.main import app
-from app.models_school import BranchCampus, ClassSection, Membership, PlatformAdmin, School, User
+from app.models_school import BranchCampus, ClassSection, Membership, PlatformAdmin, School, Subject, User
 from school_fixtures import seeded_schools  # noqa: F401
 
 
@@ -350,3 +350,290 @@ def test_update_and_archive_endpoints_reject_wrong_roles_and_platform_only_users
         assert client.put(path, headers=bearer(platform_user.email, alpha.id), json=payload).status_code == 403
         assert client.delete(path, headers=bearer(teacher.email, alpha.id)).status_code == 403
         assert client.delete(path, headers=bearer(platform_user.email, alpha.id)).status_code == 403
+
+
+def test_default_lists_exclude_archived_records_but_include_archived_returns_them(db, client, seeded_schools):
+    alpha = seeded_schools["schools"]["alpha"]
+    admin = seeded_schools["users"]["alpha_admin"]
+    created = create_structure(client, admin.email, alpha.id)
+
+    cases = {
+        "branches": created["branch"],
+        "education-stages": created["stage"],
+        "academic-years": created["year"],
+        "grade-levels": created["level"],
+        "class-sections": created["section"],
+        "subjects": created["subject"],
+        "subject-groups": created["group"],
+    }
+    for path, row in cases.items():
+        archive = client.delete(f"/api/school/{path}/{row['id']}", headers=bearer(admin.email, alpha.id))
+        assert archive.status_code == 204
+
+    for path, row in cases.items():
+        default_ids = [r["id"] for r in client.get(f"/api/school/{path}", headers=bearer(admin.email, alpha.id)).json()]
+        assert row["id"] not in default_ids, f"archived {path} leaked into default list"
+
+        all_ids = [r["id"] for r in client.get(f"/api/school/{path}?include_archived=true", headers=bearer(admin.email, alpha.id)).json()]
+        assert row["id"] in all_ids, f"include_archived did not return archived {path}"
+
+
+def test_archived_parents_are_rejected_for_new_child_records(db, client, seeded_schools):
+    alpha = seeded_schools["schools"]["alpha"]
+    admin = seeded_schools["users"]["alpha_admin"]
+    created = create_structure(client, admin.email, alpha.id)
+    year, level, section, subject = created["year"], created["level"], created["section"], created["subject"]
+    branch, stage = created["branch"], created["stage"]
+
+    def archive(path: str, row_id: int) -> None:
+        assert client.delete(f"/api/school/{path}/{row_id}", headers=bearer(admin.email, alpha.id)).status_code == 204
+
+    # Archived education stage cannot be selected for a new grade level.
+    archive("education-stages", stage["id"])
+    assert _post(client, "/api/school/grade-levels", admin.email, alpha.id, {**_base("G9"), "education_stage_id": stage["id"]}).status_code == 400
+
+    # Archived branch cannot be selected for a new class section (year + level still active).
+    archive("branches", branch["id"])
+    assert _post(client, "/api/school/class-sections", admin.email, alpha.id, {**_base("BLUE"), "branch_campus_id": branch["id"], "academic_year_id": year["id"], "grade_level_id": level["id"]}).status_code == 400
+
+    # Archived subject cannot be selected for a new subject group (year + section still active).
+    archive("subjects", subject["id"])
+    assert _post(client, "/api/school/subject-groups", admin.email, alpha.id, {**_base("GRP-X"), "academic_year_id": year["id"], "class_section_id": section["id"], "subject_id": subject["id"]}).status_code == 400
+
+    # Archived class section cannot be selected for a new subject group (fresh active subject + active year).
+    subject2 = _post(client, "/api/school/subjects", admin.email, alpha.id, _base("MATH", "Maths")).json()
+    archive("class-sections", section["id"])
+    assert _post(client, "/api/school/subject-groups", admin.email, alpha.id, {**_base("GRP-Y"), "academic_year_id": year["id"], "class_section_id": section["id"], "subject_id": subject2["id"]}).status_code == 400
+
+    # Archived academic year cannot be selected for a new class section (fresh active branch, level still active).
+    branch2 = _post(client, "/api/school/branches", admin.email, alpha.id, _base("SOUTH", "South Campus")).json()
+    archive("academic-years", year["id"])
+    assert _post(client, "/api/school/class-sections", admin.email, alpha.id, {**_base("GREEN"), "branch_campus_id": branch2["id"], "academic_year_id": year["id"], "grade_level_id": level["id"]}).status_code == 400
+
+    # Archived grade level cannot be selected for a new class section (fresh active branch + year).
+    year2 = _post(client, "/api/school/academic-years", admin.email, alpha.id, _base("2027-28", "2027/28")).json()
+    archive("grade-levels", level["id"])
+    assert _post(client, "/api/school/class-sections", admin.email, alpha.id, {**_base("PURPLE"), "branch_campus_id": branch2["id"], "academic_year_id": year2["id"], "grade_level_id": level["id"]}).status_code == 400
+
+
+def test_updates_may_keep_an_already_referenced_archived_parent(db, client, seeded_schools):
+    alpha = seeded_schools["schools"]["alpha"]
+    admin = seeded_schools["users"]["alpha_admin"]
+    created = create_structure(client, admin.email, alpha.id)
+    stage, level = created["stage"], created["level"]
+
+    assert client.delete(f"/api/school/education-stages/{stage['id']}", headers=bearer(admin.email, alpha.id)).status_code == 204
+
+    # Editing the grade level while keeping its existing (now archived) stage stays valid.
+    keep = client.put(
+        f"/api/school/grade-levels/{level['id']}",
+        headers=bearer(admin.email, alpha.id),
+        json={**_base("Y1", "Year 1 Renamed"), "education_stage_id": stage["id"]},
+    )
+    assert keep.status_code == 200
+    assert keep.json()["name"] == "Year 1 Renamed"
+
+
+def test_school_admin_can_update_each_structure_entity_in_place(db, client, seeded_schools):
+    alpha = seeded_schools["schools"]["alpha"]
+    admin = seeded_schools["users"]["alpha_admin"]
+    created = create_structure(client, admin.email, alpha.id)
+
+    def put(path: str, payload: dict):
+        return client.put(f"/api/school/{path}", headers=bearer(admin.email, alpha.id), json=payload)
+
+    branch = put(f"branches/{created['branch']['id']}", {**_base("NORTH", "North Renamed"), "name_ar": "الشمال", "sort_order": 3})
+    assert branch.status_code == 200
+    assert branch.json()["id"] == created["branch"]["id"]
+    assert (branch.json()["name"], branch.json()["name_ar"], branch.json()["sort_order"]) == ("North Renamed", "الشمال", 3)
+
+    stage = put(f"education-stages/{created['stage']['id']}", {**_base("PRIMARY", "Primary Renamed"), "status": "inactive"})
+    assert stage.status_code == 200
+    assert (stage.json()["name"], stage.json()["status"]) == ("Primary Renamed", "inactive")
+
+    year = put(f"academic-years/{created['year']['id']}", _base("2026-27", "2026/2027 Renamed"))
+    assert year.status_code == 200 and year.json()["name"] == "2026/2027 Renamed"
+
+    # Changing a grade level's code must not break the class section that references it by id.
+    level = put(f"grade-levels/{created['level']['id']}", {**_base("Y1X", "Year 1 Renamed"), "education_stage_id": created["stage"]["id"]})
+    assert level.status_code == 200
+    assert (level.json()["code"], level.json()["education_stage_id"]) == ("Y1X", created["stage"]["id"])
+
+    section = put(
+        f"class-sections/{created['section']['id']}",
+        {
+            **_base("RED", "Year 1 Red Renamed"),
+            "branch_campus_id": created["branch"]["id"],
+            "academic_year_id": created["year"]["id"],
+            "grade_level_id": created["level"]["id"],
+        },
+    )
+    assert section.status_code == 200 and section.json()["name"] == "Year 1 Red Renamed"
+
+    subject = put(f"subjects/{created['subject']['id']}", _base("ENG", "English Renamed"))
+    assert subject.status_code == 200 and subject.json()["name"] == "English Renamed"
+
+    group = put(
+        f"subject-groups/{created['group']['id']}",
+        {
+            **_base("Y1RED-ENG", "Year 1 Red English Renamed"),
+            "academic_year_id": created["year"]["id"],
+            "class_section_id": created["section"]["id"],
+            "subject_id": created["subject"]["id"],
+        },
+    )
+    assert group.status_code == 200 and group.json()["name"] == "Year 1 Red English Renamed"
+
+    # Updated in place, not recreated: still exactly one class section, referencing the renamed level.
+    section_row = db.query(ClassSection).filter_by(school_id=alpha.id).one()
+    assert section_row.id == created["section"]["id"]
+    assert section_row.grade_level_id == created["level"]["id"]
+
+
+def test_updating_a_record_to_a_duplicate_code_is_rejected(db, client, seeded_schools):
+    alpha = seeded_schools["schools"]["alpha"]
+    admin = seeded_schools["users"]["alpha_admin"]
+    first = _post(client, "/api/school/subjects", admin.email, alpha.id, _base("ENG", "English")).json()
+    second = _post(client, "/api/school/subjects", admin.email, alpha.id, _base("MATH", "Maths")).json()
+
+    conflict = client.put(
+        f"/api/school/subjects/{second['id']}",
+        headers=bearer(admin.email, alpha.id),
+        json=_base("ENG", "Maths Duplicate"),
+    )
+    assert conflict.status_code == 409
+
+    # Re-saving a record with its own unchanged code still succeeds.
+    same_code = client.put(
+        f"/api/school/subjects/{first['id']}",
+        headers=bearer(admin.email, alpha.id),
+        json=_base("ENG", "English Renamed"),
+    )
+    assert same_code.status_code == 200 and same_code.json()["name"] == "English Renamed"
+
+
+def test_archived_records_restore_in_place_on_recreate(db, client, seeded_schools):
+    alpha = seeded_schools["schools"]["alpha"]
+    admin = seeded_schools["users"]["alpha_admin"]
+    created = create_structure(client, admin.email, alpha.id)
+
+    def archive(path: str, row_id: int) -> None:
+        assert client.delete(f"/api/school/{path}/{row_id}", headers=bearer(admin.email, alpha.id)).status_code == 204
+
+    def recreate(path: str, payload: dict):
+        return _post(client, f"/api/school/{path}", admin.email, alpha.id, payload)
+
+    def listed(path: str):
+        return client.get(f"/api/school/{path}", headers=bearer(admin.email, alpha.id)).json()
+
+    # Entities keyed on (school_id, code): archive then recreate with a changed name.
+    simple = [
+        ("branches", created["branch"], _base("NORTH", "North Restored")),
+        ("education-stages", created["stage"], _base("PRIMARY", "Primary Restored")),
+        ("academic-years", created["year"], _base("2026-27", "2026/27 Restored")),
+        ("subjects", created["subject"], _base("ENG", "English Restored")),
+    ]
+    for path, original, payload in simple:
+        archive(path, original["id"])
+        assert original["id"] not in [r["id"] for r in listed(path)]  # hidden while archived
+        resp = recreate(path, payload)
+        assert resp.status_code == 201, (path, resp.json())
+        body = resp.json()
+        assert body["restored"] is True
+        assert body["id"] == original["id"]  # same row, not a duplicate
+        assert body["status"] == "active"
+        assert body["name"] == payload["name"]  # editable field refreshed from the form
+        # Visible again as active in the default (non-archived) list.
+        assert any(r["id"] == original["id"] and r["status"] == "active" for r in listed(path))
+
+    # Grade level (parent education stage still active).
+    archive("grade-levels", created["level"]["id"])
+    level = recreate("grade-levels", {**_base("Y1", "Year 1 Restored"), "education_stage_id": created["stage"]["id"]})
+    assert level.status_code == 201
+    assert (level.json()["restored"], level.json()["id"]) == (True, created["level"]["id"])
+    assert level.json()["education_stage_id"] == created["stage"]["id"]
+
+    # Class section (branch/year/level still active).
+    archive("class-sections", created["section"]["id"])
+    section = recreate(
+        "class-sections",
+        {
+            **_base("RED", "Year 1 Red Restored"),
+            "branch_campus_id": created["branch"]["id"],
+            "academic_year_id": created["year"]["id"],
+            "grade_level_id": created["level"]["id"],
+        },
+    )
+    assert section.status_code == 201
+    assert (section.json()["restored"], section.json()["id"]) == (True, created["section"]["id"])
+
+    # Subject group (year/section/subject still active).
+    archive("subject-groups", created["group"]["id"])
+    group = recreate(
+        "subject-groups",
+        {
+            **_base("Y1RED-ENG", "Year 1 Red English Restored"),
+            "academic_year_id": created["year"]["id"],
+            "class_section_id": created["section"]["id"],
+            "subject_id": created["subject"]["id"],
+        },
+    )
+    assert group.status_code == 201
+    assert (group.json()["restored"], group.json()["id"]) == (True, created["group"]["id"])
+
+
+def test_active_and_inactive_duplicates_are_rejected_with_clear_messages(db, client, seeded_schools):
+    alpha = seeded_schools["schools"]["alpha"]
+    admin = seeded_schools["users"]["alpha_admin"]
+    first = _post(client, "/api/school/subjects", admin.email, alpha.id, _base("ENG", "English")).json()
+
+    active_dup = _post(client, "/api/school/subjects", admin.email, alpha.id, _base("ENG", "English Again"))
+    assert active_dup.status_code == 409
+    assert "active" in active_dup.json()["detail"].lower()
+
+    made_inactive = client.put(
+        f"/api/school/subjects/{first['id']}",
+        headers=bearer(admin.email, alpha.id),
+        json={**_base("ENG", "English"), "status": "inactive"},
+    )
+    assert made_inactive.status_code == 200 and made_inactive.json()["status"] == "inactive"
+
+    # Inactive is a visible managed record, not deleted: recreating its code is still rejected.
+    inactive_dup = _post(client, "/api/school/subjects", admin.email, alpha.id, _base("ENG", "English Again"))
+    assert inactive_dup.status_code == 409
+    assert "inactive" in inactive_dup.json()["detail"].lower()
+    assert db.query(Subject).filter_by(id=first["id"]).one().status == "inactive"
+
+
+def test_restore_is_school_scoped_and_cross_school_isolated(db, client, seeded_schools):
+    alpha = seeded_schools["schools"]["alpha"]
+    beta = seeded_schools["schools"]["beta"]
+    alpha_admin = seeded_schools["users"]["alpha_admin"]
+    beta_admin = seeded_schools["users"]["beta_admin"]
+
+    alpha_subject = _post(client, "/api/school/subjects", alpha_admin.email, alpha.id, _base("SHARED", "Alpha Shared")).json()
+    assert client.delete(f"/api/school/subjects/{alpha_subject['id']}", headers=bearer(alpha_admin.email, alpha.id)).status_code == 204
+
+    # Beta creating the same code makes a NEW beta row; it must not touch alpha's archived row.
+    beta_subject = _post(client, "/api/school/subjects", beta_admin.email, beta.id, _base("SHARED", "Beta Shared"))
+    assert beta_subject.status_code == 201
+    assert beta_subject.json()["restored"] is False
+    assert beta_subject.json()["id"] != alpha_subject["id"]
+    assert db.query(Subject).filter_by(id=alpha_subject["id"]).one().status == "archived"
+
+    # Beta admin cannot act inside alpha's context at all.
+    cross = client.post("/api/school/subjects", headers=bearer(beta_admin.email, alpha.id), json=_base("SHARED", "X"))
+    assert cross.status_code == 403
+
+
+def test_wrong_role_user_cannot_restore_archived_record(db, client, seeded_schools):
+    alpha = seeded_schools["schools"]["alpha"]
+    admin = seeded_schools["users"]["alpha_admin"]
+    teacher = seeded_schools["users"]["alpha_teacher"]
+
+    subject = _post(client, "/api/school/subjects", admin.email, alpha.id, _base("ART", "Art")).json()
+    assert client.delete(f"/api/school/subjects/{subject['id']}", headers=bearer(admin.email, alpha.id)).status_code == 204
+
+    blocked = client.post("/api/school/subjects", headers=bearer(teacher.email, alpha.id), json=_base("ART", "Art"))
+    assert blocked.status_code == 403
+    assert db.query(Subject).filter_by(id=subject["id"]).one().status == "archived"

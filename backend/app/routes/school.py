@@ -135,12 +135,24 @@ def _get_owned(db: Session, model: Type[Any], school_id: int, row_id: int):
     return row
 
 
-def _ensure_owned(db: Session, model: Type[Any], school_id: int, row_id: int | None, label: str):
+def _ensure_owned(
+    db: Session,
+    model: Type[Any],
+    school_id: int,
+    row_id: int | None,
+    label: str,
+    *,
+    current_id: int | None = None,
+):
     if row_id is None:
         return None
     row = db.query(model).filter(model.id == row_id, model.school_id == school_id).first()
     if not row:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid {label}")
+    # Archived parents cannot be picked for new relationships, but an existing
+    # child may keep referencing one it was already linked to (historical validity).
+    if row.status == "archived" and row_id != current_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Archived {label} cannot be selected")
     return row
 
 
@@ -169,9 +181,49 @@ def _payload(row: Any) -> dict[str, Any]:
     return data
 
 
-def _list_rows(db: Session, model: Type[Any], school_id: int):
-    rows = db.query(model).filter(model.school_id == school_id).order_by(model.sort_order.asc(), model.id.asc()).all()
+def _list_rows(db: Session, model: Type[Any], school_id: int, *, include_archived: bool = False):
+    query = db.query(model).filter(model.school_id == school_id)
+    if not include_archived:
+        query = query.filter(model.status != "archived")
+    rows = query.order_by(model.sort_order.asc(), model.id.asc()).all()
     return [_payload(row) for row in rows]
+
+
+# Natural-key columns beyond (school_id, code) that scope uniqueness for the
+# parent-bearing entities. Everything else is keyed on (school_id, code) alone.
+# Note: grade levels are keyed on code only — education_stage_id is not part of
+# their natural key even though it is stored via `extra`.
+_EXTRA_KEY_COLUMNS: dict[Type[Any], tuple[str, ...]] = {
+    ClassSection: ("branch_campus_id", "academic_year_id", "grade_level_id"),
+    SubjectGroup: ("academic_year_id", "class_section_id", "subject_id"),
+}
+
+
+def _find_by_natural_key(db: Session, model: Type[Any], school_id: int, code: str, extra: dict[str, Any]):
+    filters = [model.school_id == school_id, model.code == code]
+    for column in _EXTRA_KEY_COLUMNS.get(model, ()):
+        filters.append(getattr(model, column) == extra[column])
+    return db.query(model).filter(*filters).first()
+
+
+def _active_duplicate_detail(existing_status: str) -> str:
+    if existing_status == "inactive":
+        return "This value is already used by an inactive record. Edit or reactivate that record instead."
+    return "An active record with this code already exists."
+
+
+def _restore_row(db: Session, row: Any, cleaned: dict[str, Any], extra: dict[str, Any]) -> Any:
+    # Reactivate the archived row in place and refresh its editable fields from
+    # the submitted form so the recreated record reflects what the admin typed.
+    for key, value in cleaned.items():
+        setattr(row, key, value)
+    for key, value in extra.items():
+        setattr(row, key, value)
+    if row.status == "archived":
+        row.status = "active"
+    _commit_or_conflict(db, "This value is already used by another record.")
+    db.refresh(row)
+    return row
 
 
 def _create_row(
@@ -181,12 +233,47 @@ def _create_row(
     payload: StructureBase,
     *,
     extra: dict[str, Any] | None = None,
-):
-    row = model(school_id=school_id, **_clean_payload(payload), **(extra or {}))
+) -> tuple[Any, bool]:
+    """Create a record, restoring an archived one that shares its natural key.
+
+    Returns (row, restored) where `restored` is True when an archived record was
+    reactivated in place instead of a new row being inserted.
+    """
+    extra = extra or {}
+    cleaned = _clean_payload(payload)
+    existing = _find_by_natural_key(db, model, school_id, cleaned["code"], extra)
+    if existing is not None:
+        if existing.status == "archived":
+            return _restore_row(db, existing, cleaned, extra), True
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_active_duplicate_detail(existing.status))
+    row = model(school_id=school_id, **cleaned, **extra)
     db.add(row)
-    _commit_or_conflict(db)
+    _commit_or_conflict(db, "This value is already used by another record.")
     db.refresh(row)
-    return row
+    return row, False
+
+
+def _create_response(
+    db: Session,
+    membership: Membership,
+    model: Type[Any],
+    payload: StructureBase,
+    *,
+    entity: str,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    school_id = _school_id(membership)
+    row, restored = _create_row(db, model, school_id, payload, extra=extra)
+    if restored:
+        write_audit(
+            db,
+            membership.user_id,
+            f"school.{entity}.restored",
+            row,
+            {"code": row.code, "status": row.status},
+            school_id=school_id,
+        )
+    return {**_payload(row), "restored": restored}
 
 
 def _update_row(db: Session, row: Any, payload: StructureBase, *, extra: dict[str, Any] | None = None):
@@ -270,15 +357,15 @@ def setup_checklist(
 
 
 @router.get("/branches")
-def list_branches(membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+def list_branches(include_archived: bool = False, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     school_id = _school_id(membership)
     _default_branch(db, school_id)
-    return _list_rows(db, BranchCampus, school_id)
+    return _list_rows(db, BranchCampus, school_id, include_archived=include_archived)
 
 
 @router.post("/branches", status_code=status.HTTP_201_CREATED)
 def create_branch(payload: BranchCampusRequest, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
-    return _payload(_create_row(db, BranchCampus, _school_id(membership), payload))
+    return _create_response(db, membership, BranchCampus, payload, entity="branch")
 
 
 @router.put("/branches/{row_id}")
@@ -293,13 +380,13 @@ def archive_branch(row_id: int, membership: Membership = Depends(require_school_
 
 
 @router.get("/education-stages")
-def list_education_stages(membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
-    return _list_rows(db, EducationStage, _school_id(membership))
+def list_education_stages(include_archived: bool = False, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    return _list_rows(db, EducationStage, _school_id(membership), include_archived=include_archived)
 
 
 @router.post("/education-stages", status_code=status.HTTP_201_CREATED)
 def create_education_stage(payload: EducationStageRequest, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
-    return _payload(_create_row(db, EducationStage, _school_id(membership), payload))
+    return _create_response(db, membership, EducationStage, payload, entity="education_stage")
 
 
 @router.put("/education-stages/{row_id}")
@@ -313,13 +400,13 @@ def archive_education_stage(row_id: int, membership: Membership = Depends(requir
 
 
 @router.get("/academic-years")
-def list_academic_years(membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
-    return _list_rows(db, AcademicYear, _school_id(membership))
+def list_academic_years(include_archived: bool = False, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    return _list_rows(db, AcademicYear, _school_id(membership), include_archived=include_archived)
 
 
 @router.post("/academic-years", status_code=status.HTTP_201_CREATED)
 def create_academic_year(payload: AcademicYearRequest, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
-    return _payload(_create_row(db, AcademicYear, _school_id(membership), payload))
+    return _create_response(db, membership, AcademicYear, payload, entity="academic_year")
 
 
 @router.put("/academic-years/{row_id}")
@@ -333,22 +420,23 @@ def archive_academic_year(row_id: int, membership: Membership = Depends(require_
 
 
 @router.get("/grade-levels")
-def list_grade_levels(membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
-    return _list_rows(db, GradeLevel, _school_id(membership))
+def list_grade_levels(include_archived: bool = False, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    return _list_rows(db, GradeLevel, _school_id(membership), include_archived=include_archived)
 
 
 @router.post("/grade-levels", status_code=status.HTTP_201_CREATED)
 def create_grade_level(payload: GradeLevelRequest, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     school_id = _school_id(membership)
     _ensure_owned(db, EducationStage, school_id, payload.education_stage_id, "education_stage_id")
-    return _payload(_create_row(db, GradeLevel, school_id, payload, extra={"education_stage_id": payload.education_stage_id}))
+    return _create_response(db, membership, GradeLevel, payload, entity="grade_level", extra={"education_stage_id": payload.education_stage_id})
 
 
 @router.put("/grade-levels/{row_id}")
 def update_grade_level(row_id: int, payload: GradeLevelRequest, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     school_id = _school_id(membership)
-    _ensure_owned(db, EducationStage, school_id, payload.education_stage_id, "education_stage_id")
-    return _payload(_update_row(db, _get_owned(db, GradeLevel, school_id, row_id), payload, extra={"education_stage_id": payload.education_stage_id}))
+    row = _get_owned(db, GradeLevel, school_id, row_id)
+    _ensure_owned(db, EducationStage, school_id, payload.education_stage_id, "education_stage_id", current_id=row.education_stage_id)
+    return _payload(_update_row(db, row, payload, extra={"education_stage_id": payload.education_stage_id}))
 
 
 @router.delete("/grade-levels/{row_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -357,15 +445,15 @@ def archive_grade_level(row_id: int, membership: Membership = Depends(require_sc
 
 
 @router.get("/class-sections")
-def list_class_sections(membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
-    return _list_rows(db, ClassSection, _school_id(membership))
+def list_class_sections(include_archived: bool = False, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    return _list_rows(db, ClassSection, _school_id(membership), include_archived=include_archived)
 
 
-def _class_section_extra(db: Session, school_id: int, payload: ClassSectionRequest) -> dict[str, Any]:
+def _class_section_extra(db: Session, school_id: int, payload: ClassSectionRequest, current: Any = None) -> dict[str, Any]:
     branch_id = payload.branch_campus_id or _default_branch(db, school_id).id
-    _ensure_owned(db, BranchCampus, school_id, branch_id, "branch_campus_id")
-    _ensure_owned(db, AcademicYear, school_id, payload.academic_year_id, "academic_year_id")
-    _ensure_owned(db, GradeLevel, school_id, payload.grade_level_id, "grade_level_id")
+    _ensure_owned(db, BranchCampus, school_id, branch_id, "branch_campus_id", current_id=getattr(current, "branch_campus_id", None))
+    _ensure_owned(db, AcademicYear, school_id, payload.academic_year_id, "academic_year_id", current_id=getattr(current, "academic_year_id", None))
+    _ensure_owned(db, GradeLevel, school_id, payload.grade_level_id, "grade_level_id", current_id=getattr(current, "grade_level_id", None))
     return {
         "branch_campus_id": branch_id,
         "academic_year_id": payload.academic_year_id,
@@ -376,13 +464,14 @@ def _class_section_extra(db: Session, school_id: int, payload: ClassSectionReque
 @router.post("/class-sections", status_code=status.HTTP_201_CREATED)
 def create_class_section(payload: ClassSectionRequest, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     school_id = _school_id(membership)
-    return _payload(_create_row(db, ClassSection, school_id, payload, extra=_class_section_extra(db, school_id, payload)))
+    return _create_response(db, membership, ClassSection, payload, entity="class_section", extra=_class_section_extra(db, school_id, payload))
 
 
 @router.put("/class-sections/{row_id}")
 def update_class_section(row_id: int, payload: ClassSectionRequest, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     school_id = _school_id(membership)
-    return _payload(_update_row(db, _get_owned(db, ClassSection, school_id, row_id), payload, extra=_class_section_extra(db, school_id, payload)))
+    row = _get_owned(db, ClassSection, school_id, row_id)
+    return _payload(_update_row(db, row, payload, extra=_class_section_extra(db, school_id, payload, row)))
 
 
 @router.delete("/class-sections/{row_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -391,13 +480,13 @@ def archive_class_section(row_id: int, membership: Membership = Depends(require_
 
 
 @router.get("/subjects")
-def list_subjects(membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
-    return _list_rows(db, Subject, _school_id(membership))
+def list_subjects(include_archived: bool = False, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    return _list_rows(db, Subject, _school_id(membership), include_archived=include_archived)
 
 
 @router.post("/subjects", status_code=status.HTTP_201_CREATED)
 def create_subject(payload: SubjectRequest, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
-    return _payload(_create_row(db, Subject, _school_id(membership), payload))
+    return _create_response(db, membership, Subject, payload, entity="subject")
 
 
 @router.put("/subjects/{row_id}")
@@ -411,14 +500,14 @@ def archive_subject(row_id: int, membership: Membership = Depends(require_school
 
 
 @router.get("/subject-groups")
-def list_subject_groups(membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
-    return _list_rows(db, SubjectGroup, _school_id(membership))
+def list_subject_groups(include_archived: bool = False, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    return _list_rows(db, SubjectGroup, _school_id(membership), include_archived=include_archived)
 
 
-def _subject_group_extra(db: Session, school_id: int, payload: SubjectGroupRequest) -> dict[str, Any]:
-    _ensure_owned(db, AcademicYear, school_id, payload.academic_year_id, "academic_year_id")
-    section = _ensure_owned(db, ClassSection, school_id, payload.class_section_id, "class_section_id")
-    _ensure_owned(db, Subject, school_id, payload.subject_id, "subject_id")
+def _subject_group_extra(db: Session, school_id: int, payload: SubjectGroupRequest, current: Any = None) -> dict[str, Any]:
+    _ensure_owned(db, AcademicYear, school_id, payload.academic_year_id, "academic_year_id", current_id=getattr(current, "academic_year_id", None))
+    section = _ensure_owned(db, ClassSection, school_id, payload.class_section_id, "class_section_id", current_id=getattr(current, "class_section_id", None))
+    _ensure_owned(db, Subject, school_id, payload.subject_id, "subject_id", current_id=getattr(current, "subject_id", None))
     if section.academic_year_id != payload.academic_year_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="class_section_id must belong to academic_year_id")
     return {
@@ -431,13 +520,14 @@ def _subject_group_extra(db: Session, school_id: int, payload: SubjectGroupReque
 @router.post("/subject-groups", status_code=status.HTTP_201_CREATED)
 def create_subject_group(payload: SubjectGroupRequest, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     school_id = _school_id(membership)
-    return _payload(_create_row(db, SubjectGroup, school_id, payload, extra=_subject_group_extra(db, school_id, payload)))
+    return _create_response(db, membership, SubjectGroup, payload, entity="subject_group", extra=_subject_group_extra(db, school_id, payload))
 
 
 @router.put("/subject-groups/{row_id}")
 def update_subject_group(row_id: int, payload: SubjectGroupRequest, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     school_id = _school_id(membership)
-    return _payload(_update_row(db, _get_owned(db, SubjectGroup, school_id, row_id), payload, extra=_subject_group_extra(db, school_id, payload)))
+    row = _get_owned(db, SubjectGroup, school_id, row_id)
+    return _payload(_update_row(db, row, payload, extra=_subject_group_extra(db, school_id, payload, row)))
 
 
 @router.delete("/subject-groups/{row_id}", status_code=status.HTTP_204_NO_CONTENT)

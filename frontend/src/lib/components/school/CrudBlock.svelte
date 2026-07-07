@@ -28,7 +28,10 @@
     path,
     form = $bindable(),
     saving = false,
-    oncreate,
+    editing = false,
+    onsubmit,
+    onedit,
+    oncancel,
     onarchive
   } = $props<{
     title: string;
@@ -36,7 +39,10 @@
     path: string;
     form: Form;
     saving?: boolean;
-    oncreate: () => void;
+    editing?: boolean;
+    onsubmit: () => void;
+    onedit: (row: Row) => void;
+    oncancel: () => void;
     onarchive: (path: string, row: Row) => void;
   }>();
 </script>
@@ -49,11 +55,14 @@
     <TextInput label={$_('school.nameAr')} bind:value={form.name_ar} />
     <NumberInput label={$_('school.sortOrder')} bind:value={form.sort_order} />
     <StatusInput bind:value={form.status} />
-    <div class="flex items-end">
-      <button class="btn-hero inline-flex w-full items-center justify-center gap-2 rounded-lg" disabled={saving} onclick={oncreate}>
-        <Plus class="h-4 w-4" />{$_('school.add')}
+    <div class="flex items-end gap-2">
+      <button class="btn-hero inline-flex w-full items-center justify-center gap-2 rounded-lg" disabled={saving} onclick={onsubmit}>
+        {#if editing}{$_('school.save')}{:else}<Plus class="h-4 w-4" />{$_('school.add')}{/if}
       </button>
+      {#if editing}
+        <button class="btn-secondary rounded-lg px-3" disabled={saving} onclick={oncancel}>{$_('school.cancel')}</button>
+      {/if}
     </div>
   </div>
-  <RowsTable {rows} onarchive={(row) => onarchive(path, row)} />
+  <RowsTable {rows} {onedit} onarchive={(row) => onarchive(path, row)} />
 </div>

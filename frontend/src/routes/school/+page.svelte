@@ -41,7 +41,10 @@
 
   let loading = $state(true);
   let saving = $state(false);
+  let editingPath = $state<string | null>(null);
+  let editingId = $state<number | null>(null);
   let error = $state<string | null>(null);
+  let notice = $state<string | null>(null);
   let allowed = $state(false);
   let schoolId = $state<number | null>(null);
   let schoolName = $state('');
@@ -173,13 +176,70 @@
     };
   }
 
-  async function createRow(path: string, form: any, reset: () => void) {
+  function idStr(value?: number | string | null) {
+    return value != null && value !== '' ? String(value) : '';
+  }
+
+  function resetForm(path: string) {
+    if (path === 'branches') branchForm = baseForm('', '');
+    else if (path === 'education-stages') stageForm = baseForm('', '');
+    else if (path === 'academic-years') yearForm = baseForm('', '');
+    else if (path === 'subjects') subjectForm = baseForm('', '');
+    else if (path === 'grade-levels') levelForm = { ...baseForm('', ''), education_stage_id: '' };
+    else if (path === 'class-sections') sectionForm = { ...baseForm('', ''), branch_campus_id: '', academic_year_id: '', grade_level_id: '' };
+    else if (path === 'subject-groups') groupForm = { ...baseForm('', ''), academic_year_id: '', class_section_id: '', subject_id: '' };
+  }
+
+  function cancelEdit() {
+    if (editingPath) resetForm(editingPath);
+    editingPath = null;
+    editingId = null;
+    notice = null;
+  }
+
+  function selectTab(key: string) {
+    cancelEdit();
+    activeTab = key;
+  }
+
+  // Load a row's current values into its form and switch that block into edit mode.
+  function editRow(path: string, form: any, row: Row) {
+    editingPath = path;
+    editingId = row.id;
+    form.code = row.code;
+    form.name = row.name;
+    form.name_ar = row.name_ar ?? '';
+    form.sort_order = row.sort_order;
+    form.status = row.status;
+    if (path === 'grade-levels') form.education_stage_id = idStr(row.education_stage_id);
+    if (path === 'class-sections') {
+      form.branch_campus_id = idStr(row.branch_campus_id);
+      form.academic_year_id = idStr(row.academic_year_id);
+      form.grade_level_id = idStr(row.grade_level_id);
+    }
+    if (path === 'subject-groups') {
+      form.academic_year_id = idStr(row.academic_year_id);
+      form.class_section_id = idStr(row.class_section_id);
+      form.subject_id = idStr(row.subject_id);
+    }
+  }
+
+  // Create when not editing this block, otherwise update the row being edited.
+  async function saveVia(path: string, payload: any, reset: () => void) {
     if (!schoolId) return;
     saving = true;
     error = null;
+    notice = null;
     try {
-      await api.post(`/school/${path}`, payloadFrom(form), schoolOptions());
+      if (editingPath === path && editingId != null) {
+        await api.put(`/school/${path}/${editingId}`, payload, schoolOptions());
+      } else {
+        const created = await api.post(`/school/${path}`, payload, schoolOptions());
+        if (created?.restored) notice = $_('school.restored');
+      }
       reset();
+      editingPath = null;
+      editingId = null;
       await refresh();
     } catch (err: any) {
       error = err?.message || $_('school.saveError');
@@ -188,10 +248,16 @@
     }
   }
 
+  function saveRow(path: string, form: any) {
+    return saveVia(path, payloadFrom(form), () => resetForm(path));
+  }
+
   async function archiveRow(path: string, row: Row) {
     if (!schoolId) return;
+    if (editingPath === path && editingId === row.id) cancelEdit();
     saving = true;
     error = null;
+    notice = null;
     try {
       await api.delete(`/school/${path}/${row.id}`, schoolOptions());
       await refresh();
@@ -226,19 +292,19 @@
     };
   }
 
-  async function createSection() {
-    if (!schoolId) return;
-    saving = true;
-    error = null;
-    try {
-      await api.post('/school/class-sections', sectionPayload(), schoolOptions());
-      sectionForm = { ...baseForm('', ''), branch_campus_id: '', academic_year_id: '', grade_level_id: '' };
-      await refresh();
-    } catch (err: any) {
-      error = err?.message || $_('school.saveError');
-    } finally {
-      saving = false;
-    }
+  function saveSection() {
+    return saveVia('class-sections', sectionPayload(), () => resetForm('class-sections'));
+  }
+
+  function levelPayload() {
+    return {
+      ...payloadFrom(levelForm),
+      education_stage_id: levelForm.education_stage_id ? Number(levelForm.education_stage_id) : null
+    };
+  }
+
+  function saveLevel() {
+    return saveVia('grade-levels', levelPayload(), () => resetForm('grade-levels'));
   }
 
   async function createQuickSections() {
@@ -264,13 +330,17 @@
     }
   }
 
-  async function createGroup() {
-    await createRow('subject-groups', {
-      ...groupForm,
+  function groupPayload() {
+    return {
+      ...payloadFrom(groupForm),
       academic_year_id: Number(groupForm.academic_year_id),
       class_section_id: Number(groupForm.class_section_id),
       subject_id: Number(groupForm.subject_id)
-    }, () => (groupForm = { ...baseForm('', ''), academic_year_id: '', class_section_id: '', subject_id: '' }));
+    };
+  }
+
+  function saveGroup() {
+    return saveVia('subject-groups', groupPayload(), () => resetForm('subject-groups'));
   }
 
   onMount(init);
@@ -310,12 +380,16 @@
       <div class="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</div>
     {/if}
 
+    {#if notice}
+      <div class="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">{notice}</div>
+    {/if}
+
     <div class="mt-6 grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
       <nav class="flex gap-2 overflow-x-auto lg:block lg:overflow-visible">
         {#each tabs as tab}
           <button
             class={`whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm font-semibold transition lg:mb-1 lg:block lg:w-full ${activeTab === tab.key ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
-            onclick={() => (activeTab = tab.key)}
+            onclick={() => selectTab(tab.key)}
           >
             {$_(tab.label)}
           </button>
@@ -365,11 +439,11 @@
             <button class="btn-hero mt-5 rounded-lg px-5 py-2" disabled={saving} onclick={saveSettings}>{$_('school.save')}</button>
           </div>
         {:else if activeTab === 'branches'}
-          <CrudBlock title={$_('school.branches.title')} rows={branches} path="branches" bind:form={branchForm} {saving} oncreate={() => createRow('branches', branchForm, () => (branchForm = baseForm('', '')))} onarchive={archiveRow} />
+          <CrudBlock title={$_('school.branches.title')} rows={branches} path="branches" bind:form={branchForm} {saving} editing={editingPath === 'branches'} onsubmit={() => saveRow('branches', branchForm)} onedit={(row) => editRow('branches', branchForm, row)} oncancel={cancelEdit} onarchive={archiveRow} />
         {:else if activeTab === 'stages'}
-          <CrudBlock title={$_('school.stages.title')} rows={stages} path="education-stages" bind:form={stageForm} {saving} oncreate={() => createRow('education-stages', stageForm, () => (stageForm = baseForm('', '')))} onarchive={archiveRow} />
+          <CrudBlock title={$_('school.stages.title')} rows={stages} path="education-stages" bind:form={stageForm} {saving} editing={editingPath === 'education-stages'} onsubmit={() => saveRow('education-stages', stageForm)} onedit={(row) => editRow('education-stages', stageForm, row)} oncancel={cancelEdit} onarchive={archiveRow} />
         {:else if activeTab === 'years'}
-          <CrudBlock title={$_('school.years.title')} rows={years} path="academic-years" bind:form={yearForm} {saving} oncreate={() => createRow('academic-years', yearForm, () => (yearForm = baseForm('', '')))} onarchive={archiveRow} />
+          <CrudBlock title={$_('school.years.title')} rows={years} path="academic-years" bind:form={yearForm} {saving} editing={editingPath === 'academic-years'} onsubmit={() => saveRow('academic-years', yearForm)} onedit={(row) => editRow('academic-years', yearForm, row)} oncancel={cancelEdit} onarchive={archiveRow} />
         {:else if activeTab === 'levels'}
           <div class="rounded-lg border border-slate-200 bg-white p-5">
             <h2 class="text-lg font-black text-slate-900">{gradeLevelLabel} {$_('school.levels.title')}</h2>
@@ -381,8 +455,15 @@
               <NumberInput label={$_('school.sortOrder')} bind:value={levelForm.sort_order} />
               <StatusInput bind:value={levelForm.status} />
             </div>
-            <button class="btn-hero mt-4 inline-flex items-center gap-2 rounded-lg" disabled={saving} onclick={() => createRow('grade-levels', levelForm, () => (levelForm = { ...baseForm('', ''), education_stage_id: '' }))}><Plus class="h-4 w-4" />{$_('school.add')}</button>
-            <RowsTable rows={levels} extra={(row) => rowName(stages, row.education_stage_id)} onarchive={(row) => archiveRow('grade-levels', row)} />
+            <div class="mt-4 flex items-center gap-2">
+              <button class="btn-hero inline-flex items-center gap-2 rounded-lg" disabled={saving} onclick={saveLevel}>
+                {#if editingPath === 'grade-levels'}{$_('school.save')}{:else}<Plus class="h-4 w-4" />{$_('school.add')}{/if}
+              </button>
+              {#if editingPath === 'grade-levels'}
+                <button class="btn-secondary rounded-lg" disabled={saving} onclick={cancelEdit}>{$_('school.cancel')}</button>
+              {/if}
+            </div>
+            <RowsTable rows={levels} extra={(row) => rowName(stages, row.education_stage_id)} onedit={(row) => editRow('grade-levels', levelForm, row)} onarchive={(row) => archiveRow('grade-levels', row)} />
           </div>
         {:else if activeTab === 'sections'}
           <div class="rounded-lg border border-slate-200 bg-white p-5">
@@ -397,16 +478,22 @@
               <NumberInput label={$_('school.sortOrder')} bind:value={sectionForm.sort_order} />
             </div>
             <div class="mt-4 flex flex-col gap-3 sm:flex-row">
-              <button class="btn-hero inline-flex items-center gap-2 rounded-lg" disabled={saving} onclick={createSection}><Plus class="h-4 w-4" />{$_('school.add')}</button>
-              <div class="flex min-w-0 flex-1 gap-2">
-                <input class="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2" bind:value={quickLabels} aria-label={$_('school.quickLabels')} />
-                <button class="btn-secondary rounded-lg" disabled={saving} onclick={createQuickSections}>{$_('school.quickCreate')}</button>
-              </div>
+              <button class="btn-hero inline-flex items-center gap-2 rounded-lg" disabled={saving} onclick={saveSection}>
+                {#if editingPath === 'class-sections'}{$_('school.save')}{:else}<Plus class="h-4 w-4" />{$_('school.add')}{/if}
+              </button>
+              {#if editingPath === 'class-sections'}
+                <button class="btn-secondary rounded-lg" disabled={saving} onclick={cancelEdit}>{$_('school.cancel')}</button>
+              {:else}
+                <div class="flex min-w-0 flex-1 gap-2">
+                  <input class="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2" bind:value={quickLabels} aria-label={$_('school.quickLabels')} />
+                  <button class="btn-secondary rounded-lg" disabled={saving} onclick={createQuickSections}>{$_('school.quickCreate')}</button>
+                </div>
+              {/if}
             </div>
-            <RowsTable rows={sections} extra={(row) => `${branchName(row.branch_campus_id)} · ${yearName(row.academic_year_id)} · ${levelName(row.grade_level_id)}`} onarchive={(row) => archiveRow('class-sections', row)} />
+            <RowsTable rows={sections} extra={(row) => `${branchName(row.branch_campus_id)} · ${yearName(row.academic_year_id)} · ${levelName(row.grade_level_id)}`} onedit={(row) => editRow('class-sections', sectionForm, row)} onarchive={(row) => archiveRow('class-sections', row)} />
           </div>
         {:else if activeTab === 'subjects'}
-          <CrudBlock title={$_('school.subjects.title')} rows={subjects} path="subjects" bind:form={subjectForm} {saving} oncreate={() => createRow('subjects', subjectForm, () => (subjectForm = baseForm('', '')))} onarchive={archiveRow} />
+          <CrudBlock title={$_('school.subjects.title')} rows={subjects} path="subjects" bind:form={subjectForm} {saving} editing={editingPath === 'subjects'} onsubmit={() => saveRow('subjects', subjectForm)} onedit={(row) => editRow('subjects', subjectForm, row)} oncancel={cancelEdit} onarchive={archiveRow} />
         {:else if activeTab === 'groups'}
           <div class="rounded-lg border border-slate-200 bg-white p-5">
             <h2 class="text-lg font-black text-slate-900">{$_('school.groups.title')}</h2>
@@ -419,8 +506,15 @@
               <TextInput label={$_('school.nameAr')} bind:value={groupForm.name_ar} />
               <NumberInput label={$_('school.sortOrder')} bind:value={groupForm.sort_order} />
             </div>
-            <button class="btn-hero mt-4 inline-flex items-center gap-2 rounded-lg" disabled={saving} onclick={createGroup}><Plus class="h-4 w-4" />{$_('school.add')}</button>
-            <RowsTable rows={groups} extra={(row) => `${yearName(row.academic_year_id)} · ${rowName(sections, row.class_section_id)} · ${subjectName(row.subject_id)}`} onarchive={(row) => archiveRow('subject-groups', row)} />
+            <div class="mt-4 flex items-center gap-2">
+              <button class="btn-hero inline-flex items-center gap-2 rounded-lg" disabled={saving} onclick={saveGroup}>
+                {#if editingPath === 'subject-groups'}{$_('school.save')}{:else}<Plus class="h-4 w-4" />{$_('school.add')}{/if}
+              </button>
+              {#if editingPath === 'subject-groups'}
+                <button class="btn-secondary rounded-lg" disabled={saving} onclick={cancelEdit}>{$_('school.cancel')}</button>
+              {/if}
+            </div>
+            <RowsTable rows={groups} extra={(row) => `${yearName(row.academic_year_id)} · ${rowName(sections, row.class_section_id)} · ${subjectName(row.subject_id)}`} onedit={(row) => editRow('subject-groups', groupForm, row)} onarchive={(row) => archiveRow('subject-groups', row)} />
           </div>
         {/if}
       </div>
