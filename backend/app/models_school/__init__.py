@@ -1,10 +1,31 @@
-from .models import AuditLog, Membership, PlatformAdmin, School, StaffInvite, User
+from .models import (
+    AcademicYear,
+    AuditLog,
+    BranchCampus,
+    ClassSection,
+    EducationStage,
+    GradeLevel,
+    Membership,
+    PlatformAdmin,
+    School,
+    StaffInvite,
+    Subject,
+    SubjectGroup,
+    User,
+)
 
 __all__ = [
+    "AcademicYear",
     "AuditLog",
+    "BranchCampus",
+    "ClassSection",
+    "EducationStage",
+    "GradeLevel",
     "Membership",
     "PlatformAdmin",
     "School",
     "StaffInvite",
+    "Subject",
+    "SubjectGroup",
     "User",
 ]

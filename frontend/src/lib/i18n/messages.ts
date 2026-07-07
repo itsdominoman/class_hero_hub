@@ -144,8 +144,76 @@ export const en = {
   school: {
     title: 'School | Class Hero Hub',
     eyebrow: 'School workspace',
-    heading: 'School placeholder',
-    intro: 'Your school admin access is active. School setup tools arrive in the next slice.'
+    heading: 'School setup',
+    intro: 'Configure the school structure used by branches, years, levels, sections, subjects, and optional teaching groups.',
+    accessDeniedTitle: 'School admin access required',
+    accessDenied: 'This account is not a school administrator.',
+    loadError: 'Failed to load school setup',
+    saveError: 'Failed to save school setup',
+    setupComplete: 'Basic setup complete',
+    setupInProgress: 'Basic setup in progress',
+    records: 'records',
+    optional: 'Optional',
+    custom: 'Custom',
+    save: 'Save',
+    add: 'Add',
+    archive: 'Archive',
+    empty: 'No records yet.',
+    code: 'Code',
+    nameEn: 'English name',
+    nameAr: 'Arabic name',
+    sortOrder: 'Sort order',
+    status: 'Status',
+    active: 'Active',
+    inactive: 'Inactive',
+    archived: 'Archived',
+    context: 'Context',
+    select: 'Select',
+    none: 'None',
+    sectionLabel: 'Section label',
+    quickLabels: 'Quick section labels',
+    quickCreate: 'Quick create',
+    tabs: {
+      checklist: 'Checklist',
+      settings: 'Settings',
+      branches: 'Branches',
+      stages: 'Stages',
+      years: 'Academic years',
+      levels: 'Levels',
+      sections: 'Sections',
+      subjects: 'Subjects',
+      groups: 'Subject groups'
+    },
+    settings: {
+      levelLabel: 'Level label',
+      customLabel: 'Custom label'
+    },
+    branches: {
+      title: 'Branches and campuses',
+      single: 'Branch/campus'
+    },
+    stages: {
+      title: 'Education stages',
+      single: 'Education stage'
+    },
+    years: {
+      title: 'Academic years',
+      single: 'Academic year'
+    },
+    levels: {
+      title: 'levels'
+    },
+    sections: {
+      title: 'Class sections and homerooms',
+      single: 'Class section'
+    },
+    subjects: {
+      title: 'Subjects',
+      single: 'Subject'
+    },
+    groups: {
+      title: 'Subject groups'
+    }
   },
   faq: {
     pageTitle: 'FAQ | Class Hero Hub',
@@ -348,8 +416,76 @@ export const ar = {
   school: {
     title: 'المدرسة | كلاس هيرو هب',
     eyebrow: 'مساحة المدرسة',
-    heading: 'صفحة المدرسة المؤقتة',
-    intro: 'تم تفعيل وصول مسؤول المدرسة. ستصل أدوات إعداد المدرسة في الشريحة التالية.'
+    heading: 'إعداد المدرسة',
+    intro: 'اضبط هيكل المدرسة المستخدم للفروع والسنوات والمستويات والشعب والمواد ومجموعات التدريس الاختيارية.',
+    accessDeniedTitle: 'وصول مسؤول المدرسة مطلوب',
+    accessDenied: 'هذا الحساب ليس مسؤول مدرسة.',
+    loadError: 'تعذر تحميل إعداد المدرسة',
+    saveError: 'تعذر حفظ إعداد المدرسة',
+    setupComplete: 'اكتمل الإعداد الأساسي',
+    setupInProgress: 'الإعداد الأساسي قيد التنفيذ',
+    records: 'سجلات',
+    optional: 'اختياري',
+    custom: 'مخصص',
+    save: 'حفظ',
+    add: 'إضافة',
+    archive: 'أرشفة',
+    empty: 'لا توجد سجلات بعد.',
+    code: 'الرمز',
+    nameEn: 'الاسم بالإنجليزية',
+    nameAr: 'الاسم بالعربية',
+    sortOrder: 'ترتيب العرض',
+    status: 'الحالة',
+    active: 'نشط',
+    inactive: 'غير نشط',
+    archived: 'مؤرشف',
+    context: 'السياق',
+    select: 'اختر',
+    none: 'بدون',
+    sectionLabel: 'تسمية الشعبة',
+    quickLabels: 'تسميات الشعب السريعة',
+    quickCreate: 'إنشاء سريع',
+    tabs: {
+      checklist: 'القائمة',
+      settings: 'الإعدادات',
+      branches: 'الفروع',
+      stages: 'المراحل',
+      years: 'السنوات الدراسية',
+      levels: 'المستويات',
+      sections: 'الشعب',
+      subjects: 'المواد',
+      groups: 'مجموعات المواد'
+    },
+    settings: {
+      levelLabel: 'تسمية المستوى',
+      customLabel: 'تسمية مخصصة'
+    },
+    branches: {
+      title: 'الفروع والحرم المدرسي',
+      single: 'الفرع أو الحرم'
+    },
+    stages: {
+      title: 'المراحل التعليمية',
+      single: 'المرحلة التعليمية'
+    },
+    years: {
+      title: 'السنوات الدراسية',
+      single: 'السنة الدراسية'
+    },
+    levels: {
+      title: 'المستويات'
+    },
+    sections: {
+      title: 'الشعب والصفوف الرئيسية',
+      single: 'الشعبة'
+    },
+    subjects: {
+      title: 'المواد',
+      single: 'المادة'
+    },
+    groups: {
+      title: 'مجموعات المواد'
+    }
   },
   faq: {
     pageTitle: 'الأسئلة الشائعة | كلاس هيرو هب',

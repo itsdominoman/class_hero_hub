@@ -47,6 +47,7 @@ def _database_url() -> str:
 
 from app.database import Base  # noqa: E402
 from app import models  # noqa: F401,E402
+from app import models_school  # noqa: F401,E402
 
 target_metadata = Base.metadata
 config.set_main_option("sqlalchemy.url", _database_url())

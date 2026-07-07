@@ -817,3 +817,23 @@ Result:
 ```text
 47 passed, 5 warnings in 2.06s
 ```
+
+## 2026-07-07 - S4 school structure foundation
+
+Scope implemented: school setup foundation only. S4 adds configurable school structure records and a plain school-admin setup UI without teachers, students, rooms, timetables, terms, imports, onboarding, communication features, or branch business workflows.
+
+Modelling decisions:
+
+- School settings now include `grade_level_label`, so each school can call levels Grade, Year, Form, Level, or custom text. The data model still uses `GradeLevel` internally as a neutral product concept.
+- Branches/campuses are first-class school-owned records in `branch_campuses`. They were added now because multi-campus schools are common and class sections need an unambiguous campus context from the start. Modelling every campus as a separate school tenant would make shared school organisation setup, admins, academic years, subjects, and future reporting harder to reconcile.
+- Every school can operate as a one-campus school. The school setup API creates a default `MAIN` / `Main Branch` campus when a school has no branches yet. `class_sections.branch_campus_id` is required; section creation can omit it and will use the default branch, avoiding nullable campus semantics in core section data.
+- Education stages are school-defined optional groupings. `grade_levels.education_stage_id` is nullable, so schools can use KG/Primary/Middle/Secondary, FS/Prep/Sixth Form, Elementary/High School, or no stage grouping.
+- Academic years are school-level records only in S4. Terms, semesters, rollover, student placement, and section transfer workflows remain future work.
+- Subjects are school-level records. Subject groups are optional and represent teaching/audience groupings for an academic year, class section, and subject. They are not rooms or timetable periods.
+- Class section labels are free text through `class_sections.code`, supporting A/B/C, Red/Blue, Boys/Girls, Advanced/Foundation, or any school-defined label.
+- Homeroom teacher support is limited to nullable `class_sections.homeroom_teacher_user_id` as a placeholder. Teacher assignment workflows are deferred to S5.
+
+Branch-scoped administration:
+
+- `memberships.branch_campus_id` was added as a nullable future-compatible scope field. S4 route authorization still requires an active `school_admin` membership for the school and does not enforce branch-local permissions.
+- Deferred work: define branch-scoped admin roles/permissions, update `require_school_role` or a new permission dependency to apply branch scope where appropriate, expose branch scope in admin invite/member management, and audit branch-limited access behavior. The schema now has a stable branch scope anchor and does not hard-code that every school admin must manage every branch forever.

@@ -87,9 +87,9 @@ async function request(path: string, options: RequestInit = {}) {
 }
 
 export const api = {
-  get: (path: string) => request(path),
-  post: (path: string, body: any = {}) => request(path, { method: 'POST', body: JSON.stringify(body) }),
-  put: (path: string, body: any = {}) => request(path, { method: 'PUT', body: JSON.stringify(body) }),
-  patch: (path: string, body: any = {}) => request(path, { method: 'PATCH', body: JSON.stringify(body) }),
-  delete: (path: string) => request(path, { method: 'DELETE' })
+  get: (path: string, options: RequestInit = {}) => request(path, options),
+  post: (path: string, body: any = {}, options: RequestInit = {}) => request(path, { ...options, method: 'POST', body: JSON.stringify(body) }),
+  put: (path: string, body: any = {}, options: RequestInit = {}) => request(path, { ...options, method: 'PUT', body: JSON.stringify(body) }),
+  patch: (path: string, body: any = {}, options: RequestInit = {}) => request(path, { ...options, method: 'PATCH', body: JSON.stringify(body) }),
+  delete: (path: string, options: RequestInit = {}) => request(path, { ...options, method: 'DELETE' })
 };

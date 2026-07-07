@@ -29,6 +29,7 @@ class School(Base):
     timezone = Column(String, default="Asia/Muscat")
     locale_default = Column(String, default="en")
     points_label = Column(String, default="Points")
+    grade_level_label = Column(String, default="Grade")
     status = Column(String, default="pending_setup")
     suspended_at = Column(DateTime(timezone=True), nullable=True)
     suspended_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -41,6 +42,7 @@ class Membership(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     school_id = Column(Integer, ForeignKey("schools.id"))
+    branch_campus_id = Column(Integer, ForeignKey("branch_campuses.id"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     role = Column(String)
     status = Column(String, default="active")
@@ -51,6 +53,148 @@ class Membership(Base):
 
     __table_args__ = (
         UniqueConstraint("school_id", "user_id", "role", name="uq_memberships_school_user_role"),
+    )
+
+
+class BranchCampus(Base):
+    __tablename__ = "branch_campuses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    code = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    name_ar = Column(String, nullable=True)
+    sort_order = Column(Integer, default=0)
+    status = Column(String, default="active")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("school_id", "code", name="uq_branch_campuses_school_code"),
+    )
+
+
+class EducationStage(Base):
+    __tablename__ = "education_stages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    code = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    name_ar = Column(String, nullable=True)
+    sort_order = Column(Integer, default=0)
+    status = Column(String, default="active")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("school_id", "code", name="uq_education_stages_school_code"),
+    )
+
+
+class AcademicYear(Base):
+    __tablename__ = "academic_years"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    code = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    name_ar = Column(String, nullable=True)
+    sort_order = Column(Integer, default=0)
+    status = Column(String, default="active")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("school_id", "code", name="uq_academic_years_school_code"),
+        UniqueConstraint("school_id", "name", name="uq_academic_years_school_name"),
+    )
+
+
+class GradeLevel(Base):
+    __tablename__ = "grade_levels"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    education_stage_id = Column(Integer, ForeignKey("education_stages.id"), nullable=True)
+    code = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    name_ar = Column(String, nullable=True)
+    sort_order = Column(Integer, default=0)
+    status = Column(String, default="active")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("school_id", "code", name="uq_grade_levels_school_code"),
+    )
+
+
+class ClassSection(Base):
+    __tablename__ = "class_sections"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    branch_campus_id = Column(Integer, ForeignKey("branch_campuses.id"), nullable=False)
+    academic_year_id = Column(Integer, ForeignKey("academic_years.id"), nullable=False)
+    grade_level_id = Column(Integer, ForeignKey("grade_levels.id"), nullable=False)
+    code = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    name_ar = Column(String, nullable=True)
+    sort_order = Column(Integer, default=0)
+    status = Column(String, default="active")
+    homeroom_teacher_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint(
+            "school_id",
+            "branch_campus_id",
+            "academic_year_id",
+            "grade_level_id",
+            "code",
+            name="uq_class_sections_school_branch_year_level_code",
+        ),
+    )
+
+
+class Subject(Base):
+    __tablename__ = "subjects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    code = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    name_ar = Column(String, nullable=True)
+    sort_order = Column(Integer, default=0)
+    status = Column(String, default="active")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("school_id", "code", name="uq_subjects_school_code"),
+    )
+
+
+class SubjectGroup(Base):
+    __tablename__ = "subject_groups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    academic_year_id = Column(Integer, ForeignKey("academic_years.id"), nullable=False)
+    class_section_id = Column(Integer, ForeignKey("class_sections.id"), nullable=False)
+    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
+    code = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    name_ar = Column(String, nullable=True)
+    sort_order = Column(Integer, default=0)
+    status = Column(String, default="active")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint(
+            "school_id",
+            "academic_year_id",
+            "class_section_id",
+            "subject_id",
+            "code",
+            name="uq_subject_groups_school_year_section_subject_code",
+        ),
     )
 
 
