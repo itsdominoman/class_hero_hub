@@ -78,6 +78,7 @@ def _ensure_bootstrap_platform_admin(db: Session, user: User) -> None:
         platform_admin,
         {"source": "bootstrap"},
     )
+    db.commit()
 
 
 async def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:

@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
@@ -11,12 +12,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app import auth, database
+from app import auth, database, invite_tokens
 from app.database import Base, get_db
 from app.main import app
-from app.models_school import AuditLog, Membership, PlatformAdmin, School, User
+from app.models_school import AuditLog, MagicLoginToken, Membership, PlatformAdmin, School, User
 from app.routes import authentication as auth_routes
 from app.school_scope import require_platform_admin, require_school_role
+from app.security import BoundedInMemoryRateLimiter
 from school_fixtures import seeded_schools  # noqa: F401
 
 
@@ -107,6 +109,62 @@ def test_google_callback_upserts_user(db, client, monkeypatch):
     assert user.google_sub == "google-sub-oauth-user"
     assert user.name == "OAuth User"
     assert user.last_login_at is not None
+
+
+def magic_token_from_url(url: str) -> str:
+    return url.split("token=", 1)[1]
+
+
+def test_magic_link_request_and_exchange_create_normal_session(db, client, monkeypatch):
+    sent = []
+    monkeypatch.setattr(auth_routes, "MAGIC_REQUEST_RATE_LIMIT", BoundedInMemoryRateLimiter(60, 100))
+    monkeypatch.setattr(auth_routes, "MAGIC_EXCHANGE_RATE_LIMIT", BoundedInMemoryRateLimiter(60, 100))
+    monkeypatch.setattr("app.routes.authentication.send_magic_login", lambda email: sent.append(email))
+
+    request_response = client.post(
+        "/api/auth/magic-link/request",
+        json={"email": "Magic-User@Example.COM", "returnTo": "/school"},
+    )
+    assert request_response.status_code == 200
+    assert request_response.json()["status"] == "sent"
+    assert sent[-1].to_email == "magic-user@example.com"
+
+    token = magic_token_from_url(sent[-1].login_url)
+    stored = db.query(MagicLoginToken).filter_by(email="magic-user@example.com").one()
+    assert stored.token_hash == invite_tokens.hash_token(token)
+
+    exchange = client.get(f"/api/auth/magic-link/exchange?token={token}", follow_redirects=False)
+    assert exchange.status_code == 302
+    assert exchange.headers["location"].endswith("/school")
+    assert "access_token" in exchange.cookies
+
+    user = db.query(User).filter_by(email="magic-user@example.com").one()
+    assert user.last_login_at is not None
+
+
+def test_magic_link_rejects_expiry_reuse_wrong_token_and_rate_limit(db, client, monkeypatch):
+    sent = []
+    monkeypatch.setattr(auth_routes, "MAGIC_REQUEST_RATE_LIMIT", BoundedInMemoryRateLimiter(60, 100))
+    monkeypatch.setattr(auth_routes, "MAGIC_EXCHANGE_RATE_LIMIT", BoundedInMemoryRateLimiter(60, 100))
+    monkeypatch.setattr("app.routes.authentication.send_magic_login", lambda email: sent.append(email))
+
+    assert client.post("/api/auth/magic-link/request", json={"email": "reuse@example.com"}).status_code == 200
+    token = magic_token_from_url(sent[-1].login_url)
+    assert client.post("/api/auth/magic-link/exchange", json={"token": token}).status_code == 200
+    client.cookies.clear()
+    assert client.post("/api/auth/magic-link/exchange", json={"token": token}).status_code == 410
+    assert client.post("/api/auth/magic-link/exchange", json={"token": "wrong-token"}).status_code == 401
+
+    assert client.post("/api/auth/magic-link/request", json={"email": "expired@example.com"}).status_code == 200
+    expired_token = magic_token_from_url(sent[-1].login_url)
+    expired = db.query(MagicLoginToken).filter_by(email="expired@example.com").one()
+    expired.expires_at = invite_tokens.now_utc() - timedelta(minutes=1)
+    db.commit()
+    assert client.post("/api/auth/magic-link/exchange", json={"token": expired_token}).status_code == 410
+
+    monkeypatch.setattr(auth_routes, "MAGIC_REQUEST_RATE_LIMIT", BoundedInMemoryRateLimiter(60, 1))
+    assert client.post("/api/auth/magic-link/request", json={"email": "limit1@example.com"}).status_code == 200
+    assert client.post("/api/auth/magic-link/request", json={"email": "limit2@example.com"}).status_code == 429
 
 
 def test_cookie_auth_resolves_user_for_me_v2(db, client, seeded_schools):

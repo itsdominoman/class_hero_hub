@@ -201,7 +201,10 @@ export const en = {
     },
     years: {
       title: 'Academic years',
-      single: 'Academic year'
+      single: 'Academic year',
+      current: 'Current',
+      startDate: 'Start date',
+      endDate: 'End date'
     },
     levels: {
       title: 'levels'
@@ -257,6 +260,11 @@ export const en = {
     title: 'Welcome to Class Hero Hub',
     intro: 'Sign in to access your school communication dashboard when a school role has been assigned.',
     continueGoogle: 'Continue with Google',
+    emailLabel: 'Email address',
+    emailPlaceholder: 'you@example.com',
+    emailMagicLink: 'Email me a sign-in link',
+    magicSent: 'Check your email for a one-time sign-in link.',
+    magicError: 'Failed to send sign-in link',
     accountHelp: 'Use the Google account associated with your Class Hero Hub access.',
     sessionHelp: 'Sessions stay signed in for convenience. Always log out on shared devices.',
     accessHelp: 'Access is currently assigned by the school or administrator.'
@@ -476,7 +484,10 @@ export const ar = {
     },
     years: {
       title: 'السنوات الدراسية',
-      single: 'السنة الدراسية'
+      single: 'السنة الدراسية',
+      current: 'الحالية',
+      startDate: 'تاريخ البداية',
+      endDate: 'تاريخ النهاية'
     },
     levels: {
       title: 'المستويات'
@@ -532,6 +543,11 @@ export const ar = {
     title: 'مرحبا بك في كلاس هيرو هب',
     intro: 'سجل الدخول للوصول إلى لوحة التواصل المدرسي عندما يتم تعيين دور مدرسي لك.',
     continueGoogle: 'المتابعة باستخدام Google',
+    emailLabel: 'عنوان البريد الإلكتروني',
+    emailPlaceholder: 'you@example.com',
+    emailMagicLink: 'أرسل لي رابط تسجيل الدخول',
+    magicSent: 'تحقق من بريدك الإلكتروني للحصول على رابط تسجيل دخول لمرة واحدة.',
+    magicError: 'تعذر إرسال رابط تسجيل الدخول',
     accountHelp: 'استخدم حساب Google المرتبط بوصولك إلى كلاس هيرو هب.',
     sessionHelp: 'تبقى الجلسات مسجلة الدخول للراحة. سجّل الخروج دائما على الأجهزة المشتركة.',
     accessHelp: 'يتم تعيين الوصول حاليا من المدرسة أو المسؤول.'

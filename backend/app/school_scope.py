@@ -43,8 +43,7 @@ def write_audit(
         detail=detail or {},
     )
     db.add(audit_log)
-    db.commit()
-    db.refresh(audit_log)
+    db.flush()
     return audit_log
 
 

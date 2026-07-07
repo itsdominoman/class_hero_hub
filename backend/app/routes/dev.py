@@ -123,6 +123,7 @@ async def _qa_login_from_request(request: Request, db: Session) -> JSONResponse:
         db.commit()
         db.refresh(platform_admin)
         write_audit(db, user, "platform_admin.qa_bootstrap", platform_admin, {"source": "qa-login"})
+        db.commit()
     elif platform_admin.revoked_at is not None:
         platform_admin.revoked_at = None
         db.commit()

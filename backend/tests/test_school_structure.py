@@ -13,7 +13,7 @@ from sqlalchemy.pool import StaticPool
 from app import auth, database
 from app.database import Base, get_db
 from app.main import app
-from app.models_school import BranchCampus, ClassSection, Membership, PlatformAdmin, School, Subject, User
+from app.models_school import AcademicYear, BranchCampus, ClassSection, Membership, PlatformAdmin, School, Subject, User
 from school_fixtures import seeded_schools  # noqa: F401
 
 
@@ -211,6 +211,40 @@ def test_duplicate_sections_and_subject_groups_return_conflict(db, client, seede
 
     assert _post(client, "/api/school/class-sections", admin.email, alpha.id, section_payload).status_code == 409
     assert _post(client, "/api/school/subject-groups", admin.email, alpha.id, group_payload).status_code == 409
+
+
+def test_subject_groups_support_section_and_grade_level_contexts(db, client, seeded_schools):
+    alpha = seeded_schools["schools"]["alpha"]
+    admin = seeded_schools["users"]["alpha_admin"]
+    created = create_structure(client, admin.email, alpha.id)
+
+    grade_group_payload = {
+        **_base("Y1-MATH-SET1", "Year 1 Maths Set 1"),
+        "academic_year_id": created["year"]["id"],
+        "class_section_id": None,
+        "grade_level_id": created["level"]["id"],
+        "subject_id": created["subject"]["id"],
+    }
+    grade_group = _post(client, "/api/school/subject-groups", admin.email, alpha.id, grade_group_payload)
+    assert grade_group.status_code == 201
+    assert grade_group.json()["class_section_id"] is None
+    assert grade_group.json()["grade_level_id"] == created["level"]["id"]
+
+    duplicate = _post(client, "/api/school/subject-groups", admin.email, alpha.id, grade_group_payload)
+    assert duplicate.status_code == 409
+
+    missing_context = _post(
+        client,
+        "/api/school/subject-groups",
+        admin.email,
+        alpha.id,
+        {**grade_group_payload, "code": "NOCTX", "class_section_id": None, "grade_level_id": None},
+    )
+    assert missing_context.status_code == 400
+
+
+def test_class_sections_do_not_have_direct_homeroom_teacher_column():
+    assert "homeroom_teacher_user_id" not in ClassSection.__table__.columns
 
 
 @pytest.mark.parametrize(
@@ -488,6 +522,45 @@ def test_school_admin_can_update_each_structure_entity_in_place(db, client, seed
     section_row = db.query(ClassSection).filter_by(school_id=alpha.id).one()
     assert section_row.id == created["section"]["id"]
     assert section_row.grade_level_id == created["level"]["id"]
+
+
+def test_structure_status_values_are_controlled(db, client, seeded_schools):
+    alpha = seeded_schools["schools"]["alpha"]
+    admin = seeded_schools["users"]["alpha_admin"]
+
+    assert _post(client, "/api/school/subjects", admin.email, alpha.id, {**_base("BAD"), "status": "banana"}).status_code == 422
+    assert _post(client, "/api/school/subjects", admin.email, alpha.id, {**_base("SPACE"), "status": "Active "}).status_code == 422
+    assert _post(client, "/api/school/subjects", admin.email, alpha.id, {**_base("ARCH"), "status": "archived"}).status_code == 422
+    assert _post(client, "/api/school/subjects", admin.email, alpha.id, {**_base("OK"), "status": "inactive"}).status_code == 201
+
+
+def test_academic_year_current_uniqueness_and_dates(db, client, seeded_schools):
+    alpha = seeded_schools["schools"]["alpha"]
+    admin = seeded_schools["users"]["alpha_admin"]
+
+    first = _post(
+        client,
+        "/api/school/academic-years",
+        admin.email,
+        alpha.id,
+        {**_base("2026", "2026"), "is_current": True, "start_date": "2026-08-01", "end_date": "2027-07-31"},
+    )
+    assert first.status_code == 201
+    assert first.json()["is_current"] is True
+    assert first.json()["start_date"] == "2026-08-01"
+
+    second = _post(
+        client,
+        "/api/school/academic-years",
+        admin.email,
+        alpha.id,
+        {**_base("2027", "2027"), "is_current": True},
+    )
+    assert second.status_code == 409
+
+    archived = client.delete(f"/api/school/academic-years/{first.json()['id']}", headers=bearer(admin.email, alpha.id))
+    assert archived.status_code == 204
+    assert db.query(AcademicYear).filter_by(id=first.json()["id"]).one().is_current is False
 
 
 def test_updating_a_record_to_a_duplicate_code_is_rejected(db, client, seeded_schools):

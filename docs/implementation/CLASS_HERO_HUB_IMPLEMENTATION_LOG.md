@@ -1,5 +1,80 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-07 — Post-S4 product strategy review (no code changed)
+
+Fable produced an unconstrained post-S4 product strategy review (distribution, notification delivery, teacher habit, pilot design — deliberately not limited to the existing blueprint or code). Full report saved to `docs/product/CLASS_HERO_HUB_PRODUCT_STRATEGY_NOTES.md`; key plan-impacting points recorded in blueprint §0b.
+
+Key implication: after S4.9/S5/S6, Dom should prioritise **pilot design (with week-4 success metrics), parent notification delivery (PWA push, possibly WhatsApp Business API nudges), teacher workflow speed (phone-first, 60-second posting), guardian onboarding (QR funnel + PWA install step), school branding, and data/privacy/export answers** alongside feature implementation.
+
+Addendum — **product safety rule adopted: silent import / no accidental outbound communication.** Real school data may be imported for demo/pilot preparation, but bulk import must never send invites, magic links, notifications, emails, or WhatsApp messages by default; imports create draft/unsent invite records and an explicit go-live/release action is required before contacting teachers or guardians. Binding for S7/S8 prompts and all bulk tooling; recorded in strategy notes §20 and blueprint §0b.11.
+
+## 2026-07-07 — S4.9 foundation cleanup before S5
+
+Scope: targeted post-S4 cleanup only. No teachers/assignments, students, enrolments, CSV import, guardian onboarding, parent dashboard, posts/photos, diary/homework, behaviour points, messaging, notifications, rooms, timetables, terms/semesters, or rollover were implemented.
+
+### What changed
+
+- Subject groups now support both section-specific and grade-level/cross-section contexts. `subject_groups.class_section_id` is nullable, `grade_level_id` was added, and the API requires at least one context (`class_section_id` or `grade_level_id`). Natural-key duplicate checks now handle nullable context explicitly so grade-level groups cannot duplicate through SQL nullable-unique behavior.
+- Removed the direct `class_sections.homeroom_teacher_user_id` model field. Homeroom teacher remains deferred to S5 and should be represented by future `staff_assignments` rows with role `homeroom`, not by a direct user column.
+- Staff invite send failures no longer make school/invite creation look failed after rows are committed. Invite rows now store `send_status` and `last_send_error`; SMTP exceptions are logged and responses return success with a warning. Reissuing an invite to the same school/email/role revokes older active pending invites.
+- School setup entity statuses are controlled. Normal create/edit accepts only `active` and `inactive`; `archived` is reachable only through archive/delete actions. The frontend status dropdown no longer offers Archived.
+- Staff invite exchange now requires the logged-in user's normalized email to match the invite email and rejects suspended schools.
+- Academic years now support `is_current`, optional `start_date`, and optional `end_date`; the API enforces at most one non-archived current year per school. The school UI can mark one year current and defaults relevant year dropdowns to the current year when available.
+- Added passwordless magic-link login using existing SMTP. Tokens are random, hashed at rest, expiring, single-use, and rate-limited for request/exchange. Google login remains unchanged.
+- `write_audit` now adds/flushes audit rows and lets the caller transaction commit, avoiding hidden partial commits before S5 multi-step operations.
+
+### Migration added
+
+- `alembic/versions/a7b8c9d0e1f2_s49_foundation_cleanup.py`
+  - Adds academic-year current/date fields and a one-current-year partial unique index.
+  - Drops `class_sections.homeroom_teacher_user_id`.
+  - Adds subject-group `grade_level_id`, nullable `class_section_id`, context check, and updated uniqueness.
+  - Adds invite send-status fields.
+  - Adds `magic_login_tokens`.
+
+### Validation
+
+- `docker compose build backend frontend` → passed.
+- `docker compose up -d backend frontend` → passed.
+- `docker compose exec backend python -m pytest tests -q` → **118 passed**, 5 warnings.
+- `cd frontend && npm run check` → passed, 0 errors/warnings.
+- `cd frontend && npm run check:i18n` → passed, 224 keys in both `en` and `ar`.
+- `cd frontend && npm run build` → passed.
+- `docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic heads` → `a7b8c9d0e1f2 (head)`.
+- `docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic current` → `a7b8c9d0e1f2 (head)`.
+
+### Deferred to S5
+
+- Staff/teacher records and assignment workflows, including `staff_assignments role='homeroom'`.
+- Teacher subject/class assignments and any student set membership for subject groups.
+- Student enrolments/imports, terms/semesters, timetable/room modelling, and academic-year rollover.
+
+## 2026-07-07 — Post-S4 Fable checkpoint audit (no code changed)
+
+Branch: `main` (at commit `ecb7dca`)
+
+A fresh-eyes checkpoint audit was run after S4 and the three S4 cleanups (hide archived, edit records, restore-on-recreate). Full report: `docs/audits/2026-07-07-post-s4-fable-checkpoint-audit.md`. Blueprint amended with a "Post-S4 checkpoint amendments" section.
+
+**Verdict: on track, no hard stop — but run a short "S4.9" cleanup slice before S5.**
+
+Blocking / must be resolved before S5:
+
+- **Subject groups must support grade-level/cross-section groups.** `subject_groups.class_section_id` is currently `NOT NULL`, which makes streamed/cross-section teaching sets impossible; the blueprint intended it nullable. Make it nullable + add nullable `grade_level_id` before S5/S6 build on it.
+- **`class_sections.homeroom_teacher_user_id` must not become the homeroom source of truth.** Homeroom teacher = a `staff_assignments` row (role `homeroom`, referenced by membership id) in S5; drop the placeholder column in the S5 migration.
+- **Invite email failure must not break invite/school creation UX.** `send_staff_invite` raises mid-request after the school/invite are committed; SMTP failure → 500 → retry → duplicate school. Catch the failure, return 201 with a warning, surface accept URL/resend.
+
+Recommended near-term (same S4.9 slice or shortly after):
+
+- Status enum validation on all structure entities (`active`/`inactive` only via forms; `archived` only via the archive action) and remove "Archived" from the frontend status dropdown.
+- Safer invite exchange: bind staff invites to the invited email, reject exchange for suspended schools, revoke prior pending invites on reissue, transition school `pending_setup` → `active` on first admin accept.
+- Current-academic-year support (`is_current`, ideally start/end dates) — needed by S5 assignment dating, S6 enrolments, and S19 rollover.
+- Magic-link email login before or alongside S5 — Google-only login blocks non-Google teachers (Microsoft 365 schools) exactly as it would block guardians at S9.
+- Review `write_audit` transaction behaviour (commits internally today; convert to add/flush in caller's transaction before S5's multi-step flows) and drop the duplicated router-level `require_school_role` dependency.
+
+Also decided/deferred: PG test-harness deadline recommended at S7 (tests currently run on SQLite, contradicting blueprint §10 — fatal by S14's partial-index/concurrency tests).
+
+**S5 must not start until S4.9 is complete or Dom explicitly accepts the risks above.** A revised paste-ready S5 Codex prompt (incorporating S4 lifecycle lessons) is in §8 of the audit document.
+
 ## 2026-07-07 — S4 lifecycle policy: restore archived records on recreate
 
 Branch: `main`

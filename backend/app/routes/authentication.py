@@ -1,16 +1,35 @@
-from datetime import datetime, timezone
+import logging
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import RedirectResponse
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from .. import auth, schemas
+from .. import auth, invite_tokens, schemas
 from ..database import get_db, settings
-from ..models_school import User
+from ..mailer import MagicLoginEmail, send_magic_login
+from ..models_school import MagicLoginToken, User
+from ..security import BoundedInMemoryRateLimiter, get_client_ip_from_scope
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+MAGIC_LOGIN_TTL = timedelta(minutes=15)
+MAGIC_REQUEST_RATE_LIMIT = BoundedInMemoryRateLimiter(60, 5)
+MAGIC_EXCHANGE_RATE_LIMIT = BoundedInMemoryRateLimiter(60, 20)
+
+
+class MagicLoginRequest(BaseModel):
+    email: EmailStr
+    return_to: str | None = Field(default=None, alias="returnTo")
+
+
+class MagicLoginExchangeRequest(BaseModel):
+    token: str = Field(min_length=1)
 
 oauth = OAuth()
 oauth.register(
@@ -40,6 +59,102 @@ def _safe_return_path(value: str | None) -> str | None:
     if parsed.scheme or parsed.netloc:
         return None
     return candidate
+
+
+def _magic_login_url(raw_token: str) -> str:
+    return f"{settings.API_BASE_URL.rstrip('/')}/api/auth/magic-link/exchange?token={raw_token}"
+
+
+def _rate_limit(limiter: BoundedInMemoryRateLimiter, request: Request, message: str) -> None:
+    client_ip = get_client_ip_from_scope(request.scope) or "unknown"
+    if not limiter.allow(client_ip, now=invite_tokens.now_utc()):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=message)
+
+
+def _issue_session_response(user: User, return_to: str | None, *, redirect: bool) -> Response:
+    access_token = auth.create_access_token(data={"sub": user.email})
+    session_max_age = auth.parent_session_cookie_max_age_seconds()
+    if redirect:
+        response: Response = RedirectResponse(f"{settings.PUBLIC_APP_URL.rstrip('/')}{return_to or ''}", status_code=status.HTTP_302_FOUND)
+    else:
+        response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        max_age=session_max_age,
+        expires=session_max_age,
+        samesite="lax",
+        secure=settings.COOKIE_SECURE,
+        path="/",
+    )
+    auth.set_csrf_cookie(response, auth.create_csrf_token())
+    return response
+
+
+def _exchange_magic_login(raw_token: str, db: Session) -> tuple[User, str | None]:
+    token_hash = invite_tokens.hash_token(raw_token.strip())
+    current = invite_tokens.now_utc()
+    token = db.query(MagicLoginToken).filter(MagicLoginToken.token_hash == token_hash).first()
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired sign-in link")
+    if token.used_at is not None:
+        raise HTTPException(status_code=status.HTTP_410_GONE, detail="Sign-in link already used")
+    expires_at = invite_tokens.as_utc_aware(token.expires_at)
+    if expires_at is None or expires_at <= current:
+        raise HTTPException(status_code=status.HTTP_410_GONE, detail="Sign-in link expired")
+
+    user = db.query(User).filter(func.lower(User.email) == token.email).first()
+    if user is None:
+        user = User(email=token.email, name=token.email, last_login_at=current)
+        db.add(user)
+    else:
+        if (user.status or "active").lower() != "active":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account is not active")
+        user.email = token.email
+        user.last_login_at = current
+    token.used_at = current
+    db.commit()
+    db.refresh(user)
+    return user, _safe_return_path(token.return_to)
+
+
+@router.post("/magic-link/request")
+async def request_magic_link(payload: MagicLoginRequest, request: Request, db: Session = Depends(get_db)):
+    _rate_limit(MAGIC_REQUEST_RATE_LIMIT, request, "Too many sign-in link requests")
+    email = auth.normalize_email(str(payload.email))
+    raw_token = invite_tokens.generate_token()
+    record = MagicLoginToken(
+        email=email,
+        token_hash=invite_tokens.hash_token(raw_token),
+        return_to=_safe_return_path(payload.return_to),
+        expires_at=invite_tokens.now_utc() + MAGIC_LOGIN_TTL,
+        requested_ip=get_client_ip_from_scope(request.scope),
+    )
+    db.add(record)
+    db.commit()
+    try:
+        send_magic_login(MagicLoginEmail(to_email=email, login_url=_magic_login_url(raw_token)))
+        return {"status": "sent"}
+    except Exception as exc:
+        logger.exception("Failed to send magic login email to %s", email)
+        return {"status": "created", "warning": f"Sign-in link was created, but email could not be sent: {str(exc)[:200]}"}
+
+
+@router.get("/magic-link/exchange")
+async def exchange_magic_link_get(token: str, request: Request, db: Session = Depends(get_db)):
+    _rate_limit(MAGIC_EXCHANGE_RATE_LIMIT, request, "Too many sign-in link attempts")
+    user, return_to = _exchange_magic_login(token, db)
+    return _issue_session_response(user, return_to, redirect=True)
+
+
+@router.post("/magic-link/exchange")
+async def exchange_magic_link_post(payload: MagicLoginExchangeRequest, request: Request, db: Session = Depends(get_db)):
+    _rate_limit(MAGIC_EXCHANGE_RATE_LIMIT, request, "Too many sign-in link attempts")
+    user, return_to = _exchange_magic_login(payload.token, db)
+    response = _issue_session_response(user, return_to, redirect=False)
+    response.status_code = status.HTTP_200_OK
+    return response
 
 
 @router.get("/google/login")

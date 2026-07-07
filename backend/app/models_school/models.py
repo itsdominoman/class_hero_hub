@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, JSON, String, UniqueConstraint, event
+from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, JSON, String, UniqueConstraint, event
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -100,6 +100,9 @@ class AcademicYear(Base):
     name_ar = Column(String, nullable=True)
     sort_order = Column(Integer, default=0)
     status = Column(String, default="active")
+    is_current = Column(Boolean, default=False, nullable=False)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
@@ -139,7 +142,6 @@ class ClassSection(Base):
     name_ar = Column(String, nullable=True)
     sort_order = Column(Integer, default=0)
     status = Column(String, default="active")
-    homeroom_teacher_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
@@ -177,7 +179,8 @@ class SubjectGroup(Base):
     id = Column(Integer, primary_key=True, index=True)
     school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
     academic_year_id = Column(Integer, ForeignKey("academic_years.id"), nullable=False)
-    class_section_id = Column(Integer, ForeignKey("class_sections.id"), nullable=False)
+    class_section_id = Column(Integer, ForeignKey("class_sections.id"), nullable=True)
+    grade_level_id = Column(Integer, ForeignKey("grade_levels.id"), nullable=True)
     subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
     code = Column(String, nullable=False)
     name = Column(String, nullable=False)
@@ -191,10 +194,12 @@ class SubjectGroup(Base):
             "school_id",
             "academic_year_id",
             "class_section_id",
+            "grade_level_id",
             "subject_id",
             "code",
-            name="uq_subject_groups_school_year_section_subject_code",
+            name="uq_subject_groups_school_year_section_level_subject_code",
         ),
+        CheckConstraint("class_section_id IS NOT NULL OR grade_level_id IS NOT NULL", name="ck_subject_groups_context_required"),
     )
 
 
@@ -216,6 +221,25 @@ class StaffInvite(Base):
     revoked_at = Column(DateTime(timezone=True), nullable=True)
     accepted_at = Column(DateTime(timezone=True), nullable=True)
     accepted_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    send_status = Column(String, default="pending")
+    last_send_error = Column(String, nullable=True)
+
+
+def _default_magic_login_expires_at():
+    return datetime.now(timezone.utc) + timedelta(minutes=15)
+
+
+class MagicLoginToken(Base):
+    __tablename__ = "magic_login_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, index=True, nullable=False)
+    token_hash = Column(String, unique=True, index=True, nullable=False)
+    return_to = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), default=_default_magic_login_expires_at)
+    used_at = Column(DateTime(timezone=True), nullable=True)
+    requested_ip = Column(String, nullable=True)
 
 
 class PlatformAdmin(Base):

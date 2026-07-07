@@ -15,6 +15,9 @@
     grade_level_id?: number | null;
     class_section_id?: number | null;
     subject_id?: number | null;
+    is_current?: boolean;
+    start_date?: string | null;
+    end_date?: string | null;
   };
 
   let {

@@ -263,6 +263,90 @@ def test_staff_invite_lifecycle_exchange_expired_revoked_and_reused(db, client, 
     }.issubset(actions)
 
 
+def test_staff_invite_send_failure_returns_warning_and_resend_can_succeed(db, client, seeded_schools, monkeypatch):
+    calls = {"count": 0}
+
+    def flaky_send(email):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise RuntimeError("smtp down")
+
+    monkeypatch.setattr("app.routes.platform.send_staff_invite", flaky_send)
+    platform_user = seeded_schools["platform_user"]
+
+    response = client.post(
+        "/api/platform/schools",
+        headers=bearer(platform_user.email),
+        json={
+            "name": "Warning School",
+            "timezone": "Europe/Berlin",
+            "locale_default": "en",
+            "admin_email": "warning-admin@example.com",
+        },
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert "warning" in body
+    failed_invite = db.query(StaffInvite).filter_by(id=body["invites"][0]["id"]).one()
+    assert failed_invite.send_status == "failed"
+    assert failed_invite.last_send_error
+
+    resend = client.post(
+        f"/api/platform/schools/{body['id']}/invites",
+        headers=bearer(platform_user.email),
+        json={"email": "warning-admin@example.com"},
+    )
+    assert resend.status_code == 201
+    assert "warning" not in resend.json()
+    assert db.query(StaffInvite).filter_by(id=resend.json()["id"]).one().send_status == "sent"
+
+
+def test_invite_exchange_rejects_email_mismatch_suspended_school_and_superseded_pending_invites(db, client, seeded_schools, monkeypatch):
+    sent_invites = []
+    monkeypatch.setattr("app.routes.platform.send_staff_invite", lambda email: sent_invites.append(email))
+    platform_user = seeded_schools["platform_user"]
+    created, first_token = create_platform_school(client, platform_user, sent_invites)
+
+    wrong_user = create_user(db, "wrong-admin@example.com", "Wrong Admin")
+    mismatch = client.post(
+        "/api/invites/exchange",
+        headers=bearer(wrong_user.email),
+        json={"token": first_token},
+    )
+    assert mismatch.status_code == 403
+
+    resend = client.post(
+        f"/api/platform/schools/{created['id']}/invites",
+        headers=bearer(platform_user.email),
+        json={"email": "gamma-admin@example.com"},
+    )
+    assert resend.status_code == 201
+    new_token = invite_token_from_url(sent_invites[-1].accept_url)
+    first_invite = db.query(StaffInvite).filter_by(id=created["invites"][0]["id"]).one()
+    assert first_invite.revoked_at is not None
+
+    invited_user = create_user(db, "gamma-admin@example.com", "Gamma Admin")
+    old_token_response = client.post(
+        "/api/invites/exchange",
+        headers=bearer(invited_user.email),
+        json={"token": first_token},
+    )
+    assert old_token_response.status_code == 410
+
+    suspend_response = client.post(
+        f"/api/platform/schools/{created['id']}/suspend",
+        headers=bearer(platform_user.email),
+        json={"reason": "Hold"},
+    )
+    assert suspend_response.status_code == 200
+    suspended = client.post(
+        "/api/invites/exchange",
+        headers=bearer(invited_user.email),
+        json={"token": new_token},
+    )
+    assert suspended.status_code == 403
+
+
 def test_invite_exchange_requires_authenticated_user(client):
     response = client.post("/api/invites/exchange", json={"token": "anything"})
 

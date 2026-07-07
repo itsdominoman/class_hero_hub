@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import logging
 from datetime import timedelta
 from typing import Any
 
@@ -18,6 +19,7 @@ from ..school_scope import require_platform_admin, write_audit
 
 router = APIRouter(dependencies=[Depends(require_platform_admin)])
 invite_router = APIRouter()
+logger = logging.getLogger(__name__)
 
 STAFF_INVITE_TTL = timedelta(days=7)
 SCHOOL_ADMIN_ROLE = "school_admin"
@@ -73,27 +75,57 @@ def _accept_url(raw_token: str) -> str:
     return f"{settings.PUBLIC_APP_URL.rstrip('/')}/invite/{raw_token}"
 
 
-def _issue_staff_invite(db: Session, school: School, email: str, actor: User) -> tuple[StaffInvite, str]:
+def _issue_staff_invite(db: Session, school: School, email: str, actor: User) -> tuple[StaffInvite, str, str | None]:
+    normalized_email = _normalize_email(email)
+    current = invite_tokens.now_utc()
+    pending_invites = (
+        db.query(StaffInvite)
+        .filter(
+            StaffInvite.school_id == school.id,
+            StaffInvite.email == normalized_email,
+            StaffInvite.role == SCHOOL_ADMIN_ROLE,
+            StaffInvite.revoked_at.is_(None),
+            StaffInvite.accepted_at.is_(None),
+        )
+        .all()
+    )
+    for pending in pending_invites:
+        expires_at = invite_tokens.as_utc_aware(pending.expires_at)
+        if expires_at is None or expires_at > current:
+            pending.revoked_at = current
+
     raw_token = invite_tokens.generate_token()
     staff_invite = StaffInvite(
         school_id=school.id,
-        email=_normalize_email(email),
+        email=normalized_email,
         role=SCHOOL_ADMIN_ROLE,
         token_hash=invite_tokens.hash_token(raw_token),
         invited_by_user_id=actor.id,
-        expires_at=invite_tokens.now_utc() + STAFF_INVITE_TTL,
+        expires_at=current + STAFF_INVITE_TTL,
+        send_status="pending",
     )
     db.add(staff_invite)
     db.commit()
     db.refresh(staff_invite)
-    send_staff_invite(
-        StaffInviteEmail(
-            to_email=staff_invite.email,
-            school_name=school.name,
-            accept_url=_accept_url(raw_token),
+    warning = None
+    try:
+        send_staff_invite(
+            StaffInviteEmail(
+                to_email=staff_invite.email,
+                school_name=school.name,
+                accept_url=_accept_url(raw_token),
+            )
         )
-    )
-    return staff_invite, raw_token
+        staff_invite.send_status = "sent"
+        staff_invite.last_send_error = None
+    except Exception as exc:
+        logger.exception("Failed to send staff invite %s for school %s", staff_invite.id, school.id)
+        warning = "Invite was created, but the email could not be sent. Use resend after SMTP is available."
+        staff_invite.send_status = "failed"
+        staff_invite.last_send_error = str(exc)[:500]
+    db.commit()
+    db.refresh(staff_invite)
+    return staff_invite, raw_token, warning
 
 
 def _role_counts(db: Session, school_id: int) -> dict[str, int]:
@@ -132,6 +164,8 @@ def _invite_payload(staff_invite: StaffInvite) -> dict[str, Any]:
         "revoked_at": staff_invite.revoked_at,
         "accepted_at": staff_invite.accepted_at,
         "accepted_by_user_id": staff_invite.accepted_by_user_id,
+        "send_status": staff_invite.send_status,
+        "last_send_error": staff_invite.last_send_error,
         "status": _invite_status(staff_invite),
     }
 
@@ -200,7 +234,7 @@ def create_school(
     db.add(school)
     db.commit()
     db.refresh(school)
-    staff_invite, _raw_token = _issue_staff_invite(db, school, str(payload.admin_email), current_user)
+    staff_invite, _raw_token, warning = _issue_staff_invite(db, school, str(payload.admin_email), current_user)
     write_audit(
         db,
         current_user,
@@ -209,7 +243,11 @@ def create_school(
         {"admin_email": staff_invite.email, "invite_id": staff_invite.id},
         school_id=school.id,
     )
-    return _school_payload(db, school, include_invites=True)
+    db.commit()
+    response = _school_payload(db, school, include_invites=True)
+    if warning:
+        response["warning"] = warning
+    return response
 
 
 @router.get("/schools")
@@ -250,6 +288,7 @@ def suspend_school(
         {"reason": school.suspend_reason},
         school_id=school.id,
     )
+    db.commit()
     return _school_payload(db, school, include_invites=True)
 
 
@@ -276,6 +315,7 @@ def reactivate_school(
         {"reason": payload.reason.strip(), "previous_suspend_reason": previous_reason},
         school_id=school.id,
     )
+    db.commit()
     return _school_payload(db, school, include_invites=True)
 
 
@@ -287,7 +327,7 @@ def create_school_invite(
     db: Session = Depends(get_db),
 ):
     school = _get_school_or_404(db, school_id)
-    staff_invite, _raw_token = _issue_staff_invite(db, school, str(payload.email), current_user)
+    staff_invite, _raw_token, warning = _issue_staff_invite(db, school, str(payload.email), current_user)
     write_audit(
         db,
         current_user,
@@ -296,7 +336,11 @@ def create_school_invite(
         {"email": staff_invite.email, "role": staff_invite.role},
         school_id=school.id,
     )
-    return _invite_payload(staff_invite)
+    db.commit()
+    response = _invite_payload(staff_invite)
+    if warning:
+        response["warning"] = warning
+    return response
 
 
 @router.delete("/invites/{invite_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -321,6 +365,7 @@ def revoke_invite(
             {"email": staff_invite.email, "role": staff_invite.role},
             school_id=staff_invite.school_id,
         )
+        db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -345,8 +390,12 @@ def exchange_staff_invite(
     expires_at = invite_tokens.as_utc_aware(staff_invite.expires_at)
     if expires_at is None or expires_at <= current:
         raise HTTPException(status_code=status.HTTP_410_GONE, detail="Invite expired")
+    if _normalize_email(current_user.email) != _normalize_email(staff_invite.email):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This invite was issued for a different email address")
 
     school = _get_school_or_404(db, staff_invite.school_id)
+    if (school.status or "").lower() == "suspended":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This school account is currently suspended.")
     membership = (
         db.query(Membership)
         .filter(
@@ -389,6 +438,7 @@ def exchange_staff_invite(
         {"email": staff_invite.email, "role": staff_invite.role, "membership_id": membership.id},
         school_id=school.id,
     )
+    db.commit()
     return {
         "status": "accepted",
         "school": {"id": school.id, "name": school.name, "status": school.status},

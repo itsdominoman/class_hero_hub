@@ -20,6 +20,42 @@ Rule of engagement for Codex: **one slice per prompt, never more.** Every slice 
 
 ---
 
+## 0a. Post-S4 checkpoint amendments (2026-07-07)
+
+Recorded after the post-S4 checkpoint audit (`docs/audits/2026-07-07-post-s4-fable-checkpoint-audit.md`). Where these amendments conflict with §9/§15/§33 below, the amendments win — they reflect the implemented reality and decisions taken during S4.
+
+1. **Branches/campuses are part of the school model** (contrary to §9 decision 6). `branch_campuses` is a first-class school-owned table; `class_sections.branch_campus_id` is required, with a self-healing default `MAIN` branch for one-campus schools; `memberships.branch_campus_id` (nullable) anchors future branch-local admin scope. Consequence for S7: the students CSV needs an optional `branch` column (default branch when absent).
+2. **Education stages and a configurable grade/year label are part of S4.** `education_stages` is an optional school-defined grouping (`grade_levels.education_stage_id` nullable); `schools.grade_level_label` lets each school call levels Grade/Year/Form/Level/custom. Class sections use free-text `code`/`name` rather than §9's `label`/`display_name`.
+3. **School setup lifecycle policy (all seven structure entities):**
+   - **active** — visible in tables, offered in dropdowns, usable for new relationships;
+   - **inactive** — visible/editable in tables, **not** offered for new relationships, existing references stay valid;
+   - **archived** — hidden from normal tables and dropdowns, non-selectable, historical references stay valid (`include_archived=true` reaches them);
+   - **recreating an archived natural key restores the archived row in place** (id preserved, fields refreshed, audit `*.restored`); active/inactive duplicates are rejected with specific 409 messages. Full unique constraints therefore stay correct — no partial indexes needed for these tables.
+4. **Subject groups must support both section-specific and grade-level/cross-section groups** (streamed sets, electives drawing from several sections). The S4 implementation made `subject_groups.class_section_id` NOT NULL; amend to nullable with a nullable `grade_level_id` for context **before S5/S6 build on it** (pre-S5 "S4.9" fix #1).
+5. **Homeroom teachers are represented by `staff_assignments` in S5** (role `homeroom`, referenced by *membership id*), never by direct user fields on class sections. The S4 placeholder `class_sections.homeroom_teacher_user_id` is to be dropped in the S5 migration.
+6. **Magic-link email login may move earlier than S9** (before or alongside S5): Google-only login blocks non-Google teachers (Microsoft 365 schools) at S5 invite acceptance, the same way it would block guardians at S9. §36.2 anticipated this for parents; it applies to staff first.
+7. **Known deviation:** backend tests currently run on SQLite (contra §10). Acceptable through S5–S6; a PostgreSQL test path is required by S7 (import upserts) and non-negotiable by S14 (partial unique indexes, concurrency suites).
+
+---
+
+## 0b. Product strategy amendments from post-S4 review (2026-07-07)
+
+Full report: `docs/product/CLASS_HERO_HUB_PRODUCT_STRATEGY_NOTES.md`. Key plan-impacting decisions/recommendations recorded here:
+
+1. **Treat WhatsApp as the main competitor**, not ClassDojo — the pitch is "the school gets back control of the channel", and every surface must beat the class WhatsApp group on control while not losing to it on immediacy or speed.
+2. **Parent notification delivery is existential** and must be explored before/around guardian onboarding (S9), not deferred to native apps.
+3. **Consider PWA web push** (with an "add to home screen" step built into guardian onboarding — required for iOS push) **and possibly WhatsApp Business API** for notification nudges; evaluate or explicitly reject the latter.
+4. **Teacher flows must be phone-first** (amending §16's tablet-first framing) and optimised for **60-second posting** — budget flows in taps/seconds and treat regressions as P1.
+5. **Safeguarding/admin visibility is a selling point**, especially for messaging (S15): admins can review threads, disclosed in-UI to both sides — decide before S15 ships.
+6. **School branding (logo/accent colour) moves earlier**, around the parent-facing launch (~S10–S11), rather than the §31 deferral pile.
+7. **Behaviour points (S14) must not block the first pilot** if posts/photos/diary/notifications are ready — the announcement/diary loop is the WhatsApp displacement; points can land mid-pilot.
+8. **The pilot needs measurable week-4 success metrics** agreed in advance (e.g. ≥70% of classes posting ≥3×/week, ≥60% guardians linked, posts seen within 24h) — pilot as experiment, not deployment.
+9. **Demo school seed data** (fictional bilingual school with full content) should be created after S6 — sales demo, screenshot factory, QA fixture, Playwright target.
+10. **A data/privacy/export one-pager** (hosting location, access, retention, export, deletion, offboarding) should be written before serious school sales conversations.
+11. **Product safety rule — silent import / no accidental outbound communication (binding for S7/S8 and all bulk tooling):** real school data may be imported for demo/pilot preparation, but bulk import must **never** send invites, magic links, notifications, emails, or WhatsApp messages by default. Imports create draft/unsent invite records only; contacting teachers or guardians requires an explicit, separately-confirmed go-live/release action showing who will be contacted and how many messages will go out. S7/S8 Codex prompts must state this rule; tests must assert an import run produces zero outbound sends. (Detail: strategy notes §20.)
+
+---
+
 ## 1. Executive summary
 
 The inherited system is a well-engineered single-family household app: FastAPI + SQLAlchemy + Alembic + PostgreSQL backend, SvelteKit (Svelte 5) + Tailwind frontend, Docker Compose + Caddy + pgBackRest deployment, English/Arabic i18n with RTL and a parity checker, 207 backend tests including PostgreSQL concurrency tests, and a genuinely good security posture (hashed single-use invite tokens, CSRF double-submit, fail-closed config validation, trusted-proxy handling).

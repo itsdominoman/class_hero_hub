@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Any, Type
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -35,6 +36,13 @@ class StructureBase(BaseModel):
     sort_order: int = 0
     status: str = Field(default="active", max_length=40)
 
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, value: str) -> str:
+        if value not in {"active", "inactive"}:
+            raise ValueError("status must be active or inactive")
+        return value
+
 
 class BranchCampusRequest(StructureBase):
     pass
@@ -45,7 +53,9 @@ class EducationStageRequest(StructureBase):
 
 
 class AcademicYearRequest(StructureBase):
-    pass
+    is_current: bool = False
+    start_date: date | None = None
+    end_date: date | None = None
 
 
 class GradeLevelRequest(StructureBase):
@@ -64,7 +74,8 @@ class SubjectRequest(StructureBase):
 
 class SubjectGroupRequest(StructureBase):
     academic_year_id: int
-    class_section_id: int
+    class_section_id: int | None = None
+    grade_level_id: int | None = None
     subject_id: int
 
 
@@ -81,7 +92,7 @@ def _clean_payload(payload: StructureBase) -> dict[str, Any]:
         "name": payload.name.strip(),
         "name_ar": _clean_text(payload.name_ar),
         "sort_order": payload.sort_order,
-        "status": payload.status.strip() or "active",
+        "status": payload.status,
     }
 
 
@@ -175,7 +186,7 @@ def _payload(row: Any) -> dict[str, Any]:
         "status": row.status,
         "created_at": row.created_at,
     }
-    for field in ("education_stage_id", "branch_campus_id", "academic_year_id", "grade_level_id", "class_section_id", "subject_id"):
+    for field in ("education_stage_id", "branch_campus_id", "academic_year_id", "grade_level_id", "class_section_id", "subject_id", "is_current", "start_date", "end_date"):
         if hasattr(row, field):
             data[field] = getattr(row, field)
     return data
@@ -195,15 +206,26 @@ def _list_rows(db: Session, model: Type[Any], school_id: int, *, include_archive
 # their natural key even though it is stored via `extra`.
 _EXTRA_KEY_COLUMNS: dict[Type[Any], tuple[str, ...]] = {
     ClassSection: ("branch_campus_id", "academic_year_id", "grade_level_id"),
-    SubjectGroup: ("academic_year_id", "class_section_id", "subject_id"),
+    SubjectGroup: ("academic_year_id", "class_section_id", "grade_level_id", "subject_id"),
 }
 
 
 def _find_by_natural_key(db: Session, model: Type[Any], school_id: int, code: str, extra: dict[str, Any]):
     filters = [model.school_id == school_id, model.code == code]
     for column in _EXTRA_KEY_COLUMNS.get(model, ()):
-        filters.append(getattr(model, column) == extra[column])
+        value = extra[column]
+        if value is None:
+            filters.append(getattr(model, column).is_(None))
+        else:
+            filters.append(getattr(model, column) == value)
     return db.query(model).filter(*filters).first()
+
+
+def _ensure_no_update_duplicate(db: Session, row: Any, cleaned: dict[str, Any], extra: dict[str, Any]) -> None:
+    model = row.__class__
+    existing = _find_by_natural_key(db, model, row.school_id, cleaned["code"], extra)
+    if existing is not None and existing.id != row.id:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This value is already used by another record.")
 
 
 def _active_duplicate_detail(existing_status: str) -> str:
@@ -273,13 +295,17 @@ def _create_response(
             {"code": row.code, "status": row.status},
             school_id=school_id,
         )
+        db.commit()
     return {**_payload(row), "restored": restored}
 
 
 def _update_row(db: Session, row: Any, payload: StructureBase, *, extra: dict[str, Any] | None = None):
-    for key, value in _clean_payload(payload).items():
+    extra = extra or {}
+    cleaned = _clean_payload(payload)
+    _ensure_no_update_duplicate(db, row, cleaned, extra)
+    for key, value in cleaned.items():
         setattr(row, key, value)
-    for key, value in (extra or {}).items():
+    for key, value in extra.items():
         setattr(row, key, value)
     _commit_or_conflict(db)
     db.refresh(row)
@@ -318,6 +344,7 @@ def update_settings(
     db.commit()
     db.refresh(school)
     write_audit(db, membership.user_id, "school.settings.updated", school, {"grade_level_label": school.grade_level_label}, school_id=school.id)
+    db.commit()
     return {"school_id": school.id, "grade_level_label": school.grade_level_label}
 
 
@@ -404,19 +431,46 @@ def list_academic_years(include_archived: bool = False, membership: Membership =
     return _list_rows(db, AcademicYear, _school_id(membership), include_archived=include_archived)
 
 
+def _academic_year_extra(db: Session, school_id: int, payload: AcademicYearRequest, current: Any = None) -> dict[str, Any]:
+    if payload.start_date and payload.end_date and payload.end_date < payload.start_date:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="end_date must be on or after start_date")
+    if payload.is_current:
+        existing = (
+            db.query(AcademicYear)
+            .filter(
+                AcademicYear.school_id == school_id,
+                AcademicYear.is_current.is_(True),
+                AcademicYear.status != "archived",
+            )
+            .first()
+        )
+        if existing is not None and existing.id != getattr(current, "id", None):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only one academic year can be current")
+    return {
+        "is_current": payload.is_current,
+        "start_date": payload.start_date,
+        "end_date": payload.end_date,
+    }
+
+
 @router.post("/academic-years", status_code=status.HTTP_201_CREATED)
 def create_academic_year(payload: AcademicYearRequest, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
-    return _create_response(db, membership, AcademicYear, payload, entity="academic_year")
+    school_id = _school_id(membership)
+    return _create_response(db, membership, AcademicYear, payload, entity="academic_year", extra=_academic_year_extra(db, school_id, payload))
 
 
 @router.put("/academic-years/{row_id}")
 def update_academic_year(row_id: int, payload: AcademicYearRequest, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
-    return _payload(_update_row(db, _get_owned(db, AcademicYear, _school_id(membership), row_id), payload))
+    school_id = _school_id(membership)
+    row = _get_owned(db, AcademicYear, school_id, row_id)
+    return _payload(_update_row(db, row, payload, extra=_academic_year_extra(db, school_id, payload, row)))
 
 
 @router.delete("/academic-years/{row_id}", status_code=status.HTTP_204_NO_CONTENT)
 def archive_academic_year(row_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
-    _archive_row(db, _get_owned(db, AcademicYear, _school_id(membership), row_id))
+    row = _get_owned(db, AcademicYear, _school_id(membership), row_id)
+    row.is_current = False
+    _archive_row(db, row)
 
 
 @router.get("/grade-levels")
@@ -505,14 +559,20 @@ def list_subject_groups(include_archived: bool = False, membership: Membership =
 
 
 def _subject_group_extra(db: Session, school_id: int, payload: SubjectGroupRequest, current: Any = None) -> dict[str, Any]:
+    if payload.class_section_id is None and payload.grade_level_id is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="class_section_id or grade_level_id is required")
     _ensure_owned(db, AcademicYear, school_id, payload.academic_year_id, "academic_year_id", current_id=getattr(current, "academic_year_id", None))
     section = _ensure_owned(db, ClassSection, school_id, payload.class_section_id, "class_section_id", current_id=getattr(current, "class_section_id", None))
+    _ensure_owned(db, GradeLevel, school_id, payload.grade_level_id, "grade_level_id", current_id=getattr(current, "grade_level_id", None))
     _ensure_owned(db, Subject, school_id, payload.subject_id, "subject_id", current_id=getattr(current, "subject_id", None))
-    if section.academic_year_id != payload.academic_year_id:
+    if section is not None and section.academic_year_id != payload.academic_year_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="class_section_id must belong to academic_year_id")
+    if section is not None and payload.grade_level_id is not None and section.grade_level_id != payload.grade_level_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="grade_level_id must match class_section_id")
     return {
         "academic_year_id": payload.academic_year_id,
         "class_section_id": payload.class_section_id,
+        "grade_level_id": payload.grade_level_id,
         "subject_id": payload.subject_id,
     }
 

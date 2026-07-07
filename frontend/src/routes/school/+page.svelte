@@ -24,6 +24,9 @@
     grade_level_id?: number | null;
     class_section_id?: number | null;
     subject_id?: number | null;
+    is_current?: boolean;
+    start_date?: string | null;
+    end_date?: string | null;
   };
   type ChecklistItem = { key: string; label: string; complete: boolean; count: number; required: boolean };
 
@@ -65,11 +68,11 @@
 
   let branchForm = $state(baseForm('MAIN', 'Main Branch'));
   let stageForm = $state(baseForm('PRIMARY', 'Primary'));
-  let yearForm = $state(baseForm('2026-27', '2026/27'));
+  let yearForm = $state({ ...baseForm('2026-27', '2026/27'), is_current: false, start_date: '', end_date: '' });
   let levelForm = $state({ ...baseForm('G1', 'Grade 1'), education_stage_id: '' });
   let sectionForm = $state({ ...baseForm('A', ''), branch_campus_id: '', academic_year_id: '', grade_level_id: '' });
   let subjectForm = $state(baseForm('ENG', 'English'));
-  let groupForm = $state({ ...baseForm('', ''), academic_year_id: '', class_section_id: '', subject_id: '' });
+  let groupForm = $state({ ...baseForm('', ''), academic_year_id: '', class_section_id: '', grade_level_id: '', subject_id: '' });
   let quickLabels = $state('A, B, C');
 
   function baseForm(code = '', name = '') {
@@ -99,6 +102,14 @@
 
   function subjectName(id?: number | string | null) {
     return rowName(subjects, id);
+  }
+
+  function currentYearId() {
+    return years.find((year) => year.is_current && year.status !== 'archived')?.id;
+  }
+
+  function defaultYearValue() {
+    return idStr(currentYearId() ?? years[0]?.id);
   }
 
   async function loadMe() {
@@ -140,6 +151,9 @@
     sections = sectionRows;
     subjects = subjectRows;
     groups = groupRows;
+    const defaultYear = defaultYearValue();
+    if (!sectionForm.academic_year_id) sectionForm.academic_year_id = defaultYear;
+    if (!groupForm.academic_year_id) groupForm.academic_year_id = defaultYear;
   }
 
   async function refresh() {
@@ -183,11 +197,11 @@
   function resetForm(path: string) {
     if (path === 'branches') branchForm = baseForm('', '');
     else if (path === 'education-stages') stageForm = baseForm('', '');
-    else if (path === 'academic-years') yearForm = baseForm('', '');
+    else if (path === 'academic-years') yearForm = { ...baseForm('', ''), is_current: false, start_date: '', end_date: '' };
     else if (path === 'subjects') subjectForm = baseForm('', '');
     else if (path === 'grade-levels') levelForm = { ...baseForm('', ''), education_stage_id: '' };
-    else if (path === 'class-sections') sectionForm = { ...baseForm('', ''), branch_campus_id: '', academic_year_id: '', grade_level_id: '' };
-    else if (path === 'subject-groups') groupForm = { ...baseForm('', ''), academic_year_id: '', class_section_id: '', subject_id: '' };
+    else if (path === 'class-sections') sectionForm = { ...baseForm('', ''), branch_campus_id: '', academic_year_id: defaultYearValue(), grade_level_id: '' };
+    else if (path === 'subject-groups') groupForm = { ...baseForm('', ''), academic_year_id: defaultYearValue(), class_section_id: '', grade_level_id: '', subject_id: '' };
   }
 
   function cancelEdit() {
@@ -211,6 +225,11 @@
     form.name_ar = row.name_ar ?? '';
     form.sort_order = row.sort_order;
     form.status = row.status;
+    if (path === 'academic-years') {
+      form.is_current = Boolean(row.is_current);
+      form.start_date = row.start_date ?? '';
+      form.end_date = row.end_date ?? '';
+    }
     if (path === 'grade-levels') form.education_stage_id = idStr(row.education_stage_id);
     if (path === 'class-sections') {
       form.branch_campus_id = idStr(row.branch_campus_id);
@@ -220,6 +239,7 @@
     if (path === 'subject-groups') {
       form.academic_year_id = idStr(row.academic_year_id);
       form.class_section_id = idStr(row.class_section_id);
+      form.grade_level_id = idStr(row.grade_level_id);
       form.subject_id = idStr(row.subject_id);
     }
   }
@@ -250,6 +270,19 @@
 
   function saveRow(path: string, form: any) {
     return saveVia(path, payloadFrom(form), () => resetForm(path));
+  }
+
+  function yearPayload() {
+    return {
+      ...payloadFrom(yearForm),
+      is_current: Boolean(yearForm.is_current),
+      start_date: yearForm.start_date || null,
+      end_date: yearForm.end_date || null
+    };
+  }
+
+  function saveYear() {
+    return saveVia('academic-years', yearPayload(), () => resetForm('academic-years'));
   }
 
   async function archiveRow(path: string, row: Row) {
@@ -334,7 +367,8 @@
     return {
       ...payloadFrom(groupForm),
       academic_year_id: Number(groupForm.academic_year_id),
-      class_section_id: Number(groupForm.class_section_id),
+      class_section_id: groupForm.class_section_id ? Number(groupForm.class_section_id) : null,
+      grade_level_id: groupForm.grade_level_id ? Number(groupForm.grade_level_id) : null,
       subject_id: Number(groupForm.subject_id)
     };
   }
@@ -443,7 +477,37 @@
         {:else if activeTab === 'stages'}
           <CrudBlock title={$_('school.stages.title')} rows={stages} path="education-stages" bind:form={stageForm} {saving} editing={editingPath === 'education-stages'} onsubmit={() => saveRow('education-stages', stageForm)} onedit={(row) => editRow('education-stages', stageForm, row)} oncancel={cancelEdit} onarchive={archiveRow} />
         {:else if activeTab === 'years'}
-          <CrudBlock title={$_('school.years.title')} rows={years} path="academic-years" bind:form={yearForm} {saving} editing={editingPath === 'academic-years'} onsubmit={() => saveRow('academic-years', yearForm)} onedit={(row) => editRow('academic-years', yearForm, row)} oncancel={cancelEdit} onarchive={archiveRow} />
+          <div class="rounded-lg border border-slate-200 bg-white p-5">
+            <h2 class="text-lg font-black text-slate-900">{$_('school.years.title')}</h2>
+            <div class="mt-4 grid gap-3 md:grid-cols-8">
+              <TextInput label={$_('school.code')} bind:value={yearForm.code} />
+              <TextInput label={$_('school.nameEn')} bind:value={yearForm.name} />
+              <TextInput label={$_('school.nameAr')} bind:value={yearForm.name_ar} />
+              <label class="block text-sm font-semibold text-slate-700">
+                {$_('school.years.startDate')}
+                <input type="date" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-normal" bind:value={yearForm.start_date} />
+              </label>
+              <label class="block text-sm font-semibold text-slate-700">
+                {$_('school.years.endDate')}
+                <input type="date" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-normal" bind:value={yearForm.end_date} />
+              </label>
+              <NumberInput label={$_('school.sortOrder')} bind:value={yearForm.sort_order} />
+              <StatusInput bind:value={yearForm.status} />
+              <label class="flex items-end gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">
+                <input type="checkbox" bind:checked={yearForm.is_current} />
+                {$_('school.years.current')}
+              </label>
+            </div>
+            <div class="mt-4 flex items-center gap-2">
+              <button class="btn-hero inline-flex items-center gap-2 rounded-lg" disabled={saving} onclick={saveYear}>
+                {#if editingPath === 'academic-years'}{$_('school.save')}{:else}<Plus class="h-4 w-4" />{$_('school.add')}{/if}
+              </button>
+              {#if editingPath === 'academic-years'}
+                <button class="btn-secondary rounded-lg" disabled={saving} onclick={cancelEdit}>{$_('school.cancel')}</button>
+              {/if}
+            </div>
+            <RowsTable rows={years} extra={(row) => `${row.is_current ? $_('school.years.current') : ''}${row.start_date || row.end_date ? ` · ${row.start_date || '-'} - ${row.end_date || '-'}` : ''}`} onedit={(row) => editRow('academic-years', yearForm, row)} onarchive={(row) => archiveRow('academic-years', row)} />
+          </div>
         {:else if activeTab === 'levels'}
           <div class="rounded-lg border border-slate-200 bg-white p-5">
             <h2 class="text-lg font-black text-slate-900">{gradeLevelLabel} {$_('school.levels.title')}</h2>
@@ -468,7 +532,7 @@
         {:else if activeTab === 'sections'}
           <div class="rounded-lg border border-slate-200 bg-white p-5">
             <h2 class="text-lg font-black text-slate-900">{$_('school.sections.title')}</h2>
-            <div class="mt-4 grid gap-3 md:grid-cols-7">
+            <div class="mt-4 grid gap-3 md:grid-cols-8">
               <SelectInput label={$_('school.branches.single')} bind:value={sectionForm.branch_campus_id} rows={branches} />
               <SelectInput label={$_('school.years.single')} bind:value={sectionForm.academic_year_id} rows={years} />
               <SelectInput label={gradeLevelLabel} bind:value={sectionForm.grade_level_id} rows={levels} />
@@ -476,6 +540,7 @@
               <TextInput label={$_('school.nameEn')} bind:value={sectionForm.name} />
               <TextInput label={$_('school.nameAr')} bind:value={sectionForm.name_ar} />
               <NumberInput label={$_('school.sortOrder')} bind:value={sectionForm.sort_order} />
+              <StatusInput bind:value={sectionForm.status} />
             </div>
             <div class="mt-4 flex flex-col gap-3 sm:flex-row">
               <button class="btn-hero inline-flex items-center gap-2 rounded-lg" disabled={saving} onclick={saveSection}>
@@ -497,14 +562,16 @@
         {:else if activeTab === 'groups'}
           <div class="rounded-lg border border-slate-200 bg-white p-5">
             <h2 class="text-lg font-black text-slate-900">{$_('school.groups.title')}</h2>
-            <div class="mt-4 grid gap-3 md:grid-cols-7">
+            <div class="mt-4 grid gap-3 md:grid-cols-9">
               <SelectInput label={$_('school.years.single')} bind:value={groupForm.academic_year_id} rows={years} />
-              <SelectInput label={$_('school.sections.single')} bind:value={groupForm.class_section_id} rows={sections} />
+              <SelectInput label={$_('school.sections.single')} bind:value={groupForm.class_section_id} rows={sections} optional />
+              <SelectInput label={gradeLevelLabel} bind:value={groupForm.grade_level_id} rows={levels} optional />
               <SelectInput label={$_('school.subjects.single')} bind:value={groupForm.subject_id} rows={subjects} />
               <TextInput label={$_('school.code')} bind:value={groupForm.code} />
               <TextInput label={$_('school.nameEn')} bind:value={groupForm.name} />
               <TextInput label={$_('school.nameAr')} bind:value={groupForm.name_ar} />
               <NumberInput label={$_('school.sortOrder')} bind:value={groupForm.sort_order} />
+              <StatusInput bind:value={groupForm.status} />
             </div>
             <div class="mt-4 flex items-center gap-2">
               <button class="btn-hero inline-flex items-center gap-2 rounded-lg" disabled={saving} onclick={saveGroup}>
@@ -514,7 +581,7 @@
                 <button class="btn-secondary rounded-lg" disabled={saving} onclick={cancelEdit}>{$_('school.cancel')}</button>
               {/if}
             </div>
-            <RowsTable rows={groups} extra={(row) => `${yearName(row.academic_year_id)} · ${rowName(sections, row.class_section_id)} · ${subjectName(row.subject_id)}`} onedit={(row) => editRow('subject-groups', groupForm, row)} onarchive={(row) => archiveRow('subject-groups', row)} />
+            <RowsTable rows={groups} extra={(row) => `${yearName(row.academic_year_id)} · ${row.class_section_id ? rowName(sections, row.class_section_id) : levelName(row.grade_level_id)} · ${subjectName(row.subject_id)}`} onedit={(row) => editRow('subject-groups', groupForm, row)} onarchive={(row) => archiveRow('subject-groups', row)} />
           </div>
         {/if}
       </div>

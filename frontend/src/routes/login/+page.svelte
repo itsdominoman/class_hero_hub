@@ -5,6 +5,11 @@
   import { api } from '$lib/api';
   import LanguageSelector from '$lib/components/LanguageSelector.svelte';
 
+  let magicEmail = $state('');
+  let sendingMagic = $state(false);
+  let magicNotice = $state<string | null>(null);
+  let magicError = $state<string | null>(null);
+
   function safeReturnTo(value: string | null) {
     if (!value || !value.startsWith('/') || value.startsWith('//')) return '/parent';
     return value;
@@ -15,6 +20,20 @@
   const handleGoogleLogin = () => {
     window.location.href = `/api/auth/google/login?return_to=${encodeURIComponent(returnTo)}`;
   };
+
+  async function requestMagicLink() {
+    sendingMagic = true;
+    magicNotice = null;
+    magicError = null;
+    try {
+      const response = await api.post('/auth/magic-link/request', { email: magicEmail, returnTo });
+      magicNotice = response?.warning || $_('login.magicSent');
+    } catch (err: any) {
+      magicError = err?.message || $_('login.magicError');
+    } finally {
+      sendingMagic = false;
+    }
+  }
 
   onMount(async () => {
     try {
@@ -57,6 +76,32 @@
         </svg>
         {$_('login.continueGoogle')}
       </button>
+
+      <form class="mt-5 text-left" onsubmit={(event) => { event.preventDefault(); requestMagicLink(); }}>
+        <label class="block text-sm font-bold text-slate-700">
+          {$_('login.emailLabel')}
+          <input
+            required
+            type="email"
+            bind:value={magicEmail}
+            class="mt-2 w-full rounded-2xl border-2 border-slate-200 px-4 py-3 font-medium text-slate-900"
+            placeholder={$_('login.emailPlaceholder')}
+          />
+        </label>
+        <button
+          disabled={sendingMagic}
+          class="mt-3 w-full rounded-2xl bg-slate-900 px-6 py-4 font-bold text-white transition hover:bg-slate-700 disabled:opacity-60"
+        >
+          {$_('login.emailMagicLink')}
+        </button>
+      </form>
+
+      {#if magicNotice}
+        <div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-left text-sm font-semibold text-emerald-700">{magicNotice}</div>
+      {/if}
+      {#if magicError}
+        <div class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-left text-sm font-semibold text-red-700">{magicError}</div>
+      {/if}
 
       <div class="mt-6 rounded-2xl border-2 border-slate-100 bg-slate-50 p-4 text-left text-sm leading-relaxed text-slate-600">
         <p>
