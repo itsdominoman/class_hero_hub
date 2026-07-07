@@ -11,7 +11,6 @@
     "test:e2e:public": "bash ./scripts/run-playwright-e2e.sh public",
     "test:e2e:auth": "bash ./scripts/run-playwright-e2e.sh auth",
     "test:e2e:visual": "bash ./scripts/run-playwright-e2e.sh visual",
-    "test:e2e:child": "bash ./scripts/run-playwright-e2e.sh child",
     "test:e2e:local": "playwright test",
     "test:e2e:stateful": "bash ./scripts/run-playwright-e2e.sh stateful",
     "test:e2e:stateful:local": "playwright test --config=playwright.stateful.config.ts",

@@ -5,7 +5,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-PLAYWRIGHT_IMAGE="${PLAYWRIGHT_IMAGE:-mcr.microsoft.com/playwright:v1.59.1-jammy}"
+PLAYWRIGHT_IMAGE="${PLAYWRIGHT_IMAGE:-mcr.microsoft.com/playwright:v1.60.0-jammy}"
 MODE="${1:-daily}"
 QA_ENV_FILE="${QA_ENV_FILE:-/home/administrator/.hermes/fhh-qa.env}"
 
@@ -19,10 +19,10 @@ if [[ -f "$QA_ENV_FILE" ]]; then
 fi
 
 case "$MODE" in
-  daily|stateful|public|auth|visual|child) ;;
+  daily|stateful|public|auth|visual) ;;
   *)
     echo "Unknown mode: $MODE" >&2
-    echo "Usage: bash ./scripts/run-playwright-e2e.sh [daily|stateful|public|auth|visual|child]" >&2
+    echo "Usage: bash ./scripts/run-playwright-e2e.sh [daily|stateful|public|auth|visual]" >&2
     exit 2
     ;;
 esac
@@ -74,9 +74,6 @@ exec docker run --rm \
         ;;
       visual)
         npm run test:e2e:local -- e2e/visual-layout.spec.ts
-        ;;
-      child)
-        npm run test:e2e:local -- e2e/authenticated-child-pages.spec.ts
         ;;
       *)
         npm run test:e2e:local

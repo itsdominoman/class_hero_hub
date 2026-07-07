@@ -29,7 +29,7 @@
         <LanguageSelector compact />
       </div>
       <div class="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-xl shadow-hero/20 border border-slate-200 mx-auto mb-6 relative overflow-hidden">
-        <img src="/family-hero-hub-logo.png" alt="Family Hero Hub" class="w-full h-full object-cover" />
+        <img src="/family-hero-hub-logo.png" alt={$_('app.name')} class="w-full h-full object-cover" />
       </div>
 
       <h1 class="text-3xl font-black text-slate-900 mb-3">{$_('login.title')}</h1>
@@ -60,28 +60,11 @@
         <p>{$_('login.sessionHelp')}</p>
       </div>
 
-      <div class="mt-8 pt-8 border-t border-slate-100 text-left">
-        <p class="text-xs font-bold uppercase tracking-wide text-slate-400">{$_('login.childrenDoNotSignIn')}</p>
-        <p class="mt-3 text-sm text-slate-500 leading-relaxed">
-          {$_('login.childHelp')}
-        </p>
-      </div>
-
       <div class="mt-6 text-center">
         <p class="text-slate-500 text-sm">
-          {$_('login.noAccess')} <a href="/request-access" class="text-hero font-bold hover:underline">{$_('login.requestAccess')}</a>
+          {$_('login.accessHelp')}
         </p>
       </div>
-    </div>
-
-    <div class="mt-6 flex justify-center">
-      <img
-        src="/pets/dragon-1/hero-dragon.png"
-        alt=""
-        aria-hidden="true"
-        class="pointer-events-none w-24 opacity-90 drop-shadow-sm"
-        loading="lazy"
-      />
     </div>
   </div>
 </div>

@@ -12,58 +12,52 @@ type PageCase = {
 const PUBLIC_CASES: PageCase[] = [
   {
     path: '/',
-    heading: 'Less nagging. Clearer routines. Rewards kids can actually earn.',
+    heading: 'Clear school updates in one trusted place.',
     headingLevel: 'h1',
-    expectedText: 'Family goals made simple',
+    expectedText: 'School notices',
     safeClickTarget: '/login'
   },
   {
     path: '/login',
-    heading: 'Parent sign-in',
+    heading: 'Welcome to Class Hero Hub',
     headingLevel: 'h1',
     expectedText: 'Continue with Google',
-    safeClickTarget: '/request-access'
+    safeClickTarget: '/'
   },
   {
     path: '/privacy',
     heading: 'Privacy Policy',
     headingLevel: 'h1',
-    expectedText: 'Authentication & Security',
+    expectedText: 'Copy TODO',
     safeClickTarget: '/terms'
   },
   {
     path: '/terms',
     heading: 'Terms of Service',
     headingLevel: 'h1',
-    expectedText: 'Purpose of Service',
+    expectedText: 'Copy TODO',
     safeClickTarget: '/privacy'
   },
   {
     path: '/contact',
-    heading: 'Contact Us',
+    heading: 'Contact Class Hero Hub',
     headingLevel: 'h1',
     expectedText: 'Email Support',
     safeClickTarget: '/faq'
   },
   {
-    path: '/request-access',
-    heading: 'Request Access',
-    headingLevel: 'h1',
-    expectedText: 'Submit Request',
-    safeClickTarget: '/login'
-  },
-  {
     path: '/faq',
-    heading: 'Clear answers for parents and children.',
+    heading: 'FAQ',
     headingLevel: 'h1',
-    expectedText: 'Find quick help for sign-in',
+    expectedText: 'Copy TODO',
     safeClickTarget: '/contact'
   },
   {
-    path: '/calendar',
-    heading: 'Calendar unavailable',
+    path: '/safety-privacy',
+    heading: 'Safety & Privacy',
     headingLevel: 'h1',
-    expectedText: 'Try again'
+    expectedText: 'Copy TODO',
+    safeClickTarget: '/contact'
   }
 ];
 
@@ -73,26 +67,30 @@ const SAFE_PUBLIC_PATHS = new Set([
   '/privacy',
   '/terms',
   '/contact',
-  '/request-access',
   '/faq',
-  '/calendar'
+  '/safety-privacy'
 ]);
 
 async function assertPublicPage(page: Page, testCase: PageCase) {
   const tracker = createBrowserIssueTracker(page);
+  tracker.ignoreConsoleErrorSnippet('the server responded with a status of 401');
+
+  await page.route('**/api/me', async (route) => {
+    await route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: JSON.stringify({ detail: 'Not authenticated' })
+    });
+  });
 
   await page.goto(testCase.path, { waitUntil: 'networkidle' });
   await page.waitForTimeout(250);
 
   const links = await collectInternalLinks(page);
-  if (testCase.path !== '/calendar') {
-    expect(links.length, `${testCase.path} internal link inventory`).toBeGreaterThan(0);
-  }
+  expect(links.length, `${testCase.path} internal link inventory`).toBeGreaterThan(0);
 
   const safeLinks = links.filter((link) => SAFE_PUBLIC_PATHS.has(new URL(link.href, page.url()).pathname));
-  if (testCase.path !== '/calendar') {
-    expect(safeLinks.length, `${testCase.path} safe public links`).toBeGreaterThan(0);
-  }
+  expect(safeLinks.length, `${testCase.path} safe public links`).toBeGreaterThan(0);
   for (const link of safeLinks) {
     const resolved = new URL(link.href, page.url());
     const response = await page.request.get(resolved.toString());
@@ -103,7 +101,7 @@ async function assertPublicPage(page: Page, testCase: PageCase) {
   await expect(heading).toBeVisible();
 
   if (testCase.expectedText) {
-    await expect(page.getByText(testCase.expectedText, { exact: false })).toBeVisible();
+    await expect(page.getByText(testCase.expectedText, { exact: false }).first()).toBeVisible();
   }
 
   if (testCase.safeClickTarget) {
