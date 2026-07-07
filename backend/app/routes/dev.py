@@ -10,11 +10,11 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from .. import auth, models
-from .. import child_auth
+from .. import auth
 from ..database import get_db, settings
+from ..models_school import PlatformAdmin, User
+from ..school_scope import write_audit
 from ..security import BoundedInMemoryRateLimiter, get_client_ip_from_scope, parse_csv_values
-from ..services.qa_seed import ensure_qa_child_session, seed_qa_child_dashboard, seed_qa_parent_dashboard
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -96,52 +96,48 @@ async def _qa_login_from_request(request: Request, db: Session) -> JSONResponse:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="QA login refused")
 
     email = auth.normalize_email(settings.QA_LOGIN_EMAIL)
-    name = (settings.QA_LOGIN_NAME or "QA Parent").strip() or "QA Parent"
+    name = (settings.QA_LOGIN_NAME or "QA Platform Admin").strip() or "QA Platform Admin"
+    now = datetime.now(timezone.utc)
 
-    parent = db.query(models.ParentUser).filter(func.lower(models.ParentUser.email) == email).first()
-    if parent and auth.is_parent_revoked(parent):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been revoked")
-
-    if parent is None:
-        family = models.Family()
-        db.add(family)
-        db.flush()
-        parent = models.ParentUser(
+    user = db.query(User).filter(func.lower(User.email) == email).first()
+    reused = user is not None
+    if user is None:
+        user = User(
             email=email,
             name=name,
             google_sub=f"qa-login:{email}",
-            family_id=family.id,
-            last_login_at=datetime.now(timezone.utc),
+            last_login_at=now,
         )
-        db.add(parent)
-        db.commit()
-        db.refresh(parent)
-        reused = False
+        db.add(user)
     else:
-        parent.name = name
-        parent.google_sub = f"qa-login:{email}"
-        parent.last_login_at = datetime.now(timezone.utc)
-        if parent.family_id is None:
-            family = models.Family()
-            db.add(family)
-            db.flush()
-            parent.family_id = family.id
+        user.name = name
+        user.google_sub = f"qa-login:{email}"
+        user.last_login_at = now
+    db.commit()
+    db.refresh(user)
+
+    platform_admin = db.query(PlatformAdmin).filter(PlatformAdmin.user_id == user.id).first()
+    if not platform_admin:
+        platform_admin = PlatformAdmin(user_id=user.id, granted_by_user_id=None)
+        db.add(platform_admin)
         db.commit()
-        db.refresh(parent)
-        reused = True
+        db.refresh(platform_admin)
+        write_audit(db, user, "platform_admin.qa_bootstrap", platform_admin, {"source": "qa-login"})
+    elif platform_admin.revoked_at is not None:
+        platform_admin.revoked_at = None
+        db.commit()
 
-    seed_qa_parent_dashboard(db, parent)
-    db.refresh(parent)
-
-    access_token = auth.create_access_token(data={"sub": parent.email})
+    access_token = auth.create_access_token(data={"sub": user.email})
     session_max_age = auth.parent_session_cookie_max_age_seconds()
-    response = JSONResponse(content={
-        "status": "ok",
-        "email": email,
-        "parent_id": parent.id,
-        "family_id": parent.family_id,
-        "reused": reused,
-    })
+    response = JSONResponse(
+        content={
+            "status": "ok",
+            "email": email,
+            "user_id": user.id,
+            "is_platform_admin": True,
+            "reused": reused,
+        }
+    )
     response.set_cookie(
         key="access_token",
         value=access_token,
@@ -160,62 +156,3 @@ async def _qa_login_from_request(request: Request, db: Session) -> JSONResponse:
 @router.post("/qa-login")
 async def qa_login(request: Request, db: Session = Depends(get_db)):
     return await _qa_login_from_request(request, db)
-
-
-def _qa_child_login_enabled() -> bool:
-    return bool(settings.QA_CHILD_LOGIN_ENABLED or settings.QA_LOGIN_ENABLED)
-
-
-def _qa_child_login_token() -> str:
-    return (settings.QA_CHILD_LOGIN_TOKEN or settings.QA_LOGIN_TOKEN or "").strip()
-
-
-async def _qa_child_login_from_request(request: Request, db: Session) -> JSONResponse:
-    if _runtime_environment() == "production":
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
-
-    if not _qa_child_login_enabled():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
-
-    configured_token = _qa_child_login_token()
-    if not configured_token:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
-
-    if _is_blocked_context(request):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="QA child login refused")
-
-    _rate_limit_qa_login(request)
-
-    try:
-        payload = await request.json()
-    except Exception:
-        payload = {}
-
-    provided_token = (payload.get("token") or "").strip()
-    if not _token_matches(configured_token, provided_token):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="QA child login refused")
-
-    try:
-        seed = seed_qa_child_dashboard(db)
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-
-    session, raw_token = ensure_qa_child_session(db, seed.child)
-
-    response = JSONResponse(content={
-        "status": "ok",
-        "parent_email": seed.parent.email,
-        "family_id": seed.family.id,
-        "child_id": seed.child.id,
-        "child_name": seed.child.display_name,
-        "child_route": seed.child_route,
-        "reused": seed.reused,
-    })
-    child_auth.set_child_session_cookie(response, raw_token, session.expires_at)
-    logger.info("QA child login issued for %s child=%s", seed.parent.email, seed.child.id)
-    return response
-
-
-@router.post("/qa-child-login")
-async def qa_child_login(request: Request, db: Session = Depends(get_db)):
-    return await _qa_child_login_from_request(request, db)

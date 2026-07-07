@@ -1,30 +1,63 @@
-import asyncio
-import logging
-from contextlib import suppress
-
-from fastapi import FastAPI, Depends, HTTPException, status, Request
-from fastapi.responses import JSONResponse
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from . import database
-from .database import engine, Base, get_db, settings, ensure_runtime_schema, validate_runtime_configuration
-from . import models, schemas, auth
-from .services import points_service
-from .routes import children, ledger, redemptions, authentication, presets, rewards, family, child_devices, child_access, child_link, registration, admin, calendar, child_calendar, school_items, allowance, dev
 from starlette.middleware.sessions import SessionMiddleware
-from .security import TrustedProxyHeadersMiddleware, parse_csv_values
 
-logger = logging.getLogger(__name__)
-_savings_maturity_task: asyncio.Task | None = None
+from . import auth, database, schemas
+from .database import Base, engine, ensure_runtime_schema, get_db, settings, validate_runtime_configuration
+from .models_school import Membership, PlatformAdmin, School, User
+from .routes import authentication, dev
+from .security import TrustedProxyHeadersMiddleware, parse_csv_values
 
 if settings.DATABASE_URL.startswith("sqlite"):
     Base.metadata.create_all(bind=engine)
     ensure_runtime_schema()
 
+
+def _me_payload(current_user: User, db: Session) -> dict:
+    is_platform_admin = (
+        db.query(PlatformAdmin)
+        .filter(
+            PlatformAdmin.user_id == current_user.id,
+            PlatformAdmin.revoked_at.is_(None),
+        )
+        .first()
+        is not None
+    )
+    memberships = (
+        db.query(Membership, School)
+        .join(School, Membership.school_id == School.id)
+        .filter(
+            Membership.user_id == current_user.id,
+            Membership.status == "active",
+            Membership.revoked_at.is_(None),
+        )
+        .all()
+    )
+    return {
+        "user": {
+            "id": current_user.id,
+            "email": current_user.email,
+            "name": current_user.name,
+            "locale": current_user.locale,
+        },
+        "is_platform_admin": is_platform_admin,
+        "memberships": [
+            {
+                "school_id": school.id,
+                "school_name": school.name,
+                "role": membership.role,
+            }
+            for membership, school in memberships
+        ],
+    }
+
+
 def create_app() -> FastAPI:
     validate_runtime_configuration(settings)
 
-    app = FastAPI(title=settings.APP_NAME if hasattr(settings, "APP_NAME") else "Family Hero Hub")
+    app = FastAPI(title=settings.APP_NAME if hasattr(settings, "APP_NAME") else "Class Hero Hub")
     app.state.runtime_environment = settings.runtime_environment
 
     app.add_middleware(TrustedProxyHeadersMiddleware, trusted_proxy_ips=settings.TRUSTED_PROXY_IPS)
@@ -58,22 +91,6 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(authentication.router, prefix="/api/auth", tags=["auth"])
-    app.include_router(children.router, prefix="/api/children", tags=["children"])
-    app.include_router(ledger.router, prefix="/api/children", tags=["ledger"])
-    app.include_router(redemptions.router, prefix="/api", tags=["redemptions"])
-    app.include_router(presets.router, prefix="/api/presets", tags=["presets"])
-    app.include_router(rewards.router, prefix="/api/rewards", tags=["rewards"])
-    app.include_router(family.router, prefix="/api/family", tags=["family"])
-    app.include_router(child_devices.router, prefix="/api", tags=["child-devices"])
-    app.include_router(child_link.router, prefix="/api/child-link", tags=["child-link"])
-    app.include_router(child_access.router, prefix="/api/child", tags=["child"])
-    app.include_router(registration.router, prefix="/api/registration-requests", tags=["registration"])
-    app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
-    app.include_router(calendar.router, prefix="/api/calendar", tags=["calendar"])
-    app.include_router(child_calendar.router, prefix="/api/child/calendar", tags=["child-calendar"])
-    app.include_router(school_items.router, prefix="/api/school-items", tags=["school-items"])
-    app.include_router(school_items.child_router, prefix="/api/child/school-items", tags=["child-school-items"])
-    app.include_router(allowance.router, prefix="/api/allowance", tags=["allowance"])
 
     if settings.runtime_environment != "production":
         app.include_router(dev.router, prefix="/api/dev", tags=["dev"])
@@ -84,47 +101,17 @@ def create_app() -> FastAPI:
 app = create_app()
 
 
-def run_savings_maturity_sweep() -> int:
-    db = database.SessionLocal()
-    try:
-        transactions = points_service.mature_savings_deposits(db)
-        db.commit()
-        return len(transactions)
-    except Exception:
-        db.rollback()
-        logger.exception("Savings maturity sweep failed")
-        raise
-    finally:
-        db.close()
+@app.get("/api/me", response_model=schemas.MeResponse)
+async def read_current_user(
+    current_user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    return _me_payload(current_user, db)
 
 
-async def _savings_maturity_loop() -> None:
-    interval = max(settings.SAVINGS_MATURITY_SWEEP_INTERVAL_SECONDS, 60)
-    while True:
-        with suppress(Exception):
-            await asyncio.to_thread(run_savings_maturity_sweep)
-        await asyncio.sleep(interval)
-
-
-@app.on_event("startup")
-async def start_savings_maturity_worker() -> None:
-    global _savings_maturity_task
-    if settings.runtime_environment == "test":
-        return
-    if _savings_maturity_task is None or _savings_maturity_task.done():
-        _savings_maturity_task = asyncio.create_task(_savings_maturity_loop())
-
-
-@app.on_event("shutdown")
-async def stop_savings_maturity_worker() -> None:
-    global _savings_maturity_task
-    if _savings_maturity_task is None:
-        return
-    _savings_maturity_task.cancel()
-    with suppress(asyncio.CancelledError):
-        await _savings_maturity_task
-    _savings_maturity_task = None
-
-@app.get("/api/me", response_model=schemas.ParentUser)
-async def read_current_parent(current_parent: models.ParentUser = Depends(auth.get_current_parent)):
-    return current_parent
+@app.get("/api/me/v2", response_model=schemas.MeResponse)
+async def read_current_user_v2(
+    current_user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    return _me_payload(current_user, db)

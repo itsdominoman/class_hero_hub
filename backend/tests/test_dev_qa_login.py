@@ -12,9 +12,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app import database, models
+from app import database
 from app.database import Base, get_db
 from app.main import app
+from app.models_school import PlatformAdmin, User
 from app.routes import dev as dev_routes
 from app.security import BoundedInMemoryRateLimiter
 
@@ -55,8 +56,8 @@ def configure_qa_login(
     qa_token: str = "qa-token",
     public_app_url: str = "http://127.0.0.1:5173",
     api_base_url: str = "http://127.0.0.1:8000",
-    qa_email: str = "qa-parent@dev.familyherohub.com",
-    qa_name: str = "QA Parent",
+    qa_email: str = "qa-platform@dev.classherohub.com",
+    qa_name: str = "QA Platform Admin",
 ):
     monkeypatch.setattr(database.settings, "QA_LOGIN_ENABLED", enabled)
     monkeypatch.setattr(database.settings, "APP_ENV", runtime_environment)
@@ -112,7 +113,7 @@ def test_qa_login_refuses_production_domains(client, monkeypatch, public_app_url
     assert response.json()["detail"] == "QA login refused"
 
 
-def test_qa_login_creates_reuses_qa_user_and_preserves_csrf(client, monkeypatch, caplog):
+def test_qa_login_creates_reuses_user_platform_admin_and_preserves_csrf(client, monkeypatch, caplog):
     configure_qa_login(monkeypatch, enabled=True, runtime_environment="development")
 
     with caplog.at_level(logging.INFO, logger="app.routes.dev"):
@@ -121,19 +122,20 @@ def test_qa_login_creates_reuses_qa_user_and_preserves_csrf(client, monkeypatch,
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
-        "email": "qa-parent@dev.familyherohub.com",
-        "parent_id": 1,
-        "family_id": 1,
+        "email": "qa-platform@dev.classherohub.com",
+        "user_id": 1,
+        "is_platform_admin": True,
         "reused": False,
     }
     assert "qa-token" not in caplog.text
-    assert "QA login issued for qa-parent@dev.familyherohub.com" in caplog.text
+    assert "QA login issued for qa-platform@dev.classherohub.com" in caplog.text
     assert client.cookies.get("access_token")
     assert client.cookies.get("csrf_token")
 
     me_response = client.get("/api/me")
     assert me_response.status_code == 200
-    assert me_response.json()["email"] == "qa-parent@dev.familyherohub.com"
+    assert me_response.json()["user"]["email"] == "qa-platform@dev.classherohub.com"
+    assert me_response.json()["is_platform_admin"] is True
 
     second_response = client.post(
         "/api/dev/qa-login",
@@ -142,8 +144,7 @@ def test_qa_login_creates_reuses_qa_user_and_preserves_csrf(client, monkeypatch,
     )
     assert second_response.status_code == 200
     assert second_response.json()["reused"] is True
-    assert second_response.json()["parent_id"] == response.json()["parent_id"]
-    assert second_response.json()["family_id"] == response.json()["family_id"]
+    assert second_response.json()["user_id"] == response.json()["user_id"]
 
     client.cookies.pop("csrf_token", None)
     logout_response = client.post("/api/auth/logout", json={})
@@ -152,21 +153,11 @@ def test_qa_login_creates_reuses_qa_user_and_preserves_csrf(client, monkeypatch,
 
     check_db = TestingSessionLocal()
     try:
-        parent = check_db.query(models.ParentUser).filter_by(email="qa-parent@dev.familyherohub.com").one()
-        assert parent.name == "QA Parent"
-        assert parent.google_sub == "qa-login:qa-parent@dev.familyherohub.com"
-        assert parent.family_id == 1
-        assert parent.last_login_at is not None
-        children = (
-            check_db.query(models.Child)
-            .filter(models.Child.family_id == parent.family_id)
-            .order_by(models.Child.id.asc())
-            .all()
-        )
-        assert [child.display_name for child in children] == ["Jackson", "Leah"]
-        assert check_db.query(models.RedemptionRequest).filter(models.RedemptionRequest.child_id == children[0].id).count() == 1
-        assert check_db.query(models.RedemptionRequest).filter(models.RedemptionRequest.child_id == children[1].id).count() == 0
-        assert check_db.query(models.RedemptionRequest).count() == 1
+        user = check_db.query(User).filter_by(email="qa-platform@dev.classherohub.com").one()
+        assert user.name == "QA Platform Admin"
+        assert user.google_sub == "qa-login:qa-platform@dev.classherohub.com"
+        assert user.last_login_at is not None
+        assert check_db.query(PlatformAdmin).filter_by(user_id=user.id).count() == 1
     finally:
         check_db.close()
 
