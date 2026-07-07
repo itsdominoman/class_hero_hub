@@ -13,7 +13,7 @@ from sqlalchemy.pool import StaticPool
 from app import auth, database
 from app.database import Base, get_db
 from app.main import app
-from app.models_school import AcademicYear, BranchCampus, ClassSection, Membership, PlatformAdmin, School, Subject, User
+from app.models_school import AcademicYear, BranchCampus, ClassSection, Membership, PlatformAdmin, School, Subject, SubjectGroup, User
 from school_fixtures import seeded_schools  # noqa: F401
 
 
@@ -241,6 +241,192 @@ def test_subject_groups_support_section_and_grade_level_contexts(db, client, see
         {**grade_group_payload, "code": "NOCTX", "class_section_id": None, "grade_level_id": None},
     )
     assert missing_context.status_code == 400
+
+
+def test_bulk_subject_group_codes_use_grade_section_and_subject(db, client, seeded_schools):
+    alpha = seeded_schools["schools"]["alpha"]
+    admin = seeded_schools["users"]["alpha_admin"]
+    created = create_structure(client, admin.email, alpha.id)
+
+    section_a = _post(
+        client,
+        "/api/school/class-sections",
+        admin.email,
+        alpha.id,
+        {
+            **_base("A", "Year 1 A"),
+            "branch_campus_id": created["branch"]["id"],
+            "academic_year_id": created["year"]["id"],
+            "grade_level_id": created["level"]["id"],
+        },
+    ).json()
+    response = _post(
+        client,
+        "/api/school/subject-groups/bulk-section",
+        admin.email,
+        alpha.id,
+        {
+            "academic_year_id": created["year"]["id"],
+            "grade_level_id": created["level"]["id"],
+            "subject_id": created["subject"]["id"],
+            "class_section_ids": [section_a["id"]],
+        },
+    )
+
+    assert response.status_code == 200
+    result = response.json()["results"][0]
+    assert result["status"] == "created"
+    assert result["subject_group"]["code"] == "Y1A-ENG"
+    assert result["subject_group"]["name"] == "Year 1 A English"
+
+
+def test_bulk_subject_group_creation_skips_duplicates_and_restores_archived(db, client, seeded_schools):
+    alpha = seeded_schools["schools"]["alpha"]
+    admin = seeded_schools["users"]["alpha_admin"]
+    created = create_structure(client, admin.email, alpha.id)
+
+    section_a = _post(
+        client,
+        "/api/school/class-sections",
+        admin.email,
+        alpha.id,
+        {
+            **_base("A", "Year 1 A"),
+            "branch_campus_id": created["branch"]["id"],
+            "academic_year_id": created["year"]["id"],
+            "grade_level_id": created["level"]["id"],
+        },
+    ).json()
+    section_b = _post(
+        client,
+        "/api/school/class-sections",
+        admin.email,
+        alpha.id,
+        {
+            **_base("B", "Year 1 B"),
+            "branch_campus_id": created["branch"]["id"],
+            "academic_year_id": created["year"]["id"],
+            "grade_level_id": created["level"]["id"],
+        },
+    ).json()
+    section_c = _post(
+        client,
+        "/api/school/class-sections",
+        admin.email,
+        alpha.id,
+        {
+            **_base("C", "Year 1 C"),
+            "branch_campus_id": created["branch"]["id"],
+            "academic_year_id": created["year"]["id"],
+            "grade_level_id": created["level"]["id"],
+        },
+    ).json()
+
+    duplicate = _post(
+        client,
+        "/api/school/subject-groups",
+        admin.email,
+        alpha.id,
+        {
+            **_base("Y1A-ENG", "Year 1 A English"),
+            "academic_year_id": created["year"]["id"],
+            "class_section_id": section_a["id"],
+            "subject_id": created["subject"]["id"],
+        },
+    )
+    assert duplicate.status_code == 201
+    archived = _post(
+        client,
+        "/api/school/subject-groups",
+        admin.email,
+        alpha.id,
+        {
+            **_base("Y1B-ENG", "Old Year 1 B English"),
+            "academic_year_id": created["year"]["id"],
+            "class_section_id": section_b["id"],
+            "subject_id": created["subject"]["id"],
+        },
+    ).json()
+    assert client.delete(f"/api/school/subject-groups/{archived['id']}", headers=bearer(admin.email, alpha.id)).status_code == 204
+
+    response = _post(
+        client,
+        "/api/school/subject-groups/bulk-section",
+        admin.email,
+        alpha.id,
+        {
+            "academic_year_id": created["year"]["id"],
+            "grade_level_id": created["level"]["id"],
+            "subject_id": created["subject"]["id"],
+            "class_section_ids": [section_a["id"], section_b["id"], section_c["id"]],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["created"] == 1
+    assert body["restored"] == 1
+    assert body["skipped"] == 1
+    statuses = {item["class_section_id"]: item["status"] for item in body["results"]}
+    assert statuses[section_a["id"]] == "skipped"
+    assert statuses[section_b["id"]] == "restored"
+    assert statuses[section_c["id"]] == "created"
+    restored = db.query(SubjectGroup).filter_by(id=archived["id"]).one()
+    assert restored.status == "active"
+    assert restored.name == "Year 1 B English"
+
+
+def test_bulk_subject_group_creation_rejects_wrong_school_role_and_inactive_archived_sections(db, client, seeded_schools):
+    alpha = seeded_schools["schools"]["alpha"]
+    admin = seeded_schools["users"]["alpha_admin"]
+    teacher = seeded_schools["users"]["alpha_teacher"]
+    platform_user = seeded_schools["platform_user"]
+    created = create_structure(client, admin.email, alpha.id)
+
+    inactive = _post(
+        client,
+        "/api/school/class-sections",
+        admin.email,
+        alpha.id,
+        {
+            **_base("I", "Year 1 Inactive"),
+            "status": "inactive",
+            "branch_campus_id": created["branch"]["id"],
+            "academic_year_id": created["year"]["id"],
+            "grade_level_id": created["level"]["id"],
+        },
+    ).json()
+    archived = _post(
+        client,
+        "/api/school/class-sections",
+        admin.email,
+        alpha.id,
+        {
+            **_base("Z", "Year 1 Archived"),
+            "branch_campus_id": created["branch"]["id"],
+            "academic_year_id": created["year"]["id"],
+            "grade_level_id": created["level"]["id"],
+        },
+    ).json()
+    assert client.delete(f"/api/school/class-sections/{archived['id']}", headers=bearer(admin.email, alpha.id)).status_code == 204
+
+    payload = {
+        "academic_year_id": created["year"]["id"],
+        "grade_level_id": created["level"]["id"],
+        "subject_id": created["subject"]["id"],
+        "class_section_ids": [inactive["id"], archived["id"]],
+    }
+    assert client.post("/api/school/subject-groups/bulk-section", headers=bearer(teacher.email, alpha.id), json=payload).status_code == 403
+    assert client.post("/api/school/subject-groups/bulk-section", headers=bearer(platform_user.email, alpha.id), json=payload).status_code == 403
+
+    response = client.post("/api/school/subject-groups/bulk-section", headers=bearer(admin.email, alpha.id), json=payload)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["created"] == 0
+    assert body["failed"] == 2
+    reasons = {item["class_section_id"]: item["reason"] for item in body["results"]}
+    assert reasons[inactive["id"]] == "Inactive class section cannot be selected"
+    assert reasons[archived["id"]] == "Archived class section cannot be selected"
 
 
 def test_class_sections_do_not_have_direct_homeroom_teacher_column():

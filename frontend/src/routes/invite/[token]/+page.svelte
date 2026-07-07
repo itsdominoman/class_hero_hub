@@ -25,8 +25,8 @@
     }
 
     try {
-      await api.post('/invites/exchange', { token });
-      window.location.href = '/school';
+      const result = await api.post('/invites/exchange', { token });
+      window.location.href = result?.landing_path || (result?.membership?.role === 'teacher' ? '/teach' : '/school');
     } catch (err: any) {
       error = err?.message || $_('invite.exchangeError');
       loading = false;

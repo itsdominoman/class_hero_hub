@@ -7,7 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from . import auth, database, schemas
 from .database import Base, engine, ensure_runtime_schema, get_db, settings, validate_runtime_configuration
 from .models_school import Membership, PlatformAdmin, School, User
-from .routes import authentication, dev, platform, school
+from .routes import authentication, dev, platform, school, teach
 from .security import TrustedProxyHeadersMiddleware, parse_csv_values
 
 if settings.DATABASE_URL.startswith("sqlite"):
@@ -94,6 +94,7 @@ def create_app() -> FastAPI:
     app.include_router(platform.router, prefix="/api/platform", tags=["platform"])
     app.include_router(platform.invite_router, prefix="/api/invites", tags=["invites"])
     app.include_router(school.router, prefix="/api/school", tags=["school"])
+    app.include_router(teach.router, prefix="/api/teach", tags=["teach"])
 
     if settings.runtime_environment != "production":
         app.include_router(dev.router, prefix="/api/dev", tags=["dev"])

@@ -1,3 +1,5 @@
+import { normalizeErrorMessage } from '$lib/errors';
+
 const API_BASE = '/api';
 
 function getCookie(name: string): string | null {
@@ -62,13 +64,13 @@ async function request(path: string, options: RequestInit = {}) {
 
     if (contentType.includes('application/json')) {
       const error = await res.json().catch(() => ({ detail: 'Request failed' }));
-      const requestError = new Error(error.detail || 'Request failed') as Error & { status?: number };
+      const requestError = new Error(normalizeErrorMessage(error, 'Request failed')) as Error & { status?: number };
       requestError.status = res.status;
       throw requestError;
     }
 
     const text = await res.text().catch(() => '');
-    const requestError = new Error(text || `Request failed with status ${res.status}`) as Error & { status?: number };
+    const requestError = new Error(normalizeErrorMessage(text, `Request failed with status ${res.status}`)) as Error & { status?: number };
     requestError.status = res.status;
     throw requestError;
   }

@@ -225,6 +225,34 @@ class StaffInvite(Base):
     last_send_error = Column(String, nullable=True)
 
 
+def _default_assignment_valid_from():
+    return datetime.now(timezone.utc).date()
+
+
+class StaffAssignment(Base):
+    __tablename__ = "staff_assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    membership_id = Column(Integer, ForeignKey("memberships.id"), nullable=False, index=True)
+    class_section_id = Column(Integer, ForeignKey("class_sections.id"), nullable=True, index=True)
+    subject_group_id = Column(Integer, ForeignKey("subject_groups.id"), nullable=True, index=True)
+    role = Column(String, nullable=False)
+    valid_from = Column(Date, nullable=False, default=_default_assignment_valid_from)
+    valid_to = Column(Date, nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        CheckConstraint(
+            "(class_section_id IS NOT NULL AND subject_group_id IS NULL) OR "
+            "(class_section_id IS NULL AND subject_group_id IS NOT NULL)",
+            name="ck_staff_assignments_exactly_one_target",
+        ),
+    )
+
+
 def _default_magic_login_expires_at():
     return datetime.now(timezone.utc) + timedelta(minutes=15)
 

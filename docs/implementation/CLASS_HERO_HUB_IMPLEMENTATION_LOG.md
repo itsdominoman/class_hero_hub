@@ -1,5 +1,202 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-07 — S5 pre-commit fix: Subject Groups product logic cleanup
+
+Scope: subject-group setup UX/API only. No students, enrolments, teachers beyond existing S5 assignments, rosters, timetables, CSV import, posts, points, messaging, notifications, or other S6+ work.
+
+### Subject-group code generation decision
+
+- Generated section-specific subject-group codes now combine grade/year level code + class-section code + subject code, not section label alone.
+- Examples:
+  - `KG1` + `A` + `ENG` → `KG1A-ENG`
+  - `G1` + `A` + `ENG` → `G1A-ENG`
+  - grade-level `KG1` + `ENG` → `KG1-ENG`
+- Codes are compacted to uppercase alphanumeric chunks joined with `-` before the subject code. This keeps frontend defaults and backend bulk creation deterministic.
+- Generated English names remain human-readable: `{Class Section Name} {Subject Name}` for section-specific groups and `{Grade Name} {Subject Name}` for grade-level/cross-section groups.
+
+### Sort-order UX decision
+
+- Sort order remains editable for power users and API/import determinism.
+- New records now default sort order to the next sensible value (`max(existing sort_order) + 10`, or `10` for an empty list/context).
+- Sort order is moved under a small `Advanced` disclosure in setup forms instead of being prominent in every normal create/edit flow.
+
+### Bulk subject-group creation
+
+- Added `POST /api/school/subject-groups/bulk-section` for school admins.
+- Flow: select academic year, grade/year level, subject, and one or more active class sections; creates one section-specific subject group per selected section using the deterministic code/name rules above.
+- Existing active/inactive duplicates are skipped with per-section reasons.
+- Archived matching subject groups are restored in place following the S4.9 lifecycle policy.
+- Inactive/archived sections are rejected per item and reported in the result, not offered in the frontend bulk selector.
+- Response includes summary counts and per-section results: `created`, `restored`, `skipped`, `failed`, plus result rows with reasons where relevant.
+- Frontend now has a bulk section-specific panel in `/school` → Subject groups. It defaults all active matching sections selected and shows a result summary plus failed/skipped item reasons.
+- The single-create mode remains available for one-off section-specific or grade-level/cross-section groups.
+- Added helper copy clarifying: most schools should use section-specific groups for normal subjects; grade-level/cross-section is for sets, electives, or groups combining students from more than one class.
+
+### Tests added
+
+- Backend tests cover generated bulk codes using grade + section + subject, bulk creation across selected sections, duplicate skip behavior, archived restore behavior, wrong-role/platform-only blocking, and inactive/archived section rejection.
+
+### Validation
+
+- `cd frontend && npm run check` → passed, 0 errors/warnings.
+- `cd frontend && npm run check:i18n` → passed, 294 keys in both `en` and `ar`.
+- `cd frontend && npm run build` → passed.
+- `docker compose build backend` + `docker compose up -d backend` → passed.
+- `docker compose exec backend python -m pytest tests -q` → **126 passed**, 7 warnings.
+- `docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic heads` → `b8c9d0e1f2a3 (head)`.
+- `docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic current` → `b8c9d0e1f2a3 (head)`.
+- `docker compose build frontend` + `docker compose up -d frontend` → passed.
+
+## 2026-07-07 — S5 pre-commit fix: Subject Groups UX defaults
+
+Bug/UX issue: `/school` → Subject groups required admins to invent `Code` and `English name` even after selecting the academic year, class/grade context, and subject. For the common case, the admin expects to select a class section and subject, then add the group.
+
+### What changed
+
+- Subject Groups now auto-generates editable defaults once the form has:
+  - academic year,
+  - subject,
+  - either class section or grade/year level.
+- Section-specific default:
+  - code: `{ClassSection.code}-{Subject.code}` uppercased, e.g. `KG1A-ENG`;
+  - name: `{Class Section Name} {Subject Name}`, e.g. `KG 1 A English`.
+- Grade-level/cross-section default:
+  - code: `{GradeLevel.code}-{Subject.code}` uppercased, e.g. `KG1-ENG`;
+  - name: `{Grade Name} {Subject Name}`, e.g. `KG 1 English`.
+- Defaults only update while the field is blank or still matches the previous generated value. If the admin edits code or English name manually, later dropdown changes no longer overwrite that custom text.
+- Added helper text explaining that a subject group is the teaching group for a subject.
+- Added a simple context selector:
+  - Section-specific;
+  - Grade-level / cross-section.
+  The form now shows only the relevant class-section or grade/year-level selector, reducing ambiguity.
+- Backend validation is unchanged: API/import callers still must provide deterministic `code` and `name`.
+
+### Manual validation cases
+
+- Select class section `KG 1 A` and subject `English` → code/name auto-fill from section and subject.
+- Clear/change subject → generated defaults update or clear only if fields still match generated values.
+- Manually edit code/name → changing dropdowns does not overwrite custom values.
+- Create section-specific group successfully.
+- Create grade-level/cross-section group successfully.
+- Duplicate record still shows the existing clear duplicate message.
+- Missing required fields still show readable validation messages, not `[object Object]`.
+
+### Validation
+
+- `cd frontend && npm run check` → passed, 0 errors/warnings.
+- `cd frontend && npm run check:i18n` → passed, 280 keys in both `en` and `ar`.
+- `cd frontend && npm run build` → passed.
+- `docker compose exec backend python -m pytest tests -q` → **123 passed**, 7 warnings.
+- `docker compose build frontend` → passed.
+- `docker compose up -d frontend` → passed.
+
+## 2026-07-07 — S5 pre-commit fix: readable form/API errors
+
+Bug: `/school` → Subject groups could show `[object Object],[object Object]` when the backend returned FastAPI/Pydantic validation errors, for example when required fields such as English name were missing. The root cause was the frontend API wrapper converting `error.detail` directly into an `Error`, which coerced validation arrays/objects to unreadable object strings.
+
+### What changed
+
+- Added `frontend/src/lib/errors.ts` with `normalizeErrorMessage(...)`.
+  - Handles strings, `{detail: "..."}`, FastAPI `{detail: [{loc,msg,type}]}`, nested objects, arrays, network/text errors, and unknown values.
+  - Filters useless `[object Object]` and traceback-like content.
+  - Used by `frontend/src/lib/api.ts`, so login/magic-link, invite accept, school setup, and teacher screens all get readable API errors by default.
+- Added lightweight field-level validation in `/school` setup/S5 forms.
+  - Code and English name required on all setup entities.
+  - Academic year, branch/campus, grade/year level, subject, and subject-group context are checked before submit where required.
+  - Teacher invite email is required and checked with a simple email pattern.
+  - Homeroom assignment requires a class section; subject assignment requires a subject group.
+- `TextInput`, `SelectInput`, and `CrudBlock` now support inline error text and red invalid styling without adding a form framework.
+- Added EN/AR i18n strings for validation messages.
+
+### Manual validation cases
+
+Covered by the new client-side validation and shared API formatter:
+
+- Subject group missing English name → `English name is required.` with the English-name input marked invalid.
+- Missing code → `Code is required.` with the code input marked invalid.
+- Missing subject-group context → `Select a class section or grade level.` shown on the context selectors.
+- Missing teacher invite email → `Teacher email is required.` with the email input marked invalid.
+- Invalid teacher invite email → `Enter a valid teacher email.`
+- Missing homeroom assignment target → `Select a class section.`
+- Missing subject assignment target → `Select a subject group.`
+- Duplicate setup records still surface backend duplicate messages such as `An active record with this code already exists.`
+- Magic-link/backend validation errors now pass through `normalizeErrorMessage(...)` instead of showing object coercions.
+
+### Validation
+
+- `docker compose build backend frontend` → passed.
+- `docker compose up -d backend frontend` → passed.
+- `docker compose exec backend python -m pytest tests -q` → **123 passed**, 7 warnings.
+- `cd frontend && npm run check` → passed, 0 errors/warnings.
+- `cd frontend && npm run check:i18n` → passed, 274 keys in both `en` and `ar`.
+- `cd frontend && npm run build` → passed.
+- `docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic heads` → `b8c9d0e1f2a3 (head)`.
+- `docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic current` → `b8c9d0e1f2a3 (head)`.
+
+## 2026-07-07 — S5 Teachers & Assignments
+
+Scope: teachers and staff assignments only. No students, enrolments, CSV import, guardian onboarding, parent dashboard, posts/photos, diary/homework, behaviour points, messaging, notifications, rooms, timetables, terms/semesters, rollover, branding, demo seed data, bulk import, or WhatsApp integration were implemented.
+
+### Decisions
+
+- Teachers remain normal `users` with active `memberships.role = "teacher"` rows. All teacher assignment and dashboard access is based on membership id, not user id.
+- Homeroom teachers are represented only by `staff_assignments` rows with `role = "homeroom"` and `class_section_id`; there is no direct homeroom field on `class_sections`.
+- Staff assignments are date-bounded history rows. They have no active/inactive/archived lifecycle. Closing sets `valid_to`; rows are not deleted or overwritten.
+- `valid_to` is treated as an exclusive end date for active-scope checks, so closing an assignment with today's date removes it from `/teach` and `require_teacher_of` immediately.
+- New assignments reject archived and inactive targets. Inactive records stay visible/editable in setup, but are deliberately not assignable for new teacher relationships.
+- Homeroom assignment is singular per class section and singular per teacher in this slice: assigning a teacher to a new homeroom closes that teacher's previous open homeroom row and creates a new row. Subject assignments can be multiple concurrent subject groups and are closed explicitly.
+- Platform admins still do not bypass school-admin membership requirements for `/api/school` teacher management.
+
+### Migration added
+
+- `alembic/versions/b8c9d0e1f2a3_add_staff_assignments.py`
+  - Adds `staff_assignments` with `school_id`, `membership_id`, nullable class-section/subject-group targets, `role`, `valid_from`, `valid_to`, creator, and timestamps.
+  - Adds a check constraint requiring exactly one target (`class_section_id` XOR `subject_group_id`).
+
+### Backend changes
+
+- Generalised staff invite issuance to support `role="teacher"` while preserving school-admin invites.
+- Invite exchange now returns `landing_path` (`/teach` for teachers, `/school` for school admins). Teacher invite acceptance creates or reactivates a teacher membership after enforcing email match, single-use token state, expiry/revocation, and suspended-school rejection.
+- Added school-admin endpoints under `/api/school` for teacher invite create/list/revoke, active teacher listing, assignment list/create/close, and teacher deactivation.
+- Teacher deactivation revokes the teacher membership and closes open assignments in the same operation.
+- Added `/api/teach/dashboard`, returning only the logged-in teacher's own open assignment cards across active teacher memberships and non-suspended schools.
+- Added `require_teacher_of(...)` in `backend/app/school_scope.py` for future class/group scoped teacher routes. It verifies active teacher membership, same-school target ownership, and an open assignment.
+
+### Frontend changes
+
+- `/school` now has a Teachers tab with teacher invite, pending invites, active teachers, homeroom assignment, subject-group assignment, current open assignments, close assignment, and teacher deactivation controls.
+- `/teach` now shows "My classes" cards for open homeroom and subject assignments, or an empty state if the teacher has none.
+- Invite acceptance routes teachers to `/teach` and school admins to `/school` based on the backend exchange response.
+- Top navigation exposes `/platform`, `/school`, and `/teach` according to `/api/me` memberships; multi-role users can see multiple links.
+- Added English and Arabic strings for all new UI.
+
+### Tests added
+
+- Teacher invite lifecycle: invite, duplicate pending supersede, revoke, expired/revoked/used rejection, email mismatch rejection, suspended-school rejection, and accepted invite creates teacher membership.
+- Assignment behavior: homeroom creation, duplicate open assignment rejection, one open homeroom per class section, subject assignment creation, inactive/archived target rejection, close preserves history, reassignment closes old homeroom and creates a new row.
+- Access behavior: teacher sees only own open assignments, unassigned teacher sees an empty dashboard, no-role user gets 403, teacher cannot use school-admin endpoints, platform admin without school membership cannot manage teachers, wrong-school mutations are rejected.
+- `require_teacher_of` passes for assigned teachers and rejects unassigned/closed-assignment access.
+- Audit rows are asserted for invite acceptance, assignment create/close, and teacher deactivation paths.
+
+### Validation
+
+- `docker compose build backend frontend` → passed.
+- `docker compose up -d backend frontend` → passed.
+- `docker compose exec backend python -m pytest tests -q` → **123 passed**, 7 warnings.
+- `cd frontend && npm run check` → passed, 0 errors/warnings.
+- `cd frontend && npm run check:i18n` → passed, 262 keys in both `en` and `ar`.
+- `cd frontend && npm run build` → passed.
+- `docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic heads` → `b8c9d0e1f2a3 (head)`.
+- `docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic current` → after `alembic upgrade head`, `b8c9d0e1f2a3 (head)`.
+
+### Deferred
+
+- Branch-local admin enforcement.
+- Teacher profile/self-service editing.
+- Student rosters and enrolments for teacher classes.
+- Bulk/CSV teacher import and silent-import tooling.
+- Any classroom content features under `/teach` beyond assignment cards.
+
 ## 2026-07-07 — Post-S4 product strategy review (no code changed)
 
 Fable produced an unconstrained post-S4 product strategy review (distribution, notification delivery, teacher habit, pilot design — deliberately not limited to the existing blueprint or code). Full report saved to `docs/product/CLASS_HERO_HUB_PRODUCT_STRATEGY_NOTES.md`; key plan-impacting points recorded in blueprint §0b.

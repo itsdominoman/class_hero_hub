@@ -29,6 +29,42 @@
     end_date?: string | null;
   };
   type ChecklistItem = { key: string; label: string; complete: boolean; count: number; required: boolean };
+  type Teacher = {
+    membership_id: number;
+    assignment_count: number;
+    user: { id: number; email: string; name?: string | null };
+  };
+  type StaffInvite = {
+    id: number;
+    email: string;
+    status: string;
+    send_status?: string;
+    created_at?: string;
+  };
+  type StaffAssignment = {
+    id: number;
+    role: string;
+    class_section_id?: number | null;
+    subject_group_id?: number | null;
+    valid_from: string;
+    valid_to?: string | null;
+    is_open: boolean;
+    class_section?: Row | null;
+    subject_group?: Row | null;
+  };
+  type BulkSubjectGroupResult = {
+    created: number;
+    restored: number;
+    skipped: number;
+    failed: number;
+    results: {
+      class_section_id: number;
+      status: string;
+      reason?: string | null;
+      class_section?: Row;
+      subject_group?: Row;
+    }[];
+  };
 
   const tabs = [
     { key: 'checklist', label: 'school.tabs.checklist' },
@@ -38,6 +74,7 @@
     { key: 'years', label: 'school.tabs.years' },
     { key: 'levels', label: 'school.tabs.levels' },
     { key: 'sections', label: 'school.tabs.sections' },
+    { key: 'teachers', label: 'school.tabs.teachers' },
     { key: 'subjects', label: 'school.tabs.subjects' },
     { key: 'groups', label: 'school.tabs.groups' }
   ];
@@ -48,6 +85,7 @@
   let editingId = $state<number | null>(null);
   let error = $state<string | null>(null);
   let notice = $state<string | null>(null);
+  let formErrors = $state<Record<string, string>>({});
   let allowed = $state(false);
   let schoolId = $state<number | null>(null);
   let schoolName = $state('');
@@ -65,6 +103,12 @@
   let sections = $state<Row[]>([]);
   let subjects = $state<Row[]>([]);
   let groups = $state<Row[]>([]);
+  let teachers = $state<Teacher[]>([]);
+  let pendingTeacherInvites = $state<StaffInvite[]>([]);
+  let teacherAssignments = $state<Record<number, StaffAssignment[]>>({});
+  let teacherInviteEmail = $state('');
+  let homeroomSelections = $state<Record<number, string>>({});
+  let groupSelections = $state<Record<number, string>>({});
 
   let branchForm = $state(baseForm('MAIN', 'Main Branch'));
   let stageForm = $state(baseForm('PRIMARY', 'Primary'));
@@ -73,6 +117,12 @@
   let sectionForm = $state({ ...baseForm('A', ''), branch_campus_id: '', academic_year_id: '', grade_level_id: '' });
   let subjectForm = $state(baseForm('ENG', 'English'));
   let groupForm = $state({ ...baseForm('', ''), academic_year_id: '', class_section_id: '', grade_level_id: '', subject_id: '' });
+  let groupContextMode = $state<'section' | 'grade'>('section');
+  let lastAutoGroupCode = $state('');
+  let lastAutoGroupName = $state('');
+  let bulkGroupForm = $state({ academic_year_id: '', grade_level_id: '', subject_id: '', class_section_ids: [] as string[] });
+  let bulkGroupResult = $state<BulkSubjectGroupResult | null>(null);
+  let lastBulkSectionKey = $state('');
   let quickLabels = $state('A, B, C');
 
   function baseForm(code = '', name = '') {
@@ -81,6 +131,35 @@
 
   function schoolOptions(): RequestInit {
     return { headers: { 'X-School-Id': String(schoolId) } };
+  }
+
+  function errorKey(scope: string, field: string) {
+    return `${scope}.${field}`;
+  }
+
+  function setValidationErrors(scope: string, errors: Record<string, string>) {
+    formErrors = Object.fromEntries(Object.entries(errors).map(([field, message]) => [errorKey(scope, field), message]));
+    error = Object.values(errors)[0] || $_('school.validation.fixErrors');
+  }
+
+  function fieldError(scope: string, field: string) {
+    return formErrors[errorKey(scope, field)] || '';
+  }
+
+  function clearValidation() {
+    formErrors = {};
+  }
+
+  function validateRequiredText(scope: string, form: { code?: string; name?: string }) {
+    const errors: Record<string, string> = {};
+    if (!form.code?.trim()) errors.code = $_('school.validation.codeRequired');
+    if (!form.name?.trim()) errors.name = $_('school.validation.nameRequired');
+    if (Object.keys(errors).length) {
+      setValidationErrors(scope, errors);
+      return false;
+    }
+    clearValidation();
+    return true;
   }
 
   function rowName(rows: Row[], id?: number | string | null) {
@@ -104,12 +183,42 @@
     return rowName(subjects, id);
   }
 
+  function findRow(rows: Row[], id?: number | string | null) {
+    const numericId = Number(id);
+    return rows.find((row) => row.id === numericId);
+  }
+
   function currentYearId() {
     return years.find((year) => year.is_current && year.status !== 'archived')?.id;
   }
 
   function defaultYearValue() {
     return idStr(currentYearId() ?? years[0]?.id);
+  }
+
+  function nextSort(rows: Row[], filter: (row: Row) => boolean = () => true) {
+    const values = rows.filter(filter).map((row) => Number(row.sort_order || 0));
+    return values.length ? Math.max(...values) + 10 : 10;
+  }
+
+  function applyNewSortDefaults() {
+    if (editingPath) return;
+    branchForm.sort_order = nextSort(branches);
+    stageForm.sort_order = nextSort(stages);
+    yearForm.sort_order = nextSort(years);
+    levelForm.sort_order = nextSort(levels);
+    subjectForm.sort_order = nextSort(subjects);
+    sectionForm.sort_order = nextSort(
+      sections,
+      (row) =>
+        row.branch_campus_id === Number(sectionForm.branch_campus_id) &&
+        row.academic_year_id === Number(sectionForm.academic_year_id) &&
+        row.grade_level_id === Number(sectionForm.grade_level_id)
+    );
+    groupForm.sort_order =
+      groupContextMode === 'section'
+        ? nextSort(groups, (row) => row.class_section_id === Number(groupForm.class_section_id))
+        : nextSort(groups, (row) => row.grade_level_id === Number(groupForm.grade_level_id));
   }
 
   async function loadMe() {
@@ -128,7 +237,7 @@
   async function loadAll() {
     if (!schoolId) return;
     const options = schoolOptions();
-    const [settings, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows] = await Promise.all([
+    const [settings, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData] = await Promise.all([
       api.get('/school/settings', options),
       api.get('/school/setup-checklist', options),
       api.get('/school/branches', options),
@@ -137,7 +246,8 @@
       api.get('/school/grade-levels', options),
       api.get('/school/class-sections', options),
       api.get('/school/subjects', options),
-      api.get('/school/subject-groups', options)
+      api.get('/school/subject-groups', options),
+      api.get('/school/teachers', options)
     ]);
     gradeLevelLabel = settings.grade_level_label || 'Grade';
     labelChoice = ['Grade', 'Year', 'Form', 'Level'].includes(gradeLevelLabel) ? gradeLevelLabel : 'custom';
@@ -151,9 +261,17 @@
     sections = sectionRows;
     subjects = subjectRows;
     groups = groupRows;
+    teachers = teacherData.teachers || [];
+    pendingTeacherInvites = teacherData.pending_invites || [];
+    const assignmentPairs = await Promise.all(
+      teachers.map(async (teacher) => [teacher.membership_id, await api.get(`/school/teachers/${teacher.membership_id}/assignments`, options)] as const)
+    );
+    teacherAssignments = Object.fromEntries(assignmentPairs);
     const defaultYear = defaultYearValue();
     if (!sectionForm.academic_year_id) sectionForm.academic_year_id = defaultYear;
     if (!groupForm.academic_year_id) groupForm.academic_year_id = defaultYear;
+    if (!bulkGroupForm.academic_year_id) bulkGroupForm.academic_year_id = defaultYear;
+    applyNewSortDefaults();
   }
 
   async function refresh() {
@@ -195,13 +313,18 @@
   }
 
   function resetForm(path: string) {
-    if (path === 'branches') branchForm = baseForm('', '');
-    else if (path === 'education-stages') stageForm = baseForm('', '');
-    else if (path === 'academic-years') yearForm = { ...baseForm('', ''), is_current: false, start_date: '', end_date: '' };
-    else if (path === 'subjects') subjectForm = baseForm('', '');
-    else if (path === 'grade-levels') levelForm = { ...baseForm('', ''), education_stage_id: '' };
-    else if (path === 'class-sections') sectionForm = { ...baseForm('', ''), branch_campus_id: '', academic_year_id: defaultYearValue(), grade_level_id: '' };
-    else if (path === 'subject-groups') groupForm = { ...baseForm('', ''), academic_year_id: defaultYearValue(), class_section_id: '', grade_level_id: '', subject_id: '' };
+    if (path === 'branches') branchForm = { ...baseForm('', ''), sort_order: nextSort(branches) };
+    else if (path === 'education-stages') stageForm = { ...baseForm('', ''), sort_order: nextSort(stages) };
+    else if (path === 'academic-years') yearForm = { ...baseForm('', ''), sort_order: nextSort(years), is_current: false, start_date: '', end_date: '' };
+    else if (path === 'subjects') subjectForm = { ...baseForm('', ''), sort_order: nextSort(subjects) };
+    else if (path === 'grade-levels') levelForm = { ...baseForm('', ''), sort_order: nextSort(levels), education_stage_id: '' };
+    else if (path === 'class-sections') sectionForm = { ...baseForm('', ''), sort_order: nextSort(sections), branch_campus_id: '', academic_year_id: defaultYearValue(), grade_level_id: '' };
+    else if (path === 'subject-groups') {
+      groupForm = { ...baseForm('', ''), sort_order: nextSort(groups), academic_year_id: defaultYearValue(), class_section_id: '', grade_level_id: '', subject_id: '' };
+      groupContextMode = 'section';
+      lastAutoGroupCode = '';
+      lastAutoGroupName = '';
+    }
   }
 
   function cancelEdit() {
@@ -209,6 +332,7 @@
     editingPath = null;
     editingId = null;
     notice = null;
+    clearValidation();
   }
 
   function selectTab(key: string) {
@@ -241,7 +365,79 @@
       form.class_section_id = idStr(row.class_section_id);
       form.grade_level_id = idStr(row.grade_level_id);
       form.subject_id = idStr(row.subject_id);
+      groupContextMode = row.class_section_id ? 'section' : 'grade';
+      lastAutoGroupCode = '';
+      lastAutoGroupName = '';
     }
+  }
+
+  function groupAutoDefaults() {
+    if (!groupForm.academic_year_id || !groupForm.subject_id) return null;
+    const subject = findRow(subjects, groupForm.subject_id);
+    if (!subject) return null;
+    const context = groupContextMode === 'section' ? findRow(sections, groupForm.class_section_id) : findRow(levels, groupForm.grade_level_id);
+    if (!context) return null;
+    const grade = groupContextMode === 'section' ? findRow(levels, context.grade_level_id) : context;
+    const contextCode = groupContextMode === 'section' ? `${compactCode(grade?.code)}${compactCode(context.code)}` : compactCode(context.code);
+    return {
+      code: `${contextCode}-${compactCode(subject.code)}`,
+      name: `${context.name} ${subject.name}`.trim()
+    };
+  }
+
+  function compactCode(value?: string | null) {
+    return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
+  function applyGroupAutoDefaults() {
+    if (editingPath === 'subject-groups') return;
+    const defaults = groupAutoDefaults();
+    if (!defaults) {
+      if (lastAutoGroupCode && groupForm.code === lastAutoGroupCode) groupForm.code = '';
+      if (lastAutoGroupName && groupForm.name === lastAutoGroupName) groupForm.name = '';
+      lastAutoGroupCode = '';
+      lastAutoGroupName = '';
+      return;
+    }
+
+    if (!groupForm.code.trim() || groupForm.code === lastAutoGroupCode) {
+      groupForm.code = defaults.code;
+      lastAutoGroupCode = defaults.code;
+    }
+    if (!groupForm.name.trim() || groupForm.name === lastAutoGroupName) {
+      groupForm.name = defaults.name;
+      lastAutoGroupName = defaults.name;
+    }
+  }
+
+  function setGroupContextMode(mode: 'section' | 'grade') {
+    groupContextMode = mode;
+    if (mode === 'section') groupForm.grade_level_id = '';
+    else groupForm.class_section_id = '';
+    applyGroupAutoDefaults();
+  }
+
+  function eligibleBulkSections() {
+    return sections.filter(
+      (section) =>
+        section.status === 'active' &&
+        section.academic_year_id === Number(bulkGroupForm.academic_year_id) &&
+        section.grade_level_id === Number(bulkGroupForm.grade_level_id)
+    );
+  }
+
+  function toggleBulkSection(sectionId: number, checked: boolean) {
+    const id = String(sectionId);
+    if (checked && !bulkGroupForm.class_section_ids.includes(id)) {
+      bulkGroupForm.class_section_ids = [...bulkGroupForm.class_section_ids, id];
+    }
+    if (!checked) {
+      bulkGroupForm.class_section_ids = bulkGroupForm.class_section_ids.filter((current) => current !== id);
+    }
+  }
+
+  function selectAllBulkSections() {
+    bulkGroupForm.class_section_ids = eligibleBulkSections().map((section) => String(section.id));
   }
 
   // Create when not editing this block, otherwise update the row being edited.
@@ -250,6 +446,7 @@
     saving = true;
     error = null;
     notice = null;
+    clearValidation();
     try {
       if (editingPath === path && editingId != null) {
         await api.put(`/school/${path}/${editingId}`, payload, schoolOptions());
@@ -269,6 +466,7 @@
   }
 
   function saveRow(path: string, form: any) {
+    if (!validateRequiredText(path, form)) return;
     return saveVia(path, payloadFrom(form), () => resetForm(path));
   }
 
@@ -282,6 +480,7 @@
   }
 
   function saveYear() {
+    if (!validateRequiredText('academic-years', yearForm)) return;
     return saveVia('academic-years', yearPayload(), () => resetForm('academic-years'));
   }
 
@@ -326,6 +525,17 @@
   }
 
   function saveSection() {
+    const errors: Record<string, string> = {};
+    if (!sectionForm.branch_campus_id) errors.branch_campus_id = $_('school.validation.branchRequired');
+    if (!sectionForm.academic_year_id) errors.academic_year_id = $_('school.validation.yearRequired');
+    if (!sectionForm.grade_level_id) errors.grade_level_id = $_('school.validation.gradeRequired');
+    if (!sectionForm.code?.trim()) errors.code = $_('school.validation.codeRequired');
+    if (!sectionForm.name?.trim()) errors.name = $_('school.validation.nameRequired');
+    if (Object.keys(errors).length) {
+      setValidationErrors('class-sections', errors);
+      return;
+    }
+    clearValidation();
     return saveVia('class-sections', sectionPayload(), () => resetForm('class-sections'));
   }
 
@@ -337,6 +547,7 @@
   }
 
   function saveLevel() {
+    if (!validateRequiredText('grade-levels', levelForm)) return;
     return saveVia('grade-levels', levelPayload(), () => resetForm('grade-levels'));
   }
 
@@ -346,6 +557,7 @@
     if (!labels.length) return;
     saving = true;
     error = null;
+    clearValidation();
     try {
       for (const label of labels) {
         const level = levelName(sectionForm.grade_level_id);
@@ -367,15 +579,195 @@
     return {
       ...payloadFrom(groupForm),
       academic_year_id: Number(groupForm.academic_year_id),
-      class_section_id: groupForm.class_section_id ? Number(groupForm.class_section_id) : null,
-      grade_level_id: groupForm.grade_level_id ? Number(groupForm.grade_level_id) : null,
+      class_section_id: groupContextMode === 'section' && groupForm.class_section_id ? Number(groupForm.class_section_id) : null,
+      grade_level_id: groupContextMode === 'grade' && groupForm.grade_level_id ? Number(groupForm.grade_level_id) : null,
       subject_id: Number(groupForm.subject_id)
     };
   }
 
   function saveGroup() {
+    const errors: Record<string, string> = {};
+    if (!groupForm.academic_year_id) errors.academic_year_id = $_('school.validation.yearRequired');
+    if (groupContextMode === 'section' && !groupForm.class_section_id) errors.class_section_id = $_('school.validation.sectionRequired');
+    if (groupContextMode === 'grade' && !groupForm.grade_level_id) errors.grade_level_id = $_('school.validation.gradeRequired');
+    if (!groupForm.subject_id) errors.subject_id = $_('school.validation.subjectRequired');
+    if (!groupForm.code?.trim()) errors.code = $_('school.validation.codeRequired');
+    if (!groupForm.name?.trim()) errors.name = $_('school.validation.nameRequired');
+    if (Object.keys(errors).length) {
+      setValidationErrors('subject-groups', errors);
+      return;
+    }
+    clearValidation();
     return saveVia('subject-groups', groupPayload(), () => resetForm('subject-groups'));
   }
+
+  async function bulkCreateSubjectGroups() {
+    if (!schoolId) return;
+    const errors: Record<string, string> = {};
+    if (!bulkGroupForm.academic_year_id) errors.academic_year_id = $_('school.validation.yearRequired');
+    if (!bulkGroupForm.grade_level_id) errors.grade_level_id = $_('school.validation.gradeRequired');
+    if (!bulkGroupForm.subject_id) errors.subject_id = $_('school.validation.subjectRequired');
+    if (!bulkGroupForm.class_section_ids.length) errors.class_section_ids = $_('school.validation.sectionsRequired');
+    if (Object.keys(errors).length) {
+      setValidationErrors('bulk-subject-groups', errors);
+      return;
+    }
+    saving = true;
+    error = null;
+    notice = null;
+    bulkGroupResult = null;
+    clearValidation();
+    try {
+      bulkGroupResult = await api.post('/school/subject-groups/bulk-section', {
+        academic_year_id: Number(bulkGroupForm.academic_year_id),
+        grade_level_id: Number(bulkGroupForm.grade_level_id),
+        subject_id: Number(bulkGroupForm.subject_id),
+        class_section_ids: bulkGroupForm.class_section_ids.map(Number)
+      }, schoolOptions());
+      notice = $_('school.groups.bulkComplete');
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.saveError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function inviteTeacher() {
+    if (!schoolId) return;
+    if (!teacherInviteEmail.trim()) {
+      setValidationErrors('teachers', { email: $_('school.validation.teacherEmailRequired') });
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(teacherInviteEmail.trim())) {
+      setValidationErrors('teachers', { email: $_('school.validation.teacherEmailInvalid') });
+      return;
+    }
+    saving = true;
+    error = null;
+    notice = null;
+    clearValidation();
+    try {
+      const invite = await api.post('/school/teachers/invites', { email: teacherInviteEmail }, schoolOptions());
+      teacherInviteEmail = '';
+      if (invite?.warning) notice = invite.warning;
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.teachers.inviteError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function revokeTeacherInvite(inviteId: number) {
+    if (!schoolId) return;
+    saving = true;
+    error = null;
+    try {
+      await api.delete(`/school/teachers/invites/${inviteId}`, schoolOptions());
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.teachers.revokeError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function assignHomeroom(teacher: Teacher) {
+    const sectionId = Number(homeroomSelections[teacher.membership_id]);
+    if (!schoolId) return;
+    if (!sectionId) {
+      setValidationErrors(`homeroom-${teacher.membership_id}`, { class_section_id: $_('school.validation.sectionRequired') });
+      return;
+    }
+    saving = true;
+    error = null;
+    clearValidation();
+    try {
+      await api.post(`/school/teachers/${teacher.membership_id}/assignments`, { role: 'homeroom', class_section_id: sectionId }, schoolOptions());
+      homeroomSelections[teacher.membership_id] = '';
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.teachers.assignmentError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function assignSubject(teacher: Teacher) {
+    const groupId = Number(groupSelections[teacher.membership_id]);
+    if (!schoolId) return;
+    if (!groupId) {
+      setValidationErrors(`subject-${teacher.membership_id}`, { subject_group_id: $_('school.validation.subjectGroupRequired') });
+      return;
+    }
+    saving = true;
+    error = null;
+    clearValidation();
+    try {
+      await api.post(`/school/teachers/${teacher.membership_id}/assignments`, { role: 'subject', subject_group_id: groupId }, schoolOptions());
+      groupSelections[teacher.membership_id] = '';
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.teachers.assignmentError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function closeAssignment(assignmentId: number) {
+    if (!schoolId) return;
+    saving = true;
+    error = null;
+    try {
+      await api.delete(`/school/assignments/${assignmentId}`, schoolOptions());
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.teachers.assignmentError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function deactivateTeacher(teacher: Teacher) {
+    if (!schoolId || !confirm($_('school.teachers.deactivateConfirm'))) return;
+    saving = true;
+    error = null;
+    try {
+      await api.post(`/school/teachers/${teacher.membership_id}/deactivate`, {}, schoolOptions());
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.teachers.deactivateError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  function assignmentName(assignment: StaffAssignment) {
+    if (assignment.role === 'homeroom') return assignment.class_section?.name || rowName(sections, assignment.class_section_id);
+    return assignment.subject_group?.name || rowName(groups, assignment.subject_group_id);
+  }
+
+  $effect(() => {
+    groupForm.academic_year_id;
+    groupForm.class_section_id;
+    groupForm.grade_level_id;
+    groupForm.subject_id;
+    groupContextMode;
+    sections.length;
+    levels.length;
+    subjects.length;
+    applyGroupAutoDefaults();
+    applyNewSortDefaults();
+  });
+
+  $effect(() => {
+    const key = `${bulkGroupForm.academic_year_id}:${bulkGroupForm.grade_level_id}:${sections.length}`;
+    if (key !== lastBulkSectionKey) {
+      lastBulkSectionKey = key;
+      selectAllBulkSections();
+    }
+  });
 
   onMount(init);
 </script>
@@ -473,15 +865,15 @@
             <button class="btn-hero mt-5 rounded-lg px-5 py-2" disabled={saving} onclick={saveSettings}>{$_('school.save')}</button>
           </div>
         {:else if activeTab === 'branches'}
-          <CrudBlock title={$_('school.branches.title')} rows={branches} path="branches" bind:form={branchForm} {saving} editing={editingPath === 'branches'} onsubmit={() => saveRow('branches', branchForm)} onedit={(row) => editRow('branches', branchForm, row)} oncancel={cancelEdit} onarchive={archiveRow} />
+          <CrudBlock title={$_('school.branches.title')} rows={branches} path="branches" bind:form={branchForm} {saving} editing={editingPath === 'branches'} errors={{ code: fieldError('branches', 'code'), name: fieldError('branches', 'name') }} onsubmit={() => saveRow('branches', branchForm)} onedit={(row) => editRow('branches', branchForm, row)} oncancel={cancelEdit} onarchive={archiveRow} />
         {:else if activeTab === 'stages'}
-          <CrudBlock title={$_('school.stages.title')} rows={stages} path="education-stages" bind:form={stageForm} {saving} editing={editingPath === 'education-stages'} onsubmit={() => saveRow('education-stages', stageForm)} onedit={(row) => editRow('education-stages', stageForm, row)} oncancel={cancelEdit} onarchive={archiveRow} />
+          <CrudBlock title={$_('school.stages.title')} rows={stages} path="education-stages" bind:form={stageForm} {saving} editing={editingPath === 'education-stages'} errors={{ code: fieldError('education-stages', 'code'), name: fieldError('education-stages', 'name') }} onsubmit={() => saveRow('education-stages', stageForm)} onedit={(row) => editRow('education-stages', stageForm, row)} oncancel={cancelEdit} onarchive={archiveRow} />
         {:else if activeTab === 'years'}
           <div class="rounded-lg border border-slate-200 bg-white p-5">
             <h2 class="text-lg font-black text-slate-900">{$_('school.years.title')}</h2>
-            <div class="mt-4 grid gap-3 md:grid-cols-8">
-              <TextInput label={$_('school.code')} bind:value={yearForm.code} />
-              <TextInput label={$_('school.nameEn')} bind:value={yearForm.name} />
+            <div class="mt-4 grid gap-3 md:grid-cols-7">
+              <TextInput label={$_('school.code')} bind:value={yearForm.code} error={fieldError('academic-years', 'code')} />
+              <TextInput label={$_('school.nameEn')} bind:value={yearForm.name} error={fieldError('academic-years', 'name')} />
               <TextInput label={$_('school.nameAr')} bind:value={yearForm.name_ar} />
               <label class="block text-sm font-semibold text-slate-700">
                 {$_('school.years.startDate')}
@@ -491,13 +883,18 @@
                 {$_('school.years.endDate')}
                 <input type="date" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-normal" bind:value={yearForm.end_date} />
               </label>
-              <NumberInput label={$_('school.sortOrder')} bind:value={yearForm.sort_order} />
               <StatusInput bind:value={yearForm.status} />
               <label class="flex items-end gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">
                 <input type="checkbox" bind:checked={yearForm.is_current} />
                 {$_('school.years.current')}
               </label>
             </div>
+            <details class="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+              <summary class="cursor-pointer text-xs font-bold uppercase tracking-wide text-slate-500">{$_('school.advanced')}</summary>
+              <div class="mt-3 max-w-xs">
+                <NumberInput label={$_('school.sortOrderOptional')} bind:value={yearForm.sort_order} />
+              </div>
+            </details>
             <div class="mt-4 flex items-center gap-2">
               <button class="btn-hero inline-flex items-center gap-2 rounded-lg" disabled={saving} onclick={saveYear}>
                 {#if editingPath === 'academic-years'}{$_('school.save')}{:else}<Plus class="h-4 w-4" />{$_('school.add')}{/if}
@@ -511,14 +908,19 @@
         {:else if activeTab === 'levels'}
           <div class="rounded-lg border border-slate-200 bg-white p-5">
             <h2 class="text-lg font-black text-slate-900">{gradeLevelLabel} {$_('school.levels.title')}</h2>
-            <div class="mt-4 grid gap-3 md:grid-cols-6">
-              <TextInput label={$_('school.code')} bind:value={levelForm.code} />
-              <TextInput label={$_('school.nameEn')} bind:value={levelForm.name} />
+            <div class="mt-4 grid gap-3 md:grid-cols-5">
+              <TextInput label={$_('school.code')} bind:value={levelForm.code} error={fieldError('grade-levels', 'code')} />
+              <TextInput label={$_('school.nameEn')} bind:value={levelForm.name} error={fieldError('grade-levels', 'name')} />
               <TextInput label={$_('school.nameAr')} bind:value={levelForm.name_ar} />
               <SelectInput label={$_('school.stages.single')} bind:value={levelForm.education_stage_id} rows={stages} optional />
-              <NumberInput label={$_('school.sortOrder')} bind:value={levelForm.sort_order} />
               <StatusInput bind:value={levelForm.status} />
             </div>
+            <details class="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+              <summary class="cursor-pointer text-xs font-bold uppercase tracking-wide text-slate-500">{$_('school.advanced')}</summary>
+              <div class="mt-3 max-w-xs">
+                <NumberInput label={$_('school.sortOrderOptional')} bind:value={levelForm.sort_order} />
+              </div>
+            </details>
             <div class="mt-4 flex items-center gap-2">
               <button class="btn-hero inline-flex items-center gap-2 rounded-lg" disabled={saving} onclick={saveLevel}>
                 {#if editingPath === 'grade-levels'}{$_('school.save')}{:else}<Plus class="h-4 w-4" />{$_('school.add')}{/if}
@@ -532,16 +934,21 @@
         {:else if activeTab === 'sections'}
           <div class="rounded-lg border border-slate-200 bg-white p-5">
             <h2 class="text-lg font-black text-slate-900">{$_('school.sections.title')}</h2>
-            <div class="mt-4 grid gap-3 md:grid-cols-8">
-              <SelectInput label={$_('school.branches.single')} bind:value={sectionForm.branch_campus_id} rows={branches} />
-              <SelectInput label={$_('school.years.single')} bind:value={sectionForm.academic_year_id} rows={years} />
-              <SelectInput label={gradeLevelLabel} bind:value={sectionForm.grade_level_id} rows={levels} />
-              <TextInput label={$_('school.sectionLabel')} bind:value={sectionForm.code} />
-              <TextInput label={$_('school.nameEn')} bind:value={sectionForm.name} />
+            <div class="mt-4 grid gap-3 md:grid-cols-7">
+              <SelectInput label={$_('school.branches.single')} bind:value={sectionForm.branch_campus_id} rows={branches} error={fieldError('class-sections', 'branch_campus_id')} />
+              <SelectInput label={$_('school.years.single')} bind:value={sectionForm.academic_year_id} rows={years} error={fieldError('class-sections', 'academic_year_id')} />
+              <SelectInput label={gradeLevelLabel} bind:value={sectionForm.grade_level_id} rows={levels} error={fieldError('class-sections', 'grade_level_id')} />
+              <TextInput label={$_('school.sectionLabel')} bind:value={sectionForm.code} error={fieldError('class-sections', 'code')} />
+              <TextInput label={$_('school.nameEn')} bind:value={sectionForm.name} error={fieldError('class-sections', 'name')} />
               <TextInput label={$_('school.nameAr')} bind:value={sectionForm.name_ar} />
-              <NumberInput label={$_('school.sortOrder')} bind:value={sectionForm.sort_order} />
               <StatusInput bind:value={sectionForm.status} />
             </div>
+            <details class="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+              <summary class="cursor-pointer text-xs font-bold uppercase tracking-wide text-slate-500">{$_('school.advanced')}</summary>
+              <div class="mt-3 max-w-xs">
+                <NumberInput label={$_('school.sortOrderOptional')} bind:value={sectionForm.sort_order} />
+              </div>
+            </details>
             <div class="mt-4 flex flex-col gap-3 sm:flex-row">
               <button class="btn-hero inline-flex items-center gap-2 rounded-lg" disabled={saving} onclick={saveSection}>
                 {#if editingPath === 'class-sections'}{$_('school.save')}{:else}<Plus class="h-4 w-4" />{$_('school.add')}{/if}
@@ -557,31 +964,228 @@
             </div>
             <RowsTable rows={sections} extra={(row) => `${branchName(row.branch_campus_id)} · ${yearName(row.academic_year_id)} · ${levelName(row.grade_level_id)}`} onedit={(row) => editRow('class-sections', sectionForm, row)} onarchive={(row) => archiveRow('class-sections', row)} />
           </div>
-        {:else if activeTab === 'subjects'}
-          <CrudBlock title={$_('school.subjects.title')} rows={subjects} path="subjects" bind:form={subjectForm} {saving} editing={editingPath === 'subjects'} onsubmit={() => saveRow('subjects', subjectForm)} onedit={(row) => editRow('subjects', subjectForm, row)} oncancel={cancelEdit} onarchive={archiveRow} />
-        {:else if activeTab === 'groups'}
-          <div class="rounded-lg border border-slate-200 bg-white p-5">
-            <h2 class="text-lg font-black text-slate-900">{$_('school.groups.title')}</h2>
-            <div class="mt-4 grid gap-3 md:grid-cols-9">
-              <SelectInput label={$_('school.years.single')} bind:value={groupForm.academic_year_id} rows={years} />
-              <SelectInput label={$_('school.sections.single')} bind:value={groupForm.class_section_id} rows={sections} optional />
-              <SelectInput label={gradeLevelLabel} bind:value={groupForm.grade_level_id} rows={levels} optional />
-              <SelectInput label={$_('school.subjects.single')} bind:value={groupForm.subject_id} rows={subjects} />
-              <TextInput label={$_('school.code')} bind:value={groupForm.code} />
-              <TextInput label={$_('school.nameEn')} bind:value={groupForm.name} />
-              <TextInput label={$_('school.nameAr')} bind:value={groupForm.name_ar} />
-              <NumberInput label={$_('school.sortOrder')} bind:value={groupForm.sort_order} />
-              <StatusInput bind:value={groupForm.status} />
+        {:else if activeTab === 'teachers'}
+          <div class="space-y-5">
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h2 class="text-lg font-black text-slate-900">{$_('school.teachers.inviteTitle')}</h2>
+              <form class="mt-4 flex flex-col gap-3 sm:flex-row" onsubmit={(event) => { event.preventDefault(); inviteTeacher(); }}>
+                <div class="min-w-0 flex-1">
+                  <input required type="email" bind:value={teacherInviteEmail} placeholder={$_('school.teachers.email')} class={`w-full rounded-lg border px-3 py-3 font-medium ${fieldError('teachers', 'email') ? 'border-red-400 bg-red-50' : 'border-slate-300'}`} aria-invalid={fieldError('teachers', 'email') ? 'true' : 'false'} />
+                  {#if fieldError('teachers', 'email')}
+                    <p class="mt-1 text-xs font-semibold text-red-600">{fieldError('teachers', 'email')}</p>
+                  {/if}
+                </div>
+                <button class="btn-hero rounded-lg px-5 py-3" disabled={saving}>{$_('school.teachers.sendInvite')}</button>
+              </form>
             </div>
-            <div class="mt-4 flex items-center gap-2">
-              <button class="btn-hero inline-flex items-center gap-2 rounded-lg" disabled={saving} onclick={saveGroup}>
-                {#if editingPath === 'subject-groups'}{$_('school.save')}{:else}<Plus class="h-4 w-4" />{$_('school.add')}{/if}
-              </button>
-              {#if editingPath === 'subject-groups'}
-                <button class="btn-secondary rounded-lg" disabled={saving} onclick={cancelEdit}>{$_('school.cancel')}</button>
+
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h2 class="text-lg font-black text-slate-900">{$_('school.teachers.pending')}</h2>
+              {#if pendingTeacherInvites.length === 0}
+                <p class="mt-3 text-sm text-slate-500">{$_('school.teachers.noPending')}</p>
+              {:else}
+                <div class="mt-4 divide-y divide-slate-100">
+                  {#each pendingTeacherInvites as invite}
+                    <div class="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p class="break-all font-bold text-slate-900">{invite.email}</p>
+                        <p class="mt-1 text-sm text-slate-500">{$_(`platform.inviteStatuses.${invite.status}`)} · {invite.send_status || '-'}</p>
+                      </div>
+                      <div class="flex gap-2">
+                        <button class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => { teacherInviteEmail = invite.email; inviteTeacher(); }}>{$_('platform.resend')}</button>
+                        <button class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => revokeTeacherInvite(invite.id)}>{$_('platform.revoke')}</button>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
               {/if}
             </div>
-            <RowsTable rows={groups} extra={(row) => `${yearName(row.academic_year_id)} · ${row.class_section_id ? rowName(sections, row.class_section_id) : levelName(row.grade_level_id)} · ${subjectName(row.subject_id)}`} onedit={(row) => editRow('subject-groups', groupForm, row)} onarchive={(row) => archiveRow('subject-groups', row)} />
+
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h2 class="text-lg font-black text-slate-900">{$_('school.teachers.active')}</h2>
+              {#if teachers.length === 0}
+                <p class="mt-3 text-sm text-slate-500">{$_('school.teachers.empty')}</p>
+              {:else}
+                <div class="mt-4 space-y-4">
+                  {#each teachers as teacher}
+                    <div class="rounded-lg border border-slate-200 p-4">
+                      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div>
+                          <h3 class="font-black text-slate-900">{teacher.user.name || teacher.user.email}</h3>
+                          <p class="mt-1 break-all text-sm text-slate-500">{teacher.user.email}</p>
+                          <p class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{teacher.assignment_count} {$_('school.teachers.assignments')}</p>
+                        </div>
+                        <button class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => deactivateTeacher(teacher)}>{$_('school.teachers.deactivate')}</button>
+                      </div>
+
+                      <div class="mt-4 grid gap-3 lg:grid-cols-2">
+                        <div class="rounded-lg border border-slate-100 p-3">
+                          <p class="text-sm font-bold text-slate-800">{$_('school.teachers.assignHomeroom')}</p>
+                          <div class="mt-3 flex gap-2">
+                            <div class="min-w-0 flex-1">
+                              <SelectInput label={$_('school.sections.single')} bind:value={homeroomSelections[teacher.membership_id]} rows={sections} optional error={fieldError(`homeroom-${teacher.membership_id}`, 'class_section_id')} />
+                            </div>
+                            <button class="btn-hero self-end rounded-lg px-4 py-2" disabled={saving} onclick={() => assignHomeroom(teacher)}>{$_('school.teachers.assign')}</button>
+                          </div>
+                        </div>
+                        <div class="rounded-lg border border-slate-100 p-3">
+                          <p class="text-sm font-bold text-slate-800">{$_('school.teachers.assignSubject')}</p>
+                          <div class="mt-3 flex gap-2">
+                            <div class="min-w-0 flex-1">
+                              <SelectInput label={$_('school.groups.title')} bind:value={groupSelections[teacher.membership_id]} rows={groups} optional error={fieldError(`subject-${teacher.membership_id}`, 'subject_group_id')} />
+                            </div>
+                            <button class="btn-hero self-end rounded-lg px-4 py-2" disabled={saving} onclick={() => assignSubject(teacher)}>{$_('school.teachers.assign')}</button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="mt-4">
+                        <p class="text-sm font-bold text-slate-800">{$_('school.teachers.currentAssignments')}</p>
+                        {#if !(teacherAssignments[teacher.membership_id] || []).some((assignment) => assignment.is_open)}
+                          <p class="mt-2 text-sm text-slate-500">{$_('school.teachers.noAssignments')}</p>
+                        {:else}
+                          <div class="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-100">
+                            {#each (teacherAssignments[teacher.membership_id] || []).filter((assignment) => assignment.is_open) as assignment}
+                              <div class="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                  <p class="font-semibold text-slate-900">{assignmentName(assignment)}</p>
+                                  <p class="mt-1 text-sm text-slate-500">{$_(`school.teachers.roles.${assignment.role}`)} · {assignment.valid_from}</p>
+                                </div>
+                                <button class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => closeAssignment(assignment.id)}>{$_('school.teachers.closeAssignment')}</button>
+                              </div>
+                            {/each}
+                          </div>
+                        {/if}
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          </div>
+        {:else if activeTab === 'subjects'}
+          <CrudBlock title={$_('school.subjects.title')} rows={subjects} path="subjects" bind:form={subjectForm} {saving} editing={editingPath === 'subjects'} errors={{ code: fieldError('subjects', 'code'), name: fieldError('subjects', 'name') }} onsubmit={() => saveRow('subjects', subjectForm)} onedit={(row) => editRow('subjects', subjectForm, row)} oncancel={cancelEdit} onarchive={archiveRow} />
+        {:else if activeTab === 'groups'}
+          <div class="space-y-5">
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h2 class="text-lg font-black text-slate-900">{$_('school.groups.title')}</h2>
+              <p class="mt-2 max-w-3xl text-sm text-slate-600">{$_('school.groups.help')}</p>
+              <p class="mt-2 max-w-3xl text-sm font-semibold text-slate-700">{$_('school.groups.recommendation')}</p>
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h3 class="text-base font-black text-slate-900">{$_('school.groups.singleCreate')}</h3>
+              <div class="mt-4 grid gap-3 md:grid-cols-4">
+                <SelectInput label={$_('school.years.single')} bind:value={groupForm.academic_year_id} rows={years} error={fieldError('subject-groups', 'academic_year_id')} />
+                <SelectInput label={$_('school.subjects.single')} bind:value={groupForm.subject_id} rows={subjects} error={fieldError('subject-groups', 'subject_id')} />
+                <div class="md:col-span-2">
+                  <p class="text-sm font-semibold text-slate-700">{$_('school.groups.contextType')}</p>
+                  <div class="mt-1 grid gap-2 sm:grid-cols-2">
+                    <button type="button" class={`rounded-lg border px-3 py-2 text-left text-sm font-semibold ${groupContextMode === 'section' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700'}`} onclick={() => setGroupContextMode('section')}>
+                      {$_('school.groups.sectionSpecific')}
+                      <span class={`mt-1 block text-xs font-medium ${groupContextMode === 'section' ? 'text-slate-200' : 'text-slate-500'}`}>{$_('school.groups.sectionSpecificHelp')}</span>
+                    </button>
+                    <button type="button" class={`rounded-lg border px-3 py-2 text-left text-sm font-semibold ${groupContextMode === 'grade' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700'}`} onclick={() => setGroupContextMode('grade')}>
+                      {$_('school.groups.gradeLevel')}
+                      <span class={`mt-1 block text-xs font-medium ${groupContextMode === 'grade' ? 'text-slate-200' : 'text-slate-500'}`}>{$_('school.groups.gradeLevelHelp')}</span>
+                    </button>
+                  </div>
+                </div>
+                {#if groupContextMode === 'section'}
+                  <SelectInput label={$_('school.sections.single')} bind:value={groupForm.class_section_id} rows={sections} error={fieldError('subject-groups', 'class_section_id')} />
+                {:else}
+                  <SelectInput label={gradeLevelLabel} bind:value={groupForm.grade_level_id} rows={levels} error={fieldError('subject-groups', 'grade_level_id')} />
+                {/if}
+                <TextInput label={$_('school.code')} bind:value={groupForm.code} error={fieldError('subject-groups', 'code')} />
+                <TextInput label={$_('school.nameEn')} bind:value={groupForm.name} error={fieldError('subject-groups', 'name')} />
+                <TextInput label={$_('school.nameAr')} bind:value={groupForm.name_ar} />
+                <StatusInput bind:value={groupForm.status} />
+              </div>
+              <details class="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                <summary class="cursor-pointer text-xs font-bold uppercase tracking-wide text-slate-500">{$_('school.advanced')}</summary>
+                <div class="mt-3 max-w-xs">
+                  <NumberInput label={$_('school.sortOrderOptional')} bind:value={groupForm.sort_order} />
+                </div>
+              </details>
+              <div class="mt-4 flex items-center gap-2">
+                <button class="btn-hero inline-flex items-center gap-2 rounded-lg" disabled={saving} onclick={saveGroup}>
+                  {#if editingPath === 'subject-groups'}{$_('school.save')}{:else}<Plus class="h-4 w-4" />{$_('school.add')}{/if}
+                </button>
+                {#if editingPath === 'subject-groups'}
+                  <button class="btn-secondary rounded-lg" disabled={saving} onclick={cancelEdit}>{$_('school.cancel')}</button>
+                {/if}
+              </div>
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h3 class="text-base font-black text-slate-900">{$_('school.groups.bulkTitle')}</h3>
+              <p class="mt-2 max-w-3xl text-sm text-slate-600">{$_('school.groups.bulkHelp')}</p>
+              <div class="mt-4 grid gap-3 md:grid-cols-3">
+                <SelectInput label={$_('school.years.single')} bind:value={bulkGroupForm.academic_year_id} rows={years} error={fieldError('bulk-subject-groups', 'academic_year_id')} />
+                <SelectInput label={gradeLevelLabel} bind:value={bulkGroupForm.grade_level_id} rows={levels} error={fieldError('bulk-subject-groups', 'grade_level_id')} />
+                <SelectInput label={$_('school.subjects.single')} bind:value={bulkGroupForm.subject_id} rows={subjects} error={fieldError('bulk-subject-groups', 'subject_id')} />
+              </div>
+
+              <div class={`mt-4 rounded-lg border p-3 ${fieldError('bulk-subject-groups', 'class_section_ids') ? 'border-red-300 bg-red-50' : 'border-slate-100 bg-slate-50'}`}>
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p class="text-sm font-bold text-slate-800">{$_('school.groups.sectionsToCreate')}</p>
+                  <button class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving || eligibleBulkSections().length === 0} onclick={selectAllBulkSections}>{$_('school.groups.selectAll')}</button>
+                </div>
+                {#if fieldError('bulk-subject-groups', 'class_section_ids')}
+                  <p class="mt-1 text-xs font-semibold text-red-600">{fieldError('bulk-subject-groups', 'class_section_ids')}</p>
+                {/if}
+                {#if eligibleBulkSections().length === 0}
+                  <p class="mt-3 text-sm text-slate-500">{$_('school.groups.noSectionsForBulk')}</p>
+                {:else}
+                  <div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {#each eligibleBulkSections() as section}
+                      <label class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={bulkGroupForm.class_section_ids.includes(String(section.id))}
+                          onchange={(event) => toggleBulkSection(section.id, event.currentTarget.checked)}
+                        />
+                        {section.name}
+                      </label>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+
+              <button class="btn-hero mt-4 inline-flex items-center gap-2 rounded-lg" disabled={saving || eligibleBulkSections().length === 0} onclick={bulkCreateSubjectGroups}>
+                <Plus class="h-4 w-4" />{$_('school.groups.createGroups')}
+              </button>
+
+              {#if bulkGroupResult}
+                <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <p class="font-bold text-slate-900">
+                    {$_('school.groups.bulkSummary', {
+                      values: {
+                        created: bulkGroupResult.created,
+                        restored: bulkGroupResult.restored,
+                        skipped: bulkGroupResult.skipped,
+                        failed: bulkGroupResult.failed
+                      }
+                    })}
+                  </p>
+                  {#if bulkGroupResult.results.some((item) => item.status === 'failed' || item.status === 'skipped')}
+                    <div class="mt-3 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+                      {#each bulkGroupResult.results.filter((item) => item.status === 'failed' || item.status === 'skipped') as item}
+                        <div class="p-3 text-sm">
+                          <p class="font-bold text-slate-900">{item.class_section?.name || rowName(sections, item.class_section_id)} · {item.status}</p>
+                          <p class="mt-1 text-slate-600">{item.reason}</p>
+                        </div>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              {/if}
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h3 class="text-base font-black text-slate-900">{$_('school.groups.existing')}</h3>
+              <RowsTable rows={groups} extra={(row) => `${yearName(row.academic_year_id)} · ${row.class_section_id ? rowName(sections, row.class_section_id) : levelName(row.grade_level_id)} · ${subjectName(row.subject_id)}`} onedit={(row) => editRow('subject-groups', groupForm, row)} onarchive={(row) => archiveRow('subject-groups', row)} />
+            </div>
           </div>
         {/if}
       </div>

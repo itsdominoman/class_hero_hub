@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
-from app.models_school import AuditLog, Membership, PlatformAdmin, School, User
+from app.models_school import AuditLog, ClassSection, Membership, PlatformAdmin, School, StaffAssignment, SubjectGroup, User
 
 
 def _entity_type_and_id(entity: Any) -> tuple[str, int | None]:
@@ -122,5 +122,98 @@ def require_school_role(*roles: str):
             )
 
         return membership
+
+    return dependency
+
+
+def _target_id_from_request(request: Request, param_name: str) -> int | None:
+    raw_value = request.path_params.get(param_name) or request.query_params.get(param_name)
+    if raw_value is None:
+        return None
+    try:
+        return int(raw_value)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid {param_name}",
+        )
+
+
+def _today():
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).date()
+
+
+def require_teacher_of(
+    *,
+    class_section_param: str = "class_section_id",
+    subject_group_param: str = "subject_group_id",
+):
+    def dependency(
+        request: Request,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> Membership:
+        school_id = _school_id_from_request(request)
+        school = db.query(School).filter(School.id == school_id).first()
+        if not school or (school.status or "").lower() == "suspended":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="School access denied")
+
+        class_section_id = _target_id_from_request(request, class_section_param)
+        subject_group_id = _target_id_from_request(request, subject_group_param)
+        if (class_section_id is None and subject_group_id is None) or (
+            class_section_id is not None and subject_group_id is not None
+        ):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Exactly one teacher target is required")
+
+        teacher_membership = (
+            db.query(Membership)
+            .filter(
+                Membership.school_id == school_id,
+                Membership.user_id == current_user.id,
+                Membership.role == "teacher",
+                Membership.status == "active",
+                Membership.revoked_at.is_(None),
+            )
+            .first()
+        )
+        if not teacher_membership:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Teacher access required")
+
+        if class_section_id is not None:
+            target = (
+                db.query(ClassSection)
+                .filter(ClassSection.id == class_section_id, ClassSection.school_id == school_id)
+                .first()
+            )
+            target_filter = StaffAssignment.class_section_id == class_section_id
+        else:
+            target = (
+                db.query(SubjectGroup)
+                .filter(SubjectGroup.id == subject_group_id, SubjectGroup.school_id == school_id)
+                .first()
+            )
+            target_filter = StaffAssignment.subject_group_id == subject_group_id
+
+        if not target:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Teacher target not found")
+
+        today = _today()
+        assignment = (
+            db.query(StaffAssignment)
+            .filter(
+                StaffAssignment.school_id == school_id,
+                StaffAssignment.membership_id == teacher_membership.id,
+                target_filter,
+                StaffAssignment.valid_from <= today,
+                (StaffAssignment.valid_to.is_(None)) | (StaffAssignment.valid_to > today),
+            )
+            .first()
+        )
+        if not assignment:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Teacher assignment required")
+
+        return teacher_membership
 
     return dependency

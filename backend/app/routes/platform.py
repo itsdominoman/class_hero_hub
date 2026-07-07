@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 STAFF_INVITE_TTL = timedelta(days=7)
 SCHOOL_ADMIN_ROLE = "school_admin"
+TEACHER_ROLE = "teacher"
 
 
 class CreateSchoolRequest(BaseModel):
@@ -75,7 +76,9 @@ def _accept_url(raw_token: str) -> str:
     return f"{settings.PUBLIC_APP_URL.rstrip('/')}/invite/{raw_token}"
 
 
-def _issue_staff_invite(db: Session, school: School, email: str, actor: User) -> tuple[StaffInvite, str, str | None]:
+def _issue_staff_invite(db: Session, school: School, email: str, actor: User, role: str = SCHOOL_ADMIN_ROLE) -> tuple[StaffInvite, str, str | None]:
+    if role not in {SCHOOL_ADMIN_ROLE, TEACHER_ROLE}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported staff invite role")
     normalized_email = _normalize_email(email)
     current = invite_tokens.now_utc()
     pending_invites = (
@@ -83,7 +86,7 @@ def _issue_staff_invite(db: Session, school: School, email: str, actor: User) ->
         .filter(
             StaffInvite.school_id == school.id,
             StaffInvite.email == normalized_email,
-            StaffInvite.role == SCHOOL_ADMIN_ROLE,
+            StaffInvite.role == role,
             StaffInvite.revoked_at.is_(None),
             StaffInvite.accepted_at.is_(None),
         )
@@ -98,7 +101,7 @@ def _issue_staff_invite(db: Session, school: School, email: str, actor: User) ->
     staff_invite = StaffInvite(
         school_id=school.id,
         email=normalized_email,
-        role=SCHOOL_ADMIN_ROLE,
+        role=role,
         token_hash=invite_tokens.hash_token(raw_token),
         invited_by_user_id=actor.id,
         expires_at=current + STAFF_INVITE_TTL,
@@ -421,6 +424,8 @@ def exchange_staff_invite(
 
     staff_invite.accepted_at = current
     staff_invite.accepted_by_user_id = current_user.id
+    if staff_invite.role == SCHOOL_ADMIN_ROLE and (school.status or "").lower() == "pending_setup":
+        school.status = "active"
 
     try:
         db.commit()
@@ -443,4 +448,5 @@ def exchange_staff_invite(
         "status": "accepted",
         "school": {"id": school.id, "name": school.name, "status": school.status},
         "membership": {"id": membership.id, "role": membership.role},
+        "landing_path": "/teach" if membership.role == TEACHER_ROLE else "/school",
     }

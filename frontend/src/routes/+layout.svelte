@@ -7,6 +7,7 @@
 
   type UserSession = {
     is_platform_admin?: boolean;
+    memberships?: { role: string; school_id: number; school_name: string }[];
   };
 
   let { children } = $props();
@@ -33,7 +34,9 @@
 
   onMount(loadSession);
 
-  let dashboardHref = $derived(currentUser ? '/parent' : '/login');
+  let hasSchoolAdmin = $derived(Boolean(currentUser?.memberships?.some((membership) => membership.role === 'school_admin')));
+  let hasTeacher = $derived(Boolean(currentUser?.memberships?.some((membership) => membership.role === 'teacher')));
+  let dashboardHref = $derived(currentUser ? (hasTeacher ? '/teach' : hasSchoolAdmin ? '/school' : currentUser.is_platform_admin ? '/platform' : '/parent') : '/login');
 </script>
 
 <div class="min-h-dvh max-w-full overflow-x-hidden flex flex-col">
@@ -54,6 +57,16 @@
         {#if currentUser && currentUser.is_platform_admin}
           <a href="/platform" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
             {$_('nav.admin')}
+          </a>
+        {/if}
+        {#if currentUser && hasSchoolAdmin}
+          <a href="/school" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
+            {$_('nav.school')}
+          </a>
+        {/if}
+        {#if currentUser && hasTeacher}
+          <a href="/teach" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
+            {$_('nav.teach')}
           </a>
         {/if}
         {#if currentUser}

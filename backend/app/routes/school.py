@@ -4,10 +4,11 @@ from datetime import date
 from typing import Any, Type
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from .. import auth, invite_tokens
 from ..database import get_db
 from ..models_school import (
     AcademicYear,
@@ -17,9 +18,13 @@ from ..models_school import (
     GradeLevel,
     Membership,
     School,
+    StaffAssignment,
+    StaffInvite,
     Subject,
     SubjectGroup,
+    User,
 )
+from .platform import _invite_payload, _issue_staff_invite
 from ..school_scope import require_school_role, write_audit
 
 router = APIRouter(dependencies=[Depends(require_school_role("school_admin"))])
@@ -77,6 +82,28 @@ class SubjectGroupRequest(StructureBase):
     class_section_id: int | None = None
     grade_level_id: int | None = None
     subject_id: int
+
+
+class SubjectGroupBulkRequest(BaseModel):
+    academic_year_id: int
+    grade_level_id: int
+    subject_id: int
+    class_section_ids: list[int] = Field(min_length=1)
+
+
+class TeacherInviteRequest(BaseModel):
+    email: EmailStr
+
+
+class AssignmentRequest(BaseModel):
+    role: str = Field(min_length=1, max_length=40)
+    class_section_id: int | None = None
+    subject_group_id: int | None = None
+    valid_from: date | None = None
+
+
+class CloseAssignmentRequest(BaseModel):
+    valid_to: date | None = None
 
 
 def _clean_text(value: str | None) -> str | None:
@@ -234,6 +261,37 @@ def _active_duplicate_detail(existing_status: str) -> str:
     return "An active record with this code already exists."
 
 
+def _compact_code(value: str | None) -> str:
+    return "".join(ch for ch in (value or "").upper() if ch.isalnum())
+
+
+def _subject_group_defaults(
+    *,
+    subject: Subject,
+    section: ClassSection | None = None,
+    grade_level: GradeLevel | None = None,
+) -> dict[str, str]:
+    subject_code = _compact_code(subject.code)
+    if not subject_code:
+        subject_code = _compact_code(subject.name)
+
+    if section is not None:
+        level_code = _compact_code(getattr(grade_level, "code", None))
+        section_code = _compact_code(section.code)
+        context_code = f"{level_code}{section_code}" if level_code else section_code
+        context_name = section.name
+    elif grade_level is not None:
+        context_code = _compact_code(grade_level.code)
+        context_name = grade_level.name
+    else:
+        raise ValueError("Subject group context required")
+
+    return {
+        "code": f"{context_code}-{subject_code}",
+        "name": f"{context_name} {subject.name}".strip(),
+    }
+
+
 def _restore_row(db: Session, row: Any, cleaned: dict[str, Any], extra: dict[str, Any]) -> Any:
     # Reactivate the archived row in place and refresh its editable fields from
     # the submitted form so the recreated record reflects what the admin typed.
@@ -315,6 +373,99 @@ def _update_row(db: Session, row: Any, payload: StructureBase, *, extra: dict[st
 def _archive_row(db: Session, row: Any):
     row.status = "archived"
     db.commit()
+
+
+def _today() -> date:
+    return invite_tokens.now_utc().date()
+
+
+def _is_open_assignment(row: StaffAssignment, today: date | None = None) -> bool:
+    today = today or _today()
+    return row.valid_from <= today and (row.valid_to is None or row.valid_to > today)
+
+
+def _user_payload(user: User | None) -> dict[str, Any]:
+    return {
+        "id": getattr(user, "id", None),
+        "email": getattr(user, "email", None),
+        "name": getattr(user, "name", None),
+    }
+
+
+def _teacher_membership_or_404(db: Session, school_id: int, membership_id: int) -> Membership:
+    membership = (
+        db.query(Membership)
+        .filter(
+            Membership.id == membership_id,
+            Membership.school_id == school_id,
+            Membership.role == "teacher",
+        )
+        .first()
+    )
+    if not membership:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Teacher membership not found")
+    if membership.status != "active" or membership.revoked_at is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teacher membership is not active")
+    return membership
+
+
+def _ensure_active_target(row: Any, label: str) -> Any:
+    if row.status == "archived":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Archived {label} cannot be assigned")
+    if row.status != "active":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Inactive {label} cannot be assigned")
+    return row
+
+
+def _assignment_payload(db: Session, row: StaffAssignment) -> dict[str, Any]:
+    section = None
+    if row.class_section_id is not None:
+        section_row = db.query(ClassSection).filter(ClassSection.id == row.class_section_id).first()
+        if section_row:
+            section = _payload(section_row)
+    group = None
+    if row.subject_group_id is not None:
+        group_row = db.query(SubjectGroup).filter(SubjectGroup.id == row.subject_group_id).first()
+        if group_row:
+            group = _payload(group_row)
+    return {
+        "id": row.id,
+        "school_id": row.school_id,
+        "membership_id": row.membership_id,
+        "role": row.role,
+        "class_section_id": row.class_section_id,
+        "subject_group_id": row.subject_group_id,
+        "valid_from": row.valid_from,
+        "valid_to": row.valid_to,
+        "created_by_user_id": row.created_by_user_id,
+        "created_at": row.created_at,
+        "updated_at": row.updated_at,
+        "class_section": section,
+        "subject_group": group,
+        "is_open": _is_open_assignment(row),
+    }
+
+
+def _open_assignments_query(db: Session, school_id: int, today: date | None = None):
+    today = today or _today()
+    return db.query(StaffAssignment).filter(
+        StaffAssignment.school_id == school_id,
+        StaffAssignment.valid_from <= today,
+        (StaffAssignment.valid_to.is_(None)) | (StaffAssignment.valid_to > today),
+    )
+
+
+def _close_assignment_row(row: StaffAssignment, valid_to: date | None = None) -> None:
+    close_date = valid_to or _today()
+    if row.valid_to is None or row.valid_to > close_date:
+        row.valid_to = close_date
+
+
+def _assignment_counts(db: Session, school_id: int) -> dict[int, int]:
+    counts: dict[int, int] = {}
+    for row in _open_assignments_query(db, school_id).all():
+        counts[row.membership_id] = counts.get(row.membership_id, 0) + 1
+    return counts
 
 
 def _checklist_item(key: str, label: str, complete: bool, count: int, required: bool = True) -> dict[str, Any]:
@@ -583,6 +734,142 @@ def create_subject_group(payload: SubjectGroupRequest, membership: Membership = 
     return _create_response(db, membership, SubjectGroup, payload, entity="subject_group", extra=_subject_group_extra(db, school_id, payload))
 
 
+@router.post("/subject-groups/bulk-section")
+def bulk_create_section_subject_groups(
+    payload: SubjectGroupBulkRequest,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    year = _ensure_owned(db, AcademicYear, school_id, payload.academic_year_id, "academic_year_id")
+    grade_level = _ensure_owned(db, GradeLevel, school_id, payload.grade_level_id, "grade_level_id")
+    subject = _ensure_owned(db, Subject, school_id, payload.subject_id, "subject_id")
+    for label, row in (("academic_year", year), ("grade_level", grade_level), ("subject", subject)):
+        if row.status == "archived":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Archived {label} cannot be selected")
+        if row.status != "active":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Inactive {label} cannot be selected")
+
+    results: list[dict[str, Any]] = []
+    created = 0
+    restored = 0
+    skipped = 0
+    failed = 0
+
+    seen_section_ids: set[int] = set()
+    for section_id in payload.class_section_ids:
+        if section_id in seen_section_ids:
+            continue
+        seen_section_ids.add(section_id)
+        result: dict[str, Any] = {"class_section_id": section_id, "status": "failed"}
+        section = db.query(ClassSection).filter(ClassSection.id == section_id, ClassSection.school_id == school_id).first()
+        if section is None:
+            result["reason"] = "Class section not found"
+            failed += 1
+            results.append(result)
+            continue
+        result["class_section"] = _payload(section)
+        if section.status == "archived":
+            result["reason"] = "Archived class section cannot be selected"
+            failed += 1
+            results.append(result)
+            continue
+        if section.status != "active":
+            result["reason"] = "Inactive class section cannot be selected"
+            failed += 1
+            results.append(result)
+            continue
+        if section.academic_year_id != payload.academic_year_id:
+            result["reason"] = "Class section does not belong to the selected academic year"
+            failed += 1
+            results.append(result)
+            continue
+        if section.grade_level_id != payload.grade_level_id:
+            result["reason"] = "Class section does not belong to the selected grade/year level"
+            failed += 1
+            results.append(result)
+            continue
+
+        defaults = _subject_group_defaults(subject=subject, section=section, grade_level=grade_level)
+        extra = {
+            "academic_year_id": payload.academic_year_id,
+            "class_section_id": section.id,
+            "grade_level_id": None,
+            "subject_id": subject.id,
+        }
+        existing = _find_by_natural_key(db, SubjectGroup, school_id, defaults["code"], extra)
+        if existing is not None and existing.status != "archived":
+            result.update(
+                {
+                    "status": "skipped",
+                    "reason": _active_duplicate_detail(existing.status),
+                    "subject_group": _payload(existing),
+                }
+            )
+            skipped += 1
+            results.append(result)
+            continue
+
+        request = SubjectGroupRequest(
+            code=defaults["code"],
+            name=defaults["name"],
+            name_ar=None,
+            sort_order=section.sort_order,
+            status="active",
+            academic_year_id=payload.academic_year_id,
+            class_section_id=section.id,
+            grade_level_id=None,
+            subject_id=subject.id,
+        )
+        row, was_restored = _create_row(db, SubjectGroup, school_id, request, extra=extra)
+        result.update(
+            {
+                "status": "restored" if was_restored else "created",
+                "reason": None,
+                "subject_group": _payload(row),
+            }
+        )
+        if was_restored:
+            restored += 1
+            write_audit(
+                db,
+                membership.user_id,
+                "school.subject_group.restored",
+                row,
+                {"code": row.code, "status": row.status, "source": "bulk_section"},
+                school_id=school_id,
+            )
+        else:
+            created += 1
+        results.append(result)
+
+    if created or restored:
+        write_audit(
+            db,
+            membership.user_id,
+            "school.subject_group.bulk_created",
+            ("subject_groups", None),
+            {
+                "academic_year_id": payload.academic_year_id,
+                "grade_level_id": payload.grade_level_id,
+                "subject_id": payload.subject_id,
+                "created": created,
+                "restored": restored,
+                "skipped": skipped,
+                "failed": failed,
+            },
+            school_id=school_id,
+        )
+    db.commit()
+    return {
+        "created": created,
+        "restored": restored,
+        "skipped": skipped,
+        "failed": failed,
+        "results": results,
+    }
+
+
 @router.put("/subject-groups/{row_id}")
 def update_subject_group(row_id: int, payload: SubjectGroupRequest, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     school_id = _school_id(membership)
@@ -593,3 +880,286 @@ def update_subject_group(row_id: int, payload: SubjectGroupRequest, membership: 
 @router.delete("/subject-groups/{row_id}", status_code=status.HTTP_204_NO_CONTENT)
 def archive_subject_group(row_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     _archive_row(db, _get_owned(db, SubjectGroup, _school_id(membership), row_id))
+
+
+@router.get("/teachers")
+def list_teachers(membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    school_id = _school_id(membership)
+    counts = _assignment_counts(db, school_id)
+    teacher_rows = (
+        db.query(Membership, User)
+        .join(User, Membership.user_id == User.id)
+        .filter(
+            Membership.school_id == school_id,
+            Membership.role == "teacher",
+            Membership.status == "active",
+            Membership.revoked_at.is_(None),
+        )
+        .order_by(User.email.asc(), Membership.id.asc())
+        .all()
+    )
+    pending_invites = (
+        db.query(StaffInvite)
+        .filter(
+            StaffInvite.school_id == school_id,
+            StaffInvite.role == "teacher",
+            StaffInvite.revoked_at.is_(None),
+            StaffInvite.accepted_at.is_(None),
+        )
+        .order_by(StaffInvite.created_at.desc(), StaffInvite.id.desc())
+        .all()
+    )
+    return {
+        "teachers": [
+            {
+                "membership_id": teacher_membership.id,
+                "school_id": teacher_membership.school_id,
+                "status": teacher_membership.status,
+                "created_at": teacher_membership.created_at,
+                "revoked_at": teacher_membership.revoked_at,
+                "assignment_count": counts.get(teacher_membership.id, 0),
+                "user": _user_payload(user),
+            }
+            for teacher_membership, user in teacher_rows
+        ],
+        "pending_invites": [_invite_payload(invite) for invite in pending_invites if _invite_payload(invite)["status"] == "pending"],
+    }
+
+
+@router.get("/teachers/invites")
+def list_teacher_invites(membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    school_id = _school_id(membership)
+    invites = (
+        db.query(StaffInvite)
+        .filter(StaffInvite.school_id == school_id, StaffInvite.role == "teacher")
+        .order_by(StaffInvite.created_at.desc(), StaffInvite.id.desc())
+        .all()
+    )
+    return [_invite_payload(invite) for invite in invites]
+
+
+@router.post("/teachers/invites", status_code=status.HTTP_201_CREATED)
+def create_teacher_invite(
+    payload: TeacherInviteRequest,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    normalized_email = auth.normalize_email(str(payload.email))
+    invited_user = db.query(User).filter(User.email == normalized_email).first()
+    if invited_user is not None:
+        existing_membership = (
+            db.query(Membership)
+            .filter(
+                Membership.school_id == school_id,
+                Membership.user_id == invited_user.id,
+                Membership.role == "teacher",
+                Membership.status == "active",
+                Membership.revoked_at.is_(None),
+            )
+            .first()
+        )
+        if existing_membership is not None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teacher already has an active membership")
+
+    actor = db.query(User).filter(User.id == membership.user_id).first()
+    staff_invite, _raw_token, warning = _issue_staff_invite(db, _school(db, school_id), normalized_email, actor, role="teacher")
+    write_audit(
+        db,
+        membership.user_id,
+        "school.teacher_invite.created",
+        staff_invite,
+        {"email": staff_invite.email, "role": staff_invite.role},
+        school_id=school_id,
+    )
+    db.commit()
+    response = _invite_payload(staff_invite)
+    if warning:
+        response["warning"] = warning
+    return response
+
+
+@router.delete("/teachers/invites/{invite_id}", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_teacher_invite(
+    invite_id: int,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    staff_invite = (
+        db.query(StaffInvite)
+        .filter(StaffInvite.id == invite_id, StaffInvite.school_id == school_id, StaffInvite.role == "teacher")
+        .first()
+    )
+    if not staff_invite:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
+    if staff_invite.accepted_at is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Invite already accepted")
+    if staff_invite.revoked_at is None:
+        staff_invite.revoked_at = invite_tokens.now_utc()
+        write_audit(
+            db,
+            membership.user_id,
+            "school.teacher_invite.revoked",
+            staff_invite,
+            {"email": staff_invite.email, "role": staff_invite.role},
+            school_id=school_id,
+        )
+        db.commit()
+
+
+@router.get("/teachers/{teacher_membership_id}/assignments")
+def list_teacher_assignments(
+    teacher_membership_id: int,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    _teacher_membership_or_404(db, school_id, teacher_membership_id)
+    assignments = (
+        db.query(StaffAssignment)
+        .filter(StaffAssignment.school_id == school_id, StaffAssignment.membership_id == teacher_membership_id)
+        .order_by(StaffAssignment.valid_from.desc(), StaffAssignment.id.desc())
+        .all()
+    )
+    return [_assignment_payload(db, assignment) for assignment in assignments]
+
+
+@router.post("/teachers/{teacher_membership_id}/assignments", status_code=status.HTTP_201_CREATED)
+def create_teacher_assignment(
+    teacher_membership_id: int,
+    payload: AssignmentRequest,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    teacher_membership = _teacher_membership_or_404(db, school_id, teacher_membership_id)
+    role = payload.role.strip()
+    if role not in {"homeroom", "subject"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported assignment role")
+    if role == "homeroom" and (payload.class_section_id is None or payload.subject_group_id is not None):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Homeroom assignments require class_section_id only")
+    if role == "subject" and (payload.subject_group_id is None or payload.class_section_id is not None):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Subject assignments require subject_group_id only")
+
+    target_section_id = None
+    target_group_id = None
+    if role == "homeroom":
+        section = _ensure_active_target(_ensure_owned(db, ClassSection, school_id, payload.class_section_id, "class_section_id"), "class_section")
+        target_section_id = section.id
+        existing_homeroom = (
+            _open_assignments_query(db, school_id)
+            .filter(StaffAssignment.role == "homeroom", StaffAssignment.class_section_id == target_section_id)
+            .first()
+        )
+        if existing_homeroom is not None and existing_homeroom.membership_id != teacher_membership.id:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Class section already has an open homeroom teacher")
+    else:
+        group = _ensure_active_target(_ensure_owned(db, SubjectGroup, school_id, payload.subject_group_id, "subject_group_id"), "subject_group")
+        target_group_id = group.id
+
+    duplicate = (
+        _open_assignments_query(db, school_id)
+        .filter(
+            StaffAssignment.membership_id == teacher_membership.id,
+            StaffAssignment.role == role,
+            StaffAssignment.class_section_id == target_section_id if target_section_id is not None else StaffAssignment.class_section_id.is_(None),
+            StaffAssignment.subject_group_id == target_group_id if target_group_id is not None else StaffAssignment.subject_group_id.is_(None),
+        )
+        .first()
+    )
+    if duplicate is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teacher already has this open assignment")
+
+    # Homeroom is singular for a teacher in this slice. Subject assignments may
+    # be multiple concurrent groups, so they are closed explicitly.
+    prior_rows = []
+    if role == "homeroom":
+        prior_rows = _open_assignments_query(db, school_id).filter(
+            StaffAssignment.membership_id == teacher_membership.id,
+            StaffAssignment.role == role,
+        ).all()
+    close_date = payload.valid_from or _today()
+    for prior in prior_rows:
+        _close_assignment_row(prior, close_date)
+
+    assignment = StaffAssignment(
+        school_id=school_id,
+        membership_id=teacher_membership.id,
+        class_section_id=target_section_id,
+        subject_group_id=target_group_id,
+        role=role,
+        valid_from=payload.valid_from or _today(),
+        valid_to=None,
+        created_by_user_id=membership.user_id,
+    )
+    db.add(assignment)
+    db.flush()
+    write_audit(
+        db,
+        membership.user_id,
+        "school.staff_assignment.created",
+        assignment,
+        {
+            "membership_id": teacher_membership.id,
+            "role": role,
+            "class_section_id": target_section_id,
+            "subject_group_id": target_group_id,
+            "closed_previous_ids": [row.id for row in prior_rows],
+        },
+        school_id=school_id,
+    )
+    db.commit()
+    db.refresh(assignment)
+    return _assignment_payload(db, assignment)
+
+
+@router.delete("/assignments/{assignment_id}")
+def close_teacher_assignment(
+    assignment_id: int,
+    payload: CloseAssignmentRequest | None = None,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    assignment = db.query(StaffAssignment).filter(StaffAssignment.id == assignment_id, StaffAssignment.school_id == school_id).first()
+    if not assignment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
+    _close_assignment_row(assignment, payload.valid_to if payload else None)
+    write_audit(
+        db,
+        membership.user_id,
+        "school.staff_assignment.closed",
+        assignment,
+        {"membership_id": assignment.membership_id, "valid_to": str(assignment.valid_to)},
+        school_id=school_id,
+    )
+    db.commit()
+    db.refresh(assignment)
+    return _assignment_payload(db, assignment)
+
+
+@router.post("/teachers/{teacher_membership_id}/deactivate")
+def deactivate_teacher(
+    teacher_membership_id: int,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    teacher_membership = _teacher_membership_or_404(db, school_id, teacher_membership_id)
+    teacher_membership.status = "revoked"
+    teacher_membership.revoked_at = invite_tokens.now_utc()
+    teacher_membership.revoked_by_user_id = membership.user_id
+    open_assignments = _open_assignments_query(db, school_id).filter(StaffAssignment.membership_id == teacher_membership.id).all()
+    for assignment in open_assignments:
+        _close_assignment_row(assignment)
+    write_audit(
+        db,
+        membership.user_id,
+        "school.teacher_membership.deactivated",
+        teacher_membership,
+        {"closed_assignment_ids": [assignment.id for assignment in open_assignments]},
+        school_id=school_id,
+    )
+    db.commit()
+    return {"membership_id": teacher_membership.id, "status": teacher_membership.status, "closed_assignments": len(open_assignments)}
