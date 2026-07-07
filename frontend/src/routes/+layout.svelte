@@ -6,7 +6,7 @@
   import { initI18n } from '$lib/i18n';
 
   type UserSession = {
-    is_admin?: boolean;
+    is_platform_admin?: boolean;
   };
 
   let { children } = $props();
@@ -51,8 +51,8 @@
         <a href={dashboardHref} class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
           {currentUser ? $_('nav.dashboard') : $_('nav.login')}
         </a>
-        {#if currentUser && currentUser.is_admin}
-          <a href="/admin" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
+        {#if currentUser && currentUser.is_platform_admin}
+          <a href="/platform" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
             {$_('nav.admin')}
           </a>
         {/if}

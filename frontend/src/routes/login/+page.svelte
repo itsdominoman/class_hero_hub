@@ -1,17 +1,25 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { page } from '$app/state';
   import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
   import LanguageSelector from '$lib/components/LanguageSelector.svelte';
 
+  function safeReturnTo(value: string | null) {
+    if (!value || !value.startsWith('/') || value.startsWith('//')) return '/parent';
+    return value;
+  }
+
+  const returnTo = $derived(safeReturnTo(page.url.searchParams.get('returnTo')));
+
   const handleGoogleLogin = () => {
-    window.location.href = '/api/auth/google/login';
+    window.location.href = `/api/auth/google/login?return_to=${encodeURIComponent(returnTo)}`;
   };
 
   onMount(async () => {
     try {
       await api.get('/me');
-      window.location.href = '/parent';
+      window.location.href = returnTo;
     } catch {
       // Not signed in yet. Stay on the login page.
     }

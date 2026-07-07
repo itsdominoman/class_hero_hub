@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, JSON, String, UniqueConstraint, event
 from sqlalchemy.sql import func
 
@@ -50,6 +52,26 @@ class Membership(Base):
     __table_args__ = (
         UniqueConstraint("school_id", "user_id", "role", name="uq_memberships_school_user_role"),
     )
+
+
+def _default_staff_invite_expires_at():
+    return datetime.now(timezone.utc) + timedelta(days=7)
+
+
+class StaffInvite(Base):
+    __tablename__ = "staff_invites"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"))
+    email = Column(String, index=True)
+    role = Column(String, default="school_admin")
+    token_hash = Column(String, unique=True, index=True)
+    invited_by_user_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), default=_default_staff_invite_expires_at)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    accepted_at = Column(DateTime(timezone=True), nullable=True)
+    accepted_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
 
 class PlatformAdmin(Base):

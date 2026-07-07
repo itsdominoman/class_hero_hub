@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -31,8 +32,21 @@ async def get_me(
     return _me_payload(current_user, db)
 
 
+def _safe_return_path(value: str | None) -> str | None:
+    candidate = (value or "").strip()
+    if not candidate.startswith("/") or candidate.startswith("//"):
+        return None
+    parsed = urlparse(candidate)
+    if parsed.scheme or parsed.netloc:
+        return None
+    return candidate
+
+
 @router.get("/google/login")
 async def google_login(request: Request):
+    return_to = _safe_return_path(request.query_params.get("return_to"))
+    if return_to:
+        request.session["post_auth_redirect"] = return_to
     return await oauth.google.authorize_redirect(request, settings.GOOGLE_REDIRECT_URI)
 
 
@@ -73,7 +87,8 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
     session_max_age = auth.parent_session_cookie_max_age_seconds()
 
     response = Response(status_code=status.HTTP_302_FOUND)
-    response.headers["Location"] = settings.PUBLIC_APP_URL.rstrip("/")
+    return_to = _safe_return_path(request.session.pop("post_auth_redirect", None))
+    response.headers["Location"] = f"{settings.PUBLIC_APP_URL.rstrip('/')}{return_to or ''}"
     response.set_cookie(
         key="access_token",
         value=access_token,
