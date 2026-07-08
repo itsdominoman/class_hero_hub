@@ -145,6 +145,16 @@ def _today():
     return datetime.now(timezone.utc).date()
 
 
+def open_interval_expression(model: Any, today=None):
+    today = today or _today()
+    return (model.valid_from <= today, (model.valid_to.is_(None)) | (model.valid_to > today))
+
+
+def is_open_interval(row: Any, today=None) -> bool:
+    today = today or _today()
+    return row.valid_from <= today and (row.valid_to is None or row.valid_to > today)
+
+
 def require_teacher_of(
     *,
     class_section_param: str = "class_section_id",
@@ -206,8 +216,7 @@ def require_teacher_of(
                 StaffAssignment.school_id == school_id,
                 StaffAssignment.membership_id == teacher_membership.id,
                 target_filter,
-                StaffAssignment.valid_from <= today,
-                (StaffAssignment.valid_to.is_(None)) | (StaffAssignment.valid_to > today),
+                *open_interval_expression(StaffAssignment, today),
             )
             .first()
         )

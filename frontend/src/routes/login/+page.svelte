@@ -9,6 +9,8 @@
   let sendingMagic = $state(false);
   let magicNotice = $state<string | null>(null);
   let magicError = $state<string | null>(null);
+  let magicToken = $state<string | null>(null);
+  let exchangingMagic = $state(false);
 
   function safeReturnTo(value: string | null) {
     if (!value || !value.startsWith('/') || value.startsWith('//')) return '/parent';
@@ -35,7 +37,26 @@
     }
   }
 
+  async function continueMagicLogin() {
+    if (!magicToken) return;
+    exchangingMagic = true;
+    magicError = null;
+    try {
+      const response = await api.post('/auth/magic-link/exchange', { token: magicToken });
+      window.location.href = response?.return_to || returnTo;
+    } catch (err: any) {
+      magicError = err?.message || $_('login.magicExchangeError');
+    } finally {
+      exchangingMagic = false;
+    }
+  }
+
   onMount(async () => {
+    magicToken = page.url.searchParams.get('magicToken');
+    if (magicToken) {
+      magicNotice = $_('login.magicReady');
+      return;
+    }
     try {
       await api.get('/me');
       window.location.href = returnTo;
@@ -64,9 +85,19 @@
         {$_('login.intro')}
       </p>
 
+      {#if magicToken}
+        <button
+          class="mt-8 w-full rounded-2xl bg-slate-900 px-6 py-4 font-bold text-white transition hover:bg-slate-700 disabled:opacity-60"
+          disabled={exchangingMagic}
+          onclick={continueMagicLogin}
+        >
+          {$_('login.continueMagic')}
+        </button>
+      {/if}
+
       <button
         onclick={handleGoogleLogin}
-        class="mt-8 w-full flex items-center justify-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-6 py-4 font-bold text-slate-700 transition-all hover:border-hero/30 hover:bg-slate-50 active:scale-[0.98] group"
+        class={`${magicToken ? 'mt-4' : 'mt-8'} w-full flex items-center justify-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-6 py-4 font-bold text-slate-700 transition-all hover:border-hero/30 hover:bg-slate-50 active:scale-[0.98] group`}
       >
         <svg class="w-6 h-6 group-hover:scale-110 transition-transform" viewBox="0 0 48 48" aria-hidden="true">
           <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>

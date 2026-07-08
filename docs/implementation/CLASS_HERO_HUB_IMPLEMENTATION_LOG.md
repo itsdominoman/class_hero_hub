@@ -1,5 +1,141 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-07 — S6 second QA follow-up: teachers tab, mistake removal, admin rosters
+
+Manual QA after the first frontend follow-up found three remaining commit blockers:
+
+- `/school` → Teachers still did not reliably open; clicking the sidebar item could leave the main panel on the previous content.
+- Accidental duplicate/test students with no meaningful history could only be archived, leaving obvious mistakes in the school-owned student record set.
+- School admins had student enrolment history but no natural class setup view to answer "who is in KG 1 A?" and "who teaches KG 1 A / its subject groups?"
+
+### What changed
+
+- Tab switching in `/school` is now a pure navigation action that clears edit state without running form reset logic first. This keeps the S5 Teachers tab reachable after S6 changes.
+- Added `DELETE /api/school/students/{student_id}/remove-mistake`, requiring an active `school_admin` membership in the same school.
+- Student mistake removal hard-deletes only when the student has no enrolments. If enrolments exist, the endpoint returns `409` with "This student has history. Archive instead." Archive behaviour is unchanged.
+- Added a shared `_student_history_reasons(...)` helper as the extension point for future guardian links, posts, messages, points, and other student history checks.
+- Added `GET /api/school/class-sections/{id}/roster` for the school-admin setup view. It returns class section details, branch/campus, academic year, grade/year level, current active students, homeroom teacher assignment, subject groups, and assigned subject teachers.
+- Added a `/school` "Classes / Rosters" tab where admins can select a class section and inspect current students, homeroom teacher, and subject-group teacher assignments.
+- Student rows now expose "Remove mistake" alongside Enrol/Move, Edit, and Archive. Backend 409s are surfaced as clear UI errors.
+
+### Validation
+
+- `docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace/backend backend python -m pytest tests/test_students_enrolments.py -q` → **10 passed**, 5 warnings.
+- `docker compose build backend frontend` → passed.
+- `docker compose up -d backend frontend` → passed.
+- `docker compose exec backend python -m pytest tests -q` → **136 passed**, 7 warnings.
+- `cd frontend && npm run check` → passed, 0 errors/warnings.
+- `cd frontend && npm run check:i18n` → passed, 367 keys in both `en` and `ar`.
+- `cd frontend && npm run build` → passed.
+- `docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic heads` → `c9d0e1f2a3b4 (head)`.
+- `docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic current` → `c9d0e1f2a3b4 (head)`.
+
+### Remaining caveat
+
+- The mistake-removal history guard currently checks S6 enrolments only. Future slices that add guardian links, posts, media, points, messaging, attendance, or other student-owned records must extend `_student_history_reasons(...)` before allowing hard delete.
+
+## 2026-07-07 — S6 frontend integration follow-up
+
+Manual QA after the first S6 slice found a few frontend integration gaps rather than backend model issues:
+
+- Student creation succeeded in the API but was too easy to miss in the UI because there was no immediate success feedback or row-level student action affordance.
+- The Students tab lacked an explicit, obvious create-only workflow, so it was not clear how a student becomes enrolled or moved afterward.
+- The student gender field was still free text, which was unacceptable for this school workflow.
+- The school Teachers tab needed defensive button typing and clearer state handling so the S5 teacher management UI would not feel broken after adding S6.
+
+### What changed
+
+- Student create/update/archive now surfaces visible success or failure feedback in the `/school` UI.
+- The Students tab now shows current class section or `Not enrolled`, and row actions make `Enrol` or `Move class` explicit.
+- Student form gender is now a controlled selector with allowed values only; backend validation rejects unsupported values.
+- Empty states now distinguish no students from no matches for the current filter.
+- The Teachers tab buttons were tightened to avoid accidental form-submit behaviour.
+- `/teach` roster buttons were also made explicit button actions.
+
+### Validation
+
+- `docker compose exec backend python -m pytest tests/test_students_enrolments.py tests/test_user_auth.py -q` → **21 passed**, 5 warnings.
+- `docker compose exec backend python -m pytest tests -q` → **134 passed**, 7 warnings.
+- `cd frontend && npm run check` → passed, 0 errors/warnings.
+- `cd frontend && npm run check:i18n` → passed, 350 keys in both `en` and `ar`.
+- `cd frontend && npm run build` → passed.
+- `docker compose build backend frontend` → passed.
+- `docker compose up -d backend frontend` → passed.
+- `docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic heads` → `c9d0e1f2a3b4 (head)`.
+- `docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic current` → `c9d0e1f2a3b4 (head)`.
+
+### Remaining caveat
+
+- The student flow is now explicit and test-covered, but S7 is still where bulk CSV student import belongs.
+
+## 2026-07-07 — S6 Students & Enrolments
+
+Scope: students, enrolments, read-only teacher rosters, and the agreed pre-S6 cleanups. No CSV import, guardian onboarding/invites, parent dashboard, announcements/posts, photos/media, diary/homework, behaviour points, messaging, notifications, attendance, rooms, timetables, terms/semesters, rollover, branch-scoped permissions, branding, demo seed data, or WhatsApp integration were implemented.
+
+### Decisions and policies
+
+- Added `students` as school-owned records, not login users. Students use the S4 lifecycle: `active` usable, `inactive` visible/editable but blocked for new enrolments, and `archived` hidden by default. Recreating an archived student with the same non-empty `external_ref` restores the row in place; active and inactive duplicate `external_ref` values are rejected.
+- Added `enrolments` as date-bounded history rows with `valid_from` and exclusive `valid_to`. Enrolment rows have no active/inactive/archived status. Moves are close + create, never target overwrite.
+- Current policy for staff assignments and enrolments: UI/API creates from today only, closes with today only, and rejects `valid_to < valid_from`. This avoids future/backdated rows bypassing open-row checks until a real academic-year-dated use case is designed.
+- Extracted shared open-interval helpers for `valid_from <= today AND (valid_to IS NULL OR valid_to > today)` and applied them to staff assignments, `require_teacher_of(...)`, teach dashboard queries, and enrolment queries.
+- Section enrolment does not imply subject-group enrolment. Section-specific subject groups require explicit subject-group enrolment rows.
+- New enrolments reject inactive/archived students, inactive/archived class sections, inactive/archived subject groups, and subject groups whose parent section is inactive/archived.
+- Teacher rosters are read-only. `/api/teach` roster endpoints require an active open teacher assignment via `require_teacher_of(...)`; school admins manage student/enrolment state under `/api/school`.
+- Deactivated-teacher policy: deactivation revokes the teacher membership, closes open assignments, revokes pending teacher invites for the same school/email/role, and assignment history remains readable for non-active teacher memberships. Mutating assignments for inactive/revoked teachers remains blocked.
+- Magic-link SafeLinks fix: emailed magic links now land on the frontend login page with a `magicToken`. GET `/api/auth/magic-link/exchange` validates but does not consume the token; POST consumes the token and creates the session.
+
+### Backend changes
+
+- Migration `c9d0e1f2a3b4_add_students_enrolments.py` adds `students` and `enrolments`.
+- Added school-admin endpoints for student list/detail/create/update/archive, enrolment history, class-section enrolment, subject-group enrolment, close enrolment, move-section, section rosters, and subject-group rosters.
+- Added teacher read-only roster endpoints for assigned sections and assigned subject groups.
+- Added tests for student lifecycle, duplicate/restore policy, wrong-role/wrong-school access, enrolment date validation, move/history preservation, subject-group explicit enrolment, inactive/archived target rejection, teacher roster scope, closed assignment denial, cross-school/no-role denial, staff assignment date validation, deactivated invite revocation, and magic-link GET non-consumption/POST consumption.
+
+### Frontend changes
+
+- `/school` now has a Students tab with add/edit/archive, list/search/filter by class section, current class/group display, class enrolment, class move with confirmation, subject-group enrolment, close enrolment, and enrolment history.
+- `/teach` assignment cards can open read-only rosters with student display names and Arabic names when present.
+- `/login` now shows a “Continue sign in” action for magic-link tokens so scanners do not consume login links.
+- Added English and Arabic strings for all new UI.
+
+### Validation
+
+- `docker compose build backend frontend` → passed.
+- `docker compose up -d backend frontend` → passed.
+- `docker compose exec backend python -m pytest tests -q` → **133 passed**, 7 warnings.
+- `cd frontend && npm run check` → passed, 0 errors/warnings.
+- `cd frontend && npm run check:i18n` → passed, 335 keys in both `en` and `ar`.
+- `cd frontend && npm run build` → passed.
+- `docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic heads` → `c9d0e1f2a3b4 (head)`.
+- `docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic upgrade head` → upgraded database from `b8c9d0e1f2a3` to `c9d0e1f2a3b4`.
+- `docker compose run --rm -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic current` → `c9d0e1f2a3b4 (head)`.
+
+### Deferred to S7+
+
+- Bulk/CSV student import and any silent-import tooling.
+- Guardian records, guardian onboarding, guardian invites, parent dashboard, and outbound communication.
+- Demo seed data.
+- Academic-year rollover, branch-scoped permissions, timetables/rooms/terms, and any classroom content surfaces.
+
+## 2026-07-07 — Post-S5 Fable checkpoint audit (no code changed)
+
+Branch: `main` (at commit `fbe92ac`)
+
+A fresh-eyes checkpoint audit was run after S5 Teachers & Assignments and its three pre-commit fixes. Full report: `docs/audits/2026-07-07-post-s5-teachers-assignments-audit.md`. Backend suite re-verified during the audit: **126 passed** in Docker.
+
+**Verdict: continue to S6 — no hard stop and no intermediate cleanup slice required.** S5 avoided every trap flagged in the post-S4 audit §7: assignments reference membership id (never user id), homeroom lives only in `staff_assignments`, rows are date-bounded close-and-open history with exclusive `valid_to`, invites are email-bound/single-use/suspension-aware, and platform admins are rejected from `/api/school` teacher management (all tested). Magic-link login auto-creates users, so non-Google teachers can accept invites.
+
+Must be folded into the S6 prompt (or a ~1-hour pre-S6 patch):
+
+- **Assignment date validation gap** — `valid_from`/`valid_to` are unvalidated (backdated `valid_from` rewrites the prior homeroom's close date; `valid_to` may precede `valid_from`; future-dated rows escape the open-homeroom conflict check). S6 enrolments must not inherit this; fix both surfaces in S6.
+- **Deactivated-teacher policy decision** — deactivation does not revoke still-pending invites for that email (self-reactivation path), deactivated teachers vanish from the Teachers tab, and their assignment history is unviewable (read path 409s on non-active memberships). Decide + implement alongside S6's people-listing work.
+
+Notable non-blocking items (see audit §5): duplicate router-level + endpoint-level `require_school_role` execution (post-S4 fix #7 still half-done); `/school` still binds to the first admin membership (multi-school admins); the open-interval predicate is copy-pasted in three files (extract before S6); magic-link GET exchange is consumable by email-scanner prefetch (Outlook SafeLinks — fix before inviting real M365 teachers); homeroom reassignment silently closes the previous homeroom with no UI warning; failed-send invites still never surface the accept URL.
+
+Test backfill wanted with S6: `require_teacher_of` cross-school case, dual-role (admin+teacher) user, suspended-school exclusion from the teach dashboard.
+
+The audit contains a revised paste-ready S6 prompt outline (§10) with the amendments above baked in, plus a 30-minute manual test list for Dom (§8).
+
 ## 2026-07-07 — S5 pre-commit fix: Subject Groups product logic cleanup
 
 Scope: subject-group setup UX/API only. No students, enrolments, teachers beyond existing S5 assignments, rosters, timetables, CSV import, posts, points, messaging, notifications, or other S6+ work.

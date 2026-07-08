@@ -1,5 +1,6 @@
 import os
 from datetime import timedelta
+from urllib.parse import parse_qs, urlparse
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
@@ -112,7 +113,8 @@ def test_google_callback_upserts_user(db, client, monkeypatch):
 
 
 def magic_token_from_url(url: str) -> str:
-    return url.split("token=", 1)[1]
+    query = parse_qs(urlparse(url).query)
+    return (query.get("magicToken") or query.get("token"))[0]
 
 
 def test_magic_link_request_and_exchange_create_normal_session(db, client, monkeypatch):
@@ -133,9 +135,13 @@ def test_magic_link_request_and_exchange_create_normal_session(db, client, monke
     stored = db.query(MagicLoginToken).filter_by(email="magic-user@example.com").one()
     assert stored.token_hash == invite_tokens.hash_token(token)
 
-    exchange = client.get(f"/api/auth/magic-link/exchange?token={token}", follow_redirects=False)
-    assert exchange.status_code == 302
-    assert exchange.headers["location"].endswith("/school")
+    prefetch = client.get(f"/api/auth/magic-link/exchange?token={token}", follow_redirects=False)
+    assert prefetch.status_code == 200
+    assert prefetch.json()["status"] == "ready"
+    assert db.query(MagicLoginToken).filter_by(email="magic-user@example.com").one().used_at is None
+
+    exchange = client.post("/api/auth/magic-link/exchange", json={"token": token})
+    assert exchange.status_code == 200
     assert "access_token" in exchange.cookies
 
     user = db.query(User).filter_by(email="magic-user@example.com").one()
@@ -150,8 +156,11 @@ def test_magic_link_rejects_expiry_reuse_wrong_token_and_rate_limit(db, client, 
 
     assert client.post("/api/auth/magic-link/request", json={"email": "reuse@example.com"}).status_code == 200
     token = magic_token_from_url(sent[-1].login_url)
+    assert client.get(f"/api/auth/magic-link/exchange?token={token}").status_code == 200
+    assert client.get(f"/api/auth/magic-link/exchange?token={token}").status_code == 200
     assert client.post("/api/auth/magic-link/exchange", json={"token": token}).status_code == 200
     client.cookies.clear()
+    assert client.get(f"/api/auth/magic-link/exchange?token={token}").status_code == 410
     assert client.post("/api/auth/magic-link/exchange", json={"token": token}).status_code == 410
     assert client.post("/api/auth/magic-link/exchange", json={"token": "wrong-token"}).status_code == 401
 

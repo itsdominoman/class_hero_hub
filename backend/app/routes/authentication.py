@@ -1,10 +1,10 @@
 import logging
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -62,7 +62,7 @@ def _safe_return_path(value: str | None) -> str | None:
 
 
 def _magic_login_url(raw_token: str) -> str:
-    return f"{settings.API_BASE_URL.rstrip('/')}/api/auth/magic-link/exchange?token={raw_token}"
+    return f"{settings.PUBLIC_APP_URL.rstrip('/')}/login?{urlencode({'magicToken': raw_token})}"
 
 
 def _rate_limit(limiter: BoundedInMemoryRateLimiter, request: Request, message: str) -> None:
@@ -77,7 +77,7 @@ def _issue_session_response(user: User, return_to: str | None, *, redirect: bool
     if redirect:
         response: Response = RedirectResponse(f"{settings.PUBLIC_APP_URL.rstrip('/')}{return_to or ''}", status_code=status.HTTP_302_FOUND)
     else:
-        response = Response(status_code=status.HTTP_204_NO_CONTENT)
+        response = JSONResponse({"status": "signed_in", "return_to": return_to or None}, status_code=status.HTTP_200_OK)
     response.set_cookie(
         key="access_token",
         value=access_token,
@@ -144,8 +144,17 @@ async def request_magic_link(payload: MagicLoginRequest, request: Request, db: S
 @router.get("/magic-link/exchange")
 async def exchange_magic_link_get(token: str, request: Request, db: Session = Depends(get_db)):
     _rate_limit(MAGIC_EXCHANGE_RATE_LIMIT, request, "Too many sign-in link attempts")
-    user, return_to = _exchange_magic_login(token, db)
-    return _issue_session_response(user, return_to, redirect=True)
+    token_hash = invite_tokens.hash_token(token.strip())
+    current = invite_tokens.now_utc()
+    stored = db.query(MagicLoginToken).filter(MagicLoginToken.token_hash == token_hash).first()
+    if not stored:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired sign-in link")
+    if stored.used_at is not None:
+        raise HTTPException(status_code=status.HTTP_410_GONE, detail="Sign-in link already used")
+    expires_at = invite_tokens.as_utc_aware(stored.expires_at)
+    if expires_at is None or expires_at <= current:
+        raise HTTPException(status_code=status.HTTP_410_GONE, detail="Sign-in link expired")
+    return {"status": "ready", "return_to": _safe_return_path(stored.return_to)}
 
 
 @router.post("/magic-link/exchange")
@@ -153,7 +162,6 @@ async def exchange_magic_link_post(payload: MagicLoginExchangeRequest, request: 
     _rate_limit(MAGIC_EXCHANGE_RATE_LIMIT, request, "Too many sign-in link attempts")
     user, return_to = _exchange_magic_login(payload.token, db)
     response = _issue_session_response(user, return_to, redirect=False)
-    response.status_code = status.HTTP_200_OK
     return response
 
 

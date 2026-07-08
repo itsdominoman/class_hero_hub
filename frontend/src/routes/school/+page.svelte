@@ -52,6 +52,60 @@
     class_section?: Row | null;
     subject_group?: Row | null;
   };
+  type Student = {
+    id: number;
+    external_ref?: string | null;
+    first_name: string;
+    last_name: string;
+    preferred_name?: string | null;
+    display_name: string;
+    name_ar?: string | null;
+    date_of_birth?: string | null;
+    gender?: string | null;
+    status: string;
+    current_class_section?: Row | null;
+    current_subject_groups?: Row[];
+  };
+  type StudentForm = {
+    external_ref: string;
+    first_name: string;
+    last_name: string;
+    preferred_name: string;
+    name_ar: string;
+    date_of_birth: string;
+    gender: string;
+    status: string;
+  };
+  type Enrolment = {
+    id: number;
+    student_id: number;
+    class_section_id?: number | null;
+    subject_group_id?: number | null;
+    valid_from: string;
+    valid_to?: string | null;
+    is_open: boolean;
+    class_section?: Row | null;
+    subject_group?: Row | null;
+  };
+  type TeacherRef = {
+    assignment_id: number;
+    membership_id: number;
+    valid_from: string;
+    user: { id: number; email: string; name?: string | null };
+  };
+  type ClassRosterSetup = {
+    class_section: Row;
+    branch?: Row | null;
+    academic_year?: Row | null;
+    grade_level?: Row | null;
+    students: (Student & { enrolment_id?: number; enrolled_from?: string })[];
+    homeroom_teacher?: TeacherRef | null;
+    subject_groups: {
+      subject_group: Row;
+      subject?: Row | null;
+      teacher?: TeacherRef | null;
+    }[];
+  };
   type BulkSubjectGroupResult = {
     created: number;
     restored: number;
@@ -74,7 +128,9 @@
     { key: 'years', label: 'school.tabs.years' },
     { key: 'levels', label: 'school.tabs.levels' },
     { key: 'sections', label: 'school.tabs.sections' },
+    { key: 'rosters', label: 'school.tabs.rosters' },
     { key: 'teachers', label: 'school.tabs.teachers' },
+    { key: 'students', label: 'school.tabs.students' },
     { key: 'subjects', label: 'school.tabs.subjects' },
     { key: 'groups', label: 'school.tabs.groups' }
   ];
@@ -103,12 +159,24 @@
   let sections = $state<Row[]>([]);
   let subjects = $state<Row[]>([]);
   let groups = $state<Row[]>([]);
+  let students = $state<Student[]>([]);
   let teachers = $state<Teacher[]>([]);
   let pendingTeacherInvites = $state<StaffInvite[]>([]);
   let teacherAssignments = $state<Record<number, StaffAssignment[]>>({});
   let teacherInviteEmail = $state('');
   let homeroomSelections = $state<Record<number, string>>({});
   let groupSelections = $state<Record<number, string>>({});
+  let selectedStudentId = $state<number | null>(null);
+  let studentSearch = $state('');
+  let studentSectionFilter = $state('');
+  let studentEnrolments = $state<Enrolment[]>([]);
+  let loadingEnrolments = $state(false);
+  let classEnrolmentSectionId = $state('');
+  let subjectEnrolmentGroupId = $state('');
+  let moveSectionId = $state('');
+  let rosterSectionId = $state('');
+  let classRoster = $state<ClassRosterSetup | null>(null);
+  let rosterLoading = $state(false);
 
   let branchForm = $state(baseForm('MAIN', 'Main Branch'));
   let stageForm = $state(baseForm('PRIMARY', 'Primary'));
@@ -117,6 +185,7 @@
   let sectionForm = $state({ ...baseForm('A', ''), branch_campus_id: '', academic_year_id: '', grade_level_id: '' });
   let subjectForm = $state(baseForm('ENG', 'English'));
   let groupForm = $state({ ...baseForm('', ''), academic_year_id: '', class_section_id: '', grade_level_id: '', subject_id: '' });
+  let studentForm = $state({ external_ref: '', first_name: '', last_name: '', preferred_name: '', name_ar: '', date_of_birth: '', gender: '', status: 'active' });
   let groupContextMode = $state<'section' | 'grade'>('section');
   let lastAutoGroupCode = $state('');
   let lastAutoGroupName = $state('');
@@ -237,7 +306,10 @@
   async function loadAll() {
     if (!schoolId) return;
     const options = schoolOptions();
-    const [settings, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData] = await Promise.all([
+    const studentQuery = new URLSearchParams();
+    if (studentSearch.trim()) studentQuery.set('search', studentSearch.trim());
+    if (studentSectionFilter) studentQuery.set('class_section_id', studentSectionFilter);
+    const [settings, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData, studentRows] = await Promise.all([
       api.get('/school/settings', options),
       api.get('/school/setup-checklist', options),
       api.get('/school/branches', options),
@@ -247,7 +319,8 @@
       api.get('/school/class-sections', options),
       api.get('/school/subjects', options),
       api.get('/school/subject-groups', options),
-      api.get('/school/teachers', options)
+      api.get('/school/teachers', options),
+      api.get(`/school/students${studentQuery.toString() ? `?${studentQuery.toString()}` : ''}`, options)
     ]);
     gradeLevelLabel = settings.grade_level_label || 'Grade';
     labelChoice = ['Grade', 'Year', 'Form', 'Level'].includes(gradeLevelLabel) ? gradeLevelLabel : 'custom';
@@ -261,8 +334,15 @@
     sections = sectionRows;
     subjects = subjectRows;
     groups = groupRows;
+    students = studentRows;
     teachers = teacherData.teachers || [];
     pendingTeacherInvites = teacherData.pending_invites || [];
+    // SelectInput's value prop has a fallback, so binding an undefined record
+    // entry throws props_invalid_value and kills the Teachers panel render.
+    for (const teacher of teachers) {
+      homeroomSelections[teacher.membership_id] ??= '';
+      groupSelections[teacher.membership_id] ??= '';
+    }
     const assignmentPairs = await Promise.all(
       teachers.map(async (teacher) => [teacher.membership_id, await api.get(`/school/teachers/${teacher.membership_id}/assignments`, options)] as const)
     );
@@ -271,6 +351,16 @@
     if (!sectionForm.academic_year_id) sectionForm.academic_year_id = defaultYear;
     if (!groupForm.academic_year_id) groupForm.academic_year_id = defaultYear;
     if (!bulkGroupForm.academic_year_id) bulkGroupForm.academic_year_id = defaultYear;
+    if (rosterSectionId && !sections.some((section) => section.id === Number(rosterSectionId))) {
+      rosterSectionId = '';
+      classRoster = null;
+    }
+    if (selectedStudentId && !students.some((student) => student.id === selectedStudentId)) {
+      selectedStudentId = null;
+      studentEnrolments = [];
+    }
+    if (selectedStudentId) await loadStudentEnrolments(selectedStudentId);
+    if (classRoster && rosterSectionId) await loadClassRoster(false);
     applyNewSortDefaults();
   }
 
@@ -324,6 +414,8 @@
       groupContextMode = 'section';
       lastAutoGroupCode = '';
       lastAutoGroupName = '';
+    } else if (path === 'students') {
+      studentForm = { external_ref: '', first_name: '', last_name: '', preferred_name: '', name_ar: '', date_of_birth: '', gender: '', status: 'active' };
     }
   }
 
@@ -336,7 +428,10 @@
   }
 
   function selectTab(key: string) {
-    cancelEdit();
+    editingPath = null;
+    editingId = null;
+    notice = null;
+    clearValidation();
     activeTab = key;
   }
 
@@ -368,6 +463,16 @@
       groupContextMode = row.class_section_id ? 'section' : 'grade';
       lastAutoGroupCode = '';
       lastAutoGroupName = '';
+    }
+    if (path === 'students') {
+      studentForm.external_ref = (row as any).external_ref ?? '';
+      studentForm.first_name = (row as any).first_name ?? '';
+      studentForm.last_name = (row as any).last_name ?? '';
+      studentForm.preferred_name = (row as any).preferred_name ?? '';
+      studentForm.name_ar = row.name_ar ?? '';
+      studentForm.date_of_birth = (row as any).date_of_birth ?? '';
+      studentForm.gender = (row as any).gender ?? '';
+      studentForm.status = row.status;
     }
   }
 
@@ -495,6 +600,243 @@
       await refresh();
     } catch (err: any) {
       error = err?.message || $_('school.saveError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  function studentPayload() {
+    return {
+      external_ref: studentForm.external_ref || null,
+      first_name: studentForm.first_name,
+      last_name: studentForm.last_name,
+      preferred_name: studentForm.preferred_name || null,
+      name_ar: studentForm.name_ar || null,
+      date_of_birth: studentForm.date_of_birth || null,
+      gender: studentForm.gender || null,
+      status: studentForm.status
+    };
+  }
+
+  function editStudent(student: Student) {
+    editingPath = 'students';
+    editingId = student.id;
+    selectedStudentId = student.id;
+    studentForm = {
+      external_ref: student.external_ref ?? '',
+      first_name: student.first_name,
+      last_name: student.last_name,
+      preferred_name: student.preferred_name ?? '',
+      name_ar: student.name_ar ?? '',
+      date_of_birth: student.date_of_birth ?? '',
+      gender: student.gender ?? '',
+      status: student.status
+    };
+    loadStudentEnrolments(student.id);
+  }
+
+  async function saveStudent() {
+    const errors: Record<string, string> = {};
+    if (!studentForm.first_name.trim()) errors.first_name = $_('school.validation.firstNameRequired');
+    if (!studentForm.last_name.trim()) errors.last_name = $_('school.validation.lastNameRequired');
+    if (!studentForm.gender.trim()) studentForm.gender = '';
+    if (Object.keys(errors).length) {
+      setValidationErrors('students', errors);
+      return;
+    }
+    if (!schoolId) return;
+    saving = true;
+    error = null;
+    notice = null;
+    clearValidation();
+    try {
+      const saved = editingPath === 'students' && editingId
+        ? await api.put(`/school/students/${editingId}`, studentPayload(), schoolOptions())
+        : await api.post('/school/students', studentPayload(), schoolOptions());
+      notice = saved?.restored ? $_('school.restored') : editingPath === 'students' && editingId ? $_('school.students.updated') : $_('school.students.created');
+      selectedStudentId = saved.id;
+      upsertStudentRow(saved);
+      resetForm('students');
+      editingPath = null;
+      editingId = null;
+      await loadStudentEnrolments(saved.id);
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.students.saveError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function archiveStudent(student: Student) {
+    if (!schoolId || !confirm($_('school.students.archiveConfirm'))) return;
+    saving = true;
+    error = null;
+    try {
+      await api.delete(`/school/students/${student.id}`, schoolOptions());
+      if (selectedStudentId === student.id) {
+        selectedStudentId = null;
+        studentEnrolments = [];
+      }
+      removeStudentRow(student.id);
+      notice = $_('school.students.archived');
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.students.saveError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function removeStudentMistake(student: Student) {
+    if (!schoolId || !confirm($_('school.students.removeMistakeConfirm'))) return;
+    saving = true;
+    error = null;
+    notice = null;
+    try {
+      await api.delete(`/school/students/${student.id}/remove-mistake`, schoolOptions());
+      if (selectedStudentId === student.id) {
+        selectedStudentId = null;
+        studentEnrolments = [];
+      }
+      removeStudentRow(student.id);
+      notice = $_('school.students.removedMistake');
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.students.removeMistakeError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function loadStudentEnrolments(studentId: number) {
+    if (!schoolId) return;
+    loadingEnrolments = true;
+    try {
+      studentEnrolments = await api.get(`/school/students/${studentId}/enrolments`, schoolOptions());
+    } catch (err: any) {
+      error = err?.message || $_('school.students.enrolmentError');
+    } finally {
+      loadingEnrolments = false;
+    }
+  }
+
+  async function loadClassRoster(showValidation = true) {
+    if (!schoolId) return;
+    if (!rosterSectionId) {
+      if (showValidation) setValidationErrors('class-roster', { class_section_id: $_('school.validation.sectionRequired') });
+      return;
+    }
+    rosterLoading = true;
+    error = null;
+    clearValidation();
+    try {
+      classRoster = await api.get(`/school/class-sections/${rosterSectionId}/roster`, schoolOptions());
+    } catch (err: any) {
+      error = err?.message || $_('school.rosters.loadError');
+    } finally {
+      rosterLoading = false;
+    }
+  }
+
+  async function openStudentFromRoster(student: Student) {
+    studentSearch = '';
+    studentSectionFilter = '';
+    upsertStudentRow(student);
+    activeTab = 'students';
+    await selectStudent(student);
+    await refresh();
+  }
+
+  async function selectStudent(student: Student) {
+    selectedStudentId = student.id;
+    await loadStudentEnrolments(student.id);
+  }
+
+  function selectStudentForAction(student: Student) {
+    selectedStudentId = student.id;
+    moveSectionId = '';
+    classEnrolmentSectionId = '';
+    subjectEnrolmentGroupId = '';
+    void loadStudentEnrolments(student.id);
+    queueMicrotask(() => document.getElementById('student-detail-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
+
+  async function addClassEnrolment() {
+    if (!selectedStudentId || !classEnrolmentSectionId) {
+      setValidationErrors('student-class-enrolment', { class_section_id: $_('school.validation.sectionRequired') });
+      return;
+    }
+    saving = true;
+    error = null;
+    clearValidation();
+    try {
+      await api.post(`/school/students/${selectedStudentId}/enrolments`, { class_section_id: Number(classEnrolmentSectionId) }, schoolOptions());
+      classEnrolmentSectionId = '';
+      notice = $_('school.students.enrolled');
+      await loadStudentEnrolments(selectedStudentId);
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.students.enrolmentError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function addSubjectEnrolment() {
+    if (!selectedStudentId || !subjectEnrolmentGroupId) {
+      setValidationErrors('student-subject-enrolment', { subject_group_id: $_('school.validation.subjectGroupRequired') });
+      return;
+    }
+    saving = true;
+    error = null;
+    clearValidation();
+    try {
+      await api.post(`/school/students/${selectedStudentId}/enrolments`, { subject_group_id: Number(subjectEnrolmentGroupId) }, schoolOptions());
+      subjectEnrolmentGroupId = '';
+      notice = $_('school.students.enrolled');
+      await loadStudentEnrolments(selectedStudentId);
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.students.enrolmentError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function moveStudentSection() {
+    if (!selectedStudentId || !moveSectionId) {
+      setValidationErrors('student-move', { class_section_id: $_('school.validation.sectionRequired') });
+      return;
+    }
+    if (!confirm($_('school.students.moveConfirm'))) return;
+    saving = true;
+    error = null;
+    clearValidation();
+    try {
+      await api.post(`/school/students/${selectedStudentId}/move-section`, { class_section_id: Number(moveSectionId) }, schoolOptions());
+      moveSectionId = '';
+      notice = $_('school.students.moved');
+      await loadStudentEnrolments(selectedStudentId);
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.students.enrolmentError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function closeEnrolment(enrolmentId: number) {
+    if (!schoolId) return;
+    saving = true;
+    error = null;
+    try {
+      await api.delete(`/school/enrolments/${enrolmentId}`, schoolOptions());
+      notice = $_('school.students.closedEnrolment');
+      if (selectedStudentId) await loadStudentEnrolments(selectedStudentId);
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.students.enrolmentError');
     } finally {
       saving = false;
     }
@@ -748,6 +1090,62 @@
     return assignment.subject_group?.name || rowName(groups, assignment.subject_group_id);
   }
 
+  function selectedStudent() {
+    return students.find((student) => student.id === selectedStudentId) || null;
+  }
+
+  function studentFilterActive() {
+    return Boolean(studentSearch.trim() || studentSectionFilter);
+  }
+
+  function studentListEmptyKey() {
+    if (students.length > 0) return '';
+    return studentFilterActive() ? 'school.students.emptyFiltered' : 'school.students.empty';
+  }
+
+  function enrolmentName(enrolment: Enrolment) {
+    return enrolment.class_section?.name || enrolment.subject_group?.name || rowName(sections, enrolment.class_section_id) || rowName(groups, enrolment.subject_group_id);
+  }
+
+  function enrolmentType(enrolment: Enrolment) {
+    return enrolment.class_section_id ? $_('school.students.classSection') : $_('school.students.subjectGroup');
+  }
+
+  function genderOptions() {
+    return [
+      { value: '', label: $_('school.select') },
+      { value: 'male', label: $_('school.students.genderMale') },
+      { value: 'female', label: $_('school.students.genderFemale') },
+      { value: 'other', label: $_('school.students.genderOther') },
+      { value: 'unspecified', label: $_('school.students.genderUnspecified') }
+    ];
+  }
+
+  function studentCurrentClass(student: Student) {
+    return student.current_class_section?.name || $_('school.students.notEnrolled');
+  }
+
+  function studentActionLabel(student: Student) {
+    return student.current_class_section ? $_('school.students.moveClass') : $_('school.students.enrol');
+  }
+
+  function teacherName(ref?: TeacherRef | null) {
+    if (!ref) return $_('school.rosters.notAssigned');
+    return ref.user.name ? `${ref.user.name} (${ref.user.email})` : ref.user.email;
+  }
+
+  function classRosterTitle() {
+    return classRoster?.class_section?.name || rowName(sections, rosterSectionId);
+  }
+
+  function upsertStudentRow(row: Student) {
+    students = [row, ...students.filter((student) => student.id !== row.id)];
+  }
+
+  function removeStudentRow(studentId: number) {
+    students = students.filter((student) => student.id !== studentId);
+  }
+
   $effect(() => {
     groupForm.academic_year_id;
     groupForm.class_section_id;
@@ -814,6 +1212,7 @@
       <nav class="flex gap-2 overflow-x-auto lg:block lg:overflow-visible">
         {#each tabs as tab}
           <button
+            type="button"
             class={`whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm font-semibold transition lg:mb-1 lg:block lg:w-full ${activeTab === tab.key ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
             onclick={() => selectTab(tab.key)}
           >
@@ -964,6 +1363,78 @@
             </div>
             <RowsTable rows={sections} extra={(row) => `${branchName(row.branch_campus_id)} · ${yearName(row.academic_year_id)} · ${levelName(row.grade_level_id)}`} onedit={(row) => editRow('class-sections', sectionForm, row)} onarchive={(row) => archiveRow('class-sections', row)} />
           </div>
+        {:else if activeTab === 'rosters'}
+          <div class="space-y-5">
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h2 class="text-lg font-black text-slate-900">{$_('school.rosters.title')}</h2>
+              <p class="mt-2 max-w-3xl text-sm text-slate-600">{$_('school.rosters.help')}</p>
+              <div class="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <SelectInput label={$_('school.sections.single')} bind:value={rosterSectionId} rows={sections} optional error={fieldError('class-roster', 'class_section_id')} />
+                <button type="button" class="btn-hero self-end rounded-lg px-4 py-2" disabled={saving || rosterLoading} onclick={() => loadClassRoster()}>
+                  {$_('school.rosters.view')}
+                </button>
+              </div>
+            </div>
+
+            {#if rosterLoading}
+              <div class="rounded-lg border border-slate-200 bg-white p-5 text-sm font-semibold text-slate-500">{$_('common.loading')}</div>
+            {:else if classRoster}
+              <div class="rounded-lg border border-slate-200 bg-white p-5">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <h3 class="text-xl font-black text-slate-900">{classRosterTitle()}</h3>
+                    <p class="mt-2 text-sm text-slate-600">
+                      {$_('school.branches.single')}: {classRoster.branch?.name || '-'} ·
+                      {$_('school.years.single')}: {classRoster.academic_year?.name || '-'} ·
+                      {gradeLevelLabel}: {classRoster.grade_level?.name || '-'}
+                    </p>
+                  </div>
+                  <div class="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm">
+                    <p class="font-bold text-slate-700">{$_('school.rosters.homeroomTeacher')}</p>
+                    <p class="mt-1 text-slate-600">{teacherName(classRoster.homeroom_teacher)}</p>
+                  </div>
+                </div>
+
+                <div class="mt-5 grid gap-5 lg:grid-cols-2">
+                  <div>
+                    <h4 class="font-black text-slate-900">{$_('school.rosters.currentStudents')}</h4>
+                    {#if classRoster.students.length === 0}
+                      <p class="mt-2 text-sm text-slate-500">{$_('school.rosters.emptyStudents')}</p>
+                    {:else}
+                      <div class="mt-3 divide-y divide-slate-100 rounded-lg border border-slate-100">
+                        {#each classRoster.students as student}
+                          <div class="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p class="font-semibold text-slate-900">{student.display_name}</p>
+                              <p class="mt-1 text-sm text-slate-500">{student.external_ref || $_('school.students.noExternalRef')}</p>
+                            </div>
+                            <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={() => openStudentFromRoster(student)}>{$_('school.rosters.openStudent')}</button>
+                          </div>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+
+                  <div>
+                    <h4 class="font-black text-slate-900">{$_('school.rosters.subjectGroups')}</h4>
+                    {#if classRoster.subject_groups.length === 0}
+                      <p class="mt-2 text-sm text-slate-500">{$_('school.rosters.emptySubjectGroups')}</p>
+                    {:else}
+                      <div class="mt-3 divide-y divide-slate-100 rounded-lg border border-slate-100">
+                        {#each classRoster.subject_groups as item}
+                          <div class="p-3">
+                            <p class="font-semibold text-slate-900">{item.subject?.name || item.subject_group.name}</p>
+                            <p class="mt-1 text-sm text-slate-500">{item.subject_group.name}</p>
+                            <p class="mt-1 text-sm text-slate-600">{$_('school.rosters.teacher')}: {teacherName(item.teacher)}</p>
+                          </div>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+                </div>
+              </div>
+            {/if}
+          </div>
         {:else if activeTab === 'teachers'}
           <div class="space-y-5">
             <div class="rounded-lg border border-slate-200 bg-white p-5">
@@ -975,7 +1446,7 @@
                     <p class="mt-1 text-xs font-semibold text-red-600">{fieldError('teachers', 'email')}</p>
                   {/if}
                 </div>
-                <button class="btn-hero rounded-lg px-5 py-3" disabled={saving}>{$_('school.teachers.sendInvite')}</button>
+              <button type="submit" class="btn-hero rounded-lg px-5 py-3" disabled={saving}>{$_('school.teachers.sendInvite')}</button>
               </form>
             </div>
 
@@ -992,8 +1463,8 @@
                         <p class="mt-1 text-sm text-slate-500">{$_(`platform.inviteStatuses.${invite.status}`)} · {invite.send_status || '-'}</p>
                       </div>
                       <div class="flex gap-2">
-                        <button class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => { teacherInviteEmail = invite.email; inviteTeacher(); }}>{$_('platform.resend')}</button>
-                        <button class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => revokeTeacherInvite(invite.id)}>{$_('platform.revoke')}</button>
+                        <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => { teacherInviteEmail = invite.email; inviteTeacher(); }}>{$_('platform.resend')}</button>
+                        <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => revokeTeacherInvite(invite.id)}>{$_('platform.revoke')}</button>
                       </div>
                     </div>
                   {/each}
@@ -1015,7 +1486,7 @@
                           <p class="mt-1 break-all text-sm text-slate-500">{teacher.user.email}</p>
                           <p class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{teacher.assignment_count} {$_('school.teachers.assignments')}</p>
                         </div>
-                        <button class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => deactivateTeacher(teacher)}>{$_('school.teachers.deactivate')}</button>
+                        <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => deactivateTeacher(teacher)}>{$_('school.teachers.deactivate')}</button>
                       </div>
 
                       <div class="mt-4 grid gap-3 lg:grid-cols-2">
@@ -1025,7 +1496,7 @@
                             <div class="min-w-0 flex-1">
                               <SelectInput label={$_('school.sections.single')} bind:value={homeroomSelections[teacher.membership_id]} rows={sections} optional error={fieldError(`homeroom-${teacher.membership_id}`, 'class_section_id')} />
                             </div>
-                            <button class="btn-hero self-end rounded-lg px-4 py-2" disabled={saving} onclick={() => assignHomeroom(teacher)}>{$_('school.teachers.assign')}</button>
+                            <button type="button" class="btn-hero self-end rounded-lg px-4 py-2" disabled={saving} onclick={() => assignHomeroom(teacher)}>{$_('school.teachers.assign')}</button>
                           </div>
                         </div>
                         <div class="rounded-lg border border-slate-100 p-3">
@@ -1034,7 +1505,7 @@
                             <div class="min-w-0 flex-1">
                               <SelectInput label={$_('school.groups.title')} bind:value={groupSelections[teacher.membership_id]} rows={groups} optional error={fieldError(`subject-${teacher.membership_id}`, 'subject_group_id')} />
                             </div>
-                            <button class="btn-hero self-end rounded-lg px-4 py-2" disabled={saving} onclick={() => assignSubject(teacher)}>{$_('school.teachers.assign')}</button>
+                            <button type="button" class="btn-hero self-end rounded-lg px-4 py-2" disabled={saving} onclick={() => assignSubject(teacher)}>{$_('school.teachers.assign')}</button>
                           </div>
                         </div>
                       </div>
@@ -1051,7 +1522,7 @@
                                   <p class="font-semibold text-slate-900">{assignmentName(assignment)}</p>
                                   <p class="mt-1 text-sm text-slate-500">{$_(`school.teachers.roles.${assignment.role}`)} · {assignment.valid_from}</p>
                                 </div>
-                                <button class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => closeAssignment(assignment.id)}>{$_('school.teachers.closeAssignment')}</button>
+                                <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => closeAssignment(assignment.id)}>{$_('school.teachers.closeAssignment')}</button>
                               </div>
                             {/each}
                           </div>
@@ -1062,6 +1533,147 @@
                 </div>
               {/if}
             </div>
+          </div>
+        {:else if activeTab === 'students'}
+          <div class="space-y-5">
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h2 class="text-lg font-black text-slate-900">{$_('school.students.title')}</h2>
+              <div class="mt-4 grid gap-3 md:grid-cols-4">
+                <TextInput label={$_('school.students.externalRef')} bind:value={studentForm.external_ref} />
+                <TextInput label={$_('school.students.firstName')} bind:value={studentForm.first_name} error={fieldError('students', 'first_name')} />
+                <TextInput label={$_('school.students.lastName')} bind:value={studentForm.last_name} error={fieldError('students', 'last_name')} />
+                <TextInput label={$_('school.students.preferredName')} bind:value={studentForm.preferred_name} />
+                <TextInput label={$_('school.nameAr')} bind:value={studentForm.name_ar} />
+                <label class="block text-sm font-semibold text-slate-700">
+                  {$_('school.students.dateOfBirth')}
+                  <input type="date" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-normal" bind:value={studentForm.date_of_birth} />
+                </label>
+                <label class="block text-sm font-semibold text-slate-700">
+                  {$_('school.students.gender')}
+                  <select class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-normal" bind:value={studentForm.gender}>
+                    {#each genderOptions() as option}
+                      <option value={option.value}>{option.label}</option>
+                    {/each}
+                  </select>
+                </label>
+                <StatusInput bind:value={studentForm.status} />
+              </div>
+              <div class="mt-4 flex items-center gap-2">
+                <button type="button" class="btn-hero inline-flex items-center gap-2 rounded-lg" disabled={saving} onclick={saveStudent}>
+                  {#if editingPath === 'students'}{$_('school.save')}{:else}<Plus class="h-4 w-4" />{$_('school.add')}{/if}
+                </button>
+                {#if editingPath === 'students'}
+                  <button type="button" class="btn-secondary rounded-lg" disabled={saving} onclick={cancelEdit}>{$_('school.cancel')}</button>
+                {/if}
+              </div>
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <h3 class="text-base font-black text-slate-900">{$_('school.students.listTitle')}</h3>
+                  <p class="mt-1 text-sm text-slate-500">{$_('school.students.hiddenArchived')}</p>
+                </div>
+                <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_220px_auto] lg:w-[720px]">
+                  <input class="rounded-lg border border-slate-200 px-3 py-2" bind:value={studentSearch} placeholder={$_('school.students.search')} />
+                  <SelectInput label={$_('school.sections.single')} bind:value={studentSectionFilter} rows={sections} optional />
+                  <button type="button" class="btn-secondary rounded-lg px-4 py-2 self-end" disabled={saving} onclick={refresh}>{$_('school.students.applyFilters')}</button>
+                </div>
+              </div>
+
+              {#if studentListEmptyKey()}
+                <p class="mt-4 text-sm text-slate-500">{$_(studentListEmptyKey())}</p>
+              {:else}
+                <div class="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-100">
+                  {#each students as student}
+                    <div class={`p-4 ${selectedStudentId === student.id ? 'bg-slate-50' : 'bg-white'}`}>
+                      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <button type="button" class="text-left" onclick={() => selectStudent(student)}>
+                          <h4 class="font-black text-slate-900">{student.display_name}</h4>
+                          <p class="mt-1 text-sm text-slate-500">
+                            {student.external_ref || $_('school.students.noExternalRef')}
+                            {#if student.name_ar} · {student.name_ar}{/if}
+                          </p>
+                          <p class="mt-1 text-sm text-slate-600">
+                            {$_('school.students.currentClass')}: {studentCurrentClass(student)}
+                            {#if (student.current_subject_groups || []).length}
+                              · {$_('school.students.subjectGroups')}: {(student.current_subject_groups || []).map((group) => group.name).join(', ')}
+                            {/if}
+                          </p>
+                        </button>
+                        <div class="flex gap-2">
+                          <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => selectStudentForAction(student)}>{studentActionLabel(student)}</button>
+                          <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => editStudent(student)}>{$_('school.edit')}</button>
+                          <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => removeStudentMistake(student)}>{$_('school.students.removeMistake')}</button>
+                          <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => archiveStudent(student)}>{$_('school.archive')}</button>
+                        </div>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+
+            {#if selectedStudent()}
+              <div id="student-detail-panel" class="rounded-lg border border-slate-200 bg-white p-5">
+                <h3 class="text-base font-black text-slate-900">{$_('school.students.enrolmentsFor')} {selectedStudent()?.display_name}</h3>
+                <div class="mt-4 grid gap-3 lg:grid-cols-3">
+                  <div class="rounded-lg border border-slate-100 p-3">
+                    <p class="text-sm font-bold text-slate-800">{$_('school.students.addClassEnrolment')}</p>
+                    <div class="mt-3 flex gap-2">
+                      <div class="min-w-0 flex-1">
+                        <SelectInput label={$_('school.sections.single')} bind:value={classEnrolmentSectionId} rows={sections} optional error={fieldError('student-class-enrolment', 'class_section_id')} />
+                      </div>
+                      <button type="button" class="btn-hero self-end rounded-lg px-4 py-2" disabled={saving} onclick={addClassEnrolment}>{$_('school.add')}</button>
+                    </div>
+                  </div>
+                  <div class="rounded-lg border border-slate-100 p-3">
+                    <p class="text-sm font-bold text-slate-800">{$_('school.students.moveClass')}</p>
+                    <p class="mt-1 text-xs text-slate-500">{$_('school.students.moveHelp')}</p>
+                    <div class="mt-3 flex gap-2">
+                      <div class="min-w-0 flex-1">
+                        <SelectInput label={$_('school.sections.single')} bind:value={moveSectionId} rows={sections} optional error={fieldError('student-move', 'class_section_id')} />
+                      </div>
+                      <button type="button" class="btn-hero self-end rounded-lg px-4 py-2" disabled={saving} onclick={moveStudentSection}>{$_('school.students.move')}</button>
+                    </div>
+                  </div>
+                  <div class="rounded-lg border border-slate-100 p-3">
+                    <p class="text-sm font-bold text-slate-800">{$_('school.students.addSubjectEnrolment')}</p>
+                    <div class="mt-3 flex gap-2">
+                      <div class="min-w-0 flex-1">
+                        <SelectInput label={$_('school.groups.title')} bind:value={subjectEnrolmentGroupId} rows={groups} optional error={fieldError('student-subject-enrolment', 'subject_group_id')} />
+                      </div>
+                      <button type="button" class="btn-hero self-end rounded-lg px-4 py-2" disabled={saving} onclick={addSubjectEnrolment}>{$_('school.add')}</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-5">
+                  <h4 class="font-bold text-slate-900">{$_('school.students.history')}</h4>
+                  {#if loadingEnrolments}
+                    <p class="mt-2 text-sm text-slate-500">{$_('common.loading')}</p>
+                  {:else if studentEnrolments.length === 0}
+                    <p class="mt-2 text-sm text-slate-500">{$_('school.students.noEnrolments')}</p>
+                  {:else}
+                    <div class="mt-3 divide-y divide-slate-100 rounded-lg border border-slate-100">
+                      {#each studentEnrolments as enrolment}
+                        <div class="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p class="font-semibold text-slate-900">{enrolmentName(enrolment)}</p>
+                            <p class="mt-1 text-sm text-slate-500">
+                              {enrolmentType(enrolment)} · {enrolment.valid_from} - {enrolment.valid_to || $_('school.students.open')}
+                            </p>
+                          </div>
+                          {#if enrolment.is_open}
+                            <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => closeEnrolment(enrolment.id)}>{$_('school.students.closeEnrolment')}</button>
+                          {/if}
+                        </div>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              </div>
+            {/if}
           </div>
         {:else if activeTab === 'subjects'}
           <CrudBlock title={$_('school.subjects.title')} rows={subjects} path="subjects" bind:form={subjectForm} {saving} editing={editingPath === 'subjects'} errors={{ code: fieldError('subjects', 'code'), name: fieldError('subjects', 'name') }} onsubmit={() => saveRow('subjects', subjectForm)} onedit={(row) => editRow('subjects', subjectForm, row)} oncancel={cancelEdit} onarchive={archiveRow} />

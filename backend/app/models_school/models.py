@@ -253,6 +253,50 @@ class StaffAssignment(Base):
     )
 
 
+class Student(Base):
+    __tablename__ = "students"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    external_ref = Column(String, nullable=True, index=True)
+    first_name = Column(String, nullable=False)
+    last_name = Column(String, nullable=False)
+    preferred_name = Column(String, nullable=True)
+    name_ar = Column(String, nullable=True)
+    date_of_birth = Column(Date, nullable=True)
+    gender = Column(String, nullable=True)
+    status = Column(String, default="active", nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+def _default_enrolment_valid_from():
+    return datetime.now(timezone.utc).date()
+
+
+class Enrolment(Base):
+    __tablename__ = "enrolments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False, index=True)
+    class_section_id = Column(Integer, ForeignKey("class_sections.id"), nullable=True, index=True)
+    subject_group_id = Column(Integer, ForeignKey("subject_groups.id"), nullable=True, index=True)
+    valid_from = Column(Date, nullable=False, default=_default_enrolment_valid_from)
+    valid_to = Column(Date, nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        CheckConstraint(
+            "(class_section_id IS NOT NULL AND subject_group_id IS NULL) OR "
+            "(class_section_id IS NULL AND subject_group_id IS NOT NULL)",
+            name="ck_enrolments_exactly_one_target",
+        ),
+    )
+
+
 def _default_magic_login_expires_at():
     return datetime.now(timezone.utc) + timedelta(minutes=15)
 

@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from .. import auth, invite_tokens
 from ..database import get_db, settings
 from ..mailer import StaffInviteEmail, send_staff_invite
-from ..models_school import Membership, School, StaffInvite, User
+from ..models_school import Membership, School, StaffInvite, Student, User
 from ..school_scope import require_platform_admin, write_audit
 
 router = APIRouter(dependencies=[Depends(require_platform_admin)])
@@ -187,7 +187,7 @@ def _school_payload(db: Session, school: School, *, include_invites: bool = Fals
         "suspend_reason": school.suspend_reason,
         "counts": {
             "memberships_by_role": _role_counts(db, school.id),
-            "students": 0,
+            "students": db.query(Student).filter(Student.school_id == school.id, Student.status != "archived").count(),
         },
         "setup_flags": {
             "has_school_admin": db.query(Membership)
@@ -199,7 +199,7 @@ def _school_payload(db: Session, school: School, *, include_invites: bool = Fals
             )
             .first()
             is not None,
-            "students_configured": False,
+            "students_configured": db.query(Student).filter(Student.school_id == school.id, Student.status != "archived").first() is not None,
         },
     }
     if include_invites:

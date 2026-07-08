@@ -188,7 +188,9 @@ export const en = {
       years: 'Academic years',
       levels: 'Levels',
       sections: 'Sections',
+      rosters: 'Classes / Rosters',
       teachers: 'Teachers',
+      students: 'Students',
       subjects: 'Subjects',
       groups: 'Subject groups'
     },
@@ -217,6 +219,20 @@ export const en = {
     sections: {
       title: 'Class sections and homerooms',
       single: 'Class section'
+    },
+    rosters: {
+      title: 'Class rosters',
+      help: 'Select a class section to verify current students, homeroom teacher, and subject-group assignments.',
+      view: 'View roster',
+      loadError: 'Failed to load class roster',
+      homeroomTeacher: 'Homeroom teacher',
+      teacher: 'Teacher',
+      notAssigned: 'Not assigned',
+      currentStudents: 'Current students',
+      subjectGroups: 'Subject groups',
+      emptyStudents: 'No students enrolled in this class yet.',
+      emptySubjectGroups: 'No subject groups for this class yet.',
+      openStudent: 'Open student'
     },
     subjects: {
       title: 'Subjects',
@@ -255,7 +271,10 @@ export const en = {
       teacherEmailRequired: 'Teacher email is required.',
       teacherEmailInvalid: 'Enter a valid teacher email.',
       sectionRequired: 'Select a class section.',
-      subjectGroupRequired: 'Select a subject group.'
+      subjectGroupRequired: 'Select a subject group.',
+      firstNameRequired: 'First name is required.',
+      lastNameRequired: 'Last name is required.',
+      genderRequired: 'Select a gender.'
     },
     teachers: {
       inviteTitle: 'Invite teacher',
@@ -282,6 +301,57 @@ export const en = {
         homeroom: 'Homeroom',
         subject: 'Subject'
       }
+    },
+    students: {
+      title: 'Students',
+      listTitle: 'Student records',
+      empty: 'No students yet.',
+      emptyFiltered: 'No students match this filter.',
+      emptyArchived: 'No archived students.',
+      externalRef: 'External reference',
+      noExternalRef: 'No external reference',
+      firstName: 'First name',
+      lastName: 'Last name',
+      preferredName: 'Preferred name',
+      dateOfBirth: 'Date of birth',
+      gender: 'Gender',
+      genderMale: 'Male',
+      genderFemale: 'Female',
+      genderOther: 'Other',
+      genderUnspecified: 'Unspecified',
+      search: 'Search students',
+      applyFilters: 'Apply',
+      hiddenArchived: 'Archived students are hidden by default. Recreate by external reference to restore.',
+      currentClass: 'Current class',
+      notEnrolled: 'Not enrolled',
+      subjectGroups: 'Subject groups',
+      saveError: 'Failed to save student',
+      created: 'Student created.',
+      updated: 'Student updated.',
+      archived: 'Student archived.',
+      enrolled: 'Student enrolled.',
+      moved: 'Student moved.',
+      closedEnrolment: 'Enrolment closed.',
+      removedMistake: 'Student mistake removed.',
+      archiveConfirm: 'Archive this student? The student will be hidden by default, but enrolment history is preserved.',
+      removeMistake: 'Remove mistake',
+      removeMistakeConfirm: 'Remove this accidental duplicate or test student? This permanently deletes the student only when there is no history.',
+      removeMistakeError: 'This student has history. Archive instead.',
+      enrolmentsFor: 'Enrolments for',
+      addClassEnrolment: 'Add class enrolment',
+      addSubjectEnrolment: 'Add subject-group enrolment',
+      moveClass: 'Move class',
+      move: 'Move',
+      moveHelp: 'Moving closes the old class enrolment and opens a new one today.',
+      moveConfirm: 'Move this student? The old class enrolment will be closed and a new one opened today.',
+      history: 'Enrolment history',
+      noEnrolments: 'No enrolments yet.',
+      classSection: 'Class section',
+      subjectGroup: 'Subject group',
+      open: 'open',
+      closeEnrolment: 'Close',
+      enrol: 'Enrol',
+      enrolmentError: 'Failed to update enrolment'
     }
   },
   teach: {
@@ -296,6 +366,10 @@ export const en = {
     homeroom: 'Homeroom class',
     subject: 'Subject group',
     activeFrom: 'Active from',
+    viewRoster: 'View roster',
+    hideRoster: 'Hide roster',
+    emptyRoster: 'No students on this roster yet.',
+    rosterLoadError: 'Failed to load roster',
     roles: {
       homeroom: 'Homeroom',
       subject: 'Subject'
@@ -345,6 +419,9 @@ export const en = {
     emailMagicLink: 'Email me a sign-in link',
     magicSent: 'Check your email for a one-time sign-in link.',
     magicError: 'Failed to send sign-in link',
+    magicReady: 'Confirm to finish signing in.',
+    continueMagic: 'Continue sign in',
+    magicExchangeError: 'Failed to sign in with this link',
     accountHelp: 'Use the Google account associated with your Class Hero Hub access.',
     sessionHelp: 'Sessions stay signed in for convenience. Always log out on shared devices.',
     accessHelp: 'Access is currently assigned by the school or administrator.'
@@ -551,7 +628,9 @@ export const ar = {
       years: 'السنوات الدراسية',
       levels: 'المستويات',
       sections: 'الشعب',
+      rosters: 'الشعب / القوائم',
       teachers: 'المعلمون',
+      students: 'الطلاب',
       subjects: 'المواد',
       groups: 'مجموعات المواد'
     },
@@ -580,6 +659,20 @@ export const ar = {
     sections: {
       title: 'الشعب والصفوف الرئيسية',
       single: 'الشعبة'
+    },
+    rosters: {
+      title: 'قوائم الشعب',
+      help: 'اختر شعبة للتحقق من الطلاب الحاليين ومعلم الصف الرئيسي وتكليفات مجموعات المواد.',
+      view: 'عرض القائمة',
+      loadError: 'تعذر تحميل قائمة الشعبة',
+      homeroomTeacher: 'معلم الصف الرئيسي',
+      teacher: 'المعلم',
+      notAssigned: 'غير مكلف',
+      currentStudents: 'الطلاب الحاليون',
+      subjectGroups: 'مجموعات المواد',
+      emptyStudents: 'لا يوجد طلاب مسجلون في هذه الشعبة بعد.',
+      emptySubjectGroups: 'لا توجد مجموعات مواد لهذه الشعبة بعد.',
+      openStudent: 'فتح الطالب'
     },
     subjects: {
       title: 'المواد',
@@ -618,7 +711,10 @@ export const ar = {
       teacherEmailRequired: 'بريد المعلم الإلكتروني مطلوب.',
       teacherEmailInvalid: 'أدخل بريدا إلكترونيا صالحا للمعلم.',
       sectionRequired: 'اختر شعبة.',
-      subjectGroupRequired: 'اختر مجموعة مادة.'
+      subjectGroupRequired: 'اختر مجموعة مادة.',
+      firstNameRequired: 'الاسم الأول مطلوب.',
+      lastNameRequired: 'اسم العائلة مطلوب.',
+      genderRequired: 'اختر الجنس.'
     },
     teachers: {
       inviteTitle: 'دعوة معلم',
@@ -645,6 +741,57 @@ export const ar = {
         homeroom: 'صف رئيسي',
         subject: 'مادة'
       }
+    },
+    students: {
+      title: 'الطلاب',
+      listTitle: 'سجلات الطلاب',
+      empty: 'لا يوجد طلاب بعد.',
+      emptyFiltered: 'لا يوجد طلاب يطابقون هذا الفلتر.',
+      emptyArchived: 'لا يوجد طلاب مؤرشفون.',
+      externalRef: 'المرجع الخارجي',
+      noExternalRef: 'لا يوجد مرجع خارجي',
+      firstName: 'الاسم الأول',
+      lastName: 'اسم العائلة',
+      preferredName: 'الاسم المفضل',
+      dateOfBirth: 'تاريخ الميلاد',
+      gender: 'الجنس',
+      genderMale: 'ذكر',
+      genderFemale: 'أنثى',
+      genderOther: 'أخرى',
+      genderUnspecified: 'غير محدد',
+      search: 'ابحث عن الطلاب',
+      applyFilters: 'تطبيق',
+      hiddenArchived: 'يتم إخفاء الطلاب المؤرشفين افتراضيا. أعد الإنشاء بالمرجع الخارجي للاستعادة.',
+      currentClass: 'الشعبة الحالية',
+      notEnrolled: 'غير مسجل',
+      subjectGroups: 'مجموعات المواد',
+      saveError: 'تعذر حفظ الطالب',
+      created: 'تم إنشاء الطالب.',
+      updated: 'تم تحديث الطالب.',
+      archived: 'تم أرشفة الطالب.',
+      enrolled: 'تم تسجيل الطالب.',
+      moved: 'تم نقل الطالب.',
+      closedEnrolment: 'تم إغلاق القيد.',
+      removedMistake: 'تمت إزالة الطالب المدخل بالخطأ.',
+      archiveConfirm: 'هل تريد أرشفة هذا الطالب؟ سيخفى افتراضيا، لكن سجل القيد محفوظ.',
+      removeMistake: 'إزالة خطأ',
+      removeMistakeConfirm: 'هل تريد إزالة هذا الطالب المكرر أو التجريبي بالخطأ؟ سيحذف الطالب نهائيا فقط إذا لم يكن له سجل.',
+      removeMistakeError: 'هذا الطالب لديه سجل. استخدم الأرشفة بدلا من ذلك.',
+      enrolmentsFor: 'القيود لـ',
+      addClassEnrolment: 'إضافة قيد شعبة',
+      addSubjectEnrolment: 'إضافة قيد مجموعة مادة',
+      moveClass: 'نقل الشعبة',
+      move: 'نقل',
+      moveHelp: 'النقل يغلق قيد الشعبة القديم ويفتح قيدا جديدا اليوم.',
+      moveConfirm: 'هل تريد نقل هذا الطالب؟ سيتم إغلاق قيد الشعبة القديم وفتح قيد جديد اليوم.',
+      history: 'سجل القيود',
+      noEnrolments: 'لا توجد قيود بعد.',
+      classSection: 'شعبة',
+      subjectGroup: 'مجموعة مادة',
+      open: 'مفتوح',
+      closeEnrolment: 'إغلاق',
+      enrol: 'تسجيل',
+      enrolmentError: 'تعذر تحديث القيد'
     }
   },
   teach: {
@@ -659,6 +806,10 @@ export const ar = {
     homeroom: 'الصف الرئيسي',
     subject: 'مجموعة المادة',
     activeFrom: 'نشط من',
+    viewRoster: 'عرض القائمة',
+    hideRoster: 'إخفاء القائمة',
+    emptyRoster: 'لا يوجد طلاب في هذه القائمة بعد.',
+    rosterLoadError: 'تعذر تحميل القائمة',
     roles: {
       homeroom: 'صف رئيسي',
       subject: 'مادة'
@@ -708,6 +859,9 @@ export const ar = {
     emailMagicLink: 'أرسل لي رابط تسجيل الدخول',
     magicSent: 'تحقق من بريدك الإلكتروني للحصول على رابط تسجيل دخول لمرة واحدة.',
     magicError: 'تعذر إرسال رابط تسجيل الدخول',
+    magicReady: 'أكد لإكمال تسجيل الدخول.',
+    continueMagic: 'متابعة تسجيل الدخول',
+    magicExchangeError: 'تعذر تسجيل الدخول بهذا الرابط',
     accountHelp: 'استخدم حساب Google المرتبط بوصولك إلى كلاس هيرو هب.',
     sessionHelp: 'تبقى الجلسات مسجلة الدخول للراحة. سجّل الخروج دائما على الأجهزة المشتركة.',
     accessHelp: 'يتم تعيين الوصول حاليا من المدرسة أو المسؤول.'
