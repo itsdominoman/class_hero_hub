@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import auth, database, schemas
-from .database import Base, engine, ensure_runtime_schema, get_db, settings, validate_runtime_configuration
+from .database import Base, close_request_db, engine, ensure_runtime_schema, get_db, settings, validate_runtime_configuration
 from .models_school import Membership, PlatformAdmin, School, User
 from .routes import authentication, dev, platform, school, teach
 from .security import TrustedProxyHeadersMiddleware, parse_csv_values
@@ -72,6 +72,17 @@ def create_app() -> FastAPI:
     )
 
     app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET)
+
+    @app.middleware("http")
+    async def db_session_cleanup_middleware(request: Request, call_next):
+        try:
+            response = await call_next(request)
+            return response
+        except Exception:
+            close_request_db(request, rollback=True)
+            raise
+        finally:
+            close_request_db(request, rollback=True)
 
     @app.middleware("http")
     async def csrf_protection_middleware(request: Request, call_next):

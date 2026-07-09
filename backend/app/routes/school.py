@@ -1317,6 +1317,41 @@ def revoke_teacher_invite(
         db.commit()
 
 
+@router.get("/teachers/assignments")
+def list_all_teacher_assignments(
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    teacher_memberships = (
+        db.query(Membership.id)
+        .filter(
+            Membership.school_id == school_id,
+            Membership.role == "teacher",
+            Membership.status == "active",
+            Membership.revoked_at.is_(None),
+        )
+        .all()
+    )
+    teacher_membership_ids = [row.id for row in teacher_memberships]
+    if not teacher_membership_ids:
+        return {}
+
+    assignments_by_teacher: dict[int, list[dict[str, Any]]] = {membership_id: [] for membership_id in teacher_membership_ids}
+    assignments = (
+        db.query(StaffAssignment)
+        .filter(
+            StaffAssignment.school_id == school_id,
+            StaffAssignment.membership_id.in_(teacher_membership_ids),
+        )
+        .order_by(StaffAssignment.membership_id.asc(), StaffAssignment.valid_from.desc(), StaffAssignment.id.desc())
+        .all()
+    )
+    for assignment in assignments:
+        assignments_by_teacher.setdefault(assignment.membership_id, []).append(_assignment_payload(db, assignment))
+    return assignments_by_teacher
+
+
 @router.get("/teachers/{teacher_membership_id}/assignments")
 def list_teacher_assignments(
     teacher_membership_id: int,

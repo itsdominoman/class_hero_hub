@@ -343,10 +343,10 @@
       homeroomSelections[teacher.membership_id] ??= '';
       groupSelections[teacher.membership_id] ??= '';
     }
-    const assignmentPairs = await Promise.all(
-      teachers.map(async (teacher) => [teacher.membership_id, await api.get(`/school/teachers/${teacher.membership_id}/assignments`, options)] as const)
+    const assignmentsByTeacher = await api.get('/school/teachers/assignments', options);
+    teacherAssignments = Object.fromEntries(
+      teachers.map((teacher) => [teacher.membership_id, assignmentsByTeacher?.[teacher.membership_id] || []])
     );
-    teacherAssignments = Object.fromEntries(assignmentPairs);
     const defaultYear = defaultYearValue();
     if (!sectionForm.academic_year_id) sectionForm.academic_year_id = defaultYear;
     if (!groupForm.academic_year_id) groupForm.academic_year_id = defaultYear;

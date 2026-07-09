@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from starlette.requests import Request
 
 from .security import parse_csv_values, parse_ip_networks
 
@@ -242,6 +243,13 @@ class Settings(BaseSettings):
     SMTP_FROM_EMAIL: str = ""
     SMTP_FROM_NAME: str = "Class Hero Hub"
     SMTP_USE_TLS: bool = True
+    DB_POOL_SIZE: int = 40
+    DB_MAX_OVERFLOW: int = 20
+    DB_POOL_TIMEOUT_SECONDS: int = 10
+    DB_POOL_RECYCLE_SECONDS: int = 1800
+    DB_STATEMENT_TIMEOUT_MS: int = 30000
+    DB_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: int = 60000
+
     @property
     def COOKIE_SECURE(self) -> bool:
         return _normalize_environment(self.APP_ENV) == "production"
@@ -268,19 +276,54 @@ connect_args = (
     else {}
 )
 
-engine = create_engine(
-    settings.DATABASE_URL, connect_args=connect_args
-)
+engine_kwargs = {"connect_args": connect_args}
+if not settings.DATABASE_URL.startswith("sqlite"):
+    postgres_options = []
+    if settings.DB_STATEMENT_TIMEOUT_MS > 0:
+        postgres_options.append(f"-c statement_timeout={settings.DB_STATEMENT_TIMEOUT_MS}")
+    if settings.DB_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS > 0:
+        postgres_options.append(
+            f"-c idle_in_transaction_session_timeout={settings.DB_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS}"
+        )
+    if postgres_options:
+        connect_args["options"] = " ".join(postgres_options)
+
+    engine_kwargs.update(
+        {
+            "pool_pre_ping": True,
+            "pool_size": settings.DB_POOL_SIZE,
+            "max_overflow": settings.DB_MAX_OVERFLOW,
+            "pool_timeout": settings.DB_POOL_TIMEOUT_SECONDS,
+            "pool_recycle": settings.DB_POOL_RECYCLE_SECONDS,
+        }
+    )
+
+engine = create_engine(settings.DATABASE_URL, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
-def get_db():
-    db = SessionLocal()
+REQUEST_DB_SESSION_KEY = "_class_hero_hub_db"
+
+
+def get_db(request: Request):
+    db = getattr(request.state, REQUEST_DB_SESSION_KEY, None)
+    if db is None:
+        db = SessionLocal()
+        setattr(request.state, REQUEST_DB_SESSION_KEY, db)
+    return db
+
+
+def close_request_db(request: Request, *, rollback: bool = True) -> None:
+    db = getattr(request.state, REQUEST_DB_SESSION_KEY, None)
+    if db is None:
+        return
     try:
-        yield db
+        if rollback and db.in_transaction():
+            db.rollback()
     finally:
         db.close()
+        setattr(request.state, REQUEST_DB_SESSION_KEY, None)
 
 
 def ensure_runtime_schema():

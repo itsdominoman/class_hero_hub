@@ -330,6 +330,32 @@ def test_assignment_create_close_reassign_target_validation_and_dashboard(db, cl
     assert {"school.staff_assignment.created", "school.staff_assignment.closed"}.issubset(actions)
 
 
+def test_batch_teacher_assignments_grouped_by_membership_and_permission_boundaries(db, client, staff_world):
+    alpha = staff_world["alpha"]
+    admin = staff_world["alpha_admin"]
+    teacher_membership = staff_world["alpha_teacher_membership"]
+    other_membership = staff_world["other_teacher_membership"]
+    section = staff_world["section"]
+
+    homeroom = client.post(
+        f"/api/school/teachers/{teacher_membership.id}/assignments",
+        headers=bearer(admin.email, alpha.id),
+        json={"role": "homeroom", "class_section_id": section.id},
+    )
+    assert homeroom.status_code == 201
+
+    batch = client.get("/api/school/teachers/assignments", headers=bearer(admin.email, alpha.id))
+    assert batch.status_code == 200
+    body = batch.json()
+    assert set(body.keys()) == {str(teacher_membership.id), str(other_membership.id)}
+    assert [row["id"] for row in body[str(teacher_membership.id)]] == [homeroom.json()["id"]]
+    assert body[str(other_membership.id)] == []
+
+    assert client.get("/api/school/teachers/assignments", headers=bearer(staff_world["alpha_teacher"].email, alpha.id)).status_code == 403
+    assert client.get("/api/school/teachers/assignments", headers=bearer(staff_world["no_role"].email, alpha.id)).status_code == 403
+    assert client.get("/api/school/teachers/assignments", headers=bearer(staff_world["beta_admin"].email, alpha.id)).status_code == 403
+
+
 def test_school_admin_permission_boundaries_and_deactivation(db, client, staff_world):
     alpha = staff_world["alpha"]
     teacher_membership = staff_world["alpha_teacher_membership"]
