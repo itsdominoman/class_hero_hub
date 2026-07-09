@@ -579,6 +579,103 @@ def test_bulk_create_section_subject_groups_defaults_to_default_for_section(db, 
     assert response.json()["results"][0]["subject_group"]["enrolment_policy"] == "default_for_section"
 
 
+def test_list_students_includes_default_for_section_subject_groups(db, client, enrolment_world):
+    world = enrolment_world
+    world["group"].enrolment_policy = "default_for_section"
+    db.commit()
+    in_section = create_student_api(client, world, ref="S-LSA", first="Alya").json()["id"]
+    other_section = create_student_api(client, world, ref="S-LSB", first="Badr").json()["id"]
+    enrol_student(client, world, in_section, {"class_section_id": world["section_a"].id})
+    enrol_student(client, world, other_section, {"class_section_id": world["section_b"].id})
+
+    response = client.get("/api/school/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id))
+    assert response.status_code == 200
+    by_id = {row["id"]: row for row in response.json()}
+    assert [g["source"] for g in by_id[in_section]["current_subject_groups"]] == ["default"]
+    assert by_id[other_section]["current_subject_groups"] == []
+
+
+def test_list_students_includes_default_for_grade_subject_groups(db, client, enrolment_world):
+    world = enrolment_world
+    group = SubjectGroup(
+        school_id=world["alpha"].id,
+        academic_year_id=world["year"].id,
+        grade_level_id=world["level"].id,
+        subject_id=world["subject"].id,
+        code="KG1-ENG",
+        name="KG 1 English",
+        status="active",
+        enrolment_policy="default_for_grade",
+    )
+    db.add(group)
+    db.commit()
+    student_a = create_student_api(client, world, ref="S-LGA", first="A").json()["id"]
+    student_b = create_student_api(client, world, ref="S-LGB", first="B").json()["id"]
+    enrol_student(client, world, student_a, {"class_section_id": world["section_a"].id})
+    enrol_student(client, world, student_b, {"class_section_id": world["section_b"].id})
+
+    response = client.get("/api/school/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id))
+    by_id = {row["id"]: row for row in response.json()}
+    assert group.code in {g["code"] for g in by_id[student_a]["current_subject_groups"]}
+    assert group.code in {g["code"] for g in by_id[student_b]["current_subject_groups"]}
+
+
+def test_list_students_excludes_student_with_exclusion_row(db, client, enrolment_world):
+    world = enrolment_world
+    world["group"].enrolment_policy = "default_for_section"
+    db.commit()
+    student_id = create_student_api(client, world, ref="S-LEX").json()["id"]
+    enrol_student(client, world, student_id, {"class_section_id": world["section_a"].id})
+    excluded = enrol_student(client, world, student_id, {"subject_group_id": world["group"].id, "kind": "excluded"})
+    assert excluded.status_code == 201
+
+    response = client.get("/api/school/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id))
+    by_id = {row["id"]: row for row in response.json()}
+    assert by_id[student_id]["current_subject_groups"] == []
+
+
+def test_list_students_includes_explicit_only_subject_group(db, client, enrolment_world):
+    world = enrolment_world
+    student_id = create_student_api(client, world, ref="S-LEXP").json()["id"]
+    enrol_student(client, world, student_id, {"class_section_id": world["section_a"].id})
+    explicit = enrol_student(client, world, student_id, {"subject_group_id": world["group"].id})
+    assert explicit.status_code == 201
+
+    response = client.get("/api/school/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id))
+    by_id = {row["id"]: row for row in response.json()}
+    assert [(g["source"], g["enrolment_id"]) for g in by_id[student_id]["current_subject_groups"]] == [("explicit", explicit.json()["id"])]
+
+
+def test_list_students_resolves_subject_groups_once_per_group_not_per_student(db, client, enrolment_world, monkeypatch):
+    world = enrolment_world
+    world["group"].enrolment_policy = "default_for_section"
+    db.commit()
+    student_ids = []
+    for i in range(5):
+        student_id = create_student_api(client, world, ref=f"S-FAN-{i}", first=f"F{i}").json()["id"]
+        enrol_student(client, world, student_id, {"class_section_id": world["section_a"].id})
+        student_ids.append(student_id)
+
+    expected_group_calls = db.query(SubjectGroup).filter(SubjectGroup.school_id == world["alpha"].id, SubjectGroup.status != "archived").count()
+    assert expected_group_calls < len(student_ids)  # otherwise this test can't distinguish per-group from per-student
+
+    import app.rosters as rosters_module
+
+    original = rosters_module.subject_group_members
+    calls = {"n": 0}
+
+    def counting_wrapper(*args, **kwargs):
+        calls["n"] += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(rosters_module, "subject_group_members", counting_wrapper)
+
+    response = client.get("/api/school/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id))
+    assert response.status_code == 200
+    assert len(response.json()) == len(student_ids)
+    assert calls["n"] == expected_group_calls
+
+
 def test_enrolment_date_validation(db, client, enrolment_world):
     world = enrolment_world
     student_id = create_student_api(client, world).json()["id"]

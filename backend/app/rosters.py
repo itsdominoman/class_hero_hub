@@ -164,17 +164,26 @@ def roster_payload(
     }
 
 
-def current_subject_groups_for_student(db: Session, school_id: int, student_id: int, today: date) -> list[dict[str, Any]]:
+def bulk_subject_groups_for_students(db: Session, school_id: int, today: date) -> dict[int, list[dict[str, Any]]]:
+    """Current subject groups for every student, computed in one pass over groups.
+
+    Each group's roster is resolved once (not once per student), so this is
+    O(groups) roster computations instead of O(students * groups).
+    """
     groups = (
         db.query(SubjectGroup)
         .filter(SubjectGroup.school_id == school_id, SubjectGroup.status != "archived")
         .order_by(SubjectGroup.sort_order.asc(), SubjectGroup.id.asc())
         .all()
     )
-    current = []
+    result: dict[int, list[dict[str, Any]]] = {}
     for group in groups:
-        for student in subject_group_members(db, school_id, group, today)[0]:
-            if student["id"] == student_id:
-                current.append(row_ref(group) | {key: student[key] for key in ("source", "enrolment_id", "enrolled_from")})
-                break
-    return current
+        members, _excluded = subject_group_members(db, school_id, group, today)
+        group_ref = row_ref(group)
+        for student in members:
+            result.setdefault(student["id"], []).append(group_ref | {key: student[key] for key in ("source", "enrolment_id", "enrolled_from")})
+    return result
+
+
+def current_subject_groups_for_student(db: Session, school_id: int, student_id: int, today: date) -> list[dict[str, Any]]:
+    return bulk_subject_groups_for_students(db, school_id, today).get(student_id, [])

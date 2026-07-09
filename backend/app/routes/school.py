@@ -27,7 +27,7 @@ from ..models_school import (
     SubjectGroup,
     User,
 )
-from ..rosters import current_subject_groups_for_student, roster_payload
+from ..rosters import bulk_subject_groups_for_students, current_subject_groups_for_student, roster_payload
 from .platform import _invite_payload, _issue_staff_invite
 from ..school_scope import is_open_interval, open_interval_expression, require_school_role, write_audit
 
@@ -506,32 +506,34 @@ def _ensure_active_target(row: Any, label: str) -> Any:
 
 
 def _assignment_payload(db: Session, row: StaffAssignment) -> dict[str, Any]:
-    section = None
-    if row.class_section_id is not None:
-        section_row = db.query(ClassSection).filter(ClassSection.id == row.class_section_id).first()
-        if section_row:
-            section = _payload(section_row)
-    group = None
-    if row.subject_group_id is not None:
-        group_row = db.query(SubjectGroup).filter(SubjectGroup.id == row.subject_group_id).first()
-        if group_row:
-            group = _payload(group_row)
-    return {
-        "id": row.id,
-        "school_id": row.school_id,
-        "membership_id": row.membership_id,
-        "role": row.role,
-        "class_section_id": row.class_section_id,
-        "subject_group_id": row.subject_group_id,
-        "valid_from": row.valid_from,
-        "valid_to": row.valid_to,
-        "created_by_user_id": row.created_by_user_id,
-        "created_at": row.created_at,
-        "updated_at": row.updated_at,
-        "class_section": section,
-        "subject_group": group,
-        "is_open": _is_open_assignment(row),
-    }
+    return _assignment_payloads_bulk(db, [row])[0]
+
+
+def _assignment_payloads_bulk(db: Session, rows: list[StaffAssignment]) -> list[dict[str, Any]]:
+    """Build assignment payloads for many rows with a fixed number of batch queries."""
+    section_ids = {row.class_section_id for row in rows if row.class_section_id is not None}
+    group_ids = {row.subject_group_id for row in rows if row.subject_group_id is not None}
+    sections_by_id = {s.id: _payload(s) for s in (db.query(ClassSection).filter(ClassSection.id.in_(section_ids)).all() if section_ids else [])}
+    groups_by_id = {g.id: _payload(g) for g in (db.query(SubjectGroup).filter(SubjectGroup.id.in_(group_ids)).all() if group_ids else [])}
+    return [
+        {
+            "id": row.id,
+            "school_id": row.school_id,
+            "membership_id": row.membership_id,
+            "role": row.role,
+            "class_section_id": row.class_section_id,
+            "subject_group_id": row.subject_group_id,
+            "valid_from": row.valid_from,
+            "valid_to": row.valid_to,
+            "created_by_user_id": row.created_by_user_id,
+            "created_at": row.created_at,
+            "updated_at": row.updated_at,
+            "class_section": sections_by_id.get(row.class_section_id),
+            "subject_group": groups_by_id.get(row.subject_group_id),
+            "is_open": _is_open_assignment(row),
+        }
+        for row in rows
+    ]
 
 
 def _open_assignments_query(db: Session, school_id: int, today: date | None = None):
@@ -605,6 +607,36 @@ def _current_student_context(db: Session, school_id: int, student_id: int) -> tu
 def _student_with_context(db: Session, row: Student) -> dict[str, Any]:
     class_section, subject_groups = _current_student_context(db, row.school_id, row.id)
     return _student_payload(row, current_class_section=class_section, current_subject_groups=subject_groups)
+
+
+def _students_with_context_bulk(db: Session, school_id: int, rows: list[Student]) -> list[dict[str, Any]]:
+    today = _today()
+    subject_groups_by_student = bulk_subject_groups_for_students(db, school_id, today)
+
+    student_ids = [row.id for row in rows]
+    section_id_by_student: dict[int, int] = {}
+    if student_ids:
+        section_enrolments = (
+            db.query(Enrolment)
+            .filter(
+                Enrolment.school_id == school_id,
+                Enrolment.student_id.in_(student_ids),
+                Enrolment.class_section_id.is_not(None),
+                *open_interval_expression(Enrolment, today),
+            )
+            .order_by(Enrolment.id.asc())
+            .all()
+        )
+        for enrolment in section_enrolments:
+            section_id_by_student[enrolment.student_id] = enrolment.class_section_id
+    section_ids = set(section_id_by_student.values())
+    sections_by_id = {s.id: _payload(s) for s in (db.query(ClassSection).filter(ClassSection.id.in_(section_ids)).all() if section_ids else [])}
+
+    payloads = []
+    for row in rows:
+        class_section = sections_by_id.get(section_id_by_student.get(row.id))
+        payloads.append(_student_payload(row, current_class_section=class_section, current_subject_groups=subject_groups_by_student.get(row.id, [])))
+    return payloads
 
 
 def _enrolment_payload(db: Session, row: Enrolment) -> dict[str, Any]:
@@ -729,19 +761,25 @@ def _student_history_reasons(db: Session, school_id: int, student_id: int) -> li
     return reasons
 
 
-def _teacher_ref_payload(db: Session, assignment: StaffAssignment | None) -> dict[str, Any] | None:
-    if assignment is None:
-        return None
-    membership = db.query(Membership).filter(Membership.id == assignment.membership_id).first()
-    user = db.query(User).filter(User.id == membership.user_id).first() if membership else None
-    if membership is None or user is None:
-        return None
-    return {
-        "assignment_id": assignment.id,
-        "membership_id": membership.id,
-        "valid_from": assignment.valid_from,
-        "user": _user_payload(user),
-    }
+def _teacher_ref_payloads_bulk(db: Session, assignments: list[StaffAssignment]) -> dict[int, dict[str, Any]]:
+    """Map assignment.id -> teacher ref payload for many assignments with a fixed number of batch queries."""
+    membership_ids = {a.membership_id for a in assignments}
+    memberships_by_id = {m.id: m for m in (db.query(Membership).filter(Membership.id.in_(membership_ids)).all() if membership_ids else [])}
+    user_ids = {m.user_id for m in memberships_by_id.values()}
+    users_by_id = {u.id: u for u in (db.query(User).filter(User.id.in_(user_ids)).all() if user_ids else [])}
+    result: dict[int, dict[str, Any]] = {}
+    for assignment in assignments:
+        membership = memberships_by_id.get(assignment.membership_id)
+        user = users_by_id.get(membership.user_id) if membership else None
+        if membership is None or user is None:
+            continue
+        result[assignment.id] = {
+            "assignment_id": assignment.id,
+            "membership_id": membership.id,
+            "valid_from": assignment.valid_from,
+            "user": _user_payload(user),
+        }
+    return result
 
 
 def _class_roster_setup_payload(db: Session, school_id: int, class_section_id: int) -> dict[str, Any]:
@@ -777,18 +815,25 @@ def _class_roster_setup_payload(db: Session, school_id: int, class_section_id: i
             .all()
         ):
             assignments_by_group.setdefault(assignment.subject_group_id, assignment)
+    teacher_refs_by_assignment_id = _teacher_ref_payloads_bulk(
+        db, ([homeroom_assignment] if homeroom_assignment else []) + list(assignments_by_group.values())
+    )
     return {
         "class_section": _payload(section),
         "branch": _payload(branch) if branch else None,
         "academic_year": _payload(year) if year else None,
         "grade_level": _payload(level) if level else None,
         "students": roster["students"],
-        "homeroom_teacher": _teacher_ref_payload(db, homeroom_assignment),
+        "homeroom_teacher": teacher_refs_by_assignment_id.get(homeroom_assignment.id) if homeroom_assignment else None,
         "subject_groups": [
             {
                 "subject_group": _payload(group),
                 "subject": _payload(subjects_by_id.get(group.subject_id)) if group.subject_id is not None else None,
-                "teacher": _teacher_ref_payload(db, assignments_by_group.get(group.id)),
+                "teacher": (
+                    teacher_refs_by_assignment_id.get(assignments_by_group[group.id].id)
+                    if group.id in assignments_by_group
+                    else None
+                ),
             }
             for group in subject_group_rows
         ],
@@ -1380,8 +1425,8 @@ def list_all_teacher_assignments(
         .order_by(StaffAssignment.membership_id.asc(), StaffAssignment.valid_from.desc(), StaffAssignment.id.desc())
         .all()
     )
-    for assignment in assignments:
-        assignments_by_teacher.setdefault(assignment.membership_id, []).append(_assignment_payload(db, assignment))
+    for payload in _assignment_payloads_bulk(db, assignments):
+        assignments_by_teacher.setdefault(payload["membership_id"], []).append(payload)
     return assignments_by_teacher
 
 
@@ -1399,7 +1444,7 @@ def list_teacher_assignments(
         .order_by(StaffAssignment.valid_from.desc(), StaffAssignment.id.desc())
         .all()
     )
-    return [_assignment_payload(db, assignment) for assignment in assignments]
+    return _assignment_payloads_bulk(db, assignments)
 
 
 @router.post("/teachers/{teacher_membership_id}/assignments", status_code=status.HTTP_201_CREATED)
@@ -1598,7 +1643,7 @@ def list_students(
         )
         query = query.filter(Student.id.in_(student_ids))
     rows = query.order_by(Student.last_name.asc(), Student.first_name.asc(), Student.id.asc()).all()
-    return [_student_with_context(db, row) for row in rows]
+    return _students_with_context_bulk(db, school_id, rows)
 
 
 @router.post("/students", status_code=status.HTTP_201_CREATED)

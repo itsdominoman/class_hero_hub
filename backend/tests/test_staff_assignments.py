@@ -1,4 +1,5 @@
 import os
+from contextlib import contextmanager
 from datetime import timedelta
 
 os.environ["DATABASE_URL"] = "sqlite://"
@@ -8,7 +9,7 @@ os.environ["DEV_AUTH_ENABLED"] = "false"
 import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -64,6 +65,21 @@ def client():
         yield TestClient(app)
     finally:
         app.dependency_overrides.clear()
+
+
+@contextmanager
+def count_queries():
+    """Count SQL statements executed against the test engine within the block."""
+    counter = {"n": 0}
+
+    def _before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+        counter["n"] += 1
+
+    event.listen(engine, "before_cursor_execute", _before_cursor_execute)
+    try:
+        yield counter
+    finally:
+        event.remove(engine, "before_cursor_execute", _before_cursor_execute)
 
 
 def bearer(email: str, school_id: int | None = None) -> dict[str, str]:
@@ -423,3 +439,142 @@ def test_require_teacher_of_passes_and_fails_for_assignment_scope(db, staff_worl
     assignment.valid_to = invite_tokens.now_utc().date() - timedelta(days=1)
     db.commit()
     assert guard_client.get(path, headers=bearer(staff_world["alpha_teacher"].email)).status_code == 403
+
+
+def _extra_sections_and_groups(db, staff_world, count: int) -> list[SubjectGroup]:
+    alpha = staff_world["alpha"]
+    section = staff_world["section"]
+    subject_id = staff_world["group"].subject_id
+    groups = []
+    for i in range(count):
+        extra_section = ClassSection(
+            school_id=alpha.id,
+            branch_campus_id=section.branch_campus_id,
+            academic_year_id=section.academic_year_id,
+            grade_level_id=section.grade_level_id,
+            code=f"X{i}",
+            name=f"Extra Section {i}",
+            status="active",
+        )
+        db.add(extra_section)
+        db.flush()
+        extra_group = SubjectGroup(
+            school_id=alpha.id,
+            academic_year_id=section.academic_year_id,
+            class_section_id=extra_section.id,
+            subject_id=subject_id,
+            code=f"EXTRA{i}-ENG",
+            name=f"Extra English {i}",
+            status="active",
+        )
+        db.add(extra_group)
+        groups.append(extra_group)
+    db.commit()
+    return groups
+
+
+def test_teacher_dashboard_query_count_does_not_scale_with_assignment_count(db, client, staff_world):
+    alpha = staff_world["alpha"]
+    admin = staff_world["alpha_admin"]
+    teacher_membership = staff_world["alpha_teacher_membership"]
+    section = staff_world["section"]
+
+    homeroom = client.post(
+        f"/api/school/teachers/{teacher_membership.id}/assignments",
+        headers=bearer(admin.email, alpha.id),
+        json={"role": "homeroom", "class_section_id": section.id},
+    )
+    assert homeroom.status_code == 201
+
+    with count_queries() as baseline_counter:
+        baseline_response = client.get("/api/teach/dashboard", headers=bearer(staff_world["alpha_teacher"].email))
+    assert baseline_response.status_code == 200
+    assert len(baseline_response.json()["assignments"]) == 1
+
+    extra_groups = _extra_sections_and_groups(db, staff_world, 5)
+    for extra_group in extra_groups:
+        response = client.post(
+            f"/api/school/teachers/{teacher_membership.id}/assignments",
+            headers=bearer(admin.email, alpha.id),
+            json={"role": "subject", "subject_group_id": extra_group.id},
+        )
+        assert response.status_code == 201
+
+    with count_queries() as many_counter:
+        many_response = client.get("/api/teach/dashboard", headers=bearer(staff_world["alpha_teacher"].email))
+    assert many_response.status_code == 200
+    assert len(many_response.json()["assignments"]) == 6
+
+    # The old per-assignment resolver issued ~5 extra SELECTs per additional
+    # subject-group assignment (~25+ for 5 more). The batched resolver adds only
+    # a small, fixed number of extra WHERE-IN queries regardless of how many
+    # assignments there are.
+    assert many_counter["n"] - baseline_counter["n"] < 15
+
+
+def test_batch_teacher_assignments_query_count_does_not_scale_with_assignment_count(db, client, staff_world):
+    alpha = staff_world["alpha"]
+    admin = staff_world["alpha_admin"]
+    teacher_membership = staff_world["alpha_teacher_membership"]
+    section = staff_world["section"]
+
+    homeroom = client.post(
+        f"/api/school/teachers/{teacher_membership.id}/assignments",
+        headers=bearer(admin.email, alpha.id),
+        json={"role": "homeroom", "class_section_id": section.id},
+    )
+    assert homeroom.status_code == 201
+
+    with count_queries() as baseline_counter:
+        baseline_response = client.get("/api/school/teachers/assignments", headers=bearer(admin.email, alpha.id))
+    assert baseline_response.status_code == 200
+    assert len(baseline_response.json()[str(teacher_membership.id)]) == 1
+
+    extra_groups = _extra_sections_and_groups(db, staff_world, 5)
+    for extra_group in extra_groups:
+        response = client.post(
+            f"/api/school/teachers/{teacher_membership.id}/assignments",
+            headers=bearer(admin.email, alpha.id),
+            json={"role": "subject", "subject_group_id": extra_group.id},
+        )
+        assert response.status_code == 201
+
+    with count_queries() as many_counter:
+        many_response = client.get("/api/school/teachers/assignments", headers=bearer(admin.email, alpha.id))
+    assert many_response.status_code == 200
+    assert len(many_response.json()[str(teacher_membership.id)]) == 6
+    assert many_counter["n"] - baseline_counter["n"] < 15
+
+
+def test_class_roster_setup_query_count_does_not_scale_with_subject_group_count(db, client, staff_world):
+    alpha = staff_world["alpha"]
+    admin = staff_world["alpha_admin"]
+    section = staff_world["section"]
+
+    with count_queries() as baseline_counter:
+        baseline_response = client.get(f"/api/school/class-sections/{section.id}/roster", headers=bearer(admin.email, alpha.id))
+    assert baseline_response.status_code == 200
+    baseline_group_count = len(baseline_response.json()["subject_groups"])
+
+    extra_groups = _extra_sections_and_groups(db, staff_world, 5)
+    # Reuse the base section for all extra groups and assign a teacher to each,
+    # so the roster-setup teacher lookup has several distinct teachers to resolve.
+    other_membership = staff_world["other_teacher_membership"]
+    for extra_group in extra_groups:
+        extra_group.class_section_id = section.id
+        db.add(
+            StaffAssignment(
+                school_id=alpha.id,
+                membership_id=other_membership.id,
+                subject_group_id=extra_group.id,
+                role="subject",
+                valid_from=invite_tokens.now_utc().date(),
+            )
+        )
+    db.commit()
+
+    with count_queries() as many_counter:
+        many_response = client.get(f"/api/school/class-sections/{section.id}/roster", headers=bearer(admin.email, alpha.id))
+    assert many_response.status_code == 200
+    assert len(many_response.json()["subject_groups"]) == baseline_group_count + 5
+    assert many_counter["n"] - baseline_counter["n"] < 15
