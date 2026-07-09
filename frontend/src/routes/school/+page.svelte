@@ -24,6 +24,7 @@
     grade_level_id?: number | null;
     class_section_id?: number | null;
     subject_id?: number | null;
+    enrolment_policy?: 'explicit_only' | 'default_for_section' | 'default_for_grade';
     is_current?: boolean;
     start_date?: string | null;
     end_date?: string | null;
@@ -64,7 +65,7 @@
     gender?: string | null;
     status: string;
     current_class_section?: Row | null;
-    current_subject_groups?: Row[];
+    current_subject_groups?: (Row & { source?: 'default' | 'explicit'; enrolment_id?: number | null; enrolled_from?: string })[];
   };
   type StudentForm = {
     external_ref: string;
@@ -81,6 +82,7 @@
     student_id: number;
     class_section_id?: number | null;
     subject_group_id?: number | null;
+    kind?: 'member' | 'excluded';
     valid_from: string;
     valid_to?: string | null;
     is_open: boolean;
@@ -105,6 +107,13 @@
       subject?: Row | null;
       teacher?: TeacherRef | null;
     }[];
+  };
+  type SubjectGroupRoster = {
+    class_section?: Row | null;
+    subject_group?: Row | null;
+    enrolment_policy?: 'explicit_only' | 'default_for_section' | 'default_for_grade';
+    students: (Student & { enrolment_id?: number | null; enrolled_from?: string; source?: 'default' | 'explicit' })[];
+    excluded_students: (Student & { enrolment_id: number; enrolled_from?: string; source?: 'excluded' })[];
   };
   type BulkSubjectGroupResult = {
     created: number;
@@ -177,6 +186,10 @@
   let rosterSectionId = $state('');
   let classRoster = $state<ClassRosterSetup | null>(null);
   let rosterLoading = $state(false);
+  let groupRosterId = $state('');
+  let groupRosterStudentId = $state('');
+  let groupRoster = $state<SubjectGroupRoster | null>(null);
+  let groupRosterLoading = $state(false);
 
   let branchForm = $state(baseForm('MAIN', 'Main Branch'));
   let stageForm = $state(baseForm('PRIMARY', 'Primary'));
@@ -184,12 +197,12 @@
   let levelForm = $state({ ...baseForm('G1', 'Grade 1'), education_stage_id: '' });
   let sectionForm = $state({ ...baseForm('A', ''), branch_campus_id: '', academic_year_id: '', grade_level_id: '' });
   let subjectForm = $state(baseForm('ENG', 'English'));
-  let groupForm = $state({ ...baseForm('', ''), academic_year_id: '', class_section_id: '', grade_level_id: '', subject_id: '' });
+  let groupForm = $state({ ...baseForm('', ''), academic_year_id: '', class_section_id: '', grade_level_id: '', subject_id: '', enrolment_policy: 'default_for_section' });
   let studentForm = $state({ external_ref: '', first_name: '', last_name: '', preferred_name: '', name_ar: '', date_of_birth: '', gender: '', status: 'active' });
   let groupContextMode = $state<'section' | 'grade'>('section');
   let lastAutoGroupCode = $state('');
   let lastAutoGroupName = $state('');
-  let bulkGroupForm = $state({ academic_year_id: '', grade_level_id: '', subject_id: '', class_section_ids: [] as string[] });
+  let bulkGroupForm = $state({ academic_year_id: '', grade_level_id: '', subject_id: '', enrolment_policy: 'default_for_section', class_section_ids: [] as string[] });
   let bulkGroupResult = $state<BulkSubjectGroupResult | null>(null);
   let lastBulkSectionKey = $state('');
   let quickLabels = $state('A, B, C');
@@ -355,12 +368,17 @@
       rosterSectionId = '';
       classRoster = null;
     }
+    if (groupRosterId && !groups.some((group) => group.id === Number(groupRosterId))) {
+      groupRosterId = '';
+      groupRoster = null;
+    }
     if (selectedStudentId && !students.some((student) => student.id === selectedStudentId)) {
       selectedStudentId = null;
       studentEnrolments = [];
     }
     if (selectedStudentId) await loadStudentEnrolments(selectedStudentId);
     if (classRoster && rosterSectionId) await loadClassRoster(false);
+    if (groupRoster && groupRosterId) await loadGroupRoster(false);
     applyNewSortDefaults();
   }
 
@@ -410,7 +428,7 @@
     else if (path === 'grade-levels') levelForm = { ...baseForm('', ''), sort_order: nextSort(levels), education_stage_id: '' };
     else if (path === 'class-sections') sectionForm = { ...baseForm('', ''), sort_order: nextSort(sections), branch_campus_id: '', academic_year_id: defaultYearValue(), grade_level_id: '' };
     else if (path === 'subject-groups') {
-      groupForm = { ...baseForm('', ''), sort_order: nextSort(groups), academic_year_id: defaultYearValue(), class_section_id: '', grade_level_id: '', subject_id: '' };
+      groupForm = { ...baseForm('', ''), sort_order: nextSort(groups), academic_year_id: defaultYearValue(), class_section_id: '', grade_level_id: '', subject_id: '', enrolment_policy: 'default_for_section' };
       groupContextMode = 'section';
       lastAutoGroupCode = '';
       lastAutoGroupName = '';
@@ -460,6 +478,7 @@
       form.class_section_id = idStr(row.class_section_id);
       form.grade_level_id = idStr(row.grade_level_id);
       form.subject_id = idStr(row.subject_id);
+      form.enrolment_policy = row.enrolment_policy || 'explicit_only';
       groupContextMode = row.class_section_id ? 'section' : 'grade';
       lastAutoGroupCode = '';
       lastAutoGroupName = '';
@@ -517,8 +536,13 @@
 
   function setGroupContextMode(mode: 'section' | 'grade') {
     groupContextMode = mode;
-    if (mode === 'section') groupForm.grade_level_id = '';
-    else groupForm.class_section_id = '';
+    if (mode === 'section') {
+      groupForm.grade_level_id = '';
+      if (!editingPath) groupForm.enrolment_policy = 'default_for_section';
+    } else {
+      groupForm.class_section_id = '';
+      if (groupForm.enrolment_policy === 'default_for_section') groupForm.enrolment_policy = 'explicit_only';
+    }
     applyGroupAutoDefaults();
   }
 
@@ -739,6 +763,80 @@
     }
   }
 
+  async function loadGroupRoster(showValidation = true) {
+    if (!schoolId) return;
+    if (!groupRosterId) {
+      if (showValidation) setValidationErrors('group-roster', { subject_group_id: $_('school.validation.subjectGroupRequired') });
+      return;
+    }
+    groupRosterLoading = true;
+    error = null;
+    clearValidation();
+    try {
+      groupRoster = await api.get(`/school/subject-groups/${groupRosterId}/students`, schoolOptions());
+    } catch (err: any) {
+      error = err?.message || $_('school.groups.rosterLoadError');
+    } finally {
+      groupRosterLoading = false;
+    }
+  }
+
+  async function addGroupRosterStudent() {
+    if (!groupRosterId || !groupRosterStudentId) {
+      setValidationErrors('group-roster-add', { student_id: $_('school.validation.studentRequired') });
+      return;
+    }
+    saving = true;
+    error = null;
+    clearValidation();
+    try {
+      await api.post(`/school/students/${groupRosterStudentId}/enrolments`, { subject_group_id: Number(groupRosterId) }, schoolOptions());
+      groupRosterStudentId = '';
+      notice = $_('school.students.enrolled');
+      await loadGroupRoster(false);
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.students.enrolmentError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function removeGroupRosterStudent(student: SubjectGroupRoster['students'][number]) {
+    if (!groupRosterId) return;
+    saving = true;
+    error = null;
+    try {
+      if (student.source === 'default') {
+        await api.post(`/school/students/${student.id}/enrolments`, { subject_group_id: Number(groupRosterId), kind: 'excluded' }, schoolOptions());
+      } else if (student.enrolment_id) {
+        await api.delete(`/school/enrolments/${student.enrolment_id}`, schoolOptions());
+      }
+      notice = $_('school.groups.rosterUpdated');
+      await loadGroupRoster(false);
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.students.enrolmentError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function includeGroupRosterStudent(student: SubjectGroupRoster['excluded_students'][number]) {
+    saving = true;
+    error = null;
+    try {
+      await api.delete(`/school/enrolments/${student.enrolment_id}`, schoolOptions());
+      notice = $_('school.groups.rosterUpdated');
+      await loadGroupRoster(false);
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.students.enrolmentError');
+    } finally {
+      saving = false;
+    }
+  }
+
   async function openStudentFromRoster(student: Student) {
     studentSearch = '';
     studentSectionFilter = '';
@@ -923,7 +1021,8 @@
       academic_year_id: Number(groupForm.academic_year_id),
       class_section_id: groupContextMode === 'section' && groupForm.class_section_id ? Number(groupForm.class_section_id) : null,
       grade_level_id: groupContextMode === 'grade' && groupForm.grade_level_id ? Number(groupForm.grade_level_id) : null,
-      subject_id: Number(groupForm.subject_id)
+      subject_id: Number(groupForm.subject_id),
+      enrolment_policy: groupForm.enrolment_policy
     };
   }
 
@@ -933,6 +1032,8 @@
     if (groupContextMode === 'section' && !groupForm.class_section_id) errors.class_section_id = $_('school.validation.sectionRequired');
     if (groupContextMode === 'grade' && !groupForm.grade_level_id) errors.grade_level_id = $_('school.validation.gradeRequired');
     if (!groupForm.subject_id) errors.subject_id = $_('school.validation.subjectRequired');
+    if (groupForm.enrolment_policy === 'default_for_section' && groupContextMode !== 'section') errors.enrolment_policy = $_('school.groups.defaultForSection');
+    if (groupForm.enrolment_policy === 'default_for_grade' && groupContextMode !== 'grade') errors.enrolment_policy = $_('school.groups.defaultForGrade');
     if (!groupForm.code?.trim()) errors.code = $_('school.validation.codeRequired');
     if (!groupForm.name?.trim()) errors.name = $_('school.validation.nameRequired');
     if (Object.keys(errors).length) {
@@ -964,6 +1065,7 @@
         academic_year_id: Number(bulkGroupForm.academic_year_id),
         grade_level_id: Number(bulkGroupForm.grade_level_id),
         subject_id: Number(bulkGroupForm.subject_id),
+        enrolment_policy: bulkGroupForm.enrolment_policy,
         class_section_ids: bulkGroupForm.class_section_ids.map(Number)
       }, schoolOptions());
       notice = $_('school.groups.bulkComplete');
@@ -1108,7 +1210,33 @@
   }
 
   function enrolmentType(enrolment: Enrolment) {
-    return enrolment.class_section_id ? $_('school.students.classSection') : $_('school.students.subjectGroup');
+    const type = enrolment.class_section_id ? $_('school.students.classSection') : $_('school.students.subjectGroup');
+    return enrolment.kind === 'excluded' ? `${type} · ${$_('school.groups.excluded')}` : type;
+  }
+
+  function policyOptions() {
+    return [
+      { id: 'explicit_only', name: $_('school.groups.manualList') },
+      { id: 'default_for_section', name: $_('school.groups.allOfSection') },
+      { id: 'default_for_grade', name: $_('school.groups.allOfGrade') }
+    ];
+  }
+
+  function groupPolicyLabel(group?: Row | null) {
+    if (!group) return '';
+    if (group.enrolment_policy === 'default_for_section') return $_('school.groups.allOfNamedSection', { values: { section: rowName(sections, group.class_section_id) } });
+    if (group.enrolment_policy === 'default_for_grade') return $_('school.groups.allOfNamedGrade', { values: { grade: levelName(group.grade_level_id) } });
+    return $_('school.groups.manualList');
+  }
+
+  function sourceLabel(source?: string) {
+    if (source === 'default') return $_('school.groups.sourceDefault');
+    if (source === 'excluded') return $_('school.groups.excluded');
+    return $_('school.groups.sourceExplicit');
+  }
+
+  function groupRosterTitle() {
+    return groupRoster?.subject_group?.name || rowName(groups, groupRosterId);
   }
 
   function genderOptions() {
@@ -1711,6 +1839,17 @@
                 <TextInput label={$_('school.code')} bind:value={groupForm.code} error={fieldError('subject-groups', 'code')} />
                 <TextInput label={$_('school.nameEn')} bind:value={groupForm.name} error={fieldError('subject-groups', 'name')} />
                 <TextInput label={$_('school.nameAr')} bind:value={groupForm.name_ar} />
+                <label class="block text-sm font-semibold text-slate-700">
+                  {$_('school.groups.enrolmentPolicy')}
+                  <select class={`mt-1 w-full rounded-lg border px-3 py-2 font-normal ${fieldError('subject-groups', 'enrolment_policy') ? 'border-red-400 bg-red-50' : 'border-slate-200'}`} bind:value={groupForm.enrolment_policy}>
+                    {#each policyOptions() as option}
+                      <option value={option.id}>{option.name}</option>
+                    {/each}
+                  </select>
+                  {#if fieldError('subject-groups', 'enrolment_policy')}
+                    <span class="mt-1 block text-xs font-semibold text-red-600">{fieldError('subject-groups', 'enrolment_policy')}</span>
+                  {/if}
+                </label>
                 <StatusInput bind:value={groupForm.status} />
               </div>
               <details class="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
@@ -1732,10 +1871,17 @@
             <div class="rounded-lg border border-slate-200 bg-white p-5">
               <h3 class="text-base font-black text-slate-900">{$_('school.groups.bulkTitle')}</h3>
               <p class="mt-2 max-w-3xl text-sm text-slate-600">{$_('school.groups.bulkHelp')}</p>
-              <div class="mt-4 grid gap-3 md:grid-cols-3">
+              <div class="mt-4 grid gap-3 md:grid-cols-4">
                 <SelectInput label={$_('school.years.single')} bind:value={bulkGroupForm.academic_year_id} rows={years} error={fieldError('bulk-subject-groups', 'academic_year_id')} />
                 <SelectInput label={gradeLevelLabel} bind:value={bulkGroupForm.grade_level_id} rows={levels} error={fieldError('bulk-subject-groups', 'grade_level_id')} />
                 <SelectInput label={$_('school.subjects.single')} bind:value={bulkGroupForm.subject_id} rows={subjects} error={fieldError('bulk-subject-groups', 'subject_id')} />
+                <label class="block text-sm font-semibold text-slate-700">
+                  {$_('school.groups.enrolmentPolicy')}
+                  <select class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-normal" bind:value={bulkGroupForm.enrolment_policy}>
+                    <option value="default_for_section">{$_('school.groups.allOfSection')}</option>
+                    <option value="explicit_only">{$_('school.groups.manualList')}</option>
+                  </select>
+                </label>
               </div>
 
               <div class={`mt-4 rounded-lg border p-3 ${fieldError('bulk-subject-groups', 'class_section_ids') ? 'border-red-300 bg-red-50' : 'border-slate-100 bg-slate-50'}`}>
@@ -1796,7 +1942,70 @@
 
             <div class="rounded-lg border border-slate-200 bg-white p-5">
               <h3 class="text-base font-black text-slate-900">{$_('school.groups.existing')}</h3>
-              <RowsTable rows={groups} extra={(row) => `${yearName(row.academic_year_id)} · ${row.class_section_id ? rowName(sections, row.class_section_id) : levelName(row.grade_level_id)} · ${subjectName(row.subject_id)}`} onedit={(row) => editRow('subject-groups', groupForm, row)} onarchive={(row) => archiveRow('subject-groups', row)} />
+              <RowsTable rows={groups} extra={(row) => `${yearName(row.academic_year_id)} · ${row.class_section_id ? rowName(sections, row.class_section_id) : levelName(row.grade_level_id)} · ${subjectName(row.subject_id)} · ${groupPolicyLabel(row)}`} onedit={(row) => editRow('subject-groups', groupForm, row)} onarchive={(row) => archiveRow('subject-groups', row)} />
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h3 class="text-base font-black text-slate-900">{$_('school.groups.rosterTitle')}</h3>
+              <div class="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <SelectInput label={$_('school.groups.title')} bind:value={groupRosterId} rows={groups} optional error={fieldError('group-roster', 'subject_group_id')} />
+                <button type="button" class="btn-hero self-end rounded-lg px-4 py-2" disabled={saving || groupRosterLoading} onclick={() => loadGroupRoster()}>
+                  {$_('school.rosters.view')}
+                </button>
+              </div>
+
+              {#if groupRosterLoading}
+                <p class="mt-4 text-sm text-slate-500">{$_('common.loading')}</p>
+              {:else if groupRoster}
+                <div class="mt-5">
+                  <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h4 class="font-black text-slate-900">{groupRosterTitle()}</h4>
+                      <p class="mt-1 text-sm text-slate-500">{groupPolicyLabel(groupRoster.subject_group)}</p>
+                    </div>
+                    <div class="flex gap-2">
+                      <select class={`min-w-52 rounded-lg border px-3 py-2 text-sm ${fieldError('group-roster-add', 'student_id') ? 'border-red-400 bg-red-50' : 'border-slate-200'}`} bind:value={groupRosterStudentId} aria-label={$_('school.students.title')}>
+                        <option value="">{$_('school.select')}</option>
+                        {#each students as student}
+                          <option value={String(student.id)}>{student.display_name}</option>
+                        {/each}
+                      </select>
+                      <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={addGroupRosterStudent}>{$_('school.add')}</button>
+                    </div>
+                  </div>
+                  {#if fieldError('group-roster-add', 'student_id')}
+                    <p class="mt-1 text-xs font-semibold text-red-600">{fieldError('group-roster-add', 'student_id')}</p>
+                  {/if}
+
+                  <div class="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-100">
+                    {#each groupRoster.students as student}
+                      <div class="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p class="font-semibold text-slate-900">{student.display_name}</p>
+                          <p class="mt-1 text-sm text-slate-500">{sourceLabel(student.source)} · {student.enrolled_from}</p>
+                        </div>
+                        <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => removeGroupRosterStudent(student)}>{$_('school.groups.removeFromRoster')}</button>
+                      </div>
+                    {:else}
+                      <p class="p-3 text-sm text-slate-500">{$_('school.groups.emptyRoster')}</p>
+                    {/each}
+                  </div>
+
+                  {#if groupRoster.excluded_students.length}
+                    <div class="mt-5">
+                      <h4 class="font-black text-slate-900">{$_('school.groups.excludedStudents')}</h4>
+                      <div class="mt-3 divide-y divide-slate-100 rounded-lg border border-slate-100">
+                        {#each groupRoster.excluded_students as student}
+                          <div class="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p class="font-semibold text-slate-900">{student.display_name}</p>
+                            <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => includeGroupRosterStudent(student)}>{$_('school.groups.reinclude')}</button>
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
+                  {/if}
+                </div>
+              {/if}
             </div>
           </div>
         {/if}

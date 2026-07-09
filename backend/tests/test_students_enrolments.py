@@ -135,6 +135,9 @@ def enrolment_world(db):
         "alpha_teacher_membership": alpha_teacher_membership,
         "other_teacher_membership": other_teacher_membership,
         "beta_teacher_membership": beta_teacher_membership,
+        "year": year,
+        "level": level,
+        "subject": subject,
         "section_a": section_a,
         "section_b": section_b,
         "inactive_section": inactive_section,
@@ -151,6 +154,14 @@ def student_payload(ref="S-001", first="Ali", last="Khan"):
 
 def create_student_api(client, world, ref="S-001", first="Ali", last="Khan"):
     return client.post("/api/school/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id), json=student_payload(ref, first, last))
+
+
+def enrol_student(client, world, student_id, payload):
+    return client.post(
+        f"/api/school/students/{student_id}/enrolments",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+        json=payload,
+    )
 
 
 def test_school_admin_student_lifecycle_and_duplicate_policy(db, client, enrolment_world):
@@ -364,6 +375,9 @@ def test_subject_group_enrolment_is_explicit_and_target_status_validated(db, cli
         json={"subject_group_id": world["group"].id},
     )
     assert group_enrolment.status_code == 201
+    group_roster = client.get(f"/api/school/subject-groups/{world['group'].id}/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id))
+    assert group_roster.status_code == 200
+    assert [(row["id"], row["source"], row["enrolment_id"]) for row in group_roster.json()["students"]] == [(student_id, "explicit", group_enrolment.json()["id"])]
     assert client.post(
         f"/api/school/students/{student_id}/enrolments",
         headers=bearer(world["alpha_admin"].email, world["alpha"].id),
@@ -385,6 +399,184 @@ def test_subject_group_enrolment_is_explicit_and_target_status_validated(db, cli
         headers=bearer(world["alpha_admin"].email, world["alpha"].id),
         json={"subject_group_id": world["group_archived_parent"].id},
     ).status_code == 400
+
+
+def test_default_for_section_roster_matches_section_members(db, client, enrolment_world):
+    world = enrolment_world
+    world["group"].enrolment_policy = "default_for_section"
+    db.commit()
+    in_section = create_student_api(client, world, ref="S-A", first="Alya").json()["id"]
+    other_section = create_student_api(client, world, ref="S-B", first="Badr").json()["id"]
+    enrol_student(client, world, in_section, {"class_section_id": world["section_a"].id})
+    enrol_student(client, world, other_section, {"class_section_id": world["section_b"].id})
+
+    roster = client.get(f"/api/school/subject-groups/{world['group'].id}/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id))
+    assert roster.status_code == 200
+    body = roster.json()
+    assert body["enrolment_policy"] == "default_for_section"
+    assert [(row["id"], row["source"], row["enrolment_id"]) for row in body["students"]] == [(in_section, "default", None)]
+
+
+def test_default_for_grade_roster_spans_grade_sections(db, client, enrolment_world):
+    world = enrolment_world
+    group = SubjectGroup(
+        school_id=world["alpha"].id,
+        academic_year_id=world["year"].id,
+        grade_level_id=world["level"].id,
+        subject_id=world["subject"].id,
+        code="KG1-ENG",
+        name="KG 1 English",
+        status="active",
+        enrolment_policy="default_for_grade",
+    )
+    db.add(group)
+    db.commit()
+    student_a = create_student_api(client, world, ref="S-GA", first="A").json()["id"]
+    student_b = create_student_api(client, world, ref="S-GB", first="B").json()["id"]
+    enrol_student(client, world, student_a, {"class_section_id": world["section_a"].id})
+    enrol_student(client, world, student_b, {"class_section_id": world["section_b"].id})
+
+    roster = client.get(f"/api/school/subject-groups/{group.id}/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id))
+    assert roster.status_code == 200
+    assert {row["id"] for row in roster.json()["students"]} == {student_a, student_b}
+    assert {row["source"] for row in roster.json()["students"]} == {"default"}
+
+
+def test_default_group_exclusion_can_be_closed_to_restore_member(db, client, enrolment_world):
+    world = enrolment_world
+    world["group"].enrolment_policy = "default_for_section"
+    db.commit()
+    student_id = create_student_api(client, world, ref="S-EX").json()["id"]
+    enrol_student(client, world, student_id, {"class_section_id": world["section_a"].id})
+
+    excluded = enrol_student(client, world, student_id, {"subject_group_id": world["group"].id, "kind": "excluded"})
+    assert excluded.status_code == 201
+    roster = client.get(f"/api/school/subject-groups/{world['group'].id}/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id)).json()
+    assert roster["students"] == []
+    assert [row["id"] for row in roster["excluded_students"]] == [student_id]
+
+    closed = client.delete(f"/api/school/enrolments/{excluded.json()['id']}", headers=bearer(world["alpha_admin"].email, world["alpha"].id))
+    assert closed.status_code == 200
+    restored = client.get(f"/api/school/subject-groups/{world['group'].id}/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id)).json()
+    assert [(row["id"], row["source"]) for row in restored["students"]] == [(student_id, "default")]
+
+
+def test_explicit_member_on_default_group_wins_without_duplicates(db, client, enrolment_world):
+    world = enrolment_world
+    world["group"].enrolment_policy = "default_for_section"
+    db.commit()
+    student_id = create_student_api(client, world, ref="S-UNION").json()["id"]
+    enrol_student(client, world, student_id, {"class_section_id": world["section_a"].id})
+    explicit = enrol_student(client, world, student_id, {"subject_group_id": world["group"].id})
+    assert explicit.status_code == 201
+
+    roster = client.get(f"/api/school/subject-groups/{world['group'].id}/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id)).json()
+    assert [(row["id"], row["source"], row["enrolment_id"]) for row in roster["students"]] == [(student_id, "explicit", explicit.json()["id"])]
+
+
+def test_class_move_updates_default_subject_rosters_without_subject_writes(db, client, enrolment_world):
+    world = enrolment_world
+    group_b = SubjectGroup(
+        school_id=world["alpha"].id,
+        academic_year_id=world["year"].id,
+        class_section_id=world["section_b"].id,
+        subject_id=world["subject"].id,
+        code="KG1B-ENG",
+        name="KG 1 B English",
+        status="active",
+        enrolment_policy="default_for_section",
+    )
+    world["group"].enrolment_policy = "default_for_section"
+    db.add(group_b)
+    db.commit()
+    student_id = create_student_api(client, world, ref="S-MOVE").json()["id"]
+    enrol_student(client, world, student_id, {"class_section_id": world["section_a"].id})
+
+    before_a = client.get(f"/api/school/subject-groups/{world['group'].id}/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id)).json()
+    before_b = client.get(f"/api/school/subject-groups/{group_b.id}/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id)).json()
+    assert [row["id"] for row in before_a["students"]] == [student_id]
+    assert before_b["students"] == []
+
+    moved = client.post(
+        f"/api/school/students/{student_id}/move-section",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+        json={"class_section_id": world["section_b"].id},
+    )
+    assert moved.status_code == 201
+    after_a = client.get(f"/api/school/subject-groups/{world['group'].id}/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id)).json()
+    after_b = client.get(f"/api/school/subject-groups/{group_b.id}/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id)).json()
+    assert after_a["students"] == []
+    assert [row["id"] for row in after_b["students"]] == [student_id]
+
+
+def test_enrolment_policy_and_exclusion_validation(db, client, enrolment_world):
+    world = enrolment_world
+    headers = bearer(world["alpha_admin"].email, world["alpha"].id)
+    bad_policy = client.post(
+        "/api/school/subject-groups",
+        headers=headers,
+        json={
+            "code": "BAD",
+            "name": "Bad",
+            "academic_year_id": world["year"].id,
+            "grade_level_id": world["level"].id,
+            "subject_id": world["subject"].id,
+            "enrolment_policy": "default_for_section",
+        },
+    )
+    assert bad_policy.status_code == 400
+    student_id = create_student_api(client, world, ref="S-VAL").json()["id"]
+    assert enrol_student(client, world, student_id, {"subject_group_id": world["group"].id, "kind": "excluded"}).status_code == 400
+    assert enrol_student(client, world, student_id, {"class_section_id": world["section_a"].id, "kind": "excluded"}).status_code == 400
+
+    world["group"].enrolment_policy = "default_for_section"
+    db.commit()
+    excluded = enrol_student(client, world, student_id, {"subject_group_id": world["group"].id, "kind": "excluded"})
+    assert excluded.status_code == 201
+    blocked_member = enrol_student(client, world, student_id, {"subject_group_id": world["group"].id})
+    assert blocked_member.status_code == 400
+    assert "Close the other" in blocked_member.json()["detail"]
+
+
+def test_teacher_roster_returns_policy_derived_subject_group(db, client, enrolment_world):
+    world = enrolment_world
+    world["group"].enrolment_policy = "default_for_section"
+    student_id = create_student_api(client, world, ref="S-TEACH").json()["id"]
+    enrol_student(client, world, student_id, {"class_section_id": world["section_a"].id})
+    db.add(
+        StaffAssignment(
+            school_id=world["alpha"].id,
+            membership_id=world["alpha_teacher_membership"].id,
+            subject_group_id=world["group"].id,
+            role="subject",
+            valid_from=invite_tokens.now_utc().date(),
+        )
+    )
+    db.commit()
+    roster = client.get(
+        f"/api/teach/schools/{world['alpha'].id}/subject-groups/{world['group'].id}/roster",
+        headers=bearer(world["alpha_teacher"].email),
+    )
+    assert roster.status_code == 200
+    assert roster.json()["enrolment_policy"] == "default_for_section"
+    assert [(row["id"], row["source"], row["enrolment_id"]) for row in roster.json()["students"]] == [(student_id, "default", None)]
+
+
+def test_bulk_create_section_subject_groups_defaults_to_default_for_section(db, client, enrolment_world):
+    world = enrolment_world
+    response = client.post(
+        "/api/school/subject-groups/bulk-section",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+        json={
+            "academic_year_id": world["year"].id,
+            "grade_level_id": world["level"].id,
+            "subject_id": world["subject"].id,
+            "class_section_ids": [world["section_b"].id],
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["created"] == 1
+    assert response.json()["results"][0]["subject_group"]["enrolment_policy"] == "default_for_section"
 
 
 def test_enrolment_date_validation(db, client, enrolment_world):
@@ -451,6 +643,40 @@ def test_teacher_rosters_assignment_scope_and_archived_students(db, client, enro
     assert client.get(f"/api/teach/schools/{world['alpha'].id}/sections/{world['section_a'].id}/roster", headers=bearer(world["alpha_teacher"].email)).status_code == 403
     assert client.get(f"/api/teach/schools/{world['alpha'].id}/sections/{world['section_a'].id}/roster", headers=bearer(world["beta_teacher"].email)).status_code == 403
     assert client.get(f"/api/teach/schools/{world['alpha'].id}/sections/{world['section_a'].id}/roster", headers=bearer(world["no_role"].email)).status_code == 403
+
+
+def test_teacher_subject_group_roster_empty_and_dashboard_target_type(db, client, enrolment_world):
+    world = enrolment_world
+    db.add(
+        StaffAssignment(
+            school_id=world["alpha"].id,
+            membership_id=world["alpha_teacher_membership"].id,
+            subject_group_id=world["group"].id,
+            role="subject",
+            valid_from=invite_tokens.now_utc().date(),
+        )
+    )
+    db.commit()
+
+    dashboard = client.get("/api/teach/dashboard", headers=bearer(world["alpha_teacher"].email))
+    assert dashboard.status_code == 200
+    subject_cards = [row for row in dashboard.json()["assignments"] if row["subject_group"]]
+    assert len(subject_cards) == 1
+    assert subject_cards[0]["target_type"] == "subject_group"
+    assert subject_cards[0]["class_section"]["id"] == world["section_a"].id
+
+    group_roster = client.get(
+        f"/api/teach/schools/{world['alpha'].id}/subject-groups/{world['group'].id}/roster",
+        headers=bearer(world["alpha_teacher"].email),
+    )
+    assert group_roster.status_code == 200
+    assert group_roster.json()["students"] == []
+
+    not_assigned = client.get(
+        f"/api/teach/schools/{world['alpha'].id}/subject-groups/{world['group'].id}/roster",
+        headers=bearer(world["other_teacher"].email),
+    )
+    assert not_assigned.status_code == 403
 
 
 def test_staff_assignment_date_validation_and_deactivated_invite_revoke(db, client, enrolment_world):

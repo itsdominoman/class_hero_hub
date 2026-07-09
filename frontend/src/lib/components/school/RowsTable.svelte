@@ -15,6 +15,7 @@
     grade_level_id?: number | null;
     class_section_id?: number | null;
     subject_id?: number | null;
+    enrolment_policy?: 'explicit_only' | 'default_for_section' | 'default_for_grade';
     is_current?: boolean;
     start_date?: string | null;
     end_date?: string | null;

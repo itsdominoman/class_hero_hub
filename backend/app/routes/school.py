@@ -27,6 +27,7 @@ from ..models_school import (
     SubjectGroup,
     User,
 )
+from ..rosters import current_subject_groups_for_student, roster_payload
 from .platform import _invite_payload, _issue_staff_invite
 from ..school_scope import is_open_interval, open_interval_expression, require_school_role, write_audit
 
@@ -85,6 +86,14 @@ class SubjectGroupRequest(StructureBase):
     class_section_id: int | None = None
     grade_level_id: int | None = None
     subject_id: int
+    enrolment_policy: str = "explicit_only"
+
+    @field_validator("enrolment_policy")
+    @classmethod
+    def validate_enrolment_policy(cls, value: str) -> str:
+        if value not in {"explicit_only", "default_for_section", "default_for_grade"}:
+            raise ValueError("enrolment_policy must be explicit_only, default_for_section, or default_for_grade")
+        return value
 
 
 class SubjectGroupBulkRequest(BaseModel):
@@ -92,6 +101,14 @@ class SubjectGroupBulkRequest(BaseModel):
     grade_level_id: int
     subject_id: int
     class_section_ids: list[int] = Field(min_length=1)
+    enrolment_policy: str = "default_for_section"
+
+    @field_validator("enrolment_policy")
+    @classmethod
+    def validate_enrolment_policy(cls, value: str) -> str:
+        if value not in {"explicit_only", "default_for_section", "default_for_grade"}:
+            raise ValueError("enrolment_policy must be explicit_only, default_for_section, or default_for_grade")
+        return value
 
 
 class TeacherInviteRequest(BaseModel):
@@ -143,6 +160,14 @@ class EnrolmentRequest(BaseModel):
     class_section_id: int | None = None
     subject_group_id: int | None = None
     valid_from: date | None = None
+    kind: str = "member"
+
+    @field_validator("kind")
+    @classmethod
+    def validate_kind(cls, value: str) -> str:
+        if value not in {"member", "excluded"}:
+            raise ValueError("kind must be member or excluded")
+        return value
 
 
 class CloseEnrolmentRequest(BaseModel):
@@ -261,7 +286,7 @@ def _payload(row: Any) -> dict[str, Any]:
         "status": row.status,
         "created_at": row.created_at,
     }
-    for field in ("education_stage_id", "branch_campus_id", "academic_year_id", "grade_level_id", "class_section_id", "subject_id", "is_current", "start_date", "end_date"):
+    for field in ("education_stage_id", "branch_campus_id", "academic_year_id", "grade_level_id", "class_section_id", "subject_id", "enrolment_policy", "is_current", "start_date", "end_date"):
         if hasattr(row, field):
             data[field] = getattr(row, field)
     return data
@@ -573,10 +598,7 @@ def _current_student_context(db: Session, school_id: int, student_id: int) -> tu
         if row.class_section_id is not None:
             section = db.query(ClassSection).filter(ClassSection.id == row.class_section_id).first()
             class_section = _payload(section) if section else None
-        if row.subject_group_id is not None:
-            group = db.query(SubjectGroup).filter(SubjectGroup.id == row.subject_group_id).first()
-            if group:
-                subject_groups.append(_payload(group))
+    subject_groups = current_subject_groups_for_student(db, school_id, student_id, _today())
     return class_section, subject_groups
 
 
@@ -595,6 +617,7 @@ def _enrolment_payload(db: Session, row: Enrolment) -> dict[str, Any]:
         "student_id": row.student_id,
         "class_section_id": row.class_section_id,
         "subject_group_id": row.subject_group_id,
+        "kind": row.kind,
         "valid_from": row.valid_from,
         "valid_to": row.valid_to,
         "created_by_user_id": row.created_by_user_id,
@@ -625,6 +648,16 @@ def _ensure_active_enrolment_target(db: Session, school_id: int, *, class_sectio
     return None, group.id
 
 
+def _validate_enrolment_kind(db: Session, school_id: int, *, class_section_id: int | None, subject_group_id: int | None, kind: str) -> None:
+    if kind == "member":
+        return
+    if class_section_id is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Excluded enrolments are only valid for subject groups")
+    group = _get_owned(db, SubjectGroup, school_id, subject_group_id)
+    if group.enrolment_policy not in {"default_for_section", "default_for_grade"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Excluded enrolments require a default subject-group policy")
+
+
 def _create_enrolment_row(
     db: Session,
     *,
@@ -634,10 +667,12 @@ def _create_enrolment_row(
     subject_group_id: int | None,
     valid_from: date,
     created_by_user_id: int,
+    kind: str = "member",
     skip_class_open_check: bool = False,
 ) -> Enrolment:
     if student.status != "active":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive or archived students cannot receive new enrolments")
+    _validate_enrolment_kind(db, school_id, class_section_id=class_section_id, subject_group_id=subject_group_id, kind=kind)
     if class_section_id is not None and not skip_class_open_check:
         existing_section = _open_enrolments_query(db, school_id).filter(Enrolment.student_id == student.id, Enrolment.class_section_id.is_not(None)).first()
         if existing_section is not None:
@@ -645,16 +680,25 @@ def _create_enrolment_row(
     if subject_group_id is not None:
         duplicate_group = (
             _open_enrolments_query(db, school_id)
-            .filter(Enrolment.student_id == student.id, Enrolment.subject_group_id == subject_group_id)
+            .filter(Enrolment.student_id == student.id, Enrolment.subject_group_id == subject_group_id, Enrolment.kind == kind)
             .first()
         )
         if duplicate_group is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Student already has this open subject-group enrolment")
+        opposite_kind = "excluded" if kind == "member" else "member"
+        opposite_group = (
+            _open_enrolments_query(db, school_id)
+            .filter(Enrolment.student_id == student.id, Enrolment.subject_group_id == subject_group_id, Enrolment.kind == opposite_kind)
+            .first()
+        )
+        if opposite_group is not None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Close the other open subject-group enrolment first")
     row = Enrolment(
         school_id=school_id,
         student_id=student.id,
         class_section_id=class_section_id,
         subject_group_id=subject_group_id,
+        kind=kind,
         valid_from=valid_from,
         valid_to=None,
         created_by_user_id=created_by_user_id,
@@ -672,30 +716,10 @@ def _close_enrolment_row(row: Enrolment, valid_to: date | None = None) -> None:
 
 def _roster_payload(db: Session, school_id: int, *, class_section_id: int | None = None, subject_group_id: int | None = None) -> dict[str, Any]:
     if class_section_id is not None:
-        section = _get_owned(db, ClassSection, school_id, class_section_id)
-        group = None
-        target_filter = Enrolment.class_section_id == class_section_id
+        _get_owned(db, ClassSection, school_id, class_section_id)
     else:
-        group = _get_owned(db, SubjectGroup, school_id, subject_group_id)
-        section = _get_owned(db, ClassSection, school_id, group.class_section_id) if group.class_section_id is not None else None
-        target_filter = Enrolment.subject_group_id == subject_group_id
-    rows = (
-        db.query(Student, Enrolment)
-        .join(Enrolment, Enrolment.student_id == Student.id)
-        .filter(
-            Enrolment.school_id == school_id,
-            target_filter,
-            *open_interval_expression(Enrolment, _today()),
-            Student.status == "active",
-        )
-        .order_by(Student.last_name.asc(), Student.first_name.asc(), Student.id.asc())
-        .all()
-    )
-    return {
-        "class_section": _payload(section) if section else None,
-        "subject_group": _payload(group) if group else None,
-        "students": [_student_payload(student) | {"enrolment_id": enrolment.id, "enrolled_from": enrolment.valid_from} for student, enrolment in rows],
-    }
+        _get_owned(db, SubjectGroup, school_id, subject_group_id)
+    return roster_payload(db, school_id, class_section_id=class_section_id, subject_group_id=subject_group_id, today=_today())
 
 
 def _student_history_reasons(db: Session, school_id: int, student_id: int) -> list[str]:
@@ -1022,6 +1046,10 @@ def list_subject_groups(include_archived: bool = False, membership: Membership =
 def _subject_group_extra(db: Session, school_id: int, payload: SubjectGroupRequest, current: Any = None) -> dict[str, Any]:
     if payload.class_section_id is None and payload.grade_level_id is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="class_section_id or grade_level_id is required")
+    if payload.enrolment_policy == "default_for_section" and payload.class_section_id is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="default_for_section requires class_section_id")
+    if payload.enrolment_policy == "default_for_grade" and payload.grade_level_id is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="default_for_grade requires grade_level_id")
     _ensure_owned(db, AcademicYear, school_id, payload.academic_year_id, "academic_year_id", current_id=getattr(current, "academic_year_id", None))
     section = _ensure_owned(db, ClassSection, school_id, payload.class_section_id, "class_section_id", current_id=getattr(current, "class_section_id", None))
     _ensure_owned(db, GradeLevel, school_id, payload.grade_level_id, "grade_level_id", current_id=getattr(current, "grade_level_id", None))
@@ -1035,6 +1063,7 @@ def _subject_group_extra(db: Session, school_id: int, payload: SubjectGroupReque
         "class_section_id": payload.class_section_id,
         "grade_level_id": payload.grade_level_id,
         "subject_id": payload.subject_id,
+        "enrolment_policy": payload.enrolment_policy,
     }
 
 
@@ -1054,6 +1083,8 @@ def bulk_create_section_subject_groups(
     year = _ensure_owned(db, AcademicYear, school_id, payload.academic_year_id, "academic_year_id")
     grade_level = _ensure_owned(db, GradeLevel, school_id, payload.grade_level_id, "grade_level_id")
     subject = _ensure_owned(db, Subject, school_id, payload.subject_id, "subject_id")
+    if payload.enrolment_policy == "default_for_grade":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bulk section groups cannot use default_for_grade")
     for label, row in (("academic_year", year), ("grade_level", grade_level), ("subject", subject)):
         if row.status == "archived":
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Archived {label} cannot be selected")
@@ -1106,6 +1137,7 @@ def bulk_create_section_subject_groups(
             "class_section_id": section.id,
             "grade_level_id": None,
             "subject_id": subject.id,
+            "enrolment_policy": payload.enrolment_policy,
         }
         existing = _find_by_natural_key(db, SubjectGroup, school_id, defaults["code"], extra)
         if existing is not None and existing.status != "archived":
@@ -1130,6 +1162,7 @@ def bulk_create_section_subject_groups(
             class_section_id=section.id,
             grade_level_id=None,
             subject_id=subject.id,
+            enrolment_policy=payload.enrolment_policy,
         )
         row, was_restored = _create_row(db, SubjectGroup, school_id, request, extra=extra)
         result.update(
@@ -1560,6 +1593,7 @@ def list_students(
         student_ids = select(Enrolment.student_id).where(
             Enrolment.school_id == school_id,
             Enrolment.class_section_id == class_section_id,
+            Enrolment.kind == "member",
             *open_interval_expression(Enrolment, _today()),
         )
         query = query.filter(Student.id.in_(student_ids))
@@ -1685,13 +1719,14 @@ def add_student_enrolment(
         subject_group_id=subject_group_id,
         valid_from=valid_from,
         created_by_user_id=membership.user_id,
+        kind=payload.kind,
     )
     write_audit(
         db,
         membership.user_id,
         "school.enrolment.created",
         row,
-        {"student_id": student.id, "class_section_id": class_section_id, "subject_group_id": subject_group_id},
+        {"student_id": student.id, "class_section_id": class_section_id, "subject_group_id": subject_group_id, "kind": payload.kind},
         school_id=school_id,
     )
     db.commit()
@@ -1741,6 +1776,7 @@ def move_student_section(
         subject_group_id=None,
         valid_from=valid_from,
         created_by_user_id=membership.user_id,
+        kind="member",
         skip_class_open_check=True,
     )
     write_audit(

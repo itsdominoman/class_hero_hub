@@ -187,6 +187,7 @@ class SubjectGroup(Base):
     name_ar = Column(String, nullable=True)
     sort_order = Column(Integer, default=0)
     status = Column(String, default="active")
+    enrolment_policy = Column(String, nullable=False, default="explicit_only", server_default="explicit_only")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
@@ -200,6 +201,10 @@ class SubjectGroup(Base):
             name="uq_subject_groups_school_year_section_level_subject_code",
         ),
         CheckConstraint("class_section_id IS NOT NULL OR grade_level_id IS NOT NULL", name="ck_subject_groups_context_required"),
+        CheckConstraint(
+            "enrolment_policy IN ('explicit_only', 'default_for_section', 'default_for_grade')",
+            name="ck_subject_groups_enrolment_policy",
+        ),
     )
 
 
@@ -282,6 +287,7 @@ class Enrolment(Base):
     student_id = Column(Integer, ForeignKey("students.id"), nullable=False, index=True)
     class_section_id = Column(Integer, ForeignKey("class_sections.id"), nullable=True, index=True)
     subject_group_id = Column(Integer, ForeignKey("subject_groups.id"), nullable=True, index=True)
+    kind = Column(String, nullable=False, default="member", server_default="member")
     valid_from = Column(Date, nullable=False, default=_default_enrolment_valid_from)
     valid_to = Column(Date, nullable=True)
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -294,6 +300,7 @@ class Enrolment(Base):
             "(class_section_id IS NULL AND subject_group_id IS NOT NULL)",
             name="ck_enrolments_exactly_one_target",
         ),
+        CheckConstraint("kind IN ('member', 'excluded')", name="ck_enrolments_kind"),
     )
 
 
