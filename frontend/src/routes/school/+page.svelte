@@ -169,6 +169,7 @@
   let subjects = $state<Row[]>([]);
   let groups = $state<Row[]>([]);
   let students = $state<Student[]>([]);
+  let studentsLoaded = $state(false);
   let teachers = $state<Teacher[]>([]);
   let pendingTeacherInvites = $state<StaffInvite[]>([]);
   let teacherAssignments = $state<Record<number, StaffAssignment[]>>({});
@@ -316,13 +317,23 @@
     allowed = true;
   }
 
-  async function loadAll() {
-    if (!schoolId) return;
-    const options = schoolOptions();
+  function studentsPath() {
     const studentQuery = new URLSearchParams();
     if (studentSearch.trim()) studentQuery.set('search', studentSearch.trim());
     if (studentSectionFilter) studentQuery.set('class_section_id', studentSectionFilter);
-    const [settings, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData, studentRows] = await Promise.all([
+    return `/school/students${studentQuery.toString() ? `?${studentQuery.toString()}` : ''}`;
+  }
+
+  async function ensureStudentsLoaded() {
+    if (!schoolId || studentsLoaded) return;
+    studentsLoaded = true;
+    students = await api.get(studentsPath(), schoolOptions());
+  }
+
+  async function loadAll() {
+    if (!schoolId) return;
+    const options = schoolOptions();
+    const [settings, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData] = await Promise.all([
       api.get('/school/settings', options),
       api.get('/school/setup-checklist', options),
       api.get('/school/branches', options),
@@ -332,9 +343,13 @@
       api.get('/school/class-sections', options),
       api.get('/school/subjects', options),
       api.get('/school/subject-groups', options),
-      api.get('/school/teachers', options),
-      api.get(`/school/students${studentQuery.toString() ? `?${studentQuery.toString()}` : ''}`, options)
+      api.get('/school/teachers', options)
     ]);
+    // Students is the heaviest dataset (subject-group roster derivation over every
+    // student). Skip it on initial/background loads and only fetch it once the
+    // Students tab (or the subject-group roster "add student" picker) needs it;
+    // loadAll() keeps it in sync afterwards so mutations elsewhere still refresh it.
+    if (studentsLoaded) students = await api.get(studentsPath(), options);
     gradeLevelLabel = settings.grade_level_label || 'Grade';
     labelChoice = ['Grade', 'Year', 'Form', 'Level'].includes(gradeLevelLabel) ? gradeLevelLabel : 'custom';
     customLabel = labelChoice === 'custom' ? gradeLevelLabel : '';
@@ -347,7 +362,6 @@
     sections = sectionRows;
     subjects = subjectRows;
     groups = groupRows;
-    students = studentRows;
     teachers = teacherData.teachers || [];
     pendingTeacherInvites = teacherData.pending_invites || [];
     // SelectInput's value prop has a fallback, so binding an undefined record
@@ -451,6 +465,7 @@
     notice = null;
     clearValidation();
     activeTab = key;
+    if (key === 'students') ensureStudentsLoaded();
   }
 
   // Load a row's current values into its form and switch that block into edit mode.
@@ -773,6 +788,7 @@
     error = null;
     clearValidation();
     try {
+      await ensureStudentsLoaded();
       groupRoster = await api.get(`/school/subject-groups/${groupRosterId}/students`, schoolOptions());
     } catch (err: any) {
       error = err?.message || $_('school.groups.rosterLoadError');
@@ -840,6 +856,7 @@
   async function openStudentFromRoster(student: Student) {
     studentSearch = '';
     studentSectionFilter = '';
+    await ensureStudentsLoaded();
     upsertStudentRow(student);
     activeTab = 'students';
     await selectStudent(student);
