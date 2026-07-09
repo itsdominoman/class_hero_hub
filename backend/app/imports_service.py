@@ -7,9 +7,11 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from .models_school import AcademicYear, BranchCampus, ClassSection, Enrolment, GradeLevel, Student, StudentGuardianContact
+from .auth import normalize_email
+from .models_school import AcademicYear, BranchCampus, ClassSection, Enrolment, GradeLevel, Membership, Student, StudentGuardianContact, User
 from .school_scope import open_interval_expression
 
 CSV_COLUMNS = [
@@ -31,6 +33,8 @@ CSV_COLUMNS = [
     "guardian2_relationship",
 ]
 
+TEACHER_CSV_COLUMNS = ["email", "first_name", "last_name", "name_ar"]
+
 GENDER_VALUES = {"male", "female", "other", "unspecified"}
 
 GUARDIAN_RELATIONSHIP_VALUES = {"mother", "father", "guardian", "other"}
@@ -42,10 +46,10 @@ class ImportUploadError(ValueError):
     """Raised for whole-file problems (encoding, headers, missing current year)."""
 
 
-def generate_template_csv() -> str:
+def generate_template_csv(columns: list[str]) -> str:
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(CSV_COLUMNS)
+    writer.writerow(columns)
     return buffer.getvalue()
 
 
@@ -60,19 +64,19 @@ def decode_csv_bytes(content: bytes) -> str:
         raise ImportUploadError("Could not read this file. Save it as UTF-8 or Windows-1256 CSV and try again.")
 
 
-def parse_csv_rows(text: str) -> list[dict[str, str]]:
+def parse_csv_rows(text: str, columns: list[str]) -> list[dict[str, str]]:
     reader = csv.DictReader(io.StringIO(text))
     # Header matching is case/whitespace-insensitive (a common Excel-resave
     # quirk), but DictReader keys rows by the *original* header spelling, so
     # row values must be looked up through this original-name map rather than
     # by the lowercase column name directly.
     original_by_lower = {(name or "").strip().lower(): name for name in (reader.fieldnames or [])}
-    missing = [column for column in CSV_COLUMNS if column not in original_by_lower]
+    missing = [column for column in columns if column not in original_by_lower]
     if missing:
         raise ImportUploadError(f"CSV is missing required columns: {', '.join(missing)}")
     rows: list[dict[str, str]] = []
     for raw_row in reader:
-        rows.append({column: (raw_row.get(original_by_lower[column]) or "").strip() for column in CSV_COLUMNS})
+        rows.append({column: (raw_row.get(original_by_lower[column]) or "").strip() for column in columns})
     return rows
 
 
@@ -330,3 +334,112 @@ def summarize_plans(plans: list[RowPlan]) -> dict[str, int]:
         counts[plan.action] += 1
     counts["total"] = len(plans)
     return counts
+
+
+@dataclass
+class TeacherRowPlan:
+    row_number: int
+    csv: dict[str, str]
+    action: str
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    user_id: int | None = None
+    membership_id: int | None = None
+    cleaned: dict[str, Any] | None = None
+
+
+def plan_teacher_import_rows(db: Session, school_id: int, raw_rows: list[dict[str, str]]) -> list[TeacherRowPlan]:
+    """Batched planner for staged teacher CSV rows.
+
+    Identity is email only (global, unlike Student.external_ref). Commit
+    creates/reuses a User by email and ensures an active teacher Membership
+    for this school -- never sends an invite email, never touches
+    StaffInvite/MagicLoginToken. A Membership row already exists uniquely
+    per (school, user, role), so a previously revoked teacher is left alone
+    (skip + warning) rather than silently reactivated by re-import.
+    """
+    emails = [normalize_email(row["email"]) for row in raw_rows if row["email"] and "@" in row["email"]]
+    email_counts = Counter(emails)
+
+    # Compare case-insensitively: normalize_email lowercases the CSV side,
+    # but User.email is a plain unique-index String column, not guaranteed
+    # lowercase at rest for every historical row -- an exact-match lookup
+    # here would misclassify a mixed-case existing user as "create" and
+    # violate the no-duplicate-user idempotency guarantee.
+    existing_users = db.query(User).filter(func.lower(User.email).in_(emails)).all() if emails else []
+    user_by_email = {u.email.lower(): u for u in existing_users}
+
+    user_ids = [u.id for u in existing_users]
+    existing_memberships = (
+        db.query(Membership)
+        .filter(Membership.school_id == school_id, Membership.role == "teacher", Membership.user_id.in_(user_ids))
+        .all()
+        if user_ids
+        else []
+    )
+    membership_by_user_id = {m.user_id: m for m in existing_memberships}
+
+    plans: list[TeacherRowPlan] = []
+    for idx, row in enumerate(raw_rows, start=1):
+        errors: list[str] = []
+        warnings: list[str] = []
+
+        email_raw = row["email"]
+        first_name = row["first_name"]
+        last_name = row["last_name"]
+        name_ar = row["name_ar"] or None
+
+        email: str | None = None
+        if not email_raw:
+            errors.append("email is required")
+        elif "@" not in email_raw:
+            errors.append("email is not a valid email address")
+        else:
+            email = normalize_email(email_raw)
+            if email_counts[email] > 1:
+                errors.append("Duplicate email in file")
+
+        if not first_name:
+            errors.append("first_name is required")
+        if not last_name:
+            errors.append("last_name is required")
+
+        if errors:
+            plans.append(TeacherRowPlan(idx, row, "error", errors, warnings))
+            continue
+
+        cleaned = {"first_name": first_name, "last_name": last_name, "name_ar": name_ar}
+        existing_user = user_by_email.get(email)
+        existing_membership = membership_by_user_id.get(existing_user.id) if existing_user else None
+
+        if existing_membership is not None and existing_membership.status == "active" and existing_membership.revoked_at is None:
+            full_name = f"{first_name} {last_name}".strip()
+            fills_blank_name = bool(full_name) and not existing_user.name
+            fills_blank_name_ar = bool(name_ar) and not existing_user.name_ar
+            action = "update" if (fills_blank_name or fills_blank_name_ar) else "skip"
+            plans.append(
+                TeacherRowPlan(
+                    idx, row, action, errors, warnings,
+                    user_id=existing_user.id, membership_id=existing_membership.id, cleaned=cleaned,
+                )
+            )
+            continue
+
+        if existing_membership is not None:
+            warnings.append("This person was previously removed as a teacher at this school. Re-activate them from the Teachers tab, not via import.")
+            plans.append(
+                TeacherRowPlan(
+                    idx, row, "skip", errors, warnings,
+                    user_id=existing_user.id, membership_id=existing_membership.id, cleaned=cleaned,
+                )
+            )
+            continue
+
+        plans.append(
+            TeacherRowPlan(
+                idx, row, "create", errors, warnings,
+                user_id=existing_user.id if existing_user else None, cleaned=cleaned,
+            )
+        )
+
+    return plans

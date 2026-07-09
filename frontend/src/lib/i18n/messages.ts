@@ -434,6 +434,45 @@ export const en = {
         skip: 'No change',
         error: 'Error'
       }
+    },
+    teacherImports: {
+      title: 'Import teachers (CSV)',
+      help: 'Download the template, fill it in, then upload it here for a preview before committing any changes.',
+      downloadTemplate: 'Download teacher CSV template',
+      upload: 'Upload CSV',
+      uploading: 'Uploading…',
+      templateError: 'Failed to download template',
+      uploadError: 'Failed to upload CSV',
+      commit: 'Commit valid rows',
+      committing: 'Committing…',
+      commitError: 'Failed to commit import',
+      committed: 'Import committed.',
+      discard: 'Discard',
+      discardError: 'Failed to discard import',
+      status: 'Status',
+      statusValue: {
+        staged: 'Staged (preview only)',
+        committed: 'Committed',
+        discarded: 'Discarded'
+      },
+      summary: {
+        create: 'New',
+        update: 'Updated',
+        skip: 'Unchanged',
+        error: 'Errors'
+      },
+      row: 'Row',
+      email: 'Email',
+      name: 'Name',
+      note: 'Importing creates an active teacher account immediately — no invite email is sent. Let the teacher know separately how to sign in.',
+      action: 'Action',
+      notes: 'Notes',
+      actionLabel: {
+        create: 'Create',
+        update: 'Update',
+        skip: 'No change',
+        error: 'Error'
+      }
     }
   },
   teach: {
@@ -954,6 +993,45 @@ export const ar = {
         update: 'تحديث',
         move: 'نقل الشعبة',
         restore: 'استعادة',
+        skip: 'بلا تغيير',
+        error: 'خطأ'
+      }
+    },
+    teacherImports: {
+      title: 'استيراد المعلمين (CSV)',
+      help: 'نزّل القالب، املأه، ثم ارفعه هنا للمعاينة قبل تنفيذ أي تغييرات.',
+      downloadTemplate: 'تنزيل قالب استيراد المعلمين',
+      upload: 'رفع ملف CSV',
+      uploading: 'جارٍ الرفع…',
+      templateError: 'تعذر تنزيل القالب',
+      uploadError: 'تعذر رفع ملف CSV',
+      commit: 'تنفيذ الصفوف الصالحة',
+      committing: 'جارٍ التنفيذ…',
+      commitError: 'تعذر تنفيذ الاستيراد',
+      committed: 'تم تنفيذ الاستيراد.',
+      discard: 'تجاهل',
+      discardError: 'تعذر تجاهل الاستيراد',
+      status: 'الحالة',
+      statusValue: {
+        staged: 'معاينة فقط',
+        committed: 'تم التنفيذ',
+        discarded: 'تم التجاهل'
+      },
+      summary: {
+        create: 'جديد',
+        update: 'محدّث',
+        skip: 'بلا تغيير',
+        error: 'أخطاء'
+      },
+      row: 'الصف',
+      email: 'البريد الإلكتروني',
+      name: 'الاسم',
+      note: 'يؤدي الاستيراد إلى إنشاء حساب معلم نشط فورًا دون إرسال أي بريد إلكتروني. يُرجى إبلاغ المعلم بطريقة تسجيل الدخول بشكل منفصل.',
+      action: 'الإجراء',
+      notes: 'ملاحظات',
+      actionLabel: {
+        create: 'إنشاء',
+        update: 'تحديث',
         skip: 'بلا تغيير',
         error: 'خطأ'
       }

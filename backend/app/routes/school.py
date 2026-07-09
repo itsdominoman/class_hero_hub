@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 from .. import auth, invite_tokens
 from ..database import get_db
 from ..imports_service import (
+    CSV_COLUMNS,
+    TEACHER_CSV_COLUMNS,
     ImportUploadError,
     decode_csv_bytes,
     existing_guardian_contacts_by_student,
@@ -19,6 +21,7 @@ from ..imports_service import (
     open_section_enrolments_by_student,
     parse_csv_rows,
     plan_student_import_rows,
+    plan_teacher_import_rows,
     summarize_plans,
 )
 from ..models_school import (
@@ -2144,14 +2147,14 @@ def _import_row_payload(row: ImportRow) -> dict[str, Any]:
     }
 
 
-def _import_detail_payload(db: Session, imp: Import) -> dict[str, Any]:
+def _import_detail_payload(db: Session, imp: Import, row_payload_fn=_import_row_payload) -> dict[str, Any]:
     rows = db.query(ImportRow).filter(ImportRow.import_id == imp.id).order_by(ImportRow.row_number.asc()).all()
-    return {**_import_summary_payload(imp), "rows": [_import_row_payload(row) for row in rows]}
+    return {**_import_summary_payload(imp), "rows": [row_payload_fn(row) for row in rows]}
 
 
 @router.get("/students/import-template")
 def download_student_import_template(membership: Membership = Depends(require_school_role("school_admin"))):
-    csv_text = generate_template_csv()
+    csv_text = generate_template_csv(CSV_COLUMNS)
     return Response(
         content=csv_text,
         media_type="text/csv",
@@ -2169,7 +2172,7 @@ async def upload_student_import(
     content = await file.read()
     try:
         text = decode_csv_bytes(content)
-        raw_rows = parse_csv_rows(text)
+        raw_rows = parse_csv_rows(text, CSV_COLUMNS)
         if not raw_rows:
             raise ImportUploadError("CSV has no data rows")
         plans = plan_student_import_rows(db, school_id, raw_rows, today=_today())
@@ -2333,6 +2336,175 @@ def discard_student_import(import_id: int, membership: Membership = Depends(requ
     db.commit()
     db.refresh(imp)
     return _import_summary_payload(imp)
+
+
+def _teacher_import_row_payload(row: ImportRow) -> dict[str, Any]:
+    csv_row = row.raw or {}
+    return {
+        "id": row.id,
+        "row_number": row.row_number,
+        "email": csv_row.get("email") or None,
+        "first_name": csv_row.get("first_name") or None,
+        "last_name": csv_row.get("last_name") or None,
+        "name_ar": csv_row.get("name_ar") or None,
+        "action": row.action,
+        "errors": row.errors or [],
+        "warnings": row.warnings or [],
+        "applied_entity_id": row.applied_entity_id,
+    }
+
+
+@router.get("/teachers/import-template")
+def download_teacher_import_template(membership: Membership = Depends(require_school_role("school_admin"))):
+    csv_text = generate_template_csv(TEACHER_CSV_COLUMNS)
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=teacher_import_template.csv"},
+    )
+
+
+@router.post("/teachers/imports", status_code=status.HTTP_201_CREATED)
+async def upload_teacher_import(
+    file: UploadFile = File(...),
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    content = await file.read()
+    try:
+        text = decode_csv_bytes(content)
+        raw_rows = parse_csv_rows(text, TEACHER_CSV_COLUMNS)
+        if not raw_rows:
+            raise ImportUploadError("CSV has no data rows")
+        plans = plan_teacher_import_rows(db, school_id, raw_rows)
+    except ImportUploadError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
+    summary = summarize_plans(plans)
+    imp = Import(
+        school_id=school_id,
+        kind="teachers",
+        filename=file.filename,
+        status="staged",
+        uploaded_by_user_id=membership.user_id,
+        summary=summary,
+    )
+    db.add(imp)
+    db.flush()
+    for plan in plans:
+        db.add(
+            ImportRow(
+                import_id=imp.id,
+                row_number=plan.row_number,
+                raw=plan.csv,
+                action=plan.action,
+                errors=plan.errors or None,
+                warnings=plan.warnings or None,
+            )
+        )
+    write_audit(db, membership.user_id, "school.teacher_import.staged", imp, {"filename": file.filename, "summary": summary}, school_id=school_id)
+    db.commit()
+    db.refresh(imp)
+    return _import_detail_payload(db, imp, _teacher_import_row_payload)
+
+
+@router.get("/teachers/imports/{import_id}")
+def get_teacher_import(import_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    imp = _get_owned(db, Import, _school_id(membership), import_id)
+    return _import_detail_payload(db, imp, _teacher_import_row_payload)
+
+
+@router.post("/teachers/imports/{import_id}/commit")
+def commit_teacher_import(import_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    school_id = _school_id(membership)
+    imp = _get_owned(db, Import, school_id, import_id)
+    if imp.status != "staged":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only staged imports can be committed")
+
+    rows = db.query(ImportRow).filter(ImportRow.import_id == imp.id).order_by(ImportRow.row_number.asc()).all()
+    raw_rows = [row.raw for row in rows]
+    try:
+        plans = plan_teacher_import_rows(db, school_id, raw_rows)
+    except ImportUploadError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
+    user_ids = [plan.user_id for plan in plans if plan.user_id is not None]
+    users_by_id = {
+        u.id: u for u in (db.query(User).filter(User.id.in_(user_ids)).all() if user_ids else [])
+    }
+    membership_ids = [plan.membership_id for plan in plans if plan.membership_id is not None]
+    memberships_by_id = {
+        m.id: m
+        for m in (
+            db.query(Membership).filter(Membership.school_id == school_id, Membership.id.in_(membership_ids)).all()
+            if membership_ids
+            else []
+        )
+    }
+
+    for plan, row in zip(plans, rows):
+        row.action = plan.action
+        row.errors = plan.errors or None
+        row.warnings = plan.warnings or None
+
+        if plan.action == "error":
+            continue
+
+        if plan.action == "create":
+            user = users_by_id.get(plan.user_id) if plan.user_id is not None else None
+            if user is None:
+                user = User(
+                    email=auth.normalize_email(plan.csv["email"]),
+                    name=f"{plan.cleaned['first_name']} {plan.cleaned['last_name']}".strip(),
+                    name_ar=plan.cleaned["name_ar"],
+                    status="active",
+                )
+                db.add(user)
+                db.flush()
+            teacher_membership = Membership(
+                school_id=school_id,
+                user_id=user.id,
+                role="teacher",
+                status="active",
+                created_by_user_id=membership.user_id,
+            )
+            db.add(teacher_membership)
+            db.flush()
+            row.applied_entity_id = teacher_membership.id
+        elif plan.action == "update":
+            user = users_by_id[plan.user_id]
+            if not user.name:
+                user.name = f"{plan.cleaned['first_name']} {plan.cleaned['last_name']}".strip()
+            if not user.name_ar and plan.cleaned["name_ar"]:
+                user.name_ar = plan.cleaned["name_ar"]
+            row.applied_entity_id = memberships_by_id[plan.membership_id].id
+        else:
+            row.applied_entity_id = plan.membership_id
+
+    summary = summarize_plans(plans)
+    imp.status = "committed"
+    imp.committed_at = invite_tokens.now_utc()
+    imp.summary = summary
+    write_audit(db, membership.user_id, "school.teacher_import.committed", imp, {"summary": summary}, school_id=school_id)
+    db.commit()
+    db.refresh(imp)
+    return _import_detail_payload(db, imp, _teacher_import_row_payload)
+
+
+@router.post("/teachers/imports/{import_id}/discard")
+def discard_teacher_import(import_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    school_id = _school_id(membership)
+    imp = _get_owned(db, Import, school_id, import_id)
+    if imp.status != "staged":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only staged imports can be discarded")
+    imp.status = "discarded"
+    write_audit(db, membership.user_id, "school.teacher_import.discarded", imp, {}, school_id=school_id)
+    db.commit()
+    db.refresh(imp)
+    return _import_summary_payload(imp)
+
+
 @router.get("/students/{student_id}")
 def get_student(student_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     return _student_with_context(db, _get_owned(db, Student, _school_id(membership), student_id))

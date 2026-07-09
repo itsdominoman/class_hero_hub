@@ -1,5 +1,233 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-09 — S8: Teacher CSV Import v1
+
+Scope: staged teachers-CSV pipeline on the existing `/school` Teachers tab —
+upload → validate → preview (create/update/skip/error per row) → commit
+valid rows → idempotent re-import. No teacher assignment/auto-assignment,
+guardian onboarding, parent dashboard, posts, diary, points, messaging,
+notifications, attendance, timetables, rooms, terms, rollover, or other auth
+changes were part of this slice. No emails were sent by this slice.
+
+### Product safety rule (binding, verified by test)
+
+Bulk import never sends invites, magic links, notifications, emails, or other
+outbound communication. `test_import_sends_zero_outbound_communication`
+monkeypatches `mailer.send_staff_invite`/`send_magic_login` and asserts zero
+calls plus zero `StaffInvite`/`MagicLoginToken` rows after a commit.
+
+### Key design decision: commit creates real `User`/`Membership` rows, not a draft-only staging table
+
+The brief offered two paths: (a) commit directly creates/reuses `User` +
+active `Membership(role="teacher")` rows (no invite email), or (b) — if that
+were unsafe — commit only writes to a new draft/prep table, mirroring S7's
+`StudentGuardianContact` pattern, deferring real account creation to a later
+explicit release/send-invites slice.
+
+Path (b) was the first instinct (`StudentGuardianContact` is the closest
+existing precedent for "staged, never-contacted" import data), but it doesn't
+hold up against the spec's own QA/test requirements (QA step 9 asks to
+confirm no duplicate *users, memberships*; required tests include "existing
+user without teacher membership becomes teacher... correctly" and "existing
+teacher membership resolves to skip/update, not duplicate" — both presuppose
+real `Membership` rows exist after commit) — and the analogy to guardian
+contacts doesn't transfer, since guardians have no account/role model at all
+yet (deferred to S9), whereas teachers already have a first-class `User` +
+`Membership(role="teacher")` model that's actively used.
+
+Verified before building: is creating an active `Membership` outside the
+invite-accept flow actually a security bypass? No — `authentication.py`'s
+Google SSO and magic-link exchange both auto-create/match a `User` row purely
+by lowercased email with no `google_sub`-already-set gate and no
+"has logged in before" gate; access is fully determined by
+`User.status == "active"` + `Membership.status == "active"` at request time,
+checked in `require_school_role`. The invite-accept path itself
+(`platform.py`'s `exchange_staff_invite`) reduces to exactly the same trust
+boundary — "whoever proves control of email X gets whatever active
+memberships exist for that email" — so a directly-created active `Membership`
+grants nothing until the person independently authenticates. This exact
+pattern (`Membership(status="active")` created directly, outside
+invite/accept) already exists in
+`backend/scripts/demo_teacher_assignment_coverage.py`. So: **path (a)** —
+commit creates/reuses `User` + ensures an active `Membership(role="teacher")`,
+never sends an invite email, never touches `StaffInvite`/`MagicLoginToken`.
+
+### Other decisions
+
+- **Identity is email only** (normalized via the existing `auth.normalize_email`),
+  not a school-scoped natural key like `Student.external_ref` — email is
+  globally unique on `User`, so the planner looks up `User` by email first,
+  then an existing `Membership(school_id, user_id, role="teacher")` for this
+  school specifically (the same user can be a teacher at multiple schools,
+  or already an admin at this school and newly added as a teacher here too —
+  `uq_memberships_school_user_role` is per-role, not exclusive).
+- **Row actions are `create`/`update`/`skip`/`error`** — a strict subset of
+  `ImportRow.action`'s existing CheckConstraint (`create, update, move,
+  restore, skip, error`), so no migration/constraint change was needed;
+  `move`/`restore` simply never fire for teacher rows.
+- **A previously-revoked teacher membership is never silently reactivated by
+  import** — if a `Membership(role="teacher")` row already exists for that
+  (school, user) with `status != "active"` (an admin explicitly deactivated
+  them via the existing Teachers tab flow), the row resolves to `skip` with a
+  warning telling the admin to re-activate from the Teachers tab instead.
+  Reimporting the same CSV must never undo an explicit deactivation decision.
+- **Existing `User` fields are never clobbered by import** — for an existing
+  active teacher membership, the CSV only fills a currently-*blank*
+  `name`/`name_ar` (action `update`); it never overwrites a name the person
+  (or another admin flow) already set. An existing `User` might be a
+  school_admin or teacher elsewhere with a name already on file, and a bulk
+  CSV shouldn't silently overwrite it.
+- **`users.name_ar` added as a new nullable column** (migration
+  `c3d4e5f6a7b8`, following the same pattern as the existing `schools.name_ar`
+  column) — the brief listed `name_ar` as a minimum template column, and since
+  this slice creates real `User` rows (not a side staging table), there was
+  nowhere else to put it. Nullable/additive only, no behavior change for any
+  existing user.
+- **Preferred conservative template** (`email,first_name,last_name,name_ar`)
+  was used as-is, and the optional `display_name`/`phone`/`staff_ref`
+  columns were left out per the brief's "only if cheap/safe" — `User` has no
+  `phone` or `staff_ref`-equivalent column, and adding `display_name` would
+  reintroduce the "first_name required unless display_name present"
+  conditional logic the conservative template was explicitly meant to avoid.
+  Both `first_name` and `last_name` are simply required.
+- **`generate_template_csv`/`parse_csv_rows` in `imports_service.py`
+  generalized to take a `columns: list[str]` parameter** (previously
+  hardcoded to the student `CSV_COLUMNS`) so the teacher CSV path reuses the
+  same encoding/parsing/header-matching code instead of a near-duplicate;
+  `_import_detail_payload` in `routes/school.py` similarly takes an optional
+  `row_payload_fn` so both `_import_row_payload` (student) and the new
+  `_teacher_import_row_payload` share the same summary/row-list shape.
+- **Query-shape:** `plan_teacher_import_rows` batches every lookup (existing
+  users by email, existing teacher memberships by user id) once regardless
+  of row count, per `docs/BACKEND_PERFORMANCE.md`'s rule; the commit route
+  does one additional batched `User`/`Membership`-by-id fetch for the rows
+  the plan resolved, mirroring the existing student-import commit route's
+  pattern.
+- **User lookup is case-insensitive (`func.lower(User.email)`), not an exact
+  match.** `User.email` has a plain unique index, not a lowercase-normalized
+  one, so an exact-match lookup against the CSV's normalized (lowercased)
+  email could miss a historical row stored with mixed case and misclassify
+  it as `create`, producing a duplicate `User` on re-import — caught in a
+  pre-commit review pass, not by the original test suite (every test/smoke
+  email happened to already be lowercase). Fixed to match the same
+  `func.lower(User.email)` pattern `authentication.py` already uses at
+  login; regression-tested by
+  `test_existing_mixed_case_email_is_matched_case_insensitively`.
+
+### Backend changes
+
+- Migration `c3d4e5f6a7b8_add_user_name_ar.py` adds nullable `users.name_ar`.
+- `backend/app/models_school/models.py`: `User.name_ar` column.
+- `backend/app/imports_service.py`: `TEACHER_CSV_COLUMNS`; `TeacherRowPlan`
+  dataclass; `plan_teacher_import_rows(...)` (the batched planner, mirroring
+  `plan_student_import_rows`'s shape); `generate_template_csv`/
+  `parse_csv_rows` generalized to accept a `columns` parameter (both existing
+  student-import call sites updated accordingly).
+- `backend/app/routes/school.py` gains, under the existing
+  `require_school_role("school_admin")` router dependency: `GET
+  /teachers/import-template`, `POST /teachers/imports`, `GET
+  /teachers/imports/{id}`, `POST /teachers/imports/{id}/commit`, `POST
+  /teachers/imports/{id}/discard`, plus `_teacher_import_row_payload`.
+  `_import_detail_payload` gained an optional `row_payload_fn` parameter
+  (default unchanged) so both kinds share it. Commit batches `User`/
+  `Membership` lookups by id before the per-row apply loop; `create` either
+  reuses an existing `User` (found by email) or inserts a new one
+  (`status="active"`, `name`/`name_ar` from the row), then always inserts a
+  new `Membership(role="teacher", status="active")`; `update` only fills
+  blank `name`/`name_ar` on an existing `User`; `skip` just records
+  `applied_entity_id`. No `StaffAssignment`, `StaffInvite`, or
+  `MagicLoginToken` row is ever touched by this endpoint group.
+
+### Frontend changes
+
+- `/school` → Teachers tab gained an import panel (between the invite form
+  and the pending-invites list): "Download teacher CSV template", CSV file
+  picker + upload, a staged-preview summary (create/update/skip/error
+  counts), a row-level table (row number, email, name, action,
+  errors/warnings), commit/discard actions, and a note clarifying that
+  commit creates an active teacher account immediately with **no** invite
+  email sent. `commitTeacherImport` calls the existing `refresh()` (which
+  already loads `teachers`/`pendingTeacherInvites`/`teacherAssignments`
+  eagerly on tab load) rather than a lazy-load helper, since teacher data —
+  unlike students — isn't lazy-loaded on this page.
+- `frontend/src/lib/i18n/messages.ts` gained `school.teacherImports.*`
+  (English + Arabic) as a new sibling namespace next to `school.imports.*`
+  (not a rename to `school.imports.students.*`/`school.imports.teachers.*`,
+  to avoid touching every existing student-import call site for a
+  same-slice-sized change) — `grade`/`section`/`guardians`-style keys were
+  dropped since they don't apply to teacher rows, `email`/`name`/`note` were
+  added, and `move`/`restore` were dropped from `summary`/`actionLabel`
+  since those actions never fire for teacher rows.
+
+### Tests
+
+`backend/tests/test_teacher_imports.py` (21 tests): template headers,
+UTF-8/UTF-8-BOM parsing, case/whitespace-insensitive headers, required
+email/first_name/last_name errors, invalid email format, duplicate email
+within file, existing user without a teacher membership becomes a teacher
+(dual-role, reusing the existing `User` row), existing active teacher
+membership resolves to skip (not duplicate), full re-import idempotency (one
+`User`, one `Membership` after two commits of the same file), a mixed-case
+stored email is matched case-insensitively (not treated as a new user), a
+previously revoked teacher membership is not silently reactivated by
+re-import (skip + warning), cross-school isolation (a teacher already active
+at one school gets a second, independent `Membership` row when imported into
+another school — not a skip), commit-valid-leave-errors-unapplied,
+double-commit rejected, discard-then-commit rejected, wrong-role/wrong-
+school/platform-admin-without-membership blocked, zero `StaffAssignment`
+rows created, zero outbound communication (no mailer calls, no
+`StaffInvite`/`MagicLoginToken` rows), and a query-count regression test
+proving upload/commit read-query counts don't scale with row count.
+
+### Validation
+
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo/backend backend python -m pytest tests/test_teacher_imports.py -q` → **21 passed**.
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo/backend backend python -m pytest tests -q` → **226 passed** (up from 205), 10 warnings.
+- `cd frontend && npm run check` → 0 errors, 0 warnings.
+- `cd frontend && npm run check:i18n` → parity OK, 471 keys in both `en` and `ar`.
+- `cd frontend && npm run build` → built OK.
+- `docker compose build backend frontend` + `docker compose up -d backend frontend` → rebuilt and restarted.
+- `alembic heads` → single head `c3d4e5f6a7b8`; applied to the live dev
+  database (`alembic upgrade head`, `alembic current` → `c3d4e5f6a7b8`).
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo backend python backend/scripts/perf_check.py` → only the pre-existing `/api/school/students` endpoint over budget (3.1s this run, unrelated to this change); no newly-audited endpoint added, and none of the audited endpoints regressed.
+- **Manual smoke test against the live United International School demo
+  data**: downloaded the template (confirmed the 4-column header), uploaded a
+  3-row CSV (one brand-new teacher email, one existing platform user who was
+  a `school_admin` at the school but not yet a `teacher` there, one
+  deliberately invalid email), previewed (2 `create` + 1 `error`, confirmed
+  via direct DB query that the "existing admin, no teacher role yet" row
+  correctly resolved to `create` rather than being misclassified), committed
+  (verified the new `User` row had `name`/`name_ar` set correctly and the
+  existing admin gained a second, independent `Membership(role="teacher")`
+  row alongside their unchanged `school_admin` one), re-uploaded the
+  identical file (both non-error rows resolved to `skip`, confirmed no
+  duplicate `User`/`Membership` rows), confirmed zero `StaffInvite`/
+  `MagicLoginToken` rows were created for either email, then deleted the
+  smoke-test user/membership/import rows and removed the extra teacher
+  membership from the existing admin to leave the demo school exactly as it
+  was before the test.
+- **Not driven in an actual browser** (no browser/screenshot tool available
+  in this environment). Frontend correctness was instead verified by:
+  `svelte-check` (0 errors), a successful production build, a manual grep
+  cross-check of every `$_('school.teacherImports.*')` key used in
+  `+page.svelte` against the keys declared in both `en` and `ar` in
+  `messages.ts` (`npm run check:i18n` only checks en/ar parity with each
+  other, not usage-vs-declaration), and the manual smoke test above driving
+  the exact same API endpoints/payload shapes the new UI panel calls. Dom
+  should still click through the panel once per the QA steps below.
+
+### Deferred (per instructions for this slice)
+
+- Any explicit "send invite" / "release" action for imported teachers —
+  imported teachers get an active account and membership immediately with no
+  notification; telling them how to sign in is a manual, out-of-band step
+  for now. A later slice could add an explicit "notify these teachers" bulk
+  action if wanted.
+- Teacher assignment (homeroom/subject) import — assignments remain managed
+  by the existing Teachers tab workflow only, per the brief.
+- Branch-scoped permissions and any `staff_ref`/`phone`/`display_name`
+  columns — left out of the conservative template, see Decisions above.
+
 ## 2026-07-09 — S7 correction: guardian name/relationship + draft guardian contacts
 
 Product correction to the S7 slice below, made before audit/commit: the

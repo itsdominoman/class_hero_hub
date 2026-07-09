@@ -104,6 +104,25 @@
     summary: Record<string, number>;
     rows: ImportRow[];
   };
+  type TeacherImportRow = {
+    id: number;
+    row_number: number;
+    email?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    name_ar?: string | null;
+    action: 'create' | 'update' | 'skip' | 'error';
+    errors: string[];
+    warnings: string[];
+    applied_entity_id?: number | null;
+  };
+  type TeacherImport = {
+    id: number;
+    filename?: string | null;
+    status: 'staged' | 'committed' | 'discarded';
+    summary: Record<string, number>;
+    rows: TeacherImportRow[];
+  };
   type Enrolment = {
     id: number;
     student_id: number;
@@ -261,6 +280,11 @@
   let importUploading = $state(false);
   let importCommitting = $state(false);
   let studentImport = $state<StudentImport | null>(null);
+
+  let teacherImportFile = $state<File | null>(null);
+  let teacherImportUploading = $state(false);
+  let teacherImportCommitting = $state(false);
+  let teacherImport = $state<TeacherImport | null>(null);
 
   let branchForm = $state(baseForm('MAIN', 'Main Branch'));
   let stageForm = $state(baseForm('PRIMARY', 'Primary'));
@@ -1036,6 +1060,97 @@
       summaries.push(`${$_('school.imports.guardianSlot')} ${slot}: ${parts.join(' · ')}`);
     }
     return summaries;
+  }
+
+  async function downloadTeacherImportTemplate() {
+    if (!schoolId) return;
+    error = null;
+    try {
+      const blob = await api.download('/school/teachers/import-template', schoolOptions());
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'teacher_import_template.csv';
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      error = err?.message || $_('school.teacherImports.templateError');
+    }
+  }
+
+  function handleTeacherImportFileChange(event: Event) {
+    const target = event.target as HTMLInputElement;
+    teacherImportFile = target.files?.[0] || null;
+  }
+
+  async function uploadTeacherImportFile() {
+    if (!schoolId || !teacherImportFile) return;
+    teacherImportUploading = true;
+    error = null;
+    notice = null;
+    try {
+      const formData = new FormData();
+      formData.append('file', teacherImportFile);
+      teacherImport = await api.upload('/school/teachers/imports', formData, schoolOptions());
+    } catch (err: any) {
+      error = err?.message || $_('school.teacherImports.uploadError');
+    } finally {
+      teacherImportUploading = false;
+    }
+  }
+
+  async function commitTeacherImport() {
+    if (!schoolId || !teacherImport) return;
+    teacherImportCommitting = true;
+    error = null;
+    notice = null;
+    try {
+      teacherImport = await api.post(`/school/teachers/imports/${teacherImport.id}/commit`, {}, schoolOptions());
+      notice = $_('school.teacherImports.committed');
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.teacherImports.commitError');
+    } finally {
+      teacherImportCommitting = false;
+    }
+  }
+
+  async function discardTeacherImport() {
+    if (!schoolId || !teacherImport) return;
+    try {
+      await api.post(`/school/teachers/imports/${teacherImport.id}/discard`, {}, schoolOptions());
+    } catch (err: any) {
+      error = err?.message || $_('school.teacherImports.discardError');
+      return;
+    }
+    teacherImport = null;
+    teacherImportFile = null;
+  }
+
+  function teacherImportRowRowClass(row: TeacherImportRow) {
+    if (row.action === 'error') return 'bg-red-50';
+    if (row.action === 'skip') return 'bg-white';
+    return 'bg-emerald-50';
+  }
+
+  function teacherImportActionLabel(action: TeacherImportRow['action']) {
+    return $_(`school.teacherImports.actionLabel.${action}`);
+  }
+
+  const TEACHER_IMPORT_SUMMARY_BADGE_STYLES: Record<string, string> = {
+    create: 'bg-emerald-100 text-emerald-800',
+    update: 'bg-sky-100 text-sky-800',
+    skip: 'bg-slate-200 text-slate-700',
+    error: 'bg-red-100 text-red-800'
+  };
+
+  function teacherImportSummaryBadges() {
+    if (!teacherImport) return [];
+    return Object.entries(TEACHER_IMPORT_SUMMARY_BADGE_STYLES).map(([key, classes]) => ({
+      classes,
+      label: $_(`school.teacherImports.summary.${key}`),
+      count: teacherImport?.summary[key] || 0
+    }));
   }
 
   async function loadStudentEnrolments(studentId: number) {
@@ -1883,6 +1998,83 @@
                 </div>
               <button type="submit" class="btn-hero rounded-lg px-5 py-3" disabled={saving}>{$_('school.teachers.sendInvite')}</button>
               </form>
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h3 class="text-base font-black text-slate-900">{$_('school.teacherImports.title')}</h3>
+              <p class="mt-1 text-sm text-slate-500">{$_('school.teacherImports.help')}</p>
+              <div class="mt-4 flex flex-wrap items-center gap-2">
+                <button type="button" class="btn-secondary rounded-lg px-4 py-2" onclick={downloadTeacherImportTemplate}>{$_('school.teacherImports.downloadTemplate')}</button>
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  class="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  onchange={handleTeacherImportFileChange}
+                />
+                <button type="button" class="btn-hero rounded-lg px-4 py-2" disabled={!teacherImportFile || teacherImportUploading} onclick={uploadTeacherImportFile}>
+                  {teacherImportUploading ? $_('school.teacherImports.uploading') : $_('school.teacherImports.upload')}
+                </button>
+              </div>
+
+              {#if teacherImport}
+                <div class="mt-5">
+                  <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p class="font-bold text-slate-900">{teacherImport.filename || $_('school.teacherImports.title')}</p>
+                      <p class="mt-1 text-sm text-slate-600">
+                        {$_('school.teacherImports.status')}: {$_(`school.teacherImports.statusValue.${teacherImport.status}`)}
+                      </p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 text-sm">
+                      {#each teacherImportSummaryBadges() as badge}
+                        <span class={`rounded-full px-3 py-1 font-semibold ${badge.classes}`}>{badge.label}: {badge.count}</span>
+                      {/each}
+                    </div>
+                  </div>
+
+                  {#if teacherImport.status === 'staged'}
+                    <div class="mt-3 flex gap-2">
+                      <button type="button" class="btn-hero rounded-lg px-4 py-2" disabled={teacherImportCommitting} onclick={commitTeacherImport}>
+                        {teacherImportCommitting ? $_('school.teacherImports.committing') : $_('school.teacherImports.commit')}
+                      </button>
+                      <button type="button" class="btn-secondary rounded-lg px-4 py-2" disabled={teacherImportCommitting} onclick={discardTeacherImport}>{$_('school.teacherImports.discard')}</button>
+                    </div>
+                  {/if}
+
+                  <p class="mt-4 text-xs text-slate-500">{$_('school.teacherImports.note')}</p>
+                  <div class="mt-2 overflow-x-auto rounded-lg border border-slate-100">
+                    <table class="w-full min-w-[700px] text-left text-sm">
+                      <thead class="bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                        <tr>
+                          <th class="px-3 py-2">{$_('school.teacherImports.row')}</th>
+                          <th class="px-3 py-2">{$_('school.teacherImports.email')}</th>
+                          <th class="px-3 py-2">{$_('school.teacherImports.name')}</th>
+                          <th class="px-3 py-2">{$_('school.teacherImports.action')}</th>
+                          <th class="px-3 py-2">{$_('school.teacherImports.notes')}</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-slate-100">
+                        {#each teacherImport.rows as row}
+                          <tr class={teacherImportRowRowClass(row)}>
+                            <td class="px-3 py-2">{row.row_number}</td>
+                            <td class="px-3 py-2 break-all">{row.email || '—'}</td>
+                            <td class="px-3 py-2">{[row.first_name, row.last_name].filter(Boolean).join(' ') || '—'}</td>
+                            <td class="px-3 py-2 font-semibold">{teacherImportActionLabel(row.action)}</td>
+                            <td class="px-3 py-2 text-xs">
+                              {#each row.errors as message}
+                                <p class="text-red-700">{message}</p>
+                              {/each}
+                              {#each row.warnings as message}
+                                <p class="text-amber-700">{message}</p>
+                              {/each}
+                            </td>
+                          </tr>
+                        {/each}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              {/if}
             </div>
 
             <div class="rounded-lg border border-slate-200 bg-white p-5">

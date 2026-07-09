@@ -12,6 +12,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
     name = Column(String)
+    name_ar = Column(String, nullable=True)
     google_sub = Column(String, unique=True, index=True, nullable=True)
     locale = Column(String, default="en")
     status = Column(String, default="active")
