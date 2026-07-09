@@ -8,7 +8,7 @@
   import SelectInput from '$lib/components/school/SelectInput.svelte';
   import StatusInput from '$lib/components/school/StatusInput.svelte';
   import TextInput from '$lib/components/school/TextInput.svelte';
-  import { CheckCircle2, Circle, Plus } from 'lucide-svelte';
+  import { CheckCircle2, Circle, Pencil, Plus, Trash2 } from 'lucide-svelte';
 
   type Membership = { school_id: number; school_name: string; role: string };
   type Row = {
@@ -128,6 +128,43 @@
       subject_group?: Row;
     }[];
   };
+  type DefaultSubjectTemplate = {
+    id: number;
+    school_id: number;
+    education_stage_id?: number | null;
+    grade_level_id?: number | null;
+    subject_id: number;
+    status: string;
+    sort_order: number;
+    subject?: Row | null;
+    education_stage?: Row | null;
+    grade_level?: Row | null;
+  };
+  type TemplatePlanRow = {
+    class_section_id: number;
+    class_section?: Row | null;
+    subject_id: number;
+    subject?: Row | null;
+    code?: string | null;
+    name?: string | null;
+    status: string;
+    reason?: string | null;
+    subject_group?: Row | null;
+  };
+  type TemplatePreviewResult = {
+    would_create: number;
+    would_restore: number;
+    skipped_existing: number;
+    failed: number;
+    results: TemplatePlanRow[];
+  };
+  type TemplateApplyResult = {
+    created: number;
+    restored: number;
+    skipped: number;
+    failed: number;
+    results: TemplatePlanRow[];
+  };
 
   const tabs = [
     { key: 'checklist', label: 'school.tabs.checklist' },
@@ -141,6 +178,7 @@
     { key: 'teachers', label: 'school.tabs.teachers' },
     { key: 'students', label: 'school.tabs.students' },
     { key: 'subjects', label: 'school.tabs.subjects' },
+    { key: 'defaults', label: 'school.tabs.defaults' },
     { key: 'groups', label: 'school.tabs.groups' }
   ];
 
@@ -208,6 +246,14 @@
   let lastBulkSectionKey = $state('');
   let quickLabels = $state('A, B, C');
 
+  let templates = $state<DefaultSubjectTemplate[]>([]);
+  let templateForm = $state({ scope: 'stage' as 'stage' | 'grade', education_stage_id: '', grade_level_id: '', subject_id: '', sort_order: 0, status: 'active' });
+  let templateApplyForm = $state({ academic_year_id: '', branch_campus_id: '', education_stage_id: '', grade_level_id: '' });
+  let templatePreviewResult = $state<TemplatePreviewResult | null>(null);
+  let templateApplyResult = $state<TemplateApplyResult | null>(null);
+  let templatePreviewLoading = $state(false);
+  let templateApplyLoading = $state(false);
+
   function baseForm(code = '', name = '') {
     return { code, name, name_ar: '', sort_order: 0, status: 'active' };
   }
@@ -258,6 +304,10 @@
     return rowName(branches, id);
   }
 
+  function stageName(id?: number | string | null) {
+    return rowName(stages, id);
+  }
+
   function yearName(id?: number | string | null) {
     return rowName(years, id);
   }
@@ -279,7 +329,7 @@
     return idStr(currentYearId() ?? years[0]?.id);
   }
 
-  function nextSort(rows: Row[], filter: (row: Row) => boolean = () => true) {
+  function nextSort<T extends { sort_order: number }>(rows: T[], filter: (row: T) => boolean = () => true) {
     const values = rows.filter(filter).map((row) => Number(row.sort_order || 0));
     return values.length ? Math.max(...values) + 10 : 10;
   }
@@ -333,7 +383,7 @@
   async function loadAll() {
     if (!schoolId) return;
     const options = schoolOptions();
-    const [settings, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData] = await Promise.all([
+    const [settings, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData, templateRows] = await Promise.all([
       api.get('/school/settings', options),
       api.get('/school/setup-checklist', options),
       api.get('/school/branches', options),
@@ -343,7 +393,8 @@
       api.get('/school/class-sections', options),
       api.get('/school/subjects', options),
       api.get('/school/subject-groups', options),
-      api.get('/school/teachers', options)
+      api.get('/school/teachers', options),
+      api.get('/school/default-subject-templates', options)
     ]);
     // Students is the heaviest dataset (subject-group roster derivation over every
     // student). Skip it on initial/background loads and only fetch it once the
@@ -362,6 +413,7 @@
     sections = sectionRows;
     subjects = subjectRows;
     groups = groupRows;
+    templates = templateRows;
     teachers = teacherData.teachers || [];
     pendingTeacherInvites = teacherData.pending_invites || [];
     // SelectInput's value prop has a fallback, so binding an undefined record
@@ -378,6 +430,7 @@
     if (!sectionForm.academic_year_id) sectionForm.academic_year_id = defaultYear;
     if (!groupForm.academic_year_id) groupForm.academic_year_id = defaultYear;
     if (!bulkGroupForm.academic_year_id) bulkGroupForm.academic_year_id = defaultYear;
+    if (!templateApplyForm.academic_year_id) templateApplyForm.academic_year_id = defaultYear;
     if (rosterSectionId && !sections.some((section) => section.id === Number(rosterSectionId))) {
       rosterSectionId = '';
       classRoster = null;
@@ -448,6 +501,104 @@
       lastAutoGroupName = '';
     } else if (path === 'students') {
       studentForm = { external_ref: '', first_name: '', last_name: '', preferred_name: '', name_ar: '', date_of_birth: '', gender: '', status: 'active' };
+    } else if (path === 'default-subject-templates') {
+      resetTemplateForm();
+    }
+  }
+
+  function resetTemplateForm() {
+    templateForm = { scope: templateForm.scope, education_stage_id: '', grade_level_id: '', subject_id: '', sort_order: nextSort(templates), status: 'active' };
+  }
+
+  function setTemplateScope(scope: 'stage' | 'grade') {
+    templateForm.scope = scope;
+    if (scope === 'stage') templateForm.grade_level_id = '';
+    else templateForm.education_stage_id = '';
+  }
+
+  function templatePayload() {
+    return {
+      education_stage_id: templateForm.scope === 'stage' ? Number(templateForm.education_stage_id) || null : null,
+      grade_level_id: templateForm.scope === 'grade' ? Number(templateForm.grade_level_id) || null : null,
+      subject_id: Number(templateForm.subject_id),
+      sort_order: Number(templateForm.sort_order || 0),
+      status: templateForm.status
+    };
+  }
+
+  async function saveTemplate() {
+    const errors: Record<string, string> = {};
+    if (templateForm.scope === 'stage' && !templateForm.education_stage_id) errors.education_stage_id = $_('school.validation.stageRequired');
+    if (templateForm.scope === 'grade' && !templateForm.grade_level_id) errors.grade_level_id = $_('school.validation.gradeRequired');
+    if (!templateForm.subject_id) errors.subject_id = $_('school.validation.subjectRequired');
+    if (Object.keys(errors).length) {
+      setValidationErrors('default-subject-templates', errors);
+      return;
+    }
+    return saveVia('default-subject-templates', templatePayload(), () => resetTemplateForm());
+  }
+
+  function editTemplate(row: DefaultSubjectTemplate) {
+    editingPath = 'default-subject-templates';
+    editingId = row.id;
+    templateForm = {
+      scope: row.education_stage_id ? 'stage' : 'grade',
+      education_stage_id: idStr(row.education_stage_id),
+      grade_level_id: idStr(row.grade_level_id),
+      subject_id: idStr(row.subject_id),
+      sort_order: row.sort_order,
+      status: row.status
+    };
+  }
+
+  function templateApplyPayload() {
+    return {
+      academic_year_id: Number(templateApplyForm.academic_year_id),
+      branch_campus_id: templateApplyForm.branch_campus_id ? Number(templateApplyForm.branch_campus_id) : null,
+      education_stage_id: templateApplyForm.education_stage_id ? Number(templateApplyForm.education_stage_id) : null,
+      grade_level_id: templateApplyForm.grade_level_id ? Number(templateApplyForm.grade_level_id) : null
+    };
+  }
+
+  async function previewTemplateApplication() {
+    if (!schoolId) return;
+    if (!templateApplyForm.academic_year_id) {
+      setValidationErrors('template-apply', { academic_year_id: $_('school.validation.yearRequired') });
+      return;
+    }
+    clearValidation();
+    error = null;
+    notice = null;
+    templateApplyResult = null;
+    templatePreviewLoading = true;
+    try {
+      templatePreviewResult = await api.post('/school/default-subject-templates/preview', templateApplyPayload(), schoolOptions());
+    } catch (err: any) {
+      error = err?.message || $_('school.saveError');
+    } finally {
+      templatePreviewLoading = false;
+    }
+  }
+
+  async function applyTemplateApplication() {
+    if (!schoolId) return;
+    if (!templateApplyForm.academic_year_id) {
+      setValidationErrors('template-apply', { academic_year_id: $_('school.validation.yearRequired') });
+      return;
+    }
+    clearValidation();
+    error = null;
+    notice = null;
+    templateApplyLoading = true;
+    try {
+      templateApplyResult = await api.post('/school/default-subject-templates/apply', templateApplyPayload(), schoolOptions());
+      templatePreviewResult = null;
+      notice = $_('school.defaults.applyComplete');
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.saveError');
+    } finally {
+      templateApplyLoading = false;
     }
   }
 
@@ -628,7 +779,7 @@
     return saveVia('academic-years', yearPayload(), () => resetForm('academic-years'));
   }
 
-  async function archiveRow(path: string, row: Row) {
+  async function archiveRow(path: string, row: { id: number }) {
     if (!schoolId) return;
     if (editingPath === path && editingId === row.id) cancelEdit();
     saving = true;
@@ -2020,6 +2171,161 @@
                         {/each}
                       </div>
                     </div>
+                  {/if}
+                </div>
+              {/if}
+            </div>
+          </div>
+        {:else if activeTab === 'defaults'}
+          <div class="space-y-5">
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h2 class="text-lg font-black text-slate-900">{$_('school.defaults.title')}</h2>
+              <p class="mt-2 max-w-3xl text-sm text-slate-600">{$_('school.defaults.help')}</p>
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h3 class="text-base font-black text-slate-900">{editingPath === 'default-subject-templates' ? $_('school.edit') : $_('school.defaults.addTitle')}</h3>
+              <div class="mt-4 grid gap-3 md:grid-cols-4">
+                <div class="md:col-span-2">
+                  <p class="text-sm font-semibold text-slate-700">{$_('school.defaults.scope')}</p>
+                  <div class="mt-1 grid gap-2 sm:grid-cols-2">
+                    <button type="button" class={`rounded-lg border px-3 py-2 text-left text-sm font-semibold ${templateForm.scope === 'stage' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700'}`} onclick={() => setTemplateScope('stage')}>
+                      {$_('school.stages.single')}
+                    </button>
+                    <button type="button" class={`rounded-lg border px-3 py-2 text-left text-sm font-semibold ${templateForm.scope === 'grade' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700'}`} onclick={() => setTemplateScope('grade')}>
+                      {gradeLevelLabel}
+                    </button>
+                  </div>
+                </div>
+                {#if templateForm.scope === 'stage'}
+                  <SelectInput label={$_('school.stages.single')} bind:value={templateForm.education_stage_id} rows={stages} error={fieldError('default-subject-templates', 'education_stage_id')} />
+                {:else}
+                  <SelectInput label={gradeLevelLabel} bind:value={templateForm.grade_level_id} rows={levels} error={fieldError('default-subject-templates', 'grade_level_id')} />
+                {/if}
+                <SelectInput label={$_('school.subjects.single')} bind:value={templateForm.subject_id} rows={subjects} error={fieldError('default-subject-templates', 'subject_id')} />
+                <StatusInput bind:value={templateForm.status} />
+              </div>
+              <details class="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                <summary class="cursor-pointer text-xs font-bold uppercase tracking-wide text-slate-500">{$_('school.advanced')}</summary>
+                <div class="mt-3 max-w-xs">
+                  <NumberInput label={$_('school.sortOrderOptional')} bind:value={templateForm.sort_order} />
+                </div>
+              </details>
+              <div class="mt-4 flex items-center gap-2">
+                <button class="btn-hero inline-flex items-center gap-2 rounded-lg" disabled={saving} onclick={saveTemplate}>
+                  {#if editingPath === 'default-subject-templates'}{$_('school.save')}{:else}<Plus class="h-4 w-4" />{$_('school.add')}{/if}
+                </button>
+                {#if editingPath === 'default-subject-templates'}
+                  <button class="btn-secondary rounded-lg" disabled={saving} onclick={cancelEdit}>{$_('school.cancel')}</button>
+                {/if}
+              </div>
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h3 class="text-base font-black text-slate-900">{$_('school.defaults.existing')}</h3>
+              <div class="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead class="bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th class="px-3 py-2">{$_('school.defaults.scope')}</th>
+                      <th class="px-3 py-2">{$_('school.subjects.single')}</th>
+                      <th class="px-3 py-2">{$_('school.status')}</th>
+                      <th class="px-3 py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 bg-white">
+                    {#each templates as row}
+                      <tr>
+                        <td class="px-3 py-2 font-semibold text-slate-900">
+                          {row.education_stage_id
+                            ? `${$_('school.stages.single')}: ${row.education_stage?.name || stageName(row.education_stage_id)}`
+                            : `${gradeLevelLabel}: ${row.grade_level?.name || levelName(row.grade_level_id)}`}
+                        </td>
+                        <td class="px-3 py-2">{row.subject?.name || subjectName(row.subject_id)}</td>
+                        <td class="px-3 py-2"><span class={`rounded-full px-2 py-1 text-xs font-bold ${row.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{row.status}</span></td>
+                        <td class="px-3 py-2 text-right">
+                          <div class="inline-flex gap-1">
+                            <button class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-slate-900" aria-label={$_('school.edit')} onclick={() => editTemplate(row)}>
+                              <Pencil class="h-4 w-4" />
+                            </button>
+                            <button class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-red-600" aria-label={$_('school.archive')} onclick={() => archiveRow('default-subject-templates', row)}>
+                              <Trash2 class="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    {:else}
+                      <tr><td colspan="4" class="px-3 py-6 text-center text-slate-500">{$_('school.empty')}</td></tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h3 class="text-base font-black text-slate-900">{$_('school.defaults.applyTitle')}</h3>
+              <p class="mt-2 max-w-3xl text-sm text-slate-600">{$_('school.defaults.applyHelp')}</p>
+              <div class="mt-4 grid gap-3 md:grid-cols-4">
+                <SelectInput label={$_('school.years.single')} bind:value={templateApplyForm.academic_year_id} rows={years} error={fieldError('template-apply', 'academic_year_id')} />
+                <SelectInput label={$_('school.branches.single')} bind:value={templateApplyForm.branch_campus_id} rows={branches} optional />
+                <SelectInput label={$_('school.stages.single')} bind:value={templateApplyForm.education_stage_id} rows={stages} optional />
+                <SelectInput label={gradeLevelLabel} bind:value={templateApplyForm.grade_level_id} rows={levels} optional />
+              </div>
+              <div class="mt-4 flex flex-wrap items-center gap-2">
+                <button type="button" class="btn-secondary rounded-lg px-4 py-2" disabled={templatePreviewLoading || templateApplyLoading} onclick={previewTemplateApplication}>{$_('school.defaults.preview')}</button>
+                <button type="button" class="btn-hero rounded-lg px-4 py-2" disabled={templatePreviewLoading || templateApplyLoading} onclick={applyTemplateApplication}>{$_('school.defaults.apply')}</button>
+              </div>
+
+              {#if templatePreviewLoading || templateApplyLoading}
+                <p class="mt-4 text-sm text-slate-500">{$_('common.loading')}</p>
+              {/if}
+
+              {#if templateApplyResult}
+                <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <p class="font-bold text-slate-900">
+                    {$_('school.defaults.applySummary', {
+                      values: {
+                        created: templateApplyResult.created,
+                        restored: templateApplyResult.restored,
+                        skipped: templateApplyResult.skipped,
+                        failed: templateApplyResult.failed
+                      }
+                    })}
+                  </p>
+                  {#if templateApplyResult.results.length}
+                    <div class="mt-3 max-h-96 divide-y divide-slate-200 overflow-y-auto rounded-lg border border-slate-200 bg-white">
+                      {#each templateApplyResult.results as item}
+                        <div class="p-3 text-sm">
+                          <p class="font-bold text-slate-900">{item.class_section?.name || rowName(sections, item.class_section_id)} · {item.subject?.name || subjectName(item.subject_id)} · {item.status}</p>
+                          {#if item.reason}<p class="mt-1 text-slate-600">{item.reason}</p>{/if}
+                        </div>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              {:else if templatePreviewResult}
+                <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <p class="font-bold text-slate-900">
+                    {$_('school.defaults.previewSummary', {
+                      values: {
+                        create: templatePreviewResult.would_create,
+                        restore: templatePreviewResult.would_restore,
+                        skip: templatePreviewResult.skipped_existing,
+                        failed: templatePreviewResult.failed
+                      }
+                    })}
+                  </p>
+                  {#if templatePreviewResult.results.length}
+                    <div class="mt-3 max-h-96 divide-y divide-slate-200 overflow-y-auto rounded-lg border border-slate-200 bg-white">
+                      {#each templatePreviewResult.results as item}
+                        <div class="p-3 text-sm">
+                          <p class="font-bold text-slate-900">{item.class_section?.name || rowName(sections, item.class_section_id)} · {item.subject?.name || subjectName(item.subject_id)} · {item.status}</p>
+                          {#if item.reason}<p class="mt-1 text-slate-600">{item.reason}</p>{/if}
+                        </div>
+                      {/each}
+                    </div>
+                  {:else}
+                    <p class="mt-3 text-sm text-slate-500">{$_('school.defaults.previewEmpty')}</p>
                   {/if}
                 </div>
               {/if}

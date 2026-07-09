@@ -1,5 +1,118 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-09 — S6.8/S7-prep: Default Subject Templates by stage/grade
+
+Scope: a school-admin workflow to define default/core subjects by education stage or
+grade/year level, preview what section-specific subject groups those templates would
+generate for an academic year, and apply that plan safely/idempotently. No teacher
+assignment, no student enrolment, no CSV import, and no changes to any existing
+subject group were part of this slice.
+
+### Model decision
+
+- Added `default_subject_templates` (school-owned): `education_stage_id` XOR
+  `grade_level_id` (checked in the DB and re-checked in the API), `subject_id`,
+  `status` (`active`/`inactive`/`archived`, same lifecycle as the other seven school
+  setup entities), `sort_order`, `created_by_user_id`, `created_at`.
+- **Natural-key gotcha carried over from `subject_groups`:** a full unique constraint
+  on `(school_id, education_stage_id, grade_level_id, subject_id)` does not dedupe
+  stage templates against each other, because SQL treats two `NULL` grade columns as
+  distinct — the constraint is a backstop only. The create/update routes do an
+  explicit `.is_(None)`-aware lookup (`_find_default_subject_template`) before
+  insert/restore, exactly like `_find_by_natural_key` does for subject groups.
+- Templates are **not** tied to an academic year — they are reusable school/stage/grade
+  defaults. Apply targets an academic year explicitly, per request.
+- Stage templates and grade templates for the same subject **dedupe to one generated
+  group per section** (stage takes precedence, grade templates only add subjects not
+  already covered by the section's stage).
+
+### Backend changes
+
+- Migration `f2a3b4c5d6e7_add_default_subject_templates.py`.
+- `backend/app/routes/school.py`:
+  - `GET/POST/PUT/DELETE /api/school/default-subject-templates` (archive = soft
+    delete, restore-on-recreate like the other setup entities).
+  - `POST /api/school/default-subject-templates/preview` and `.../apply`, sharing one
+    batched planner (`_plan_default_subject_template_application`): a fixed number of
+    queries resolves matching active class sections (filtered by academic year, with
+    optional branch/stage/grade filters), the school's active templates, and existing
+    subject groups for the candidate sections — regardless of how many sections or
+    templates exist. Preview serializes the plan (`would_create`/`would_restore`/
+    `skipped_existing`/`failed`); apply executes the same plan with `db.add`/status
+    flips and a single `db.commit()` (idempotent: unapplied templates create once,
+    a second run reports the same rows as `skipped_existing`).
+  - Existing-group matching keys on `(class_section_id, subject_id, code)` — the same
+    deterministic `_subject_group_defaults()` naming used by
+    `bulk_create_section_subject_groups` (S5 pre-commit fix) — so a template apply
+    never invents a new naming convention and never double-creates a group that a
+    human or another workflow already created with the same code.
+  - Generated groups are always section-specific with `enrolment_policy =
+    "default_for_section"`, never grade-level, and apply never touches teacher
+    assignments or student enrolments.
+
+### Frontend changes
+
+- `/school` gained a "Default subjects" tab (between Subjects and Subject groups):
+  add/edit/archive templates (scope toggle: stage or grade/year, then subject); a
+  preview/apply panel (academic year required, branch/stage/grade optional filters)
+  showing created/restored/skipped/failed counts and per-row detail with reasons.
+  Templates load alongside the other small setup lists in the existing `loadAll()`
+  batch — no per-row fan-out, no student data fetched for this screen.
+- Added English and Arabic i18n strings (`school.tabs.defaults`, `school.defaults.*`,
+  `school.validation.stageRequired`).
+
+### Tests
+
+`backend/tests/test_default_subject_templates.py` (16 new tests): CRUD lifecycle
+(create/list/update/archive), wrong-role (403), wrong-school (404/400), exactly-one-
+scope validation, active/inactive duplicate rejection **specifically on a stage
+template** (the case that would slip through if dedupe relied on the SQL constraint),
+archived-template restore-in-place, cross-school ref validation, preview stage+grade
+resolution and dedupe, optional branch/stage/grade filters, apply creates
+`default_for_section` groups, apply idempotency, apply skips existing active/inactive
+matching groups, apply restores archived matching groups, apply leaves
+`staff_assignments`/`enrolments` row counts unchanged, cross-school isolation on
+preview/apply, and a query-count regression test (`count_queries()`) asserting preview
+and apply read-side query counts stay flat as section count grows.
+
+### Validation
+
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo/backend backend python -m pytest tests/test_default_subject_templates.py -q` → **16 passed**.
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo/backend backend python -m pytest tests -q` → **170 passed** (up from 154), 7 warnings.
+- `cd frontend && npm run check` → 0 errors, 0 warnings.
+- `cd frontend && npm run check:i18n` → parity OK, 402 keys in both `en` and `ar`.
+- `cd frontend && npm run build` → built OK.
+- `docker compose build backend frontend` + `docker compose up -d backend frontend` → rebuilt and restarted (no source volume mount; a rebuild is required for changes to take effect).
+- Migration applied against a temporary Postgres database (`alembic upgrade head`, `e1f2a3b4c5d6 -> f2a3b4c5d6e7`) and against the live dev database (`alembic current` → `f2a3b4c5d6e7`).
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo backend python backend/scripts/perf_check.py` → only the already-known `/api/school/students` (2.856s) is over the 1s guideline; no newly-audited endpoint regressed. `default-subject-templates` list wasn't added to `perf_check.py` — it's a small school-setup-scale table (dozens of rows, not thousands) like subjects/branches, which the script already treats as non-critical.
+- Manual smoke test against the live United International School demo data: created a
+  temporary `EY` (Early Years) stage template for English, ran preview against the
+  school's 2026-27 academic year, confirmed the plan correctly resolved the 4 KG
+  sections and reported `skipped_existing` for all 4 — because the demo-data script
+  had already created `KG1A-ENG`-style groups with the exact same deterministic code —
+  then archived the test template to leave the demo school unchanged. This is a live
+  correctness check of the code/name generator and the existing-group matching
+  against real production-shaped data, not just the SQLite test suite.
+- **Not driven in an actual browser** (no browser/screenshot tool available in this
+  environment). Frontend correctness was instead verified by: `svelte-check` (0
+  errors — this does typecheck script code including the new `nextSort`/`archiveRow`
+  generalisation, but not literal i18n key strings), a successful production build
+  (which does parse/compile every new Svelte template branch), and a manual grep
+  cross-check of every `$_('school.defaults.*')` / `school.tabs.defaults` /
+  `school.validation.stageRequired` key used in `+page.svelte` against the keys
+  actually declared in both `en` and `ar` in `messages.ts` (`npm run check:i18n` only
+  checks en/ar parity with each other, not usage-vs-declaration, so this gap needed a
+  manual check). Dom should still click through the tab once per the QA steps below.
+
+### Deferred (per instructions for this slice)
+
+- S7 CSV import.
+- Auto-assigning teachers to generated subject groups.
+- Creating/mutating student enrolments from this workflow.
+- Any change to `docs/DEMO_DATA.md` — not needed; the existing note that demo scripts
+  are not the real subject-group workflow already covers this, and this slice adds the
+  real workflow described in the audits without touching demo scripts.
+
 ## 2026-07-07 — S6 second QA follow-up: teachers tab, mistake removal, admin rosters
 
 Manual QA after the first frontend follow-up found three remaining commit blockers:

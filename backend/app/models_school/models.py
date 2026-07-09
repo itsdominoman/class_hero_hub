@@ -313,6 +313,36 @@ class Enrolment(Base):
     )
 
 
+class DefaultSubjectTemplate(Base):
+    __tablename__ = "default_subject_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    education_stage_id = Column(Integer, ForeignKey("education_stages.id"), nullable=True)
+    grade_level_id = Column(Integer, ForeignKey("grade_levels.id"), nullable=True)
+    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
+    status = Column(String, default="active", nullable=False)
+    sort_order = Column(Integer, default=0)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint(
+            "school_id",
+            "education_stage_id",
+            "grade_level_id",
+            "subject_id",
+            name="uq_default_subject_templates_school_stage_grade_subject",
+        ),
+        CheckConstraint(
+            "(education_stage_id IS NOT NULL AND grade_level_id IS NULL) OR "
+            "(education_stage_id IS NULL AND grade_level_id IS NOT NULL)",
+            name="ck_default_subject_templates_exactly_one_scope",
+        ),
+        Index("ix_default_subject_templates_school_status", "school_id", "status"),
+    )
+
+
 def _default_magic_login_expires_at():
     return datetime.now(timezone.utc) + timedelta(minutes=15)
 

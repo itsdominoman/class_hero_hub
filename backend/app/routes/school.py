@@ -15,6 +15,7 @@ from ..models_school import (
     AcademicYear,
     BranchCampus,
     ClassSection,
+    DefaultSubjectTemplate,
     EducationStage,
     Enrolment,
     GradeLevel,
@@ -109,6 +110,28 @@ class SubjectGroupBulkRequest(BaseModel):
         if value not in {"explicit_only", "default_for_section", "default_for_grade"}:
             raise ValueError("enrolment_policy must be explicit_only, default_for_section, or default_for_grade")
         return value
+
+
+class DefaultSubjectTemplateRequest(BaseModel):
+    education_stage_id: int | None = None
+    grade_level_id: int | None = None
+    subject_id: int
+    sort_order: int = 0
+    status: str = Field(default="active", max_length=40)
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, value: str) -> str:
+        if value not in {"active", "inactive"}:
+            raise ValueError("status must be active or inactive")
+        return value
+
+
+class DefaultSubjectTemplateApplyRequest(BaseModel):
+    academic_year_id: int
+    branch_campus_id: int | None = None
+    education_stage_id: int | None = None
+    grade_level_id: int | None = None
 
 
 class TeacherInviteRequest(BaseModel):
@@ -1268,6 +1291,405 @@ def update_subject_group(row_id: int, payload: SubjectGroupRequest, membership: 
 @router.delete("/subject-groups/{row_id}", status_code=status.HTTP_204_NO_CONTENT)
 def archive_subject_group(row_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     _archive_row(db, _get_owned(db, SubjectGroup, _school_id(membership), row_id))
+
+
+def _default_subject_template_payload(row: DefaultSubjectTemplate) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "school_id": row.school_id,
+        "education_stage_id": row.education_stage_id,
+        "grade_level_id": row.grade_level_id,
+        "subject_id": row.subject_id,
+        "status": row.status,
+        "sort_order": row.sort_order,
+        "created_by_user_id": row.created_by_user_id,
+        "created_at": row.created_at,
+    }
+
+
+def _default_subject_templates_payload_bulk(db: Session, rows: list[DefaultSubjectTemplate]) -> list[dict[str, Any]]:
+    subject_ids = {row.subject_id for row in rows}
+    stage_ids = {row.education_stage_id for row in rows if row.education_stage_id is not None}
+    grade_ids = {row.grade_level_id for row in rows if row.grade_level_id is not None}
+    subjects_by_id = {s.id: _payload(s) for s in (db.query(Subject).filter(Subject.id.in_(subject_ids)).all() if subject_ids else [])}
+    stages_by_id = {s.id: _payload(s) for s in (db.query(EducationStage).filter(EducationStage.id.in_(stage_ids)).all() if stage_ids else [])}
+    grades_by_id = {g.id: _payload(g) for g in (db.query(GradeLevel).filter(GradeLevel.id.in_(grade_ids)).all() if grade_ids else [])}
+    return [
+        {
+            **_default_subject_template_payload(row),
+            "subject": subjects_by_id.get(row.subject_id),
+            "education_stage": stages_by_id.get(row.education_stage_id),
+            "grade_level": grades_by_id.get(row.grade_level_id),
+        }
+        for row in rows
+    ]
+
+
+def _validate_template_scope(payload: DefaultSubjectTemplateRequest) -> None:
+    if (payload.education_stage_id is None) == (payload.grade_level_id is None):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Exactly one of education_stage_id or grade_level_id is required")
+
+
+def _find_default_subject_template(
+    db: Session,
+    school_id: int,
+    education_stage_id: int | None,
+    grade_level_id: int | None,
+    subject_id: int,
+) -> DefaultSubjectTemplate | None:
+    # Nullable-column unique constraints do not dedupe NULLs in SQL, so the
+    # stage/grade natural key must be matched explicitly with .is_(None).
+    filters = [DefaultSubjectTemplate.school_id == school_id, DefaultSubjectTemplate.subject_id == subject_id]
+    filters.append(
+        DefaultSubjectTemplate.education_stage_id.is_(None)
+        if education_stage_id is None
+        else DefaultSubjectTemplate.education_stage_id == education_stage_id
+    )
+    filters.append(
+        DefaultSubjectTemplate.grade_level_id.is_(None)
+        if grade_level_id is None
+        else DefaultSubjectTemplate.grade_level_id == grade_level_id
+    )
+    return db.query(DefaultSubjectTemplate).filter(*filters).first()
+
+
+@router.get("/default-subject-templates")
+def list_default_subject_templates(
+    include_archived: bool = False,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    query = db.query(DefaultSubjectTemplate).filter(DefaultSubjectTemplate.school_id == school_id)
+    if not include_archived:
+        query = query.filter(DefaultSubjectTemplate.status != "archived")
+    rows = query.order_by(DefaultSubjectTemplate.sort_order.asc(), DefaultSubjectTemplate.id.asc()).all()
+    return _default_subject_templates_payload_bulk(db, rows)
+
+
+@router.post("/default-subject-templates", status_code=status.HTTP_201_CREATED)
+def create_default_subject_template(
+    payload: DefaultSubjectTemplateRequest,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    _validate_template_scope(payload)
+    _ensure_owned(db, EducationStage, school_id, payload.education_stage_id, "education_stage_id")
+    _ensure_owned(db, GradeLevel, school_id, payload.grade_level_id, "grade_level_id")
+    _ensure_owned(db, Subject, school_id, payload.subject_id, "subject_id")
+
+    existing = _find_default_subject_template(db, school_id, payload.education_stage_id, payload.grade_level_id, payload.subject_id)
+    if existing is not None:
+        if existing.status != "archived":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_active_duplicate_detail(existing.status))
+        existing.sort_order = payload.sort_order
+        existing.status = "active"
+        _commit_or_conflict(db, "This value is already used by another record.")
+        db.refresh(existing)
+        write_audit(
+            db,
+            membership.user_id,
+            "school.default_subject_template.restored",
+            existing,
+            {"education_stage_id": existing.education_stage_id, "grade_level_id": existing.grade_level_id, "subject_id": existing.subject_id},
+            school_id=school_id,
+        )
+        db.commit()
+        return {**_default_subject_template_payload(existing), "restored": True}
+
+    row = DefaultSubjectTemplate(
+        school_id=school_id,
+        education_stage_id=payload.education_stage_id,
+        grade_level_id=payload.grade_level_id,
+        subject_id=payload.subject_id,
+        sort_order=payload.sort_order,
+        status=payload.status,
+        created_by_user_id=membership.user_id,
+    )
+    db.add(row)
+    _commit_or_conflict(db, "This value is already used by another record.")
+    db.refresh(row)
+    return {**_default_subject_template_payload(row), "restored": False}
+
+
+@router.put("/default-subject-templates/{row_id}")
+def update_default_subject_template(
+    row_id: int,
+    payload: DefaultSubjectTemplateRequest,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    row = _get_owned(db, DefaultSubjectTemplate, school_id, row_id)
+    _validate_template_scope(payload)
+    _ensure_owned(db, EducationStage, school_id, payload.education_stage_id, "education_stage_id", current_id=row.education_stage_id)
+    _ensure_owned(db, GradeLevel, school_id, payload.grade_level_id, "grade_level_id", current_id=row.grade_level_id)
+    _ensure_owned(db, Subject, school_id, payload.subject_id, "subject_id", current_id=row.subject_id)
+
+    duplicate = _find_default_subject_template(db, school_id, payload.education_stage_id, payload.grade_level_id, payload.subject_id)
+    if duplicate is not None and duplicate.id != row.id:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This value is already used by another record.")
+
+    row.education_stage_id = payload.education_stage_id
+    row.grade_level_id = payload.grade_level_id
+    row.subject_id = payload.subject_id
+    row.sort_order = payload.sort_order
+    row.status = payload.status
+    _commit_or_conflict(db)
+    db.refresh(row)
+    return _default_subject_template_payload(row)
+
+
+@router.delete("/default-subject-templates/{row_id}", status_code=status.HTTP_204_NO_CONTENT)
+def archive_default_subject_template(
+    row_id: int,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    _archive_row(db, _get_owned(db, DefaultSubjectTemplate, _school_id(membership), row_id))
+
+
+def _plan_default_subject_template_application(
+    db: Session,
+    school_id: int,
+    payload: DefaultSubjectTemplateApplyRequest,
+) -> list[dict[str, Any]]:
+    """Batched plan for preview/apply: a fixed number of queries regardless of section/subject count."""
+    _ensure_owned(db, AcademicYear, school_id, payload.academic_year_id, "academic_year_id")
+    _ensure_owned(db, BranchCampus, school_id, payload.branch_campus_id, "branch_campus_id")
+    _ensure_owned(db, EducationStage, school_id, payload.education_stage_id, "education_stage_id")
+    _ensure_owned(db, GradeLevel, school_id, payload.grade_level_id, "grade_level_id")
+
+    sections_query = db.query(ClassSection).filter(
+        ClassSection.school_id == school_id,
+        ClassSection.academic_year_id == payload.academic_year_id,
+        ClassSection.status == "active",
+    )
+    if payload.branch_campus_id is not None:
+        sections_query = sections_query.filter(ClassSection.branch_campus_id == payload.branch_campus_id)
+    if payload.grade_level_id is not None:
+        sections_query = sections_query.filter(ClassSection.grade_level_id == payload.grade_level_id)
+    if payload.education_stage_id is not None:
+        stage_grade_ids = select(GradeLevel.id).where(
+            GradeLevel.school_id == school_id, GradeLevel.education_stage_id == payload.education_stage_id
+        )
+        sections_query = sections_query.filter(ClassSection.grade_level_id.in_(stage_grade_ids))
+    sections = sections_query.order_by(ClassSection.sort_order.asc(), ClassSection.id.asc()).all()
+    if not sections:
+        return []
+
+    grade_ids = {section.grade_level_id for section in sections}
+    grades_by_id = {g.id: g for g in db.query(GradeLevel).filter(GradeLevel.id.in_(grade_ids)).all()} if grade_ids else {}
+
+    templates = (
+        db.query(DefaultSubjectTemplate)
+        .filter(DefaultSubjectTemplate.school_id == school_id, DefaultSubjectTemplate.status == "active")
+        .order_by(DefaultSubjectTemplate.sort_order.asc(), DefaultSubjectTemplate.id.asc())
+        .all()
+    )
+    stage_template_subject_ids: dict[int, list[int]] = {}
+    grade_template_subject_ids: dict[int, list[int]] = {}
+    for template in templates:
+        if template.education_stage_id is not None:
+            stage_template_subject_ids.setdefault(template.education_stage_id, []).append(template.subject_id)
+        else:
+            grade_template_subject_ids.setdefault(template.grade_level_id, []).append(template.subject_id)
+
+    subject_ids = {sid for ids in stage_template_subject_ids.values() for sid in ids} | {
+        sid for ids in grade_template_subject_ids.values() for sid in ids
+    }
+    subjects_by_id = {s.id: s for s in db.query(Subject).filter(Subject.id.in_(subject_ids)).all()} if subject_ids else {}
+
+    section_subject_pairs: list[tuple[ClassSection, int]] = []
+    for section in sections:
+        grade = grades_by_id.get(section.grade_level_id)
+        stage_id = grade.education_stage_id if grade is not None else None
+        seen: set[int] = set()
+        ordered_subject_ids: list[int] = []
+        for sid in (stage_template_subject_ids.get(stage_id, []) if stage_id is not None else []):
+            if sid not in seen:
+                seen.add(sid)
+                ordered_subject_ids.append(sid)
+        for sid in grade_template_subject_ids.get(section.grade_level_id, []):
+            if sid not in seen:
+                seen.add(sid)
+                ordered_subject_ids.append(sid)
+        for sid in ordered_subject_ids:
+            section_subject_pairs.append((section, sid))
+
+    section_ids = {section.id for section, _ in section_subject_pairs}
+    existing_groups = (
+        db.query(SubjectGroup)
+        .filter(
+            SubjectGroup.school_id == school_id,
+            SubjectGroup.academic_year_id == payload.academic_year_id,
+            SubjectGroup.class_section_id.in_(section_ids),
+        )
+        .all()
+        if section_ids
+        else []
+    )
+
+    plan: list[dict[str, Any]] = []
+    for section, subject_id in section_subject_pairs:
+        subject = subjects_by_id.get(subject_id)
+        if subject is None:
+            plan.append({"section": section, "subject_id": subject_id, "action": "fail", "reason": "Subject not found"})
+            continue
+        if subject.status == "archived":
+            plan.append({"section": section, "subject": subject, "action": "fail", "reason": "Subject is archived"})
+            continue
+        grade = grades_by_id.get(section.grade_level_id)
+        defaults = _subject_group_defaults(subject=subject, section=section, grade_level=grade)
+        code = defaults["code"]
+        existing = next(
+            (g for g in existing_groups if g.class_section_id == section.id and g.subject_id == subject_id and g.code == code),
+            None,
+        )
+        if existing is None:
+            action = "create"
+        elif existing.status == "archived":
+            action = "restore"
+        else:
+            action = "skip"
+        plan.append(
+            {
+                "section": section,
+                "subject": subject,
+                "code": code,
+                "name": defaults["name"],
+                "action": action,
+                "existing_group": existing,
+                "reason": _active_duplicate_detail(existing.status) if action == "skip" else None,
+            }
+        )
+    return plan
+
+
+def _default_subject_template_plan_row(item: dict[str, Any]) -> dict[str, Any]:
+    section = item.get("section")
+    subject = item.get("subject")
+    return {
+        "class_section_id": section.id if section is not None else None,
+        "class_section": _payload(section) if section is not None else None,
+        "subject_id": subject.id if subject is not None else item.get("subject_id"),
+        "subject": _payload(subject) if subject is not None else None,
+        "code": item.get("code"),
+        "name": item.get("name"),
+    }
+
+
+_PLAN_PREVIEW_LABELS = {"create": "would_create", "restore": "would_restore", "skip": "skipped_existing", "fail": "failed"}
+
+
+@router.post("/default-subject-templates/preview")
+def preview_default_subject_templates(
+    payload: DefaultSubjectTemplateApplyRequest,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    plan = _plan_default_subject_template_application(db, _school_id(membership), payload)
+    counts = {label: 0 for label in _PLAN_PREVIEW_LABELS.values()}
+    results = []
+    for item in plan:
+        label = _PLAN_PREVIEW_LABELS[item["action"]]
+        counts[label] += 1
+        row = _default_subject_template_plan_row(item)
+        row["status"] = label
+        row["reason"] = item.get("reason")
+        results.append(row)
+    return {**counts, "results": results}
+
+
+@router.post("/default-subject-templates/apply")
+def apply_default_subject_templates(
+    payload: DefaultSubjectTemplateApplyRequest,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    plan = _plan_default_subject_template_application(db, school_id, payload)
+
+    created = restored = skipped = failed = 0
+    results = []
+    for item in plan:
+        row = _default_subject_template_plan_row(item)
+        if item["action"] == "create":
+            section = item["section"]
+            group = SubjectGroup(
+                school_id=school_id,
+                academic_year_id=payload.academic_year_id,
+                class_section_id=section.id,
+                grade_level_id=None,
+                subject_id=item["subject"].id,
+                code=item["code"],
+                name=item["name"],
+                name_ar=None,
+                sort_order=section.sort_order,
+                status="active",
+                enrolment_policy="default_for_section",
+            )
+            db.add(group)
+            db.flush()
+            created += 1
+            row["status"] = "created"
+            row["reason"] = None
+            row["subject_group"] = _payload(group)
+        elif item["action"] == "restore":
+            group = item["existing_group"]
+            group.name = item["name"]
+            group.enrolment_policy = "default_for_section"
+            group.status = "active"
+            db.flush()
+            restored += 1
+            write_audit(
+                db,
+                membership.user_id,
+                "school.subject_group.restored",
+                group,
+                {"code": group.code, "status": group.status, "source": "default_subject_template"},
+                school_id=school_id,
+            )
+            row["status"] = "restored"
+            row["reason"] = None
+            row["subject_group"] = _payload(group)
+        elif item["action"] == "skip":
+            skipped += 1
+            row["status"] = "skipped_existing"
+            row["reason"] = item.get("reason")
+            row["subject_group"] = _payload(item["existing_group"])
+        else:
+            failed += 1
+            row["status"] = "failed"
+            row["reason"] = item.get("reason")
+        results.append(row)
+
+    if created or restored:
+        write_audit(
+            db,
+            membership.user_id,
+            "school.default_subject_template.applied",
+            ("subject_groups", None),
+            {
+                "academic_year_id": payload.academic_year_id,
+                "branch_campus_id": payload.branch_campus_id,
+                "education_stage_id": payload.education_stage_id,
+                "grade_level_id": payload.grade_level_id,
+                "created": created,
+                "restored": restored,
+                "skipped": skipped,
+                "failed": failed,
+            },
+            school_id=school_id,
+        )
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Apply conflicted with a concurrent change. Re-run preview and try again.")
+
+    return {"created": created, "restored": restored, "skipped": skipped, "failed": failed, "results": results}
 
 
 @router.get("/teachers")

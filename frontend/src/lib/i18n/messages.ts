@@ -192,6 +192,7 @@ export const en = {
       teachers: 'Teachers',
       students: 'Students',
       subjects: 'Subjects',
+      defaults: 'Default subjects',
       groups: 'Subject groups'
     },
     settings: {
@@ -284,6 +285,7 @@ export const en = {
       branchRequired: 'Branch/campus is required.',
       gradeRequired: 'Grade/year level is required.',
       subjectRequired: 'Subject is required.',
+      stageRequired: 'Education stage is required.',
       groupContextRequired: 'Select a class section or grade level.',
       sectionsRequired: 'Select at least one class section.',
       teacherEmailRequired: 'Teacher email is required.',
@@ -294,6 +296,21 @@ export const en = {
       firstNameRequired: 'First name is required.',
       lastNameRequired: 'Last name is required.',
       genderRequired: 'Select a gender.'
+    },
+    defaults: {
+      title: 'Default subject templates',
+      help: 'Define the subjects every class in a stage or grade/year level should teach, such as English and Arabic for Early Years, or English, Arabic, Maths, and Science for Primary. Then apply these templates to an academic year to generate the section-specific subject groups.',
+      scope: 'Applies to',
+      addTitle: 'Add a default subject',
+      existing: 'Default subject templates',
+      applyTitle: 'Preview and apply',
+      applyHelp: 'Choose an academic year, optionally narrowed by branch, stage, or grade/year level, then preview what subject groups would be generated before applying. Applying is safe to run more than once: existing subject groups are never duplicated.',
+      preview: 'Preview',
+      apply: 'Apply',
+      applyComplete: 'Default subject templates applied.',
+      applySummary: 'Created {created}, restored {restored}, skipped {skipped}, failed {failed}.',
+      previewSummary: 'Would create {create}, would restore {restore}, already exist {skip}, failed {failed}.',
+      previewEmpty: 'No matching class sections found for this academic year and filters.'
     },
     teachers: {
       inviteTitle: 'Invite teacher',
@@ -652,6 +669,7 @@ export const ar = {
       teachers: 'المعلمون',
       students: 'الطلاب',
       subjects: 'المواد',
+      defaults: 'المواد الافتراضية',
       groups: 'مجموعات المواد'
     },
     settings: {
@@ -744,6 +762,7 @@ export const ar = {
       branchRequired: 'الفرع أو الحرم مطلوب.',
       gradeRequired: 'المستوى الدراسي مطلوب.',
       subjectRequired: 'المادة مطلوبة.',
+      stageRequired: 'المرحلة التعليمية مطلوبة.',
       groupContextRequired: 'اختر شعبة أو مستوى دراسي.',
       sectionsRequired: 'اختر شعبة واحدة على الأقل.',
       teacherEmailRequired: 'بريد المعلم الإلكتروني مطلوب.',
@@ -754,6 +773,21 @@ export const ar = {
       firstNameRequired: 'الاسم الأول مطلوب.',
       lastNameRequired: 'اسم العائلة مطلوب.',
       genderRequired: 'اختر الجنس.'
+    },
+    defaults: {
+      title: 'قوالب المواد الافتراضية',
+      help: 'حدد المواد التي يجب أن تدرسها كل شعبة في مرحلة أو مستوى دراسي، مثل الإنجليزية والعربية لمرحلة الطفولة المبكرة، أو الإنجليزية والعربية والرياضيات والعلوم للمرحلة الابتدائية. ثم طبق هذه القوالب على سنة دراسية لإنشاء مجموعات المواد الخاصة بكل شعبة.',
+      scope: 'ينطبق على',
+      addTitle: 'إضافة مادة افتراضية',
+      existing: 'قوالب المواد الافتراضية',
+      applyTitle: 'معاينة وتطبيق',
+      applyHelp: 'اختر سنة دراسية، مع تضييق اختياري حسب الفرع أو المرحلة أو المستوى الدراسي، ثم عاين مجموعات المواد التي سيتم إنشاؤها قبل التطبيق. التطبيق آمن للتشغيل أكثر من مرة: لا يتم أبدا تكرار مجموعات المواد الحالية.',
+      preview: 'معاينة',
+      apply: 'تطبيق',
+      applyComplete: 'تم تطبيق قوالب المواد الافتراضية.',
+      applySummary: 'تم إنشاء {created}، واستعادة {restored}، وتخطي {skipped}، وفشل {failed}.',
+      previewSummary: 'سيتم إنشاء {create}، واستعادة {restore}، وموجود بالفعل {skip}، وفشل {failed}.',
+      previewEmpty: 'لا توجد شعب مطابقة لهذه السنة الدراسية والمرشحات.'
     },
     teachers: {
       inviteTitle: 'دعوة معلم',
