@@ -2,10 +2,12 @@
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
+  import { rosterPathForAssignment } from '$lib/teachRoster.js';
 
   type AssignmentCard = {
     id: number;
     role: string;
+    target_type?: 'class_section' | 'subject_group';
     school: { id: number; name: string; name_ar?: string | null };
     class_section?: { id: number; name?: string | null; code?: string | null } | null;
     subject_group?: { id: number; name?: string | null; code?: string | null } | null;
@@ -52,10 +54,8 @@
     rosterLoading = true;
     error = null;
     try {
-      const schoolId = card.school.id;
-      const path = card.class_section
-        ? `/teach/schools/${schoolId}/sections/${card.class_section.id}/roster`
-        : `/teach/schools/${schoolId}/subject-groups/${card.subject_group?.id}/roster`;
+      const path = rosterPathForAssignment(card);
+      if (!path) throw new Error($_('teach.rosterLoadError'));
       rosters = { ...rosters, [card.id]: await api.get(path) };
     } catch (err: any) {
       error = err?.message || $_('teach.rosterLoadError');
@@ -142,7 +142,7 @@
                 {#if rosterLoading && !rosters[card.id]}
                   <p class="text-sm text-slate-500">{$_('common.loading')}</p>
                 {:else if !rosters[card.id] || rosters[card.id].students.length === 0}
-                  <p class="text-sm text-slate-500">{$_('teach.emptyRoster')}</p>
+                  <p class="text-sm text-slate-500">{card.subject_group ? $_('teach.emptySubjectRoster') : $_('teach.emptyRoster')}</p>
                 {:else}
                   <div class="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
                     {#each rosters[card.id].students as student}

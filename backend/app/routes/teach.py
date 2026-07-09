@@ -56,6 +56,7 @@ def _assignment_card(db: Session, assignment: StaffAssignment, school: School) -
     return {
         "id": assignment.id,
         "role": assignment.role,
+        "target_type": "subject_group" if assignment.subject_group_id is not None else "class_section",
         "valid_from": assignment.valid_from,
         "valid_to": assignment.valid_to,
         "school": {"id": school.id, "name": school.name, "name_ar": school.name_ar},

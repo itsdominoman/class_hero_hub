@@ -369,6 +369,7 @@ export const en = {
     viewRoster: 'View roster',
     hideRoster: 'Hide roster',
     emptyRoster: 'No students on this roster yet.',
+    emptySubjectRoster: 'No students are enrolled in this subject group yet.',
     rosterLoadError: 'Failed to load roster',
     roles: {
       homeroom: 'Homeroom',
@@ -809,6 +810,7 @@ export const ar = {
     viewRoster: 'عرض القائمة',
     hideRoster: 'إخفاء القائمة',
     emptyRoster: 'لا يوجد طلاب في هذه القائمة بعد.',
+    emptySubjectRoster: 'لا يوجد طلاب مسجلون في مجموعة المادة هذه بعد.',
     rosterLoadError: 'تعذر تحميل القائمة',
     roles: {
       homeroom: 'صف رئيسي',
