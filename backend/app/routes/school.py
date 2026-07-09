@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import auth, invite_tokens
-from ..database import get_db
+from ..database import get_db, settings
 from ..imports_service import (
     CSV_COLUMNS,
     TEACHER_CSV_COLUMNS,
@@ -32,6 +32,8 @@ from ..models_school import (
     EducationStage,
     Enrolment,
     GradeLevel,
+    GuardianInvite,
+    GuardianLink,
     Import,
     ImportRow,
     Membership,
@@ -216,6 +218,31 @@ class CloseEnrolmentRequest(BaseModel):
 class MoveSectionRequest(BaseModel):
     class_section_id: int
     valid_from: date | None = None
+
+
+class GuardianInviteCreateRequest(BaseModel):
+    contact_id: int | None = None
+    slot: int | None = None
+    relationship: str | None = None
+    guardian_name: str | None = Field(default=None, max_length=200)
+    guardian_email: EmailStr | None = None
+
+    @field_validator("slot")
+    @classmethod
+    def validate_slot(cls, value: int | None) -> int | None:
+        if value is not None and value not in {1, 2}:
+            raise ValueError("slot must be 1 or 2")
+        return value
+
+    @field_validator("relationship")
+    @classmethod
+    def validate_relationship(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip().lower()
+        if cleaned not in {"mother", "father", "guardian", "other"}:
+            raise ValueError("relationship must be mother, father, guardian, or other")
+        return cleaned
 
 
 def _clean_text(value: str | None) -> str | None:
@@ -646,6 +673,130 @@ def _current_student_context(db: Session, school_id: int, student_id: int) -> tu
 def _student_with_context(db: Session, row: Student) -> dict[str, Any]:
     class_section, subject_groups = _current_student_context(db, row.school_id, row.id)
     return _student_payload(row, current_class_section=class_section, current_subject_groups=subject_groups)
+
+
+def _guardian_relationship_label(value: str | None) -> str | None:
+    return value if value in {"mother", "father", "guardian", "other"} else None
+
+
+def _guardian_invite_status(row: GuardianInvite) -> str:
+    now = invite_tokens.now_utc()
+    if row.claimed_at is not None:
+        return "claimed"
+    if row.revoked_at is not None:
+        return "revoked"
+    expires_at = invite_tokens.as_utc_aware(row.expires_at)
+    if expires_at is None or expires_at <= now:
+        return "expired"
+    return "active"
+
+
+def _guardian_contact_payload(row: StudentGuardianContact) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "slot": row.slot,
+        "name": row.name,
+        "email": row.email,
+        "relationship": row.relationship,
+        "status": row.status,
+    }
+
+
+def _guardian_invite_payload(row: GuardianInvite) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "student_id": row.student_id,
+        "student_guardian_contact_id": row.student_guardian_contact_id,
+        "slot": row.slot,
+        "relationship": row.relationship,
+        "guardian_name": row.guardian_name,
+        "display_code_last4": row.display_code_last4,
+        "status": _guardian_invite_status(row),
+        "expires_at": row.expires_at,
+        "created_at": row.created_at,
+        "revoked_at": row.revoked_at,
+        "claimed_at": row.claimed_at,
+        "claimed_by_user_id": row.claimed_by_user_id,
+    }
+
+
+def _guardian_link_payload(row: GuardianLink, user: User | None = None) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "student_id": row.student_id,
+        "user_id": row.user_id,
+        "relationship": row.relationship,
+        "display_name": row.display_name or getattr(user, "name", None),
+        "user_name": getattr(user, "name", None),
+        "user_email": getattr(user, "email", None),
+        "email_matched_contact": row.email_matched_contact,
+        "status": row.status,
+        "created_at": row.created_at,
+        "revoked_at": row.revoked_at,
+    }
+
+
+def _guardian_join_url(display_code: str) -> str:
+    return f"{settings.PUBLIC_APP_URL.rstrip('/')}/join?c={display_code}"
+
+
+def _active_live_invite_query(db: Session, school_id: int, student_id: int, slot: int | None):
+    query = db.query(GuardianInvite).filter(
+        GuardianInvite.school_id == school_id,
+        GuardianInvite.student_id == student_id,
+        GuardianInvite.revoked_at.is_(None),
+        GuardianInvite.claimed_at.is_(None),
+        GuardianInvite.expires_at > invite_tokens.now_utc(),
+    )
+    return query.filter(GuardianInvite.slot == slot) if slot is not None else query.filter(GuardianInvite.slot.is_(None))
+
+
+def _ensure_guardian_membership(db: Session, school_id: int, user_id: int, created_by_user_id: int | None) -> Membership:
+    membership = (
+        db.query(Membership)
+        .filter(Membership.school_id == school_id, Membership.user_id == user_id, Membership.role == "guardian")
+        .first()
+    )
+    if membership:
+        membership.status = "active"
+        membership.revoked_at = None
+        membership.revoked_by_user_id = None
+        return membership
+    membership = Membership(
+        school_id=school_id,
+        user_id=user_id,
+        role="guardian",
+        status="active",
+        created_by_user_id=created_by_user_id,
+    )
+    db.add(membership)
+    db.flush()
+    return membership
+
+
+def _revoke_guardian_membership_if_last_link(db: Session, school_id: int, user_id: int, revoked_by_user_id: int, *, exclude_link_id: int | None = None) -> None:
+    query = db.query(GuardianLink.id).filter(
+        GuardianLink.school_id == school_id,
+        GuardianLink.user_id == user_id,
+        GuardianLink.status == "active",
+        GuardianLink.revoked_at.is_(None),
+    )
+    if exclude_link_id is not None:
+        query = query.filter(GuardianLink.id != exclude_link_id)
+    still_active = (
+        query.first()
+    )
+    if still_active:
+        return
+    membership = (
+        db.query(Membership)
+        .filter(Membership.school_id == school_id, Membership.user_id == user_id, Membership.role == "guardian")
+        .first()
+    )
+    if membership and membership.status == "active":
+        membership.status = "revoked"
+        membership.revoked_at = invite_tokens.now_utc()
+        membership.revoked_by_user_id = revoked_by_user_id
 
 
 def _students_with_context_bulk(db: Session, school_id: int, rows: list[Student]) -> list[dict[str, Any]]:
@@ -2505,6 +2656,174 @@ def discard_teacher_import(import_id: int, membership: Membership = Depends(requ
     return _import_summary_payload(imp)
 
 
+@router.get("/students/{student_id}/guardian-invites")
+def list_student_guardians(student_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    school_id = _school_id(membership)
+    student = _get_owned(db, Student, school_id, student_id)
+    contacts = (
+        db.query(StudentGuardianContact)
+        .filter(StudentGuardianContact.school_id == school_id, StudentGuardianContact.student_id == student.id)
+        .order_by(StudentGuardianContact.slot.asc())
+        .all()
+    )
+    invites = (
+        db.query(GuardianInvite)
+        .filter(GuardianInvite.school_id == school_id, GuardianInvite.student_id == student.id)
+        .order_by(GuardianInvite.created_at.desc(), GuardianInvite.id.desc())
+        .all()
+    )
+    links = (
+        db.query(GuardianLink)
+        .filter(GuardianLink.school_id == school_id, GuardianLink.student_id == student.id)
+        .order_by(GuardianLink.created_at.desc(), GuardianLink.id.desc())
+        .all()
+    )
+    user_ids = {link.user_id for link in links}
+    users_by_id = {u.id: u for u in (db.query(User).filter(User.id.in_(user_ids)).all() if user_ids else [])}
+    return {
+        "student": _student_with_context(db, student),
+        "contacts": [_guardian_contact_payload(contact) for contact in contacts],
+        "invites": [_guardian_invite_payload(invite) for invite in invites],
+        "links": [_guardian_link_payload(link, users_by_id.get(link.user_id)) for link in links],
+    }
+
+
+@router.post("/students/{student_id}/guardian-invites", status_code=status.HTTP_201_CREATED)
+def create_guardian_invite(
+    student_id: int,
+    payload: GuardianInviteCreateRequest,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    student = _get_owned(db, Student, school_id, student_id)
+    if student.status != "active":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Guardian invites require an active student")
+
+    contact = None
+    if payload.contact_id is not None:
+        contact = (
+            db.query(StudentGuardianContact)
+            .filter(
+                StudentGuardianContact.id == payload.contact_id,
+                StudentGuardianContact.school_id == school_id,
+                StudentGuardianContact.student_id == student.id,
+            )
+            .first()
+        )
+        if not contact:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid guardian contact")
+        if contact.status == "ignored":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ignored guardian contacts cannot receive invites")
+        slot = contact.slot
+        relationship = _guardian_relationship_label(payload.relationship) or contact.relationship
+        guardian_name = _clean_text(payload.guardian_name) or contact.name
+        guardian_email = auth.normalize_email(str(payload.guardian_email)) if payload.guardian_email else contact.email
+    else:
+        slot = payload.slot
+        if slot is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="slot or contact_id is required")
+        relationship = _guardian_relationship_label(payload.relationship)
+        guardian_name = _clean_text(payload.guardian_name)
+        guardian_email = auth.normalize_email(str(payload.guardian_email)) if payload.guardian_email else None
+
+    if _active_live_invite_query(db, school_id, student.id, slot).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="An active invite already exists for this guardian slot. Revoke it before generating another.")
+
+    raw_code = invite_tokens.generate_short_code()
+    display_code = invite_tokens.display_short_code(raw_code)
+    invite = GuardianInvite(
+        school_id=school_id,
+        student_id=student.id,
+        student_guardian_contact_id=contact.id if contact else None,
+        slot=slot,
+        token_hash=invite_tokens.hash_token(invite_tokens.normalize_short_code(raw_code)),
+        display_code_last4=raw_code[-4:],
+        relationship=relationship,
+        guardian_name=guardian_name,
+        guardian_email=guardian_email,
+        expires_at=invite_tokens.now_utc() + invite_tokens.GUARDIAN_INVITE_TTL,
+        created_by_user_id=membership.user_id,
+    )
+    db.add(invite)
+    db.flush()
+    write_audit(
+        db,
+        membership.user_id,
+        "school.guardian_invite.created",
+        invite,
+        {"student_id": student.id, "slot": slot, "contact_id": contact.id if contact else None},
+        school_id=school_id,
+    )
+    db.commit()
+    db.refresh(invite)
+    return {**_guardian_invite_payload(invite), "code": display_code, "join_url": _guardian_join_url(display_code)}
+
+
+@router.post("/guardian-invites/{invite_id}/revoke")
+def revoke_guardian_invite(invite_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    school_id = _school_id(membership)
+    invite = db.query(GuardianInvite).filter(GuardianInvite.id == invite_id, GuardianInvite.school_id == school_id).first()
+    if not invite:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Guardian invite not found")
+    if invite.claimed_at is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Claimed invites cannot be revoked")
+    if invite.revoked_at is None:
+        invite.revoked_at = invite_tokens.now_utc()
+        invite.revoked_by_user_id = membership.user_id
+        write_audit(db, membership.user_id, "school.guardian_invite.revoked", invite, {"student_id": invite.student_id}, school_id=school_id)
+        db.commit()
+        db.refresh(invite)
+    return _guardian_invite_payload(invite)
+
+
+@router.post("/guardian-contacts/{contact_id}/ignore")
+def ignore_guardian_contact(contact_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    school_id = _school_id(membership)
+    contact = db.query(StudentGuardianContact).filter(StudentGuardianContact.id == contact_id, StudentGuardianContact.school_id == school_id).first()
+    if not contact:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Guardian contact not found")
+    if contact.status == "linked":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Linked guardian contacts cannot be ignored")
+    contact.status = "ignored"
+    revoked_ids = []
+    for invite in (
+        db.query(GuardianInvite)
+        .filter(
+            GuardianInvite.school_id == school_id,
+            GuardianInvite.student_guardian_contact_id == contact.id,
+            GuardianInvite.revoked_at.is_(None),
+            GuardianInvite.claimed_at.is_(None),
+        )
+        .all()
+    ):
+        invite.revoked_at = invite_tokens.now_utc()
+        invite.revoked_by_user_id = membership.user_id
+        revoked_ids.append(invite.id)
+    write_audit(db, membership.user_id, "school.guardian_contact.ignored", contact, {"revoked_invite_ids": revoked_ids}, school_id=school_id)
+    db.commit()
+    db.refresh(contact)
+    return _guardian_contact_payload(contact)
+
+
+@router.post("/guardian-links/{link_id}/revoke")
+def revoke_guardian_link(link_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    school_id = _school_id(membership)
+    link = db.query(GuardianLink).filter(GuardianLink.id == link_id, GuardianLink.school_id == school_id).first()
+    if not link:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Guardian link not found")
+    if link.status == "active":
+        link.status = "revoked"
+        link.revoked_at = invite_tokens.now_utc()
+        link.revoked_by_user_id = membership.user_id
+        _revoke_guardian_membership_if_last_link(db, school_id, link.user_id, membership.user_id, exclude_link_id=link.id)
+        write_audit(db, membership.user_id, "school.guardian_link.revoked", link, {"student_id": link.student_id}, school_id=school_id)
+        db.commit()
+        db.refresh(link)
+    user = db.query(User).filter(User.id == link.user_id).first()
+    return _guardian_link_payload(link, user)
+
+
 @router.get("/students/{student_id}")
 def get_student(student_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     return _student_with_context(db, _get_owned(db, Student, _school_id(membership), student_id))
@@ -2695,5 +3014,3 @@ def list_active_students_by_subject_group(
     db: Session = Depends(get_db),
 ):
     return _roster_payload(db, _school_id(membership), subject_group_id=subject_group_id)
-
-

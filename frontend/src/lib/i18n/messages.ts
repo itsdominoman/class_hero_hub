@@ -143,6 +143,25 @@ export const en = {
     loadError: 'Failed to check your session',
     exchangeError: 'This invite is invalid, expired, revoked, or already used.'
   },
+  join: {
+    title: 'Connect your child',
+    checkCode: 'Check',
+    safeIntro: 'You have been invited to connect with a student at this school.',
+    continue: 'Continue to sign in',
+    confirmIntro: 'Confirm the child and your relationship.',
+    relationship: 'Relationship',
+    confirm: 'Connect child',
+    successTitle: 'Child connected',
+    successText: 'Linked successfully. The school will switch on family updates soon.',
+    invalid: 'This code is not valid or has expired. Please contact the school office.',
+    noClass: 'Class not set',
+    relationships: {
+      mother: 'Mother',
+      father: 'Father',
+      guardian: 'Guardian',
+      other: 'Other'
+    }
+  },
   school: {
     title: 'School | Class Hero Hub',
     eyebrow: 'School workspace',
@@ -388,6 +407,39 @@ export const en = {
       closeEnrolment: 'Close',
       enrol: 'Enrol',
       enrolmentError: 'Failed to update enrolment'
+    },
+    guardians: {
+      title: 'Guardians',
+      help: 'Generate one single-use code per guardian slot. No email is sent.',
+      loadError: 'Failed to load guardian status',
+      generate: 'Generate code',
+      generated: 'Guardian code generated.',
+      generatedCode: 'One-time code',
+      generateError: 'Failed to generate guardian code',
+      revoke: 'Revoke',
+      revokeConfirm: 'Revoke this guardian invite?',
+      revoked: 'Guardian invite revoked.',
+      revokeError: 'Failed to revoke guardian invite',
+      revokeLink: 'Revoke link',
+      revokeLinkConfirm: 'Revoke this guardian link?',
+      linkRevoked: 'Guardian link revoked.',
+      revokeLinkError: 'Failed to revoke guardian link',
+      contact: 'Contact',
+      invite: 'Invite',
+      slot: 'Guardian {slot}',
+      linkedGuardian: 'Linked guardian',
+      emailMismatch: 'Email mismatch',
+      emailMatched: 'Email matched',
+      status: {
+        none: 'None',
+        draft: 'Draft contact',
+        linked: 'Linked',
+        ignored: 'Ignored',
+        active: 'Active',
+        claimed: 'Claimed',
+        revoked: 'Revoked',
+        expired: 'Expired'
+      }
     },
     imports: {
       title: 'Import students (CSV)',
@@ -705,6 +757,25 @@ export const ar = {
     loadError: 'تعذر التحقق من جلستك',
     exchangeError: 'هذه الدعوة غير صالحة أو منتهية أو ملغاة أو مستخدمة من قبل.'
   },
+  join: {
+    title: 'ربط طفلك',
+    checkCode: 'تحقق',
+    safeIntro: 'تمت دعوتك للاتصال بطالب في هذه المدرسة.',
+    continue: 'المتابعة لتسجيل الدخول',
+    confirmIntro: 'أكد الطفل وصلتك به.',
+    relationship: 'صلة القرابة',
+    confirm: 'ربط الطفل',
+    successTitle: 'تم ربط الطفل',
+    successText: 'تم الربط بنجاح. ستقوم المدرسة بتفعيل تحديثات الأسرة لاحقا.',
+    invalid: 'هذا الرمز غير صالح أو انتهت صلاحيته. يرجى التواصل مع مكتب المدرسة.',
+    noClass: 'لم يتم تحديد الشعبة',
+    relationships: {
+      mother: 'الأم',
+      father: 'الأب',
+      guardian: 'ولي الأمر',
+      other: 'أخرى'
+    }
+  },
   school: {
     title: 'المدرسة | كلاس هيرو هب',
     eyebrow: 'مساحة المدرسة',
@@ -950,6 +1021,39 @@ export const ar = {
       closeEnrolment: 'إغلاق',
       enrol: 'تسجيل',
       enrolmentError: 'تعذر تحديث القيد'
+    },
+    guardians: {
+      title: 'أولياء الأمور',
+      help: 'أنشئ رمزا واحد الاستخدام لكل خانة ولي أمر. لا يتم إرسال أي بريد إلكتروني.',
+      loadError: 'تعذر تحميل حالة أولياء الأمور',
+      generate: 'إنشاء رمز',
+      generated: 'تم إنشاء رمز ولي الأمر.',
+      generatedCode: 'رمز لمرة واحدة',
+      generateError: 'تعذر إنشاء رمز ولي الأمر',
+      revoke: 'إلغاء',
+      revokeConfirm: 'هل تريد إلغاء دعوة ولي الأمر هذه؟',
+      revoked: 'تم إلغاء دعوة ولي الأمر.',
+      revokeError: 'تعذر إلغاء دعوة ولي الأمر',
+      revokeLink: 'إلغاء الربط',
+      revokeLinkConfirm: 'هل تريد إلغاء ربط ولي الأمر هذا؟',
+      linkRevoked: 'تم إلغاء ربط ولي الأمر.',
+      revokeLinkError: 'تعذر إلغاء ربط ولي الأمر',
+      contact: 'جهة الاتصال',
+      invite: 'الدعوة',
+      slot: 'ولي الأمر {slot}',
+      linkedGuardian: 'ولي أمر مرتبط',
+      emailMismatch: 'البريد مختلف',
+      emailMatched: 'البريد مطابق',
+      status: {
+        none: 'لا يوجد',
+        draft: 'جهة اتصال مبدئية',
+        linked: 'مرتبط',
+        ignored: 'متجاهل',
+        active: 'نشطة',
+        claimed: 'مستخدمة',
+        revoked: 'ملغاة',
+        expired: 'منتهية'
+      }
     },
     imports: {
       title: 'استيراد الطلاب (CSV)',

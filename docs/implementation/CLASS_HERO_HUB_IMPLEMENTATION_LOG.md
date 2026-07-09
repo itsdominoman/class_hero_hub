@@ -1,5 +1,127 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-09 — S9a: Guardian QR/Code Onboarding MVP
+
+Implemented the admin-generated, per-guardian-slot, single-use guardian
+onboarding flow. Scope was deliberately limited to S9a: no guardian dashboard,
+messaging, posts, photos, diary, notifications, bulk letters, printed-letter
+batch tooling, release action, or outbound onboarding email.
+
+### Backend
+
+- Migration `f3a4b5c6d7e8_add_guardian_onboarding.py` adds
+  `guardian_invites` and `guardian_links` on top of current head
+  `c3d4e5f6a7b8`.
+- `GuardianInvite` stores only a SHA-256 hash of the normalized short code,
+  plus non-secret admin metadata (`display_code_last4`, slot/contact,
+  guardian name/email copied from the draft contact where present,
+  relationship, expiry, revoke/claim fields). Raw codes are returned only in
+  the create response.
+- `GuardianLink` records the authenticated user/student relationship,
+  source invite/contact, active/revoked lifecycle, display name, and
+  `email_matched_contact` (true/false/null). Email mismatch does not block
+  linking.
+- `invite_tokens.py` now has short-code helpers for `CHH-XXXX-XXXX` style
+  guardian codes and a 30-day guardian invite TTL.
+- Admin endpoints under `/api/school`: list one student's guardian
+  contact/invite/link status, generate one live invite per slot, revoke an
+  unclaimed invite, ignore a draft contact, and revoke a guardian link.
+- Public/auth endpoints under `/api/join`: safe preview, authenticated
+  details, and authenticated confirm. Preview returns school name only and
+  never consumes the code. Confirm creates/restores the guardian link, ensures
+  `Membership(role="guardian")`, marks the invite claimed, flips draft
+  contact to `linked`, records email match/mismatch, and writes audit rows.
+- Generic invalid/expired/revoked/claimed responses are used for join codes.
+  Join preview/details/confirm are IP rate-limited with the existing
+  in-memory limiter pattern. `StaffInvite` and `MagicLoginToken` are not
+  created by S9a itself.
+
+### Frontend
+
+- `/school` Students detail area now has a minimal Guardians panel: two
+  guardian slots, draft contact display as name + relationship with email as
+  secondary admin detail, generate code, show one-time code/join URL, revoke
+  active invite, linked guardian status, email-match/mismatch badge, and
+  revoke link.
+- New `/join?c=<code>` route: code entry/preview, pre-auth school-name-only
+  screen, existing `/login?returnTo=/join?...` handoff, authenticated confirm
+  with student first name + class + relationship picker, and a tiny success
+  state.
+- Added shared `frontend/src/lib/guardianDisplay.ts` helper so admin display
+  prefers names/relationships rather than raw email.
+- Added EN/AR i18n strings for the admin panel and join page.
+
+### Validation
+
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo/backend backend python -m pytest tests/test_guardian_onboarding.py -q` → **9 passed**.
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo/backend backend python -m pytest tests -q` → **235 passed**, 10 warnings.
+- `docker compose exec backend python -m pytest tests -q` after rebuilding the backend image → **235 passed**, 10 warnings.
+- `cd frontend && npm run check` → 0 errors, 0 warnings.
+- `cd frontend && npm run check:i18n` → parity OK, 515 keys in both `en` and `ar`.
+- `cd frontend && npm run build` → built OK.
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo backend alembic heads` → single head `f3a4b5c6d7e8`.
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo backend python backend/scripts/perf_check.py` → only the known `/api/school/students` endpoint over budget (3.207s with 502 students / 258 subject groups); no new list endpoint was added.
+
+### Deferred / caveats
+
+- Printed QR letters, QR rendering, bulk per-class generation, release/send
+  actions, and guardian home/dashboard remain deferred to S9b/S9c/S10.
+- S9a's join success page is intentionally tiny. Real post-link guardian data
+  remains deferred.
+- The admin UI exposes per-student operations only; no school-wide guardian
+  management console was built.
+- The running backend container should be rebuilt/restarted before browser QA
+  so it picks up the new route/model code and migration.
+
+### Manual QA correction (same day)
+
+Browser QA must not use fake `.test` guardian emails: `.test` is a
+reserved/special-use TLD and the login validator correctly rejects it. SMTP is
+also removed, so fake-email magic-link login is not a useful browser QA path.
+Use a real Google/email account Dom controls in a private browser instead;
+the authenticated email does not need to match the staged guardian contact
+email, and S9a should still link while recording
+`email_matched_contact=false`.
+
+API smoke alternative: create/reuse a throwaway `User` directly in the dev DB
+with a normal syntactic email such as `s9.guardian.qa@myeduzone.org`, then use
+the existing JWT/bearer helper pattern to call
+`POST /api/join/guardian/confirm`. This does not send email and must not
+create `StaffInvite` or `MagicLoginToken` rows.
+
+Ran that API smoke against the dev DB with temporary user
+`s9.guardian.qa@myeduzone.org` and staged contact email
+`staged.guardian.qa@myeduzone.org`: generated a guardian code, verified public
+preview returned only `United International School`, confirmed the link,
+verified invite claimed, guardian link and active guardian membership created,
+draft contact moved to `linked`, `email_matched_contact=false`, same-code
+reuse failed, and `StaffInvite`/`MagicLoginToken` deltas were both zero.
+Cleanup removed the temporary guardian link, guardian membership, invite, and
+draft contact; the throwaway user could not be deleted because the append-only
+audit log correctly references it as actor, so it was left `inactive`.
+
+## 2026-07-09 — S9 planning: Guardian QR Onboarding (no implementation)
+
+Produced a written plan only:
+`docs/planning/2026-07-09-s9-guardian-qr-onboarding-plan.md`. No code,
+migrations, or config were changed and nothing was committed by this pass.
+
+Headline decisions (argued in the plan): blueprint §18 letter-token model,
+admin-only in S9; **per-guardian-slot single-use invites** (new
+`guardian_invites` + `guardian_links` tables; `StaffInvite` deliberately not
+reused — it's email-bound, guardian invites are possession-based); short
+typeable code (`CHH-XXXX-XXXX`, hashed at rest, 30-day expiry, revocable,
+rate-limited) with the QR encoding the same code as a `/join?c=` URL; school
+name only pre-auth, student first name + class only post-auth; `User` created
+only by the existing Google/magic-link flows; email match against the S7
+draft `student_guardian_contacts` recorded (`email_matched_contact`) but not
+required, no approval queue; draft contact flips to `linked` at confirm;
+guardian `Membership` ensured/revoked in lockstep with links; success page
+only after linking (dashboard is S10). Zero outbound email anywhere in S9.
+The plan splits delivery into S9a (core backend + `/join` claim flow + minimal
+admin panel), S9b (printed letter with QR), S9c (bulk per-class letters), and
+includes a paste-ready implementation prompt for S9a.
+
 ## 2026-07-09 — S8: Teacher CSV Import v1
 
 Scope: staged teachers-CSV pipeline on the existing `/school` Teachers tab —

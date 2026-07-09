@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import hashlib
 import secrets
+import string
 from typing import Callable, Generic, TypeVar
 
 from fastapi import HTTPException, Request, Response, status
@@ -17,6 +18,7 @@ SessionT = TypeVar("SessionT")
 SESSION_COOKIE = "invite_session"
 SESSION_TTL = timedelta(days=30)
 INVITE_TTL = timedelta(days=1)
+GUARDIAN_INVITE_TTL = timedelta(days=30)
 EXCHANGE_RATE_LIMIT_WINDOW_SECONDS = 60
 EXCHANGE_RATE_LIMIT_MAX_ATTEMPTS = 20
 
@@ -51,6 +53,25 @@ def hash_token(token: str) -> str:
 
 def generate_token() -> str:
     return secrets.token_urlsafe(32)
+
+
+SHORT_CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTVWXYZ"
+
+
+def generate_short_code() -> str:
+    return "".join(secrets.choice(SHORT_CODE_ALPHABET) for _ in range(8))
+
+
+def normalize_short_code(raw: str | None) -> str:
+    cleaned = "".join(ch for ch in (raw or "").upper() if ch in string.ascii_uppercase + string.digits)
+    if cleaned.startswith("CHH"):
+        cleaned = cleaned[3:]
+    return cleaned
+
+
+def display_short_code(normalized_code: str) -> str:
+    code = normalize_short_code(normalized_code)
+    return f"CHH-{code[:4]}-{code[4:]}" if len(code) == 8 else f"CHH-{code}"
 
 
 def cookie_max_age(expires_at: datetime) -> int:

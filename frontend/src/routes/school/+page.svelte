@@ -8,6 +8,7 @@
   import SelectInput from '$lib/components/school/SelectInput.svelte';
   import StatusInput from '$lib/components/school/StatusInput.svelte';
   import TextInput from '$lib/components/school/TextInput.svelte';
+  import { guardianDisplayName } from '$lib/guardianDisplay';
   import { CheckCircle2, Circle, Pencil, Plus, Trash2 } from 'lucide-svelte';
 
   type Membership = { school_id: number; school_name: string; role: string };
@@ -66,6 +67,43 @@
     status: string;
     current_class_section?: Row | null;
     current_subject_groups?: (Row & { source?: 'default' | 'explicit'; enrolment_id?: number | null; enrolled_from?: string })[];
+  };
+  type GuardianContact = {
+    id: number;
+    slot: number;
+    name?: string | null;
+    email?: string | null;
+    relationship?: string | null;
+    status: 'draft' | 'linked' | 'ignored';
+  };
+  type GuardianInvite = {
+    id: number;
+    slot?: number | null;
+    student_guardian_contact_id?: number | null;
+    relationship?: string | null;
+    guardian_name?: string | null;
+    display_code_last4?: string | null;
+    status: 'active' | 'claimed' | 'revoked' | 'expired';
+    expires_at?: string | null;
+    created_at?: string | null;
+    claimed_at?: string | null;
+    code?: string;
+    join_url?: string;
+  };
+  type GuardianLink = {
+    id: number;
+    user_email?: string | null;
+    user_name?: string | null;
+    display_name?: string | null;
+    relationship?: string | null;
+    email_matched_contact?: boolean | null;
+    status: 'active' | 'revoked';
+    created_at?: string | null;
+  };
+  type StudentGuardians = {
+    contacts: GuardianContact[];
+    invites: GuardianInvite[];
+    links: GuardianLink[];
   };
   type StudentForm = {
     external_ref: string;
@@ -264,6 +302,9 @@
   let studentSearch = $state('');
   let studentSectionFilter = $state('');
   let studentEnrolments = $state<Enrolment[]>([]);
+  let studentGuardians = $state<StudentGuardians | null>(null);
+  let loadingGuardians = $state(false);
+  let generatedInvite = $state<GuardianInvite | null>(null);
   let loadingEnrolments = $state(false);
   let classEnrolmentSectionId = $state('');
   let subjectEnrolmentGroupId = $state('');
@@ -498,6 +539,7 @@
     if (selectedStudentId && !students.some((student) => student.id === selectedStudentId)) {
       selectedStudentId = null;
       studentEnrolments = [];
+      studentGuardians = null;
     }
     if (selectedStudentId) await loadStudentEnrolments(selectedStudentId);
     if (classRoster && rosterSectionId) await loadClassRoster(false);
@@ -923,6 +965,7 @@
       if (selectedStudentId === student.id) {
         selectedStudentId = null;
         studentEnrolments = [];
+        studentGuardians = null;
       }
       removeStudentRow(student.id);
       notice = $_('school.students.archived');
@@ -944,6 +987,7 @@
       if (selectedStudentId === student.id) {
         selectedStudentId = null;
         studentEnrolments = [];
+        studentGuardians = null;
       }
       removeStudentRow(student.id);
       notice = $_('school.students.removedMistake');
@@ -1165,6 +1209,69 @@
     }
   }
 
+  async function loadStudentGuardians(studentId: number) {
+    if (!schoolId) return;
+    loadingGuardians = true;
+    try {
+      studentGuardians = await api.get(`/school/students/${studentId}/guardian-invites`, schoolOptions());
+    } catch (err: any) {
+      error = err?.message || $_('school.guardians.loadError');
+    } finally {
+      loadingGuardians = false;
+    }
+  }
+
+  async function generateGuardianInvite(slot: number, contactId?: number | null) {
+    if (!schoolId || !selectedStudentId) return;
+    generatedInvite = null;
+    try {
+      const body = contactId ? { contact_id: contactId } : { slot };
+      generatedInvite = await api.post(`/school/students/${selectedStudentId}/guardian-invites`, body, schoolOptions());
+      notice = $_('school.guardians.generated');
+      await loadStudentGuardians(selectedStudentId);
+    } catch (err: any) {
+      error = err?.message || $_('school.guardians.generateError');
+    }
+  }
+
+  async function revokeGuardianInvite(inviteId: number) {
+    if (!schoolId || !selectedStudentId || !confirm($_('school.guardians.revokeConfirm'))) return;
+    try {
+      await api.post(`/school/guardian-invites/${inviteId}/revoke`, {}, schoolOptions());
+      notice = $_('school.guardians.revoked');
+      await loadStudentGuardians(selectedStudentId);
+    } catch (err: any) {
+      error = err?.message || $_('school.guardians.revokeError');
+    }
+  }
+
+  async function revokeGuardianLink(linkId: number) {
+    if (!schoolId || !selectedStudentId || !confirm($_('school.guardians.revokeLinkConfirm'))) return;
+    try {
+      await api.post(`/school/guardian-links/${linkId}/revoke`, {}, schoolOptions());
+      notice = $_('school.guardians.linkRevoked');
+      await loadStudentGuardians(selectedStudentId);
+    } catch (err: any) {
+      error = err?.message || $_('school.guardians.revokeLinkError');
+    }
+  }
+
+  function contactForSlot(slot: number) {
+    return studentGuardians?.contacts.find((contact) => contact.slot === slot) || null;
+  }
+
+  function activeInviteForSlot(slot: number) {
+    return studentGuardians?.invites.find((invite) => invite.slot === slot && invite.status === 'active') || null;
+  }
+
+  function latestInviteForSlot(slot: number) {
+    return studentGuardians?.invites.find((invite) => invite.slot === slot) || null;
+  }
+
+  function guardianStatusKey(status?: string | null) {
+    return `school.guardians.status.${status || 'none'}`;
+  }
+
   async function loadClassRoster(showValidation = true) {
     if (!schoolId) return;
     if (!rosterSectionId) {
@@ -1270,7 +1377,9 @@
 
   async function selectStudent(student: Student) {
     selectedStudentId = student.id;
+    generatedInvite = null;
     await loadStudentEnrolments(student.id);
+    await loadStudentGuardians(student.id);
   }
 
   function selectStudentForAction(student: Student) {
@@ -1278,7 +1387,9 @@
     moveSectionId = '';
     classEnrolmentSectionId = '';
     subjectEnrolmentGroupId = '';
+    generatedInvite = null;
     void loadStudentEnrolments(student.id);
+    void loadStudentGuardians(student.id);
     queueMicrotask(() => document.getElementById('student-detail-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 
@@ -2333,6 +2444,77 @@
             {#if selectedStudent()}
               <div id="student-detail-panel" class="rounded-lg border border-slate-200 bg-white p-5">
                 <h3 class="text-base font-black text-slate-900">{$_('school.students.enrolmentsFor')} {selectedStudent()?.display_name}</h3>
+                <div class="mt-4 rounded-lg border border-slate-100 p-4">
+                  <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h4 class="font-bold text-slate-900">{$_('school.guardians.title')}</h4>
+                      <p class="mt-1 text-sm text-slate-500">{$_('school.guardians.help')}</p>
+                    </div>
+                    {#if loadingGuardians}
+                      <p class="text-sm text-slate-500">{$_('common.loading')}</p>
+                    {/if}
+                  </div>
+
+                  {#if generatedInvite?.code}
+                    <div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
+                      <p class="font-bold text-emerald-900">{$_('school.guardians.generatedCode')}</p>
+                      <p class="mt-2 font-mono text-lg font-black text-emerald-950">{generatedInvite.code}</p>
+                      <p class="mt-1 break-all text-emerald-800">{generatedInvite.join_url}</p>
+                    </div>
+                  {/if}
+
+                  <div class="mt-4 grid gap-3 lg:grid-cols-2">
+                    {#each [1, 2] as slot}
+                      {@const contact = contactForSlot(slot)}
+                      {@const activeInvite = activeInviteForSlot(slot)}
+                      {@const latestInvite = latestInviteForSlot(slot)}
+                      <div class="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                        <div class="flex items-start justify-between gap-3">
+                          <div>
+                            <p class="font-bold text-slate-900">{guardianDisplayName(contact || { slot }, $_('school.guardians.slot', { values: { slot } }))}</p>
+                            {#if contact?.email}
+                              <p class="mt-1 text-xs text-slate-500">{contact.email}</p>
+                            {/if}
+                            <p class="mt-2 text-xs font-semibold text-slate-600">
+                              {$_('school.guardians.contact')}: {$_(guardianStatusKey(contact?.status))}
+                              {#if latestInvite}
+                                · {$_('school.guardians.invite')}: {$_(guardianStatusKey(latestInvite.status))}
+                              {/if}
+                            </p>
+                          </div>
+                          {#if activeInvite}
+                            <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={() => revokeGuardianInvite(activeInvite.id)}>{$_('school.guardians.revoke')}</button>
+                          {:else}
+                            <button type="button" class="btn-hero rounded-lg px-3 py-2 text-sm" onclick={() => generateGuardianInvite(slot, contact?.id)}>{$_('school.guardians.generate')}</button>
+                          {/if}
+                        </div>
+                      </div>
+                    {/each}
+                  </div>
+
+                  {#if studentGuardians?.links?.length}
+                    <div class="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-100">
+                      {#each studentGuardians.links as link}
+                        <div class="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p class="font-semibold text-slate-900">{guardianDisplayName(link, $_('school.guardians.linkedGuardian'))}</p>
+                            <p class="mt-1 text-xs text-slate-500">{link.user_email}</p>
+                          </div>
+                          <div class="flex flex-wrap items-center gap-2">
+                            {#if link.email_matched_contact === false}
+                              <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">{$_('school.guardians.emailMismatch')}</span>
+                            {:else if link.email_matched_contact === true}
+                              <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">{$_('school.guardians.emailMatched')}</span>
+                            {/if}
+                            {#if link.status === 'active'}
+                              <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={() => revokeGuardianLink(link.id)}>{$_('school.guardians.revokeLink')}</button>
+                            {/if}
+                          </div>
+                        </div>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
                 <div class="mt-4 grid gap-3 lg:grid-cols-3">
                   <div class="rounded-lg border border-slate-100 p-3">
                     <p class="text-sm font-bold text-slate-800">{$_('school.students.addClassEnrolment')}</p>

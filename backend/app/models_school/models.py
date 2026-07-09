@@ -423,6 +423,70 @@ class StudentGuardianContact(Base):
     )
 
 
+def _default_guardian_invite_expires_at():
+    return datetime.now(timezone.utc) + timedelta(days=30)
+
+
+class GuardianInvite(Base):
+    __tablename__ = "guardian_invites"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False, index=True)
+    student_guardian_contact_id = Column(Integer, ForeignKey("student_guardian_contacts.id"), nullable=True, index=True)
+    slot = Column(Integer, nullable=True)
+    token_hash = Column(String, unique=True, index=True, nullable=False)
+    display_code_last4 = Column(String, nullable=True)
+    relationship = Column(String, nullable=True)
+    guardian_name = Column(String, nullable=True)
+    guardian_email = Column(String, nullable=True)
+    expires_at = Column(DateTime(timezone=True), default=_default_guardian_invite_expires_at, nullable=False)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    claimed_at = Column(DateTime(timezone=True), nullable=True)
+    claimed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        CheckConstraint("slot IS NULL OR slot IN (1, 2)", name="ck_guardian_invites_slot"),
+        CheckConstraint(
+            "relationship IS NULL OR relationship IN ('mother', 'father', 'guardian', 'other')",
+            name="ck_guardian_invites_relationship",
+        ),
+        Index("ix_guardian_invites_school_student", "school_id", "student_id"),
+    )
+
+
+class GuardianLink(Base):
+    __tablename__ = "guardian_links"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    relationship = Column(String, nullable=True)
+    display_name = Column(String, nullable=True)
+    source_guardian_invite_id = Column(Integer, ForeignKey("guardian_invites.id"), nullable=True)
+    student_guardian_contact_id = Column(Integer, ForeignKey("student_guardian_contacts.id"), nullable=True)
+    email_matched_contact = Column(Boolean, default=False, server_default="false", nullable=True)
+    status = Column(String, default="active", server_default="active", nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("student_id", "user_id", name="uq_guardian_links_student_user"),
+        CheckConstraint(
+            "relationship IS NULL OR relationship IN ('mother', 'father', 'guardian', 'other')",
+            name="ck_guardian_links_relationship",
+        ),
+        CheckConstraint("status IN ('active', 'revoked')", name="ck_guardian_links_status"),
+        Index("ix_guardian_links_school_user", "school_id", "user_id"),
+    )
+
+
 def _default_magic_login_expires_at():
     return datetime.now(timezone.utc) + timedelta(minutes=15)
 
