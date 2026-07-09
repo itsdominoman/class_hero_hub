@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, JSON, String, UniqueConstraint, event
+from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, JSON, String, UniqueConstraint, event
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -53,6 +53,7 @@ class Membership(Base):
 
     __table_args__ = (
         UniqueConstraint("school_id", "user_id", "role", name="uq_memberships_school_user_role"),
+        Index("ix_memberships_school_role_status", "school_id", "role", "status"),
     )
 
 
@@ -205,6 +206,7 @@ class SubjectGroup(Base):
             "enrolment_policy IN ('explicit_only', 'default_for_section', 'default_for_grade')",
             name="ck_subject_groups_enrolment_policy",
         ),
+        Index("ix_subject_groups_school_status", "school_id", "status"),
     )
 
 
@@ -255,6 +257,7 @@ class StaffAssignment(Base):
             "(class_section_id IS NULL AND subject_group_id IS NOT NULL)",
             name="ck_staff_assignments_exactly_one_target",
         ),
+        Index("ix_staff_assignments_school_membership", "school_id", "membership_id"),
     )
 
 
@@ -273,6 +276,10 @@ class Student(Base):
     status = Column(String, default="active", nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("ix_students_school_status", "school_id", "status"),
+    )
 
 
 def _default_enrolment_valid_from():
@@ -301,6 +308,8 @@ class Enrolment(Base):
             name="ck_enrolments_exactly_one_target",
         ),
         CheckConstraint("kind IN ('member', 'excluded')", name="ck_enrolments_kind"),
+        Index("ix_enrolments_school_section_kind", "school_id", "class_section_id", "kind"),
+        Index("ix_enrolments_school_group_kind", "school_id", "subject_group_id", "kind"),
     )
 
 
