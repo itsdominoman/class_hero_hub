@@ -1,0 +1,158 @@
+> Historical note: This document was inherited from Family Hero Hub and is preserved as historical context for the Class Hero Hub fork. It may describe old domains, paths, product assumptions, or infrastructure that are not current.
+
+# Family Hero Hub
+
+Gamified family management system designed to build positive habits in children using points, rewards, and real-world incentives.
+
+---
+
+## 🚀 Overview
+
+Family Hero Hub allows parents to:
+
+- Track behaviour using points
+- Create meaningful rewards
+- Encourage consistency and responsibility
+- Manage child calendar events, tasks, and rewardable tasks
+- Configure school books/classes for each child by weekday
+
+Children can:
+
+- Earn points for positive behaviour
+- View their progress on a kid-friendly dashboard
+- Request rewards
+- See today's tasks/events and school bag reminders
+- Use their own device via QR login (no email required)
+
+---
+
+## 🌐 Live App
+
+https://familyherohub.com
+
+The live US production runtime is PostgreSQL-backed after the 2026-05-13 cutover.
+
+---
+
+## 🧪 Dev/Test Environment
+
+Development and testing run at https://dev.familyherohub.com on the Europe/France VPS.
+
+Production remains at https://familyherohub.com on the US VPS.
+
+## 🧭 Infrastructure Notes
+
+- Production: US server only
+- Dev and Hermes: Europe/France server (`dev.familyherohub.com`)
+- Private site mesh: `10.250.50.0/24`
+- Workflow: test in Europe, then commit/push there; US production pulls tested commits only
+
+---
+
+## 🔑 Core Features
+
+### 👨‍👩‍👧‍👦 Parent System
+- Google OAuth login
+- Family-based account system
+- Multiple children per family
+- Mobile-first parent launcher with children first, total available points / reward requests summaries, and grouped Parent Tools
+- Parent Tools access for rewards, family settings, behaviour presets, calendar, pending requests, adding children, and child dashboard links
+- Behaviour presets (quick point assignment)
+- Add points, remove points, and custom one-off point actions
+- Reward creation with custom point values
+- Reward approval workflow
+- Registration request approval flow
+- Admin user and family access management
+
+---
+
+### 👶 Child System
+- Child profiles linked to parent accounts
+- QR-based device linking (no email required)
+- Persistent child sessions (no shared parent login)
+- Kid-friendly dashboard UI with mobile-safe reward, points log, My Day, and School Bag sections
+- Reward request system
+
+---
+
+### 🎯 Rewards System
+- Fully separate from behaviour presets
+- Parent-defined rewards (e.g. "Happy Meal – 20 points")
+- Children can request rewards
+- Parents approve or reject requests
+
+---
+
+### 📅 Family Calendar
+- Parent-facing calendar for child events and tasks
+- Supports normal events, tasks, rewardable tasks, and simple recurrence
+- Mobile-responsive week layout with compact day strip
+- Child dashboard shows today's calendar tasks/events in My Day
+
+---
+
+### 🎒 School Bag / School Prep
+- Dedicated school item storage separate from calendar events/tasks
+- Parents configure books/classes per child and weekday
+- Child dashboard shows Pack for tomorrow, Needed today, and Check stationery
+- Children tick "Pack for tomorrow" items off; the list locks at local-family midnight and "Needed today" then shows the read-only final state (no points awarded)
+- Today/tomorrow lookup uses the family timezone
+
+---
+
+### ⚡ Behaviour System
+- Quick-tap behaviour presets
+- Add and remove point assignment
+- Custom one-off point awards and penalties without creating presets
+- Short positive/negative feedback sounds after successful point changes
+- Designed for fast daily use by parents
+
+---
+
+### 🔐 Security Model
+- Family-scoped data isolation
+- Admin-only registration and access management
+- Parent access can be revoked without deleting family data
+- Family accounts can be suspended and restored without deleting children, rewards, points, calendar, or history
+- Bootstrap admins are protected from revoke actions
+- Child sessions separate from parent authentication
+- QR invite tokens:
+  - High entropy
+  - Hashed in storage
+  - Expiring and revocable
+- Child accounts have restricted permissions (no admin actions)
+
+---
+
+## 🧱 Tech Stack
+
+- **Backend:** FastAPI (Python)
+- **Frontend:** SvelteKit
+- **Database:** PostgreSQL in production, with SQLite rollback and local/dev use retained where needed
+- **Infrastructure:** Docker + Caddy (HTTPS)
+
+---
+
+## 🎨 Design System & Localisation
+
+- Frontend design conventions (type scale, color tokens including the
+  warm child palette vs cool parent palette, card classes) are
+  documented in [docs/DESIGN.md](docs/DESIGN.md).
+- English and Arabic strings live side by side in
+  `frontend/src/lib/i18n/messages.ts` and must keep full key parity.
+  Verify with `npm run check:i18n` (run inside `frontend/`); CI-worthy,
+  it exits non-zero when the locales diverge. See
+  [docs/LOCALISATION_NOTES.md](docs/LOCALISATION_NOTES.md).
+
+---
+
+## ⚙️ Quick Start
+
+### 1. Configure Environment
+
+```bash
+cp .env.example .env
+# Edit .env with:
+# - Google OAuth credentials
+# - Bootstrap/root-admin emails only (`PARENT_EMAILS`)
+# - Database settings
