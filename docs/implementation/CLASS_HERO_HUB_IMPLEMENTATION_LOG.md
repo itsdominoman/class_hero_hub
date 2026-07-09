@@ -1,5 +1,326 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-09 — S7 correction: guardian name/relationship + draft guardian contacts
+
+Product correction to the S7 slice below, made before audit/commit: the
+original template only collected `guardian1_email`/`guardian2_email`, which
+under-served S9 (guardian onboarding) and S15 (messaging) — both need a
+guardian display name and relationship, and neither teachers nor admins
+should ever address a guardian as a raw email address. This correction lands
+before any of S7 is committed, so it's folded directly into the S7 schema
+and code rather than layered on top.
+
+### What changed
+
+- **CSV template columns** now include, per guardian slot:
+  `guardian1_name, guardian1_email, guardian1_relationship, guardian2_name,
+  guardian2_email, guardian2_relationship` (name/email/relationship per
+  guardian, replacing the email-only columns). Full new header order:
+  `student_id,first_name,last_name,preferred_name,name_ar,dob,gender,branch,
+  grade,section,guardian1_name,guardian1_email,guardian1_relationship,
+  guardian2_name,guardian2_email,guardian2_relationship`.
+- **New table `student_guardian_contacts`** (migration
+  `b2c3d4e5f6a7_add_student_guardian_contacts.py`, on top of the S7
+  migration below): `id, school_id, student_id, slot (1|2), name, email,
+  relationship, source_import_id, status (draft|linked|ignored),
+  created_at, updated_at`, unique on `(school_id, student_id, slot)`. These
+  are **prep-only records** — no login, no `guardian_link`, never
+  contacted. `status` starts `draft` and is reserved for S9 to transition to
+  `linked` (a real guardian was onboarded from this contact) or `ignored`;
+  S7 itself only ever writes `draft` rows.
+- **Commit upserts guardian contacts per (student, slot)**, independent of
+  the student row's own action (`create`/`update`/`move`/`restore`/`skip`)
+  — a guardian-only edit on an otherwise-unchanged student still lands,
+  since the student action alone shouldn't gate a guardian data refresh.
+  A contact already moved past `draft` status (by a future S9 workflow) is
+  never overwritten by a later re-import — the loop explicitly skips it and
+  leaves a note in the design rather than silently clobbering a downstream
+  decision.
+- **Validation policy (guardian data never blocks the student row):**
+  guardian name/email/relationship are all optional; a slot with nothing in
+  it is skipped entirely (no contact row, and re-import never deletes an
+  existing draft contact just because a later file leaves that slot blank —
+  additive/upsert only, no deletion logic in this pass). If email is
+  present without a name, or `relationship` is present but not one of
+  `mother`/`father`/`guardian`/`other`, both are **warnings, not errors** —
+  the field is left blank (relationship) or flagged (name) but the guardian
+  contact is still staged and the student row still commits. This mirrors
+  the existing malformed-email-format warning from the original S7 slice.
+- **Zero outbound communication still holds**: guardian columns are parsed,
+  validated, and staged into the draft table only. No `guardian_link`, no
+  `User` account, no `StaffInvite`/`MagicLoginToken`, no mailer call is
+  created/invoked for guardian data — verified by test (see below).
+- **Preview/row display**: the `/school` Students → CSV import row table
+  gained a Guardians column summarizing both slots (`Guardian 1: name ·
+  email · relationship`), plus an explanatory note that these are draft
+  contacts only. The `GET/POST .../imports*` row payloads now include
+  `guardian{1,2}_{name,email,relationship}` alongside the existing fields.
+
+### Files touched by this correction
+
+- `backend/app/models_school/models.py` (+`__init__.py`) — `StudentGuardianContact` model.
+- `alembic/versions/b2c3d4e5f6a7_add_student_guardian_contacts.py` (new).
+- `backend/app/imports_service.py` — `CSV_COLUMNS` updated;
+  `GUARDIAN_RELATIONSHIP_VALUES`; `_validate_guardian_slot(...)`;
+  `existing_guardian_contacts_by_student(...)` (batched, same shape as
+  `open_section_enrolments_by_student`); `RowPlan.guardian_contacts`.
+- `backend/app/routes/school.py` — commit route upserts guardian contacts;
+  `_import_row_payload` includes guardian fields.
+- `backend/tests/test_student_imports.py` — rewritten around a `csv_row(...)`
+  builder (keyword args matching `CSV_COLUMNS`) instead of hand-counted
+  comma strings, to avoid exactly the off-by-one-comma mistake a manual
+  curl smoke test hit during the original S7 pass; 4 new guardian-specific
+  tests plus updates to the zero-outbound and template-header tests.
+- `frontend/src/routes/school/+page.svelte` — `ImportRow` type, Guardians
+  column, `importRowGuardianSummaries(...)`.
+- `frontend/src/lib/i18n/messages.ts` — `school.imports.guardians`,
+  `guardianSlot`, `guardianNoName`, `guardianNote` (EN+AR).
+
+### Tests added
+
+`backend/tests/test_student_imports.py` (35 tests, up from 31):
+`test_guardian_email_with_missing_name_produces_warning_not_error`,
+`test_invalid_guardian_relationship_warns_not_errors` (confirms a bad
+relationship value warns, stages the contact anyway, but leaves
+`relationship` blank rather than storing the invalid value),
+`test_commit_creates_draft_guardian_contacts` (both slots, all fields),
+`test_guardian_contact_reimport_is_idempotent_and_updates_in_place` (same
+contact row id across two commits, fields updated to the second file's
+values — not duplicated), `test_guardian_contact_already_acted_on_is_not_
+overwritten_by_reimport` (a contact manually moved to `status="linked"`
+survives a re-import unchanged). `test_template_download_has_expected_
+headers` and `test_import_sends_zero_outbound_communication` were extended
+for the new columns/guardian-contact assertions.
+
+### Validation
+
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo/backend backend python -m pytest tests/test_student_imports.py -q` → **35 passed**.
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo/backend backend python -m pytest tests -q` → **205 passed** (up from 201), 10 warnings.
+- `cd frontend && npm run check` → 0 errors, 0 warnings.
+- `cd frontend && npm run check:i18n` → parity OK, 440 keys in both `en` and `ar`.
+- `cd frontend && npm run build` → built OK.
+- `docker compose build backend frontend` + `docker compose up -d backend frontend` → rebuilt and restarted.
+- `alembic heads` → single head `b2c3d4e5f6a7`; applied to the live dev
+  database (`alembic upgrade head`, `alembic current` → `b2c3d4e5f6a7`).
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo backend python backend/scripts/perf_check.py` → only the pre-existing `/api/school/students` endpoint over budget (3.2s this run); unrelated to this change.
+- **Manual smoke test against the live United International School demo
+  data**: downloaded the template (confirmed the new 16-column header),
+  uploaded a 1-row CSV with both guardian slots fully populated, previewed
+  (confirmed guardian fields + draft-contact warnings), committed, verified
+  via direct DB query that exactly 2 `student_guardian_contacts` rows were
+  created with the right slot/name/email/relationship/status/
+  source_import_id, then deleted the smoke-test student/contacts/import
+  rows to leave the demo school unchanged.
+
+### Deferred (per instructions for this slice)
+
+- Everything S9 will need to build on top of `student_guardian_contacts`:
+  turning a `draft` contact into a real `guardian_link` + invite, an admin
+  UI to review/dismiss (`ignored`) staged contacts, and any de-duplication
+  across multiple imports/manual entry for the same guardian.
+
+## 2026-07-09 — S7: Student CSV Import v1
+
+Scope: staged students-CSV pipeline on the existing `/school` Students tab —
+upload → validate → preview (create/update/move/restore/skip/error per row) →
+commit valid rows → idempotent re-import. No teacher CSV import, guardian
+onboarding/invites, parent dashboard, posts, diary, points, messaging,
+notifications, attendance, timetables, rooms, terms, rollover, or auth
+changes were part of this slice.
+
+### Product safety rule (binding, verified by test)
+
+Bulk import never sends invites, magic links, notifications, emails, or other
+outbound communication. Guardian columns are accepted in the template for a
+future workflow but are only ever staged as prep records, never contacted.
+**Superseded by the correction above:** guardian columns/handling described
+immediately below (email-only, "not imported", nothing stored) reflect this
+slice's first pass; the correction section above this entry replaced the
+guardian columns with name+email+relationship and added the
+`student_guardian_contacts` draft table before this slice was committed —
+treat the correction as authoritative for guardian behavior.
+`test_import_sends_zero_outbound_communication` monkeypatches
+`mailer.send_staff_invite`/`send_magic_login` and asserts zero calls plus zero
+`StaffInvite`/`MagicLoginToken` rows after a commit that includes guardian
+data.
+
+### Decisions
+
+- **No auto-create of grades/sections from the CSV.** The task brief made
+  auto-create optional ("if implemented, it must follow existing
+  lifecycle/restore rules"); building it would reintroduce the natural-key
+  restore/lifecycle machinery into a parser for a case S4's `/school` setup
+  UI already covers well (create the grade/section once, then import
+  students against it). Unknown grade/section codes are a clear per-row
+  error naming the missing code; the admin fixes it in `/school` setup and
+  re-uploads. This can be revisited as a follow-up if real schools want it.
+- **Branch resolution:** CSV `branch` column optional only when the school
+  has exactly one *active* branch (auto-selected); otherwise required and
+  matched by code. Zero-active-branch and multi-branch-ambiguity produce
+  distinct error messages.
+- **Academic year:** always the school's current year (`is_current=True`);
+  no current year is a whole-file 422, not a per-row error, since nothing
+  can be resolved without it.
+- **Idempotency is identity-by-`external_ref` only**, matching the existing
+  `students.external_ref` app-layer upsert pattern from S6 (`create_student`)
+  — no new unique DB constraint was added, consistent with that existing
+  design. Rows with a blank `student_id` are always `create` (no identity to
+  match on); duplicate names across rows are allowed and never used as
+  identity, per the brief.
+- **Row actions are `create`/`update`/`move`/`restore`/`skip`/`error`**
+  (`restore` and `move` added beyond the blueprint's original four-action
+  sketch) because the brief's own preview/summary requirements explicitly
+  ask for restore and move counts to be visible to the admin before commit.
+- **Commit behaviour is "commit valid rows, leave error rows unapplied"**
+  (the blueprint's stated default), not all-or-nothing. Re-running the same
+  file twice is idempotent: the second commit resolves matching rows to
+  `skip` (no field or section change) and mutates nothing.
+- **One aggregate audit entry per import commit** (`school.import.committed`,
+  with row-count summary in `detail`), not one audit row per affected
+  student. Per-student audit trails aren't required by this slice and the
+  brief asked to keep the pipeline simple; every affected student is still
+  identifiable via `import_rows.applied_entity_id`.
+- **Commit re-plans from the stored raw CSV rows** rather than reusing the
+  upload-time preview, mirroring the existing preview/apply split in
+  `_plan_default_subject_template_application` (S6.8). This re-validates
+  against current DB state (a section could be archived, another admin
+  could have changed the same student) between staging and commit, and
+  keeps preview and commit as one shared decision function
+  (`plan_student_import_rows`) instead of two.
+- **Query-shape:** every lookup in `plan_student_import_rows` (current year,
+  branches, grade levels, sections, existing students by `external_ref`,
+  open section enrolments) is batched once regardless of row count, per
+  `docs/BACKEND_PERFORMANCE.md`'s rule. The one open-enrolment lookup is
+  factored into a shared `open_section_enrolments_by_student(...)` helper in
+  `imports_service.py`, used by both the plan and the commit route, so
+  "what section is this student currently in" has one definition instead of
+  two independently-maintained copies.
+- **Encoding:** `utf-8-sig` first (handles a UTF-8 BOM transparently), then a
+  `cp1256` fallback (stdlib `codecs`, no new dependency) for Arabic Windows
+  exports; anything else is a clear encoding error. CSV header matching is
+  case/whitespace-insensitive (a common Excel-resave quirk).
+
+### Backend changes
+
+- Migration `a1b2c3d4e5f6_add_student_imports.py` adds `imports` and
+  `import_rows` (per §9's suggested shape, plus `move`/`restore` action
+  values).
+- New `backend/app/imports_service.py`: CSV template generation, encoding
+  detection, header/row parsing, and `plan_student_import_rows(...)` — the
+  single batched planner shared by preview (upload) and commit.
+- `backend/app/routes/school.py` gains, under the existing
+  `require_school_role("school_admin")` router dependency:
+  `GET /students/import-template`, `POST /students/imports`,
+  `GET /students/imports/{id}`, `POST /students/imports/{id}/commit`,
+  `POST /students/imports/{id}/discard`. These are registered *before*
+  `GET /students/{student_id}` in the file — Starlette route matching tries
+  routes in registration order and a literal segment like
+  `import-template` would otherwise be shadowed by the `{student_id}`
+  parameterized route registered earlier.
+- Commit builds/moves `Enrolment` rows directly from the batched
+  `open_section_enrolments_by_student`/`students_by_id` maps rather than
+  calling the single-row `_create_enrolment_row` (which does its own
+  per-row duplicate/active-target queries — reusing it here would reproduce
+  a per-row query in a bulk endpoint); `_close_enrolment_row` (pure, no
+  query) is reused as-is for the close side of a move.
+
+### Frontend changes
+
+- `/school` → Students tab gained a CSV import panel above the student
+  list: "Download student CSV template", CSV file picker + upload, a
+  staged-preview summary (create/update/move/restore/skip/error counts),
+  a row-level table (row number, student_id, name, grade, section, branch,
+  action, errors/warnings), and commit/discard actions. Nothing else on the
+  page changed; the existing lazy-loaded students list still isn't fetched
+  by this panel.
+- `frontend/src/lib/api.ts` gained `api.upload(path, formData, options)` and
+  `api.download(path, options)`. The existing `request()` helper always
+  JSON-stringifies the body and expects a JSON response, which can't do a
+  multipart CSV upload or a `text/csv` template download; both new helpers
+  reuse the extracted `throwForErrorResponse` error-handling path and the
+  same CSRF-cookie/credentials handling as `request()`. This is a reusable
+  addition for any future binary transfer (e.g. a teacher CSV import).
+
+### Tests
+
+`backend/tests/test_student_imports.py` (31 tests): template headers,
+UTF-8/UTF-8-BOM/CP-1256 parsing, an undecodable-bytes encoding error,
+case/whitespace-insensitive headers, missing-column and required-field
+errors, duplicate `student_id` within file, invalid gender/DOB, multi-branch
+ambiguity (and the zero-active-branch variant), branch-omitted-when-
+unambiguous, current-academic-year requirement, new-student creation +
+section enrolment, external_ref update instead of duplicate, archived-student
+restore, full re-import idempotency (no duplicate students/enrolments),
+section move closing the old enrolment and opening a new one, same-section
+re-import not duplicating the enrolment, duplicate names allowed, guardian
+email columns deferred/not imported, wrong-role/wrong-school/platform-admin-
+without-membership blocked, cross-school grade-code isolation, commit-valid-
+leave-errors-unapplied, double-commit and discard-then-commit rejected,
+discard, zero-outbound-communication, and a query-count regression test
+(`count_queries()`, same pattern as `test_default_subject_templates.py`)
+proving upload/commit read-query counts don't scale with row count (writes
+do, by design — one insert per new student/enrolment).
+
+### Validation
+
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo/backend backend python -m pytest tests/test_student_imports.py -q` → **31 passed**.
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo/backend backend python -m pytest tests -q` → **201 passed** (up from 170), 10 warnings.
+- `cd frontend && npm run check` → 0 errors, 0 warnings.
+- `cd frontend && npm run check:i18n` → parity OK, 436 keys in both `en` and `ar`.
+- `cd frontend && npm run build` → built OK.
+- `docker compose build backend frontend` + `docker compose up -d backend frontend` → rebuilt and restarted.
+- Migration applied against a temporary Postgres database in CI-style
+  isolation (`alembic heads` confirmed a single head, `f2a3b4c5d6e7 ->
+  a1b2c3d4e5f6`) and against the live dev database (`alembic upgrade head`,
+  `alembic current` → `a1b2c3d4e5f6`).
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo backend python backend/scripts/perf_check.py` → only the already-known `/api/school/students` endpoint is over the 1s guideline (6.1s this run, was 2.9s in the S6.8 log; noisy under load, not something this slice touches — no newly-audited endpoint regressed).
+- **Manual smoke test against the live United International School demo
+  data**, end to end over the real HTTP API (not just the SQLite test
+  suite): downloaded the template, discovered the school is genuinely
+  multi-branch (Al Khoud, Boushar) with no current academic year set yet
+  (a real gap — marked 2026-27 current via the existing `/school`
+  "academic years" PUT endpoint, since bulk import requires it and any
+  admin will need to do this regardless of CSV import), then uploaded a
+  3-row CSV (one valid create, two deliberately bad rows), previewed,
+  committed (1 create applied, 2 errors left unapplied, confirmed by direct
+  DB query), re-uploaded the identical file (resolved to `skip`, confirmed
+  no duplicate student or enrolment rows), then deleted the smoke-test
+  student/enrolment/import rows to leave the demo school's data unchanged.
+  The academic year's `is_current` flag was left set to `true` (a real
+  setup gap, not a testing artifact) — worth flagging to Dom.
+- A code-review pass (8 parallel finder angles: correctness, removed-
+  behavior, cross-file, reuse, simplification, efficiency, altitude,
+  CLAUDE.md conventions) found and fixed: a CSV header case-sensitivity bug
+  (DictReader keys rows by original header spelling, not the lowercased
+  name used for validation — an Excel-resaved header like `Student_ID`
+  would have silently produced blank fields), a wrong error message when a
+  school has zero active branches (said "more than one branch"), dead code
+  (`RowPlan.summary_fields()`, unused), a `date.today()`/UTC-`_today()`
+  basis mismatch between the plan default and the rest of the codebase (now
+  passed explicitly at both call sites), a missing `school_id` filter on
+  the commit route's student batch-fetch (defense in depth), and the
+  duplicated open-enrolment query mentioned above. **Not fixed, judged
+  out of scope**: no DB-level unique constraint on `(school_id,
+  external_ref)` — this matches the existing S6 `create_student` app-layer-
+  only pattern and predates this slice; the CP-1256 fallback is a
+  single-byte codec that can't distinguish "successfully decoded" from
+  "decoded as mojibake" for a wrongly-guessed encoding, which is an inherent
+  limit of stdlib-only encoding detection, not a bug; and a restored
+  archived-student row that also needs a section change is labeled only
+  `restore` in the preview (the underlying enrolment move still happens
+  correctly at commit) rather than a combined `restore+move` label.
+
+### Deferred (per instructions for this slice)
+
+- Teacher CSV import (S8).
+- Auto-creating grade levels/class sections from the CSV (validate-only;
+  see Decisions above).
+- Guardian record creation/storage from the guardian email columns (S9).
+- Any change to `docs/DEMO_DATA.md` or `docs/BACKEND_PERFORMANCE.md` — not
+  needed; the query-shape rule already documented there was followed and
+  is exercised by the new regression test, and demo-data generation itself
+  wasn't touched by this slice.
+
 ## 2026-07-09 — S6.8/S7-prep: Default Subject Templates by stage/grade
 
 Scope: a school-admin workflow to define default/core subjects by education stage or
@@ -1534,3 +1855,5 @@ Still needs to be done manually (not done by this change, per instructions):
 2. Rebuild and restart the backend container so it picks up the new code and env vars, e.g. `docker compose build backend && docker compose up -d backend`.
 3. Create or resend a school-admin invite from the platform admin UI/API and confirm the email actually arrives at the target address with a working accept link. If `mail.familyherohub.com` rejects STARTTLS on 587, try `SMTP_PORT=465` in `.env` and restart — no code change required.
 4. Do not commit these changes until the above manual test passes (per instruction not to commit yet).
+
+Note: During S7 dev/testing, SMTP settings were removed from `.env` and demo guardian email addresses were fake. That is only environment-level belt-and-suspenders. The actual S7 safety guarantee is code-level: student CSV import does not create guardian links, guardian invites, guardian users, notifications, magic links, or outbound email/messages.

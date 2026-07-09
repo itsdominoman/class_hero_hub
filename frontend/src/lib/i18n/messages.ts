@@ -388,6 +388,52 @@ export const en = {
       closeEnrolment: 'Close',
       enrol: 'Enrol',
       enrolmentError: 'Failed to update enrolment'
+    },
+    imports: {
+      title: 'Import students (CSV)',
+      help: 'Download the template, fill it in, then upload it here for a preview before committing any changes.',
+      downloadTemplate: 'Download student CSV template',
+      upload: 'Upload CSV',
+      uploading: 'Uploading…',
+      templateError: 'Failed to download template',
+      uploadError: 'Failed to upload CSV',
+      commit: 'Commit valid rows',
+      committing: 'Committing…',
+      commitError: 'Failed to commit import',
+      committed: 'Import committed.',
+      discard: 'Discard',
+      discardError: 'Failed to discard import',
+      status: 'Status',
+      statusValue: {
+        staged: 'Staged (preview only)',
+        committed: 'Committed',
+        discarded: 'Discarded'
+      },
+      summary: {
+        create: 'New',
+        update: 'Updated',
+        move: 'Moved',
+        restore: 'Restored',
+        skip: 'Unchanged',
+        error: 'Errors'
+      },
+      row: 'Row',
+      grade: 'Grade',
+      section: 'Section',
+      guardians: 'Guardians',
+      guardianSlot: 'Guardian',
+      guardianNoName: '(no name)',
+      guardianNote: 'Guardian columns are staged as draft contacts only — no email, invite, or message is sent. These will be used to generate guardian invites in a future update.',
+      action: 'Action',
+      notes: 'Notes',
+      actionLabel: {
+        create: 'Create',
+        update: 'Update',
+        move: 'Move class',
+        restore: 'Restore',
+        skip: 'No change',
+        error: 'Error'
+      }
     }
   },
   teach: {
@@ -865,6 +911,52 @@ export const ar = {
       closeEnrolment: 'إغلاق',
       enrol: 'تسجيل',
       enrolmentError: 'تعذر تحديث القيد'
+    },
+    imports: {
+      title: 'استيراد الطلاب (CSV)',
+      help: 'نزّل القالب، املأه، ثم ارفعه هنا للمعاينة قبل تنفيذ أي تغييرات.',
+      downloadTemplate: 'تنزيل قالب استيراد الطلاب',
+      upload: 'رفع ملف CSV',
+      uploading: 'جارٍ الرفع…',
+      templateError: 'تعذر تنزيل القالب',
+      uploadError: 'تعذر رفع ملف CSV',
+      commit: 'تنفيذ الصفوف الصالحة',
+      committing: 'جارٍ التنفيذ…',
+      commitError: 'تعذر تنفيذ الاستيراد',
+      committed: 'تم تنفيذ الاستيراد.',
+      discard: 'تجاهل',
+      discardError: 'تعذر تجاهل الاستيراد',
+      status: 'الحالة',
+      statusValue: {
+        staged: 'معاينة فقط',
+        committed: 'تم التنفيذ',
+        discarded: 'تم التجاهل'
+      },
+      summary: {
+        create: 'جديد',
+        update: 'محدّث',
+        move: 'منقول',
+        restore: 'مستعاد',
+        skip: 'بلا تغيير',
+        error: 'أخطاء'
+      },
+      row: 'الصف',
+      grade: 'المستوى',
+      section: 'الشعبة',
+      guardians: 'أولياء الأمور',
+      guardianSlot: 'ولي الأمر',
+      guardianNoName: '(بلا اسم)',
+      guardianNote: 'تُحفظ أعمدة أولياء الأمور كبيانات اتصال مبدئية فقط — لا يتم إرسال أي بريد إلكتروني أو دعوة أو رسالة. ستُستخدم لاحقا لإنشاء دعوات أولياء الأمور في تحديث قادم.',
+      action: 'الإجراء',
+      notes: 'ملاحظات',
+      actionLabel: {
+        create: 'إنشاء',
+        update: 'تحديث',
+        move: 'نقل الشعبة',
+        restore: 'استعادة',
+        skip: 'بلا تغيير',
+        error: 'خطأ'
+      }
     }
   },
   teach: {

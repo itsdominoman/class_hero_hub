@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Type
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -11,6 +11,16 @@ from sqlalchemy.orm import Session
 
 from .. import auth, invite_tokens
 from ..database import get_db
+from ..imports_service import (
+    ImportUploadError,
+    decode_csv_bytes,
+    existing_guardian_contacts_by_student,
+    generate_template_csv,
+    open_section_enrolments_by_student,
+    parse_csv_rows,
+    plan_student_import_rows,
+    summarize_plans,
+)
 from ..models_school import (
     AcademicYear,
     BranchCampus,
@@ -19,11 +29,14 @@ from ..models_school import (
     EducationStage,
     Enrolment,
     GradeLevel,
+    Import,
+    ImportRow,
     Membership,
     School,
     StaffAssignment,
     StaffInvite,
     Student,
+    StudentGuardianContact,
     Subject,
     SubjectGroup,
     User,
@@ -2094,6 +2107,232 @@ def create_student(payload: StudentRequest, membership: Membership = Depends(req
     return {**_student_with_context(db, row), "restored": False}
 
 
+def _import_summary_payload(imp: Import) -> dict[str, Any]:
+    return {
+        "id": imp.id,
+        "school_id": imp.school_id,
+        "kind": imp.kind,
+        "filename": imp.filename,
+        "status": imp.status,
+        "summary": imp.summary,
+        "created_at": imp.created_at,
+        "committed_at": imp.committed_at,
+    }
+
+
+def _import_row_payload(row: ImportRow) -> dict[str, Any]:
+    csv_row = row.raw or {}
+    return {
+        "id": row.id,
+        "row_number": row.row_number,
+        "student_id": csv_row.get("student_id") or None,
+        "first_name": csv_row.get("first_name") or None,
+        "last_name": csv_row.get("last_name") or None,
+        "grade": csv_row.get("grade") or None,
+        "section": csv_row.get("section") or None,
+        "branch": csv_row.get("branch") or None,
+        "guardian1_name": csv_row.get("guardian1_name") or None,
+        "guardian1_email": csv_row.get("guardian1_email") or None,
+        "guardian1_relationship": csv_row.get("guardian1_relationship") or None,
+        "guardian2_name": csv_row.get("guardian2_name") or None,
+        "guardian2_email": csv_row.get("guardian2_email") or None,
+        "guardian2_relationship": csv_row.get("guardian2_relationship") or None,
+        "action": row.action,
+        "errors": row.errors or [],
+        "warnings": row.warnings or [],
+        "applied_entity_id": row.applied_entity_id,
+    }
+
+
+def _import_detail_payload(db: Session, imp: Import) -> dict[str, Any]:
+    rows = db.query(ImportRow).filter(ImportRow.import_id == imp.id).order_by(ImportRow.row_number.asc()).all()
+    return {**_import_summary_payload(imp), "rows": [_import_row_payload(row) for row in rows]}
+
+
+@router.get("/students/import-template")
+def download_student_import_template(membership: Membership = Depends(require_school_role("school_admin"))):
+    csv_text = generate_template_csv()
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=student_import_template.csv"},
+    )
+
+
+@router.post("/students/imports", status_code=status.HTTP_201_CREATED)
+async def upload_student_import(
+    file: UploadFile = File(...),
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    content = await file.read()
+    try:
+        text = decode_csv_bytes(content)
+        raw_rows = parse_csv_rows(text)
+        if not raw_rows:
+            raise ImportUploadError("CSV has no data rows")
+        plans = plan_student_import_rows(db, school_id, raw_rows, today=_today())
+    except ImportUploadError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
+    summary = summarize_plans(plans)
+    imp = Import(
+        school_id=school_id,
+        kind="students",
+        filename=file.filename,
+        status="staged",
+        uploaded_by_user_id=membership.user_id,
+        summary=summary,
+    )
+    db.add(imp)
+    db.flush()
+    for plan in plans:
+        db.add(
+            ImportRow(
+                import_id=imp.id,
+                row_number=plan.row_number,
+                raw=plan.csv,
+                action=plan.action,
+                errors=plan.errors or None,
+                warnings=plan.warnings or None,
+            )
+        )
+    write_audit(db, membership.user_id, "school.import.staged", imp, {"filename": file.filename, "summary": summary}, school_id=school_id)
+    db.commit()
+    db.refresh(imp)
+    return _import_detail_payload(db, imp)
+
+
+@router.get("/students/imports/{import_id}")
+def get_student_import(import_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    imp = _get_owned(db, Import, _school_id(membership), import_id)
+    return _import_detail_payload(db, imp)
+
+
+@router.post("/students/imports/{import_id}/commit")
+def commit_student_import(import_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    school_id = _school_id(membership)
+    imp = _get_owned(db, Import, school_id, import_id)
+    if imp.status != "staged":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only staged imports can be committed")
+
+    rows = db.query(ImportRow).filter(ImportRow.import_id == imp.id).order_by(ImportRow.row_number.asc()).all()
+    raw_rows = [row.raw for row in rows]
+    today = _today()
+    try:
+        plans = plan_student_import_rows(db, school_id, raw_rows, today=today)
+    except ImportUploadError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
+    student_ids = [plan.student_id for plan in plans if plan.student_id is not None]
+    students_by_id = {
+        s.id: s
+        for s in (
+            db.query(Student).filter(Student.school_id == school_id, Student.id.in_(student_ids)).all()
+            if student_ids
+            else []
+        )
+    }
+    open_section_by_student = open_section_enrolments_by_student(db, school_id, student_ids, today)
+    existing_guardian_contacts = existing_guardian_contacts_by_student(db, school_id, student_ids)
+
+    for plan, row in zip(plans, rows):
+        row.action = plan.action
+        row.errors = plan.errors or None
+        row.warnings = plan.warnings or None
+
+        if plan.action == "error":
+            continue
+
+        if plan.action == "create":
+            student = Student(school_id=school_id, status="active", **plan.cleaned)
+            db.add(student)
+            db.flush()
+        else:
+            student = students_by_id[plan.student_id]
+            for key, value in plan.cleaned.items():
+                setattr(student, key, value)
+            if plan.action == "restore":
+                student.status = "active"
+
+        row.applied_entity_id = student.id
+
+        # A direct Enrolment insert (not _create_enrolment_row) is intentional
+        # here: the batched open_section_by_student/students_by_id lookups
+        # above already establish everything that helper would otherwise
+        # re-check per row (active target, no duplicate open enrolment), and
+        # re-running those as per-row queries would break the "no per-row
+        # query in a list/bulk endpoint" rule (see BACKEND_PERFORMANCE.md).
+        # _close_enrolment_row is pure (no query), so it's reused as-is.
+        if plan.action != "skip":
+            current_enrolment = open_section_by_student.get(student.id)
+            if current_enrolment is None or current_enrolment.class_section_id != plan.class_section_id:
+                if current_enrolment is not None:
+                    _close_enrolment_row(current_enrolment, today)
+                db.add(
+                    Enrolment(
+                        school_id=school_id,
+                        student_id=student.id,
+                        class_section_id=plan.class_section_id,
+                        kind="member",
+                        valid_from=today,
+                        created_by_user_id=membership.user_id,
+                    )
+                )
+
+        # Guardian contacts are draft-only prep records (never contacted, no
+        # login, no guardian_link) and are upserted regardless of the
+        # student row's own action — a guardian-only edit on an otherwise
+        # unchanged student must still land, not be skipped along with the
+        # student "skip" action.
+        for contact in plan.guardian_contacts:
+            key = (student.id, contact["slot"])
+            existing_contact = existing_guardian_contacts.get(key)
+            if existing_contact is not None:
+                if existing_contact.status != "draft":
+                    # S9 (or an admin) has already acted on this contact;
+                    # a re-import must not clobber that decision.
+                    continue
+                existing_contact.name = contact["name"]
+                existing_contact.email = contact["email"]
+                existing_contact.relationship = contact["relationship"]
+                existing_contact.source_import_id = imp.id
+            else:
+                db.add(
+                    StudentGuardianContact(
+                        school_id=school_id,
+                        student_id=student.id,
+                        slot=contact["slot"],
+                        name=contact["name"],
+                        email=contact["email"],
+                        relationship=contact["relationship"],
+                        source_import_id=imp.id,
+                        status="draft",
+                    )
+                )
+
+    summary = summarize_plans(plans)
+    imp.status = "committed"
+    imp.committed_at = invite_tokens.now_utc()
+    imp.summary = summary
+    write_audit(db, membership.user_id, "school.import.committed", imp, {"summary": summary}, school_id=school_id)
+    db.commit()
+    db.refresh(imp)
+    return _import_detail_payload(db, imp)
+
+
+@router.post("/students/imports/{import_id}/discard")
+def discard_student_import(import_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    school_id = _school_id(membership)
+    imp = _get_owned(db, Import, school_id, import_id)
+    if imp.status != "staged":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only staged imports can be discarded")
+    imp.status = "discarded"
+    write_audit(db, membership.user_id, "school.import.discarded", imp, {}, school_id=school_id)
+    db.commit()
+    db.refresh(imp)
+    return _import_summary_payload(imp)
 @router.get("/students/{student_id}")
 def get_student(student_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     return _student_with_context(db, _get_owned(db, Student, _school_id(membership), student_id))
@@ -2284,3 +2523,5 @@ def list_active_students_by_subject_group(
     db: Session = Depends(get_db),
 ):
     return _roster_payload(db, _school_id(membership), subject_group_id=subject_group_id)
+
+

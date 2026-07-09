@@ -343,6 +343,85 @@ class DefaultSubjectTemplate(Base):
     )
 
 
+class Import(Base):
+    __tablename__ = "imports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    kind = Column(String, nullable=False, default="students", server_default="students")
+    filename = Column(String, nullable=True)
+    status = Column(String, nullable=False, default="staged", server_default="staged")
+    uploaded_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    summary = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    committed_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('staged', 'committed', 'discarded')",
+            name="ck_imports_status",
+        ),
+        Index("ix_imports_school_status", "school_id", "status"),
+    )
+
+
+class ImportRow(Base):
+    __tablename__ = "import_rows"
+
+    id = Column(Integer, primary_key=True, index=True)
+    import_id = Column(Integer, ForeignKey("imports.id"), nullable=False, index=True)
+    row_number = Column(Integer, nullable=False)
+    raw = Column(JSON, nullable=False)
+    action = Column(String, nullable=False)
+    errors = Column(JSON, nullable=True)
+    warnings = Column(JSON, nullable=True)
+    applied_entity_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('create', 'update', 'move', 'restore', 'skip', 'error')",
+            name="ck_import_rows_action",
+        ),
+    )
+
+
+class StudentGuardianContact(Base):
+    """A draft guardian contact staged by import (never a login, never contacted).
+
+    S9 guardian onboarding is expected to consume/migrate these rows into
+    real `guardian_links` + invites once that workflow exists; `status`
+    tracks that lifecycle (`draft` until S9 acts on it, then `linked` or
+    `ignored`) so a later re-import never silently overwrites a decision S9
+    has already made.
+    """
+
+    __tablename__ = "student_guardian_contacts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False, index=True)
+    slot = Column(Integer, nullable=False)
+    name = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    relationship = Column(String, nullable=True)
+    source_import_id = Column(Integer, ForeignKey("imports.id"), nullable=True)
+    status = Column(String, nullable=False, default="draft", server_default="draft")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("school_id", "student_id", "slot", name="uq_student_guardian_contacts_school_student_slot"),
+        CheckConstraint("slot IN (1, 2)", name="ck_student_guardian_contacts_slot"),
+        CheckConstraint(
+            "relationship IS NULL OR relationship IN ('mother', 'father', 'guardian', 'other')",
+            name="ck_student_guardian_contacts_relationship",
+        ),
+        CheckConstraint("status IN ('draft', 'linked', 'ignored')", name="ck_student_guardian_contacts_status"),
+        Index("ix_student_guardian_contacts_school_student", "school_id", "student_id"),
+    )
+
+
 def _default_magic_login_expires_at():
     return datetime.now(timezone.utc) + timedelta(minutes=15)
 

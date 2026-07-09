@@ -77,6 +77,33 @@
     gender: string;
     status: string;
   };
+  type ImportRow = {
+    id: number;
+    row_number: number;
+    student_id?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    grade?: string | null;
+    section?: string | null;
+    branch?: string | null;
+    guardian1_name?: string | null;
+    guardian1_email?: string | null;
+    guardian1_relationship?: string | null;
+    guardian2_name?: string | null;
+    guardian2_email?: string | null;
+    guardian2_relationship?: string | null;
+    action: 'create' | 'update' | 'move' | 'restore' | 'skip' | 'error';
+    errors: string[];
+    warnings: string[];
+    applied_entity_id?: number | null;
+  };
+  type StudentImport = {
+    id: number;
+    filename?: string | null;
+    status: 'staged' | 'committed' | 'discarded';
+    summary: Record<string, number>;
+    rows: ImportRow[];
+  };
   type Enrolment = {
     id: number;
     student_id: number;
@@ -229,6 +256,11 @@
   let groupRosterStudentId = $state('');
   let groupRoster = $state<SubjectGroupRoster | null>(null);
   let groupRosterLoading = $state(false);
+
+  let importFile = $state<File | null>(null);
+  let importUploading = $state(false);
+  let importCommitting = $state(false);
+  let studentImport = $state<StudentImport | null>(null);
 
   let branchForm = $state(baseForm('MAIN', 'Main Branch'));
   let stageForm = $state(baseForm('PRIMARY', 'Primary'));
@@ -897,6 +929,113 @@
     } finally {
       saving = false;
     }
+  }
+
+  async function downloadImportTemplate() {
+    if (!schoolId) return;
+    error = null;
+    try {
+      const blob = await api.download('/school/students/import-template', schoolOptions());
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'student_import_template.csv';
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      error = err?.message || $_('school.imports.templateError');
+    }
+  }
+
+  function handleImportFileChange(event: Event) {
+    const target = event.target as HTMLInputElement;
+    importFile = target.files?.[0] || null;
+  }
+
+  async function uploadImportFile() {
+    if (!schoolId || !importFile) return;
+    importUploading = true;
+    error = null;
+    notice = null;
+    try {
+      const formData = new FormData();
+      formData.append('file', importFile);
+      studentImport = await api.upload('/school/students/imports', formData, schoolOptions());
+    } catch (err: any) {
+      error = err?.message || $_('school.imports.uploadError');
+    } finally {
+      importUploading = false;
+    }
+  }
+
+  async function commitImport() {
+    if (!schoolId || !studentImport) return;
+    importCommitting = true;
+    error = null;
+    notice = null;
+    try {
+      studentImport = await api.post(`/school/students/imports/${studentImport.id}/commit`, {}, schoolOptions());
+      notice = $_('school.imports.committed');
+      await ensureStudentsLoaded();
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.imports.commitError');
+    } finally {
+      importCommitting = false;
+    }
+  }
+
+  async function discardImport() {
+    if (!schoolId || !studentImport) return;
+    try {
+      await api.post(`/school/students/imports/${studentImport.id}/discard`, {}, schoolOptions());
+    } catch (err: any) {
+      error = err?.message || $_('school.imports.discardError');
+      return;
+    }
+    studentImport = null;
+    importFile = null;
+  }
+
+  function importRowRowClass(row: ImportRow) {
+    if (row.action === 'error') return 'bg-red-50';
+    if (row.action === 'skip') return 'bg-white';
+    return 'bg-emerald-50';
+  }
+
+  function importActionLabel(action: ImportRow['action']) {
+    return $_(`school.imports.actionLabel.${action}`);
+  }
+
+  const IMPORT_SUMMARY_BADGE_STYLES: Record<string, string> = {
+    create: 'bg-emerald-100 text-emerald-800',
+    update: 'bg-sky-100 text-sky-800',
+    move: 'bg-amber-100 text-amber-800',
+    restore: 'bg-indigo-100 text-indigo-800',
+    skip: 'bg-slate-200 text-slate-700',
+    error: 'bg-red-100 text-red-800'
+  };
+
+  function importSummaryBadges() {
+    if (!studentImport) return [];
+    return Object.entries(IMPORT_SUMMARY_BADGE_STYLES).map(([key, classes]) => ({
+      classes,
+      label: $_(`school.imports.summary.${key}`),
+      count: studentImport?.summary[key] || 0
+    }));
+  }
+
+  function importRowGuardianSummaries(row: ImportRow): string[] {
+    const summaries: string[] = [];
+    for (const slot of [1, 2] as const) {
+      const name = row[`guardian${slot}_name`];
+      const email = row[`guardian${slot}_email`];
+      const relationship = row[`guardian${slot}_relationship`];
+      if (!name && !email && !relationship) continue;
+      const parts = [name || $_('school.imports.guardianNoName'), email, relationship].filter(Boolean);
+      summaries.push(`${$_('school.imports.guardianSlot')} ${slot}: ${parts.join(' · ')}`);
+    }
+    return summaries;
   }
 
   async function loadStudentEnrolments(studentId: number) {
@@ -1862,6 +2001,95 @@
                   <button type="button" class="btn-secondary rounded-lg" disabled={saving} onclick={cancelEdit}>{$_('school.cancel')}</button>
                 {/if}
               </div>
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h3 class="text-base font-black text-slate-900">{$_('school.imports.title')}</h3>
+              <p class="mt-1 text-sm text-slate-500">{$_('school.imports.help')}</p>
+              <div class="mt-4 flex flex-wrap items-center gap-2">
+                <button type="button" class="btn-secondary rounded-lg px-4 py-2" onclick={downloadImportTemplate}>{$_('school.imports.downloadTemplate')}</button>
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  class="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  onchange={handleImportFileChange}
+                />
+                <button type="button" class="btn-hero rounded-lg px-4 py-2" disabled={!importFile || importUploading} onclick={uploadImportFile}>
+                  {importUploading ? $_('school.imports.uploading') : $_('school.imports.upload')}
+                </button>
+              </div>
+
+              {#if studentImport}
+                <div class="mt-5">
+                  <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p class="font-bold text-slate-900">{studentImport.filename || $_('school.imports.title')}</p>
+                      <p class="mt-1 text-sm text-slate-600">
+                        {$_('school.imports.status')}: {$_(`school.imports.statusValue.${studentImport.status}`)}
+                      </p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 text-sm">
+                      {#each importSummaryBadges() as badge}
+                        <span class={`rounded-full px-3 py-1 font-semibold ${badge.classes}`}>{badge.label}: {badge.count}</span>
+                      {/each}
+                    </div>
+                  </div>
+
+                  {#if studentImport.status === 'staged'}
+                    <div class="mt-3 flex gap-2">
+                      <button type="button" class="btn-hero rounded-lg px-4 py-2" disabled={importCommitting} onclick={commitImport}>
+                        {importCommitting ? $_('school.imports.committing') : $_('school.imports.commit')}
+                      </button>
+                      <button type="button" class="btn-secondary rounded-lg px-4 py-2" disabled={importCommitting} onclick={discardImport}>{$_('school.imports.discard')}</button>
+                    </div>
+                  {/if}
+
+                  <p class="mt-4 text-xs text-slate-500">{$_('school.imports.guardianNote')}</p>
+                  <div class="mt-2 overflow-x-auto rounded-lg border border-slate-100">
+                    <table class="w-full min-w-[900px] text-left text-sm">
+                      <thead class="bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                        <tr>
+                          <th class="px-3 py-2">{$_('school.imports.row')}</th>
+                          <th class="px-3 py-2">{$_('school.students.externalRef')}</th>
+                          <th class="px-3 py-2">{$_('school.students.title')}</th>
+                          <th class="px-3 py-2">{$_('school.imports.grade')}</th>
+                          <th class="px-3 py-2">{$_('school.imports.section')}</th>
+                          <th class="px-3 py-2">{$_('school.imports.guardians')}</th>
+                          <th class="px-3 py-2">{$_('school.imports.action')}</th>
+                          <th class="px-3 py-2">{$_('school.imports.notes')}</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-slate-100">
+                        {#each studentImport.rows as row}
+                          <tr class={importRowRowClass(row)}>
+                            <td class="px-3 py-2">{row.row_number}</td>
+                            <td class="px-3 py-2">{row.student_id || '—'}</td>
+                            <td class="px-3 py-2">{[row.first_name, row.last_name].filter(Boolean).join(' ') || '—'}</td>
+                            <td class="px-3 py-2">{row.grade || '—'}</td>
+                            <td class="px-3 py-2">{row.section || '—'}</td>
+                            <td class="px-3 py-2 text-xs">
+                              {#each importRowGuardianSummaries(row) as summary}
+                                <p>{summary}</p>
+                              {:else}
+                                —
+                              {/each}
+                            </td>
+                            <td class="px-3 py-2 font-semibold">{importActionLabel(row.action)}</td>
+                            <td class="px-3 py-2 text-xs">
+                              {#each row.errors as message}
+                                <p class="text-red-700">{message}</p>
+                              {/each}
+                              {#each row.warnings as message}
+                                <p class="text-amber-700">{message}</p>
+                              {/each}
+                            </td>
+                          </tr>
+                        {/each}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              {/if}
             </div>
 
             <div class="rounded-lg border border-slate-200 bg-white p-5">
