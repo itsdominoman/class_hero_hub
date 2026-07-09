@@ -80,6 +80,7 @@
     {#if success}
       <h1 class="mt-4 text-2xl font-black text-slate-900">{$_('join.successTitle')}</h1>
       <p class="mt-3 text-slate-600">{$_('join.successText')}</p>
+      <a href="/parent" class="btn-hero mt-5 block w-full rounded-lg px-4 py-3 text-center">{$_('join.goToDashboard')}</a>
     {:else}
       <h1 class="mt-4 text-2xl font-black text-slate-900">{$_('join.title')}</h1>
       <form class="mt-5 flex gap-2" onsubmit={(event) => { event.preventDefault(); loadPreview(); }}>

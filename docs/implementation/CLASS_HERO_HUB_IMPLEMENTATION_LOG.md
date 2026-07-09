@@ -1,5 +1,276 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-09 — S10 follow-up: Guardian dashboard nav/routing polish
+
+The S10 dashboard worked at `/parent` but was unreachable from normal
+navigation — there was no nav link to it, and post-login routing always
+landed everyone (including teacher/admin-only accounts) on `/parent` by
+default via the login page's hardcoded `returnTo` fallback. Fixed both.
+
+### No backend changes needed
+
+Checked first whether the frontend already had enough information to know
+"does this account have guardian access" before adding anything: it does.
+S9's `join.py` (`_ensure_guardian_membership`) already creates/keeps an
+active `Membership(role="guardian")` in lockstep with every active
+`GuardianLink`, and `GET /api/me`'s existing `memberships` list already
+includes that row. So `role === 'guardian'` in the existing `/me` payload
+*is* the "has guardian access" flag — no new endpoint or field was added,
+per the task's instruction to only touch the backend if the frontend had no
+way to know this already. Showing/hiding the nav link off this flag cannot
+itself grant access: `/api/guardian/dashboard` (S10) independently re-checks
+`GuardianLink.status == 'active'` for the authenticated user on every
+request, so a stale or spoofed client-side flag can't produce data.
+
+### Nav labels chosen
+
+- **Family** → `/parent` (not "Parent" — shorter, and reads better next to
+  "Teach"/"School" as a workspace name rather than a person-role label).
+- Kept **Teach** → `/teach`, **School** → `/school`, **Admin** → `/platform`
+  unchanged (existing labels/hrefs, not renamed).
+- The old single ambiguous **Dashboard** nav link (previously the *only*
+  link shown, pointing at whichever one workspace ranked highest by role
+  priority) is now only shown as a last-resort fallback for a signed-in
+  account with **no** role at all (no guardian link, no membership, not a
+  platform admin) — an edge case (e.g. a fresh magic-link login before any
+  invite has landed) that still needs *some* place to go. Every other
+  account now sees one explicit link per role it actually holds.
+
+### Frontend changes
+
+- New `frontend/src/lib/roleRouting.ts`: `hasRole(user, role)` and
+  `defaultLandingPath(user)` — the single place the "which workspace does
+  this account land on by default" priority lives (teacher → `/teach`, else
+  school_admin → `/school`, else platform_admin → `/platform`, else
+  `/parent`). This exactly reproduces the priority the old inline
+  `dashboardHref` expression in `+layout.svelte` already used for teacher/
+  admin accounts — "existing behaviour" for those roles is unchanged: a
+  teacher who is *also* a linked guardian still lands on `/teach` by
+  default (per the brief's "if user has multiple roles, do not break
+  existing school/teacher flows"), they just now also get an explicit
+  **Family** nav link they didn't have before to reach `/parent` on demand.
+- `frontend/src/routes/+layout.svelte`: added `hasGuardian` (derived from
+  `hasRole(currentUser, 'guardian')`) and `hasAnyRole`; the desktop nav now
+  renders one link per held role (Family/Admin/School/Teach) instead of one
+  generic Dashboard link, falling back to the old generic link only when
+  `!hasAnyRole`. The mobile header previously showed **only** a Logout
+  button for signed-in users — no navigation at all — which was actually
+  the root cause report's real bug on a guardian's phone (guardians are the
+  most mobile-first role in the product). Added a horizontally-scrollable
+  row of compact pill links (Family/Teach/School/Admin, same role-gating as
+  desktop) alongside the existing mobile Logout button.
+- New `frontend/src/routes/post-login/+page.svelte`: a tiny redirect-only
+  page. On mount it calls `GET /api/me` and sends the browser to
+  `defaultLandingPath(me)`. This exists because Google OAuth's redirect
+  target is chosen *before* the backend knows who's logging in (the
+  frontend passes `return_to` as a URL param before authentication), so a
+  role-aware default can't be computed synchronously at "click Login" time
+  — it has to run after the session cookie is set. Magic-link exchange and
+  the "already logged in, redirect off /login" path both funnel through the
+  same page now instead of duplicating the priority logic three times.
+- `frontend/src/routes/login/+page.svelte`: `safeReturnTo`'s default
+  changed from the hardcoded `/parent` to `/post-login`. Explicit
+  `returnTo` values (e.g. S9's `/join?c=...` flow, which calls
+  `signIn()` with its own explicit return path) are completely unaffected —
+  this only changes what happens when *no* `returnTo` was specified, i.e.
+  a plain "click Login" with nothing else driving the destination.
+- `frontend/src/routes/+page.svelte` (homepage): the "Go to Dashboard" CTA
+  for an already-signed-in visitor used the same hardcoded `/parent`;
+  switched to `defaultLandingPath(sessionUser)` for the same reason — a
+  teacher clicking that button was landing on an empty guardian dashboard
+  instead of their own workspace.
+- `frontend/src/routes/join/+page.svelte`'s S9 success screen still links
+  directly to `/parent` (added in the prior S10 pass), not `/post-login` —
+  intentionally unchanged, since a guardian who just finished linking a
+  child is already authenticated and the whole point of that button is to
+  show them the child they just linked, not re-run role-priority routing.
+
+### i18n
+
+Added `nav.family` ("Family" / "الأسرة") and `postLogin.title`/
+`postLogin.redirecting` (EN+AR) for the new redirect page's brief loading
+state. `npm run check:i18n` → parity OK, 542 keys in both `en` and `ar`
+(up from 539).
+
+### Tests
+
+`backend/tests/test_guardian_dashboard.py` gained 4 tests (no backend
+routes changed, so these pin down that `/api/me` already carries what the
+new nav needs, and that it leaks nothing): a guardian-linked user's `/me`
+includes `role: "guardian"`; a user with no guardian link does not have
+`guardian` in their roles (and a teacher-only account still has `teacher`);
+a genuinely multi-role account (teacher membership from the fixture, then
+also linked as a guardian) has both roles in `/me` *and* can successfully
+call both `GET /api/teach/dashboard` and `GET /api/guardian/dashboard`,
+each correctly scoped; and `/me`'s full response contains no
+`token`/`code`/`hash` substrings.
+
+### Validation
+
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo/backend backend python -m pytest tests/test_guardian_dashboard.py -q` → **12 passed** (was 8).
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo/backend backend python -m pytest tests -q` → **247 passed** (up from 243), 10 warnings.
+- `docker compose exec backend python -m pytest tests -q` (after rebuild/restart, confirming the running image matches) → **247 passed**.
+- `cd frontend && npm run check` → 0 errors, 0 warnings.
+- `cd frontend && npm run check:i18n` → parity OK, 542 keys in both `en` and `ar`.
+- `cd frontend && npm run build` → built OK.
+- `docker compose build backend frontend` + `docker compose up -d backend frontend` → rebuilt and restarted.
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo backend python backend/scripts/perf_check.py` → only the pre-existing `/api/school/students` endpoint over budget (4.3s this run, unrelated to this change); no regression on `/api/school/settings`, `/api/teach/dashboard`, or any audited endpoint.
+- **API smoke test against the live United International School demo data**:
+  minted a bearer token for `domteacher@myeduzone.org` (the same real
+  account used in S9/S10 manual QA) and called `GET /api/me` directly —
+  confirmed the account genuinely holds **both** `teacher` and `guardian`
+  memberships at United International School, i.e. it's a real multi-role
+  account in the live data, not just a test fixture — exactly the case
+  `defaultLandingPath` and the dual Family+Teach nav links need to handle
+  correctly (this account lands on `/teach` by default per "existing
+  behaviour for teacher accounts is unchanged", and separately gets a
+  Family nav link to reach `/parent`).
+- Confirmed `/post-login` and `/parent` both resolve (200) against the
+  rebuilt static frontend container, and grepped the built JS bundle
+  (`frontend/build/_app/immutable/**/*.js`) to confirm the new
+  `post-login`/`nav.family`/`defaultLandingPath` code actually shipped in
+  the production build, not just passed `svelte-check`.
+
+### Deferred / caveats
+
+- Not driven in an actual browser (no browser/screenshot tool available in
+  this environment, consistent with prior slices) — verified instead via
+  `svelte-check`, a successful production build, a manual grep cross-check
+  of every `$_('nav.*')`/`$_('postLogin.*')` key used in the touched
+  `.svelte` files against `messages.ts`, and the live API smoke test above
+  against the exact multi-role account named in the bug report. Dom should
+  still click through the QA steps below in a real browser, especially the
+  mobile pill-link row (only reachable by narrowing the viewport / a real
+  phone) since that's new UI this pass didn't get to visually confirm.
+- The mobile pill-link row is a minimal fix for "guardians have zero mobile
+  nav today," not a full mobile navigation redesign (no hamburger menu, no
+  icons) — acceptable for the pilot's placeholder-dashboard stage, but a
+  real mobile nav pattern is worth a dedicated pass before the parent app
+  gets its first real feature panels (S11+).
+
+## 2026-07-09 — S10: Guardian / Parent Dashboard MVP
+
+Implemented the first guardian-facing home screen after a guardian links to a
+student via S9. Scope was deliberately limited to a placeholder dashboard: no
+posts, photos, diary, messaging, notifications, behaviour points, or real
+avatar generation.
+
+### Backend
+
+- New `GET /api/guardian/dashboard` (`backend/app/routes/guardian.py`,
+  registered under `/api/guardian` in `main.py`). Requires only
+  `auth.get_current_user` — no `school_id` path/header context, since a
+  guardian's children can span multiple schools (mirrors `/api/me`'s shape,
+  not the `require_school_role` school-scoped pattern used elsewhere).
+- Visibility is entirely governed by `GuardianLink.status == "active" AND
+  revoked_at IS NULL` filtered to `user_id == current_user.id` — a school
+  admin/teacher membership alone (no guardian link) returns an empty list;
+  a revoked link is excluded; a link at another school is included (guardians
+  see all their linked children, across schools, in one call) but a link
+  belonging to a *different* guardian is never visible regardless of school.
+- Per the batched-query rule in `docs/BACKEND_PERFORMANCE.md`, every lookup
+  (students, schools, current open class-section enrolment, class sections,
+  grade levels) is a single `IN (...)` query keyed off the guardian's own
+  link set, not a per-child query — the guardian's own child count is small,
+  but the pattern is followed anyway per the documented rule.
+- No invite token, code, or hash is ever included in the response — the
+  payload is built from `GuardianLink`/`Student`/`School`/`ClassSection`/
+  `GradeLevel` fields only, never `GuardianInvite`.
+
+### Initials-avatar placeholder decision
+
+Both backend (`initials_from_name` in `guardian.py`) and frontend
+(`initialsFromStudentName` in `frontend/src/lib/guardianDisplay.ts`) derive a
+2-letter initials avatar from first/last name. The backend value is
+authoritative in the API response; the frontend helper exists as a fallback
+and so any future avatar-picker UI has one place to swap the derivation.
+**Deferred**: the real non-human hero avatar system (per the blueprint) is
+not implemented — both helpers are marked with a `TODO(S10+)` comment noting
+this is a placeholder to be replaced.
+
+### Frontend
+
+- `frontend/src/routes/parent/+page.svelte` rewritten from the static
+  "family updates soon" placeholder into a real dashboard: welcome heading,
+  a card per linked child (initials avatar circle, school name, grade/class,
+  relationship label reusing `join.relationships.*`), and four "coming soon"
+  placeholder panels (announcements, class updates/photos, homework/diary,
+  points/behaviour). Empty state (no linked children) shows dedicated copy
+  telling the guardian to contact the school office instead of the child
+  grid.
+- `frontend/src/routes/join/+page.svelte` success screen now links to
+  `/parent` (`join.goToDashboard`); `join.successText` copy updated to match
+  (previously said "the school will switch on family updates soon", which
+  was S9a's intentionally-tiny placeholder — now stale).
+- No routing change was needed for "guardian lands on the dashboard after
+  login": `/login`'s existing `returnTo` default and the root page's
+  post-login CTA already point at `/parent` (pre-existing from before this
+  slice). `/school` and `/teach` already self-guard by checking their own
+  role membership and show an access-denied state rather than redirecting,
+  so they were not touched and are unaffected by this slice.
+
+### Tests
+
+`backend/tests/test_guardian_dashboard.py` (8 tests): unauthenticated
+blocked (401), one active link returns exactly that child with all expected
+fields (including `email_matched_contact`), multiple active links return
+multiple children, a second guardian's child is never visible, a revoked
+link is excluded while a separate active link for the same guardian still
+shows, cross-school isolation (one guardian with children at two schools
+sees both, correctly attributed), a teacher/admin membership with no
+guardian link returns an empty list (not 403 — the endpoint doesn't need
+school context to know there's nothing to show), and a field/no-leak check
+asserting the response contains no `token`/`code`/`hash` substrings and
+contains exactly the documented fields.
+
+### Validation
+
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo/backend backend python -m pytest tests/test_guardian_dashboard.py -q` → **8 passed**.
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo/backend backend python -m pytest tests -q` → **243 passed** (up from 235), 10 warnings.
+- `cd frontend && npm run check` → 0 errors, 0 warnings.
+- `cd frontend && npm run check:i18n` → parity OK, 539 keys in both `en` and `ar`.
+- `cd frontend && npm run build` → built OK.
+- `docker compose build backend frontend` + `docker compose up -d backend frontend` → rebuilt and restarted.
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo backend python backend/scripts/perf_check.py` → only the pre-existing `/api/school/students` endpoint over budget (5.1s this run, noisy under load, unrelated to this slice); `/api/guardian/dashboard` was not added to the audited list — it's bounded by one guardian's own linked-child count, the same class of endpoint as `/api/me`, which is also not audited.
+- **API smoke test against the live United International School demo data**
+  (no browser tool available in this environment, consistent with prior
+  slices): rebuilt/restarted the backend, found an existing active
+  `guardian_links` row left over from S9a manual QA (`user_id=4`,
+  `domteacher@myeduzone.org`, linked to student `Mika Al Balushi`, school
+  `United International School`), minted a bearer token for that user and
+  called `GET /api/guardian/dashboard` directly — confirmed the response
+  matched the DB exactly (student name, `Grade 2 A` class section, `Grade 2`
+  grade level, relationship `father`, `email_matched_contact: false`,
+  correct initials `MA`). Called the same endpoint as an unrelated user
+  (`dom.dcubed@gmail.com`, no guardian links) — confirmed an empty
+  `children` list, proving cross-guardian isolation. Called the endpoint
+  with no `Authorization` header — confirmed `401`. Left the pre-existing
+  guardian link/data untouched (it predates this slice and was not created
+  by this smoke test).
+
+### Deferred / caveats
+
+- Posts, photos, diary, messaging, notifications, behaviour points, and real
+  avatar generation — all explicitly out of scope for this slice per the
+  brief; the four dashboard panels are static "coming soon" placeholders
+  with no backing data model.
+- Not driven in an actual browser (no browser/screenshot tool available in
+  this environment). Frontend correctness was instead verified by:
+  `svelte-check` (0 errors), a successful production build, a manual grep
+  cross-check of every `$_('parent.*')`/`$_('join.*')` key used in both
+  `+page.svelte` files against the keys declared in both `en` and `ar` in
+  `messages.ts`, and the API smoke test above driving the exact endpoint the
+  new UI calls. Dom should still click through `/parent` once per the QA
+  steps below, ideally as the `domteacher@myeduzone.org` guardian who
+  already has a linked child, to see the non-empty state, and as a fresh
+  account to see the empty state.
+- The dashboard does not filter out an archived `Student` row tied to a
+  still-active `GuardianLink` (e.g. a graduated/withdrawn student) — the
+  student would keep appearing on the guardian's dashboard until an admin
+  also revokes the link. This matches how `join.py`'s existing join flow
+  treats the two lifecycles as independent, but is worth a product decision
+  if it comes up in pilot feedback.
+
 ## 2026-07-09 — S9b: Printable Guardian Onboarding Letter / QR View
 
 Added the S9b printable single-guardian onboarding letter view to the existing

@@ -3,6 +3,7 @@
   import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
   import LanguageSelector from '$lib/components/LanguageSelector.svelte';
+  import { defaultLandingPath, type SessionUser } from '$lib/roleRouting';
   import {
     ArrowRight,
     Bell,
@@ -19,19 +20,21 @@
 
   let authenticated = $state(false);
   let sessionLoaded = $state(false);
+  let sessionUser = $state<SessionUser | null>(null);
 
   onMount(async () => {
     try {
-      await api.get('/me');
+      sessionUser = await api.get('/me');
       authenticated = true;
     } catch {
       authenticated = false;
+      sessionUser = null;
     } finally {
       sessionLoaded = true;
     }
   });
 
-  let primaryCtaHref = $derived(sessionLoaded && authenticated ? '/parent' : '/login');
+  let primaryCtaHref = $derived(sessionLoaded && authenticated ? defaultLandingPath(sessionUser) : '/login');
   let primaryCtaLabel = $derived(sessionLoaded && authenticated ? $_('home.dashboardCta') : $_('home.loginCta'));
 
   const featureCards = [

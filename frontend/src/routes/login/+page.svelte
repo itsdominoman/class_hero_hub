@@ -13,7 +13,7 @@
   let exchangingMagic = $state(false);
 
   function safeReturnTo(value: string | null) {
-    if (!value || !value.startsWith('/') || value.startsWith('//')) return '/parent';
+    if (!value || !value.startsWith('/') || value.startsWith('//')) return '/post-login';
     return value;
   }
 

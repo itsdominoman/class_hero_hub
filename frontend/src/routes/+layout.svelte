@@ -4,14 +4,10 @@
   import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
   import { initI18n } from '$lib/i18n';
-
-  type UserSession = {
-    is_platform_admin?: boolean;
-    memberships?: { role: string; school_id: number; school_name: string }[];
-  };
+  import { defaultLandingPath, hasRole, type SessionUser } from '$lib/roleRouting';
 
   let { children } = $props();
-  let currentUser = $state<UserSession | null>(null);
+  let currentUser = $state<SessionUser | null>(null);
 
   async function loadSession() {
     try {
@@ -34,9 +30,11 @@
 
   onMount(loadSession);
 
-  let hasSchoolAdmin = $derived(Boolean(currentUser?.memberships?.some((membership) => membership.role === 'school_admin')));
-  let hasTeacher = $derived(Boolean(currentUser?.memberships?.some((membership) => membership.role === 'teacher')));
-  let dashboardHref = $derived(currentUser ? (hasTeacher ? '/teach' : hasSchoolAdmin ? '/school' : currentUser.is_platform_admin ? '/platform' : '/parent') : '/login');
+  let hasSchoolAdmin = $derived(hasRole(currentUser, 'school_admin'));
+  let hasTeacher = $derived(hasRole(currentUser, 'teacher'));
+  let hasGuardian = $derived(hasRole(currentUser, 'guardian'));
+  let hasAnyRole = $derived(hasSchoolAdmin || hasTeacher || hasGuardian || Boolean(currentUser?.is_platform_admin));
+  let dashboardHref = $derived(defaultLandingPath(currentUser));
 </script>
 
 <div class="min-h-dvh max-w-full overflow-x-hidden flex flex-col">
@@ -51,35 +49,73 @@
       </a>
       
       <nav class="hidden md:flex items-center gap-8">
-        <a href={dashboardHref} class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
-          {currentUser ? $_('nav.dashboard') : $_('nav.login')}
-        </a>
-        {#if currentUser && currentUser.is_platform_admin}
-          <a href="/platform" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
-            {$_('nav.admin')}
+        {#if !currentUser}
+          <a href="/login" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
+            {$_('nav.login')}
           </a>
-        {/if}
-        {#if currentUser && hasSchoolAdmin}
-          <a href="/school" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
-            {$_('nav.school')}
-          </a>
-        {/if}
-        {#if currentUser && hasTeacher}
-          <a href="/teach" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
-            {$_('nav.teach')}
-          </a>
-        {/if}
-        {#if currentUser}
+        {:else}
+          {#if hasGuardian}
+            <a href="/parent" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
+              {$_('nav.family')}
+            </a>
+          {/if}
+          {#if currentUser.is_platform_admin}
+            <a href="/platform" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
+              {$_('nav.admin')}
+            </a>
+          {/if}
+          {#if hasSchoolAdmin}
+            <a href="/school" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
+              {$_('nav.school')}
+            </a>
+          {/if}
+          {#if hasTeacher}
+            <a href="/teach" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
+              {$_('nav.teach')}
+            </a>
+          {/if}
+          {#if !hasAnyRole}
+            <a href={dashboardHref} class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
+              {$_('nav.dashboard')}
+            </a>
+          {/if}
           <button onclick={handleLogout} class="btn-hero px-6 py-3 rounded-2xl text-sm uppercase tracking-wide">{$_('nav.logout')}</button>
         {/if}
       </nav>
 
       {#if currentUser}
-        <button onclick={handleLogout} class="md:hidden inline-flex shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-hero hover:text-hero">
-          {$_('nav.logout')}
-        </button>
+        <div class="md:hidden flex min-w-0 items-center gap-2 overflow-x-auto">
+          {#if hasGuardian}
+            <a href="/parent" class="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-hero hover:text-hero">
+              {$_('nav.family')}
+            </a>
+          {/if}
+          {#if hasTeacher}
+            <a href="/teach" class="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-hero hover:text-hero">
+              {$_('nav.teach')}
+            </a>
+          {/if}
+          {#if hasSchoolAdmin}
+            <a href="/school" class="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-hero hover:text-hero">
+              {$_('nav.school')}
+            </a>
+          {/if}
+          {#if currentUser.is_platform_admin}
+            <a href="/platform" class="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-hero hover:text-hero">
+              {$_('nav.admin')}
+            </a>
+          {/if}
+          {#if !hasAnyRole}
+            <a href={dashboardHref} class="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-hero hover:text-hero">
+              {$_('nav.dashboard')}
+            </a>
+          {/if}
+          <button onclick={handleLogout} class="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-hero hover:text-hero">
+            {$_('nav.logout')}
+          </button>
+        </div>
       {:else}
-        <a href={dashboardHref} class="md:hidden inline-flex shrink-0 items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-white shadow-sm">
+        <a href="/login" class="md:hidden inline-flex shrink-0 items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-white shadow-sm">
           {$_('nav.login')}
         </a>
       {/if}

@@ -15,6 +15,7 @@ export const en = {
     login: 'Login',
     logout: 'Logout',
     dashboard: 'Dashboard',
+    family: 'Family',
     admin: 'Admin',
     school: 'School',
     teach: 'Teach',
@@ -152,7 +153,8 @@ export const en = {
     relationship: 'Relationship',
     confirm: 'Connect child',
     successTitle: 'Child connected',
-    successText: 'Linked successfully. The school will switch on family updates soon.',
+    successText: 'Linked successfully. You can now see your child on your guardian dashboard.',
+    goToDashboard: 'Go to my dashboard',
     invalid: 'This code is not valid or has expired. Please contact the school office.',
     noClass: 'Class not set',
     relationships: {
@@ -616,15 +618,28 @@ export const en = {
     sessionHelp: 'Sessions stay signed in for convenience. Always log out on shared devices.',
     accessHelp: 'Access is currently assigned by the school or administrator.'
   },
+  postLogin: {
+    title: 'Signing you in | Class Hero Hub',
+    redirecting: 'Signing you in…'
+  },
   parent: {
     title: 'Dashboard | Class Hero Hub',
     loginRequired: 'Sign-in required',
     goToLogin: 'Go to Login',
-    failedLoad: 'Failed to load identity',
-    eyebrow: 'Dashboard',
-    noRoleHeading: 'No school role assigned yet',
-    noRoleText: 'You are signed in, but this account does not have a school role yet.',
-    signedInAs: 'Signed in as'
+    failedLoad: 'Failed to load your dashboard',
+    eyebrow: 'Guardian dashboard',
+    welcomeHeading: 'Welcome, {name}',
+    childrenIntro: 'Here are the children linked to your account.',
+    emptyStateText: 'No children are linked to your account yet.',
+    emptyStateHelp: 'If you expected to see a child here, please contact the school office for a new invite code.',
+    signedInAs: 'Signed in as',
+    panels: {
+      announcements: 'Announcements',
+      classUpdates: 'Class updates & photos',
+      homework: 'Homework & diary',
+      points: 'Points & behaviour',
+      comingSoon: 'Coming soon'
+    }
   }
 };
 
@@ -645,6 +660,7 @@ export const ar = {
     login: 'تسجيل الدخول',
     logout: 'تسجيل الخروج',
     dashboard: 'لوحة التحكم',
+    family: 'الأسرة',
     admin: 'الإدارة',
     school: 'المدرسة',
     teach: 'التدريس',
@@ -782,7 +798,8 @@ export const ar = {
     relationship: 'صلة القرابة',
     confirm: 'ربط الطفل',
     successTitle: 'تم ربط الطفل',
-    successText: 'تم الربط بنجاح. ستقوم المدرسة بتفعيل تحديثات الأسرة لاحقا.',
+    successText: 'تم الربط بنجاح. يمكنك الآن رؤية طفلك في لوحة تحكم ولي الأمر.',
+    goToDashboard: 'الذهاب إلى لوحتي',
     invalid: 'هذا الرمز غير صالح أو انتهت صلاحيته. يرجى التواصل مع مكتب المدرسة.',
     noClass: 'لم يتم تحديد الشعبة',
     relationships: {
@@ -1246,14 +1263,27 @@ export const ar = {
     sessionHelp: 'تبقى الجلسات مسجلة الدخول للراحة. سجّل الخروج دائما على الأجهزة المشتركة.',
     accessHelp: 'يتم تعيين الوصول حاليا من المدرسة أو المسؤول.'
   },
+  postLogin: {
+    title: 'جار تسجيل الدخول | كلاس هيرو هب',
+    redirecting: 'جار تسجيل الدخول…'
+  },
   parent: {
     title: 'لوحة التحكم | كلاس هيرو هب',
     loginRequired: 'تسجيل الدخول مطلوب',
     goToLogin: 'الذهاب إلى تسجيل الدخول',
-    failedLoad: 'تعذر تحميل الهوية',
-    eyebrow: 'لوحة التحكم',
-    noRoleHeading: 'لم يتم تعيين دور مدرسي بعد',
-    noRoleText: 'أنت مسجل الدخول، لكن هذا الحساب لا يملك دورا مدرسيا بعد.',
-    signedInAs: 'مسجل الدخول باسم'
+    failedLoad: 'تعذر تحميل لوحة التحكم',
+    eyebrow: 'لوحة ولي الأمر',
+    welcomeHeading: 'مرحبا، {name}',
+    childrenIntro: 'هؤلاء هم الأبناء المرتبطون بحسابك.',
+    emptyStateText: 'لا يوجد أبناء مرتبطون بحسابك حتى الآن.',
+    emptyStateHelp: 'إذا كنت تتوقع رؤية ابنك هنا، يرجى التواصل مع إدارة المدرسة للحصول على رمز دعوة جديد.',
+    signedInAs: 'مسجل الدخول باسم',
+    panels: {
+      announcements: 'الإعلانات',
+      classUpdates: 'تحديثات الصف والصور',
+      homework: 'الواجبات واليوميات',
+      points: 'النقاط والسلوك',
+      comingSoon: 'قريبا'
+    }
   }
 };
