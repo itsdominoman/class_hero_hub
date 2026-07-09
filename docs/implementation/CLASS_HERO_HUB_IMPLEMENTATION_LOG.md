@@ -1,5 +1,46 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-09 — S9b: Printable Guardian Onboarding Letter / QR View
+
+Added the S9b printable single-guardian onboarding letter view to the existing
+S9a `/school` Students guardians panel. No backend changes were needed.
+
+### What changed
+
+- After an admin generates a guardian code, the one-time code panel now offers
+  **View letter** and **Print letter** actions.
+- The letter is rendered client-side and includes school name, student first
+  name plus current class, guardian display name + relationship where known,
+  typed code, join URL, expiry date, short instructions, and a warning not to
+  share the code.
+- QR generation uses the already-installed `qrcode` package. The QR encodes
+  the same S9a `join_url` returned by the invite-create endpoint.
+- Added A4 print CSS so browser print preview hides app chrome/admin controls
+  and prints only the letter area with the QR large enough to scan.
+- Added EN/AR i18n strings for the letter actions and copy.
+
+### Security decision
+
+The printable letter is **immediate-only**. It is available only while the raw
+code returned by `POST /api/school/students/{student_id}/guardian-invites` is
+still in frontend memory after generation. Raw codes remain hash-only at rest,
+are not added to any list endpoint, and no reprint endpoint was added. Reprint
+convenience is intentionally deferred rather than weakening token storage.
+
+### Validation
+
+- `docker compose exec backend python -m pytest tests -q` → **235 passed**, 10 warnings.
+- `cd frontend && npm run check` → 0 errors, 0 warnings.
+- `cd frontend && npm run check:i18n` → parity OK, 531 keys in both `en` and `ar`.
+- `cd frontend && npm run build` → built OK.
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo backend python backend/scripts/perf_check.py` → only the known `/api/school/students` endpoint over budget (4.100s with 502 students / 258 subject groups); S9b added no backend/list endpoint.
+
+### Deferred
+
+- Bulk per-class letter printing remains deferred to S9c.
+- Reprint-after-navigation remains deferred; solving it would require a
+  product/security decision that does not store raw invite codes.
+
 ## 2026-07-09 — S9a: Guardian QR/Code Onboarding MVP
 
 Implemented the admin-generated, per-guardian-slot, single-use guardian

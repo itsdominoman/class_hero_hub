@@ -10,6 +10,7 @@
   import TextInput from '$lib/components/school/TextInput.svelte';
   import { guardianDisplayName } from '$lib/guardianDisplay';
   import { CheckCircle2, Circle, Pencil, Plus, Trash2 } from 'lucide-svelte';
+  import QRCode from 'qrcode';
 
   type Membership = { school_id: number; school_name: string; role: string };
   type Row = {
@@ -305,6 +306,8 @@
   let studentGuardians = $state<StudentGuardians | null>(null);
   let loadingGuardians = $state(false);
   let generatedInvite = $state<GuardianInvite | null>(null);
+  let generatedInviteQr = $state('');
+  let letterVisible = $state(false);
   let loadingEnrolments = $state(false);
   let classEnrolmentSectionId = $state('');
   let subjectEnrolmentGroupId = $state('');
@@ -1224,9 +1227,19 @@
   async function generateGuardianInvite(slot: number, contactId?: number | null) {
     if (!schoolId || !selectedStudentId) return;
     generatedInvite = null;
+    generatedInviteQr = '';
+    letterVisible = false;
     try {
       const body = contactId ? { contact_id: contactId } : { slot };
       generatedInvite = await api.post(`/school/students/${selectedStudentId}/guardian-invites`, body, schoolOptions());
+      if (generatedInvite?.join_url) {
+        generatedInviteQr = await QRCode.toDataURL(generatedInvite.join_url, {
+          errorCorrectionLevel: 'M',
+          margin: 2,
+          width: 320
+        });
+        letterVisible = true;
+      }
       notice = $_('school.guardians.generated');
       await loadStudentGuardians(selectedStudentId);
     } catch (err: any) {
@@ -1270,6 +1283,38 @@
 
   function guardianStatusKey(status?: string | null) {
     return `school.guardians.status.${status || 'none'}`;
+  }
+
+  function showGeneratedLetter() {
+    if (generatedInvite?.code) letterVisible = true;
+  }
+
+  function printGeneratedLetter() {
+    letterVisible = true;
+    requestAnimationFrame(() => window.print());
+  }
+
+  function generatedGuardianDisplay() {
+    if (!generatedInvite) return '';
+    return guardianDisplayName(
+      { name: generatedInvite.guardian_name, relationship: generatedInvite.relationship, slot: generatedInvite.slot },
+      $_('school.guardians.slot', { values: { slot: generatedInvite.slot || '' } })
+    );
+  }
+
+  function generatedLetterStudentLine() {
+    const student = selectedStudent();
+    if (!student) return '';
+    const firstName = student.preferred_name || student.first_name;
+    const className = studentCurrentClass(student);
+    return className ? `${firstName} · ${className}` : firstName;
+  }
+
+  function formatDate(value?: string | null) {
+    if (!value) return '';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleDateString();
   }
 
   async function loadClassRoster(showValidation = true) {
@@ -1378,6 +1423,8 @@
   async function selectStudent(student: Student) {
     selectedStudentId = student.id;
     generatedInvite = null;
+    generatedInviteQr = '';
+    letterVisible = false;
     await loadStudentEnrolments(student.id);
     await loadStudentGuardians(student.id);
   }
@@ -1388,6 +1435,8 @@
     classEnrolmentSectionId = '';
     subjectEnrolmentGroupId = '';
     generatedInvite = null;
+    generatedInviteQr = '';
+    letterVisible = false;
     void loadStudentEnrolments(student.id);
     void loadStudentGuardians(student.id);
     queueMicrotask(() => document.getElementById('student-detail-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
@@ -2456,11 +2505,74 @@
                   </div>
 
                   {#if generatedInvite?.code}
-                    <div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
-                      <p class="font-bold text-emerald-900">{$_('school.guardians.generatedCode')}</p>
-                      <p class="mt-2 font-mono text-lg font-black text-emerald-950">{generatedInvite.code}</p>
-                      <p class="mt-1 break-all text-emerald-800">{generatedInvite.join_url}</p>
+                    <div class="no-print mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
+                      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p class="font-bold text-emerald-900">{$_('school.guardians.generatedCode')}</p>
+                          <p class="mt-2 font-mono text-lg font-black text-emerald-950">{generatedInvite.code}</p>
+                          <p class="mt-1 break-all text-emerald-800">{generatedInvite.join_url}</p>
+                          <p class="mt-2 text-xs font-semibold text-emerald-800">{$_('school.guardians.immediateOnly')}</p>
+                        </div>
+                        <div class="flex shrink-0 flex-wrap gap-2">
+                          <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={showGeneratedLetter}>{$_('school.guardians.viewLetter')}</button>
+                          <button type="button" class="btn-hero rounded-lg px-3 py-2 text-sm" onclick={printGeneratedLetter}>{$_('school.guardians.printLetter')}</button>
+                        </div>
+                      </div>
                     </div>
+                  {/if}
+
+                  {#if letterVisible && generatedInvite?.code}
+                    <section class="guardian-letter-print mt-4 bg-white text-slate-950">
+                      <div class="guardian-letter-sheet mx-auto rounded-lg border border-slate-200 p-8 shadow-sm">
+                        <div class="no-print mb-4 flex justify-end">
+                          <button type="button" class="btn-hero rounded-lg px-4 py-2" onclick={printGeneratedLetter}>{$_('school.guardians.print')}</button>
+                        </div>
+
+                        <div class="letter-body">
+                          <p class="text-sm font-bold uppercase text-slate-500">{$_('school.guardians.letterEyebrow')}</p>
+                          <h2 class="mt-2 text-3xl font-black text-slate-950">{schoolName}</h2>
+                          <p class="mt-6 text-lg font-bold text-slate-900">{$_('school.guardians.letterTitle')}</p>
+                          <p class="mt-2 text-slate-700">{$_('school.guardians.letterIntro')}</p>
+
+                          <div class="mt-6 grid gap-6 md:grid-cols-[1fr_220px] md:items-start">
+                            <div class="space-y-4">
+                              <div>
+                                <p class="text-xs font-bold uppercase text-slate-500">{$_('school.guardians.student')}</p>
+                                <p class="mt-1 text-xl font-black text-slate-950">{generatedLetterStudentLine()}</p>
+                              </div>
+                              <div>
+                                <p class="text-xs font-bold uppercase text-slate-500">{$_('school.guardians.guardian')}</p>
+                                <p class="mt-1 text-lg font-bold text-slate-950">{generatedGuardianDisplay()}</p>
+                              </div>
+                              <div>
+                                <p class="text-xs font-bold uppercase text-slate-500">{$_('school.guardians.expires')}</p>
+                                <p class="mt-1 font-semibold text-slate-900">{formatDate(generatedInvite.expires_at)}</p>
+                              </div>
+                            </div>
+
+                            <div class="text-center">
+                              {#if generatedInviteQr}
+                                <img src={generatedInviteQr} alt={$_('school.guardians.qrAlt')} class="mx-auto h-52 w-52" />
+                              {/if}
+                            </div>
+                          </div>
+
+                          <div class="mt-8 rounded-lg border-2 border-slate-900 p-5 text-center">
+                            <p class="text-xs font-bold uppercase text-slate-500">{$_('school.guardians.typedCode')}</p>
+                            <p class="mt-2 font-mono text-3xl font-black tracking-widest text-slate-950">{generatedInvite.code}</p>
+                            <p class="mt-3 break-all text-sm font-semibold text-slate-700">{generatedInvite.join_url}</p>
+                          </div>
+
+                          <ol class="mt-8 list-decimal space-y-2 pl-5 text-slate-800">
+                            <li>{$_('school.guardians.letterStepScan')}</li>
+                            <li>{$_('school.guardians.letterStepSignIn')}</li>
+                            <li>{$_('school.guardians.letterStepConfirm')}</li>
+                          </ol>
+
+                          <p class="mt-8 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm font-bold text-amber-900">{$_('school.guardians.shareWarning')}</p>
+                        </div>
+                      </div>
+                    </section>
                   {/if}
 
                   <div class="mt-4 grid gap-3 lg:grid-cols-2">
@@ -2938,3 +3050,48 @@
     </div>
   </section>
 {/if}
+
+<style>
+  .guardian-letter-sheet {
+    max-width: 210mm;
+    min-height: 285mm;
+  }
+
+  @media print {
+    @page {
+      size: A4;
+      margin: 12mm;
+    }
+
+    :global(header),
+    :global(footer),
+    :global(.no-print) {
+      display: none !important;
+    }
+
+    :global(body *) {
+      visibility: hidden;
+    }
+
+    .guardian-letter-print,
+    .guardian-letter-print * {
+      visibility: visible;
+    }
+
+    .guardian-letter-print {
+      position: absolute;
+      inset: 0;
+      margin: 0;
+      background: white;
+    }
+
+    .guardian-letter-sheet {
+      width: 186mm;
+      min-height: 273mm;
+      margin: 0 auto;
+      border: 0;
+      box-shadow: none;
+      padding: 0;
+    }
+  }
+</style>
