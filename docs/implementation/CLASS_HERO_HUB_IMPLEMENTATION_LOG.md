@@ -1,5 +1,90 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-09 — S11 announcements/text posts with attachments MVP
+
+Implemented the first family-facing content slice: published announcements
+with optional protected attachments. This is intentionally announcements
+only: no messaging, comments, read receipts, notifications, approval
+workflow, photo albums, or bulk media management were added.
+
+### Behaviour
+
+- School admins can create whole-school, class-section, or subject-group
+  announcements from the `/school` Announcements tab.
+- Teachers can create announcements from `/teach` only for class sections
+  or subject groups they are actively assigned to. Teachers cannot create
+  whole-school announcements.
+- Guardians see only published announcements relevant to their active
+  guardian-linked children on `/parent`. The parent dashboard loads the
+  announcement list in one request and opens full post details in a modal.
+- Announcement bodies are rendered as plain text (`white-space: pre-wrap`);
+  no inline HTML rendering was added.
+- Archived announcements are hidden from guardian list/detail endpoints.
+
+### Data and storage
+
+- Added `announcements` and `announcement_attachments` tables via migration
+  `a4b5c6d7e8f9_add_announcements.py`.
+- Attachments are stored under an app-controlled directory:
+  `/app/data/announcement_uploads` by default, overrideable with
+  `ANNOUNCEMENT_UPLOAD_DIR`.
+- The database stores only sanitized original display filename plus an
+  internal `storage_key`; absolute filesystem paths are never returned.
+- Allowed attachment extensions are `.pdf`, `.doc`, `.docx`, `.jpg`,
+  `.jpeg`, `.png`, `.webp`, and `.txt`.
+- Blocked by allow-list: executable/script/HTML/SVG/archive and unknown
+  file types, including `.exe`, `.js`, `.html`, `.svg`, and `.zip`.
+- Max attachment size is 10 MB; max attachments per announcement is 5.
+
+### Authorization model
+
+- Staff endpoints live under `/api/school/announcements` but use a dedicated
+  staff authorization path, not the existing school-admin-only router
+  dependency, so teachers can use only assigned targets.
+- School admins can manage announcements in their active school only.
+- Teachers can create/manage their own or assigned-target announcements in
+  their active school only.
+- Guardian endpoints live under `/api/guardian/announcements` and derive
+  visibility from active `guardian_links` plus current class/subject-group
+  enrolment context. A revoked guardian link loses access.
+- Attachment download endpoints always check announcement authorization
+  before returning the file and never allow unauthenticated/public access.
+- S11 creates no `GuardianInvite`, `StaffInvite`, `MagicLoginToken`, emails,
+  or notifications.
+
+### Endpoints
+
+- `GET /api/school/announcements`
+- `POST /api/school/announcements`
+- `POST /api/school/announcements/{announcement_id}/attachments`
+- `DELETE /api/school/announcements/{announcement_id}`
+- `GET /api/school/announcements/{announcement_id}/attachments/{attachment_id}/download`
+- `GET /api/guardian/announcements`
+- `GET /api/guardian/announcements/{announcement_id}`
+- `GET /api/guardian/announcements/{announcement_id}/attachments/{attachment_id}/download`
+
+### Validation so far
+
+- `docker compose run --rm --no-deps -v $(pwd)/backend:/app backend python -m pytest tests/test_announcements.py -q` → **8 passed**, 5 warnings.
+- `docker compose run --rm --no-deps -v $(pwd)/backend:/app backend python -m pytest tests -q` → **255 passed**, 10 warnings.
+- `docker compose build backend && docker compose up -d backend` → rebuilt/restarted the backend because the running service image does not mount source code.
+- `docker compose exec backend python -m pytest tests -q` → **255 passed**, 10 warnings.
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo backend alembic heads` → **a4b5c6d7e8f9 (head)**.
+- `cd frontend && npm run check` → **0 errors, 0 warnings**.
+- `cd frontend && npm run check:i18n` → **i18n parity OK: 586 keys in both en and ar**.
+- `cd frontend && npm run build` → **built OK**.
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo backend python backend/scripts/perf_check.py` → only known `/api/school/students` over 1s (**3.248s**, 502 rows); `/api/teach/dashboard` **0.062s** and no S11 endpoint is part of this perf script.
+
+### Deferred
+
+- Notifications.
+- Comments and messaging.
+- Read receipts.
+- Photo albums.
+- Approval workflow.
+- Bulk media management.
+- Bulk class letters or mass-send actions.
+
 ## 2026-07-09 — S10 follow-up: Guardian dashboard nav/routing polish
 
 The S10 dashboard worked at `/parent` but was unreachable from normal
@@ -2519,3 +2604,35 @@ Still needs to be done manually (not done by this change, per instructions):
 4. Do not commit these changes until the above manual test passes (per instruction not to commit yet).
 
 Note: During S7 dev/testing, SMTP settings were removed from `.env` and demo guardian email addresses were fake. That is only environment-level belt-and-suspenders. The actual S7 safety guarantee is code-level: student CSV import does not create guardian links, guardian invites, guardian users, notifications, magic links, or outbound email/messages.
+
+## 2026-07-10 - S11 hard-stop fixes: attachment storage persistence + teacher announcement layout
+
+### Part A — attachment storage
+
+Symptom: an attachment that used to download for a parent started returning "Attachment not found".
+
+Root cause: **not** a missing volume mount and **not** a rebuild wiping container-local storage. `docker-compose.yml` has mounted `./data:/app/data` on the `backend` service since the very first commit (`8aee3f1`), and `ANNOUNCEMENT_UPLOAD_DIR` has always defaulted to `/app/data/announcement_uploads`, i.e. inside that bind mount — uploads were already persistent across rebuilds. The files went missing because earlier QA passes on this feature ran `docker compose exec backend rm -rf /app/data/announcement_uploads` as a "clean up my test uploads" step. Since that path is bind-mounted to the host, that command deleted the real persistent files, not a throwaway container layer. The `announcement_attachments` DB rows for those uploads still exist (confirmed via `select * from announcement_attachments`), which is exactly why the symptom is "not found" rather than a 500 or missing-row error: the row resolves, `_attachment_path()` builds the expected path, and `FileResponse` 404s because `path.exists()` is false.
+
+Fix implemented:
+
+- `backend/app/main.py` — added `announcements.UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)` at app creation, so the directory is created defensively if the mount is ever fresh (new environment, first deploy, etc.) instead of relying solely on the lazy `mkdir` inside `_store_upload`.
+- `.gitignore` — added `/data/announcement_uploads/` so uploaded attachment blobs are never accidentally tracked.
+- No change to `docker-compose.yml` was needed — the bind mount was already correct.
+
+Persistent storage path: `./data/announcement_uploads/` on the host, mounted at `/app/data/announcement_uploads` in the backend container (via the existing `./data:/app/data` bind mount). Files are stored once per attachment (`storage_key` = `school-{id}/announcement-{id}/{uuid}{ext}`), not duplicated per recipient — a 500-student class still gets one file on disk regardless of guardian count, since every guardian/teacher download resolves the same `storage_key` through the protected endpoints.
+
+Recoverability: the specific attachment files deleted by the earlier `rm -rf` (test files: `test-attachment.txt`, `inbox-attachment.txt`, `teach-modal-attachment.txt`, `admin-modal-attachment.txt`, plus two files Dom uploaded directly, `48.png`/`52.png`) are **not recoverable** — they were never backed up anywhere outside that directory. Their `announcement_attachments` DB rows still exist and will 404 on download. These were all test/QA announcements; if Dom uploaded anything real through this flow expecting it to persist, it needs to be re-uploaded. Going forward, uploads are not touched by rebuilds or restarts — only an explicit `rm` against the host `./data` path would remove them again, and that should never be run as part of routine QA cleanup.
+
+### Part B — teacher announcement layout
+
+Symptom: `/teach` showed the full announcement list (with a "Create" button) permanently open above the class cards. As announcements accumulated, class cards were pushed further down the page — wrong priority for a page whose primary job is fast access to classes/rosters.
+
+Fix (Option 2 from the task, kept on the same route rather than adding `/teach/announcements`): the always-open list + create form was replaced with a single compact clickable summary card — "Announcements", a one-line count + latest title, and an "Open" button — placed above the class cards but with fixed, minimal height regardless of how many announcements exist. Clicking it opens a modal (`frontend/src/routes/teach/+page.svelte`) that now has three internal views instead of two separate modals:
+
+- **list** (default): "Create" button + the compact announcement rows (title, context, date, attachment count, Archive) — this is where the old permanently-visible list moved to.
+- **create**: the existing create form (audience/title/body/attachments), reached via the list's "Create" button, "Cancel" returns to the list.
+- **detail** (when a row is clicked): full body + attachments with download buttons + "Back" to the list.
+
+Files changed: `frontend/src/routes/teach/+page.svelte` (state consolidated from `announcementModalOpen`/separate view modal into `inboxOpen` + `inboxMode: 'list' | 'create'` + existing `viewingAnnouncement`), `frontend/src/lib/i18n/messages.ts` (added `teach.announcements.open`, `.back`, `.count`, EN+AR).
+
+`/school` was not changed in this slice — the Announcements tab was already a normal sidebar item with no global banner (fixed in the prior slice), and admin creation/archive/download continue to work as before.

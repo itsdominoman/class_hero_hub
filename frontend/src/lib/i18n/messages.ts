@@ -211,6 +211,7 @@ export const en = {
       sections: 'Sections',
       rosters: 'Classes / Rosters',
       teachers: 'Teachers',
+      announcements: 'Announcements',
       students: 'Students',
       subjects: 'Subjects',
       defaults: 'Default subjects',
@@ -313,6 +314,8 @@ export const en = {
       teacherEmailInvalid: 'Enter a valid teacher email.',
       sectionRequired: 'Select a class section.',
       subjectGroupRequired: 'Select a subject group.',
+      titleRequired: 'Title is required.',
+      bodyRequired: 'Body is required.',
       studentRequired: 'Select a student.',
       firstNameRequired: 'First name is required.',
       lastNameRequired: 'Last name is required.',
@@ -543,6 +546,34 @@ export const en = {
         skip: 'No change',
         error: 'Error'
       }
+    },
+    announcements: {
+      title: 'Announcements',
+      audience: 'Audience',
+      schoolAudience: 'Whole school',
+      classAudience: 'Class section',
+      subjectAudience: 'Subject group',
+      postTitle: 'Title',
+      body: 'Body',
+      attachments: 'Attachments',
+      publish: 'Create announcement',
+      publishing: 'Publishing',
+      published: 'Published announcements',
+      banner: 'Announcements',
+      bannerText: 'Send updates to parents — school-wide, or to a class section or subject group.',
+      bannerButton: 'Create announcement',
+      checklistShortcut: 'Need to notify parents?',
+      empty: 'No announcements yet.',
+      created: 'Announcement published',
+      archived: 'Archived',
+      archive: 'Archive',
+      saveError: 'Failed to publish announcement',
+      archiveError: 'Failed to archive announcement',
+      attachmentCount: '{count} attachments',
+      close: 'Close',
+      attachmentList: 'Attachments',
+      download: 'Download',
+      downloadError: 'Failed to download attachment'
     }
   },
   teach: {
@@ -565,6 +596,36 @@ export const en = {
     roles: {
       homeroom: 'Homeroom',
       subject: 'Subject'
+    },
+    announcements: {
+      title: 'Announcements',
+      manageTitle: 'Announcements you can manage',
+      subtitle: 'Send updates to parents',
+      noAudience: 'No classes available for announcements yet. Ask your school admin to assign you to a class or subject group.',
+      create: 'Create announcement',
+      manage: 'Manage announcements',
+      cancel: 'Cancel',
+      created: 'Announcement published',
+      open: 'Open',
+      back: 'Back',
+      count: '{count} announcements',
+      audience: 'Audience',
+      titlePlaceholder: 'Announcement title',
+      bodyPlaceholder: 'Write the announcement text',
+      publish: 'Create announcement',
+      publishing: 'Publishing',
+      archive: 'Archive',
+      empty: 'No class announcements yet.',
+      saveError: 'Failed to publish announcement',
+      archiveError: 'Failed to archive announcement',
+      classAudience: 'Class section',
+      subjectAudience: 'Subject group',
+      schoolAudience: 'Whole school',
+      attachments: '{count} attachments',
+      close: 'Close',
+      attachmentList: 'Attachments',
+      download: 'Download',
+      downloadError: 'Failed to download attachment'
     }
   },
   faq: {
@@ -639,6 +700,23 @@ export const en = {
       homework: 'Homework & diary',
       points: 'Points & behaviour',
       comingSoon: 'Coming soon'
+    },
+    announcements: {
+      empty: 'No announcements yet.',
+      schoolAudience: 'Whole school',
+      classAudience: 'Class',
+      subjectAudience: 'Subject group',
+      attachments: '{count} attachments',
+      attachmentList: 'Attachments',
+      download: 'Download',
+      close: 'Close',
+      back: 'Back',
+      open: 'Open',
+      loadError: 'Failed to open announcement',
+      unreadCount: '{count} unread',
+      allCaughtUp: 'All caught up',
+      inboxTitle: 'Announcements',
+      unreadBadge: 'Unread'
     }
   }
 };
@@ -856,6 +934,7 @@ export const ar = {
       sections: 'الشعب',
       rosters: 'الشعب / القوائم',
       teachers: 'المعلمون',
+      announcements: 'الإعلانات',
       students: 'الطلاب',
       subjects: 'المواد',
       defaults: 'المواد الافتراضية',
@@ -958,6 +1037,8 @@ export const ar = {
       teacherEmailInvalid: 'أدخل بريدا إلكترونيا صالحا للمعلم.',
       sectionRequired: 'اختر شعبة.',
       subjectGroupRequired: 'اختر مجموعة مادة.',
+      titleRequired: 'العنوان مطلوب.',
+      bodyRequired: 'النص مطلوب.',
       studentRequired: 'اختر طالبا.',
       firstNameRequired: 'الاسم الأول مطلوب.',
       lastNameRequired: 'اسم العائلة مطلوب.',
@@ -1188,6 +1269,34 @@ export const ar = {
         skip: 'بلا تغيير',
         error: 'خطأ'
       }
+    },
+    announcements: {
+      title: 'الإعلانات',
+      audience: 'الجمهور',
+      schoolAudience: 'المدرسة كلها',
+      classAudience: 'الشعبة',
+      subjectAudience: 'مجموعة المادة',
+      postTitle: 'العنوان',
+      body: 'النص',
+      attachments: 'المرفقات',
+      publish: 'إنشاء إعلان',
+      publishing: 'جار النشر',
+      published: 'الإعلانات المنشورة',
+      banner: 'الإعلانات',
+      bannerText: 'أرسل التحديثات لأولياء الأمور — على مستوى المدرسة أو لشعبة أو مجموعة مادة.',
+      bannerButton: 'إنشاء إعلان',
+      checklistShortcut: 'تحتاج لإعلام أولياء الأمور؟',
+      empty: 'لا توجد إعلانات بعد.',
+      created: 'تم نشر الإعلان',
+      archived: 'مؤرشف',
+      archive: 'أرشفة',
+      saveError: 'تعذر نشر الإعلان',
+      archiveError: 'تعذر أرشفة الإعلان',
+      attachmentCount: '{count} مرفقات',
+      close: 'إغلاق',
+      attachmentList: 'المرفقات',
+      download: 'تنزيل',
+      downloadError: 'تعذر تنزيل المرفق'
     }
   },
   teach: {
@@ -1210,6 +1319,36 @@ export const ar = {
     roles: {
       homeroom: 'صف رئيسي',
       subject: 'مادة'
+    },
+    announcements: {
+      title: 'الإعلانات',
+      manageTitle: 'الإعلانات التي يمكنك إدارتها',
+      subtitle: 'أرسل التحديثات لأولياء الأمور',
+      noAudience: 'لا توجد صفوف متاحة للإعلانات حتى الآن. اطلب من مسؤول المدرسة تكليفك بصف أو مجموعة مادة.',
+      create: 'إنشاء إعلان',
+      manage: 'إدارة الإعلانات',
+      cancel: 'إلغاء',
+      created: 'تم نشر الإعلان',
+      open: 'فتح',
+      back: 'رجوع',
+      count: '{count} إعلانات',
+      audience: 'الجمهور',
+      titlePlaceholder: 'عنوان الإعلان',
+      bodyPlaceholder: 'اكتب نص الإعلان',
+      publish: 'إنشاء إعلان',
+      publishing: 'جار النشر',
+      archive: 'أرشفة',
+      empty: 'لا توجد إعلانات للصفوف بعد.',
+      saveError: 'تعذر نشر الإعلان',
+      archiveError: 'تعذر أرشفة الإعلان',
+      classAudience: 'الشعبة',
+      subjectAudience: 'مجموعة المادة',
+      schoolAudience: 'المدرسة كلها',
+      attachments: '{count} مرفقات',
+      close: 'إغلاق',
+      attachmentList: 'المرفقات',
+      download: 'تنزيل',
+      downloadError: 'تعذر تنزيل المرفق'
     }
   },
   faq: {
@@ -1284,6 +1423,23 @@ export const ar = {
       homework: 'الواجبات واليوميات',
       points: 'النقاط والسلوك',
       comingSoon: 'قريبا'
+    },
+    announcements: {
+      empty: 'لا توجد إعلانات بعد.',
+      schoolAudience: 'المدرسة كلها',
+      classAudience: 'الشعبة',
+      subjectAudience: 'مجموعة المادة',
+      attachments: '{count} مرفقات',
+      attachmentList: 'المرفقات',
+      download: 'تنزيل',
+      close: 'إغلاق',
+      back: 'رجوع',
+      open: 'فتح',
+      loadError: 'تعذر فتح الإعلان',
+      unreadCount: '{count} غير مقروء',
+      allCaughtUp: 'لا يوجد جديد',
+      inboxTitle: 'الإعلانات',
+      unreadBadge: 'غير مقروء'
     }
   }
 };

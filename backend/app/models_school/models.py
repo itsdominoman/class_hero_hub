@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, JSON, String, UniqueConstraint, event
+from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, event
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -484,6 +484,68 @@ class GuardianLink(Base):
         ),
         CheckConstraint("status IN ('active', 'revoked')", name="ck_guardian_links_status"),
         Index("ix_guardian_links_school_user", "school_id", "user_id"),
+    )
+
+
+class Announcement(Base):
+    __tablename__ = "announcements"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    author_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    title = Column(String, nullable=False)
+    body = Column(Text, nullable=False)
+    audience_type = Column(String, nullable=False)
+    class_section_id = Column(Integer, ForeignKey("class_sections.id"), nullable=True, index=True)
+    subject_group_id = Column(Integer, ForeignKey("subject_groups.id"), nullable=True, index=True)
+    status = Column(String, nullable=False, default="published", server_default="published")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        CheckConstraint("audience_type IN ('school', 'class_section', 'subject_group')", name="ck_announcements_audience_type"),
+        CheckConstraint("status IN ('published', 'archived')", name="ck_announcements_status"),
+        CheckConstraint(
+            "(audience_type = 'school' AND class_section_id IS NULL AND subject_group_id IS NULL) OR "
+            "(audience_type = 'class_section' AND class_section_id IS NOT NULL AND subject_group_id IS NULL) OR "
+            "(audience_type = 'subject_group' AND class_section_id IS NULL AND subject_group_id IS NOT NULL)",
+            name="ck_announcements_audience_target",
+        ),
+        Index("ix_announcements_school_status_created", "school_id", "status", "created_at"),
+    )
+
+
+class AnnouncementAttachment(Base):
+    __tablename__ = "announcement_attachments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("announcements.id"), nullable=False, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    uploaded_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    original_filename = Column(String, nullable=False)
+    storage_key = Column(String, nullable=False, unique=True, index=True)
+    content_type = Column(String, nullable=False)
+    size_bytes = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_announcement_attachments_post_school", "post_id", "school_id"),
+    )
+
+
+class AnnouncementRead(Base):
+    __tablename__ = "announcement_reads"
+
+    id = Column(Integer, primary_key=True, index=True)
+    announcement_id = Column(Integer, ForeignKey("announcements.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    read_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("announcement_id", "user_id", name="uq_announcement_reads_announcement_user"),
+        Index("ix_announcement_reads_user_announcement", "user_id", "announcement_id"),
     )
 
 

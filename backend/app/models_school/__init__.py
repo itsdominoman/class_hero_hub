@@ -1,5 +1,8 @@
 from .models import (
     AcademicYear,
+    Announcement,
+    AnnouncementAttachment,
+    AnnouncementRead,
     AuditLog,
     BranchCampus,
     ClassSection,
@@ -26,6 +29,9 @@ from .models import (
 
 __all__ = [
     "AcademicYear",
+    "Announcement",
+    "AnnouncementAttachment",
+    "AnnouncementRead",
     "AuditLog",
     "BranchCampus",
     "ClassSection",

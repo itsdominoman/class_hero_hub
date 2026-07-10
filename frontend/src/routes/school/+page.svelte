@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
   import CrudBlock from '$lib/components/school/CrudBlock.svelte';
@@ -250,6 +250,27 @@
     failed: number;
     results: TemplatePlanRow[];
   };
+  type AnnouncementAttachment = {
+    id: number;
+    original_filename: string;
+    content_type: string;
+    size_bytes: number;
+  };
+  type Announcement = {
+    id: number;
+    school_id: number;
+    title: string;
+    body: string;
+    audience_type: 'school' | 'class_section' | 'subject_group';
+    class_section_id?: number | null;
+    class_section_name?: string | null;
+    subject_group_id?: number | null;
+    subject_group_name?: string | null;
+    created_at?: string | null;
+    attachment_count: number;
+    attachments: AnnouncementAttachment[];
+    status: 'published' | 'archived';
+  };
 
   const tabs = [
     { key: 'checklist', label: 'school.tabs.checklist' },
@@ -261,6 +282,7 @@
     { key: 'sections', label: 'school.tabs.sections' },
     { key: 'rosters', label: 'school.tabs.rosters' },
     { key: 'teachers', label: 'school.tabs.teachers' },
+    { key: 'announcements', label: 'school.tabs.announcements' },
     { key: 'students', label: 'school.tabs.students' },
     { key: 'subjects', label: 'school.tabs.subjects' },
     { key: 'defaults', label: 'school.tabs.defaults' },
@@ -353,6 +375,11 @@
   let templateApplyResult = $state<TemplateApplyResult | null>(null);
   let templatePreviewLoading = $state(false);
   let templateApplyLoading = $state(false);
+  let announcements = $state<Announcement[]>([]);
+  let announcementForm = $state({ title: '', body: '', audience_type: 'school' as 'school' | 'class_section' | 'subject_group', class_section_id: '', subject_group_id: '' });
+  let announcementFiles = $state<FileList | null>(null);
+  let announcementSaving = $state(false);
+  let viewingAnnouncement = $state<Announcement | null>(null);
 
   function baseForm(code = '', name = '') {
     return { code, name, name_ar: '', sort_order: 0, status: 'active' };
@@ -483,7 +510,7 @@
   async function loadAll() {
     if (!schoolId) return;
     const options = schoolOptions();
-    const [settings, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData, templateRows] = await Promise.all([
+    const [settings, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData, templateRows, announcementData] = await Promise.all([
       api.get('/school/settings', options),
       api.get('/school/setup-checklist', options),
       api.get('/school/branches', options),
@@ -494,7 +521,8 @@
       api.get('/school/subjects', options),
       api.get('/school/subject-groups', options),
       api.get('/school/teachers', options),
-      api.get('/school/default-subject-templates', options)
+      api.get('/school/default-subject-templates', options),
+      api.get('/school/announcements', options)
     ]);
     // Students is the heaviest dataset (subject-group roster derivation over every
     // student). Skip it on initial/background loads and only fetch it once the
@@ -514,6 +542,7 @@
     subjects = subjectRows;
     groups = groupRows;
     templates = templateRows;
+    announcements = announcementData?.announcements || [];
     teachers = teacherData.teachers || [];
     pendingTeacherInvites = teacherData.pending_invites || [];
     // SelectInput's value prop has a fallback, so binding an undefined record
@@ -709,6 +738,12 @@
     editingId = null;
     notice = null;
     clearValidation();
+  }
+
+  async function openAnnouncements() {
+    selectTab('announcements');
+    await tick();
+    document.getElementById('announcements-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function selectTab(key: string) {
@@ -1778,6 +1813,101 @@
     return students.find((student) => student.id === selectedStudentId) || null;
   }
 
+  function announcementPayload() {
+    return {
+      title: announcementForm.title,
+      body: announcementForm.body,
+      audience_type: announcementForm.audience_type,
+      class_section_id: announcementForm.audience_type === 'class_section' ? Number(announcementForm.class_section_id) : null,
+      subject_group_id: announcementForm.audience_type === 'subject_group' ? Number(announcementForm.subject_group_id) : null
+    };
+  }
+
+  function announcementContext(announcement: Announcement) {
+    if (announcement.audience_type === 'class_section') return announcement.class_section_name || rowName(sections, announcement.class_section_id);
+    if (announcement.audience_type === 'subject_group') return announcement.subject_group_name || rowName(groups, announcement.subject_group_id);
+    return $_('school.announcements.schoolAudience');
+  }
+
+  function handleAnnouncementFiles(event: Event) {
+    announcementFiles = (event.target as HTMLInputElement).files;
+  }
+
+  async function publishAnnouncement() {
+    if (!schoolId) return;
+    const errors: Record<string, string> = {};
+    if (!announcementForm.title.trim()) errors.title = $_('school.validation.titleRequired');
+    if (!announcementForm.body.trim()) errors.body = $_('school.validation.bodyRequired');
+    if (announcementForm.audience_type === 'class_section' && !announcementForm.class_section_id) errors.class_section_id = $_('school.validation.sectionRequired');
+    if (announcementForm.audience_type === 'subject_group' && !announcementForm.subject_group_id) errors.subject_group_id = $_('school.validation.subjectGroupRequired');
+    if (Object.keys(errors).length) {
+      setValidationErrors('announcements', errors);
+      return;
+    }
+    announcementSaving = true;
+    error = null;
+    notice = null;
+    clearValidation();
+    try {
+      const created = await api.post('/school/announcements', announcementPayload(), schoolOptions());
+      for (const file of Array.from(announcementFiles || [])) {
+        const formData = new FormData();
+        formData.append('file', file);
+        await api.upload(`/school/announcements/${created.id}/attachments`, formData, schoolOptions());
+      }
+      announcementForm = { title: '', body: '', audience_type: 'school', class_section_id: '', subject_group_id: '' };
+      announcementFiles = null;
+      notice = $_('school.announcements.created');
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.announcements.saveError');
+    } finally {
+      announcementSaving = false;
+    }
+  }
+
+  async function archiveAnnouncement(announcement: Announcement) {
+    if (!schoolId) return;
+    announcementSaving = true;
+    error = null;
+    try {
+      await api.delete(`/school/announcements/${announcement.id}`, schoolOptions());
+      notice = $_('school.announcements.archived');
+      await refresh();
+    } catch (err: any) {
+      error = err?.message || $_('school.announcements.archiveError');
+    } finally {
+      announcementSaving = false;
+    }
+  }
+
+  function viewAnnouncement(announcement: Announcement) {
+    viewingAnnouncement = announcement;
+  }
+
+  function closeAnnouncementView() {
+    viewingAnnouncement = null;
+  }
+
+  function attachmentLabel(attachment: AnnouncementAttachment) {
+    const sizeKb = Math.max(1, Math.round((attachment.size_bytes || 0) / 1024));
+    return `${attachment.original_filename} · ${sizeKb} KB`;
+  }
+
+  async function downloadAnnouncementAttachment(announcement: Announcement, attachment: AnnouncementAttachment) {
+    try {
+      const blob = await api.download(`/school/announcements/${announcement.id}/attachments/${attachment.id}/download`, schoolOptions());
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = attachment.original_filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      error = err?.message || $_('school.announcements.downloadError');
+    }
+  }
+
   function studentFilterActive() {
     return Boolean(studentSearch.trim() || studentSectionFilter);
   }
@@ -1933,6 +2063,10 @@
 
       <div class="min-w-0">
         {#if activeTab === 'checklist'}
+          <button type="button" class="mb-4 flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left text-sm hover:bg-slate-50" onclick={openAnnouncements}>
+            <span class="font-semibold text-slate-700">{$_('school.announcements.checklistShortcut')}</span>
+            <span class="font-bold text-violet-700">{$_('school.announcements.bannerButton')} →</span>
+          </button>
           <div class="grid gap-3 sm:grid-cols-2">
             {#each checklist as item}
               <div class="rounded-lg border border-slate-200 bg-white p-4">
@@ -2315,6 +2449,76 @@
                           </div>
                         {/if}
                       </div>
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          </div>
+        {:else if activeTab === 'announcements'}
+          <div class="space-y-5" id="announcements-panel">
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h2 class="text-lg font-black text-slate-900">{$_('school.announcements.title')}</h2>
+              <p class="mt-1 text-sm text-slate-600">{$_('school.announcements.bannerText')}</p>
+              <form class="mt-4 grid gap-3" onsubmit={(event) => { event.preventDefault(); publishAnnouncement(); }}>
+                <div class="grid gap-3 lg:grid-cols-3">
+                  <label class="block text-sm font-semibold text-slate-700">
+                    {$_('school.announcements.audience')}
+                    <select class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-normal" bind:value={announcementForm.audience_type}>
+                      <option value="school">{$_('school.announcements.schoolAudience')}</option>
+                      <option value="class_section">{$_('school.announcements.classAudience')}</option>
+                      <option value="subject_group">{$_('school.announcements.subjectAudience')}</option>
+                    </select>
+                  </label>
+                  {#if announcementForm.audience_type === 'class_section'}
+                    <SelectInput label={$_('school.sections.single')} bind:value={announcementForm.class_section_id} rows={sections} optional error={fieldError('announcements', 'class_section_id')} />
+                  {:else if announcementForm.audience_type === 'subject_group'}
+                    <SelectInput label={$_('school.groups.title')} bind:value={announcementForm.subject_group_id} rows={groups} optional error={fieldError('announcements', 'subject_group_id')} />
+                  {/if}
+                </div>
+                <label class="block text-sm font-semibold text-slate-700">
+                  {$_('school.announcements.postTitle')}
+                  <input class={`mt-1 w-full rounded-lg border px-3 py-2 font-normal ${fieldError('announcements', 'title') ? 'border-red-400 bg-red-50' : 'border-slate-200'}`} maxlength="160" bind:value={announcementForm.title} />
+                  {#if fieldError('announcements', 'title')}
+                    <span class="mt-1 block text-xs font-semibold text-red-600">{fieldError('announcements', 'title')}</span>
+                  {/if}
+                </label>
+                <label class="block text-sm font-semibold text-slate-700">
+                  {$_('school.announcements.body')}
+                  <textarea class={`mt-1 min-h-36 w-full rounded-lg border px-3 py-2 font-normal ${fieldError('announcements', 'body') ? 'border-red-400 bg-red-50' : 'border-slate-200'}`} maxlength="10000" bind:value={announcementForm.body}></textarea>
+                  {#if fieldError('announcements', 'body')}
+                    <span class="mt-1 block text-xs font-semibold text-red-600">{fieldError('announcements', 'body')}</span>
+                  {/if}
+                </label>
+                <label class="block text-sm font-semibold text-slate-700">
+                  {$_('school.announcements.attachments')}
+                  <input class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal" type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.txt,application/pdf,image/jpeg,image/png,image/webp,text/plain" onchange={handleAnnouncementFiles} />
+                </label>
+                <div>
+                  <button type="submit" class="btn-hero rounded-lg px-4 py-2" disabled={announcementSaving}>{announcementSaving ? $_('school.announcements.publishing') : $_('school.announcements.publish')}</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h3 class="text-base font-black text-slate-900">{$_('school.announcements.published')}</h3>
+              {#if announcements.length === 0}
+                <p class="mt-3 text-sm text-slate-500">{$_('school.announcements.empty')}</p>
+              {:else}
+                <div class="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-100">
+                  {#each announcements as announcement}
+                    <div class="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+                      <button type="button" class="min-w-0 flex-1 text-left" onclick={() => viewAnnouncement(announcement)}>
+                        <p class="truncate font-black text-slate-900">{announcement.title}</p>
+                        <p class="mt-1 text-sm text-slate-500">
+                          {announcementContext(announcement)} · {formatDate(announcement.created_at)} · {$_('school.announcements.attachmentCount', { values: { count: announcement.attachment_count } })}
+                        </p>
+                      </button>
+                      {#if announcement.status === 'published'}
+                        <button type="button" class="btn-secondary shrink-0 rounded-lg px-3 py-2 text-sm" disabled={announcementSaving} onclick={() => archiveAnnouncement(announcement)}>{$_('school.announcements.archive')}</button>
+                      {:else}
+                        <span class="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">{$_('school.announcements.archived')}</span>
+                      {/if}
                     </div>
                   {/each}
                 </div>
@@ -3049,6 +3253,39 @@
       </div>
     </div>
   </section>
+{/if}
+
+{#if viewingAnnouncement}
+  <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="view-announcement-title">
+    <div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-lg bg-white p-5 shadow-xl sm:rounded-lg sm:p-6">
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <p class="text-xs font-bold uppercase tracking-wide text-slate-500">{announcementContext(viewingAnnouncement)}</p>
+          <h2 id="view-announcement-title" class="mt-2 text-2xl font-black text-slate-900">{viewingAnnouncement.title}</h2>
+          <p class="mt-2 text-sm text-slate-500">{formatDate(viewingAnnouncement.created_at)}</p>
+        </div>
+        <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600" onclick={closeAnnouncementView}>{$_('school.announcements.close')}</button>
+      </div>
+
+      <div class="mt-6 whitespace-pre-wrap text-base leading-relaxed text-slate-700">{viewingAnnouncement.body}</div>
+
+      {#if viewingAnnouncement.attachments?.length}
+        <div class="mt-6">
+          <h3 class="text-sm font-black uppercase tracking-wide text-slate-500">{$_('school.announcements.attachmentList')}</h3>
+          <div class="mt-3 divide-y divide-slate-100 rounded-lg border border-slate-100">
+            {#each viewingAnnouncement.attachments as attachment}
+              <div class="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+                <p class="break-all text-sm font-semibold text-slate-800">{attachmentLabel(attachment)}</p>
+                <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-center text-sm" onclick={() => viewingAnnouncement && downloadAnnouncementAttachment(viewingAnnouncement, attachment)}>
+                  {$_('school.announcements.download')}
+                </button>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+    </div>
+  </div>
 {/if}
 
 <style>
