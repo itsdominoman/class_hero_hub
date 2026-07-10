@@ -39,6 +39,7 @@ def student_payload(row: Student) -> dict[str, Any]:
         "name_ar": row.name_ar,
         "date_of_birth": row.date_of_birth,
         "gender": row.gender,
+        "avatar_id": row.avatar_id,
         "status": row.status,
         "created_at": row.created_at,
         "updated_at": row.updated_at,

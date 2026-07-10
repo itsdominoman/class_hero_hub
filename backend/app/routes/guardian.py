@@ -9,6 +9,7 @@ from .. import auth
 from ..database import get_db
 from ..models_school import ClassSection, Enrolment, GradeLevel, GuardianLink, School, Student, User
 from ..school_scope import open_interval_expression
+from ..student_avatars import avatar_urls, ensure_student_avatars
 
 router = APIRouter()
 
@@ -54,6 +55,7 @@ def guardian_dashboard(
     )
 
     student_ids = {link.student_id for link in links}
+    avatar_ids_by_student = ensure_student_avatars(db, student_ids)
     students_by_id = (
         {student.id: student for student in db.query(Student).filter(Student.id.in_(student_ids)).all()}
         if student_ids
@@ -99,6 +101,7 @@ def guardian_dashboard(
                 "last_name": student.last_name,
                 "display_name": display_name,
                 "initials": initials_from_name(student.first_name, student.last_name),
+                **avatar_urls(avatar_ids_by_student.get(student.id)),
                 "school_id": student.school_id,
                 "school_name": school.name if school else None,
                 "class_section_name": class_section.name if class_section else None,

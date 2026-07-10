@@ -10,6 +10,7 @@ from ..database import get_db
 from ..models_school import AcademicYear, BranchCampus, ClassSection, GradeLevel, Membership, School, StaffAssignment, Subject, SubjectGroup, User
 from ..rosters import roster_payload
 from ..school_scope import open_interval_expression, require_teacher_of
+from ..student_avatars import avatar_urls, ensure_student_avatars
 
 router = APIRouter()
 
@@ -138,6 +139,76 @@ def teacher_dashboard(
         assignments_with_school.extend((assignment, school) for assignment in assignments)
 
     return {"assignments": _assignment_cards(db, assignments_with_school)}
+
+
+def _classroom_student_payload(row: dict[str, Any], avatar_id: int | None) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "first_name": row["first_name"],
+        "last_name": row["last_name"],
+        "preferred_name": row["preferred_name"],
+        "display_name": row["display_name"],
+        "name_ar": row["name_ar"],
+        **avatar_urls(avatar_id),
+    }
+
+
+@router.get("/assignments/{assignment_id}")
+def teacher_class_detail(
+    assignment_id: int,
+    current_user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    today = invite_tokens.now_utc().date()
+    assignment_access = (
+        db.query(StaffAssignment, Membership, School)
+        .join(Membership, Membership.id == StaffAssignment.membership_id)
+        .join(School, School.id == StaffAssignment.school_id)
+        .filter(
+            StaffAssignment.id == assignment_id,
+            Membership.user_id == current_user.id,
+            Membership.role == "teacher",
+            Membership.status == "active",
+            Membership.revoked_at.is_(None),
+            Membership.school_id == StaffAssignment.school_id,
+            School.status != "suspended",
+            *open_interval_expression(StaffAssignment, today),
+        )
+        .first()
+    )
+    if not assignment_access:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Active teacher assignment required")
+
+    assignment, _membership, school = assignment_access
+    cards = _assignment_cards(db, [(assignment, school)])
+    card = cards[0]
+    roster = _roster_payload(
+        db,
+        school.id,
+        class_section_id=assignment.class_section_id,
+        subject_group_id=assignment.subject_group_id,
+    )
+    student_ids = [row["id"] for row in roster["students"]]
+    avatar_ids = ensure_student_avatars(db, student_ids)
+
+    # The response is deliberately allow-listed for the classroom screen:
+    # no guardian, contact, enrolment, import, invite, code, or token fields.
+    return {
+        "assignment": {
+            "id": card["id"],
+            "role": card["role"],
+            "target_type": card["target_type"],
+            "school": {"id": school.id, "name": school.name, "name_ar": school.name_ar},
+            "class_section": ({"id": card["class_section"]["id"], "name": card["class_section"]["name"], "name_ar": card["class_section"]["name_ar"]} if card["class_section"] else None),
+            "subject_group": ({"id": card["subject_group"]["id"], "name": card["subject_group"]["name"], "name_ar": card["subject_group"]["name_ar"]} if card["subject_group"] else None),
+            "subject": ({"id": card["subject"]["id"], "name": card["subject"]["name"], "name_ar": card["subject"]["name_ar"]} if card["subject"] else None),
+            "branch": ({"id": card["branch"]["id"], "name": card["branch"]["name"], "name_ar": card["branch"]["name_ar"]} if card["branch"] else None),
+            "academic_year": ({"id": card["academic_year"]["id"], "name": card["academic_year"]["name"], "name_ar": card["academic_year"]["name_ar"]} if card["academic_year"] else None),
+            "grade_level": ({"id": card["grade_level"]["id"], "name": card["grade_level"]["name"], "name_ar": card["grade_level"]["name_ar"]} if card["grade_level"] else None),
+        },
+        "student_count": len(roster["students"]),
+        "students": [_classroom_student_payload(row, avatar_ids.get(row["id"])) for row in roster["students"]],
+    }
 
 
 @router.get(

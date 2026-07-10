@@ -188,6 +188,9 @@ def test_guardian_with_one_active_link_sees_only_that_child(db, client, world):
     assert child["last_name"] == "Ahmed"
     assert child["display_name"] == "Sara Ahmed"
     assert child["initials"] == "SA"
+    assert child["avatar_id"] in {*range(31, 74), *range(75, 91)}
+    assert child["avatar_url_128"] == f"/avatars/128/{child['avatar_id']}-128.webp"
+    assert child["avatar_url_256"] == f"/avatars/256/{child['avatar_id']}-256.webp"
     assert child["school_name"] == "Alpha Academy"
     assert child["class_section_name"] == "KG 1 A"
     assert child["grade_level_name"] == "KG 1"
@@ -267,6 +270,9 @@ def test_response_includes_expected_fields_and_no_invite_details(db, client, wor
         "last_name",
         "display_name",
         "initials",
+        "avatar_id",
+        "avatar_url_128",
+        "avatar_url_256",
         "school_id",
         "school_name",
         "class_section_name",

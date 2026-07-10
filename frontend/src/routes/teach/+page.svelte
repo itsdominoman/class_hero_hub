@@ -2,7 +2,6 @@
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
-  import { rosterPathForAssignment } from '$lib/teachRoster.js';
 
   type AssignmentCard = {
     id: number;
@@ -17,15 +16,6 @@
     subject?: { name?: string | null } | null;
     valid_from: string;
   };
-  type RosterStudent = {
-    id: number;
-    display_name: string;
-    first_name: string;
-    last_name: string;
-    preferred_name?: string | null;
-    name_ar?: string | null;
-  };
-  type Roster = { students: RosterStudent[] };
   type AnnouncementAttachment = {
     id: number;
     original_filename: string;
@@ -50,9 +40,6 @@
   let allowed = $state(false);
   let error = $state<string | null>(null);
   let assignments = $state<AssignmentCard[]>([]);
-  let openRosterId = $state<number | null>(null);
-  let rosterLoading = $state(false);
-  let rosters = $state<Record<number, Roster>>({});
   let announcements = $state<Announcement[]>([]);
   let announcementTitle = $state('');
   let announcementBody = $state('');
@@ -227,26 +214,6 @@
     }
   }
 
-  async function toggleRoster(card: AssignmentCard) {
-    if (openRosterId === card.id) {
-      openRosterId = null;
-      return;
-    }
-    openRosterId = card.id;
-    if (rosters[card.id]) return;
-    rosterLoading = true;
-    error = null;
-    try {
-      const path = rosterPathForAssignment(card);
-      if (!path) throw new Error($_('teach.rosterLoadError'));
-      rosters = { ...rosters, [card.id]: await api.get(path) };
-    } catch (err: any) {
-      error = err?.message || $_('teach.rosterLoadError');
-    } finally {
-      rosterLoading = false;
-    }
-  }
-
   onMount(async () => {
     try {
       const me = await api.get('/me/v2');
@@ -330,29 +297,9 @@
               <p class="mt-3 text-sm font-medium text-slate-600">{detailsFor(card)}</p>
             {/if}
             <p class="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('teach.activeFrom')} {card.valid_from}</p>
-            <button type="button" class="btn-secondary mt-4 rounded-lg px-3 py-2 text-sm" onclick={() => toggleRoster(card)}>
-              {openRosterId === card.id ? $_('teach.hideRoster') : $_('teach.viewRoster')}
-            </button>
-            {#if openRosterId === card.id}
-              <div class="mt-4 rounded-lg border border-slate-100 bg-slate-50 p-3">
-                {#if rosterLoading && !rosters[card.id]}
-                  <p class="text-sm text-slate-500">{$_('common.loading')}</p>
-                {:else if !rosters[card.id] || rosters[card.id].students.length === 0}
-                  <p class="text-sm text-slate-500">{card.subject_group ? $_('teach.emptySubjectRoster') : $_('teach.emptyRoster')}</p>
-                {:else}
-                  <div class="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
-                    {#each rosters[card.id].students as student}
-                      <div class="p-3">
-                        <p class="font-semibold text-slate-900">{student.display_name}</p>
-                        {#if student.name_ar}
-                          <p class="mt-1 text-sm text-slate-500">{student.name_ar}</p>
-                        {/if}
-                      </div>
-                    {/each}
-                  </div>
-                {/if}
-              </div>
-            {/if}
+            <a class="btn-hero mt-5 inline-flex rounded-lg px-4 py-2 text-sm" href={`/teach/assignments/${card.id}`}>
+              {$_('teach.openClass')}
+            </a>
           </article>
         {/each}
       </div>

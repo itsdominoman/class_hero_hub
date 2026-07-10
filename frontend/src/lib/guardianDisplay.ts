@@ -11,9 +11,8 @@ export function guardianDisplayName(source: GuardianDisplaySource, fallback: str
   return [primary, source.relationship].filter(Boolean).join(' · ');
 }
 
-// TODO(S10+): initials are a placeholder avatar. Replace with the real
-// non-human hero avatar system when it lands; keep this the single place
-// student avatar initials are derived so the swap only touches one file.
+// Initials remain the safe fallback when an assigned avatar is missing or
+// its static asset cannot be loaded.
 export function initialsFromStudentName(student: { first_name?: string | null; last_name?: string | null }): string {
   const parts = [student.first_name, student.last_name].filter(Boolean).map((part) => (part as string)[0]);
   return (parts.join('').toUpperCase() || '?').slice(0, 2);

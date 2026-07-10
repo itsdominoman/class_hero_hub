@@ -1,5 +1,154 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-10 — S12: Teacher Class Detail + Student Avatar Foundation
+
+Implemented the first real teacher classroom screen and stable student avatar
+foundation. The visual hierarchy takes inspiration from the student-first
+ClassDojo classroom pattern (prominent class identity, compact top actions,
+and an evenly spaced avatar grid) while retaining Class Hero Hub branding and
+scope. No behaviour workflow or ClassDojo artwork was copied.
+
+### Teacher class behaviour and route choice
+
+- `/teach` retains clean assignment cards, but the former expandable **View
+  roster** control is replaced by a primary **Open class** link.
+- The dedicated frontend route is `/teach/assignments/{assignment_id}`. An
+  assignment-keyed route was chosen over a `{target_type}/{target_id}` route:
+  it has no class-section/subject-group route-order ambiguity and binds the
+  page directly to the teacher's active assignment.
+- The class page shows school and class/subject-group identity, assignment
+  type, branch, academic year, grade, student count, and a top **Back to
+  classes** control.
+- Compact top panels expose the intended class tools. Award points, updates /
+  photos, and homework / diary are disabled and labelled **Coming soon**.
+  Announcements point back to the already-implemented controls on My classes.
+- The student grid is responsive (six columns at wide desktop, two at 390px),
+  uses fixed image dimensions, and falls back to initials if an image is
+  absent or fails to load. No guardian/contact/invite/debug data is rendered.
+- The existing guardian dashboard now displays the same real assigned avatar
+  at 128px, retaining initials as its failure fallback.
+
+### Backend, authorization, and endpoint
+
+- Added `GET /api/teach/assignments/{assignment_id}`.
+- The query requires an authenticated user and joins the requested
+  `StaffAssignment` to that user's active `Membership(role="teacher")` and
+  a non-suspended school. It also applies the existing open-date interval.
+  A school-admin role held by the same user does not weaken this teacher
+  route; unassigned, closed, cross-teacher, and cross-school assignment IDs
+  return 403.
+- Existing `roster_payload` logic remains the source of section and subject-
+  group membership, including default subject-group enrolment policies.
+- The response is an explicit classroom allow-list: assignment/class labels,
+  count, student names, and avatar fields only. It contains no guardian
+  contacts, email/phone data, external references, DOB/gender, enrolment
+  internals, invite/code/token/hash fields, or students outside the roster.
+- Avatar work is batched: one `Student.id IN (...)` query and one transaction
+  commit for a missing-avatar batch, never one query/request per student.
+
+### Migration and avatar assignment strategy
+
+- Migration `c4d5e6f7a8b9_add_student_avatars.py` adds nullable
+  `students.avatar_id` with a database check constraint allowing only 31–90
+  except 74. Production was upgraded from `b0151a8e2f3d` to the new head.
+- `backend/app/student_avatars.py` is the reusable assignment/URL service.
+  Explicit valid pools are boys **31–60** and girls **61–73, 75–90**;
+  avatar 74 is not present in any pool.
+- `male` uses the boy pool and `female` uses the girl pool. `other`,
+  `unspecified`, null, and any future unknown value use the combined valid
+  pool. This is the documented unknown-gender fallback.
+- Missing students receive a random unused avatar from the appropriate pool
+  within the roster being processed. Repeats begin only after the appropriate
+  pool is exhausted. The value is persisted immediately and never
+  recalculated on later loads.
+- Existing persisted assignments always win. This makes a student's identity
+  stable across refreshes and class moves. The deliberate compromise is that
+  a student first assigned in another roster may collide with an already-
+  assigned student after a later class move; S12 does not reshuffle either
+  child to restore perfect class uniqueness.
+- Imports continue to leave `avatar_id` null; the first teacher classroom or
+  guardian dashboard display safely fills it. No import notification/send
+  behaviour changed.
+
+### Runtime asset and resolution strategy
+
+- Runtime files are served only from `/avatars/128/`, `/avatars/256/`, and
+  `/avatars/512/`; `transparent-master` is not referenced by runtime UI.
+- Classroom student cards use
+  `/avatars/256/{avatar_id}-256.webp`; compact guardian cards use
+  `/avatars/128/{avatar_id}-128.webp`. S12 has no view large enough to justify
+  512px assets.
+- Both sizes use explicit `width`/`height`, `loading="lazy"`, and an initials
+  layer underneath the image so a failed request never leaves a broken-image
+  icon.
+
+### Tests and checks
+
+- Focused backend validation after the final test correction:
+  `tests/test_guardian_dashboard.py tests/test_students_enrolments.py` →
+  **39 passed**, 5 warnings. Earlier combined coverage including student
+  imports was **74 passed**, 8 warnings.
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo/backend backend python -m pytest tests -q`
+  → **265 passed**, 10 warnings.
+- `docker compose exec backend python -m pytest tests -q` against the final
+  rebuilt backend image → **265 passed**, 10 warnings.
+- New tests cover section detail, subject-group detail, exact roster scope,
+  unassigned/closed/cross-school denial, allow-listed no-leak response,
+  lazy assignment, male/female/unknown pools, exclusion of 74, uniqueness
+  while IDs remain available, refresh stability, generated 128/256 URLs,
+  guardian reuse, and explicit continued student-import success.
+- `cd frontend && npm run check` → **0 errors, 0 warnings**.
+- `cd frontend && npm run check:i18n` → **i18n parity OK: 628 keys in both en and ar**.
+- `cd frontend && npm run build` → **built successfully**.
+- `docker compose build backend frontend` +
+  `docker compose up -d backend frontend` → both services rebuilt/restarted;
+  the backend was rebuilt once more after the final test-only correction.
+- Alembic source and production current revision both report single head
+  `c4d5e6f7a8b9`.
+- `docker compose run --rm --no-deps -v $(pwd):/repo -w /repo backend python backend/scripts/perf_check.py`
+  → `/api/teach/dashboard` **0.120s**; only the known pre-existing
+  `/api/school/students` endpoint exceeded 1s (**4.678s**, 502 rows).
+
+### Deployed QA (`https://class.familyherohub.com`)
+
+- Authenticated browser QA used the existing real demo teacher
+  `domteacher@myeduzone.org`; `/teach` found **5** visible **Open class**
+  links and no old expandable roster controls.
+- Opened assignment 2, **KG 1 A English**: the real detail route loaded with
+  United International School, subject assignment, Al Khoud, 2026/27, KG 1,
+  and **14** roster students. All 14 cards loaded real 256px avatar assets and
+  all 14 IDs were unique in that roster.
+- Refresh returned the exact same `{student_id, avatar_id}` map. Across the
+  production rows assigned during QA: 29 male and 35 female students had zero
+  range violations; 3 unknown-gender students used the combined fallback;
+  no row used 74.
+- A guessed active assignment belonging to another teacher returned **403**.
+  `/avatars/256/31-256.webp` returned **200** (18,996 bytes) and the missing
+  `/avatars/256/74-256.webp` returned **404**.
+- Browser automation reported **zero console errors**, no desktop horizontal
+  overflow, and no horizontal overflow at **390×844** mobile width.
+- Regression HTTP checks returned 200 for `/school`, `/parent`, and `/teach`.
+- Saved and visually inspected QA evidence:
+  - `docs/implementation/qa/s12/teach-main-desktop.png`
+  - `docs/implementation/qa/s12/class-detail-desktop.png`
+  - `docs/implementation/qa/s12/class-detail-mobile.png`
+  - `docs/implementation/qa/s12/student-avatar-card.png`
+- A forced broken-image screenshot was not produced because production has no
+  invalid assigned avatar URL; the fallback path is implemented as an
+  always-present initials layer with the `<img>` removed on `onerror`.
+
+### Deferred / known gaps
+
+- Avatar customisation UI and avatar history/inventory.
+- Behaviour points and any award workflow.
+- Homework / diary.
+- Photos / class updates and other media workflows.
+- Messaging.
+- No uniqueness constraint is imposed across a class because avatar identity
+  is student-stable and students can move or share multiple subject rosters;
+  assignment-time uniqueness is best-effort as documented above.
+- Changes are intentionally **not committed** pending Dom's testing.
+
 ## 2026-07-09 — S11 announcements/text posts with attachments MVP
 
 Implemented the first family-facing content slice: published announcements

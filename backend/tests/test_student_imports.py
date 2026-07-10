@@ -371,6 +371,7 @@ def test_import_creates_new_students_and_section_enrolments(client, import_world
 
     student = db.query(Student).filter(Student.school_id == world["alpha"].id, Student.external_ref == "S-060").first()
     assert student is not None
+    assert student.avatar_id is None  # assigned lazily on first classroom/guardian display
     enrolment = db.query(Enrolment).filter(Enrolment.student_id == student.id, Enrolment.class_section_id == world["section_a"].id).first()
     assert enrolment is not None
     assert enrolment.valid_to is None

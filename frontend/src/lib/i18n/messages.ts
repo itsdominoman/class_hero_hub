@@ -588,6 +588,7 @@ export const en = {
     homeroom: 'Homeroom class',
     subject: 'Subject group',
     activeFrom: 'Active from',
+    openClass: 'Open class',
     viewRoster: 'View roster',
     hideRoster: 'Hide roster',
     emptyRoster: 'No students on this roster yet.',
@@ -596,6 +597,23 @@ export const en = {
     roles: {
       homeroom: 'Homeroom',
       subject: 'Subject'
+    },
+    classDetail: {
+      title: 'Classroom | Class Hero Hub',
+      back: 'Back to classes',
+      loadError: 'Failed to load this class',
+      unavailable: 'Class unavailable',
+      studentCount: '{count} students',
+      rosterEyebrow: 'Your classroom',
+      students: 'Students',
+      comingSoon: 'Coming soon',
+      availableFromClasses: 'Available from My classes',
+      actions: {
+        points: 'Award points',
+        updates: 'Updates & photos',
+        homework: 'Homework & diary',
+        announcements: 'Announcements'
+      }
     },
     announcements: {
       title: 'Announcements',
@@ -1311,6 +1329,7 @@ export const ar = {
     homeroom: 'الصف الرئيسي',
     subject: 'مجموعة المادة',
     activeFrom: 'نشط من',
+    openClass: 'فتح الصف',
     viewRoster: 'عرض القائمة',
     hideRoster: 'إخفاء القائمة',
     emptyRoster: 'لا يوجد طلاب في هذه القائمة بعد.',
@@ -1319,6 +1338,23 @@ export const ar = {
     roles: {
       homeroom: 'صف رئيسي',
       subject: 'مادة'
+    },
+    classDetail: {
+      title: 'الصف | كلاس هيرو هب',
+      back: 'العودة إلى الصفوف',
+      loadError: 'تعذر تحميل هذا الصف',
+      unavailable: 'الصف غير متاح',
+      studentCount: '{count} طلاب',
+      rosterEyebrow: 'صفك الدراسي',
+      students: 'الطلاب',
+      comingSoon: 'قريبًا',
+      availableFromClasses: 'متاح من صفحة صفوفي',
+      actions: {
+        points: 'منح النقاط',
+        updates: 'التحديثات والصور',
+        homework: 'الواجبات والمفكرة',
+        announcements: 'الإعلانات'
+      }
     },
     announcements: {
       title: 'الإعلانات',

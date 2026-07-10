@@ -16,6 +16,8 @@
     last_name: string;
     display_name: string;
     initials: string;
+    avatar_id: number | null;
+    avatar_url_128: string | null;
     school_id: number;
     school_name: string | null;
     class_section_name: string | null;
@@ -55,6 +57,11 @@
   let announcementLoading = $state(false);
   let loading = $state(true);
   let error = $state<string | null>(null);
+  let failedAvatars = $state<Record<number, boolean>>({});
+
+  function markAvatarFailed(studentId: number) {
+    failedAvatars = { ...failedAvatars, [studentId]: true };
+  }
 
   async function loadDashboard() {
     loading = true;
@@ -166,8 +173,19 @@
           {#each children as child (child.student_id)}
             <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
               <div class="flex items-center gap-3">
-                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-hero/10 text-lg font-black text-hero">
-                  {child.initials || initialsFromStudentName(child)}
+                <div class="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-hero/10 text-lg font-black text-hero">
+                  <span>{child.initials || initialsFromStudentName(child)}</span>
+                  {#if child.avatar_url_128 && !failedAvatars[child.student_id]}
+                    <img
+                      src={child.avatar_url_128}
+                      alt=""
+                      width="128"
+                      height="128"
+                      loading="lazy"
+                      class="absolute inset-0 h-full w-full bg-gradient-to-b from-violet-50 to-sky-50 object-contain"
+                      onerror={() => markAvatarFailed(child.student_id)}
+                    />
+                  {/if}
                 </div>
                 <div class="min-w-0">
                   <p class="truncate font-bold text-slate-900">{child.display_name}</p>

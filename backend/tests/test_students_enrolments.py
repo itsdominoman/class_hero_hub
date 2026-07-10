@@ -776,6 +776,110 @@ def test_teacher_subject_group_roster_empty_and_dashboard_target_type(db, client
     assert not_assigned.status_code == 403
 
 
+def _add_classroom_students(db, world):
+    students = [
+        Student(school_id=world["alpha"].id, external_ref="AV-M1", first_name="Adam", last_name="One", gender="male"),
+        Student(school_id=world["alpha"].id, external_ref="AV-M2", first_name="Basil", last_name="Two", gender="male"),
+        Student(school_id=world["alpha"].id, external_ref="AV-F1", first_name="Clara", last_name="Three", gender="female"),
+        Student(school_id=world["alpha"].id, external_ref="AV-U1", first_name="Dana", last_name="Four", gender="unspecified"),
+        Student(school_id=world["alpha"].id, external_ref="OFF-ROSTER", first_name="Hidden", last_name="Student", gender="female"),
+    ]
+    db.add_all(students)
+    db.flush()
+    for student in students[:4]:
+        db.add(Enrolment(school_id=world["alpha"].id, student_id=student.id, class_section_id=world["section_a"].id, kind="member", valid_from=invite_tokens.now_utc().date()))
+    assignment = StaffAssignment(
+        school_id=world["alpha"].id,
+        membership_id=world["alpha_teacher_membership"].id,
+        class_section_id=world["section_a"].id,
+        role="homeroom",
+        valid_from=invite_tokens.now_utc().date(),
+    )
+    db.add(assignment)
+    db.commit()
+    return students, assignment
+
+
+def test_teacher_class_detail_assigns_stable_gender_aware_unique_avatars(db, client, enrolment_world):
+    world = enrolment_world
+    students, assignment = _add_classroom_students(db, world)
+
+    first = client.get(f"/api/teach/assignments/{assignment.id}", headers=bearer(world["alpha_teacher"].email))
+    assert first.status_code == 200
+    body = first.json()
+    assert body["assignment"]["role"] == "homeroom"
+    assert body["assignment"]["target_type"] == "class_section"
+    assert body["assignment"]["school"]["name"] == "Alpha Academy"
+    assert body["assignment"]["class_section"]["name"] == "KG 1 A"
+    assert body["student_count"] == 4
+    assert {row["id"] for row in body["students"]} == {student.id for student in students[:4]}
+    assert students[4].id not in {row["id"] for row in body["students"]}
+
+    by_id = {row["id"]: row for row in body["students"]}
+    assert 31 <= by_id[students[0].id]["avatar_id"] <= 60
+    assert 31 <= by_id[students[1].id]["avatar_id"] <= 60
+    assert by_id[students[2].id]["avatar_id"] in {*range(61, 74), *range(75, 91)}
+    assert by_id[students[3].id]["avatar_id"] in {*range(31, 74), *range(75, 91)}
+    assert 74 not in {row["avatar_id"] for row in body["students"]}
+    assert len({row["avatar_id"] for row in body["students"]}) == 4
+    for row in body["students"]:
+        assert row["avatar_url_128"] == f"/avatars/128/{row['avatar_id']}-128.webp"
+        assert row["avatar_url_256"] == f"/avatars/256/{row['avatar_id']}-256.webp"
+
+    second = client.get(f"/api/teach/assignments/{assignment.id}", headers=bearer(world["alpha_teacher"].email))
+    assert {row["id"]: row["avatar_id"] for row in second.json()["students"]} == {
+        row["id"]: row["avatar_id"] for row in body["students"]
+    }
+
+    serialized = str(body).lower()
+    for forbidden in ("guardian", "email", "phone", "invite", "token", "hash", "external_ref", "date_of_birth", "gender"):
+        assert forbidden not in serialized
+
+
+def test_teacher_subject_group_detail_is_scoped_to_active_assignment(db, client, enrolment_world):
+    world = enrolment_world
+    included = Student(school_id=world["alpha"].id, external_ref="SUB-IN", first_name="Group", last_name="Member", gender="female")
+    excluded = Student(school_id=world["alpha"].id, external_ref="SUB-OUT", first_name="Other", last_name="Student", gender="male")
+    db.add_all([included, excluded])
+    db.flush()
+    db.add(Enrolment(school_id=world["alpha"].id, student_id=included.id, subject_group_id=world["group"].id, kind="member", valid_from=invite_tokens.now_utc().date()))
+    assignment = StaffAssignment(
+        school_id=world["alpha"].id,
+        membership_id=world["alpha_teacher_membership"].id,
+        subject_group_id=world["group"].id,
+        role="subject",
+        valid_from=invite_tokens.now_utc().date(),
+    )
+    db.add(assignment)
+    db.commit()
+
+    response = client.get(f"/api/teach/assignments/{assignment.id}", headers=bearer(world["alpha_teacher"].email))
+    assert response.status_code == 200
+    assert response.json()["assignment"]["target_type"] == "subject_group"
+    assert response.json()["assignment"]["subject_group"]["name"] == "KG 1 A English"
+    assert [row["id"] for row in response.json()["students"]] == [included.id]
+    assert client.get(f"/api/teach/assignments/{assignment.id}", headers=bearer(world["other_teacher"].email)).status_code == 403
+
+    assignment.valid_to = invite_tokens.now_utc().date()
+    db.commit()
+    assert client.get(f"/api/teach/assignments/{assignment.id}", headers=bearer(world["alpha_teacher"].email)).status_code == 403
+
+
+def test_teacher_cannot_guess_another_school_assignment_detail(db, client, enrolment_world):
+    world = enrolment_world
+    beta_assignment = StaffAssignment(
+        school_id=world["beta"].id,
+        membership_id=world["beta_teacher_membership"].id,
+        class_section_id=world["beta_section"].id,
+        role="homeroom",
+        valid_from=invite_tokens.now_utc().date(),
+    )
+    db.add(beta_assignment)
+    db.commit()
+    assert client.get(f"/api/teach/assignments/{beta_assignment.id}", headers=bearer(world["alpha_teacher"].email)).status_code == 403
+    assert client.get(f"/api/teach/assignments/{beta_assignment.id}", headers=bearer(world["beta_teacher"].email)).status_code == 200
+
+
 def test_staff_assignment_date_validation_and_deactivated_invite_revoke(db, client, enrolment_world):
     world = enrolment_world
     tomorrow = (invite_tokens.now_utc().date() + timedelta(days=1)).isoformat()

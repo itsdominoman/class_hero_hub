@@ -274,6 +274,7 @@ class Student(Base):
     name_ar = Column(String, nullable=True)
     date_of_birth = Column(Date, nullable=True)
     gender = Column(String, nullable=True)
+    avatar_id = Column(Integer, nullable=True)
     status = Column(String, default="active", nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
