@@ -596,6 +596,68 @@ class AnnouncementRead(Base):
     )
 
 
+class HomeworkItem(Base):
+    __tablename__ = "homework_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    author_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    item_type = Column(String, nullable=False)
+    title = Column(String, nullable=False)
+    body = Column(Text, nullable=False)
+    audience_type = Column(String, nullable=False)
+    class_section_id = Column(Integer, ForeignKey("class_sections.id"), nullable=True, index=True)
+    subject_group_id = Column(Integer, ForeignKey("subject_groups.id"), nullable=True, index=True)
+    due_at = Column(DateTime(timezone=True), nullable=True)
+    status = Column(String, nullable=False, default="active", server_default="active")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+    resource_links = Column(JSON, nullable=False, default=list, server_default="[]")
+
+    __table_args__ = (
+        CheckConstraint("item_type IN ('homework', 'diary')", name="ck_homework_items_type"),
+        CheckConstraint("status IN ('active', 'archived')", name="ck_homework_items_status"),
+        CheckConstraint(
+            "(audience_type = 'class_section' AND class_section_id IS NOT NULL AND subject_group_id IS NULL) OR "
+            "(audience_type = 'subject_group' AND class_section_id IS NULL AND subject_group_id IS NOT NULL)",
+            name="ck_homework_items_exactly_one_audience",
+        ),
+        Index("ix_homework_items_school_status_created", "school_id", "status", "created_at"),
+    )
+
+
+class HomeworkAttachment(Base):
+    __tablename__ = "homework_attachments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    homework_item_id = Column(Integer, ForeignKey("homework_items.id"), nullable=False, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    uploaded_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    original_filename = Column(String, nullable=False)
+    storage_key = Column(String, nullable=False, unique=True, index=True)
+    content_type = Column(String, nullable=False)
+    size_bytes = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (Index("ix_homework_attachments_item_school", "homework_item_id", "school_id"),)
+
+
+class HomeworkItemCompletion(Base):
+    __tablename__ = "homework_item_completions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    homework_item_id = Column(Integer, ForeignKey("homework_items.id"), nullable=False, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    guardian_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("homework_item_id", "guardian_user_id", name="uq_homework_completion_item_guardian"),
+        Index("ix_homework_completions_guardian_item", "guardian_user_id", "homework_item_id"),
+    )
+
+
 def _default_magic_login_expires_at():
     return datetime.now(timezone.utc) + timedelta(minutes=15)
 

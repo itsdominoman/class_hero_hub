@@ -3017,3 +3017,254 @@ adding a location model or changing the class-focused teacher page into a search
   to confirm the visual order and live class/duty award refresh in a real browser. No
   behaviour event was created or modified for this read-only QA pass.
 - Changes remain intentionally **uncommitted** pending Dom's testing.
+
+## 2026-07-11 — S14: Homework & Diary MVP
+
+Implemented teacher-authored homework and diary notes for assigned class sections and
+subject groups, with protected attachments and linked-guardian visibility. This slice
+does not add submissions, grading, comments, read receipts, notifications, calendar
+integration, recurring items, photos/social feed, messaging, attendance, rewards,
+reports, or Family Hero Hub integration.
+
+### Data and storage
+
+- Migration `e6f7a8b9c0d1_add_homework_diary.py` adds `homework_items` and
+  `homework_attachments`, including school/author/target scope, `homework | diary` type,
+  nullable due time, `active | archived` lifecycle, timestamps, protected storage keys,
+  and database checks requiring exactly one class-section or subject-group audience.
+- Files live once under `/app/data/homework_uploads` (host `./data/homework_uploads` via
+  the existing persistent `./data:/app/data` mount), never in frontend static storage and
+  never behind a public file URL. Startup creates the directory defensively.
+- The flow reuses announcement validation constants and filename cleaning: PDF, DOC,
+  DOCX, JPG/JPEG, PNG, WEBP, and TXT; 10 MB maximum per file; 5 attachments per item.
+  Download endpoints re-authorize the item before resolving a traversal-safe storage key.
+
+### Endpoints and permission model
+
+- Teacher: `GET/POST /api/teach/homework`,
+  `POST /api/teach/homework/{id}/attachments`,
+  `DELETE /api/teach/homework/{id}`, and
+  `GET /api/teach/homework/{id}/attachments/{attachment_id}/download`.
+- Guardian: `GET /api/guardian/homework`, `GET /api/guardian/homework/{id}`, and
+  `GET /api/guardian/homework/{id}/attachments/{attachment_id}/download`.
+- Creation requires an active teacher membership and an open staff assignment to the
+  exact same-school target. Whole-school homework is not accepted. Management/download
+  is limited to the author or a teacher currently assigned to that target; unrelated and
+  cross-school teachers receive a not-found response for protected objects.
+- Guardian visibility is derived only from active, non-revoked links and current
+  class/subject-group enrolment (including default-policy subject groups). Active items
+  are returned in one list response with attachment/context data batch-loaded; there is
+  no per-item frontend request fan-out and no guardian contact, invite, code, or token
+  data. Archive or link revocation removes visibility immediately.
+
+### Product behaviour
+
+- `/teach/assignments/{assignment_id}` now makes the Homework & diary tile an obvious
+  action. It opens an independent mobile-safe modal with fixed audience text, Homework /
+  Diary note type, title, details, optional due date/time, attachment picker, and create /
+  cancel controls. Success closes only that modal, leaves the teacher on the class page,
+  clears its form, and shows an inline success message.
+- `/teach` remains class-first; no large homework manager or always-open form was added.
+- `/parent` replaces the placeholder with a compact active-item count and latest-item
+  summary. One modal contains the bounded list and item detail, with type, class/subject
+  context, optional due time, full body, and protected attachment downloads. Dashboard
+  order remains child cards/points, announcements, Homework & diary, then Class updates
+  & photos.
+
+### Validation and deployed QA
+
+- Focused source-mounted announcement/homework suite: **19 passed**, 5 warnings in 8.89s.
+  Added coverage for assigned class and subject creation, unassigned/cross-school denial,
+  diary without a due time, homework with a due time, allowed/blocked/oversized uploads,
+  teacher and guardian downloads, unrelated teacher/guardian denial, linked class and
+  subject-group visibility, archive, revocation, and response allow-listing.
+- Rebuilt-container full suite: `docker compose exec backend python -m pytest tests -q`
+  → **277 passed**, 11 warnings in 86.99s.
+- `npm run check` → **0 errors, 0 warnings**; `npm run check:i18n` → parity OK,
+  **707 keys** in both EN and AR; `npm run build` → production build successful.
+- `docker compose build backend frontend` and `docker compose up -d backend frontend`
+  completed; both services were recreated and running. PostgreSQL migrated from
+  `d5e6f7a8b9c0` to **`e6f7a8b9c0d1 (head)`**.
+- `backend/scripts/perf_check.py` → teacher dashboard **0.092s**; the only endpoint over
+  the 1s guideline remains the documented pre-existing `/api/school/students` path
+  (**4.028s**, 502 rows). Homework guardian/list context and attachments are batched.
+- Deployed `https://class.familyherohub.com/school`, `/teach`, and `/parent` static route
+  probes returned **200** after rebuild. Authenticated role sessions were not available
+  to this terminal, so the requested visual/mobile create/download and regression walk
+  remains pending for Dom; no real homework or diary data was mutated merely to claim QA.
+
+### Caveats and deferrals
+
+- Upload occurs after item creation, matching the existing announcement flow. If a later
+  attachment fails, the item remains created and the teacher can retry only by creating
+  another item in this MVP; attachment management/retry UI is deferred.
+- No read receipts, submissions, grading, comments, notifications, calendar/recurrence,
+  reporting, photos/social, messaging, or Family Hero Hub integration.
+- Changes remain intentionally **uncommitted** pending Dom's deployed manual testing.
+
+### S14 manual-QA fixes — completion, management, resources, and upload safety
+
+Dom confirmed the correct linked guardian could see the intended homework, open its
+detail, and download its protected attachment. The following gaps found in that manual
+pass are now addressed without expanding into submissions, grading, notifications,
+messaging, reports, social/photos, recurrence, or Family Hero Hub integration.
+
+- Migration `f7a8b9c0d1e2_homework_completion_resources.py` adds an allow-listed JSONB
+  `resource_links` field to homework items and guardian-private
+  `homework_item_completions`. Completion rows are unique by item and guardian user; they
+  do not update, archive, or delete the teacher's item and do not hide it from another
+  authorized guardian.
+- `POST /api/guardian/homework/{id}/done` reuses the same active-link/current-enrolment
+  authorization as guardian detail. It is idempotent, returns 404 to an unrelated
+  guardian, and removes the completed item from that guardian's default list, detail,
+  and attachment access. No completed-items screen was added.
+- The class page loads a compact recent list for its exact class-section or subject-group
+  audience through filtered `GET /api/teach/homework`. Teachers can open full details and
+  use the existing `DELETE` endpoint as a clearly labelled **Archive** action. Archive is
+  soft only (`status=archived`, `archived_at` set); guardian list/detail/download access
+  disappears immediately.
+- Teachers may add up to five optional labelled public HTTPS resource links, including
+  normal YouTube watch, `youtu.be`, and Shorts URLs. Backend validation rejects non-HTTPS,
+  credential-bearing, localhost, `.local`/`.internal`, and literal non-public IP URLs.
+  Guardian and teacher details render links without embedding, in a new tab with
+  `noopener noreferrer`.
+- Homework file selection now validates before item creation/upload: maximum five files,
+  maximum 10 MB each, and only PDF, DOC/DOCX, PPT/PPTX, XLS/XLSX, TXT, CSV, JPG/JPEG,
+  PNG, or WEBP. MP4/video/audio, scripts/executables, archives, and every unlisted type
+  are rejected immediately with localized English/Arabic feedback. Backend validation
+  remains authoritative and now accepts the same expanded document set.
+- Creation and each attachment upload share an `AbortController`. Cancel remains active
+  while uploading, aborts the current request, closes/resets the modal, and reports
+  whether creation was cancelled or whether the item already exists but its attachment
+  did not finish. A failed post-create attachment upload is never reported as success and
+  the form cannot be resubmitted into an accidental duplicate while that state is shown.
+
+Validation for this fix pass:
+
+- Focused homework file: **23 passed**, 5 warnings in 18.97s.
+- Homework/announcement + guardian dashboard + teacher assignment suites: **45 passed**,
+  7 warnings in 21.16s.
+- Full source-mounted backend suite: **281 passed**, 11 warnings in 96.24s.
+- After rebuilding/recreating backend and frontend, the rebuilt-container full suite also
+  passed: **281 passed**, 11 warnings in 100.73s.
+- `npm run check`: **0 errors, 0 warnings**; `npm run check:i18n`: parity OK,
+  **733 keys** in EN and AR; `npm run build`: successful.
+- PostgreSQL upgraded from `e6f7a8b9c0d1` to `f7a8b9c0d1e2`; both `alembic current`
+  and `alembic heads` report **`f7a8b9c0d1e2 (head)`**.
+- Direct-access regression coverage proves an authorized linked guardian can list,
+  detail, download, and mark done, while an unrelated guardian receives 404 for detail,
+  download, and done and never sees the item in their list. Archive tests prove the row
+  remains soft-archived while every guardian access path becomes unavailable.
+
+Deferred: completed-item history/undo, attachment retry/removal after partial creation,
+editing existing items, URL previews/embeds, automatic age-based expiry, submissions,
+grading, comments/read receipts, notifications, reports, messaging, social/photos,
+calendar recurrence, and Family Hero Hub integration. Changes remain intentionally
+**uncommitted** pending Dom's browser/mobile approval.
+
+### S14 teacher-focus UX correction
+
+- Removed the always-visible “Created homework & diary” block from the class/subject
+  page. The main classroom now keeps its existing tiles and prominent student roster/
+  points workflow without homework management pushing Students down the page.
+- Clicking Homework & diary opens a bounded mobile-safe workspace with Create item and
+  Previous items tabs. The previous-item list is filtered to the exact current class
+  section or subject group and includes type, title, due date, attachment/resource counts,
+  View, and soft Archive actions. Details, links, and archive remain inside that workspace.
+- HEIC/HEIF remain deliberately rejected. The frontend gives the specific iPhone-format
+  message and the backend returns the same helpful error. JPG/JPEG/PNG/WEBP and the
+  approved Office/text/CSV formats remain allowed. Near-next work is server-side HEIC/
+  HEIF-to-JPG conversion while retaining the original privately if useful; long-term,
+  iPhone users should not need manual conversion. No conversion dependency is added here.
+- Focused post-correction homework suite: **23 passed**, 5 warnings. Frontend check,
+  i18n parity (**734 keys** in EN/AR), and production build all passed. Rebuilt backend
+  and frontend services are running. Changes remain uncommitted for Dom’s manual QA.
+
+### S14 teacher edit support + i18n audit
+
+- **Remaining raw i18n keys fixed.** `teach.homework.back` (and the earlier
+  `createTab`/`previousTab`/`resourceCount`) were referenced in the teacher modal but
+  never defined under `teach.homework` — only `back` existed under `parent.homework`, so
+  the teacher detail view rendered the raw key. Added `back`, `edit`, `saveChanges`,
+  `updated`, and `updateError` to `teach.homework` in **both EN and AR** with clean Arabic
+  (رجوع / تعديل / حفظ التغييرات). Audited every `$_('*homework*')` usage across the
+  frontend against the EN and AR message trees; all leaves are now defined and
+  `check:i18n` parity passes (**742 keys** each).
+- **Teacher edit support.** New `PATCH /api/teach/homework/{id}` lets an authorised
+  teacher correct an existing active item (e.g. fix a “Essary” → “Essay” typo) instead of
+  archive-and-recreate. Editable fields: **item type (homework/diary), title, body/details,
+  due date/time, and resource links**. Server-side validation mirrors create — title/body
+  required and trimmed, resource links HTTPS/public-only and capped at 5, due date optional.
+- **Audience is fixed on edit.** The endpoint does not accept `audience_type`/target ids;
+  an item stays bound to its original class section or subject group. No whole-school or
+  unassigned editing is introduced.
+- **Permission rules.** Reuses the existing `_can_manage` check: same-school membership and
+  either authorship or a current live assignment to the exact target section/group —
+  identical to archive/manage. Unauthorised teachers get 404. Archived items are not
+  editable (**409**); there is no restore flow, so archived stays terminal.
+- **Guardian behaviour.** Guardian visibility remains derived from active links + current
+  enrolment and reads live, so edits are reflected immediately. A guardian who already
+  marked an item done stays done after an edit — the completion row is preserved and the
+  item is not re-shown; no re-notification behaviour was added.
+- **Attachment edit/removal decision — DEFERRED.** This pass edits text/type/due/links
+  only. Existing attachments remain attached untouched (PATCH never touches attachment
+  rows). Add/replace/remove of attachments during edit is intentionally out of scope to
+  keep the change small and safe; the create-time attachment flow and limits are unchanged.
+- **Frontend.** The Homework & diary modal now shows an **Edit** button beside Archive in
+  both the Previous-items list and the item detail view. Edit opens an in-modal form
+  (type, title, body, due, resource links) with **Save changes** / **Cancel**; on save the
+  modal returns to the item detail with the updated content and a small confirmation, and
+  the list refreshes. All management stays inside the tile/modal — nothing was added back
+  to the main class page, and Award points / Students layout is untouched. Link validation
+  and the resource-links payload builder were extracted into small shared helpers reused by
+  both create and edit.
+- **Tests.** Added three backend tests: (1) author/assigned teacher edits
+  type/title/body/due/links and the guardian sees the update; (2) unauthorised teacher →
+  404, blank title → 422, non-HTTPS link → 422, archived item → 409; (3) guardian “done”
+  survives a teacher edit (completion preserved, item stays hidden for that guardian).
+- **Validation.** Focused `tests/test_announcements.py` suite **26 passed**; frontend
+  `check` 0 errors, `check:i18n` parity OK (742 keys EN/AR), production `build` OK,
+  `git diff --check` clean. No schema/migration change (edit reuses existing columns;
+  `updated_at` auto-updates), so alembic head remains `f7a8b9c0d1e2`. Backend and frontend
+  images rebuilt and recreated. Changes remain **uncommitted** pending Dom's approval.
+
+### S14 guardian completed / past homework access
+
+- **Problem.** Marking an item done removed it permanently from the guardian UI, so a
+  parent who tapped it by accident — or who wanted to re-read instructions, links, or
+  attachments — had no way back. "Done" now hides from the default view but no longer
+  vanishes.
+- **Completed history.** `GET /api/guardian/homework` gains an optional `status` query
+  param: default/`active` returns active not-done items (unchanged, dashboard count still
+  reflects only these); `status=completed` returns the active items this guardian has
+  marked done. Any other value → 400. A single `_guardian_query(only_completed=…)` flag
+  drives both modes off the same authorisation/visibility filter.
+- **Reopen + undo.** Guardian detail and attachment download now resolve completed items
+  too (`include_completed=True`), so a parent can reopen a done item and still open its
+  resource links / download attachments. New `DELETE /api/guardian/homework/{id}/done`
+  removes this guardian's completion (idempotent), returning the item to the active list.
+- **Guardian-specific completion.** Completion is per guardian/user: undo only deletes the
+  caller's own completion row, and another linked guardian's done/completed state is
+  independent (covered by tests). Marking not done does not disturb other guardians.
+- **Access rules unchanged & rechecked.** Completed list/detail/download/not-done all go
+  through the same guardian visibility filter. Archived teacher items are `status != active`
+  and therefore drop out of both active and completed lists and return 404 for
+  detail/download/not-done. Revoked guardian links / removed enrolment remove access the
+  same way (404/hidden). An unrelated guardian sees nothing and gets 404 on detail/undo.
+- **Edited-after-done items are not auto-resurfaced** in this pass — an edited item stays
+  in the guardian's completed list until they explicitly mark it not done.
+- **Frontend.** The guardian Homework & diary modal now has **Active / Completed** tabs
+  (completed loaded lazily on first switch). The detail view shows **Mark as done** for
+  active items and **Mark as not done** for completed items; both keep resource links and
+  attachment downloads available while the guardian is still authorised and the item is not
+  archived. Mobile layout and the compact modal pattern are preserved; no new page added.
+- **Behaviour note.** Existing test
+  `test_guardian_done_is_private_idempotent_and_hides_direct_access` was renamed to
+  `…_and_reopenable` and its post-done detail assertion updated from 404 → 200, reflecting
+  the intentional product change that owners can reopen their completed items (other
+  guardians remain denied).
+- **Validation.** Focused `tests/test_announcements.py` suite **29 passed**; frontend
+  `check` 0 errors, `check:i18n` parity OK (**747 keys** EN/AR), production `build` OK,
+  `git diff --check` clean. No schema/migration change (reuses existing completion rows),
+  so alembic head remains `f7a8b9c0d1e2`. Backend and frontend images rebuilt/recreated.
+  Changes remain **uncommitted** pending Dom's approval.

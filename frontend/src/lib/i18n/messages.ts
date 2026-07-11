@@ -648,6 +648,10 @@ export const en = {
       download: 'Download',
       downloadError: 'Failed to download attachment'
     },
+    homework: {
+      title: 'Homework & diary', audience: 'Audience', type: 'Item type', itemTitle: 'Title', body: 'Details', due: 'Due date and time (optional)', attachments: 'Attachments (up to 5)', create: 'Create item', saving: 'Creating…', created: 'Homework & diary item created', cancel: 'Cancel', close: 'Close', saveError: 'Failed to create homework or diary item', createdList: 'Created homework & diary', empty: 'No items created for this audience yet.', view: 'View', archive: 'Archive', archived: 'Archived', archiveError: 'Failed to archive item', loadError: 'Failed to load homework items', attachmentCount: '{count} attachments', resourceLinks: 'Resource links', addLink: 'Add link', removeLink: 'Remove', linkLabel: 'Optional label', linkError: 'Enter a public HTTPS resource link.', attachmentRules: 'PDF, Office documents, text/CSV, or JPG/PNG/WEBP images. Maximum 10 MB each and 5 files.', fileTypeError: 'File type not allowed.', heicError: 'iPhone photo format is not supported yet. Please upload JPG, PNG, or WEBP.', fileSizeError: 'File is too large. Maximum 10 MB.', maxFiles: 'Maximum 5 attachments.', cancelUpload: 'Cancel upload', cancelled: 'Creation cancelled.', cancelledAfterCreate: 'Item exists, but attachment upload was cancelled.', attachmentFailed: 'Item exists, but attachment upload did not complete.', createTab: 'Create item', previousTab: 'Previous items', resourceCount: 'Links: {count}', back: 'Back', edit: 'Edit', saveChanges: 'Save changes', updated: 'Homework & diary item updated', updateError: 'Failed to update item',
+      types: { homework: 'Homework', diary: 'Diary note' }
+    },
     studentSearch: {
       find: 'Find student', title: 'Find student', subtitle: 'Search your school and award points without opening a class.',
       school: 'School', searchLabel: 'Student name or reference', placeholder: 'Type at least 2 characters', minimum: 'Enter at least 2 characters to search.',
@@ -747,6 +751,10 @@ export const en = {
       allCaughtUp: 'All caught up',
       inboxTitle: 'Announcements',
       unreadBadge: 'Unread'
+    },
+    homework: {
+      count: '{count} active items', open: 'Open', close: 'Close', back: 'Back', empty: 'No homework or diary items yet.', due: 'Due', attachments: 'Attachments', download: 'Download', loadError: 'Failed to open homework item', classAudience: 'Class', subjectAudience: 'Subject group', resourceLinks: 'Resource links', openLink: 'Open link', markDone: 'Mark as done', markingDone: 'Marking as done…', doneError: 'Failed to mark item as done', active: 'Active', completed: 'Completed', markNotDone: 'Mark as not done', notDoneError: 'Failed to mark item as not done', completedEmpty: 'No completed homework or diary items yet.',
+      types: { homework: 'Homework', diary: 'Diary note' }
     }
   }
 };
@@ -1401,6 +1409,10 @@ export const ar = {
       download: 'تنزيل',
       downloadError: 'تعذر تنزيل المرفق'
     },
+    homework: {
+      title: 'الواجبات واليوميات', audience: 'الجمهور', type: 'نوع العنصر', itemTitle: 'العنوان', body: 'التفاصيل', due: 'تاريخ ووقت الاستحقاق (اختياري)', attachments: 'المرفقات (حتى 5)', create: 'إنشاء العنصر', saving: 'جار الإنشاء…', created: 'تم إنشاء عنصر الواجبات واليوميات', cancel: 'إلغاء', close: 'إغلاق', saveError: 'تعذر إنشاء الواجب أو ملاحظة اليوميات', createdList: 'الواجبات واليوميات المنشأة', empty: 'لم يتم إنشاء عناصر لهذا الجمهور بعد.', view: 'عرض', archive: 'أرشفة', archived: 'مؤرشف', archiveError: 'تعذرت أرشفة العنصر', loadError: 'تعذر تحميل عناصر الواجبات', attachmentCount: '{count} مرفقات', resourceLinks: 'روابط الموارد', addLink: 'إضافة رابط', removeLink: 'إزالة', linkLabel: 'عنوان اختياري', linkError: 'أدخل رابط مورد HTTPS عامًا.', attachmentRules: 'ملفات PDF أو أوفيس أو نص/CSV أو صور JPG/PNG/WEBP. الحد الأقصى 10 ميجابايت لكل ملف و5 ملفات.', fileTypeError: 'نوع الملف غير مسموح.', heicError: 'تنسيق صور iPhone غير مدعوم بعد. يرجى رفع JPG أو PNG أو WEBP.', fileSizeError: 'الملف كبير جدًا. الحد الأقصى 10 ميجابايت.', maxFiles: 'الحد الأقصى 5 مرفقات.', cancelUpload: 'إلغاء الرفع', cancelled: 'تم إلغاء الإنشاء.', cancelledAfterCreate: 'العنصر موجود، لكن تم إلغاء رفع المرفق.', attachmentFailed: 'العنصر موجود، لكن لم يكتمل رفع المرفق.', createTab: 'إنشاء عنصر', previousTab: 'العناصر السابقة', resourceCount: 'روابط: {count}', back: 'رجوع', edit: 'تعديل', saveChanges: 'حفظ التغييرات', updated: 'تم تحديث عنصر الواجبات واليوميات', updateError: 'تعذر تحديث العنصر',
+      types: { homework: 'واجب', diary: 'ملاحظة يوميات' }
+    },
     studentSearch: {
       find: 'البحث عن طالب', title: 'البحث عن طالب', subtitle: 'ابحث في مدرستك وامنح النقاط دون فتح صف.',
       school: 'المدرسة', searchLabel: 'اسم الطالب أو الرقم المرجعي', placeholder: 'اكتب حرفين على الأقل', minimum: 'أدخل حرفين على الأقل للبحث.',
@@ -1498,6 +1510,10 @@ export const ar = {
       allCaughtUp: 'لا يوجد جديد',
       inboxTitle: 'الإعلانات',
       unreadBadge: 'غير مقروء'
+    },
+    homework: {
+      count: '{count} عناصر نشطة', open: 'فتح', close: 'إغلاق', back: 'رجوع', empty: 'لا توجد واجبات أو ملاحظات يوميات بعد.', due: 'الاستحقاق', attachments: 'المرفقات', download: 'تنزيل', loadError: 'تعذر فتح عنصر الواجب', classAudience: 'الشعبة', subjectAudience: 'مجموعة المادة', resourceLinks: 'روابط الموارد', openLink: 'فتح الرابط', markDone: 'وضع علامة مكتمل', markingDone: 'جار وضع علامة مكتمل…', doneError: 'تعذر وضع علامة مكتمل على العنصر', active: 'النشطة', completed: 'المكتملة', markNotDone: 'وضع علامة غير مكتمل', notDoneError: 'تعذر إلغاء علامة الإكمال', completedEmpty: 'لا توجد عناصر مكتملة بعد.',
+      types: { homework: 'واجب', diary: 'ملاحظة يوميات' }
     }
   }
 };

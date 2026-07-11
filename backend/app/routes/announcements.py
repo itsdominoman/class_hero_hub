@@ -42,11 +42,16 @@ ALLOWED_EXTENSIONS = {
     ".pdf": "application/pdf",
     ".doc": "application/msword",
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".ppt": "application/vnd.ms-powerpoint",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".xls": "application/vnd.ms-excel",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
     ".png": "image/png",
     ".webp": "image/webp",
     ".txt": "text/plain",
+    ".csv": "text/csv",
 }
 
 
@@ -307,6 +312,8 @@ def _validate_upload_filename(filename: str | None) -> tuple[str, str, str]:
     original = _safe_filename(filename)
     ext = Path(original).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
+        if ext in {".heic", ".heif"}:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="iPhone photo format is not supported yet. Please upload JPG, PNG, or WEBP.")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Attachment type is not allowed")
     return original, ext, ALLOWED_EXTENSIONS[ext]
 

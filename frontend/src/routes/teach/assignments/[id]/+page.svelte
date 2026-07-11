@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { page } from '$app/stores';
   import { _ } from 'svelte-i18n';
   import { ArrowLeft, BookOpen, Camera, Megaphone, Star, Users } from 'lucide-svelte';
@@ -35,6 +35,8 @@
     students: Student[];
   };
   type Category = { id: number; type: 'positive' | 'needs_work'; label: string; points_value: number };
+  type ResourceLink = { url: string; label?: string | null };
+  type HomeworkItem = { id: number; item_type: 'homework' | 'diary'; title: string; body?: string; due_at?: string | null; status: 'active' | 'archived'; attachment_count: number; attachments?: { id: number; original_filename: string; size_bytes: number }[]; resource_links: ResourceLink[] };
 
   let loading = $state(true);
   let error = $state<string | null>(null);
@@ -47,6 +49,24 @@
   let announcementSaving = $state(false);
   let announcementError = $state<string | null>(null);
   let announcementPublished = $state(false);
+  let homeworkModalOpen = $state(false);
+  let homeworkMode = $state<'create' | 'list'>('create');
+  let homeworkType = $state<'homework' | 'diary'>('homework');
+  let homeworkTitle = $state('');
+  let homeworkBody = $state('');
+  let homeworkDueAt = $state('');
+  let homeworkFiles = $state<FileList | null>(null);
+  let homeworkSaving = $state(false);
+  let homeworkError = $state<string | null>(null);
+  let homeworkNotice = $state<string | null>(null);
+  let homeworkNoticeTimer: ReturnType<typeof setTimeout> | null = null;
+  let homeworkAbortController = $state<AbortController | null>(null);
+  let createdHomeworkId = $state<number | null>(null);
+  let homeworkLinks = $state<ResourceLink[]>([]);
+  let homeworkItems = $state<HomeworkItem[]>([]);
+  let viewingHomework = $state<HomeworkItem | null>(null);
+  let homeworkEditing = $state<HomeworkItem | null>(null);
+  let homeworkListError = $state<string | null>(null);
   let pointsModalOpen = $state(false);
   let categories = $state<Category[]>([]);
   let pointType = $state<'positive' | 'needs_work'>('positive');
@@ -185,9 +205,136 @@
     }
   }
 
+  function homeworkQuery() {
+    const assignment = detail?.assignment;
+    if (!assignment) return '';
+    const key = assignment.target_type === 'subject_group' ? 'subject_group_id' : 'class_section_id';
+    const value = assignment.target_type === 'subject_group' ? assignment.subject_group?.id : assignment.class_section?.id;
+    return value ? `?${key}=${value}` : '';
+  }
+  async function loadHomeworkItems() {
+    if (!detail) return;
+    try { homeworkItems = (await api.get(`/teach/homework${homeworkQuery()}`, schoolOptions(detail.assignment.school.id)))?.items || []; }
+    catch (err: any) { homeworkListError = err?.message || $_('teach.homework.loadError'); }
+  }
+  function setHomeworkNotice(message: string) {
+    homeworkNotice = message;
+    if (homeworkNoticeTimer) clearTimeout(homeworkNoticeTimer);
+    homeworkNoticeTimer = setTimeout(() => { homeworkNotice = null; homeworkNoticeTimer = null; }, 5000);
+  }
+  onDestroy(() => { if (homeworkNoticeTimer) clearTimeout(homeworkNoticeTimer); });
+  function openHomeworkModal() { homeworkError = null; homeworkNotice = null; viewingHomework = null; homeworkEditing = null; homeworkMode = 'create'; homeworkModalOpen = true; }
+  function openHomeworkManage() { homeworkError = null; homeworkNotice = null; viewingHomework = null; homeworkEditing = null; homeworkMode = 'list'; homeworkModalOpen = true; }
+  function resetHomeworkForm() { homeworkType = 'homework'; homeworkTitle = ''; homeworkBody = ''; homeworkDueAt = ''; homeworkFiles = null; homeworkLinks = []; createdHomeworkId = null; }
+  function closeHomeworkModal() {
+    if (homeworkSaving) {
+      homeworkAbortController?.abort();
+      setHomeworkNotice(createdHomeworkId ? $_('teach.homework.cancelledAfterCreate') : $_('teach.homework.cancelled'));
+    }
+    homeworkSaving = false; homeworkAbortController = null; homeworkModalOpen = false; homeworkError = null; homeworkEditing = null; resetHomeworkForm();
+  }
+  function handleHomeworkFiles(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files || []);
+    const allowed = new Set(['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'jpg', 'jpeg', 'png', 'webp']);
+    homeworkError = null;
+    if (files.length > 5) homeworkError = $_('teach.homework.maxFiles');
+    else if (files.some((file) => ['heic', 'heif'].includes(file.name.split('.').pop()?.toLowerCase() || ''))) homeworkError = $_('teach.homework.heicError');
+    else if (files.some((file) => !allowed.has(file.name.split('.').pop()?.toLowerCase() || ''))) homeworkError = $_('teach.homework.fileTypeError');
+    else if (files.some((file) => file.size > 10 * 1024 * 1024)) homeworkError = $_('teach.homework.fileSizeError');
+    if (homeworkError) { input.value = ''; homeworkFiles = null; } else homeworkFiles = input.files;
+  }
+  function addHomeworkLink() { if (homeworkLinks.length < 5) homeworkLinks = [...homeworkLinks, { url: '', label: '' }]; }
+  function removeHomeworkLink(index: number) { homeworkLinks = homeworkLinks.filter((_, i) => i !== index); }
+  async function openHomeworkDetail(item: HomeworkItem) {
+    if (!detail) return;
+    try { viewingHomework = await api.get(`/teach/homework/${item.id}`, schoolOptions(detail.assignment.school.id)); homeworkMode = 'list'; }
+    catch (err: any) { homeworkListError = err?.message || $_('teach.homework.loadError'); }
+  }
+  async function archiveHomework(item: HomeworkItem) {
+    if (!detail) return;
+    try { await api.delete(`/teach/homework/${item.id}`, schoolOptions(detail.assignment.school.id)); viewingHomework = null; setHomeworkNotice($_('teach.homework.archived')); await loadHomeworkItems(); }
+    catch (err: any) { homeworkListError = err?.message || $_('teach.homework.archiveError'); }
+  }
+
+  function homeworkLinksValid(): boolean {
+    for (const link of homeworkLinks.filter((row) => row.url.trim())) {
+      try {
+        const parsed = new URL(link.url);
+        const host = parsed.hostname.toLowerCase();
+        if (parsed.protocol !== 'https:' || host === 'localhost' || host.endsWith('.local') || host.endsWith('.internal') || /^(127\.|10\.|192\.168\.|169\.254\.)/.test(host)) throw new Error('unsafe');
+      } catch { homeworkError = $_('teach.homework.linkError'); return false; }
+    }
+    return true;
+  }
+  function homeworkLinksPayload() {
+    return homeworkLinks.filter((link) => link.url.trim()).map((link) => ({ url: link.url.trim(), label: link.label?.trim() || null }));
+  }
+  function toDatetimeLocal(iso?: string | null): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  }
+  function startEditHomework(item: HomeworkItem) {
+    homeworkEditing = item; homeworkError = null; homeworkNotice = null;
+    homeworkType = item.item_type; homeworkTitle = item.title; homeworkBody = item.body || '';
+    homeworkDueAt = toDatetimeLocal(item.due_at);
+    homeworkLinks = (item.resource_links || []).map((link) => ({ url: link.url, label: link.label || '' }));
+  }
+  function cancelEditHomework() { homeworkEditing = null; homeworkError = null; resetHomeworkForm(); }
+  async function saveHomeworkEdit() {
+    if (!detail || !homeworkEditing || homeworkSaving) return;
+    homeworkError = null;
+    if (!homeworkLinksValid()) return;
+    homeworkSaving = true;
+    try {
+      const updated = await api.patch(`/teach/homework/${homeworkEditing.id}`, {
+        item_type: homeworkType, title: homeworkTitle, body: homeworkBody,
+        due_at: homeworkDueAt ? new Date(homeworkDueAt).toISOString() : null,
+        resource_links: homeworkLinksPayload()
+      }, schoolOptions(detail.assignment.school.id));
+      viewingHomework = updated; homeworkEditing = null; setHomeworkNotice($_('teach.homework.updated'));
+      resetHomeworkForm(); await loadHomeworkItems();
+    } catch (err: any) {
+      homeworkError = err?.message || $_('teach.homework.updateError');
+    } finally { homeworkSaving = false; }
+  }
+
+  async function publishHomework() {
+    const assignment = detail?.assignment;
+    if (!assignment || homeworkSaving) return;
+    const targetId = assignment.target_type === 'subject_group' ? assignment.subject_group?.id : assignment.class_section?.id;
+    if (!targetId) return;
+    const files = Array.from(homeworkFiles || []);
+    if (files.length > 5) { homeworkError = $_('teach.homework.maxFiles'); return; }
+    if (!homeworkLinksValid()) return;
+    const controller = new AbortController(); homeworkAbortController = controller;
+    homeworkSaving = true; homeworkError = null; createdHomeworkId = null;
+    try {
+      const created = await api.post('/teach/homework', {
+        item_type: homeworkType, title: homeworkTitle, body: homeworkBody,
+        audience_type: assignment.target_type,
+        class_section_id: assignment.target_type === 'class_section' ? targetId : null,
+        subject_group_id: assignment.target_type === 'subject_group' ? targetId : null,
+        due_at: homeworkDueAt ? new Date(homeworkDueAt).toISOString() : null,
+        resource_links: homeworkLinksPayload()
+      }, { ...schoolOptions(assignment.school.id), signal: controller.signal });
+      createdHomeworkId = created.id;
+      for (const file of files) {
+        const formData = new FormData(); formData.append('file', file);
+        await api.upload(`/teach/homework/${created.id}/attachments`, formData, { ...schoolOptions(assignment.school.id), signal: controller.signal });
+      }
+      resetHomeworkForm(); setHomeworkNotice($_('teach.homework.created')); homeworkModalOpen = false; await loadHomeworkItems();
+    } catch (err: any) {
+      if (createdHomeworkId) homeworkError = err?.name === 'AbortError' ? $_('teach.homework.cancelledAfterCreate') : $_('teach.homework.attachmentFailed');
+      else homeworkError = err?.name === 'AbortError' ? $_('teach.homework.cancelled') : err?.message || $_('teach.homework.saveError');
+    } finally { homeworkSaving = false; homeworkAbortController = null; }
+  }
+
   onMount(async () => {
     try {
       detail = await api.get(`/teach/assignments/${$page.params.id}`);
+      await loadHomeworkItems();
     } catch (err: any) {
       if (err?.status === 401) {
         window.location.href = `/login?returnTo=${encodeURIComponent($page.url.pathname)}`;
@@ -250,9 +397,9 @@
           <span class="rounded-xl bg-sky-100 p-2 text-sky-700"><Camera size={21} aria-hidden="true" /></span>
           <span><strong class="block text-sm text-slate-900">{$_('teach.classDetail.actions.updates')}</strong><small class="text-xs font-semibold text-slate-400">{$_('teach.classDetail.comingSoon')}</small></span>
         </button>
-        <button type="button" disabled class="flex min-h-20 items-center gap-3 rounded-2xl border border-amber-100 bg-white p-4 text-left shadow-sm disabled:cursor-default disabled:opacity-100">
+        <button type="button" class="flex min-h-20 items-center gap-3 rounded-2xl border border-amber-100 bg-white p-4 text-left shadow-sm hover:border-amber-300" onclick={openHomeworkModal}>
           <span class="rounded-xl bg-amber-100 p-2 text-amber-700"><BookOpen size={21} aria-hidden="true" /></span>
-          <span><strong class="block text-sm text-slate-900">{$_('teach.classDetail.actions.homework')}</strong><small class="text-xs font-semibold text-slate-400">{$_('teach.classDetail.comingSoon')}</small></span>
+          <span><strong class="block text-sm text-slate-900">{$_('teach.classDetail.actions.homework')}</strong><small class="text-xs font-semibold text-amber-700">{$_('teach.classDetail.createForClass')}</small></span>
         </button>
         <button type="button" class="flex min-h-20 items-center gap-3 rounded-2xl border border-emerald-100 bg-white p-4 text-left shadow-sm hover:border-emerald-200" onclick={openAnnouncementModal}>
           <span class="rounded-xl bg-emerald-100 p-2 text-emerald-700"><Megaphone size={21} aria-hidden="true" /></span>
@@ -263,6 +410,7 @@
       {#if announcementPublished}
         <div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{$_('teach.announcements.created')}</div>
       {/if}
+      {#if homeworkNotice}<div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">{homeworkNotice}</div>{/if}
       {#if pointsSuccess}<div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{pointsSuccess}</div>{/if}
 
       <div class="mt-8 flex items-end justify-between gap-4">
@@ -334,6 +482,43 @@
           <button type="button" class="btn-secondary rounded-lg px-4 py-2" disabled={announcementSaving} onclick={closeAnnouncementModal}>{$_('teach.announcements.cancel')}</button>
         </div>
       </form>
+    </div>
+  </div>
+{/if}
+
+{#if homeworkModalOpen && detail}
+  <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="homework-title">
+    <div class="max-h-[94vh] w-full max-w-2xl overflow-y-auto overflow-x-hidden rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6">
+      <div class="flex items-start justify-between gap-3"><h2 id="homework-title" class="text-2xl font-black text-slate-900">{$_('teach.homework.title')}</h2><button type="button" class="btn-secondary rounded-lg px-3 py-2" onclick={closeHomeworkModal}>{$_('teach.homework.close')}</button></div>
+      {#if homeworkError}<div class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{homeworkError}</div>{/if}
+      {#if homeworkMode === 'list' && homeworkNotice}<div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">{homeworkNotice}</div>{/if}
+      <div class="mt-5 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1"><button type="button" class={`rounded-lg px-3 py-2 text-sm font-black ${homeworkMode === 'create' ? 'bg-white text-amber-800 shadow-sm' : 'text-slate-600'}`} onclick={() => { homeworkMode = 'create'; viewingHomework = null; homeworkEditing = null; }}>{$_('teach.homework.createTab')}</button><button type="button" class={`rounded-lg px-3 py-2 text-sm font-black ${homeworkMode === 'list' ? 'bg-white text-amber-800 shadow-sm' : 'text-slate-600'}`} onclick={() => { homeworkMode = 'list'; viewingHomework = null; homeworkEditing = null; loadHomeworkItems(); }}>{$_('teach.homework.previousTab')}</button></div>
+      {#if homeworkMode === 'list' && homeworkEditing}
+        <form class="mt-5 grid gap-4" onsubmit={(event) => { event.preventDefault(); saveHomeworkEdit(); }}>
+          <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.homework.type')}<select class="rounded-lg border border-slate-200 px-3 py-2" bind:value={homeworkType}><option value="homework">{$_('teach.homework.types.homework')}</option><option value="diary">{$_('teach.homework.types.diary')}</option></select></label>
+          <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.homework.itemTitle')}<input class="rounded-lg border border-slate-200 px-3 py-2" required maxlength="160" bind:value={homeworkTitle} /></label>
+          <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.homework.body')}<textarea class="min-h-32 rounded-lg border border-slate-200 px-3 py-2" required maxlength="10000" bind:value={homeworkBody}></textarea></label>
+          <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.homework.due')}<input class="rounded-lg border border-slate-200 px-3 py-2" type="datetime-local" bind:value={homeworkDueAt} /></label>
+          <div><div class="flex items-center justify-between gap-2"><span class="text-sm font-bold text-slate-700">{$_('teach.homework.resourceLinks')}</span><button type="button" class="text-sm font-bold text-hero disabled:opacity-50" disabled={homeworkLinks.length >= 5} onclick={addHomeworkLink}>{$_('teach.homework.addLink')}</button></div>{#each homeworkLinks as link, index}<div class="mt-2 grid gap-2 rounded-xl bg-slate-50 p-3 sm:grid-cols-[1fr_2fr_auto]"><input class="rounded-lg border border-slate-200 px-3 py-2 text-sm" maxlength="160" placeholder={$_('teach.homework.linkLabel')} bind:value={link.label} /><input class="rounded-lg border border-slate-200 px-3 py-2 text-sm" type="url" required maxlength="2048" placeholder="https://www.youtube.com/watch?v=…" bind:value={link.url} /><button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold" onclick={() => removeHomeworkLink(index)}>{$_('teach.homework.removeLink')}</button></div>{/each}</div>
+          <div class="flex gap-3"><button class="btn-hero rounded-lg px-4 py-2" type="submit" disabled={homeworkSaving}>{homeworkSaving ? $_('teach.homework.saving') : $_('teach.homework.saveChanges')}</button><button class="btn-secondary rounded-lg px-4 py-2" type="button" onclick={cancelEditHomework}>{$_('teach.homework.cancel')}</button></div>
+        </form>
+      {:else if homeworkMode === 'list' && !viewingHomework}
+        {#if homeworkListError}<p class="mt-4 text-sm font-semibold text-red-700">{homeworkListError}</p>{:else if homeworkItems.length === 0}<p class="mt-5 text-sm text-slate-500">{$_('teach.homework.empty')}</p>{:else}<div class="mt-4 max-h-[58vh] divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">{#each homeworkItems.slice(0, 20) as item}<div class="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"><button type="button" class="min-w-0 text-left" onclick={() => openHomeworkDetail(item)}><p class="truncate font-bold text-slate-900">{item.title}</p><p class="mt-1 text-xs text-slate-500">{item.item_type === 'homework' ? $_('teach.homework.types.homework') : $_('teach.homework.types.diary')}{item.due_at ? ` · ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(item.due_at))}` : ''} · {$_('teach.homework.attachmentCount', { values: { count: item.attachment_count } })} · {$_('teach.homework.resourceCount', { values: { count: item.resource_links?.length || 0 } })}{item.status === 'archived' ? ` · ${$_('teach.homework.archived')}` : ''}</p></button><div class="flex shrink-0 gap-2"><button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={() => openHomeworkDetail(item)}>{$_('teach.homework.view')}</button>{#if item.status === 'active'}<button type="button" class="rounded-lg border border-sky-200 px-3 py-2 text-sm font-bold text-sky-800" onclick={() => startEditHomework(item)}>{$_('teach.homework.edit')}</button><button type="button" class="rounded-lg border border-amber-200 px-3 py-2 text-sm font-bold text-amber-800" onclick={() => archiveHomework(item)}>{$_('teach.homework.archive')}</button>{/if}</div></div>{/each}</div>{/if}
+      {:else if homeworkMode === 'list' && viewingHomework}
+        <div class="mt-5"><button type="button" class="text-sm font-bold text-hero" onclick={() => viewingHomework = null}>{$_('teach.homework.back')}</button><h3 class="mt-3 break-words text-2xl font-black text-slate-900">{viewingHomework.title}</h3><p class="mt-1 text-xs font-bold uppercase text-amber-700">{viewingHomework.item_type === 'homework' ? $_('teach.homework.types.homework') : $_('teach.homework.types.diary')}</p>{#if viewingHomework.due_at}<p class="mt-4 rounded-xl bg-amber-50 p-3 text-sm font-bold text-amber-800">{$_('teach.homework.due')}: {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(viewingHomework.due_at))}</p>{/if}<div class="mt-5 whitespace-pre-wrap break-words text-slate-700">{viewingHomework.body}</div>{#if viewingHomework.resource_links?.length}<div class="mt-6"><h4 class="text-sm font-black uppercase text-slate-500">{$_('teach.homework.resourceLinks')}</h4><div class="mt-2 grid gap-2">{#each viewingHomework.resource_links as link}<a class="break-all rounded-xl border border-sky-100 bg-sky-50 p-3 text-sm font-bold text-sky-800" href={link.url} target="_blank" rel="noopener noreferrer">{link.label || link.url}</a>{/each}</div></div>{/if}<div class="mt-6 flex justify-end gap-3">{#if viewingHomework.status === 'active'}<button type="button" class="rounded-lg border border-sky-200 px-4 py-2 font-bold text-sky-800" onclick={() => startEditHomework(viewingHomework!)}>{$_('teach.homework.edit')}</button><button type="button" class="rounded-lg border border-amber-200 px-4 py-2 font-bold text-amber-800" onclick={() => archiveHomework(viewingHomework!)}>{$_('teach.homework.archive')}</button>{/if}</div></div>
+      {:else}
+      <form class="mt-5 grid gap-4" onsubmit={(event) => { event.preventDefault(); publishHomework(); }}>
+        <p class="rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-slate-700">{$_('teach.homework.audience')}: <strong>{classTitle()}</strong></p>
+        <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.homework.type')}<select class="rounded-lg border border-slate-200 px-3 py-2" bind:value={homeworkType}><option value="homework">{$_('teach.homework.types.homework')}</option><option value="diary">{$_('teach.homework.types.diary')}</option></select></label>
+        <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.homework.itemTitle')}<input class="rounded-lg border border-slate-200 px-3 py-2" required maxlength="160" bind:value={homeworkTitle} /></label>
+        <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.homework.body')}<textarea class="min-h-32 rounded-lg border border-slate-200 px-3 py-2" required maxlength="10000" bind:value={homeworkBody}></textarea></label>
+        <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.homework.due')}<input class="rounded-lg border border-slate-200 px-3 py-2" type="datetime-local" bind:value={homeworkDueAt} /></label>
+        <div><div class="flex items-center justify-between gap-2"><span class="text-sm font-bold text-slate-700">{$_('teach.homework.resourceLinks')}</span><button type="button" class="text-sm font-bold text-hero disabled:opacity-50" disabled={homeworkLinks.length >= 5} onclick={addHomeworkLink}>{$_('teach.homework.addLink')}</button></div>{#each homeworkLinks as link, index}<div class="mt-2 grid gap-2 rounded-xl bg-slate-50 p-3 sm:grid-cols-[1fr_2fr_auto]"><input class="rounded-lg border border-slate-200 px-3 py-2 text-sm" maxlength="160" placeholder={$_('teach.homework.linkLabel')} bind:value={link.label} /><input class="rounded-lg border border-slate-200 px-3 py-2 text-sm" type="url" required maxlength="2048" placeholder="https://www.youtube.com/watch?v=…" bind:value={link.url} /><button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold" onclick={() => removeHomeworkLink(index)}>{$_('teach.homework.removeLink')}</button></div>{/each}</div>
+        <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.homework.attachments')}<input class="rounded-lg border border-slate-200 px-3 py-2 text-sm" type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.jpg,.jpeg,.png,.webp" onchange={handleHomeworkFiles} /></label>
+        <p class="text-xs text-slate-500">{$_('teach.homework.attachmentRules')}</p>
+        <div class="flex gap-3"><button class="btn-hero rounded-lg px-4 py-2" type="submit" disabled={homeworkSaving || !!homeworkError || createdHomeworkId !== null}>{homeworkSaving ? $_('teach.homework.saving') : $_('teach.homework.create')}</button><button class="btn-secondary rounded-lg px-4 py-2" type="button" onclick={closeHomeworkModal}>{homeworkSaving ? $_('teach.homework.cancelUpload') : $_('teach.homework.cancel')}</button></div>
+      </form>
+      {/if}
     </div>
   </div>
 {/if}

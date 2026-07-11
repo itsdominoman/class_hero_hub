@@ -50,6 +50,7 @@
     is_read: boolean;
   };
   type PointEvent = { id: number; category_label: string; type: 'positive' | 'needs_work'; points_delta: number; note?: string | null; teacher_name?: string | null; created_at?: string | null };
+  type HomeworkItem = { id: number; item_type: 'homework' | 'diary'; title: string; body?: string; preview?: string; audience_type: 'class_section' | 'subject_group'; class_section_name?: string | null; subject_group_name?: string | null; due_at?: string | null; created_at?: string | null; attachment_count: number; attachments: AnnouncementAttachment[]; resource_links: { url: string; label?: string | null }[] };
 
   let identity = $state<Identity | null>(null);
   let children = $state<Child[]>([]);
@@ -62,6 +63,15 @@
   let error = $state<string | null>(null);
   let failedAvatars = $state<Record<number, boolean>>({});
   let pointsChild = $state<Child | null>(null);
+  let homeworkItems = $state<HomeworkItem[]>([]);
+  let completedHomework = $state<HomeworkItem[]>([]);
+  let completedLoaded = $state(false);
+  let homeworkTab = $state<'active' | 'completed'>('active');
+  let homeworkOpen = $state(false);
+  let selectedHomework = $state<HomeworkItem | null>(null);
+  let selectedDone = $state(false);
+  let homeworkLoading = $state(false);
+  let homeworkDoneSaving = $state(false);
 
   function markAvatarFailed(studentId: number) {
     failedAvatars = { ...failedAvatars, [studentId]: true };
@@ -71,21 +81,24 @@
     loading = true;
       error = null;
     try {
-      const [me, dashboard, announcementData] = await Promise.all([
+      const [me, dashboard, announcementData, homeworkData] = await Promise.all([
         api.get('/me'),
         api.get('/guardian/dashboard'),
-        api.get('/guardian/announcements')
+        api.get('/guardian/announcements'),
+        api.get('/guardian/homework')
       ]);
       identity = me;
       children = dashboard?.children || [];
       announcements = announcementData?.announcements || [];
       unreadCount = announcementData?.unread_count || 0;
+      homeworkItems = homeworkData?.items || [];
     } catch (err: any) {
       error = err?.message || $_('parent.failedLoad');
       identity = null;
       children = [];
       announcements = [];
       unreadCount = 0;
+      homeworkItems = [];
     } finally {
       loading = false;
     }
@@ -146,6 +159,45 @@
 
   function backToInbox() {
     selectedAnnouncement = null;
+  }
+
+  function homeworkContext(item: HomeworkItem) { return item.audience_type === 'subject_group' ? item.subject_group_name || $_('parent.homework.subjectAudience') : item.class_section_name || $_('parent.homework.classAudience'); }
+  function openHomeworkList() { homeworkOpen = true; selectedHomework = null; homeworkTab = 'active'; }
+  function closeHomeworkList() { homeworkOpen = false; selectedHomework = null; }
+  async function loadCompletedHomework() {
+    try { completedHomework = (await api.get('/guardian/homework?status=completed'))?.items || []; completedLoaded = true; }
+    catch (err: any) { error = err?.message || $_('parent.homework.loadError'); }
+  }
+  async function switchHomeworkTab(tab: 'active' | 'completed') {
+    homeworkTab = tab; selectedHomework = null;
+    if (tab === 'completed' && !completedLoaded) await loadCompletedHomework();
+  }
+  async function openHomeworkItem(item: HomeworkItem, done: boolean) {
+    selectedHomework = item; selectedDone = done; homeworkLoading = true;
+    try { selectedHomework = await api.get(`/guardian/homework/${item.id}`); }
+    catch (err: any) { error = err?.message || $_('parent.homework.loadError'); }
+    finally { homeworkLoading = false; }
+  }
+  async function markHomeworkDone() {
+    if (!selectedHomework || homeworkDoneSaving) return;
+    homeworkDoneSaving = true;
+    try {
+      await api.post(`/guardian/homework/${selectedHomework.id}/done`);
+      homeworkItems = homeworkItems.filter((item) => item.id !== selectedHomework?.id);
+      completedLoaded = false; selectedHomework = null;
+    } catch (err: any) { error = err?.message || $_('parent.homework.doneError'); }
+    finally { homeworkDoneSaving = false; }
+  }
+  async function markHomeworkNotDone() {
+    if (!selectedHomework || homeworkDoneSaving) return;
+    homeworkDoneSaving = true;
+    try {
+      await api.delete(`/guardian/homework/${selectedHomework.id}/done`);
+      completedHomework = completedHomework.filter((item) => item.id !== selectedHomework?.id);
+      homeworkItems = (await api.get('/guardian/homework'))?.items || [];
+      selectedHomework = null;
+    } catch (err: any) { error = err?.message || $_('parent.homework.notDoneError'); }
+    finally { homeworkDoneSaving = false; }
   }
 
   onMount(loadDashboard);
@@ -237,10 +289,9 @@
             <span class="btn-secondary shrink-0 rounded-lg px-4 py-2 text-sm">{$_('parent.announcements.open')}</span>
           </div>
         </button>
-        <div class="rounded-2xl border border-dashed border-slate-200 p-5">
-          <p class="font-bold text-slate-900">{$_('parent.panels.homework')}</p>
-          <p class="mt-1 text-sm text-slate-500">{$_('parent.panels.comingSoon')}</p>
-        </div>
+        <button type="button" class="rounded-2xl border border-amber-100 bg-amber-50/40 p-5 text-left transition hover:border-amber-300 sm:col-span-2" onclick={openHomeworkList}>
+          <div class="flex items-center justify-between gap-3"><div class="min-w-0"><p class="font-bold text-slate-900">{$_('parent.panels.homework')}</p><p class="mt-1 text-sm text-slate-500">{$_('parent.homework.count', { values: { count: homeworkItems.length } })}</p>{#if homeworkItems[0]}<p class="mt-2 truncate text-sm font-semibold text-slate-700">{homeworkItems[0].title}{homeworkItems[0].due_at ? ` · ${formatDate(homeworkItems[0].due_at)}` : ''}</p>{/if}</div><span class="btn-secondary shrink-0 rounded-lg px-4 py-2 text-sm">{$_('parent.homework.open')}</span></div>
+        </button>
         <div class="rounded-2xl border border-dashed border-slate-200 p-5">
           <p class="font-bold text-slate-900">{$_('parent.panels.classUpdates')}</p>
           <p class="mt-1 text-sm text-slate-500">{$_('parent.panels.comingSoon')}</p>
@@ -345,6 +396,21 @@
             </div>
           {/if}
         {/if}
+      {/if}
+    </div>
+  </div>
+{/if}
+
+{#if homeworkOpen}
+  <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="guardian-homework-title">
+    <div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto overflow-x-hidden rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6">
+      {#if !selectedHomework}
+        <div class="flex items-start justify-between gap-3"><h2 id="guardian-homework-title" class="text-2xl font-black text-slate-900">{$_('parent.panels.homework')}</h2><button class="btn-secondary rounded-lg px-3 py-2" type="button" onclick={closeHomeworkList}>{$_('parent.homework.close')}</button></div>
+        <div class="mt-5 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1"><button type="button" class={`rounded-lg px-3 py-2 text-sm font-black ${homeworkTab === 'active' ? 'bg-white text-amber-800 shadow-sm' : 'text-slate-600'}`} onclick={() => switchHomeworkTab('active')}>{$_('parent.homework.active')}</button><button type="button" class={`rounded-lg px-3 py-2 text-sm font-black ${homeworkTab === 'completed' ? 'bg-white text-amber-800 shadow-sm' : 'text-slate-600'}`} onclick={() => switchHomeworkTab('completed')}>{$_('parent.homework.completed')}</button></div>
+        {#if (homeworkTab === 'active' ? homeworkItems : completedHomework).length === 0}<p class="mt-6 text-sm text-slate-500">{homeworkTab === 'active' ? $_('parent.homework.empty') : $_('parent.homework.completedEmpty')}</p>{:else}<div class="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-200">{#each (homeworkTab === 'active' ? homeworkItems : completedHomework) as item}<button type="button" class="block w-full p-4 text-left hover:bg-slate-50" onclick={() => openHomeworkItem(item, homeworkTab === 'completed')}><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="font-bold text-slate-900">{item.title}</p><p class="mt-1 text-xs font-semibold text-slate-500">{item.item_type === 'homework' ? $_('parent.homework.types.homework') : $_('parent.homework.types.diary')} · {homeworkContext(item)}</p>{#if item.due_at}<p class="mt-2 text-sm font-bold text-amber-700">{$_('parent.homework.due')}: {formatDateTime(item.due_at)}</p>{/if}<p class="mt-2 line-clamp-2 text-sm text-slate-600">{item.preview}</p></div>{#if item.attachment_count}<span class="shrink-0 rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">{item.attachment_count}</span>{/if}</div></button>{/each}</div>{/if}
+      {:else}
+        <div class="flex items-start justify-between gap-3"><div class="min-w-0"><button type="button" class="text-sm font-bold text-hero" onclick={() => selectedHomework = null}>{$_('parent.homework.back')}</button><p class="mt-2 text-xs font-bold uppercase text-slate-500">{selectedHomework.item_type === 'homework' ? $_('parent.homework.types.homework') : $_('parent.homework.types.diary')} · {homeworkContext(selectedHomework)}</p><h2 class="mt-2 break-words text-2xl font-black text-slate-900">{selectedHomework.title}</h2></div><button class="btn-secondary shrink-0 rounded-lg px-3 py-2" type="button" onclick={closeHomeworkList}>{$_('parent.homework.close')}</button></div>
+        {#if homeworkLoading && !selectedHomework.body}<p class="mt-6 text-sm text-slate-500">{$_('common.loading')}</p>{:else}{#if selectedHomework.due_at}<p class="mt-5 rounded-xl bg-amber-50 p-3 text-sm font-bold text-amber-800">{$_('parent.homework.due')}: {formatDateTime(selectedHomework.due_at)}</p>{/if}<div class="mt-5 whitespace-pre-wrap break-words text-slate-700">{selectedHomework.body || selectedHomework.preview}</div>{#if selectedHomework.resource_links?.length}<div class="mt-6"><h3 class="text-sm font-black uppercase text-slate-500">{$_('parent.homework.resourceLinks')}</h3><div class="mt-2 grid gap-2">{#each selectedHomework.resource_links as link}<a class="break-all rounded-xl border border-sky-100 bg-sky-50 p-3 text-sm font-bold text-sky-800" href={link.url} target="_blank" rel="noopener noreferrer">{link.label || $_('parent.homework.openLink')}</a>{/each}</div></div>{/if}{#if selectedHomework.attachments?.length}<div class="mt-6"><h3 class="text-sm font-black uppercase text-slate-500">{$_('parent.homework.attachments')}</h3><div class="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-200">{#each selectedHomework.attachments as attachment}<div class="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"><p class="break-all text-sm font-semibold">{attachmentLabel(attachment)}</p><a class="btn-secondary rounded-lg px-3 py-2 text-center text-sm" href={`/api/guardian/homework/${selectedHomework.id}/attachments/${attachment.id}/download`}>{$_('parent.homework.download')}</a></div>{/each}</div></div>{/if}{#if selectedDone}<button type="button" class="mt-7 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-black text-slate-700 disabled:opacity-50" disabled={homeworkDoneSaving} onclick={markHomeworkNotDone}>{homeworkDoneSaving ? $_('parent.homework.markingDone') : $_('parent.homework.markNotDone')}</button>{:else}<button type="button" class="mt-7 w-full rounded-xl bg-emerald-600 px-4 py-3 font-black text-white disabled:opacity-50" disabled={homeworkDoneSaving} onclick={markHomeworkDone}>{homeworkDoneSaving ? $_('parent.homework.markingDone') : $_('parent.homework.markDone')}</button>{/if}{/if}
       {/if}
     </div>
   </div>

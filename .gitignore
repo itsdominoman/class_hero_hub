@@ -25,6 +25,7 @@ Caddyfile.backup*
 /data/*.sqlite
 /data/*.db
 /data/announcement_uploads/
+/data/homework_uploads/
 /backups/
 
 # SQLite backups
