@@ -658,6 +658,48 @@ class HomeworkItemCompletion(Base):
     )
 
 
+class UpdatePost(Base):
+    __tablename__ = "update_posts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    author_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    body = Column(Text, nullable=False)
+    audience_type = Column(String, nullable=False)
+    class_section_id = Column(Integer, ForeignKey("class_sections.id"), nullable=True, index=True)
+    subject_group_id = Column(Integer, ForeignKey("subject_groups.id"), nullable=True, index=True)
+    status = Column(String, nullable=False, default="active", server_default="active")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("status IN ('active', 'archived')", name="ck_update_posts_status"),
+        CheckConstraint(
+            "(audience_type = 'class_section' AND class_section_id IS NOT NULL AND subject_group_id IS NULL) OR "
+            "(audience_type = 'subject_group' AND class_section_id IS NULL AND subject_group_id IS NOT NULL)",
+            name="ck_update_posts_exactly_one_audience",
+        ),
+        Index("ix_update_posts_school_status_created", "school_id", "status", "created_at"),
+    )
+
+
+class UpdatePhoto(Base):
+    __tablename__ = "update_photos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("update_posts.id"), nullable=False, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    uploaded_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    original_filename = Column(String, nullable=False)
+    storage_key = Column(String, nullable=False, unique=True, index=True)
+    content_type = Column(String, nullable=False)
+    size_bytes = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (Index("ix_update_photos_post_school", "post_id", "school_id"),)
+
+
 def _default_magic_login_expires_at():
     return datetime.now(timezone.utc) + timedelta(minutes=15)
 

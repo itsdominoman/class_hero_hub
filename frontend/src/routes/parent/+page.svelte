@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
   import { initialsFromStudentName } from '$lib/guardianDisplay';
@@ -52,6 +52,20 @@
   type PointEvent = { id: number; category_label: string; type: 'positive' | 'needs_work'; points_delta: number; note?: string | null; teacher_name?: string | null; created_at?: string | null };
   type HomeworkItem = { id: number; item_type: 'homework' | 'diary'; title: string; body?: string; preview?: string; audience_type: 'class_section' | 'subject_group'; class_section_name?: string | null; subject_group_name?: string | null; due_at?: string | null; created_at?: string | null; attachment_count: number; attachments: AnnouncementAttachment[]; resource_links: { url: string; label?: string | null }[] };
 
+  type UpdatePhoto = { id: number; original_filename: string };
+  type UpdatePost = {
+    id: number;
+    body?: string;
+    preview?: string;
+    author_name?: string | null;
+    audience_type: 'class_section' | 'subject_group';
+    class_section_name?: string | null;
+    subject_group_name?: string | null;
+    created_at?: string | null;
+    photo_count: number;
+    photos: UpdatePhoto[];
+  };
+
   let identity = $state<Identity | null>(null);
   let children = $state<Child[]>([]);
   let announcements = $state<Announcement[]>([]);
@@ -72,36 +86,88 @@
   let selectedDone = $state(false);
   let homeworkLoading = $state(false);
   let homeworkDoneSaving = $state(false);
+  let updates = $state<UpdatePost[]>([]);
+  let updatesOpen = $state(false);
+  let selectedUpdate = $state<UpdatePost | null>(null);
+  let updateLoading = $state(false);
+  let lightboxPhoto = $state<{ url: string; alt: string } | null>(null);
+  let updatePhotoLoadStates = $state<Record<string, 'loaded' | 'failed'>>({});
+  let lightboxPhotoState = $state<'loading' | 'loaded' | 'failed'>('loading');
+  let dashboardRequestInFlight = false;
+  let dashboardRefreshQueued = false;
+  let dashboardPollTimer: ReturnType<typeof setTimeout> | null = null;
 
   function markAvatarFailed(studentId: number) {
     failedAvatars = { ...failedAvatars, [studentId]: true };
   }
 
-  async function loadDashboard() {
-    loading = true;
+  async function loadDashboard(showLoading = true) {
+    if (dashboardRequestInFlight) {
+      if (!showLoading && document.visibilityState === 'visible') dashboardRefreshQueued = true;
+      return;
+    }
+    dashboardRequestInFlight = true;
+    if (showLoading) {
+      loading = true;
       error = null;
+    }
     try {
-      const [me, dashboard, announcementData, homeworkData] = await Promise.all([
+      const [me, dashboard, announcementData, homeworkData, updateData] = await Promise.all([
         api.get('/me'),
         api.get('/guardian/dashboard'),
         api.get('/guardian/announcements'),
-        api.get('/guardian/homework')
+        api.get('/guardian/homework'),
+        api.get('/guardian/updates')
       ]);
       identity = me;
       children = dashboard?.children || [];
       announcements = announcementData?.announcements || [];
       unreadCount = announcementData?.unread_count || 0;
       homeworkItems = homeworkData?.items || [];
+      updates = updateData?.items || [];
     } catch (err: any) {
-      error = err?.message || $_('parent.failedLoad');
-      identity = null;
-      children = [];
-      announcements = [];
-      unreadCount = 0;
-      homeworkItems = [];
+      if (showLoading) {
+        error = err?.message || $_('parent.failedLoad');
+        identity = null;
+        children = [];
+        announcements = [];
+        unreadCount = 0;
+        homeworkItems = [];
+        updates = [];
+      }
     } finally {
-      loading = false;
+      if (showLoading) loading = false;
+      dashboardRequestInFlight = false;
+      if (dashboardRefreshQueued && document.visibilityState === 'visible') {
+        dashboardRefreshQueued = false;
+        void loadDashboard(false);
+      }
     }
+  }
+
+  function clearDashboardPolling() {
+    if (!dashboardPollTimer) return;
+    clearTimeout(dashboardPollTimer);
+    dashboardPollTimer = null;
+  }
+
+  function scheduleDashboardPolling() {
+    clearDashboardPolling();
+    if (document.visibilityState !== 'visible') return;
+    dashboardPollTimer = setTimeout(async () => {
+      await loadDashboard(false);
+      scheduleDashboardPolling();
+    }, 60_000);
+  }
+
+  function handleVisibilityChange() {
+    if (document.visibilityState === 'visible') {
+      void loadDashboard(false);
+      scheduleDashboardPolling();
+      return;
+    }
+    dashboardRefreshQueued = false;
+    clearDashboardPolling();
   }
 
   function relationshipLabel(relationship: string | null) {
@@ -161,6 +227,34 @@
     selectedAnnouncement = null;
   }
 
+  function updateContext(post: UpdatePost) {
+    return post.audience_type === 'subject_group'
+      ? post.subject_group_name || $_('parent.updates.subjectAudience')
+      : post.class_section_name || $_('parent.updates.classAudience');
+  }
+  function updatePhotoUrl(post: UpdatePost, photo: UpdatePhoto) {
+    return `/api/guardian/updates/${post.id}/photos/${photo.id}/view`;
+  }
+  function updatePhotoKey(post: UpdatePost, photo: UpdatePhoto) { return `${post.id}:${photo.id}`; }
+  function updatePhotoLoaded(post: UpdatePost, photo: UpdatePhoto) {
+    updatePhotoLoadStates = { ...updatePhotoLoadStates, [updatePhotoKey(post, photo)]: 'loaded' };
+  }
+  function updatePhotoFailed(post: UpdatePost, photo: UpdatePhoto) {
+    updatePhotoLoadStates = { ...updatePhotoLoadStates, [updatePhotoKey(post, photo)]: 'failed' };
+  }
+  function openUpdates() { updatesOpen = true; selectedUpdate = null; }
+  function closeUpdates() { updatesOpen = false; selectedUpdate = null; }
+  async function openUpdatePost(post: UpdatePost) {
+    selectedUpdate = post; updateLoading = true;
+    try { selectedUpdate = await api.get(`/guardian/updates/${post.id}`); }
+    catch (err: any) { error = err?.message || $_('parent.updates.loadError'); }
+    finally { updateLoading = false; }
+  }
+  function openLightbox(post: UpdatePost, photo: UpdatePhoto) {
+    lightboxPhoto = { url: updatePhotoUrl(post, photo), alt: photo.original_filename };
+    lightboxPhotoState = 'loading';
+  }
+
   function homeworkContext(item: HomeworkItem) { return item.audience_type === 'subject_group' ? item.subject_group_name || $_('parent.homework.subjectAudience') : item.class_section_name || $_('parent.homework.classAudience'); }
   function openHomeworkList() { homeworkOpen = true; selectedHomework = null; homeworkTab = 'active'; }
   function closeHomeworkList() { homeworkOpen = false; selectedHomework = null; }
@@ -200,7 +294,16 @@
     finally { homeworkDoneSaving = false; }
   }
 
-  onMount(loadDashboard);
+  onMount(() => {
+    void loadDashboard();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    scheduleDashboardPolling();
+  });
+
+  onDestroy(() => {
+    clearDashboardPolling();
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  });
 </script>
 
 <svelte:head>
@@ -272,7 +375,7 @@
 
       <div class="mt-8 grid gap-4 sm:grid-cols-2">
         <button type="button" class="rounded-lg border border-slate-200 p-5 text-left transition hover:bg-slate-50 sm:col-span-2" onclick={openInbox}>
-          <div class="flex items-center justify-between gap-3">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="min-w-0">
               <p class="font-bold text-slate-900">{$_('parent.panels.announcements')}</p>
               <p class="mt-1 text-sm text-slate-500">
@@ -286,16 +389,25 @@
                 <p class="mt-2 truncate text-sm text-slate-600">{announcements[0].title} · {formatDate(announcements[0].created_at)}</p>
               {/if}
             </div>
-            <span class="btn-secondary shrink-0 rounded-lg px-4 py-2 text-sm">{$_('parent.announcements.open')}</span>
+            <span class="btn-secondary shrink-0 rounded-lg px-4 py-2 text-center text-sm">{$_('parent.announcements.open')}</span>
           </div>
         </button>
         <button type="button" class="rounded-2xl border border-amber-100 bg-amber-50/40 p-5 text-left transition hover:border-amber-300 sm:col-span-2" onclick={openHomeworkList}>
-          <div class="flex items-center justify-between gap-3"><div class="min-w-0"><p class="font-bold text-slate-900">{$_('parent.panels.homework')}</p><p class="mt-1 text-sm text-slate-500">{$_('parent.homework.count', { values: { count: homeworkItems.length } })}</p>{#if homeworkItems[0]}<p class="mt-2 truncate text-sm font-semibold text-slate-700">{homeworkItems[0].title}{homeworkItems[0].due_at ? ` · ${formatDate(homeworkItems[0].due_at)}` : ''}</p>{/if}</div><span class="btn-secondary shrink-0 rounded-lg px-4 py-2 text-sm">{$_('parent.homework.open')}</span></div>
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div class="min-w-0"><p class="font-bold text-slate-900">{$_('parent.panels.homework')}</p><p class="mt-1 text-sm text-slate-500">{$_('parent.homework.count', { values: { count: homeworkItems.length } })}</p>{#if homeworkItems[0]}<p class="mt-2 truncate text-sm font-semibold text-slate-700">{homeworkItems[0].title}{homeworkItems[0].due_at ? ` · ${formatDate(homeworkItems[0].due_at)}` : ''}</p>{/if}</div><span class="btn-secondary shrink-0 rounded-lg px-4 py-2 text-center text-sm">{$_('parent.homework.open')}</span></div>
         </button>
-        <div class="rounded-2xl border border-dashed border-slate-200 p-5">
-          <p class="font-bold text-slate-900">{$_('parent.panels.classUpdates')}</p>
-          <p class="mt-1 text-sm text-slate-500">{$_('parent.panels.comingSoon')}</p>
-        </div>
+        <button type="button" class="rounded-2xl border border-sky-100 bg-sky-50/40 p-5 text-left transition hover:border-sky-300 sm:col-span-2" onclick={openUpdates}>
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="min-w-0">
+              <p class="font-bold text-slate-900">{$_('parent.panels.classUpdates')}</p>
+              <p class="mt-1 text-sm text-slate-500">{updates.length === 0 ? $_('parent.updates.empty') : $_('parent.updates.count', { values: { count: updates.length } })}</p>
+              {#if updates[0]}
+                <p class="mt-2 line-clamp-2 break-words text-sm font-semibold text-slate-700">{updates[0].preview}</p>
+                <p class="mt-1 text-xs text-slate-500">{updateContext(updates[0])} · {formatDate(updates[0].created_at)}{updates[0].photo_count ? ` · ${$_('parent.updates.photoCount', { values: { count: updates[0].photo_count } })}` : ''}</p>
+              {/if}
+            </div>
+            <span class="btn-secondary shrink-0 rounded-lg px-4 py-2 text-center text-sm">{$_('parent.updates.open')}</span>
+          </div>
+        </button>
       </div>
 
       {#if children.length === 0}
@@ -413,6 +525,91 @@
         {#if homeworkLoading && !selectedHomework.body}<p class="mt-6 text-sm text-slate-500">{$_('common.loading')}</p>{:else}{#if selectedHomework.due_at}<p class="mt-5 rounded-xl bg-amber-50 p-3 text-sm font-bold text-amber-800">{$_('parent.homework.due')}: {formatDateTime(selectedHomework.due_at)}</p>{/if}<div class="mt-5 whitespace-pre-wrap break-words text-slate-700">{selectedHomework.body || selectedHomework.preview}</div>{#if selectedHomework.resource_links?.length}<div class="mt-6"><h3 class="text-sm font-black uppercase text-slate-500">{$_('parent.homework.resourceLinks')}</h3><div class="mt-2 grid gap-2">{#each selectedHomework.resource_links as link}<a class="break-all rounded-xl border border-sky-100 bg-sky-50 p-3 text-sm font-bold text-sky-800" href={link.url} target="_blank" rel="noopener noreferrer">{link.label || $_('parent.homework.openLink')}</a>{/each}</div></div>{/if}{#if selectedHomework.attachments?.length}<div class="mt-6"><h3 class="text-sm font-black uppercase text-slate-500">{$_('parent.homework.attachments')}</h3><div class="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-200">{#each selectedHomework.attachments as attachment}<div class="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"><p class="break-all text-sm font-semibold">{attachmentLabel(attachment)}</p><a class="btn-secondary rounded-lg px-3 py-2 text-center text-sm" href={`/api/guardian/homework/${selectedHomework.id}/attachments/${attachment.id}/download`}>{$_('parent.homework.download')}</a></div>{/each}</div></div>{/if}{#if selectedDone}<button type="button" class="mt-7 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-black text-slate-700 disabled:opacity-50" disabled={homeworkDoneSaving} onclick={markHomeworkNotDone}>{homeworkDoneSaving ? $_('parent.homework.markingDone') : $_('parent.homework.markNotDone')}</button>{:else}<button type="button" class="mt-7 w-full rounded-xl bg-emerald-600 px-4 py-3 font-black text-white disabled:opacity-50" disabled={homeworkDoneSaving} onclick={markHomeworkDone}>{homeworkDoneSaving ? $_('parent.homework.markingDone') : $_('parent.homework.markDone')}</button>{/if}{/if}
       {/if}
     </div>
+  </div>
+{/if}
+
+{#if updatesOpen}
+  <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="guardian-updates-title">
+    <div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto overflow-x-hidden rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6">
+      {#if !selectedUpdate}
+        <div class="flex items-start justify-between gap-3"><h2 id="guardian-updates-title" class="text-2xl font-black text-slate-900">{$_('parent.panels.classUpdates')}</h2><button class="btn-secondary rounded-lg px-3 py-2" type="button" onclick={closeUpdates}>{$_('parent.updates.close')}</button></div>
+        {#if updates.length === 0}
+          <p class="mt-6 text-sm text-slate-500">{$_('parent.updates.empty')}</p>
+        {:else}
+          <div class="mt-5 max-h-[74vh] divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">
+            {#each updates.slice(0, 20) as post (post.id)}
+              <article class="p-4">
+                <button type="button" class="block w-full text-left" onclick={() => openUpdatePost(post)}>
+                  <p class="text-xs font-bold uppercase tracking-wide text-sky-700">{updateContext(post)}</p>
+                  <p class="mt-2 line-clamp-3 whitespace-pre-wrap break-words text-sm text-slate-700">{post.preview}</p>
+                  <p class="mt-2 text-xs text-slate-500">{formatDateTime(post.created_at)}{post.author_name ? ` · ${post.author_name}` : ''}</p>
+                </button>
+                {#if post.photos?.length}
+                  <div class="mt-3 flex gap-2 overflow-x-auto">
+                    {#each post.photos as photo (photo.id)}
+                      {@const photoState = updatePhotoLoadStates[updatePhotoKey(post, photo)]}
+                      <button type="button" class="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100" onclick={() => openLightbox(post, photo)}>
+                        {#if photoState === 'failed'}
+                          <span class="absolute inset-0 flex items-center justify-center p-1 text-center text-[10px] font-semibold text-slate-500">{$_('parent.updates.photoLoadError')}</span>
+                        {:else if photoState !== 'loaded'}
+                          <span class="absolute inset-0 flex items-center justify-center p-1 text-center text-[10px] font-semibold text-slate-500">{$_('parent.updates.photoLoading')}</span>
+                        {/if}
+                        <img src={updatePhotoUrl(post, photo)} alt={photo.original_filename} loading="lazy" class={`h-full w-full object-cover transition-opacity ${photoState === 'loaded' ? 'opacity-100' : 'opacity-0'}`} onload={() => updatePhotoLoaded(post, photo)} onerror={() => updatePhotoFailed(post, photo)} />
+                      </button>
+                    {/each}
+                  </div>
+                {/if}
+              </article>
+            {/each}
+          </div>
+        {/if}
+      {:else}
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <button type="button" class="text-sm font-bold text-hero" onclick={() => selectedUpdate = null}>{$_('parent.updates.back')}</button>
+            <p class="mt-2 text-xs font-bold uppercase tracking-wide text-sky-700">{updateContext(selectedUpdate)}</p>
+            <p class="mt-1 text-sm text-slate-500">{formatDateTime(selectedUpdate.created_at)}{selectedUpdate.author_name ? ` · ${selectedUpdate.author_name}` : ''}</p>
+          </div>
+          <button class="btn-secondary shrink-0 rounded-lg px-3 py-2" type="button" onclick={closeUpdates}>{$_('parent.updates.close')}</button>
+        </div>
+        {#if updateLoading && !selectedUpdate.body}
+          <p class="mt-6 text-sm text-slate-500">{$_('common.loading')}</p>
+        {:else}
+          <div class="mt-5 whitespace-pre-wrap break-words text-slate-700">{selectedUpdate.body || selectedUpdate.preview}</div>
+          {#if selectedUpdate.photos?.length}
+            <div class="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {#each selectedUpdate.photos as photo (photo.id)}
+                {@const photoState = updatePhotoLoadStates[updatePhotoKey(selectedUpdate, photo)]}
+                <button type="button" class="relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-100" onclick={() => openLightbox(selectedUpdate!, photo)}>
+                  {#if photoState === 'failed'}
+                    <span class="absolute inset-0 flex items-center justify-center p-2 text-center text-xs font-semibold text-slate-500">{$_('parent.updates.photoLoadError')}</span>
+                  {:else if photoState !== 'loaded'}
+                    <span class="absolute inset-0 flex items-center justify-center p-2 text-center text-xs font-semibold text-slate-500">{$_('parent.updates.photoLoading')}</span>
+                  {/if}
+                  <img src={updatePhotoUrl(selectedUpdate, photo)} alt={photo.original_filename} loading="lazy" class={`h-full w-full object-cover transition-opacity ${photoState === 'loaded' ? 'opacity-100' : 'opacity-0'}`} onload={() => updatePhotoLoaded(selectedUpdate!, photo)} onerror={() => updatePhotoFailed(selectedUpdate!, photo)} />
+                </button>
+              {/each}
+            </div>
+          {:else}
+            <p class="mt-5 text-sm text-slate-500">{$_('parent.updates.noPhotos')}</p>
+          {/if}
+        {/if}
+      {/if}
+    </div>
+  </div>
+{/if}
+
+{#if lightboxPhoto}
+  <div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/90 p-4" role="dialog" aria-modal="true">
+    <button type="button" class="absolute end-4 top-4 rounded-lg bg-white/10 px-4 py-2 font-bold text-white" onclick={() => lightboxPhoto = null}>{$_('parent.updates.close')}</button>
+    <button type="button" class="relative flex min-h-40 max-h-full max-w-full items-center justify-center" onclick={() => lightboxPhoto = null}>
+      {#if lightboxPhotoState === 'failed'}
+        <span class="rounded-xl bg-white/10 p-4 text-center text-sm font-semibold text-white">{$_('parent.updates.photoLoadError')}</span>
+      {:else if lightboxPhotoState !== 'loaded'}
+        <span class="absolute rounded-xl bg-white/10 p-4 text-center text-sm font-semibold text-white">{$_('parent.updates.photoLoading')}</span>
+      {/if}
+      <img src={lightboxPhoto.url} alt={lightboxPhoto.alt} class={`max-h-[88vh] max-w-full rounded-xl object-contain transition-opacity ${lightboxPhotoState === 'loaded' ? 'opacity-100' : 'opacity-0'}`} onload={() => lightboxPhotoState = 'loaded'} onerror={() => lightboxPhotoState = 'failed'} />
+    </button>
   </div>
 {/if}
 

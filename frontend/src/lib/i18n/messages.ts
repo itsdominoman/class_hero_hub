@@ -610,9 +610,8 @@ export const en = {
       students: 'Students',
       comingSoon: 'Coming soon',
       availableFromClasses: 'Available from My classes',
-      createForClass: 'Create for this class',
       actions: {
-        points: 'Award points',
+        points: 'Points',
         updates: 'Updates & photos',
         homework: 'Homework & diary',
         announcements: 'Announcements'
@@ -633,7 +632,7 @@ export const en = {
       audience: 'Audience',
       titlePlaceholder: 'Announcement title',
       bodyPlaceholder: 'Write the announcement text',
-      publish: 'Create announcement',
+      publish: 'Post',
       publishing: 'Publishing',
       archive: 'Archive',
       empty: 'No class announcements yet.',
@@ -649,8 +648,11 @@ export const en = {
       downloadError: 'Failed to download attachment'
     },
     homework: {
-      title: 'Homework & diary', audience: 'Audience', type: 'Item type', itemTitle: 'Title', body: 'Details', due: 'Due date and time (optional)', attachments: 'Attachments (up to 5)', create: 'Create item', saving: 'Creating…', created: 'Homework & diary item created', cancel: 'Cancel', close: 'Close', saveError: 'Failed to create homework or diary item', createdList: 'Created homework & diary', empty: 'No items created for this audience yet.', view: 'View', archive: 'Archive', archived: 'Archived', archiveError: 'Failed to archive item', loadError: 'Failed to load homework items', attachmentCount: '{count} attachments', resourceLinks: 'Resource links', addLink: 'Add link', removeLink: 'Remove', linkLabel: 'Optional label', linkError: 'Enter a public HTTPS resource link.', attachmentRules: 'PDF, Office documents, text/CSV, or JPG/PNG/WEBP images. Maximum 10 MB each and 5 files.', fileTypeError: 'File type not allowed.', heicError: 'iPhone photo format is not supported yet. Please upload JPG, PNG, or WEBP.', fileSizeError: 'File is too large. Maximum 10 MB.', maxFiles: 'Maximum 5 attachments.', cancelUpload: 'Cancel upload', cancelled: 'Creation cancelled.', cancelledAfterCreate: 'Item exists, but attachment upload was cancelled.', attachmentFailed: 'Item exists, but attachment upload did not complete.', createTab: 'Create item', previousTab: 'Previous items', resourceCount: 'Links: {count}', back: 'Back', edit: 'Edit', saveChanges: 'Save changes', updated: 'Homework & diary item updated', updateError: 'Failed to update item',
+      title: 'Homework & diary', audience: 'Audience', type: 'Item type', itemTitle: 'Title', body: 'Details', due: 'Due date and time (optional)', attachments: 'Attachments (up to 5)', create: 'Post', saving: 'Creating…', created: 'Homework & diary item created', cancel: 'Cancel', close: 'Close', saveError: 'Failed to create homework or diary item', createdList: 'Created homework & diary', empty: 'No items created for this audience yet.', view: 'View', archive: 'Archive', archived: 'Archived', archiveError: 'Failed to archive item', loadError: 'Failed to load homework items', attachmentCount: '{count} attachments', resourceLinks: 'Resource links', addLink: 'Add link', removeLink: 'Remove', linkLabel: 'Optional label', linkError: 'Enter a public HTTPS resource link.', attachmentRules: 'PDF, Office documents, text/CSV, or JPG/PNG/WEBP images. Maximum 10 MB each and 5 files.', fileTypeError: 'File type not allowed.', heicError: 'iPhone photo format is not supported yet. Please upload JPG, PNG, or WEBP.', fileSizeError: 'File is too large. Maximum 10 MB.', maxFiles: 'Maximum 5 attachments.', cancelUpload: 'Cancel upload', cancelled: 'Creation cancelled.', cancelledAfterCreate: 'Item exists, but attachment upload was cancelled.', attachmentFailed: 'Item exists, but attachment upload did not complete.', createTab: 'Create item', previousTab: 'Previous items', resourceCount: 'Links: {count}', back: 'Back', edit: 'Edit', saveChanges: 'Save changes', updated: 'Homework & diary item updated', updateError: 'Failed to update item',
       types: { homework: 'Homework', diary: 'Diary note' }
+    },
+    updates: {
+      title: 'Updates & photos', audience: 'Audience', body: 'What happened?', photos: 'Add photos', uploadPhotos: 'Upload photos', takePhoto: 'Take photo', removePhoto: 'Remove', photoRules: 'JPG, PNG, or WEBP images. Maximum 10 MB each and 5 photos.', create: 'Post', saving: 'Posting…', created: 'Update posted', cancel: 'Cancel', close: 'Close', saveError: 'Failed to post update', empty: 'No updates yet', view: 'View', edit: 'Edit', archive: 'Archive', archived: 'Archived', archiveError: 'Failed to archive update', loadError: 'Failed to load updates', photoCount: '{count} photos', noPhotos: 'This update has no photos', photoLoading: 'Loading photo…', photoLoadError: 'Photo could not be loaded.', fileTypeError: 'Photo type not allowed.', heicError: 'iPhone photo format is not supported yet. Please upload JPG, PNG, or WEBP.', fileSizeError: 'Photo is too large. Maximum 10 MB.', maxPhotos: 'Maximum 5 photos.', cancelUpload: 'Cancel upload', cancelled: 'Update cancelled.', cancelledAfterCreate: 'Update exists, but photo upload was cancelled.', photoFailed: 'Update exists, but photo upload did not complete.', createTab: 'Create update', previousTab: 'Previous updates', back: 'Back', saveChanges: 'Save changes', updated: 'Update saved', updateError: 'Failed to save update'
     },
     studentSearch: {
       find: 'Find student', title: 'Find student', subtitle: 'Search your school and award points without opening a class.',
@@ -658,7 +660,7 @@ export const en = {
       searching: 'Searching…', resultCount: '{count} results', selected: '{count} selected', noClass: 'Class not available', searchError: 'Failed to search students'
     },
     points: {
-      title: 'Award points', open: 'Open award tool', positive: 'Positive', needsWork: 'Needs work', selectStudents: 'Select students', wholeClass: 'Whole class', clearSelection: 'Clear selection', category: 'Category / reason', note: 'Optional note', submit: 'Save points', saveForOne: 'Save points for 1 student', saveForMany: 'Save points for {count} students', saving: 'Saving…', close: 'Close', loadError: 'Failed to load categories', saveError: 'Failed to save points', successOne: 'Points saved for 1 student', successMany: 'Points saved for {count} students', pts: 'pts'
+      title: 'Award points', open: 'Open', positive: 'Positive', needsWork: 'Needs work', selectStudents: 'Select students', wholeClass: 'Whole class', clearSelection: 'Clear selection', category: 'Category / reason', note: 'Optional note', submit: 'Save points', saveForOne: 'Save points for 1 student', saveForMany: 'Save points for {count} students', saving: 'Saving…', close: 'Close', loadError: 'Failed to load categories', saveError: 'Failed to save points', successOne: 'Points saved for 1 student', successMany: 'Points saved for {count} students', pts: 'pts'
     }
   },
   faq: {
@@ -729,7 +731,7 @@ export const en = {
     signedInAs: 'Signed in as',
     panels: {
       announcements: 'Announcements',
-      classUpdates: 'Class updates & photos',
+      classUpdates: 'Updates & photos',
       homework: 'Homework & diary',
       points: 'Points & behaviour',
       comingSoon: 'Coming soon'
@@ -755,6 +757,9 @@ export const en = {
     homework: {
       count: '{count} active items', open: 'Open', close: 'Close', back: 'Back', empty: 'No homework or diary items yet.', due: 'Due', attachments: 'Attachments', download: 'Download', loadError: 'Failed to open homework item', classAudience: 'Class', subjectAudience: 'Subject group', resourceLinks: 'Resource links', openLink: 'Open link', markDone: 'Mark as done', markingDone: 'Marking as done…', doneError: 'Failed to mark item as done', active: 'Active', completed: 'Completed', markNotDone: 'Mark as not done', notDoneError: 'Failed to mark item as not done', completedEmpty: 'No completed homework or diary items yet.',
       types: { homework: 'Homework', diary: 'Diary note' }
+    },
+    updates: {
+      count: '{count} updates', open: 'Open', close: 'Close', back: 'Back', empty: 'No updates yet', noPhotos: 'This update has no photos', photoCount: '{count} photos', photoLoading: 'Loading photo…', photoLoadError: 'Photo could not be loaded.', loadError: 'Failed to open update', classAudience: 'Class', subjectAudience: 'Subject group'
     }
   }
 };
@@ -1371,9 +1376,8 @@ export const ar = {
       students: 'الطلاب',
       comingSoon: 'قريبًا',
       availableFromClasses: 'متاح من صفحة صفوفي',
-      createForClass: 'إنشاء لهذا الصف',
       actions: {
-        points: 'منح النقاط',
+        points: 'النقاط',
         updates: 'التحديثات والصور',
         homework: 'الواجبات والمفكرة',
         announcements: 'الإعلانات'
@@ -1394,7 +1398,7 @@ export const ar = {
       audience: 'الجمهور',
       titlePlaceholder: 'عنوان الإعلان',
       bodyPlaceholder: 'اكتب نص الإعلان',
-      publish: 'إنشاء إعلان',
+      publish: 'نشر',
       publishing: 'جار النشر',
       archive: 'أرشفة',
       empty: 'لا توجد إعلانات للصفوف بعد.',
@@ -1410,15 +1414,18 @@ export const ar = {
       downloadError: 'تعذر تنزيل المرفق'
     },
     homework: {
-      title: 'الواجبات واليوميات', audience: 'الجمهور', type: 'نوع العنصر', itemTitle: 'العنوان', body: 'التفاصيل', due: 'تاريخ ووقت الاستحقاق (اختياري)', attachments: 'المرفقات (حتى 5)', create: 'إنشاء العنصر', saving: 'جار الإنشاء…', created: 'تم إنشاء عنصر الواجبات واليوميات', cancel: 'إلغاء', close: 'إغلاق', saveError: 'تعذر إنشاء الواجب أو ملاحظة اليوميات', createdList: 'الواجبات واليوميات المنشأة', empty: 'لم يتم إنشاء عناصر لهذا الجمهور بعد.', view: 'عرض', archive: 'أرشفة', archived: 'مؤرشف', archiveError: 'تعذرت أرشفة العنصر', loadError: 'تعذر تحميل عناصر الواجبات', attachmentCount: '{count} مرفقات', resourceLinks: 'روابط الموارد', addLink: 'إضافة رابط', removeLink: 'إزالة', linkLabel: 'عنوان اختياري', linkError: 'أدخل رابط مورد HTTPS عامًا.', attachmentRules: 'ملفات PDF أو أوفيس أو نص/CSV أو صور JPG/PNG/WEBP. الحد الأقصى 10 ميجابايت لكل ملف و5 ملفات.', fileTypeError: 'نوع الملف غير مسموح.', heicError: 'تنسيق صور iPhone غير مدعوم بعد. يرجى رفع JPG أو PNG أو WEBP.', fileSizeError: 'الملف كبير جدًا. الحد الأقصى 10 ميجابايت.', maxFiles: 'الحد الأقصى 5 مرفقات.', cancelUpload: 'إلغاء الرفع', cancelled: 'تم إلغاء الإنشاء.', cancelledAfterCreate: 'العنصر موجود، لكن تم إلغاء رفع المرفق.', attachmentFailed: 'العنصر موجود، لكن لم يكتمل رفع المرفق.', createTab: 'إنشاء عنصر', previousTab: 'العناصر السابقة', resourceCount: 'روابط: {count}', back: 'رجوع', edit: 'تعديل', saveChanges: 'حفظ التغييرات', updated: 'تم تحديث عنصر الواجبات واليوميات', updateError: 'تعذر تحديث العنصر',
+      title: 'الواجبات واليوميات', audience: 'الجمهور', type: 'نوع العنصر', itemTitle: 'العنوان', body: 'التفاصيل', due: 'تاريخ ووقت الاستحقاق (اختياري)', attachments: 'المرفقات (حتى 5)', create: 'نشر', saving: 'جار الإنشاء…', created: 'تم إنشاء عنصر الواجبات واليوميات', cancel: 'إلغاء', close: 'إغلاق', saveError: 'تعذر إنشاء الواجب أو ملاحظة اليوميات', createdList: 'الواجبات واليوميات المنشأة', empty: 'لم يتم إنشاء عناصر لهذا الجمهور بعد.', view: 'عرض', archive: 'أرشفة', archived: 'مؤرشف', archiveError: 'تعذرت أرشفة العنصر', loadError: 'تعذر تحميل عناصر الواجبات', attachmentCount: '{count} مرفقات', resourceLinks: 'روابط الموارد', addLink: 'إضافة رابط', removeLink: 'إزالة', linkLabel: 'عنوان اختياري', linkError: 'أدخل رابط مورد HTTPS عامًا.', attachmentRules: 'ملفات PDF أو أوفيس أو نص/CSV أو صور JPG/PNG/WEBP. الحد الأقصى 10 ميجابايت لكل ملف و5 ملفات.', fileTypeError: 'نوع الملف غير مسموح.', heicError: 'تنسيق صور iPhone غير مدعوم بعد. يرجى رفع JPG أو PNG أو WEBP.', fileSizeError: 'الملف كبير جدًا. الحد الأقصى 10 ميجابايت.', maxFiles: 'الحد الأقصى 5 مرفقات.', cancelUpload: 'إلغاء الرفع', cancelled: 'تم إلغاء الإنشاء.', cancelledAfterCreate: 'العنصر موجود، لكن تم إلغاء رفع المرفق.', attachmentFailed: 'العنصر موجود، لكن لم يكتمل رفع المرفق.', createTab: 'إنشاء عنصر', previousTab: 'العناصر السابقة', resourceCount: 'روابط: {count}', back: 'رجوع', edit: 'تعديل', saveChanges: 'حفظ التغييرات', updated: 'تم تحديث عنصر الواجبات واليوميات', updateError: 'تعذر تحديث العنصر',
       types: { homework: 'واجب', diary: 'ملاحظة يوميات' }
+    },
+    updates: {
+      title: 'التحديثات والصور', audience: 'الجمهور', body: 'ماذا حدث؟', photos: 'إضافة صور', uploadPhotos: 'تحميل الصور', takePhoto: 'التقاط صورة', removePhoto: 'إزالة', photoRules: 'صور JPG أو PNG أو WEBP. الحد الأقصى 10 ميجابايت لكل صورة و5 صور.', create: 'نشر', saving: 'جار النشر…', created: 'تم نشر التحديث', cancel: 'إلغاء', close: 'إغلاق', saveError: 'تعذر نشر التحديث', empty: 'لا توجد تحديثات بعد', view: 'عرض', edit: 'تعديل', archive: 'أرشفة', archived: 'مؤرشف', archiveError: 'تعذرت أرشفة التحديث', loadError: 'تعذر تحميل التحديثات', photoCount: '{count} صور', noPhotos: 'لا توجد صور لهذا التحديث', photoLoading: 'جار تحميل الصورة…', photoLoadError: 'تعذر تحميل الصورة.', fileTypeError: 'نوع الصورة غير مسموح.', heicError: 'تنسيق صور iPhone غير مدعوم بعد. يرجى رفع JPG أو PNG أو WEBP.', fileSizeError: 'الصورة كبيرة جدًا. الحد الأقصى 10 ميجابايت.', maxPhotos: 'الحد الأقصى 5 صور.', cancelUpload: 'إلغاء الرفع', cancelled: 'تم إلغاء التحديث.', cancelledAfterCreate: 'التحديث موجود، لكن تم إلغاء رفع الصور.', photoFailed: 'التحديث موجود، لكن لم يكتمل رفع الصور.', createTab: 'إنشاء تحديث', previousTab: 'التحديثات السابقة', back: 'رجوع', saveChanges: 'حفظ التغييرات', updated: 'تم حفظ التحديث', updateError: 'تعذر حفظ التحديث'
     },
     studentSearch: {
       find: 'البحث عن طالب', title: 'البحث عن طالب', subtitle: 'ابحث في مدرستك وامنح النقاط دون فتح صف.',
       school: 'المدرسة', searchLabel: 'اسم الطالب أو الرقم المرجعي', placeholder: 'اكتب حرفين على الأقل', minimum: 'أدخل حرفين على الأقل للبحث.',
       searching: 'جار البحث…', resultCount: '{count} نتائج', selected: 'تم اختيار {count}', noClass: 'الصف غير متاح', searchError: 'تعذر البحث عن الطلاب'
     },
-    points: { title: 'منح النقاط', open: 'فتح أداة النقاط', positive: 'إيجابي', needsWork: 'يحتاج إلى تحسين', selectStudents: 'اختر الطلاب', wholeClass: 'الصف بأكمله', clearSelection: 'مسح التحديد', category: 'الفئة / السبب', note: 'ملاحظة اختيارية', submit: 'حفظ النقاط', saveForOne: 'حفظ النقاط لطالب واحد', saveForMany: 'حفظ النقاط لـ {count} طلاب', saving: 'جار الحفظ…', close: 'إغلاق', loadError: 'تعذر تحميل الفئات', saveError: 'تعذر حفظ النقاط', successOne: 'تم حفظ النقاط لطالب واحد', successMany: 'تم حفظ النقاط لـ {count} طلاب', pts: 'نقطة' }
+    points: { title: 'منح النقاط', open: 'فتح', positive: 'إيجابي', needsWork: 'يحتاج إلى تحسين', selectStudents: 'اختر الطلاب', wholeClass: 'الصف بأكمله', clearSelection: 'مسح التحديد', category: 'الفئة / السبب', note: 'ملاحظة اختيارية', submit: 'حفظ النقاط', saveForOne: 'حفظ النقاط لطالب واحد', saveForMany: 'حفظ النقاط لـ {count} طلاب', saving: 'جار الحفظ…', close: 'إغلاق', loadError: 'تعذر تحميل الفئات', saveError: 'تعذر حفظ النقاط', successOne: 'تم حفظ النقاط لطالب واحد', successMany: 'تم حفظ النقاط لـ {count} طلاب', pts: 'نقطة' }
   },
   faq: {
     pageTitle: 'الأسئلة الشائعة | كلاس هيرو هب',
@@ -1488,7 +1495,7 @@ export const ar = {
     signedInAs: 'مسجل الدخول باسم',
     panels: {
       announcements: 'الإعلانات',
-      classUpdates: 'تحديثات الصف والصور',
+      classUpdates: 'التحديثات والصور',
       homework: 'الواجبات واليوميات',
       points: 'النقاط والسلوك',
       comingSoon: 'قريبا'
@@ -1514,6 +1521,9 @@ export const ar = {
     homework: {
       count: '{count} عناصر نشطة', open: 'فتح', close: 'إغلاق', back: 'رجوع', empty: 'لا توجد واجبات أو ملاحظات يوميات بعد.', due: 'الاستحقاق', attachments: 'المرفقات', download: 'تنزيل', loadError: 'تعذر فتح عنصر الواجب', classAudience: 'الشعبة', subjectAudience: 'مجموعة المادة', resourceLinks: 'روابط الموارد', openLink: 'فتح الرابط', markDone: 'وضع علامة مكتمل', markingDone: 'جار وضع علامة مكتمل…', doneError: 'تعذر وضع علامة مكتمل على العنصر', active: 'النشطة', completed: 'المكتملة', markNotDone: 'وضع علامة غير مكتمل', notDoneError: 'تعذر إلغاء علامة الإكمال', completedEmpty: 'لا توجد عناصر مكتملة بعد.',
       types: { homework: 'واجب', diary: 'ملاحظة يوميات' }
+    },
+    updates: {
+      count: '{count} تحديثات', open: 'فتح', close: 'إغلاق', back: 'رجوع', empty: 'لا توجد تحديثات بعد', noPhotos: 'لا توجد صور لهذا التحديث', photoCount: '{count} صور', photoLoading: 'جار تحميل الصورة…', photoLoadError: 'تعذر تحميل الصورة.', loadError: 'تعذر فتح التحديث', classAudience: 'الشعبة', subjectAudience: 'مجموعة المادة'
     }
   }
 };

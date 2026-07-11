@@ -424,12 +424,6 @@
   </section>
 {/if}
 
-{#if allowed && studentModal === 'closed'}
-  <button type="button" class="fixed bottom-4 left-1/2 z-40 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-violet-700 px-5 py-3 text-sm font-black text-white shadow-xl ring-4 ring-white/90 md:hidden" onclick={openStudentModal}>
-    <Search size={18} aria-hidden="true" />{$_('teach.studentSearch.find')}
-  </button>
-{/if}
-
 {#if studentModal === 'open'}
   <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="find-student-title">
     <div class="max-h-[94vh] w-full max-w-3xl overflow-y-auto overflow-x-hidden rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6">

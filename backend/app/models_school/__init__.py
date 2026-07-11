@@ -29,6 +29,8 @@ from .models import (
     StudentGuardianContact,
     Subject,
     SubjectGroup,
+    UpdatePhoto,
+    UpdatePost,
     User,
 )
 
@@ -63,5 +65,7 @@ __all__ = [
     "StudentGuardianContact",
     "Subject",
     "SubjectGroup",
+    "UpdatePhoto",
+    "UpdatePost",
     "User",
 ]

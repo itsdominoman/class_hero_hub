@@ -37,6 +37,8 @@
   type Category = { id: number; type: 'positive' | 'needs_work'; label: string; points_value: number };
   type ResourceLink = { url: string; label?: string | null };
   type HomeworkItem = { id: number; item_type: 'homework' | 'diary'; title: string; body?: string; due_at?: string | null; status: 'active' | 'archived'; attachment_count: number; attachments?: { id: number; original_filename: string; size_bytes: number }[]; resource_links: ResourceLink[] };
+  type UpdatePhoto = { id: number; original_filename: string };
+  type UpdatePost = { id: number; body?: string; created_at?: string | null; status: 'active' | 'archived'; photo_count: number; photos: UpdatePhoto[] };
 
   let loading = $state(true);
   let error = $state<string | null>(null);
@@ -67,6 +69,21 @@
   let viewingHomework = $state<HomeworkItem | null>(null);
   let homeworkEditing = $state<HomeworkItem | null>(null);
   let homeworkListError = $state<string | null>(null);
+  let updatesModalOpen = $state(false);
+  let updatesMode = $state<'create' | 'list'>('create');
+  let updateBody = $state('');
+  let updatePhotos = $state<File[]>([]);
+  let updatesSaving = $state(false);
+  let updatesError = $state<string | null>(null);
+  let updatesNotice = $state<string | null>(null);
+  let updatesNoticeTimer: ReturnType<typeof setTimeout> | null = null;
+  let updatesAbortController = $state<AbortController | null>(null);
+  let createdUpdateId = $state<number | null>(null);
+  let updateItems = $state<UpdatePost[]>([]);
+  let viewingUpdate = $state<UpdatePost | null>(null);
+  let updateEditing = $state<UpdatePost | null>(null);
+  let updatesListError = $state<string | null>(null);
+  let updatePhotoLoadStates = $state<Record<string, 'loaded' | 'failed'>>({});
   let pointsModalOpen = $state(false);
   let categories = $state<Category[]>([]);
   let pointType = $state<'positive' | 'needs_work'>('positive');
@@ -222,7 +239,115 @@
     if (homeworkNoticeTimer) clearTimeout(homeworkNoticeTimer);
     homeworkNoticeTimer = setTimeout(() => { homeworkNotice = null; homeworkNoticeTimer = null; }, 5000);
   }
-  onDestroy(() => { if (homeworkNoticeTimer) clearTimeout(homeworkNoticeTimer); });
+  onDestroy(() => { if (homeworkNoticeTimer) clearTimeout(homeworkNoticeTimer); if (updatesNoticeTimer) clearTimeout(updatesNoticeTimer); });
+
+  function updatesQuery() {
+    const assignment = detail?.assignment;
+    if (!assignment) return '';
+    const key = assignment.target_type === 'subject_group' ? 'subject_group_id' : 'class_section_id';
+    const value = assignment.target_type === 'subject_group' ? assignment.subject_group?.id : assignment.class_section?.id;
+    return value ? `?${key}=${value}` : '';
+  }
+  function updatePhotoUrl(post: UpdatePost, photo: UpdatePhoto) {
+    return `/api/teach/updates/${post.id}/photos/${photo.id}/view?school_id=${detail?.assignment.school.id}`;
+  }
+  function updatePhotoKey(post: UpdatePost, photo: UpdatePhoto) { return `${post.id}:${photo.id}`; }
+  function updatePhotoLoaded(post: UpdatePost, photo: UpdatePhoto) {
+    updatePhotoLoadStates = { ...updatePhotoLoadStates, [updatePhotoKey(post, photo)]: 'loaded' };
+  }
+  function updatePhotoFailed(post: UpdatePost, photo: UpdatePhoto) {
+    updatePhotoLoadStates = { ...updatePhotoLoadStates, [updatePhotoKey(post, photo)]: 'failed' };
+  }
+  async function loadUpdateItems() {
+    if (!detail) return;
+    try { updateItems = (await api.get(`/teach/updates${updatesQuery()}`, schoolOptions(detail.assignment.school.id)))?.items || []; updatesListError = null; }
+    catch (err: any) { updatesListError = err?.message || $_('teach.updates.loadError'); }
+  }
+  function setUpdatesNotice(message: string) {
+    updatesNotice = message;
+    if (updatesNoticeTimer) clearTimeout(updatesNoticeTimer);
+    updatesNoticeTimer = setTimeout(() => { updatesNotice = null; updatesNoticeTimer = null; }, 5000);
+  }
+  function resetUpdateForm() { updateBody = ''; updatePhotos = []; createdUpdateId = null; }
+  function openUpdatesModal() { updatesError = null; updatesNotice = null; viewingUpdate = null; updateEditing = null; updatesMode = 'create'; updatesModalOpen = true; }
+  function closeUpdatesModal() {
+    if (updatesSaving) {
+      updatesAbortController?.abort();
+      setUpdatesNotice(createdUpdateId ? $_('teach.updates.cancelledAfterCreate') : $_('teach.updates.cancelled'));
+    }
+    updatesSaving = false; updatesAbortController = null; updatesModalOpen = false; updatesError = null; updateEditing = null; resetUpdateForm();
+  }
+  const allowedPhotoExt = new Set(['jpg', 'jpeg', 'png', 'webp']);
+  const photoMimeExt: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+  function photoExt(file: File) { return file.name.split('.').pop()?.toLowerCase() || ''; }
+  // Shared by the upload picker and the camera capture input: rejected batches
+  // are dropped whole; accepted photos accumulate into updatePhotos (max 5 total).
+  function handleUpdateFiles(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const picked = Array.from(input.files || []);
+    input.value = '';
+    if (!picked.length) return;
+    updatesError = null;
+    if (updatePhotos.length + picked.length > 5) updatesError = $_('teach.updates.maxPhotos');
+    else if (picked.some((file) => ['heic', 'heif'].includes(photoExt(file)))) updatesError = $_('teach.updates.heicError');
+    else if (picked.some((file) => !allowedPhotoExt.has(photoExt(file)) && !photoMimeExt[file.type])) updatesError = $_('teach.updates.fileTypeError');
+    else if (picked.some((file) => file.size > 10 * 1024 * 1024)) updatesError = $_('teach.updates.fileSizeError');
+    if (updatesError) return;
+    // Camera captures can arrive without a filename extension; the backend
+    // validates by extension, so give those files one from their MIME type.
+    updatePhotos = [...updatePhotos, ...picked.map((file) => allowedPhotoExt.has(photoExt(file)) ? file : new File([file], `photo-${Date.now()}-${Math.floor(Math.random() * 1000)}.${photoMimeExt[file.type]}`, { type: file.type }))];
+  }
+  function removeUpdatePhoto(index: number) { updatePhotos = updatePhotos.filter((_, i) => i !== index); }
+  async function publishUpdate() {
+    const assignment = detail?.assignment;
+    if (!assignment || updatesSaving) return;
+    const targetId = assignment.target_type === 'subject_group' ? assignment.subject_group?.id : assignment.class_section?.id;
+    if (!targetId) return;
+    const files = updatePhotos;
+    if (files.length > 5) { updatesError = $_('teach.updates.maxPhotos'); return; }
+    const controller = new AbortController(); updatesAbortController = controller;
+    updatesSaving = true; updatesError = null; createdUpdateId = null;
+    try {
+      const created = await api.post('/teach/updates', {
+        body: updateBody,
+        audience_type: assignment.target_type,
+        class_section_id: assignment.target_type === 'class_section' ? targetId : null,
+        subject_group_id: assignment.target_type === 'subject_group' ? targetId : null
+      }, { ...schoolOptions(assignment.school.id), signal: controller.signal });
+      createdUpdateId = created.id;
+      for (const file of files) {
+        const formData = new FormData(); formData.append('file', file);
+        await api.upload(`/teach/updates/${created.id}/photos`, formData, { ...schoolOptions(assignment.school.id), signal: controller.signal });
+      }
+      resetUpdateForm(); setUpdatesNotice($_('teach.updates.created')); await loadUpdateItems(); updatesMode = 'list'; updatesModalOpen = true;
+    } catch (err: any) {
+      if (createdUpdateId) updatesError = err?.name === 'AbortError' ? $_('teach.updates.cancelledAfterCreate') : $_('teach.updates.photoFailed');
+      else updatesError = err?.name === 'AbortError' ? $_('teach.updates.cancelled') : err?.message || $_('teach.updates.saveError');
+    } finally { updatesSaving = false; updatesAbortController = null; }
+  }
+  async function openUpdateDetail(post: UpdatePost) {
+    if (!detail) return;
+    try { viewingUpdate = await api.get(`/teach/updates/${post.id}`, schoolOptions(detail.assignment.school.id)); updatesMode = 'list'; }
+    catch (err: any) { updatesListError = err?.message || $_('teach.updates.loadError'); }
+  }
+  function startEditUpdate(post: UpdatePost) { updateEditing = post; updatesError = null; updatesNotice = null; updateBody = post.body || ''; }
+  function cancelEditUpdate() { updateEditing = null; updatesError = null; resetUpdateForm(); }
+  async function saveUpdateEdit() {
+    if (!detail || !updateEditing || updatesSaving) return;
+    updatesSaving = true; updatesError = null;
+    try {
+      const updated = await api.patch(`/teach/updates/${updateEditing.id}`, { body: updateBody }, schoolOptions(detail.assignment.school.id));
+      viewingUpdate = updated; updateEditing = null; setUpdatesNotice($_('teach.updates.updated'));
+      resetUpdateForm(); await loadUpdateItems();
+    } catch (err: any) {
+      updatesError = err?.message || $_('teach.updates.updateError');
+    } finally { updatesSaving = false; }
+  }
+  async function archiveUpdate(post: UpdatePost) {
+    if (!detail) return;
+    try { await api.delete(`/teach/updates/${post.id}`, schoolOptions(detail.assignment.school.id)); viewingUpdate = null; setUpdatesNotice($_('teach.updates.archived')); await loadUpdateItems(); }
+    catch (err: any) { updatesListError = err?.message || $_('teach.updates.archiveError'); }
+  }
   function openHomeworkModal() { homeworkError = null; homeworkNotice = null; viewingHomework = null; homeworkEditing = null; homeworkMode = 'create'; homeworkModalOpen = true; }
   function openHomeworkManage() { homeworkError = null; homeworkNotice = null; viewingHomework = null; homeworkEditing = null; homeworkMode = 'list'; homeworkModalOpen = true; }
   function resetHomeworkForm() { homeworkType = 'homework'; homeworkTitle = ''; homeworkBody = ''; homeworkDueAt = ''; homeworkFiles = null; homeworkLinks = []; createdHomeworkId = null; }
@@ -388,22 +513,22 @@
         </div>
       </header>
 
-      <div class="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <button type="button" class="flex min-h-20 items-center gap-3 rounded-2xl border border-violet-100 bg-white p-4 text-left shadow-sm hover:border-violet-300" onclick={openPointsModal}>
-          <span class="rounded-xl bg-violet-100 p-2 text-violet-700"><Star size={21} aria-hidden="true" /></span>
-          <span><strong class="block text-sm text-slate-900">{$_('teach.classDetail.actions.points')}</strong><small class="text-xs font-semibold text-violet-600">{$_('teach.points.open')}</small></span>
+      <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-violet-100 bg-white p-4 text-left shadow-sm hover:border-violet-300" onclick={openPointsModal}>
+          <span class="shrink-0 rounded-xl bg-violet-100 p-2 text-violet-700"><Star size={21} aria-hidden="true" /></span>
+          <span class="min-w-0 flex-1"><strong class="block break-words text-sm leading-tight text-slate-900">{$_('teach.classDetail.actions.points')}</strong><small class="block break-words text-xs font-semibold text-violet-600">{$_('teach.points.open')}</small></span>
         </button>
-        <button type="button" disabled class="flex min-h-20 items-center gap-3 rounded-2xl border border-sky-100 bg-white p-4 text-left shadow-sm disabled:cursor-default disabled:opacity-100">
-          <span class="rounded-xl bg-sky-100 p-2 text-sky-700"><Camera size={21} aria-hidden="true" /></span>
-          <span><strong class="block text-sm text-slate-900">{$_('teach.classDetail.actions.updates')}</strong><small class="text-xs font-semibold text-slate-400">{$_('teach.classDetail.comingSoon')}</small></span>
+        <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-sky-100 bg-white p-4 text-left shadow-sm hover:border-sky-300" onclick={openUpdatesModal}>
+          <span class="shrink-0 rounded-xl bg-sky-100 p-2 text-sky-700"><Camera size={21} aria-hidden="true" /></span>
+          <span class="min-w-0 flex-1"><strong class="block break-words text-sm leading-tight text-slate-900">{$_('teach.classDetail.actions.updates')}</strong><small class="block break-words text-xs font-semibold text-sky-600">{$_('teach.points.open')}</small></span>
         </button>
-        <button type="button" class="flex min-h-20 items-center gap-3 rounded-2xl border border-amber-100 bg-white p-4 text-left shadow-sm hover:border-amber-300" onclick={openHomeworkModal}>
-          <span class="rounded-xl bg-amber-100 p-2 text-amber-700"><BookOpen size={21} aria-hidden="true" /></span>
-          <span><strong class="block text-sm text-slate-900">{$_('teach.classDetail.actions.homework')}</strong><small class="text-xs font-semibold text-amber-700">{$_('teach.classDetail.createForClass')}</small></span>
+        <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-amber-100 bg-white p-4 text-left shadow-sm hover:border-amber-300" onclick={openHomeworkModal}>
+          <span class="shrink-0 rounded-xl bg-amber-100 p-2 text-amber-700"><BookOpen size={21} aria-hidden="true" /></span>
+          <span class="min-w-0 flex-1"><strong class="block break-words text-sm leading-tight text-slate-900">{$_('teach.classDetail.actions.homework')}</strong><small class="block break-words text-xs font-semibold text-amber-700">{$_('teach.points.open')}</small></span>
         </button>
-        <button type="button" class="flex min-h-20 items-center gap-3 rounded-2xl border border-emerald-100 bg-white p-4 text-left shadow-sm hover:border-emerald-200" onclick={openAnnouncementModal}>
-          <span class="rounded-xl bg-emerald-100 p-2 text-emerald-700"><Megaphone size={21} aria-hidden="true" /></span>
-          <span><strong class="block text-sm text-slate-900">{$_('teach.classDetail.actions.announcements')}</strong><small class="text-xs font-semibold text-emerald-600">{announcementPublished ? $_('teach.announcements.created') : $_('teach.classDetail.createForClass')}</small></span>
+        <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-emerald-100 bg-white p-4 text-left shadow-sm hover:border-emerald-200" onclick={openAnnouncementModal}>
+          <span class="shrink-0 rounded-xl bg-emerald-100 p-2 text-emerald-700"><Megaphone size={21} aria-hidden="true" /></span>
+          <span class="min-w-0 flex-1"><strong class="block break-words text-sm leading-tight text-slate-900">{$_('teach.classDetail.actions.announcements')}</strong><small class="block break-words text-xs font-semibold text-emerald-600">{$_('teach.points.open')}</small></span>
         </button>
       </div>
 
@@ -411,6 +536,7 @@
         <div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{$_('teach.announcements.created')}</div>
       {/if}
       {#if homeworkNotice}<div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">{homeworkNotice}</div>{/if}
+      {#if updatesNotice && !updatesModalOpen}<div class="mt-4 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm font-semibold text-sky-800">{updatesNotice}</div>{/if}
       {#if pointsSuccess}<div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{pointsSuccess}</div>{/if}
 
       <div class="mt-8 flex items-end justify-between gap-4">
@@ -499,7 +625,7 @@
           <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.homework.itemTitle')}<input class="rounded-lg border border-slate-200 px-3 py-2" required maxlength="160" bind:value={homeworkTitle} /></label>
           <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.homework.body')}<textarea class="min-h-32 rounded-lg border border-slate-200 px-3 py-2" required maxlength="10000" bind:value={homeworkBody}></textarea></label>
           <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.homework.due')}<input class="rounded-lg border border-slate-200 px-3 py-2" type="datetime-local" bind:value={homeworkDueAt} /></label>
-          <div><div class="flex items-center justify-between gap-2"><span class="text-sm font-bold text-slate-700">{$_('teach.homework.resourceLinks')}</span><button type="button" class="text-sm font-bold text-hero disabled:opacity-50" disabled={homeworkLinks.length >= 5} onclick={addHomeworkLink}>{$_('teach.homework.addLink')}</button></div>{#each homeworkLinks as link, index}<div class="mt-2 grid gap-2 rounded-xl bg-slate-50 p-3 sm:grid-cols-[1fr_2fr_auto]"><input class="rounded-lg border border-slate-200 px-3 py-2 text-sm" maxlength="160" placeholder={$_('teach.homework.linkLabel')} bind:value={link.label} /><input class="rounded-lg border border-slate-200 px-3 py-2 text-sm" type="url" required maxlength="2048" placeholder="https://www.youtube.com/watch?v=…" bind:value={link.url} /><button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold" onclick={() => removeHomeworkLink(index)}>{$_('teach.homework.removeLink')}</button></div>{/each}</div>
+          <div><div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between"><span class="break-words text-sm font-bold text-slate-700">{$_('teach.homework.resourceLinks')}</span><button type="button" class="shrink-0 text-sm font-bold text-hero disabled:opacity-50" disabled={homeworkLinks.length >= 5} onclick={addHomeworkLink}>{$_('teach.homework.addLink')}</button></div>{#each homeworkLinks as link, index}<div class="mt-2 grid min-w-0 gap-2 rounded-xl bg-slate-50 p-3 sm:grid-cols-[1fr_2fr_auto]"><input class="min-w-0 rounded-lg border border-slate-200 px-3 py-2 text-sm" maxlength="160" placeholder={$_('teach.homework.linkLabel')} bind:value={link.label} /><input class="min-w-0 rounded-lg border border-slate-200 px-3 py-2 text-sm" type="url" required maxlength="2048" placeholder="https://www.youtube.com/watch?v=…" bind:value={link.url} /><button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold" onclick={() => removeHomeworkLink(index)}>{$_('teach.homework.removeLink')}</button></div>{/each}</div>
           <div class="flex gap-3"><button class="btn-hero rounded-lg px-4 py-2" type="submit" disabled={homeworkSaving}>{homeworkSaving ? $_('teach.homework.saving') : $_('teach.homework.saveChanges')}</button><button class="btn-secondary rounded-lg px-4 py-2" type="button" onclick={cancelEditHomework}>{$_('teach.homework.cancel')}</button></div>
         </form>
       {:else if homeworkMode === 'list' && !viewingHomework}
@@ -513,10 +639,77 @@
         <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.homework.itemTitle')}<input class="rounded-lg border border-slate-200 px-3 py-2" required maxlength="160" bind:value={homeworkTitle} /></label>
         <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.homework.body')}<textarea class="min-h-32 rounded-lg border border-slate-200 px-3 py-2" required maxlength="10000" bind:value={homeworkBody}></textarea></label>
         <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.homework.due')}<input class="rounded-lg border border-slate-200 px-3 py-2" type="datetime-local" bind:value={homeworkDueAt} /></label>
-        <div><div class="flex items-center justify-between gap-2"><span class="text-sm font-bold text-slate-700">{$_('teach.homework.resourceLinks')}</span><button type="button" class="text-sm font-bold text-hero disabled:opacity-50" disabled={homeworkLinks.length >= 5} onclick={addHomeworkLink}>{$_('teach.homework.addLink')}</button></div>{#each homeworkLinks as link, index}<div class="mt-2 grid gap-2 rounded-xl bg-slate-50 p-3 sm:grid-cols-[1fr_2fr_auto]"><input class="rounded-lg border border-slate-200 px-3 py-2 text-sm" maxlength="160" placeholder={$_('teach.homework.linkLabel')} bind:value={link.label} /><input class="rounded-lg border border-slate-200 px-3 py-2 text-sm" type="url" required maxlength="2048" placeholder="https://www.youtube.com/watch?v=…" bind:value={link.url} /><button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold" onclick={() => removeHomeworkLink(index)}>{$_('teach.homework.removeLink')}</button></div>{/each}</div>
+        <div><div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between"><span class="break-words text-sm font-bold text-slate-700">{$_('teach.homework.resourceLinks')}</span><button type="button" class="shrink-0 text-sm font-bold text-hero disabled:opacity-50" disabled={homeworkLinks.length >= 5} onclick={addHomeworkLink}>{$_('teach.homework.addLink')}</button></div>{#each homeworkLinks as link, index}<div class="mt-2 grid min-w-0 gap-2 rounded-xl bg-slate-50 p-3 sm:grid-cols-[1fr_2fr_auto]"><input class="min-w-0 rounded-lg border border-slate-200 px-3 py-2 text-sm" maxlength="160" placeholder={$_('teach.homework.linkLabel')} bind:value={link.label} /><input class="min-w-0 rounded-lg border border-slate-200 px-3 py-2 text-sm" type="url" required maxlength="2048" placeholder="https://www.youtube.com/watch?v=…" bind:value={link.url} /><button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold" onclick={() => removeHomeworkLink(index)}>{$_('teach.homework.removeLink')}</button></div>{/each}</div>
         <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.homework.attachments')}<input class="rounded-lg border border-slate-200 px-3 py-2 text-sm" type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.jpg,.jpeg,.png,.webp" onchange={handleHomeworkFiles} /></label>
         <p class="text-xs text-slate-500">{$_('teach.homework.attachmentRules')}</p>
         <div class="flex gap-3"><button class="btn-hero rounded-lg px-4 py-2" type="submit" disabled={homeworkSaving || !!homeworkError || createdHomeworkId !== null}>{homeworkSaving ? $_('teach.homework.saving') : $_('teach.homework.create')}</button><button class="btn-secondary rounded-lg px-4 py-2" type="button" onclick={closeHomeworkModal}>{homeworkSaving ? $_('teach.homework.cancelUpload') : $_('teach.homework.cancel')}</button></div>
+      </form>
+      {/if}
+    </div>
+  </div>
+{/if}
+
+{#if updatesModalOpen && detail}
+  <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="updates-title">
+    <div class="max-h-[94vh] w-full max-w-2xl overflow-y-auto overflow-x-hidden rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6">
+      <div class="flex items-start justify-between gap-3"><h2 id="updates-title" class="text-2xl font-black text-slate-900">{$_('teach.updates.title')}</h2><button type="button" class="btn-secondary rounded-lg px-3 py-2" onclick={closeUpdatesModal}>{$_('teach.updates.close')}</button></div>
+      {#if updatesError}<div class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{updatesError}</div>{/if}
+      {#if updatesMode === 'list' && updatesNotice}<div class="mt-4 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm font-semibold text-sky-800">{updatesNotice}</div>{/if}
+      <div class="mt-5 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1"><button type="button" class={`rounded-lg px-3 py-2 text-sm font-black ${updatesMode === 'create' ? 'bg-white text-sky-800 shadow-sm' : 'text-slate-600'}`} onclick={() => { updatesMode = 'create'; viewingUpdate = null; updateEditing = null; }}>{$_('teach.updates.createTab')}</button><button type="button" class={`rounded-lg px-3 py-2 text-sm font-black ${updatesMode === 'list' ? 'bg-white text-sky-800 shadow-sm' : 'text-slate-600'}`} onclick={() => { updatesMode = 'list'; viewingUpdate = null; updateEditing = null; loadUpdateItems(); }}>{$_('teach.updates.previousTab')}</button></div>
+      {#if updatesMode === 'list' && updateEditing}
+        <form class="mt-5 grid gap-4" onsubmit={(event) => { event.preventDefault(); saveUpdateEdit(); }}>
+          <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.updates.body')}<textarea class="min-h-32 rounded-lg border border-slate-200 px-3 py-2" required maxlength="10000" bind:value={updateBody}></textarea></label>
+          <div class="flex gap-3"><button class="btn-hero rounded-lg px-4 py-2" type="submit" disabled={updatesSaving}>{updatesSaving ? $_('teach.updates.saving') : $_('teach.updates.saveChanges')}</button><button class="btn-secondary rounded-lg px-4 py-2" type="button" onclick={cancelEditUpdate}>{$_('teach.updates.cancel')}</button></div>
+        </form>
+      {:else if updatesMode === 'list' && !viewingUpdate}
+        {#if updatesListError}<p class="mt-4 text-sm font-semibold text-red-700">{updatesListError}</p>{:else if updateItems.length === 0}<p class="mt-5 text-sm text-slate-500">{$_('teach.updates.empty')}</p>{:else}<div class="mt-4 max-h-[58vh] divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">{#each updateItems.slice(0, 20) as item}<div class="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"><button type="button" class="min-w-0 text-left" onclick={() => openUpdateDetail(item)}><p class="line-clamp-2 break-words font-bold text-slate-900">{item.body}</p><p class="mt-1 text-xs text-slate-500">{item.created_at ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(item.created_at)) : ''} · {$_('teach.updates.photoCount', { values: { count: item.photo_count } })}{item.status === 'archived' ? ` · ${$_('teach.updates.archived')}` : ''}</p></button><div class="flex shrink-0 gap-2"><button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={() => openUpdateDetail(item)}>{$_('teach.updates.view')}</button>{#if item.status === 'active'}<button type="button" class="rounded-lg border border-sky-200 px-3 py-2 text-sm font-bold text-sky-800" onclick={() => startEditUpdate(item)}>{$_('teach.updates.edit')}</button><button type="button" class="rounded-lg border border-amber-200 px-3 py-2 text-sm font-bold text-amber-800" onclick={() => archiveUpdate(item)}>{$_('teach.updates.archive')}</button>{/if}</div></div>{/each}</div>{/if}
+      {:else if updatesMode === 'list' && viewingUpdate}
+        <div class="mt-5">
+          <button type="button" class="text-sm font-bold text-hero" onclick={() => viewingUpdate = null}>{$_('teach.updates.back')}</button>
+          <p class="mt-3 text-xs text-slate-500">{viewingUpdate.created_at ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(viewingUpdate.created_at)) : ''}</p>
+          <div class="mt-3 whitespace-pre-wrap break-words text-slate-700">{viewingUpdate.body}</div>
+          {#if viewingUpdate.photos?.length}
+            <div class="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {#each viewingUpdate.photos as photo (photo.id)}
+                {@const photoState = updatePhotoLoadStates[updatePhotoKey(viewingUpdate, photo)]}
+                <div class="relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                  {#if photoState === 'failed'}
+                    <p class="absolute inset-0 flex items-center justify-center p-2 text-center text-xs font-semibold text-slate-500">{$_('teach.updates.photoLoadError')}</p>
+                  {:else if photoState !== 'loaded'}
+                    <p class="absolute inset-0 flex items-center justify-center p-2 text-center text-xs font-semibold text-slate-500">{$_('teach.updates.photoLoading')}</p>
+                  {/if}
+                  <img src={updatePhotoUrl(viewingUpdate, photo)} alt={photo.original_filename} loading="lazy" class={`h-full w-full object-cover transition-opacity ${photoState === 'loaded' ? 'opacity-100' : 'opacity-0'}`} onload={() => updatePhotoLoaded(viewingUpdate!, photo)} onerror={() => updatePhotoFailed(viewingUpdate!, photo)} />
+                </div>
+              {/each}
+            </div>
+          {:else}
+            <p class="mt-5 text-sm text-slate-500">{$_('teach.updates.noPhotos')}</p>
+          {/if}
+          <div class="mt-6 flex justify-end gap-3">{#if viewingUpdate.status === 'active'}<button type="button" class="rounded-lg border border-sky-200 px-4 py-2 font-bold text-sky-800" onclick={() => startEditUpdate(viewingUpdate!)}>{$_('teach.updates.edit')}</button><button type="button" class="rounded-lg border border-amber-200 px-4 py-2 font-bold text-amber-800" onclick={() => archiveUpdate(viewingUpdate!)}>{$_('teach.updates.archive')}</button>{/if}</div>
+        </div>
+      {:else}
+      <form class="mt-5 grid gap-4" onsubmit={(event) => { event.preventDefault(); publishUpdate(); }}>
+        <p class="rounded-xl bg-sky-50 px-4 py-3 text-sm font-semibold text-slate-700">{$_('teach.updates.audience')}: <strong>{classTitle()}</strong></p>
+        <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.updates.body')}<textarea class="min-h-32 rounded-lg border border-slate-200 px-3 py-2" required maxlength="10000" bind:value={updateBody}></textarea></label>
+        <div class="grid gap-2">
+          <span class="text-sm font-bold text-slate-700">{$_('teach.updates.photos')}</span>
+          <div class="flex flex-wrap gap-2">
+            <label class="btn-secondary cursor-pointer rounded-lg px-4 py-2 text-sm">{$_('teach.updates.uploadPhotos')}<input class="hidden" type="file" multiple accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onchange={handleUpdateFiles} /></label>
+            <label class="btn-secondary cursor-pointer rounded-lg px-4 py-2 text-sm">{$_('teach.updates.takePhoto')}<input class="hidden" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onchange={handleUpdateFiles} /></label>
+          </div>
+          {#if updatePhotos.length}
+            <ul class="grid gap-1">
+              {#each updatePhotos as photo, index}
+                <li class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                  <span class="min-w-0 truncate font-semibold text-slate-700">{photo.name}</span>
+                  <button type="button" class="shrink-0 text-sm font-bold text-slate-500 hover:text-red-600" onclick={() => removeUpdatePhoto(index)}>{$_('teach.updates.removePhoto')}</button>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
+        <p class="text-xs text-slate-500">{$_('teach.updates.photoRules')}</p>
+        <div class="flex gap-3"><button class="btn-hero rounded-lg px-4 py-2" type="submit" disabled={updatesSaving || createdUpdateId !== null}>{updatesSaving ? $_('teach.updates.saving') : $_('teach.updates.create')}</button><button class="btn-secondary rounded-lg px-4 py-2" type="button" onclick={closeUpdatesModal}>{updatesSaving ? $_('teach.updates.cancelUpload') : $_('teach.updates.cancel')}</button></div>
       </form>
       {/if}
     </div>

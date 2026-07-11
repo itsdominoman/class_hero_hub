@@ -7,7 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from . import auth, database, schemas
 from .database import Base, close_request_db, engine, ensure_runtime_schema, get_db, settings, validate_runtime_configuration
 from .models_school import Membership, PlatformAdmin, School, User
-from .routes import announcements, authentication, behaviour, dev, guardian, homework, join, platform, school, teach
+from .routes import announcements, authentication, behaviour, dev, guardian, homework, join, platform, school, teach, updates
 from .security import TrustedProxyHeadersMiddleware, parse_csv_values
 
 if settings.DATABASE_URL.startswith("sqlite"):
@@ -19,6 +19,7 @@ if settings.DATABASE_URL.startswith("sqlite"):
 # ever fresh (e.g. a new environment).
 announcements.UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 homework.UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+updates.UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 def _me_payload(current_user: User, db: Session) -> dict:
@@ -118,8 +119,10 @@ def create_app() -> FastAPI:
     app.include_router(behaviour.teacher_router, prefix="/api/teach", tags=["behaviour"])
     app.include_router(announcements.teacher_router, prefix="/api/teach", tags=["announcements"])
     app.include_router(homework.teacher_router, prefix="/api/teach", tags=["homework"])
+    app.include_router(updates.teacher_router, prefix="/api/teach", tags=["updates"])
     app.include_router(announcements.guardian_router, prefix="/api/guardian", tags=["announcements"])
     app.include_router(homework.guardian_router, prefix="/api/guardian", tags=["homework"])
+    app.include_router(updates.guardian_router, prefix="/api/guardian", tags=["updates"])
     app.include_router(guardian.router, prefix="/api/guardian", tags=["guardian"])
     app.include_router(behaviour.guardian_router, prefix="/api/guardian", tags=["behaviour"])
 

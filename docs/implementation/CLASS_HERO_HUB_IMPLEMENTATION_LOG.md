@@ -1,5 +1,40 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-11 — S15: Updates & Photos Polish
+
+- Teacher classroom tool cards now use concise labels and actions, with a
+  single-column mobile layout plus wrapping safeguards to prevent horizontal
+  overflow. The teacher dashboard no longer shows the duplicate floating
+  **Find student** action; the existing top action and modal remain.
+- The Updates & photos publishing action is labelled **Post** / **نشر**.
+- Parent dashboards refresh active dashboard data every 60 seconds only while
+  visible, refresh immediately when the tab becomes visible again, prevent
+  overlapping requests, and clean up their timer/listener on destroy.
+  A future child dashboard should use this same visibility-aware polling
+  pattern when it is implemented. Completed homework history remains on-demand.
+- Runtime `/data/` uploads are ignored by Git so school files and photos
+  cannot be accidentally committed.
+
+### Parent polling manual check
+
+1. Open the parent dashboard in one device or tab.
+2. From another authenticated teacher device or tab, post an announcement,
+   homework/diary item, update, or points change for that child.
+3. Without manually refreshing the parent dashboard, wait up to 60 seconds
+   and confirm the active dashboard data appears.
+4. Background the parent app/tab, create another teacher item, then return to
+   the parent dashboard and confirm it refreshes immediately on return.
+
+### Final content and photo-loading polish
+
+- Announcement, Homework & diary, and Updates & photos submit buttons use
+  **Post** / **نشر**. Points retains its existing save wording.
+- Protected update-photo URLs now render a loading placeholder until the image
+  has loaded and a clear error placeholder if it fails; the parent lightbox
+  uses the same states. The teacher update modal refreshes its list immediately
+  after a successful post and keeps the refreshed list visible. Thumbnail
+  generation and image optimisation remain deferred.
+
 ## 2026-07-10 — S12: Teacher Class Detail + Student Avatar Foundation
 
 Implemented the first real teacher classroom screen and stable student avatar
@@ -3268,3 +3303,114 @@ calendar recurrence, and Family Hero Hub integration. Changes remain intentional
   `git diff --check` clean. No schema/migration change (reuses existing completion rows),
   so alembic head remains `f7a8b9c0d1e2`. Backend and frontend images rebuilt/recreated.
   Changes remain **uncommitted** pending Dom's approval.
+
+## 2026-07-11 — S15: Updates & Photos MVP
+
+One-way "Updates & photos" feed: teachers post text + photos to the parents/guardians of
+their exact class section or subject group. No comments, likes, replies, notifications,
+public sharing, child dashboard feed, or FHH integration in this slice.
+
+### Data and storage
+
+- New tables `update_posts` (school_id, author_user_id, body, audience_type
+  class_section|subject_group with exactly-one-target check, status active|archived,
+  created/updated/archived timestamps) and `update_photos` (post_id, school_id,
+  uploaded_by_user_id, original_filename, unique storage_key, content_type, size_bytes).
+  Migration `a8b9c0d1e2f3_add_update_posts.py` (head was `f7a8b9c0d1e2`).
+- Photos are stored under `/app/data/update_uploads` (inside the existing `./data` bind
+  mount, so they survive rebuilds; overridable via `UPDATE_UPLOAD_DIR`). Storage keys are
+  server-generated (`school-{id}/update-{id}/{uuid}{ext}`); filenames are sanitised with
+  the shared `_safe_filename`, and every file path is resolved and checked against the
+  upload root before reads/writes (path traversal → 404).
+
+### Endpoints and permission model
+
+- Teacher (`/api/teach`, X-School-Id header): `GET /updates` (optionally filtered by
+  `class_section_id`/`subject_group_id`, both filters require a current assignment),
+  `POST /updates`, `POST /updates/{id}/photos`, `GET /updates/{id}`,
+  `PATCH /updates/{id}` (body/caption only), `DELETE /updates/{id}` (soft archive; UI says
+  Archive), `GET /updates/{id}/photos/{photo_id}/view`. The photo view endpoint takes
+  `?school_id=` as a query parameter (matching `/teach/behaviour/categories`) because
+  `<img>` tags cannot send the X-School-Id header.
+- Guardian (`/api/guardian`, no school header): `GET /updates`, `GET /updates/{id}`,
+  `GET /updates/{id}/photos/{photo_id}/view`.
+- Create requires an active teacher membership plus a current StaffAssignment for the
+  exact same-school target (S14 homework rules); whole-school audiences are not allowed.
+  Manage (detail/edit/archive/upload/view) is limited to the author or a currently
+  assigned teacher. Archived posts return 409 for edit/photo upload.
+- Guardian visibility reuses `_guardian_audience`: active guardian links + current
+  enrolments (including policy-derived subject groups); only `status = active` posts are
+  returned. Archived posts, revoked links, and ended enrolments all drop
+  list/detail/photo access (404). Photo view endpoints re-check authorisation on every
+  request. Payloads expose author display name only — no emails, tokens, invite codes, or
+  user ids.
+
+### Photo rules
+
+- Allowed: `.jpg .jpeg .png .webp`. Everything else rejected, with a friendly message for
+  `.heic/.heif`. Max 10 MB per photo, max 5 photos per post, empty files rejected —
+  enforced on both frontend (before upload starts) and backend.
+- Photos are served inline (no attachment Content-Disposition) so parents view them
+  without downloading; cookie auth means protected URLs work directly in `<img>`.
+
+### Product behaviour
+
+- Teacher class/subject page: the "Updates & photos" tile is now live and opens a modal
+  with **Create update / Previous updates** tabs (same pattern as Homework & diary; the
+  main page stays focused on students + points). Create = "What happened?" textarea +
+  photo picker with helper text; uploads reuse the S14 AbortController cancel pattern
+  (cancel mid-upload keeps the post, flags the photo upload as cancelled). Previous list
+  shows date, preview, photo count, View / Edit / Archive; detail shows full text +
+  photo grid.
+- Parent dashboard: compact "Updates & photos" card (latest post preview, context, date,
+  photo count) opening a feed modal limited to the 20 most recent posts (API caps at 50).
+  Each post shows context, preview, date/time, author, and photo thumbnails; tapping a
+  post opens the full text, tapping a photo opens a full-screen lightbox.
+
+### Tests
+
+- New `backend/tests/test_updates.py` covering: assigned-vs-unassigned teacher create,
+  cross-school 404, edit/archive authorisation, archived-post locks, teacher list target
+  scoping, photo type/size/count rules (incl. HEIC message and 6th-photo rejection),
+  unassigned teacher photo access, guardian list/detail/photo authorisation for related
+  vs unrelated guardians, archived-post disappearance, revoked link + ended enrolment
+  access removal, tampered storage key / traversal filename safety, invalid photo ids,
+  body validation, and unauthenticated 401. (Written this slice; not yet run — validation
+  deferred at Dom's request.)
+
+### Deferred / near-next
+
+- Server-side HEIC/HEIF → JPG conversion so iPhone users don't need to convert manually
+  (no ImageMagick/libheif/Pillow added this slice).
+- Photo add/remove/replace after creation (edit is caption/body only; existing photos
+  stay attached). Adding more photos to an active post works via the API but is not
+  exposed in the edit UI.
+- Thumbnails/image optimisation (browser-sized originals, CSS-constrained, for MVP).
+- Comments/reactions/replies, notifications, child dashboard feed, FHH integration.
+- Validation (focused tests, npm check/check:i18n/build, alembic upgrade, service
+  rebuild) intentionally **not run yet**; changes remain **uncommitted** pending Dom's
+  manual QA.
+
+### S15 manual-QA fixes — mobile card overflow + camera capture
+
+- **Mobile card layout.** The parent dashboard action cards (Announcements, Homework &
+  diary, Updates & photos) used a nowrap flex row with the Open pill at the end, which
+  clipped the pill off-screen on narrow phones. Each card now stacks vertically on mobile
+  (`flex-col`) and returns to the row layout from the `sm` breakpoint, so the Open button
+  is always visible and tappable with no horizontal scrolling; the Updates preview also
+  gained `break-words`. Teacher class tiles' label spans gained `min-w-0` so long labels
+  shrink instead of overflowing. Desktop layout unchanged.
+- **Camera capture.** The Updates & photos create form now offers two actions: **Upload
+  photos** (multi-select file input) and **Take photo** (`capture="environment"` input
+  that opens the camera on supporting mobile browsers, falling back to the file picker
+  elsewhere). Both feed one accumulating selected-photos list (shown with per-photo
+  Remove) and share the same validation: JPG/JPEG/PNG/WEBP only, HEIC/HEIF blocked with
+  the friendly message, 10 MB each, 5 photos total across both paths; repeated single
+  camera shots accumulate until 5. Camera files that arrive without a filename extension
+  are renamed from their (allowed) MIME type since the backend validates by extension.
+  Upload cancellation (AbortController) behaviour is unchanged. New i18n keys
+  `teach.updates.uploadPhotos/takePhoto/removePhoto` in EN/AR.
+- **Validation.** `npm run check` 0 errors, `check:i18n` parity OK (794 keys), `build`
+  OK, `git diff --check` clean; frontend rebuilt/recreated, `/teach` and `/parent` 200,
+  new bundle confirmed served. Full backend suite still not run; changes remain
+  **uncommitted**.
