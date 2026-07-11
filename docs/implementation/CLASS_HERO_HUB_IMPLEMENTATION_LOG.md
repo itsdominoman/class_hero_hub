@@ -27,7 +27,7 @@
 
 ### Final content and photo-loading polish
 
-- Announcement, Homework & diary, and Updates & photos submit buttons use
+- Announcement, Homework & notes, and Updates & photos submit buttons use
   **Post** / **نشر**. Points retains its existing save wording.
 - Protected update-photo URLs now render a loading placeholder until the image
   has loaded and a clear error placeholder if it fails; the parent lightbox
@@ -3027,7 +3027,7 @@ adding a location model or changing the class-focused teacher page into a search
   date and time, safe actor display name, optional note, and a close action. Long notes
   wrap and the bottom-sheet mobile layout prevents horizontal overflow.
 - Removed the separate buried Points & behaviour dashboard panel. Exact content order is
-  now: linked child cards (including points), Announcements, Homework & diary, then Class
+  now: linked child cards (including points), Announcements, Homework & notes, then Class
   updates & photos. Announcement inbox/unread/detail/download behaviour was unchanged.
 
 ### Authorization and validation
@@ -3094,16 +3094,16 @@ reports, or Family Hero Hub integration.
 
 ### Product behaviour
 
-- `/teach/assignments/{assignment_id}` now makes the Homework & diary tile an obvious
+- `/teach/assignments/{assignment_id}` now makes the Homework & notes tile an obvious
   action. It opens an independent mobile-safe modal with fixed audience text, Homework /
-  Diary note type, title, details, optional due date/time, attachment picker, and create /
+  Note type, title, details, optional due date/time, attachment picker, and create /
   cancel controls. Success closes only that modal, leaves the teacher on the class page,
   clears its form, and shows an inline success message.
 - `/teach` remains class-first; no large homework manager or always-open form was added.
 - `/parent` replaces the placeholder with a compact active-item count and latest-item
   summary. One modal contains the bounded list and item detail, with type, class/subject
   context, optional due time, full body, and protected attachment downloads. Dashboard
-  order remains child cards/points, announcements, Homework & diary, then Class updates
+  order remains child cards/points, announcements, Homework & notes, then Class updates
   & photos.
 
 ### Validation and deployed QA
@@ -3126,7 +3126,7 @@ reports, or Family Hero Hub integration.
 - Deployed `https://class.familyherohub.com/school`, `/teach`, and `/parent` static route
   probes returned **200** after rebuild. Authenticated role sessions were not available
   to this terminal, so the requested visual/mobile create/download and regression walk
-  remains pending for Dom; no real homework or diary data was mutated merely to claim QA.
+  remains pending for Dom; no real homework or note data was mutated merely to claim QA.
 
 ### Caveats and deferrals
 
@@ -3136,6 +3136,12 @@ reports, or Family Hero Hub integration.
 - No read receipts, submissions, grading, comments, notifications, calendar/recurrence,
   reporting, photos/social, messaging, or Family Hero Hub integration.
 - Changes remain intentionally **uncommitted** pending Dom's deployed manual testing.
+
+### S14 naming note
+
+- The user-facing name is **Homework & notes** and the item type is **Note**.
+  The internal `diary` item type value and homework table/API naming remain
+  unchanged for compatibility; `diary` is legacy internal naming only.
 
 ### S14 manual-QA fixes — completion, management, resources, and upload safety
 
@@ -3202,7 +3208,7 @@ calendar recurrence, and Family Hero Hub integration. Changes remain intentional
 - Removed the always-visible “Created homework & diary” block from the class/subject
   page. The main classroom now keeps its existing tiles and prominent student roster/
   points workflow without homework management pushing Students down the page.
-- Clicking Homework & diary opens a bounded mobile-safe workspace with Create item and
+- Clicking Homework & notes opens a bounded mobile-safe workspace with Create item and
   Previous items tabs. The previous-item list is filtered to the exact current class
   section or subject group and includes type, title, due date, attachment/resource counts,
   View, and soft Archive actions. Details, links, and archive remain inside that workspace.
@@ -3245,7 +3251,7 @@ calendar recurrence, and Family Hero Hub integration. Changes remain intentional
   only. Existing attachments remain attached untouched (PATCH never touches attachment
   rows). Add/replace/remove of attachments during edit is intentionally out of scope to
   keep the change small and safe; the create-time attachment flow and limits are unchanged.
-- **Frontend.** The Homework & diary modal now shows an **Edit** button beside Archive in
+- **Frontend.** The Homework & notes modal now shows an **Edit** button beside Archive in
   both the Previous-items list and the item detail view. Edit opens an in-modal form
   (type, title, body, due, resource links) with **Save changes** / **Cancel**; on save the
   modal returns to the item detail with the updated content and a small confirmation, and
@@ -3288,7 +3294,7 @@ calendar recurrence, and Family Hero Hub integration. Changes remain intentional
   same way (404/hidden). An unrelated guardian sees nothing and gets 404 on detail/undo.
 - **Edited-after-done items are not auto-resurfaced** in this pass — an edited item stays
   in the guardian's completed list until they explicitly mark it not done.
-- **Frontend.** The guardian Homework & diary modal now has **Active / Completed** tabs
+- **Frontend.** The guardian Homework & notes modal now has **Active / Completed** tabs
   (completed loaded lazily on first switch). The detail view shows **Mark as done** for
   active items and **Mark as not done** for completed items; both keep resource links and
   attachment downloads available while the guardian is still authorised and the item is not
@@ -3356,7 +3362,7 @@ public sharing, child dashboard feed, or FHH integration in this slice.
 ### Product behaviour
 
 - Teacher class/subject page: the "Updates & photos" tile is now live and opens a modal
-  with **Create update / Previous updates** tabs (same pattern as Homework & diary; the
+  with **Create update / Previous updates** tabs (same pattern as Homework & notes; the
   main page stays focused on students + points). Create = "What happened?" textarea +
   photo picker with helper text; uploads reuse the S14 AbortController cancel pattern
   (cancel mid-upload keeps the post, flags the photo upload as cancelled). Previous list
