@@ -106,6 +106,18 @@
     invites: GuardianInvite[];
     links: GuardianLink[];
   };
+  type FhhInvite = {
+    id: number;
+    display_code_last4?: string | null;
+    expires_at?: string | null;
+    consumed_at?: string | null;
+    revoked_at?: string | null;
+    created_at?: string | null;
+    code?: string;
+  };
+  type StudentFhhInvites = {
+    invites: FhhInvite[];
+  };
   type StudentForm = {
     external_ref: string;
     first_name: string;
@@ -336,6 +348,9 @@
   let generatedInvite = $state<GuardianInvite | null>(null);
   let generatedInviteQr = $state('');
   let letterVisible = $state(false);
+  let studentFhhInvites = $state<StudentFhhInvites | null>(null);
+  let loadingFhhInvites = $state(false);
+  let generatedFhhInvite = $state<FhhInvite | null>(null);
   let loadingEnrolments = $state(false);
   let classEnrolmentSectionId = $state('');
   let subjectEnrolmentGroupId = $state('');
@@ -1303,6 +1318,51 @@
     }
   }
 
+  async function loadStudentFhhInvites(studentId: number) {
+    if (!schoolId) return;
+    loadingFhhInvites = true;
+    try {
+      studentFhhInvites = await api.get(`/school/students/${studentId}/fhh-invites`, schoolOptions());
+    } catch (err: any) {
+      error = err?.message || $_('school.fhhLink.loadError');
+    } finally {
+      loadingFhhInvites = false;
+    }
+  }
+
+  async function generateFhhInvite() {
+    if (!schoolId || !selectedStudentId) return;
+    generatedFhhInvite = null;
+    try {
+      generatedFhhInvite = await api.post(`/school/students/${selectedStudentId}/fhh-invites`, {}, schoolOptions());
+      notice = $_('school.fhhLink.generated');
+      await loadStudentFhhInvites(selectedStudentId);
+    } catch (err: any) {
+      error = err?.message || $_('school.fhhLink.generateError');
+    }
+  }
+
+  async function revokeFhhInvite(inviteId: number) {
+    if (!schoolId || !selectedStudentId || !confirm($_('school.fhhLink.revokeConfirm'))) return;
+    try {
+      await api.post(`/school/fhh-invites/${inviteId}/revoke`, {}, schoolOptions());
+      notice = $_('school.fhhLink.revoked');
+      await loadStudentFhhInvites(selectedStudentId);
+    } catch (err: any) {
+      error = err?.message || $_('school.fhhLink.revokeError');
+    }
+  }
+
+  async function copyFhhCode() {
+    if (!generatedFhhInvite?.code) return;
+    try {
+      await navigator.clipboard.writeText(generatedFhhInvite.code);
+      notice = $_('school.fhhLink.copied');
+    } catch {
+      error = $_('school.fhhLink.copyError');
+    }
+  }
+
   async function generateGuardianInvite(slot: number, contactId?: number | null) {
     if (!schoolId || !selectedStudentId) return;
     generatedInvite = null;
@@ -1364,6 +1424,13 @@
     return `school.guardians.status.${status || 'none'}`;
   }
 
+  function fhhInviteStatus(invite: FhhInvite) {
+    if (invite.revoked_at) return 'revoked';
+    if (invite.consumed_at) return 'consumed';
+    if (invite.expires_at && new Date(invite.expires_at).getTime() <= Date.now()) return 'expired';
+    return 'active';
+  }
+
   function showGeneratedLetter() {
     if (generatedInvite?.code) letterVisible = true;
   }
@@ -1394,6 +1461,13 @@
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return value;
     return parsed.toLocaleDateString();
+  }
+
+  function formatDateTime(value?: string | null) {
+    if (!value) return '';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleString();
   }
 
   async function loadClassRoster(showValidation = true) {
@@ -1504,8 +1578,10 @@
     generatedInvite = null;
     generatedInviteQr = '';
     letterVisible = false;
+    generatedFhhInvite = null;
     await loadStudentEnrolments(student.id);
     await loadStudentGuardians(student.id);
+    await loadStudentFhhInvites(student.id);
   }
 
   function selectStudentForAction(student: Student) {
@@ -1516,8 +1592,10 @@
     generatedInvite = null;
     generatedInviteQr = '';
     letterVisible = false;
+    generatedFhhInvite = null;
     void loadStudentEnrolments(student.id);
     void loadStudentGuardians(student.id);
+    void loadStudentFhhInvites(student.id);
     queueMicrotask(() => document.getElementById('student-detail-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 
@@ -2850,6 +2928,7 @@
                     <div>
                       <h4 class="font-bold text-slate-900">{$_('school.guardians.title')}</h4>
                       <p class="mt-1 text-sm text-slate-500">{$_('school.guardians.help')}</p>
+                      <p class="mt-2 text-xs font-semibold text-slate-700">{$_('school.guardians.classHeroAccess')}</p>
                     </div>
                     {#if loadingGuardians}
                       <p class="text-sm text-slate-500">{$_('common.loading')}</p>
@@ -2977,6 +3056,58 @@
                         </div>
                       {/each}
                     </div>
+                  {/if}
+                </div>
+
+                <div class="mt-4 rounded-lg border border-sky-200 bg-sky-50/40 p-4">
+                  <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h4 class="font-bold text-slate-900">{$_('school.fhhLink.title')}</h4>
+                      <p class="mt-1 text-sm text-slate-600">{$_('school.fhhLink.help')}</p>
+                      <p class="mt-2 text-xs font-semibold text-slate-700">{$_('school.fhhLink.differentFromGuardian')}</p>
+                      <p class="mt-1 text-xs text-slate-600">{$_('school.fhhLink.privacy')}</p>
+                    </div>
+                    <button type="button" class="btn-hero shrink-0 rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={generateFhhInvite}>{$_('school.fhhLink.generate')}</button>
+                  </div>
+
+                  {#if generatedFhhInvite?.code}
+                    <div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
+                      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p class="font-bold text-emerald-900">{$_('school.fhhLink.generatedCode')}</p>
+                          <p class="mt-2 font-mono text-lg font-black text-emerald-950">{generatedFhhInvite.code}</p>
+                          <p class="mt-2 text-xs font-semibold text-emerald-800">{$_('school.fhhLink.immediateOnly')}</p>
+                          {#if generatedFhhInvite.expires_at}
+                            <p class="mt-1 text-xs text-emerald-800">{$_('school.fhhLink.expires')}: {formatDateTime(generatedFhhInvite.expires_at)}</p>
+                          {/if}
+                        </div>
+                        <button type="button" class="btn-secondary shrink-0 rounded-lg px-3 py-2 text-sm" onclick={copyFhhCode}>{$_('school.fhhLink.copy')}</button>
+                      </div>
+                    </div>
+                  {/if}
+
+                  {#if loadingFhhInvites}
+                    <p class="mt-4 text-sm text-slate-500">{$_('common.loading')}</p>
+                  {:else if studentFhhInvites?.invites?.length}
+                    <div class="mt-4 divide-y divide-sky-100 rounded-lg border border-sky-100 bg-white">
+                      {#each studentFhhInvites.invites as invite}
+                        {@const inviteStatus = fhhInviteStatus(invite)}
+                        <div class="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div class="text-sm">
+                            <p class="font-semibold text-slate-900">{$_(`school.fhhLink.status.${inviteStatus}`)}</p>
+                            <p class="mt-1 text-xs text-slate-500">{$_('school.fhhLink.created')}: {formatDateTime(invite.created_at)}</p>
+                            <p class="mt-1 text-xs text-slate-500">{$_('school.fhhLink.expires')}: {formatDateTime(invite.expires_at)}</p>
+                            {#if invite.consumed_at}<p class="mt-1 text-xs text-slate-500">{$_('school.fhhLink.consumed')}: {formatDateTime(invite.consumed_at)}</p>{/if}
+                            {#if invite.revoked_at}<p class="mt-1 text-xs text-slate-500">{$_('school.fhhLink.revokedAt')}: {formatDateTime(invite.revoked_at)}</p>{/if}
+                          </div>
+                          {#if inviteStatus === 'active'}
+                            <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => revokeFhhInvite(invite.id)}>{$_('school.fhhLink.revoke')}</button>
+                          {/if}
+                        </div>
+                      {/each}
+                    </div>
+                  {:else}
+                    <p class="mt-4 text-sm text-slate-500">{$_('school.fhhLink.empty')}</p>
                   {/if}
                 </div>
                 <div class="mt-4 grid gap-3 lg:grid-cols-3">

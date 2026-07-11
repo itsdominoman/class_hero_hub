@@ -459,6 +459,7 @@ export const en = {
     guardians: {
       title: 'Guardians',
       help: 'Generate one single-use code per guardian slot. No email is sent.',
+      classHeroAccess: 'Class Hero Hub guardian access — this is not a Family Hero Hub school-link code.',
       loadError: 'Failed to load guardian status',
       generate: 'Generate code',
       generated: 'Guardian code generated.',
@@ -504,6 +505,31 @@ export const en = {
         revoked: 'Revoked',
         expired: 'Expired'
       }
+    },
+    fhhLink: {
+      title: 'Family Hero Hub school link',
+      help: 'Create a code for a parent to link this student\'s school information in Family Hero Hub.',
+      differentFromGuardian: 'This is different from the Class Hero Hub guardian onboarding code above.',
+      privacy: 'Family/home points and rewards are not shared with the school.',
+      generate: 'Generate FHH link code',
+      generated: 'Family Hero Hub link code generated.',
+      generatedCode: 'Family Hero Hub link code',
+      immediateOnly: 'The raw code is shown only now and is not stored.',
+      copy: 'Copy code',
+      copied: 'FHH link code copied.',
+      copyError: 'Unable to copy the FHH link code.',
+      expires: 'Expires',
+      created: 'Created',
+      consumed: 'Consumed',
+      revokedAt: 'Revoked',
+      empty: 'No Family Hero Hub link codes have been created for this student.',
+      loadError: 'Failed to load Family Hero Hub link codes',
+      generateError: 'Failed to generate Family Hero Hub link code',
+      revoke: 'Revoke',
+      revokeConfirm: 'Revoke this unused Family Hero Hub link code?',
+      revoked: 'Family Hero Hub link code revoked.',
+      revokeError: 'Failed to revoke Family Hero Hub link code',
+      status: { active: 'Active', consumed: 'Consumed', revoked: 'Revoked', expired: 'Expired' }
     },
     imports: {
       title: 'Import students (CSV)',
@@ -1271,6 +1297,7 @@ export const ar = {
     guardians: {
       title: 'أولياء الأمور',
       help: 'أنشئ رمزا واحد الاستخدام لكل خانة ولي أمر. لا يتم إرسال أي بريد إلكتروني.',
+      classHeroAccess: 'وصول ولي الأمر في كلاس هيرو هب — هذا ليس رمز ربط المدرسة في فاميلي هيرو هب.',
       loadError: 'تعذر تحميل حالة أولياء الأمور',
       generate: 'إنشاء رمز',
       generated: 'تم إنشاء رمز ولي الأمر.',
@@ -1316,6 +1343,31 @@ export const ar = {
         revoked: 'ملغاة',
         expired: 'منتهية'
       }
+    },
+    fhhLink: {
+      title: 'ربط المدرسة في فاميلي هيرو هب',
+      help: 'أنشئ رمزا ليربط ولي الأمر معلومات مدرسة هذا الطالب في فاميلي هيرو هب.',
+      differentFromGuardian: 'هذا يختلف عن رمز ربط ولي الأمر في كلاس هيرو هب أعلاه.',
+      privacy: 'لا تتم مشاركة نقاط ومكافآت العائلة والمنزل مع المدرسة.',
+      generate: 'إنشاء رمز ربط فاميلي هيرو هب',
+      generated: 'تم إنشاء رمز ربط فاميلي هيرو هب.',
+      generatedCode: 'رمز ربط فاميلي هيرو هب',
+      immediateOnly: 'يظهر الرمز الخام الآن فقط ولا يتم تخزينه.',
+      copy: 'نسخ الرمز',
+      copied: 'تم نسخ رمز ربط فاميلي هيرو هب.',
+      copyError: 'تعذر نسخ رمز ربط فاميلي هيرو هب.',
+      expires: 'تنتهي الصلاحية',
+      created: 'تم الإنشاء',
+      consumed: 'تم الاستخدام',
+      revokedAt: 'تم الإلغاء',
+      empty: 'لم يتم إنشاء رموز ربط فاميلي هيرو هب لهذا الطالب.',
+      loadError: 'تعذر تحميل رموز ربط فاميلي هيرو هب',
+      generateError: 'تعذر إنشاء رمز ربط فاميلي هيرو هب',
+      revoke: 'إلغاء',
+      revokeConfirm: 'هل تريد إلغاء رمز ربط فاميلي هيرو هب غير المستخدم؟',
+      revoked: 'تم إلغاء رمز ربط فاميلي هيرو هب.',
+      revokeError: 'تعذر إلغاء رمز ربط فاميلي هيرو هب',
+      status: { active: 'نشط', consumed: 'مستخدم', revoked: 'ملغى', expired: 'منتهي' }
     },
     imports: {
       title: 'استيراد الطلاب (CSV)',
