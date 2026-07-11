@@ -51,7 +51,8 @@ def world(db):
 
 def test_defaults_admin_crud_and_teacher_active_visibility(db, client, world):
     w=world
-    seeded=client.get("/api/school/behaviour/categories",headers=headers(w["admin"],w["a"])); assert seeded.status_code==200; assert len(seeded.json()["categories"])==20
+    seeded=client.get("/api/school/behaviour/categories",headers=headers(w["admin"],w["a"])); assert seeded.status_code==200; assert len(seeded.json()["categories"])==31
+    labels={row["label"] for row in seeded.json()["categories"]}; assert {"Good sportsmanship","Safe play","Helping at break","Out of bounds","Wandering halls","Running indoors","Leaving area without permission","Not following instructions"} <= labels
     created=client.post("/api/school/behaviour/categories",headers=headers(w["admin"],w["a"]),json={"type":"positive","label":"Curiosity","points_value":2,"sort_order":5,"active":True}); assert created.status_code==201
     category_id=created.json()["id"]
     assert client.patch(f"/api/school/behaviour/categories/{category_id}",headers=headers(w["admin"],w["a"]),json={"active":False}).status_code==200
@@ -71,3 +72,36 @@ def test_guardian_summary_is_link_scoped_and_revocation_removes_access(db, clien
     payload=client.get("/api/guardian/points",headers=headers(w["guardian"])).json(); assert payload["children"][0]["total"]==-2; assert payload["children"][0]["recent_events"][0]["category_id"]==category.id; assert "email" not in str(payload).lower() and "token" not in str(payload).lower()
     assert client.get("/api/guardian/points",headers=headers(w["outsider"])).json()=={"children":[]}
     link=db.query(GuardianLink).one(); link.status="revoked"; db.commit(); assert client.get("/api/guardian/points",headers=headers(w["guardian"])).json()=={"children":[]}
+
+def test_teacher_student_search_is_auth_role_school_status_scoped_and_allow_listed(db, client, world):
+    w=world; w["s1"].first_name="Alice"; w["s1"].preferred_name="Ali"; w["s1"].external_ref="SAFE-22"; w["s1"].avatar_id=31
+    w["s2"].first_name="Alina"; w["inactive"].first_name="Alice"; w["foreign"].first_name="Alice"
+    inactive_teacher=User(email="inactive-teacher@test",name="Inactive Teacher"); db.add(inactive_teacher); db.flush(); db.add(Membership(school_id=w["a"].id,user_id=inactive_teacher.id,role="teacher",status="inactive"))
+    category=BehaviourCategory(school_id=w["a"].id,type="positive",label="Search total",points_value=2,active=True); db.add(category); db.flush(); db.add(BehaviourEvent(school_id=w["a"].id,student_id=w["s1"].id,category_id=category.id,actor_user_id=w["teacher"].id,points_delta=2,source="teacher")); db.commit()
+    url=f"/api/teach/students/search?school_id={w['a'].id}&q=al"
+    assert client.get(url).status_code==401
+    assert client.get(url,headers=headers(w["outsider"])).status_code==403
+    assert client.get(url,headers=headers(inactive_teacher)).status_code==403
+    response=client.get(url,headers=headers(w["teacher"])); assert response.status_code==200
+    rows=response.json()["students"]; assert {row["id"] for row in rows}=={w["s1"].id,w["s2"].id}
+    alice=next(row for row in rows if row["id"]==w["s1"].id); assert alice["points_total"]==2 and alice["avatar_id"]==31 and alice["avatar_url_256"]
+    assert set(alice)=={"id","display_name","first_name","last_name","preferred_name","name_ar","points_total","avatar_id","avatar_url_128","avatar_url_256","class_section","grade_level"}
+    assert client.get(f"/api/teach/students/search?school_id={w['a'].id}&q=a",headers=headers(w["teacher"])).status_code==422
+    assert client.get(f"/api/teach/students/search?school_id={w['b'].id}&q=al",headers=headers(w["teacher"])).status_code==403
+
+def test_teacher_student_search_is_limited_and_searches_external_reference(db, client, world):
+    w=world
+    db.add_all([Student(school_id=w["a"].id,first_name=f"Limit{i:02d}",last_name="Student",external_ref=f"DUTY-{i:02d}",status="active") for i in range(35)]); db.commit()
+    response=client.get(f"/api/teach/students/search?school_id={w['a'].id}&q=DUTY",headers=headers(w["teacher"])); assert response.status_code==200
+    assert response.json()["limit"]==30 and len(response.json()["students"])==30
+    names=[row["display_name"] for row in response.json()["students"]]; assert names==sorted(names, key=lambda value: value.lower())
+
+def test_duty_award_outside_assignments_rejects_inactive_category_and_is_guardian_scoped(db, client, world):
+    w=world
+    active=BehaviourCategory(school_id=w["a"].id,type="positive",label="Safe play",points_value=1,active=True)
+    inactive=BehaviourCategory(school_id=w["a"].id,type="needs_work",label="Old rule",points_value=-1,active=False); db.add_all([active,inactive]); db.commit()
+    # This teacher has no staff assignment at all: active same-school membership is sufficient for duty awards.
+    result=client.post("/api/teach/behaviour/events",headers=headers(w["teacher"]),json={"school_id":w["a"].id,"student_ids":[w["s1"].id],"category_id":active.id}); assert result.status_code==201
+    assert client.post("/api/teach/behaviour/events",headers=headers(w["teacher"]),json={"school_id":w["a"].id,"student_ids":[w["s1"].id],"category_id":inactive.id}).status_code==400
+    linked=client.get("/api/guardian/points",headers=headers(w["guardian"])).json(); assert linked["children"][0]["recent_events"][0]["category_label"]=="Safe play"
+    assert client.get("/api/guardian/points",headers=headers(w["outsider"])).json()=={"children":[]}

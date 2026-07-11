@@ -2882,3 +2882,97 @@ Hub integration.
 - Manual deployed role-by-role QA requires Dom's real accounts and remains pending; no
   local-dev observations are represented as deployed QA.
 - Changes remain intentionally uncommitted pending Dom's testing.
+
+## 2026-07-11 — S13b: global student search / duty-teacher points
+
+Implemented the playground, hallway, cafeteria, assembly, and lunch-duty workflow without
+adding a location model or changing the class-focused teacher page into a search page.
+
+### Behaviour and placement
+
+- `/teach` now places the actions immediately below **My classes** in this exact desktop
+  order: **Find student**, **Create announcement**, **Manage announcements**. Find student
+  is the first, primary action and remains above every class card.
+- Mobile keeps that same top action and adds a compact fixed-bottom **Find student** action.
+  Extra page bottom padding keeps the action clear of the final class card; it opens the
+  same modal as the top button and is hidden while that modal is open.
+- Modal state is independent and explicit (`closed | open`); announcement state remains
+  separately explicit, so closing either flow cannot open the other.
+- The modal searches, preserves selected students across query changes, shows a selected
+  count/removable chips, then reuses the Positive / Needs work category, optional note,
+  and count-aware save interaction from S13.
+- Save sends one `POST /api/teach/behaviour/events` request containing every selected
+  student ID. The saving guard disables duplicate submits. Success copy is singular or
+  plural (`Points saved for 1 student` / `Points saved for N students`).
+
+### Endpoint and search shape
+
+- Added `GET /api/teach/students/search?school_id={id}&q={term}`.
+- Search requires a trimmed two-character term, uses a 300ms frontend debounce, returns
+  at most **30** active same-school students, and sorts by last name, first name, then ID.
+- Matching covers first name, last name, preferred name, and external reference. Empty and
+  one-character searches never expose a student list.
+- The response is an explicit allow-list: display/name fields, avatar ID/128/256 paths,
+  current points total, and current class/grade context when an active class enrolment is
+  available. It contains no guardian contact, invite, token, code, DOB, or debug data.
+- Point totals use one grouped query. Class/grade context uses one batched enrolment join
+  for the bounded result IDs. There is no per-student query or frontend fan-out.
+- `GET /api/teach/dashboard` now also returns the teacher's active schools, including for
+  a teacher with no staff assignment, so duty search is not coupled to class cards.
+
+### Permission model
+
+- Search and batch award require an authenticated active `teacher` membership in the
+  requested active/non-suspended school. A platform admin without that membership cannot
+  enter the teacher flow.
+- An active teacher may search and award any active student in that school even when the
+  teacher has no assignment to the student's class. Student, category, event, membership,
+  and audit school IDs remain server-validated.
+- Other-school students/categories, inactive students/categories, inactive teachers, and
+  actor spoofing remain rejected. Actor identity comes only from the authenticated user.
+- Existing linked-guardian points/history immediately includes duty-awarded events;
+  unrelated or revoked guardians receive no child data.
+
+### Default categories
+
+- Added positive defaults: Good sportsmanship, Safe play, Helping at break, Lining up
+  well, Responsible behaviour.
+- Added needs-work defaults: Out of bounds, Wandering halls, Unsafe play, Running indoors,
+  Leaving area without permission, Not following instructions. Fighting / rough play and
+  Unsafe behaviour already existed and remain school-wide defaults.
+- Default seeding remains idempotent and adds missing defaults to an existing school's
+  category set when its existing Ensure defaults/list path runs.
+
+### Validation and deployed QA notes
+
+- Focused rebuilt-code suite: `tests/test_behaviour_points.py` → **6 passed**, 6 warnings.
+- Rebuilt-container full suite: `docker compose exec backend python -m pytest tests -q`
+  → **272 passed**, 11 warnings in 69.27s.
+- `npm run check` → **0 errors, 0 warnings**.
+- `npm run check:i18n` → parity OK, **676 keys** in both EN and AR.
+- `npm run build` → production build successful.
+- `docker compose build backend frontend && docker compose up -d backend frontend` → both
+  changed images rebuilt and both services recreated successfully before final checks.
+- `backend/scripts/perf_check.py` → `/api/teach/dashboard` **0.123s**. The only endpoint
+  above the 1s guideline remains the documented pre-existing `/api/school/students`
+  (**4.149s**, 502 rows); the new search is bounded and not part of that script.
+- Against the rebuilt deployed backend, an active demo teacher search returned exactly
+  the **30**-row limit with the expected allow-listed avatar, class/grade, and point fields;
+  a one-character query returned **422**, and an anonymous query returned **401**.
+- Static `/teach` returned **200** from the rebuilt frontend. Automated browser QA could
+  not run because the host Playwright Chromium lacks `libatk-1.0.so.0`; no dependency was
+  installed or environment changed for this slice. Consequently visual desktop/mobile
+  inspection, real point mutations, guardian login confirmation, and request-network
+  inspection remain for Dom's deployed manual test. No production/demo point data was
+  mutated merely to claim QA.
+
+### Deferred / caveats
+
+- Reporting and analytics.
+- Correction/reversal UI.
+- Notifications.
+- Advanced search filters.
+- Optional location/context field.
+- Backend idempotency keys remain a broader S13 caveat; the UI prevents duplicate clicks,
+  but cannot make an ambiguous network retry idempotent.
+- Changes remain intentionally **uncommitted** pending Dom's testing.

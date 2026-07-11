@@ -648,6 +648,11 @@ export const en = {
       download: 'Download',
       downloadError: 'Failed to download attachment'
     },
+    studentSearch: {
+      find: 'Find student', title: 'Find student', subtitle: 'Search your school and award points without opening a class.',
+      school: 'School', searchLabel: 'Student name or reference', placeholder: 'Type at least 2 characters', minimum: 'Enter at least 2 characters to search.',
+      searching: 'Searching…', resultCount: '{count} results', selected: '{count} selected', noClass: 'Class not available', searchError: 'Failed to search students'
+    },
     points: {
       title: 'Award points', open: 'Open award tool', positive: 'Positive', needsWork: 'Needs work', selectStudents: 'Select students', wholeClass: 'Whole class', clearSelection: 'Clear selection', category: 'Category / reason', note: 'Optional note', submit: 'Save points', saveForOne: 'Save points for 1 student', saveForMany: 'Save points for {count} students', saving: 'Saving…', close: 'Close', loadError: 'Failed to load categories', saveError: 'Failed to save points', successOne: 'Points saved for 1 student', successMany: 'Points saved for {count} students', pts: 'pts'
     }
@@ -1395,6 +1400,11 @@ export const ar = {
       attachmentList: 'المرفقات',
       download: 'تنزيل',
       downloadError: 'تعذر تنزيل المرفق'
+    },
+    studentSearch: {
+      find: 'البحث عن طالب', title: 'البحث عن طالب', subtitle: 'ابحث في مدرستك وامنح النقاط دون فتح صف.',
+      school: 'المدرسة', searchLabel: 'اسم الطالب أو الرقم المرجعي', placeholder: 'اكتب حرفين على الأقل', minimum: 'أدخل حرفين على الأقل للبحث.',
+      searching: 'جار البحث…', resultCount: '{count} نتائج', selected: 'تم اختيار {count}', noClass: 'الصف غير متاح', searchError: 'تعذر البحث عن الطلاب'
     },
     points: { title: 'منح النقاط', open: 'فتح أداة النقاط', positive: 'إيجابي', needsWork: 'يحتاج إلى تحسين', selectStudents: 'اختر الطلاب', wholeClass: 'الصف بأكمله', clearSelection: 'مسح التحديد', category: 'الفئة / السبب', note: 'ملاحظة اختيارية', submit: 'حفظ النقاط', saveForOne: 'حفظ النقاط لطالب واحد', saveForMany: 'حفظ النقاط لـ {count} طلاب', saving: 'جار الحفظ…', close: 'إغلاق', loadError: 'تعذر تحميل الفئات', saveError: 'تعذر حفظ النقاط', successOne: 'تم حفظ النقاط لطالب واحد', successMany: 'تم حفظ النقاط لـ {count} طلاب', pts: 'نقطة' }
   },

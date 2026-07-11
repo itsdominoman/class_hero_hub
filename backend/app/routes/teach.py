@@ -3,12 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from .. import auth, invite_tokens
 from ..database import get_db
-from ..models_school import AcademicYear, BehaviourEvent, BranchCampus, ClassSection, GradeLevel, Membership, School, StaffAssignment, Subject, SubjectGroup, User
+from ..models_school import AcademicYear, BehaviourEvent, BranchCampus, ClassSection, Enrolment, GradeLevel, Membership, School, StaffAssignment, Student, Subject, SubjectGroup, User
 from ..rosters import roster_payload
 from ..school_scope import open_interval_expression, require_teacher_of
 from ..student_avatars import avatar_urls, ensure_student_avatars
@@ -139,7 +139,95 @@ def teacher_dashboard(
         )
         assignments_with_school.extend((assignment, school) for assignment in assignments)
 
-    return {"assignments": _assignment_cards(db, assignments_with_school)}
+    return {
+        "assignments": _assignment_cards(db, assignments_with_school),
+        "schools": [{"id": school.id, "name": school.name, "name_ar": school.name_ar} for _membership, school in teacher_memberships],
+    }
+
+
+@router.get("/students/search")
+def search_students(
+    school_id: int,
+    q: str = "",
+    current_user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Search an active teacher's school without exposing the admin student record."""
+    from ..behaviour_service import active_teacher_membership
+
+    active_teacher_membership(db, current_user.id, school_id)
+    term = q.strip()
+    if len(term) < 2:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Enter at least 2 characters")
+
+    pattern = f"%{term}%"
+    students = (
+        db.query(Student)
+        .filter(
+            Student.school_id == school_id,
+            Student.status == "active",
+            or_(
+                Student.first_name.ilike(pattern),
+                Student.last_name.ilike(pattern),
+                Student.preferred_name.ilike(pattern),
+                Student.external_ref.ilike(pattern),
+            ),
+        )
+        .order_by(func.lower(Student.last_name).asc(), func.lower(Student.first_name).asc(), Student.id.asc())
+        .limit(30)
+        .all()
+    )
+    student_ids = [student.id for student in students]
+    totals = (
+        dict(
+            db.query(BehaviourEvent.student_id, func.coalesce(func.sum(BehaviourEvent.points_delta), 0))
+            .filter(
+                BehaviourEvent.school_id == school_id,
+                BehaviourEvent.student_id.in_(student_ids),
+                BehaviourEvent.reversed_at.is_(None),
+            )
+            .group_by(BehaviourEvent.student_id)
+            .all()
+        )
+        if student_ids else {}
+    )
+    enrolment_rows = (
+        db.query(Enrolment.student_id, ClassSection, GradeLevel)
+        .join(ClassSection, ClassSection.id == Enrolment.class_section_id)
+        .join(GradeLevel, GradeLevel.id == ClassSection.grade_level_id)
+        .filter(
+            Enrolment.school_id == school_id,
+            Enrolment.student_id.in_(student_ids),
+            Enrolment.kind == "member",
+            Enrolment.valid_from <= invite_tokens.now_utc().date(),
+            or_(Enrolment.valid_to.is_(None), Enrolment.valid_to >= invite_tokens.now_utc().date()),
+            ClassSection.status == "active",
+        )
+        .order_by(Enrolment.student_id.asc(), Enrolment.id.asc())
+        .all()
+        if student_ids else []
+    )
+    context_by_student = {}
+    for student_id, section, grade in enrolment_rows:
+        context_by_student.setdefault(student_id, {"class_section": section.name or section.code, "grade_level": grade.name})
+
+    return {
+        "students": [
+            {
+                "id": student.id,
+                "display_name": student.preferred_name or f"{student.first_name} {student.last_name}".strip(),
+                "first_name": student.first_name,
+                "last_name": student.last_name,
+                "preferred_name": student.preferred_name,
+                "name_ar": student.name_ar,
+                "points_total": int(totals.get(student.id, 0)),
+                **avatar_urls(student.avatar_id),
+                **context_by_student.get(student.id, {"class_section": None, "grade_level": None}),
+            }
+            for student in students
+        ],
+        "limit": 30,
+    }
 
 
 def _classroom_student_payload(row: dict[str, Any], avatar_id: int | None, points_total: int = 0) -> dict[str, Any]:

@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 from .models_school import BehaviourCategory, BehaviourEvent, GuardianLink, Membership, School, Student, User
 
 DEFAULT_CATEGORIES = {
-    "positive": ["Listening well", "Good work", "Teamwork", "Helping others", "Kindness", "Great effort", "Respectful behaviour", "Leadership", "Improvement", "Participation"],
-    "needs_work": ["Late for class", "Homework incomplete", "Not listening", "Disrupting others", "Unkind behaviour", "Fighting / rough play", "Disrespect", "Off-task", "Forgot equipment", "Unsafe behaviour"],
+    "positive": ["Listening well", "Good work", "Teamwork", "Helping others", "Kindness", "Great effort", "Respectful behaviour", "Leadership", "Improvement", "Participation", "Good sportsmanship", "Safe play", "Helping at break", "Lining up well", "Responsible behaviour"],
+    "needs_work": ["Late for class", "Homework incomplete", "Not listening", "Disrupting others", "Unkind behaviour", "Fighting / rough play", "Disrespect", "Off-task", "Forgot equipment", "Unsafe behaviour", "Out of bounds", "Wandering halls", "Unsafe play", "Running indoors", "Leaving area without permission", "Not following instructions"],
 }
 
 

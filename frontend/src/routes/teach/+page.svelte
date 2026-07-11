@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
+  import { Search, Star } from 'lucide-svelte';
   import { api } from '$lib/api';
+  import { initialsFromStudentName } from '$lib/guardianDisplay';
 
   type AssignmentCard = {
     id: number;
@@ -35,6 +37,13 @@
     attachments: AnnouncementAttachment[];
     status: string;
   };
+  type SchoolRef = { id: number; name: string; name_ar?: string | null };
+  type Category = { id: number; type: 'positive' | 'needs_work'; label: string; points_value: number };
+  type SearchStudent = {
+    id: number; display_name: string; first_name: string; last_name: string; preferred_name?: string | null;
+    name_ar?: string | null; avatar_url_256?: string | null; points_total: number;
+    class_section?: string | null; grade_level?: string | null;
+  };
 
   let loading = $state(true);
   let allowed = $state(false);
@@ -49,6 +58,22 @@
   let announcementSuccess = $state(false);
   let viewingAnnouncement = $state<Announcement | null>(null);
   let announcementModal = $state<'closed' | 'create' | 'manage' | 'detail'>('closed');
+  let teacherSchools = $state<SchoolRef[]>([]);
+  let studentModal = $state<'closed' | 'open'>('closed');
+  let searchSchoolId = $state('');
+  let searchText = $state('');
+  let searchResults = $state<SearchStudent[]>([]);
+  let selectedStudents = $state<SearchStudent[]>([]);
+  let searching = $state(false);
+  let searchError = $state<string | null>(null);
+  let failedSearchImages = $state<Record<number, boolean>>({});
+  let categories = $state<Category[]>([]);
+  let pointType = $state<'positive' | 'needs_work'>('positive');
+  let categoryId = $state('');
+  let pointNote = $state('');
+  let pointsSaving = $state(false);
+  let pointsSuccess = $state<string | null>(null);
+  let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   function titleFor(card: AssignmentCard) {
     if (card.role === 'homeroom') return card.class_section?.name || card.class_section?.code || $_('teach.homeroom');
@@ -89,6 +114,90 @@
 
   function schoolOptions(schoolId: number): RequestInit {
     return { headers: { 'X-School-Id': String(schoolId) } };
+  }
+
+  async function openStudentModal() {
+    studentModal = 'open';
+    searchError = null;
+    pointsSuccess = null;
+    if (!searchSchoolId && teacherSchools.length) searchSchoolId = String(teacherSchools[0].id);
+    try {
+      const data = await api.get(`/teach/behaviour/categories?school_id=${searchSchoolId}`);
+      categories = data?.categories || [];
+      categoryId = String(categories.find((row) => row.type === pointType)?.id || '');
+    } catch (err: any) {
+      searchError = err?.message || $_('teach.points.loadError');
+    }
+  }
+
+  function closeStudentModal() {
+    if (pointsSaving) return;
+    studentModal = 'closed';
+  }
+
+  async function changeSearchSchool() {
+    searchResults = [];
+    selectedStudents = [];
+    searchText = '';
+    await openStudentModal();
+  }
+
+  function queueStudentSearch() {
+    if (searchTimer) clearTimeout(searchTimer);
+    searchError = null;
+    if (searchText.trim().length < 2) {
+      searchResults = [];
+      searching = false;
+      return;
+    }
+    searchTimer = setTimeout(runStudentSearch, 300);
+  }
+
+  async function runStudentSearch() {
+    const query = searchText.trim();
+    if (query.length < 2 || !searchSchoolId) return;
+    searching = true;
+    try {
+      const data = await api.get(`/teach/students/search?school_id=${searchSchoolId}&q=${encodeURIComponent(query)}`);
+      if (query === searchText.trim()) searchResults = data?.students || [];
+    } catch (err: any) {
+      searchError = err?.message || $_('teach.studentSearch.searchError');
+    } finally {
+      searching = false;
+    }
+  }
+
+  function toggleSearchStudent(student: SearchStudent) {
+    selectedStudents = selectedStudents.some((row) => row.id === student.id)
+      ? selectedStudents.filter((row) => row.id !== student.id)
+      : [...selectedStudents, student];
+  }
+
+  function choosePointType(value: 'positive' | 'needs_work') {
+    pointType = value;
+    categoryId = String(categories.find((row) => row.type === value)?.id || '');
+  }
+
+  async function submitDutyPoints() {
+    if (pointsSaving || !selectedStudents.length || !categoryId || !searchSchoolId) return;
+    pointsSaving = true;
+    searchError = null;
+    try {
+      const result = await api.post('/teach/behaviour/events', {
+        school_id: Number(searchSchoolId), student_ids: selectedStudents.map((row) => row.id),
+        category_id: Number(categoryId), note: pointNote || null
+      });
+      pointsSuccess = result.created === 1 ? $_('teach.points.successOne') : $_('teach.points.successMany', { values: { count: result.created } });
+      selectedStudents = [];
+      searchResults = [];
+      searchText = '';
+      pointNote = '';
+      studentModal = 'closed';
+    } catch (err: any) {
+      searchError = err?.message || $_('teach.points.saveError');
+    } finally {
+      pointsSaving = false;
+    }
   }
 
   async function loadAnnouncements() {
@@ -224,6 +333,8 @@
       }
       const data = await api.get('/teach/dashboard');
       assignments = data.assignments || [];
+      teacherSchools = data.schools || [];
+      searchSchoolId = String(teacherSchools[0]?.id || '');
       if (audienceOptions().length) {
         announcementAudience = audienceOptions()[0].id;
         await loadAnnouncements();
@@ -258,16 +369,21 @@
     </div>
   </section>
 {:else}
-  <section class="mx-auto max-w-5xl px-4 py-8">
+  <section class="mx-auto max-w-5xl px-4 py-8 pb-24 md:pb-8">
     <div class="border-b border-slate-200 pb-5">
       <p class="eyebrow">{$_('teach.eyebrow')}</p>
       <h1 class="mt-2 text-3xl font-black text-slate-900">{$_('teach.heading')}</h1>
     </div>
 
     <div class="mt-4 flex flex-wrap items-center gap-3">
+      <button type="button" class="btn-hero inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm shadow-md" onclick={openStudentModal}><Search size={17} aria-hidden="true" />{$_('teach.studentSearch.find')}</button>
       <button type="button" class="btn-hero rounded-lg px-4 py-2 text-sm" onclick={openCreateMode}>{$_('teach.announcements.create')}</button>
       <button type="button" class="btn-secondary rounded-lg px-4 py-2 text-sm" onclick={openManageMode}>{$_('teach.announcements.manage')}</button>
     </div>
+
+    {#if pointsSuccess}
+      <div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{pointsSuccess}</div>
+    {/if}
 
     {#if announcementSuccess}
       <div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{$_('teach.announcements.created')}</div>
@@ -306,6 +422,53 @@
     {/if}
 
   </section>
+{/if}
+
+{#if allowed && studentModal === 'closed'}
+  <button type="button" class="fixed bottom-4 left-1/2 z-40 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-violet-700 px-5 py-3 text-sm font-black text-white shadow-xl ring-4 ring-white/90 md:hidden" onclick={openStudentModal}>
+    <Search size={18} aria-hidden="true" />{$_('teach.studentSearch.find')}
+  </button>
+{/if}
+
+{#if studentModal === 'open'}
+  <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="find-student-title">
+    <div class="max-h-[94vh] w-full max-w-3xl overflow-y-auto overflow-x-hidden rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6">
+      <div class="flex items-start justify-between gap-3">
+        <div><h2 id="find-student-title" class="text-2xl font-black text-slate-900">{$_('teach.studentSearch.title')}</h2><p class="mt-1 text-sm font-semibold text-slate-500">{$_('teach.studentSearch.subtitle')}</p></div>
+        <button type="button" class="btn-secondary rounded-lg px-3 py-2" disabled={pointsSaving} onclick={closeStudentModal}>{$_('teach.points.close')}</button>
+      </div>
+
+      {#if searchError}<div class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{searchError}</div>{/if}
+      {#if teacherSchools.length > 1}
+        <label class="mt-4 grid gap-1 text-sm font-bold text-slate-700">{$_('teach.studentSearch.school')}<select class="rounded-lg border border-slate-200 px-3 py-2" bind:value={searchSchoolId} onchange={changeSearchSchool}>{#each teacherSchools as school}<option value={school.id}>{school.name}</option>{/each}</select></label>
+      {/if}
+      <label class="mt-4 grid gap-1 text-sm font-bold text-slate-700">{$_('teach.studentSearch.searchLabel')}
+        <div class="relative"><Search class="absolute left-3 top-3 text-slate-400" size={18} aria-hidden="true" /><input class="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-3" maxlength="120" bind:value={searchText} oninput={queueStudentSearch} placeholder={$_('teach.studentSearch.placeholder')} /></div>
+      </label>
+      <p class="mt-1 text-xs font-semibold text-slate-400">{searching ? $_('teach.studentSearch.searching') : searchText.trim().length < 2 ? $_('teach.studentSearch.minimum') : $_('teach.studentSearch.resultCount', { values: { count: searchResults.length } })}</p>
+
+      {#if selectedStudents.length}
+        <div class="mt-4 rounded-xl border border-violet-200 bg-violet-50 p-3"><div class="flex items-center justify-between gap-2"><p class="text-sm font-black text-violet-800">{$_('teach.studentSearch.selected', { values: { count: selectedStudents.length } })}</p><button type="button" class="text-xs font-black text-violet-700" onclick={() => selectedStudents = []}>{$_('teach.points.clearSelection')}</button></div><div class="mt-2 flex flex-wrap gap-2">{#each selectedStudents as student}<button type="button" class="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-700 ring-1 ring-violet-200" onclick={() => toggleSearchStudent(student)}>{student.display_name} ×</button>{/each}</div></div>
+      {/if}
+
+      <div class="mt-3 grid max-h-64 gap-2 overflow-y-auto sm:grid-cols-2">
+        {#each searchResults as student (student.id)}
+          <button type="button" aria-pressed={selectedStudents.some((row) => row.id === student.id)} class={`flex min-w-0 items-center gap-3 rounded-xl border p-3 text-left ${selectedStudents.some((row) => row.id === student.id) ? 'border-violet-500 bg-violet-50' : 'border-slate-200 hover:border-violet-300'}`} onclick={() => toggleSearchStudent(student)}>
+            <div class="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-gradient-to-b from-violet-50 to-sky-50"><span class="absolute inset-0 flex items-center justify-center font-black text-hero">{initialsFromStudentName(student)}</span>{#if student.avatar_url_256 && !failedSearchImages[student.id]}<img src={student.avatar_url_256} alt="" class="relative h-full w-full object-contain" onerror={() => failedSearchImages = { ...failedSearchImages, [student.id]: true }} />{/if}</div>
+            <span class="min-w-0 flex-1"><strong class="block truncate text-sm text-slate-900">{student.display_name}</strong><small class="block truncate font-semibold text-slate-500">{[student.grade_level, student.class_section].filter(Boolean).join(' · ') || $_('teach.studentSearch.noClass')}</small></span>
+            <span class={`shrink-0 text-xs font-black ${student.points_total < 0 ? 'text-amber-700' : 'text-emerald-600'}`}>{student.points_total > 0 ? '+' : ''}{student.points_total} {$_('teach.points.pts')}</span>
+          </button>
+        {/each}
+      </div>
+
+      <div class="mt-5 grid grid-cols-2 gap-2"><button type="button" class={`rounded-xl px-4 py-3 font-black ${pointType === 'positive' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`} onclick={() => choosePointType('positive')}>{$_('teach.points.positive')}</button><button type="button" class={`rounded-xl px-4 py-3 font-black ${pointType === 'needs_work' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-800'}`} onclick={() => choosePointType('needs_work')}>{$_('teach.points.needsWork')}</button></div>
+      <form class="mt-4 grid gap-3" onsubmit={(event) => { event.preventDefault(); submitDutyPoints(); }}>
+        <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.points.category')}<select class="rounded-lg border border-slate-200 px-3 py-2" required bind:value={categoryId}>{#each categories.filter((row) => row.type === pointType) as category}<option value={category.id}>{category.label} ({category.points_value > 0 ? '+' : ''}{category.points_value})</option>{/each}</select></label>
+        <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.points.note')}<textarea class="min-h-20 rounded-lg border border-slate-200 px-3 py-2" maxlength="500" bind:value={pointNote}></textarea></label>
+        <button type="submit" class="btn-hero inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3" disabled={pointsSaving || !selectedStudents.length || !categoryId}><Star size={18} aria-hidden="true" />{pointsSaving ? $_('teach.points.saving') : selectedStudents.length === 1 ? $_('teach.points.saveForOne') : $_('teach.points.saveForMany', { values: { count: selectedStudents.length } })}</button>
+      </form>
+    </div>
+  </div>
 {/if}
 
 {#if announcementModal !== 'closed'}
