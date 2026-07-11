@@ -271,6 +271,10 @@
     attachments: AnnouncementAttachment[];
     status: 'published' | 'archived';
   };
+  type CalendarEvent = {
+    id: string; event_id: number; title: string; body?: string | null; event_type: string;
+    starts_at: string; ends_at?: string | null; all_day: boolean;
+  };
 
   const tabs = [
     { key: 'checklist', label: 'school.tabs.checklist' },
@@ -283,6 +287,7 @@
     { key: 'rosters', label: 'school.tabs.rosters' },
     { key: 'teachers', label: 'school.tabs.teachers' },
     { key: 'announcements', label: 'school.tabs.announcements' },
+    { key: 'calendar', label: 'school.tabs.calendar' },
     { key: 'behaviour', label: 'school.tabs.behaviour' },
     { key: 'students', label: 'school.tabs.students' },
     { key: 'subjects', label: 'school.tabs.subjects' },
@@ -381,6 +386,10 @@
   let announcementFiles = $state<FileList | null>(null);
   let announcementSaving = $state(false);
   let viewingAnnouncement = $state<Announcement | null>(null);
+  let calendarEvents = $state<CalendarEvent[]>([]);
+  let calendarForm = $state({ title: '', body: '', starts_at: '', ends_at: '', all_day: true });
+  let editingCalendarEvent = $state<CalendarEvent | null>(null);
+  let calendarSaving = $state(false);
   let behaviourCategories = $state<any[]>([]);
   let behaviourLoaded = $state(false);
   let behaviourForm = $state({ type: 'positive', label: '', points_value: 1, sort_order: 10, active: true });
@@ -787,6 +796,7 @@
     activeTab = key;
     if (key === 'students') ensureStudentsLoaded();
     if (key === 'behaviour' && !behaviourLoaded) loadBehaviour();
+    if (key === 'calendar') void loadCalendar();
   }
 
   // Load a row's current values into its form and switch that block into edit mode.
@@ -1923,6 +1933,75 @@
     viewingAnnouncement = null;
   }
 
+  function toDatetimeLocal(value?: string | null) {
+    if (!value) return '';
+    const date = new Date(value);
+    const offset = date.getTimezoneOffset();
+    return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 16);
+  }
+
+  function toDateInput(value?: string | null) {
+    return toDatetimeLocal(value).slice(0, 10);
+  }
+
+  function changeCalendarAllDay() {
+    if (calendarForm.all_day) {
+      calendarForm.starts_at = calendarForm.starts_at.slice(0, 10);
+      calendarForm.ends_at = '';
+    } else if (calendarForm.starts_at.length === 10) {
+      calendarForm.starts_at = `${calendarForm.starts_at}T00:00`;
+    }
+  }
+
+  function formatCalendarDate(event: CalendarEvent) {
+    return new Intl.DateTimeFormat(undefined, event.all_day ? { dateStyle: 'medium' } : { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(event.starts_at));
+  }
+
+  async function loadCalendar() {
+    if (!schoolId) return;
+    try {
+      calendarEvents = (await api.get('/school/calendar', schoolOptions()))?.items || [];
+    } catch (err: any) {
+      error = err?.message || $_('calendar.loadError');
+    }
+  }
+
+  function resetCalendarForm() {
+    editingCalendarEvent = null;
+    calendarForm = { title: '', body: '', starts_at: '', ends_at: '', all_day: true };
+  }
+
+  function editCalendarEvent(event: CalendarEvent) {
+    editingCalendarEvent = event;
+    calendarForm = { title: event.title, body: event.body || '', starts_at: event.all_day ? toDateInput(event.starts_at) : toDatetimeLocal(event.starts_at), ends_at: event.all_day ? '' : toDatetimeLocal(event.ends_at), all_day: event.all_day };
+  }
+
+  function calendarPayload() {
+    const start = calendarForm.all_day ? `${calendarForm.starts_at}T00:00` : calendarForm.starts_at;
+    return { title: calendarForm.title, body: calendarForm.body || null, starts_at: new Date(start).toISOString(), ends_at: !calendarForm.all_day && calendarForm.ends_at ? new Date(calendarForm.ends_at).toISOString() : null, all_day: calendarForm.all_day };
+  }
+
+  async function saveCalendarEvent() {
+    if (!schoolId || calendarSaving || !calendarForm.title.trim() || !calendarForm.starts_at) return;
+    calendarSaving = true; error = null;
+    try {
+      if (editingCalendarEvent) await api.patch(`/school/calendar/${editingCalendarEvent.event_id}`, calendarPayload(), schoolOptions());
+      else await api.post('/school/calendar', { ...calendarPayload(), audience_type: 'school', class_section_id: null, subject_group_id: null }, schoolOptions());
+      notice = editingCalendarEvent ? $_('calendar.updated') : $_('calendar.created');
+      resetCalendarForm();
+      await loadCalendar();
+    } catch (err: any) { error = err?.message || $_('calendar.saveError'); }
+    finally { calendarSaving = false; }
+  }
+
+  async function archiveCalendarEvent(event: CalendarEvent) {
+    if (calendarSaving) return;
+    calendarSaving = true; error = null;
+    try { await api.delete(`/school/calendar/${event.event_id}`, schoolOptions()); notice = $_('calendar.archived'); await loadCalendar(); }
+    catch (err: any) { error = err?.message || $_('calendar.archiveError'); }
+    finally { calendarSaving = false; }
+  }
+
   function attachmentLabel(attachment: AnnouncementAttachment) {
     const sizeKb = Math.max(1, Math.round((attachment.size_bytes || 0) / 1024));
     return `${attachment.original_filename} · ${sizeKb} KB`;
@@ -2487,6 +2566,28 @@
                   {/each}
                 </div>
               {/if}
+            </div>
+          </div>
+        {:else if activeTab === 'calendar'}
+          <div class="space-y-5">
+            <div class="rounded-lg border border-indigo-100 bg-indigo-50/40 p-5">
+              <h2 class="text-lg font-black text-slate-900">{$_('school.calendar.title')}</h2>
+              <p class="mt-1 text-sm text-slate-600">{$_('school.calendar.intro')}</p>
+              <form class="mt-4 grid gap-3" onsubmit={(event) => { event.preventDefault(); saveCalendarEvent(); }}>
+                <label class="grid gap-1 text-sm font-semibold text-slate-700">{$_('calendar.titleField')}<input class="rounded-lg border border-slate-200 px-3 py-2 font-normal" required maxlength="160" bind:value={calendarForm.title} /></label>
+                <label class="flex items-center gap-2 text-sm font-bold text-slate-700"><input type="checkbox" bind:checked={calendarForm.all_day} onchange={changeCalendarAllDay} /> {$_('calendar.allDay')}</label>
+                {#if calendarForm.all_day}
+                  <label class="grid max-w-sm gap-1 text-sm font-semibold text-slate-700">{$_('calendar.date')}<input class="rounded-lg border border-slate-200 px-3 py-2 font-normal" type="date" required bind:value={calendarForm.starts_at} /></label>
+                {:else}
+                  <div class="grid gap-3 sm:grid-cols-2"><label class="grid gap-1 text-sm font-semibold text-slate-700">{$_('calendar.starts')}<input class="rounded-lg border border-slate-200 px-3 py-2 font-normal" type="datetime-local" required bind:value={calendarForm.starts_at} /></label><label class="grid gap-1 text-sm font-semibold text-slate-700">{$_('calendar.ends')}<input class="rounded-lg border border-slate-200 px-3 py-2 font-normal" type="datetime-local" bind:value={calendarForm.ends_at} /></label></div>
+                {/if}
+                <label class="grid gap-1 text-sm font-semibold text-slate-700">{$_('calendar.details')}<textarea class="min-h-24 rounded-lg border border-slate-200 px-3 py-2 font-normal" maxlength="10000" bind:value={calendarForm.body}></textarea></label>
+                <div class="flex flex-wrap gap-2"><button type="submit" class="btn-hero rounded-lg px-4 py-2" disabled={calendarSaving}>{calendarSaving ? $_('calendar.saving') : editingCalendarEvent ? $_('calendar.save') : $_('school.calendar.create')}</button>{#if editingCalendarEvent}<button type="button" class="btn-secondary rounded-lg px-4 py-2" onclick={resetCalendarForm}>{$_('calendar.cancel')}</button>{/if}</div>
+              </form>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <h3 class="text-base font-black text-slate-900">{$_('school.calendar.upcoming')}</h3>
+              {#if calendarEvents.length === 0}<p class="mt-3 text-sm text-slate-500">{$_('calendar.empty')}</p>{:else}<div class="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-100">{#each calendarEvents as event (event.id)}<div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div class="min-w-0"><p class="break-words font-black text-slate-900">{event.title}</p><p class="mt-1 text-sm text-slate-500">{formatCalendarDate(event)}</p>{#if event.body}<p class="mt-2 whitespace-pre-wrap break-words text-sm text-slate-600">{event.body}</p>{/if}</div><div class="flex shrink-0 flex-wrap gap-2"><button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={calendarSaving} onclick={() => editCalendarEvent(event)}>{$_('calendar.edit')}</button><button type="button" class="rounded-lg border border-amber-200 px-3 py-2 text-sm font-bold text-amber-800" disabled={calendarSaving} onclick={() => archiveCalendarEvent(event)}>{$_('calendar.archive')}</button></div></div>{/each}</div>{/if}
             </div>
           </div>
         {:else if activeTab === 'announcements'}

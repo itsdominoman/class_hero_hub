@@ -52,6 +52,22 @@
   type PointEvent = { id: number; category_label: string; type: 'positive' | 'needs_work'; points_delta: number; note?: string | null; teacher_name?: string | null; created_at?: string | null };
   type HomeworkItem = { id: number; item_type: 'homework' | 'diary'; title: string; body?: string; preview?: string; audience_type: 'class_section' | 'subject_group'; class_section_name?: string | null; subject_group_name?: string | null; due_at?: string | null; created_at?: string | null; attachment_count: number; attachments: AnnouncementAttachment[]; resource_links: { url: string; label?: string | null }[] };
 
+  type CalendarItem = {
+    id: string;
+    kind: 'event' | 'homework_due';
+    event_id?: number;
+    homework_item_id?: number;
+    title: string;
+    body?: string | null;
+    event_type: string;
+    audience_type: 'school' | 'class_section' | 'subject_group';
+    class_section_name?: string | null;
+    subject_group_name?: string | null;
+    starts_at: string;
+    ends_at?: string | null;
+    all_day: boolean;
+  };
+
   type UpdatePhoto = { id: number; original_filename: string };
   type UpdatePost = {
     id: number;
@@ -87,6 +103,8 @@
   let homeworkLoading = $state(false);
   let homeworkDoneSaving = $state(false);
   let updates = $state<UpdatePost[]>([]);
+  let calendarItems = $state<CalendarItem[]>([]);
+  let calendarOpen = $state(false);
   let updatesOpen = $state(false);
   let selectedUpdate = $state<UpdatePost | null>(null);
   let updateLoading = $state(false);
@@ -112,12 +130,13 @@
       error = null;
     }
     try {
-      const [me, dashboard, announcementData, homeworkData, updateData] = await Promise.all([
+      const [me, dashboard, announcementData, homeworkData, updateData, calendarData] = await Promise.all([
         api.get('/me'),
         api.get('/guardian/dashboard'),
         api.get('/guardian/announcements'),
         api.get('/guardian/homework'),
-        api.get('/guardian/updates')
+        api.get('/guardian/updates'),
+        api.get('/guardian/calendar')
       ]);
       identity = me;
       children = dashboard?.children || [];
@@ -125,6 +144,7 @@
       unreadCount = announcementData?.unread_count || 0;
       homeworkItems = homeworkData?.items || [];
       updates = updateData?.items || [];
+      calendarItems = calendarData?.items || [];
     } catch (err: any) {
       if (showLoading) {
         error = err?.message || $_('parent.failedLoad');
@@ -134,6 +154,7 @@
         unreadCount = 0;
         homeworkItems = [];
         updates = [];
+        calendarItems = [];
       }
     } finally {
       if (showLoading) loading = false;
@@ -255,6 +276,36 @@
     lightboxPhotoState = 'loading';
   }
 
+  function calendarContext(item: CalendarItem) {
+    if (item.audience_type === 'subject_group') return item.subject_group_name || $_('parent.homework.subjectAudience');
+    if (item.audience_type === 'class_section') return item.class_section_name || $_('parent.homework.classAudience');
+    return $_('calendar.schoolWide');
+  }
+  function formatEventDate(item: CalendarItem) {
+    const options: Intl.DateTimeFormatOptions = item.all_day ? { dateStyle: 'medium' } : { dateStyle: 'medium', timeStyle: 'short' };
+    let label = new Intl.DateTimeFormat(undefined, options).format(new Date(item.starts_at));
+    if (item.ends_at && !item.all_day) label += ` – ${new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(new Date(item.ends_at))}`;
+    return label;
+  }
+  function compactCalendarItems() {
+    const sevenDaysFromNow = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const inNextWeek = calendarItems.filter((item) => new Date(item.starts_at).getTime() <= sevenDaysFromNow);
+    return (inNextWeek.length ? inNextWeek : calendarItems).slice(0, 3);
+  }
+  function openCalendar() { calendarOpen = true; }
+  function closeCalendar() { calendarOpen = false; }
+  async function openCalendarHomework(item: CalendarItem) {
+    if (!item.homework_item_id) return;
+    calendarOpen = false;
+    homeworkOpen = true;
+    homeworkTab = 'active';
+    selectedDone = false;
+    homeworkLoading = true;
+    try { selectedHomework = await api.get(`/guardian/homework/${item.homework_item_id}`); }
+    catch (err: any) { error = err?.message || $_('parent.homework.loadError'); homeworkOpen = false; }
+    finally { homeworkLoading = false; }
+  }
+
   function homeworkContext(item: HomeworkItem) { return item.audience_type === 'subject_group' ? item.subject_group_name || $_('parent.homework.subjectAudience') : item.class_section_name || $_('parent.homework.classAudience'); }
   function openHomeworkList() { homeworkOpen = true; selectedHomework = null; homeworkTab = 'active'; }
   function closeHomeworkList() { homeworkOpen = false; selectedHomework = null; }
@@ -373,8 +424,8 @@
         </div>
       {/if}
 
-      <div class="mt-8 grid gap-4 sm:grid-cols-2">
-        <button type="button" class="rounded-lg border border-slate-200 p-5 text-left transition hover:bg-slate-50 sm:col-span-2" onclick={openInbox}>
+      <div class="mt-8 grid min-w-0 gap-4 sm:grid-cols-2">
+        <button type="button" class="w-full min-w-0 rounded-lg border border-slate-200 p-5 text-left transition hover:bg-slate-50 sm:col-span-2" onclick={openInbox}>
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="min-w-0">
               <p class="font-bold text-slate-900">{$_('parent.panels.announcements')}</p>
@@ -392,10 +443,10 @@
             <span class="btn-secondary shrink-0 rounded-lg px-4 py-2 text-center text-sm">{$_('parent.announcements.open')}</span>
           </div>
         </button>
-        <button type="button" class="rounded-2xl border border-amber-100 bg-amber-50/40 p-5 text-left transition hover:border-amber-300 sm:col-span-2" onclick={openHomeworkList}>
+        <button type="button" class="w-full min-w-0 rounded-2xl border border-amber-100 bg-amber-50/40 p-5 text-left transition hover:border-amber-300 sm:col-span-2" onclick={openHomeworkList}>
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div class="min-w-0"><p class="font-bold text-slate-900">{$_('parent.panels.homework')}</p><p class="mt-1 text-sm text-slate-500">{$_('parent.homework.count', { values: { count: homeworkItems.length } })}</p>{#if homeworkItems[0]}<p class="mt-2 truncate text-sm font-semibold text-slate-700">{homeworkItems[0].title}{homeworkItems[0].due_at ? ` · ${formatDate(homeworkItems[0].due_at)}` : ''}</p>{/if}</div><span class="btn-secondary shrink-0 rounded-lg px-4 py-2 text-center text-sm">{$_('parent.homework.open')}</span></div>
         </button>
-        <button type="button" class="rounded-2xl border border-sky-100 bg-sky-50/40 p-5 text-left transition hover:border-sky-300 sm:col-span-2" onclick={openUpdates}>
+        <button type="button" class="w-full min-w-0 rounded-2xl border border-sky-100 bg-sky-50/40 p-5 text-left transition hover:border-sky-300 sm:col-span-2" onclick={openUpdates}>
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="min-w-0">
               <p class="font-bold text-slate-900">{$_('parent.panels.classUpdates')}</p>
@@ -406,6 +457,21 @@
               {/if}
             </div>
             <span class="btn-secondary shrink-0 rounded-lg px-4 py-2 text-center text-sm">{$_('parent.updates.open')}</span>
+          </div>
+        </button>
+        <button type="button" class="w-full min-w-0 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-5 text-left transition hover:border-indigo-300 sm:col-span-2" onclick={openCalendar}>
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="min-w-0">
+              <p class="font-bold text-slate-900">{$_('calendar.upcoming')}</p>
+              {#if calendarItems.length === 0}
+                <p class="mt-1 text-sm text-slate-500">{$_('calendar.empty')}</p>
+              {:else}
+                {#each compactCalendarItems() as item (item.id)}
+                  <p class="mt-2 break-words text-sm text-slate-700">{#if item.kind === 'homework_due'}<span class="font-bold">{$_('calendar.types.homework_due')} · </span>{/if}{item.title} · {formatEventDate(item)}</p>
+                {/each}
+              {/if}
+            </div>
+            <span class="btn-secondary shrink-0 rounded-lg px-4 py-2 text-center text-sm">{$_('calendar.open')}</span>
           </div>
         </button>
       </div>
@@ -594,6 +660,38 @@
             <p class="mt-5 text-sm text-slate-500">{$_('parent.updates.noPhotos')}</p>
           {/if}
         {/if}
+      {/if}
+    </div>
+  </div>
+{/if}
+
+{#if calendarOpen}
+  <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="guardian-calendar-title">
+    <div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto overflow-x-hidden rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6">
+      <div class="flex items-start justify-between gap-3">
+        <h2 id="guardian-calendar-title" class="text-2xl font-black text-slate-900">{$_('calendar.upcoming')}</h2>
+        <button class="btn-secondary rounded-lg px-3 py-2" type="button" onclick={closeCalendar}>{$_('calendar.close')}</button>
+      </div>
+      {#if calendarItems.length === 0}
+        <p class="mt-6 text-sm text-slate-500">{$_('calendar.empty')}</p>
+      {:else}
+        <div class="mt-5 max-h-[74vh] divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">
+          {#each calendarItems as item (item.id)}
+            {#if item.kind === 'homework_due'}
+              <button type="button" class="block w-full p-4 text-left hover:bg-slate-50" onclick={() => openCalendarHomework(item)}>
+                <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">{$_(`calendar.types.${item.event_type}`)}</span>
+                <p class="mt-1 break-words font-bold text-slate-900">{item.title}</p>
+                <p class="mt-1 text-sm text-slate-500">{formatEventDate(item)} · {calendarContext(item)}</p>
+              </button>
+            {:else}
+              <div class="p-4">
+                <p class="break-words font-bold text-slate-900">{item.title}</p>
+                <p class="mt-1 text-sm text-slate-500">{formatEventDate(item)} · {calendarContext(item)}</p>
+                {#if item.body}<p class="mt-2 whitespace-pre-wrap break-words text-sm text-slate-600">{item.body}</p>{/if}
+              </div>
+            {/if}
+          {/each}
+        </div>
       {/if}
     </div>
   </div>

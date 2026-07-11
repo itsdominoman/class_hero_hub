@@ -750,3 +750,46 @@ def test_attachment_validation_rejects_blocked_and_oversized_files(client, world
         files={"file": ("large.pdf", b"x" * (announcements.MAX_ATTACHMENT_BYTES + 1), "application/pdf")},
     )
     assert oversized.status_code == 400
+
+
+def test_announcement_edit_by_author_teacher_and_admin(db, client, world):
+    created = create_announcement(
+        client,
+        world,
+        {"title": "Trip", "body": "Bring hats", "audience_type": "class_section", "class_section_id": world["section"].id},
+        email=world["teacher"].email,
+    ).json()
+    teacher_headers = bearer(world["teacher"].email, world["alpha"].id)
+    edited = client.patch(f'/api/teach/announcements/{created["id"]}', headers=teacher_headers, json={"title": "Trip moved", "body": "Bring hats and water"})
+    assert edited.status_code == 200
+    assert edited.json()["title"] == "Trip moved" and edited.json()["body"] == "Bring hats and water"
+    # Audience and attachments are not editable through PATCH
+    assert edited.json()["audience_type"] == "class_section"
+    # Admin can edit through the staff route, including school-wide posts
+    school_post = create_announcement(client, world, {"title": "Assembly", "body": "Friday", "audience_type": "school"}).json()
+    admin_headers = bearer(world["admin"].email, world["alpha"].id)
+    assert client.patch(f'/api/school/announcements/{school_post["id"]}', headers=admin_headers, json={"title": "Assembly moved", "body": "Monday"}).status_code == 200
+    # Guardian sees the edited content
+    detail = client.get(f'/api/guardian/announcements/{created["id"]}', headers=bearer(world["guardian"].email))
+    assert detail.status_code == 200 and detail.json()["title"] == "Trip moved"
+
+
+def test_announcement_edit_rejects_unauthorized_archived_and_invalid(db, client, world):
+    created = create_announcement(
+        client,
+        world,
+        {"title": "Trip", "body": "Bring hats", "audience_type": "class_section", "class_section_id": world["section"].id},
+        email=world["teacher"].email,
+    ).json()
+    payload = {"title": "Hacked", "body": "Hacked"}
+    # Unassigned teacher cannot edit; teachers cannot edit school-wide posts
+    assert client.patch(f'/api/teach/announcements/{created["id"]}', headers=bearer(world["other_teacher"].email, world["alpha"].id), json=payload).status_code == 404
+    school_post = create_announcement(client, world, {"title": "Assembly", "body": "Friday", "audience_type": "school"}).json()
+    assert client.patch(f'/api/teach/announcements/{school_post["id"]}', headers=bearer(world["teacher"].email, world["alpha"].id), json=payload).status_code == 404
+    # Blank fields are rejected
+    assert client.patch(f'/api/teach/announcements/{created["id"]}', headers=bearer(world["teacher"].email, world["alpha"].id), json={"title": "  ", "body": "x"}).status_code == 422
+    # Archive still works and locks further edits, keeping the post hidden from guardians
+    assert client.delete(f'/api/teach/announcements/{created["id"]}', headers=bearer(world["teacher"].email, world["alpha"].id)).status_code == 200
+    assert client.patch(f'/api/teach/announcements/{created["id"]}', headers=bearer(world["teacher"].email, world["alpha"].id), json=payload).status_code == 409
+    assert client.patch(f'/api/school/announcements/{created["id"]}', headers=bearer(world["admin"].email, world["alpha"].id), json=payload).status_code == 409
+    assert client.get(f'/api/guardian/announcements/{created["id"]}', headers=bearer(world["guardian"].email)).status_code == 404

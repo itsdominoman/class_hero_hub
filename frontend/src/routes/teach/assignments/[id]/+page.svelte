@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { page } from '$app/stores';
   import { _ } from 'svelte-i18n';
-  import { ArrowLeft, BookOpen, Camera, Megaphone, Star, Users } from 'lucide-svelte';
+  import { ArrowLeft, BookOpen, CalendarDays, Camera, Megaphone, Star, Users } from 'lucide-svelte';
   import { api } from '$lib/api';
   import { initialsFromStudentName } from '$lib/guardianDisplay';
 
@@ -37,6 +37,23 @@
   type Category = { id: number; type: 'positive' | 'needs_work'; label: string; points_value: number };
   type ResourceLink = { url: string; label?: string | null };
   type HomeworkItem = { id: number; item_type: 'homework' | 'diary'; title: string; body?: string; due_at?: string | null; status: 'active' | 'archived'; attachment_count: number; attachments?: { id: number; original_filename: string; size_bytes: number }[]; resource_links: ResourceLink[] };
+  type CalendarItem = {
+    id: string;
+    kind: 'event' | 'homework_due';
+    event_id?: number;
+    homework_item_id?: number;
+    school_id: number;
+    title: string;
+    body?: string | null;
+    event_type: string;
+    audience_type: 'school' | 'class_section' | 'subject_group';
+    class_section_name?: string | null;
+    subject_group_name?: string | null;
+    starts_at: string;
+    ends_at?: string | null;
+    all_day: boolean;
+    can_manage?: boolean;
+  };
   type UpdatePhoto = { id: number; original_filename: string };
   type UpdatePost = { id: number; body?: string; created_at?: string | null; status: 'active' | 'archived'; photo_count: number; photos: UpdatePhoto[] };
 
@@ -84,6 +101,18 @@
   let updateEditing = $state<UpdatePost | null>(null);
   let updatesListError = $state<string | null>(null);
   let updatePhotoLoadStates = $state<Record<string, 'loaded' | 'failed'>>({});
+  let calendarModalOpen = $state(false);
+  let calendarMode = $state<'list' | 'create' | 'edit'>('list');
+  let calendarItems = $state<CalendarItem[]>([]);
+  let calendarError = $state<string | null>(null);
+  let calendarNotice = $state<string | null>(null);
+  let calendarSaving = $state(false);
+  let editingEvent = $state<CalendarItem | null>(null);
+  let eventTitle = $state('');
+  let eventBody = $state('');
+  let eventStartsAt = $state('');
+  let eventEndsAt = $state('');
+  let eventAllDay = $state(false);
   let pointsModalOpen = $state(false);
   let categories = $state<Category[]>([]);
   let pointType = $state<'positive' | 'needs_work'>('positive');
@@ -400,6 +429,11 @@
     const d = new Date(iso);
     return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   }
+  function toDateInput(iso?: string | null): string { return toDatetimeLocal(iso).slice(0, 10); }
+  function changeEventAllDay() {
+    if (eventAllDay) { eventStartsAt = eventStartsAt.slice(0, 10); eventEndsAt = ''; }
+    else if (eventStartsAt.length === 10) eventStartsAt = `${eventStartsAt}T00:00`;
+  }
   function startEditHomework(item: HomeworkItem) {
     homeworkEditing = item; homeworkError = null; homeworkNotice = null;
     homeworkType = item.item_type; homeworkTitle = item.title; homeworkBody = item.body || '';
@@ -454,6 +488,83 @@
       if (createdHomeworkId) homeworkError = err?.name === 'AbortError' ? $_('teach.homework.cancelledAfterCreate') : $_('teach.homework.attachmentFailed');
       else homeworkError = err?.name === 'AbortError' ? $_('teach.homework.cancelled') : err?.message || $_('teach.homework.saveError');
     } finally { homeworkSaving = false; homeworkAbortController = null; }
+  }
+
+  function formatEventDate(item: CalendarItem) {
+    const options: Intl.DateTimeFormatOptions = item.all_day ? { dateStyle: 'medium' } : { dateStyle: 'medium', timeStyle: 'short' };
+    let label = new Intl.DateTimeFormat(undefined, options).format(new Date(item.starts_at));
+    if (item.ends_at && !item.all_day) label += ` – ${new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(new Date(item.ends_at))}`;
+    return label;
+  }
+  async function loadCalendarItems() {
+    if (!detail) return;
+    try {
+      calendarItems = (await api.get(`/teach/calendar${homeworkQuery()}`, schoolOptions(detail.assignment.school.id)))?.items || [];
+      calendarError = null;
+    } catch (err: any) {
+      calendarError = err?.message || $_('calendar.loadError');
+    }
+  }
+  async function openCalendarModal() {
+    calendarError = null; calendarNotice = null; editingEvent = null; calendarMode = 'list'; calendarModalOpen = true;
+    await loadCalendarItems();
+  }
+  function closeCalendarModal() {
+    if (calendarSaving) return;
+    calendarModalOpen = false; editingEvent = null;
+  }
+  function openEventCreate() {
+    eventTitle = ''; eventBody = ''; eventStartsAt = ''; eventEndsAt = ''; eventAllDay = true;
+    editingEvent = null; calendarError = null; calendarMode = 'create';
+  }
+  function openEventEdit(item: CalendarItem) {
+    editingEvent = item; eventTitle = item.title; eventBody = item.body || '';
+    eventStartsAt = item.all_day ? toDateInput(item.starts_at) : toDatetimeLocal(item.starts_at); eventEndsAt = item.all_day ? '' : toDatetimeLocal(item.ends_at); eventAllDay = item.all_day;
+    calendarError = null; calendarMode = 'edit';
+  }
+  function eventPayload() {
+    return {
+      title: eventTitle,
+      body: eventBody || null,
+      starts_at: new Date(eventAllDay ? `${eventStartsAt}T00:00` : eventStartsAt).toISOString(),
+      ends_at: !eventAllDay && eventEndsAt ? new Date(eventEndsAt).toISOString() : null,
+      all_day: eventAllDay
+    };
+  }
+  async function saveEvent() {
+    const assignment = detail?.assignment;
+    if (!assignment || calendarSaving || !eventStartsAt) return;
+    calendarSaving = true; calendarError = null;
+    try {
+      if (editingEvent) {
+        await api.patch(`/school/calendar/${editingEvent.event_id}`, eventPayload(), schoolOptions(assignment.school.id));
+        calendarNotice = $_('calendar.updated');
+      } else {
+        const targetId = assignment.target_type === 'subject_group' ? assignment.subject_group?.id : assignment.class_section?.id;
+        if (!targetId) return;
+        await api.post('/school/calendar', {
+          ...eventPayload(),
+          audience_type: assignment.target_type,
+          class_section_id: assignment.target_type === 'class_section' ? targetId : null,
+          subject_group_id: assignment.target_type === 'subject_group' ? targetId : null
+        }, schoolOptions(assignment.school.id));
+        calendarNotice = $_('calendar.created');
+      }
+      editingEvent = null; calendarMode = 'list'; await loadCalendarItems();
+    } catch (err: any) {
+      calendarError = err?.message || $_('calendar.saveError');
+    } finally { calendarSaving = false; }
+  }
+  async function archiveEvent(item: CalendarItem) {
+    if (!detail || calendarSaving || item.kind !== 'event') return;
+    calendarSaving = true; calendarError = null;
+    try {
+      await api.delete(`/school/calendar/${item.event_id}`, schoolOptions(detail.assignment.school.id));
+      calendarNotice = $_('calendar.archived');
+      await loadCalendarItems();
+    } catch (err: any) {
+      calendarError = err?.message || $_('calendar.archiveError');
+    } finally { calendarSaving = false; }
   }
 
   onMount(async () => {
@@ -513,7 +624,7 @@
         </div>
       </header>
 
-      <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-violet-100 bg-white p-4 text-left shadow-sm hover:border-violet-300" onclick={openPointsModal}>
           <span class="shrink-0 rounded-xl bg-violet-100 p-2 text-violet-700"><Star size={21} aria-hidden="true" /></span>
           <span class="min-w-0 flex-1"><strong class="block break-words text-sm leading-tight text-slate-900">{$_('teach.classDetail.actions.points')}</strong><small class="block break-words text-xs font-semibold text-violet-600">{$_('teach.points.open')}</small></span>
@@ -525,6 +636,10 @@
         <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-amber-100 bg-white p-4 text-left shadow-sm hover:border-amber-300" onclick={openHomeworkModal}>
           <span class="shrink-0 rounded-xl bg-amber-100 p-2 text-amber-700"><BookOpen size={21} aria-hidden="true" /></span>
           <span class="min-w-0 flex-1"><strong class="block break-words text-sm leading-tight text-slate-900">{$_('teach.classDetail.actions.homework')}</strong><small class="block break-words text-xs font-semibold text-amber-700">{$_('teach.points.open')}</small></span>
+        </button>
+        <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-indigo-100 bg-white p-4 text-left shadow-sm hover:border-indigo-300" onclick={openCalendarModal}>
+          <span class="shrink-0 rounded-xl bg-indigo-100 p-2 text-indigo-700"><CalendarDays size={21} aria-hidden="true" /></span>
+          <span class="min-w-0 flex-1"><strong class="block break-words text-sm leading-tight text-slate-900">{$_('calendar.title')}</strong><small class="block break-words text-xs font-semibold text-indigo-600">{$_('teach.points.open')}</small></span>
         </button>
         <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-emerald-100 bg-white p-4 text-left shadow-sm hover:border-emerald-200" onclick={openAnnouncementModal}>
           <span class="shrink-0 rounded-xl bg-emerald-100 p-2 text-emerald-700"><Megaphone size={21} aria-hidden="true" /></span>
@@ -731,6 +846,58 @@
       </div>
       <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">{#each detail.students as student}<button type="button" aria-pressed={selectedStudents.includes(student.id)} class={`min-w-0 rounded-xl border p-3 text-left text-sm font-bold ${selectedStudents.includes(student.id) ? 'border-violet-500 bg-violet-50 text-violet-800' : 'border-slate-200 text-slate-700'}`} onclick={() => toggleStudent(student.id)}><span class="block truncate">{student.display_name}</span></button>{/each}</div>
       <form class="mt-5 grid gap-3" onsubmit={(event) => { event.preventDefault(); submitPoints(); }}><label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.points.category')}<select class="rounded-lg border border-slate-200 px-3 py-2" required bind:value={categoryId}>{#each categories.filter((row) => row.type === pointType) as category}<option value={category.id}>{category.label} ({category.points_value > 0 ? '+' : ''}{category.points_value})</option>{/each}</select></label><label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.points.note')}<textarea class="min-h-20 rounded-lg border border-slate-200 px-3 py-2" maxlength="500" bind:value={pointNote}></textarea></label><button type="submit" class="btn-hero rounded-lg px-4 py-3" disabled={pointsSaving || !selectedStudents.length || !categoryId}>{pointsSaving ? $_('teach.points.saving') : selectedStudents.length === 1 ? $_('teach.points.saveForOne') : $_('teach.points.saveForMany', { values: { count: selectedStudents.length } })}</button></form>
+    </div>
+  </div>
+{/if}
+
+{#if calendarModalOpen && detail}
+  <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="class-calendar-title">
+    <div class="max-h-[94vh] w-full max-w-2xl overflow-y-auto overflow-x-hidden rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0"><h2 id="class-calendar-title" class="text-2xl font-black text-slate-900">{$_('calendar.classCalendar')}</h2><p class="mt-1 truncate text-sm font-semibold text-slate-500">{classTitle()}</p></div>
+        <button type="button" class="btn-secondary shrink-0 rounded-lg px-3 py-2" disabled={calendarSaving} onclick={closeCalendarModal}>{$_('calendar.close')}</button>
+      </div>
+      {#if calendarError}<div class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{calendarError}</div>{/if}
+      {#if calendarMode === 'list'}
+        {#if calendarNotice}<div class="mt-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm font-semibold text-indigo-800">{calendarNotice}</div>{/if}
+        <button type="button" class="btn-hero mt-4 rounded-lg px-4 py-2" onclick={openEventCreate}>{$_('calendar.create')}</button>
+        <p class="mt-4 text-xs font-black uppercase tracking-wide text-slate-500">{$_('calendar.upcoming')}</p>
+        <div class="mt-2 max-h-[58vh] divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">
+          {#each calendarItems as item (item.id)}
+            <div class="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div class="min-w-0">
+                <p class="mt-1 break-words font-bold text-slate-900">{item.title}</p>
+                <p class="mt-1 text-sm text-slate-500">{formatEventDate(item)}</p>
+                {#if item.body}<p class="mt-1 line-clamp-2 break-words text-sm text-slate-600">{item.body}</p>{/if}
+              </div>
+              {#if item.kind === 'event' && item.can_manage}
+                <div class="flex shrink-0 gap-2">
+                  <button type="button" class="rounded-lg border border-indigo-200 px-3 py-2 text-sm font-bold text-indigo-800" disabled={calendarSaving} onclick={() => openEventEdit(item)}>{$_('calendar.edit')}</button>
+                  <button type="button" class="rounded-lg border border-amber-200 px-3 py-2 text-sm font-bold text-amber-800" disabled={calendarSaving} onclick={() => archiveEvent(item)}>{$_('calendar.archive')}</button>
+                </div>
+              {/if}
+            </div>
+          {:else}
+            <p class="p-4 text-sm text-slate-500">{$_('calendar.empty')}</p>
+          {/each}
+        </div>
+      {:else}
+        <form class="mt-5 grid gap-4" onsubmit={(event) => { event.preventDefault(); saveEvent(); }}>
+          <p class="rounded-xl bg-indigo-50 px-4 py-3 text-sm font-semibold text-slate-700">{$_('calendar.audience')}: <strong>{classTitle()}</strong></p>
+          <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('calendar.titleField')}<input class="rounded-lg border border-slate-200 px-3 py-2" required maxlength="160" bind:value={eventTitle} /></label>
+          <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('calendar.details')}<textarea class="min-h-24 rounded-lg border border-slate-200 px-3 py-2" maxlength="10000" bind:value={eventBody}></textarea></label>
+          <label class="flex items-center gap-2 text-sm font-bold text-slate-700"><input type="checkbox" bind:checked={eventAllDay} onchange={changeEventAllDay} />{$_('calendar.allDay')}</label>
+          {#if eventAllDay}
+            <label class="grid max-w-sm gap-1 text-sm font-bold text-slate-700">{$_('calendar.date')}<input class="rounded-lg border border-slate-200 px-3 py-2" type="date" required bind:value={eventStartsAt} /></label>
+          {:else}
+            <div class="grid gap-3 sm:grid-cols-2"><label class="grid gap-1 text-sm font-bold text-slate-700">{$_('calendar.starts')}<input class="rounded-lg border border-slate-200 px-3 py-2" type="datetime-local" required bind:value={eventStartsAt} /></label><label class="grid gap-1 text-sm font-bold text-slate-700">{$_('calendar.ends')}<input class="rounded-lg border border-slate-200 px-3 py-2" type="datetime-local" bind:value={eventEndsAt} /></label></div>
+          {/if}
+          <div class="flex gap-3">
+            <button class="btn-hero rounded-lg px-4 py-2" type="submit" disabled={calendarSaving}>{calendarSaving ? $_('calendar.saving') : $_('calendar.save')}</button>
+            <button class="btn-secondary rounded-lg px-4 py-2" type="button" disabled={calendarSaving} onclick={() => { calendarMode = 'list'; editingEvent = null; }}>{$_('calendar.cancel')}</button>
+          </div>
+        </form>
+      {/if}
     </div>
   </div>
 {/if}

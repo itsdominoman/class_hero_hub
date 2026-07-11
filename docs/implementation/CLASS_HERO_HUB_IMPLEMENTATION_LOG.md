@@ -3420,3 +3420,157 @@ public sharing, child dashboard feed, or FHH integration in this slice.
   OK, `git diff --check` clean; frontend rebuilt/recreated, `/teach` and `/parent` 200,
   new bundle confirmed served. Full backend suite still not run; changes remain
   **uncommitted**.
+
+## 2026-07-11 — S16: Calendar MVP + announcement management polish
+
+### Follow-up polish (pending approval, uncommitted)
+
+- School admins have a dedicated **School calendar** tab in `/school` for creating,
+  editing, and archiving school-wide events. The administration list uses the same
+  calendar management routes and is intentionally limited to upcoming events.
+- Teacher calendar creation is limited in both UI and API to `event`, `test`, and
+  `reminder`. School-admin event types remain available to school admins.
+- Calendar defaults are bounded to the next **30 days** for the school-admin list,
+  teacher calendar, class calendar, and guardian calendar modal/list. The guardian
+  dashboard's compact Upcoming card shows up to three events in the next **7 days**;
+  when there are none, it falls back to the next upcoming items from that 30-day list.
+- Homework due dates remain derived calendar entries and therefore follow the same
+  range, immediately move when edited, and disappear when the homework is archived.
+- Manual calendar events use a simple title, details, start/end, and all-day form.
+  `event_type` remains an internal compatibility/future-use field and defaults to
+  `event`; detailed categories and tags are deferred. Derived homework due dates
+  continue to use their internal `homework_due` type.
+
+### /teach announcement cleanup (Part A)
+
+- The `/teach` action row previously had three buttons — Find student, Create
+  announcement, Manage announcements — where Create duplicated the create form already
+  reachable inside the manage workspace. The separate **Create announcement** button is
+  removed; the manage button is renamed to **Announcements** (AR: **الإعلانات**, reusing
+  `teach.announcements.title`; the now-unused `teach.announcements.manage` key was
+  deleted from EN/AR). Create still lives inside the Announcements modal as before.
+  The freed slot is taken by the new **Calendar** button (Part D).
+
+### Announcement edit support (Part B)
+
+- New `PATCH /api/school/announcements/{id}` (staff: school_admin or teacher, same
+  `_can_manage_announcement` scope as archive/attachments) and
+  `PATCH /api/teach/announcements/{id}` (teacher scope via
+  `_teacher_can_manage_announcement`, which excludes school-wide posts). Editable
+  fields: **title and body only**. Audience is intentionally fixed (changing it would
+  silently re-target an already-read post); attachments are unchanged by PATCH —
+  attachment add/remove management after creation is **deferred**. Archived
+  announcements return **409** on edit (no restore flow exists); archive remains
+  soft-delete only and the UI keeps saying Archive, not Delete. Edits are audited
+  (`school.announcement.updated`).
+- `/teach` UI: Edit buttons in the Announcements manage list rows and in the detail
+  view (published posts only), opening a title/body edit form; saving returns to the
+  updated detail. Parents see edited content on next fetch (guardian detail is loaded
+  per-open; dashboard already polls every 60s).
+- Tests (`test_announcements.py`): author-teacher and admin can edit (incl. staff
+  route + school-wide by admin), guardian sees edited content, unassigned teacher 404,
+  teacher on school-wide post 404, blank fields 422, archived edit 409 on both routes,
+  archive still works and archived posts stay hidden from guardians.
+
+### Calendar MVP (Parts C/G/H)
+
+- New `calendar_events` table (migration `b9c0d1e2f3a4`) mirroring the announcements
+  audience pattern for CHH→FHH reuse: `school_id`, `author_user_id`, `title`,
+  `body` (optional), `event_type` in (`event`, `test`, `reminder`, `trip`, `civvies`,
+  `charity`), `audience_type` in (`school`, `class_section`, `subject_group`) with the
+  matching nullable FK pair + check constraint, `starts_at` (required, tz-aware),
+  `ends_at` (optional, must be ≥ starts), `all_day`, `status` active/archived,
+  `created_at`/`updated_at`/`archived_at`. The scope trio (school/class/subject) is
+  carried by `audience_type` rather than a separate `school_event`/`class_event` type,
+  matching how announcements/homework already encode targets.
+- **Homework due dates are derived, not duplicated**: calendar list endpoints join in
+  active `homework_items` with a non-null `due_at` in range and emit them as
+  `kind: "homework_due"` items with stable string ids (`homework-{id}`; real events use
+  `event-{id}`), including `homework_item_id` so the frontend can open homework detail.
+  Archiving or re-dating homework immediately moves/removes the calendar item.
+- Endpoints (staff manage routes sit under `/api/school` like announcement create, so
+  admin + teacher share one implementation):
+  - `POST /api/school/calendar` — create; audience validated by the same
+    `_validate_staff_audience` rules as announcements (admin may post school-wide;
+    teachers only to currently assigned class sections / subject groups).
+  - `PATCH /api/school/calendar/{id}` — edit title/body/type/times/all_day (audience
+    fixed); archived events 409; scope: admin anywhere in school, teacher for authored
+    or assigned-target non-school events.
+  - `DELETE /api/school/calendar/{id}` — soft archive (sets `archived_at`).
+  - `GET /api/teach/calendar?start&end&class_section_id|subject_group_id` — teacher
+    view: school-wide events + events for assigned targets (+ authored), plus homework
+    due items for assigned targets; `can_manage` computed per event. Target filters
+    require an assignment (403 otherwise) and scope the list to exactly that target.
+  - `GET /api/guardian/calendar?start&end` — read-only; reuses `_guardian_audience`
+    (active links + open enrolments incl. default subject-group policies) for events
+    and the guardian homework query for due items. No create/edit/archive for parents.
+  - Default range is today onward, `start`/`end` are `YYYY-MM-DD`, results sorted by
+    `starts_at` and capped at 100. No detail endpoints — list payloads carry the full
+    body (YAGNI; add if a deep-link need appears).
+- Tests (`test_calendar.py`, 6 tests): teacher create scope (school-wide 403,
+  unassigned 403, cross-school 404, bad type/inverted range 422), admin school-wide
+  create + teacher `can_manage: false` on it, teacher visibility incl. homework due and
+  exclusion of other classes, target filter + 403 on unassigned filter + date-range
+  windowing, edit/archive scope with admin override and archived-edit 409, guardian
+  scoping (school + enrolled class only, allowlist fields, `homework_item_id`
+  exposure), archived event/homework disappearance, homework due-date edit moving the
+  item, revoked link / ended enrolment access removal, guardian create 403 and
+  unauthenticated 401.
+
+### Teacher /teach calendar (Part D)
+
+- New **Calendar** button on `/teach` (replacing the removed Create announcement
+  button) opens a School calendar modal: school picker (only when the teacher belongs
+  to >1 school), upcoming list (type badge, title, date/time incl. all-day and end-time
+  rendering, target context), Create event form (audience limited to the teacher's
+  assigned targets in that school, event type, title, details, starts/ends
+  datetime-local, all-day), and Edit/Archive on events where `can_manage` is true.
+  Homework due items render read-only.
+
+### Class dashboard calendar (Part E)
+
+- Fifth tile **Calendar** on `/teach/assignments/{id}` (tile grid now `lg:grid-cols-5`)
+  opens a Class calendar modal scoped via `?class_section_id=`/`?subject_group_id=` to
+  exactly that target: its events + its homework due dates (school-wide events are
+  deliberately excluded in the target-scoped view to keep "only this class" semantics).
+  Create form has the audience fixed to the current class/subject context; teachers can
+  edit/archive their manageable events. The roster/points section is untouched — the
+  calendar stays behind the tile/modal.
+
+### Parent calendar (Part F)
+
+- Parent dashboard gains a compact **Upcoming** card (first 3 items) fed by
+  `GET /api/guardian/calendar`, loaded in the same `Promise.all` + 60s visibility-aware
+  poll as the rest of the dashboard. Opening it shows the full upcoming list; homework
+  due items are tappable and open the existing homework detail modal (with Done
+  actions); events render inline with details. Parents have no create/edit/archive.
+  Visibility uses the existing guardian link + enrolment rules, so revoked links or
+  ended enrolments drop items on the next load, as covered by tests.
+
+### i18n
+
+- New top-level `calendar.*` namespace (EN/AR): Calendar/التقويم, School calendar/تقويم
+  المدرسة, Class calendar/تقويم الصف, Upcoming/القادم, Create/Edit/Save event, Event
+  type, Title, Details, Starts, Ends, All day/طوال اليوم, Archive/أرشفة, empty/error
+  strings, and `calendar.types.*` for event/test/reminder/trip/civvies/charity/
+  homework_due (اختبار/تذكير/رحلة/يوم الملابس العادية/يوم خيري/موعد الواجب). Plus
+  `teach.announcements.edit/saveChanges/updated/updateError`. Parity: 836 keys.
+
+### Deferred / near-next
+
+- Recurrence, Google/Apple calendar sync or ICS export, FHH integration (the guardian
+  calendar payload is the intended FHH consumption surface), push notifications,
+  month-grid/drag-drop UI (upcoming list only), RSVP/read receipts, attachments on
+  calendar events, and announcement attachment management after creation (add/remove
+  in edit). Announcement audience editing also deferred (kept fixed for safety).
+
+### Validation
+
+- Focused backend tests in the backend container: `test_calendar.py` +
+  `test_announcements.py` (incl. homework/due-date coverage) — **37 passed**.
+- `npm run check` 0 errors/0 warnings, `npm run check:i18n` parity OK (836 keys),
+  `npm run build` OK, `git diff --check` clean.
+- `alembic upgrade head` applied (`b9c0d1e2f3a4`); backend + frontend images rebuilt
+  and containers recreated; `/teach` and `/parent` return 200.
+- Full backend suite not run (per instructions); changes remain **uncommitted** pending
+  Dom's manual QA.

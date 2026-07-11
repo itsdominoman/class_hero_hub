@@ -658,6 +658,39 @@ class HomeworkItemCompletion(Base):
     )
 
 
+class CalendarEvent(Base):
+    __tablename__ = "calendar_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    author_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    title = Column(String, nullable=False)
+    body = Column(Text, nullable=True)
+    event_type = Column(String, nullable=False)
+    audience_type = Column(String, nullable=False)
+    class_section_id = Column(Integer, ForeignKey("class_sections.id"), nullable=True, index=True)
+    subject_group_id = Column(Integer, ForeignKey("subject_groups.id"), nullable=True, index=True)
+    starts_at = Column(DateTime(timezone=True), nullable=False)
+    ends_at = Column(DateTime(timezone=True), nullable=True)
+    all_day = Column(Boolean, nullable=False, default=False, server_default="false")
+    status = Column(String, nullable=False, default="active", server_default="active")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("event_type IN ('event', 'test', 'reminder', 'trip', 'civvies', 'charity')", name="ck_calendar_events_type"),
+        CheckConstraint("status IN ('active', 'archived')", name="ck_calendar_events_status"),
+        CheckConstraint(
+            "(audience_type = 'school' AND class_section_id IS NULL AND subject_group_id IS NULL) OR "
+            "(audience_type = 'class_section' AND class_section_id IS NOT NULL AND subject_group_id IS NULL) OR "
+            "(audience_type = 'subject_group' AND class_section_id IS NULL AND subject_group_id IS NOT NULL)",
+            name="ck_calendar_events_audience_target",
+        ),
+        Index("ix_calendar_events_school_status_starts", "school_id", "status", "starts_at"),
+    )
+
+
 class UpdatePost(Base):
     __tablename__ = "update_posts"
 

@@ -78,6 +78,19 @@ class AnnouncementCreateRequest(BaseModel):
         return value
 
 
+class AnnouncementUpdateRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=160)
+    body: str = Field(min_length=1, max_length=10000)
+
+    @field_validator("title", "body")
+    @classmethod
+    def clean_required_text(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("This field is required")
+        return cleaned
+
+
 def _school_id_from_header(headers: Any) -> int:
     raw_school_id = headers.get("X-School-Id")
     if raw_school_id is None:
@@ -594,6 +607,58 @@ async def upload_teacher_attachment(
     db.commit()
     db.refresh(attachment)
     return _attachment_payload(attachment)
+
+
+def _apply_announcement_update(db: Session, current_user: User, announcement: Announcement, payload: AnnouncementUpdateRequest) -> dict[str, Any]:
+    if announcement.status != "published":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Archived announcements cannot be edited")
+    announcement.title = payload.title
+    announcement.body = payload.body
+    write_audit(db, current_user.id, "school.announcement.updated", announcement, {"audience_type": announcement.audience_type}, school_id=announcement.school_id)
+    db.commit()
+    db.refresh(announcement)
+    attachments = _attachments_by_post(db, {announcement.id})
+    authors, sections, groups, schools = _load_context(db, [announcement])
+    return _announcement_payload(
+        announcement,
+        attachments=attachments.get(announcement.id, []),
+        author=authors.get(announcement.author_user_id),
+        section=sections.get(announcement.class_section_id),
+        group=groups.get(announcement.subject_group_id),
+        school=schools.get(announcement.school_id),
+    )
+
+
+@staff_router.patch("/announcements/{announcement_id}")
+def update_staff_announcement(
+    announcement_id: int,
+    payload: AnnouncementUpdateRequest,
+    request: Request,
+    current_user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    school_id = _school_id_from_header(request.headers)
+    membership = _staff_membership(db, current_user, school_id)
+    announcement = db.query(Announcement).filter(Announcement.id == announcement_id, Announcement.school_id == school_id).first()
+    if not announcement or not _can_manage_announcement(db, membership, announcement):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Announcement not found")
+    return _apply_announcement_update(db, current_user, announcement, payload)
+
+
+@teacher_router.patch("/announcements/{announcement_id}")
+def update_teacher_announcement(
+    announcement_id: int,
+    payload: AnnouncementUpdateRequest,
+    request: Request,
+    current_user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    school_id = _school_id_from_header(request.headers)
+    membership = _teacher_membership(db, current_user, school_id)
+    announcement = db.query(Announcement).filter(Announcement.id == announcement_id, Announcement.school_id == school_id).first()
+    if not announcement or not _teacher_can_manage_announcement(db, membership, announcement):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Announcement not found")
+    return _apply_announcement_update(db, current_user, announcement, payload)
 
 
 @staff_router.delete("/announcements/{announcement_id}")

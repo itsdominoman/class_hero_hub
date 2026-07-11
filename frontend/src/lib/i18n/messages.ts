@@ -37,6 +37,47 @@ export const en = {
     loading: 'Loading',
     copyTodo: 'Copy TODO'
   },
+  calendar: {
+    title: 'Calendar',
+    schoolCalendar: 'School calendar',
+    classCalendar: 'Class calendar',
+    upcoming: 'Upcoming',
+    open: 'Open',
+    create: 'Create event',
+    edit: 'Edit event',
+    save: 'Save event',
+    eventType: 'Event type',
+    audience: 'Audience',
+    titleField: 'Title',
+    details: 'Details',
+    date: 'Date',
+    starts: 'Starts',
+    ends: 'Ends (optional)',
+    allDay: 'All day',
+    archive: 'Archive',
+    back: 'Back',
+    close: 'Close',
+    cancel: 'Cancel',
+    saving: 'Saving',
+    empty: 'No upcoming events',
+    loadError: 'Failed to load the calendar',
+    saveError: 'Failed to save the event',
+    archiveError: 'Failed to archive the event',
+    school: 'School',
+    schoolWide: 'Whole school',
+    created: 'Event created',
+    updated: 'Event updated',
+    archived: 'Event archived',
+    types: {
+      event: 'Event',
+      test: 'Test',
+      reminder: 'Reminder',
+      trip: 'Trip',
+      civvies: 'Civvies day',
+      charity: 'Charity day',
+      homework_due: 'Homework due'
+    }
+  },
   home: {
     title: 'Class Hero Hub | School communication hub',
     metaDescription: 'A school communication hub for notices, updates, and role-based access.',
@@ -212,6 +253,7 @@ export const en = {
       rosters: 'Classes / Rosters',
       teachers: 'Teachers',
       announcements: 'Announcements',
+      calendar: 'School calendar',
       behaviour: 'Behaviour & points',
       students: 'Students',
       subjects: 'Subjects',
@@ -576,6 +618,7 @@ export const en = {
       download: 'Download',
       downloadError: 'Failed to download attachment'
     },
+    calendar: { title: 'School calendar', intro: 'Create and manage school-wide events for families and teachers.', create: 'Create school event', upcoming: 'Upcoming school-wide events' },
     behaviour: { title: 'Behaviour & points categories', intro: 'School-wide categories keep reporting consistent for every teacher.', seed: 'Ensure defaults', positive: 'Positive', needsWork: 'Needs work', label: 'Category label', active: 'Active', create: 'Create category', update: 'Update category', saved: 'Category saved', saveError: 'Failed to save category' }
   },
   teach: {
@@ -623,7 +666,6 @@ export const en = {
       subtitle: 'Send updates to parents',
       noAudience: 'No classes available for announcements yet. Ask your school admin to assign you to a class or subject group.',
       create: 'Create announcement',
-      manage: 'Manage announcements',
       cancel: 'Cancel',
       created: 'Announcement published',
       open: 'Open',
@@ -645,7 +687,11 @@ export const en = {
       close: 'Close',
       attachmentList: 'Attachments',
       download: 'Download',
-      downloadError: 'Failed to download attachment'
+      downloadError: 'Failed to download attachment',
+      edit: 'Edit',
+      saveChanges: 'Save changes',
+      updated: 'Announcement updated',
+      updateError: 'Failed to update announcement'
     },
     homework: {
       title: 'Homework & notes', audience: 'Audience', type: 'Item type', itemTitle: 'Title', body: 'Details', due: 'Due date and time (optional)', attachments: 'Attachments (up to 5)', create: 'Post', saving: 'Creating…', created: 'Homework & notes item created', cancel: 'Cancel', close: 'Close', saveError: 'Failed to create homework or note item', createdList: 'Created homework & notes', empty: 'No items created for this audience yet.', view: 'View', archive: 'Archive', archived: 'Archived', archiveError: 'Failed to archive item', loadError: 'Failed to load homework items', attachmentCount: '{count} attachments', resourceLinks: 'Resource links', addLink: 'Add link', removeLink: 'Remove', linkLabel: 'Optional label', linkError: 'Enter a public HTTPS resource link.', attachmentRules: 'PDF, Office documents, text/CSV, or JPG/PNG/WEBP images. Maximum 10 MB each and 5 files.', fileTypeError: 'File type not allowed.', heicError: 'iPhone photo format is not supported yet. Please upload JPG, PNG, or WEBP.', fileSizeError: 'File is too large. Maximum 10 MB.', maxFiles: 'Maximum 5 attachments.', cancelUpload: 'Cancel upload', cancelled: 'Creation cancelled.', cancelledAfterCreate: 'Item exists, but attachment upload was cancelled.', attachmentFailed: 'Item exists, but attachment upload did not complete.', createTab: 'Create item', previousTab: 'Previous items', resourceCount: 'Links: {count}', back: 'Back', edit: 'Edit', saveChanges: 'Save changes', updated: 'Homework & notes item updated', updateError: 'Failed to update item',
@@ -802,6 +848,47 @@ export const ar = {
   common: {
     loading: 'جار التحميل',
     copyTodo: 'نسخة TODO'
+  },
+  calendar: {
+    title: 'التقويم',
+    schoolCalendar: 'تقويم المدرسة',
+    classCalendar: 'تقويم الصف',
+    upcoming: 'القادم',
+    open: 'فتح',
+    create: 'إنشاء حدث',
+    edit: 'تعديل الحدث',
+    save: 'حفظ الحدث',
+    eventType: 'نوع الحدث',
+    audience: 'الجمهور',
+    titleField: 'العنوان',
+    details: 'التفاصيل',
+    date: 'التاريخ',
+    starts: 'يبدأ',
+    ends: 'ينتهي (اختياري)',
+    allDay: 'طوال اليوم',
+    archive: 'أرشفة',
+    back: 'رجوع',
+    close: 'إغلاق',
+    cancel: 'إلغاء',
+    saving: 'جارٍ الحفظ',
+    empty: 'لا توجد أحداث قادمة',
+    loadError: 'تعذر تحميل التقويم',
+    saveError: 'تعذر حفظ الحدث',
+    archiveError: 'تعذر أرشفة الحدث',
+    school: 'المدرسة',
+    schoolWide: 'المدرسة كلها',
+    created: 'تم إنشاء الحدث',
+    updated: 'تم تعديل الحدث',
+    archived: 'تمت أرشفة الحدث',
+    types: {
+      event: 'حدث',
+      test: 'اختبار',
+      reminder: 'تذكير',
+      trip: 'رحلة',
+      civvies: 'يوم الملابس العادية',
+      charity: 'يوم خيري',
+      homework_due: 'موعد الواجب'
+    }
   },
   home: {
     title: 'كلاس هيرو هب | مركز تواصل مدرسي',
@@ -978,6 +1065,7 @@ export const ar = {
       rosters: 'الشعب / القوائم',
       teachers: 'المعلمون',
       announcements: 'الإعلانات',
+      calendar: 'تقويم المدرسة',
       behaviour: 'السلوك والنقاط',
       students: 'الطلاب',
       subjects: 'المواد',
@@ -1342,6 +1430,7 @@ export const ar = {
       download: 'تنزيل',
       downloadError: 'تعذر تنزيل المرفق'
     },
+    calendar: { title: 'تقويم المدرسة', intro: 'أنشئ وأدر الأحداث على مستوى المدرسة للعائلات والمعلمين.', create: 'إنشاء حدث مدرسي', upcoming: 'الأحداث المدرسية القادمة' },
     behaviour: { title: 'فئات السلوك والنقاط', intro: 'فئات موحدة على مستوى المدرسة لتقارير متسقة.', seed: 'ضمان الفئات الافتراضية', positive: 'إيجابي', needsWork: 'يحتاج إلى تحسين', label: 'اسم الفئة', active: 'نشط', create: 'إنشاء فئة', update: 'تحديث الفئة', saved: 'تم حفظ الفئة', saveError: 'تعذر حفظ الفئة' }
   },
   teach: {
@@ -1389,7 +1478,6 @@ export const ar = {
       subtitle: 'أرسل التحديثات لأولياء الأمور',
       noAudience: 'لا توجد صفوف متاحة للإعلانات حتى الآن. اطلب من مسؤول المدرسة تكليفك بصف أو مجموعة مادة.',
       create: 'إنشاء إعلان',
-      manage: 'إدارة الإعلانات',
       cancel: 'إلغاء',
       created: 'تم نشر الإعلان',
       open: 'فتح',
@@ -1411,7 +1499,11 @@ export const ar = {
       close: 'إغلاق',
       attachmentList: 'المرفقات',
       download: 'تنزيل',
-      downloadError: 'تعذر تنزيل المرفق'
+      downloadError: 'تعذر تنزيل المرفق',
+      edit: 'تعديل',
+      saveChanges: 'حفظ التغييرات',
+      updated: 'تم تعديل الإعلان',
+      updateError: 'تعذر تعديل الإعلان'
     },
     homework: {
       title: 'الواجبات والملاحظات', audience: 'الجمهور', type: 'نوع العنصر', itemTitle: 'العنوان', body: 'التفاصيل', due: 'تاريخ ووقت الاستحقاق (اختياري)', attachments: 'المرفقات (حتى 5)', create: 'نشر', saving: 'جار الإنشاء…', created: 'تم إنشاء عنصر الواجبات والملاحظات', cancel: 'إلغاء', close: 'إغلاق', saveError: 'تعذر إنشاء الواجب أو الملاحظة', createdList: 'الواجبات والملاحظات المنشأة', empty: 'لم يتم إنشاء عناصر لهذا الجمهور بعد.', view: 'عرض', archive: 'أرشفة', archived: 'مؤرشف', archiveError: 'تعذرت أرشفة العنصر', loadError: 'تعذر تحميل عناصر الواجبات', attachmentCount: '{count} مرفقات', resourceLinks: 'روابط الموارد', addLink: 'إضافة رابط', removeLink: 'إزالة', linkLabel: 'عنوان اختياري', linkError: 'أدخل رابط مورد HTTPS عامًا.', attachmentRules: 'ملفات PDF أو أوفيس أو نص/CSV أو صور JPG/PNG/WEBP. الحد الأقصى 10 ميجابايت لكل ملف و5 ملفات.', fileTypeError: 'نوع الملف غير مسموح.', heicError: 'تنسيق صور iPhone غير مدعوم بعد. يرجى رفع JPG أو PNG أو WEBP.', fileSizeError: 'الملف كبير جدًا. الحد الأقصى 10 ميجابايت.', maxFiles: 'الحد الأقصى 5 مرفقات.', cancelUpload: 'إلغاء الرفع', cancelled: 'تم إلغاء الإنشاء.', cancelledAfterCreate: 'العنصر موجود، لكن تم إلغاء رفع المرفق.', attachmentFailed: 'العنصر موجود، لكن لم يكتمل رفع المرفق.', createTab: 'إنشاء عنصر', previousTab: 'العناصر السابقة', resourceCount: 'روابط: {count}', back: 'رجوع', edit: 'تعديل', saveChanges: 'حفظ التغييرات', updated: 'تم تحديث عنصر الواجبات والملاحظات', updateError: 'تعذر تحديث العنصر',

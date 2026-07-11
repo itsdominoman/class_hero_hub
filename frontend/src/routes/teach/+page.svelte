@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
-  import { Search, Star } from 'lucide-svelte';
+  import { CalendarDays, Search, Star } from 'lucide-svelte';
   import { api } from '$lib/api';
   import { initialsFromStudentName } from '$lib/guardianDisplay';
 
@@ -37,6 +37,23 @@
     attachments: AnnouncementAttachment[];
     status: string;
   };
+  type CalendarItem = {
+    id: string;
+    kind: 'event' | 'homework_due';
+    event_id?: number;
+    homework_item_id?: number;
+    school_id: number;
+    title: string;
+    body?: string | null;
+    event_type: string;
+    audience_type: 'school' | 'class_section' | 'subject_group';
+    class_section_name?: string | null;
+    subject_group_name?: string | null;
+    starts_at: string;
+    ends_at?: string | null;
+    all_day: boolean;
+    can_manage?: boolean;
+  };
   type SchoolRef = { id: number; name: string; name_ar?: string | null };
   type Category = { id: number; type: 'positive' | 'needs_work'; label: string; points_value: number };
   type SearchStudent = {
@@ -57,7 +74,21 @@
   let announcementSaving = $state(false);
   let announcementSuccess = $state(false);
   let viewingAnnouncement = $state<Announcement | null>(null);
-  let announcementModal = $state<'closed' | 'create' | 'manage' | 'detail'>('closed');
+  let editingAnnouncement = $state<Announcement | null>(null);
+  let announcementModal = $state<'closed' | 'create' | 'manage' | 'detail' | 'edit'>('closed');
+  let calendarModal = $state<'closed' | 'list' | 'create' | 'edit'>('closed');
+  let calendarItems = $state<CalendarItem[]>([]);
+  let calendarSchoolId = $state('');
+  let calendarError = $state<string | null>(null);
+  let calendarNotice = $state<string | null>(null);
+  let calendarSaving = $state(false);
+  let editingEvent = $state<CalendarItem | null>(null);
+  let eventAudience = $state('');
+  let eventTitle = $state('');
+  let eventBody = $state('');
+  let eventStartsAt = $state('');
+  let eventEndsAt = $state('');
+  let eventAllDay = $state(false);
   let teacherSchools = $state<SchoolRef[]>([]);
   let studentModal = $state<'closed' | 'open'>('closed');
   let searchSchoolId = $state('');
@@ -233,6 +264,7 @@
   function closeAnnouncementModal() {
     announcementModal = 'closed';
     viewingAnnouncement = null;
+    editingAnnouncement = null;
   }
 
   function openCreateMode() {
@@ -244,6 +276,7 @@
   function backToList() {
     announcementModal = 'manage';
     viewingAnnouncement = null;
+    editingAnnouncement = null;
   }
 
   function viewAnnouncement(announcement: Announcement) {
@@ -305,6 +338,179 @@
       error = err?.message || $_('teach.announcements.saveError');
     } finally {
       announcementSaving = false;
+    }
+  }
+
+  function startEditAnnouncement(announcement: Announcement) {
+    editingAnnouncement = announcement;
+    announcementTitle = announcement.title;
+    announcementBody = announcement.body;
+    error = null;
+    announcementModal = 'edit';
+  }
+
+  async function saveAnnouncementEdit() {
+    if (!editingAnnouncement || announcementSaving) return;
+    announcementSaving = true;
+    error = null;
+    try {
+      const updated = await api.patch(
+        `/teach/announcements/${editingAnnouncement.id}`,
+        { title: announcementTitle, body: announcementBody },
+        schoolOptions(editingAnnouncement.school_id)
+      );
+      announcementTitle = '';
+      announcementBody = '';
+      editingAnnouncement = null;
+      viewingAnnouncement = updated;
+      announcementModal = 'detail';
+      await loadAnnouncements();
+    } catch (err: any) {
+      error = err?.message || $_('teach.announcements.updateError');
+    } finally {
+      announcementSaving = false;
+    }
+  }
+
+  function calendarAudienceOptions() {
+    return audienceOptions().filter((option) => String(option.school_id) === calendarSchoolId);
+  }
+
+  function toDatetimeLocal(iso?: string | null): string {
+    if (!iso) return '';
+    const parsed = new Date(iso);
+    return new Date(parsed.getTime() - parsed.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  }
+
+  function toDateInput(iso?: string | null): string {
+    return toDatetimeLocal(iso).slice(0, 10);
+  }
+
+  function changeEventAllDay() {
+    if (eventAllDay) {
+      eventStartsAt = eventStartsAt.slice(0, 10);
+      eventEndsAt = '';
+    } else if (eventStartsAt.length === 10) {
+      eventStartsAt = `${eventStartsAt}T00:00`;
+    }
+  }
+
+  function calendarContext(item: CalendarItem) {
+    if (item.audience_type === 'subject_group') return item.subject_group_name || $_('teach.announcements.subjectAudience');
+    if (item.audience_type === 'class_section') return item.class_section_name || $_('teach.announcements.classAudience');
+    return $_('calendar.schoolWide');
+  }
+
+  function formatEventDate(item: CalendarItem) {
+    const options: Intl.DateTimeFormatOptions = item.all_day ? { dateStyle: 'medium' } : { dateStyle: 'medium', timeStyle: 'short' };
+    let label = new Intl.DateTimeFormat(undefined, options).format(new Date(item.starts_at));
+    if (item.ends_at && !item.all_day) label += ` – ${new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(new Date(item.ends_at))}`;
+    return label;
+  }
+
+  async function loadCalendar() {
+    if (!calendarSchoolId) return;
+    try {
+      calendarItems = (await api.get('/teach/calendar', schoolOptions(Number(calendarSchoolId))))?.items || [];
+      calendarError = null;
+    } catch (err: any) {
+      calendarError = err?.message || $_('calendar.loadError');
+    }
+  }
+
+  async function openCalendarModal() {
+    calendarError = null;
+    calendarNotice = null;
+    editingEvent = null;
+    if (!calendarSchoolId) calendarSchoolId = String(teacherSchools[0]?.id || '');
+    calendarModal = 'list';
+    await loadCalendar();
+  }
+
+  function closeCalendarModal() {
+    if (calendarSaving) return;
+    calendarModal = 'closed';
+    editingEvent = null;
+  }
+
+  async function changeCalendarSchool() {
+    calendarItems = [];
+    await loadCalendar();
+  }
+
+  function openEventCreate() {
+    eventTitle = '';
+    eventBody = '';
+    eventStartsAt = '';
+    eventEndsAt = '';
+    eventAllDay = true;
+    eventAudience = calendarAudienceOptions()[0]?.id || '';
+    editingEvent = null;
+    calendarError = null;
+    calendarModal = 'create';
+  }
+
+  function openEventEdit(item: CalendarItem) {
+    editingEvent = item;
+    eventTitle = item.title;
+    eventBody = item.body || '';
+    eventStartsAt = item.all_day ? toDateInput(item.starts_at) : toDatetimeLocal(item.starts_at);
+    eventEndsAt = item.all_day ? '' : toDatetimeLocal(item.ends_at);
+    eventAllDay = item.all_day;
+    calendarError = null;
+    calendarModal = 'edit';
+  }
+
+  function eventPayload() {
+    return {
+      title: eventTitle,
+      body: eventBody || null,
+      starts_at: new Date(eventAllDay ? `${eventStartsAt}T00:00` : eventStartsAt).toISOString(),
+      ends_at: !eventAllDay && eventEndsAt ? new Date(eventEndsAt).toISOString() : null,
+      all_day: eventAllDay
+    };
+  }
+
+  async function saveEvent() {
+    if (calendarSaving || !eventStartsAt) return;
+    calendarSaving = true;
+    calendarError = null;
+    try {
+      if (editingEvent) {
+        await api.patch(`/school/calendar/${editingEvent.event_id}`, eventPayload(), schoolOptions(editingEvent.school_id));
+        calendarNotice = $_('calendar.updated');
+      } else {
+        const audience = calendarAudienceOptions().find((option) => option.id === eventAudience);
+        if (!audience) return;
+        await api.post(
+          '/school/calendar',
+          { ...eventPayload(), audience_type: audience.audience_type, class_section_id: audience.class_section_id, subject_group_id: audience.subject_group_id },
+          schoolOptions(audience.school_id)
+        );
+        calendarNotice = $_('calendar.created');
+      }
+      editingEvent = null;
+      calendarModal = 'list';
+      await loadCalendar();
+    } catch (err: any) {
+      calendarError = err?.message || $_('calendar.saveError');
+    } finally {
+      calendarSaving = false;
+    }
+  }
+
+  async function archiveEvent(item: CalendarItem) {
+    if (calendarSaving || item.kind !== 'event') return;
+    calendarSaving = true;
+    calendarError = null;
+    try {
+      await api.delete(`/school/calendar/${item.event_id}`, schoolOptions(item.school_id));
+      calendarNotice = $_('calendar.archived');
+      await loadCalendar();
+    } catch (err: any) {
+      calendarError = err?.message || $_('calendar.archiveError');
+    } finally {
+      calendarSaving = false;
     }
   }
 
@@ -377,8 +583,8 @@
 
     <div class="mt-4 flex flex-wrap items-center gap-3">
       <button type="button" class="btn-hero inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm shadow-md" onclick={openStudentModal}><Search size={17} aria-hidden="true" />{$_('teach.studentSearch.find')}</button>
-      <button type="button" class="btn-hero rounded-lg px-4 py-2 text-sm" onclick={openCreateMode}>{$_('teach.announcements.create')}</button>
-      <button type="button" class="btn-secondary rounded-lg px-4 py-2 text-sm" onclick={openManageMode}>{$_('teach.announcements.manage')}</button>
+      <button type="button" class="btn-hero rounded-lg px-4 py-2 text-sm" onclick={openManageMode}>{$_('teach.announcements.title')}</button>
+      <button type="button" class="btn-secondary inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm" onclick={openCalendarModal}><CalendarDays size={17} aria-hidden="true" />{$_('calendar.title')}</button>
     </div>
 
     {#if pointsSuccess}
@@ -476,7 +682,12 @@
             <h2 id="teach-announcements-title" class="mt-2 text-2xl font-black text-slate-900">{viewingAnnouncement.title}</h2>
             <p class="mt-2 text-sm text-slate-500">{formatDate(viewingAnnouncement.created_at)}</p>
           </div>
-          <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600" onclick={closeAnnouncementModal}>{$_('teach.announcements.close')}</button>
+          <div class="flex shrink-0 gap-2">
+            {#if viewingAnnouncement.status === 'published'}
+              <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={() => viewingAnnouncement && startEditAnnouncement(viewingAnnouncement)}>{$_('teach.announcements.edit')}</button>
+            {/if}
+            <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600" onclick={closeAnnouncementModal}>{$_('teach.announcements.close')}</button>
+          </div>
         </div>
 
         <div class="mt-6 whitespace-pre-wrap text-base leading-relaxed text-slate-700">{viewingAnnouncement.body}</div>
@@ -496,6 +707,25 @@
             </div>
           </div>
         {/if}
+      {:else if announcementModal === 'edit' && editingAnnouncement}
+        <div class="flex items-start justify-between gap-4">
+          <h2 id="teach-announcements-title" class="text-xl font-black text-slate-900">{$_('teach.announcements.edit')}</h2>
+          <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600" disabled={announcementSaving} onclick={closeAnnouncementModal}>{$_('teach.announcements.close')}</button>
+        </div>
+
+        {#if error}
+          <div class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div>
+        {/if}
+
+        <form class="mt-4 grid gap-3" onsubmit={(event) => { event.preventDefault(); saveAnnouncementEdit(); }}>
+          <p class="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600">{announcementContext(editingAnnouncement)}</p>
+          <input class="rounded-lg border border-slate-200 px-3 py-2" required maxlength="160" bind:value={announcementTitle} placeholder={$_('teach.announcements.titlePlaceholder')} />
+          <textarea class="min-h-32 rounded-lg border border-slate-200 px-3 py-2" required maxlength="10000" bind:value={announcementBody} placeholder={$_('teach.announcements.bodyPlaceholder')}></textarea>
+          <div class="flex items-center gap-3">
+            <button type="submit" class="btn-hero rounded-lg px-4 py-2" disabled={announcementSaving}>{$_('teach.announcements.saveChanges')}</button>
+            <button type="button" class="btn-secondary rounded-lg px-4 py-2" disabled={announcementSaving} onclick={backToList}>{$_('teach.announcements.cancel')}</button>
+          </div>
+        </form>
       {:else if announcementModal === 'create'}
         <div class="flex items-start justify-between gap-4">
           <h2 id="teach-announcements-title" class="text-xl font-black text-slate-900">{$_('teach.announcements.title')}</h2>
@@ -543,13 +773,88 @@
                 <p class="mt-1 text-sm text-slate-500">{announcementContext(announcement)} · {formatDate(announcement.created_at)} · {$_('teach.announcements.attachments', { values: { count: announcement.attachment_count } })}</p>
               </button>
               {#if announcement.status === 'published'}
-                <button type="button" class="btn-secondary shrink-0 rounded-lg px-3 py-2 text-sm" disabled={announcementSaving} onclick={() => archiveAnnouncement(announcement)}>{$_('teach.announcements.archive')}</button>
+                <div class="flex shrink-0 gap-2">
+                  <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={announcementSaving} onclick={() => startEditAnnouncement(announcement)}>{$_('teach.announcements.edit')}</button>
+                  <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={announcementSaving} onclick={() => archiveAnnouncement(announcement)}>{$_('teach.announcements.archive')}</button>
+                </div>
               {/if}
             </div>
           {:else}
             <p class="p-3 text-sm text-slate-500">{$_('teach.announcements.empty')}</p>
           {/each}
         </div>
+      {/if}
+    </div>
+  </div>
+{/if}
+
+{#if calendarModal !== 'closed'}
+  <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="teach-calendar-title">
+    <div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-lg bg-white p-5 shadow-xl sm:rounded-lg sm:p-6">
+      <div class="flex items-start justify-between gap-4">
+        <h2 id="teach-calendar-title" class="text-2xl font-black text-slate-900">{calendarModal === 'create' ? $_('calendar.create') : calendarModal === 'edit' ? $_('calendar.edit') : $_('calendar.schoolCalendar')}</h2>
+        <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600" disabled={calendarSaving} onclick={closeCalendarModal}>{$_('calendar.close')}</button>
+      </div>
+
+      {#if calendarError}
+        <div class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{calendarError}</div>
+      {/if}
+
+      {#if calendarModal === 'list'}
+        {#if calendarNotice}
+          <div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{calendarNotice}</div>
+        {/if}
+        {#if teacherSchools.length > 1}
+          <label class="mt-4 grid gap-1 text-sm font-bold text-slate-700">{$_('calendar.school')}<select class="rounded-lg border border-slate-200 px-3 py-2" bind:value={calendarSchoolId} onchange={changeCalendarSchool}>{#each teacherSchools as school}<option value={String(school.id)}>{school.name}</option>{/each}</select></label>
+        {/if}
+        {#if calendarAudienceOptions().length > 0}
+          <button type="button" class="btn-hero mt-4 rounded-lg px-4 py-2" onclick={openEventCreate}>{$_('calendar.create')}</button>
+        {/if}
+        <p class="mt-4 text-xs font-black uppercase tracking-wide text-slate-500">{$_('calendar.upcoming')}</p>
+        <div class="mt-2 max-h-[60vh] divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-100">
+          {#each calendarItems as item (item.id)}
+            <div class="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div class="min-w-0">
+                <p class="mt-1 break-words font-bold text-slate-900">{item.title}</p>
+                <p class="mt-1 text-sm text-slate-500">{formatEventDate(item)} · {calendarContext(item)}</p>
+                {#if item.body}<p class="mt-1 line-clamp-2 break-words text-sm text-slate-600">{item.body}</p>{/if}
+              </div>
+              {#if item.kind === 'event' && item.can_manage}
+                <div class="flex shrink-0 gap-2">
+                  <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={calendarSaving} onclick={() => openEventEdit(item)}>{$_('calendar.edit')}</button>
+                  <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={calendarSaving} onclick={() => archiveEvent(item)}>{$_('calendar.archive')}</button>
+                </div>
+              {/if}
+            </div>
+          {:else}
+            <p class="p-3 text-sm text-slate-500">{$_('calendar.empty')}</p>
+          {/each}
+        </div>
+      {:else}
+        <form class="mt-4 grid gap-3" onsubmit={(event) => { event.preventDefault(); saveEvent(); }}>
+          {#if !editingEvent}
+            <label class="block text-sm font-semibold text-slate-700">
+              {$_('calendar.audience')}
+              <select class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-normal" bind:value={eventAudience}>
+                {#each calendarAudienceOptions() as option}
+                  <option value={option.id}>{option.label}</option>
+                {/each}
+              </select>
+            </label>
+          {/if}
+          <input class="rounded-lg border border-slate-200 px-3 py-2" required maxlength="160" bind:value={eventTitle} placeholder={$_('calendar.titleField')} />
+          <textarea class="min-h-24 rounded-lg border border-slate-200 px-3 py-2" maxlength="10000" bind:value={eventBody} placeholder={$_('calendar.details')}></textarea>
+          <label class="flex items-center gap-2 text-sm font-bold text-slate-700"><input type="checkbox" bind:checked={eventAllDay} onchange={changeEventAllDay} />{$_('calendar.allDay')}</label>
+          {#if eventAllDay}
+            <label class="grid max-w-sm gap-1 text-sm font-bold text-slate-700">{$_('calendar.date')}<input type="date" class="rounded-lg border border-slate-200 px-3 py-2" required bind:value={eventStartsAt} /></label>
+          {:else}
+            <div class="grid gap-3 sm:grid-cols-2"><label class="grid gap-1 text-sm font-bold text-slate-700">{$_('calendar.starts')}<input type="datetime-local" class="rounded-lg border border-slate-200 px-3 py-2" required bind:value={eventStartsAt} /></label><label class="grid gap-1 text-sm font-bold text-slate-700">{$_('calendar.ends')}<input type="datetime-local" class="rounded-lg border border-slate-200 px-3 py-2" bind:value={eventEndsAt} /></label></div>
+          {/if}
+          <div class="flex items-center gap-3">
+            <button type="submit" class="btn-hero rounded-lg px-4 py-2" disabled={calendarSaving}>{calendarSaving ? $_('calendar.saving') : $_('calendar.save')}</button>
+            <button type="button" class="btn-secondary rounded-lg px-4 py-2" disabled={calendarSaving} onclick={() => { calendarModal = 'list'; editingEvent = null; }}>{$_('calendar.cancel')}</button>
+          </div>
+        </form>
       {/if}
     </div>
   </div>
