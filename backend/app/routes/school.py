@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Type
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
@@ -31,6 +31,7 @@ from ..models_school import (
     DefaultSubjectTemplate,
     EducationStage,
     Enrolment,
+    FhhLinkInvite,
     GradeLevel,
     GuardianInvite,
     GuardianLink,
@@ -2775,6 +2776,63 @@ def revoke_guardian_invite(invite_id: int, membership: Membership = Depends(requ
         db.commit()
         db.refresh(invite)
     return _guardian_invite_payload(invite)
+
+
+def _fhh_invite_payload(row: FhhLinkInvite) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "student_id": row.student_id,
+        "display_code_last4": row.display_code_last4,
+        "expires_at": row.expires_at,
+        "consumed_at": row.consumed_at,
+        "revoked_at": row.revoked_at,
+        "created_at": row.created_at,
+    }
+
+
+@router.get("/students/{student_id}/fhh-invites")
+def list_fhh_invites(student_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    school_id = _school_id(membership)
+    student = _get_owned(db, Student, school_id, student_id)
+    rows = db.query(FhhLinkInvite).filter(
+        FhhLinkInvite.school_id == school_id, FhhLinkInvite.student_id == student.id
+    ).order_by(FhhLinkInvite.created_at.desc(), FhhLinkInvite.id.desc()).all()
+    return {"student": _student_with_context(db, student), "invites": [_fhh_invite_payload(row) for row in rows]}
+
+
+@router.post("/students/{student_id}/fhh-invites", status_code=status.HTTP_201_CREATED)
+def create_fhh_invite(student_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    school_id = _school_id(membership)
+    student = _get_owned(db, Student, school_id, student_id)
+    if student.status != "active":
+        raise HTTPException(status_code=400, detail="FHH invites require an active student")
+    raw_code = invite_tokens.generate_short_code()
+    normalized = invite_tokens.normalize_short_code(raw_code)
+    row = FhhLinkInvite(
+        school_id=school_id, student_id=student.id,
+        token_hash=invite_tokens.hash_token(normalized), display_code_last4=normalized[-4:],
+        expires_at=invite_tokens.now_utc() + timedelta(hours=72),
+        created_by_user_id=membership.user_id,
+    )
+    db.add(row); db.flush()
+    write_audit(db, membership.user_id, "school.fhh_invite.created", row, {"student_id": student.id}, school_id=school_id)
+    db.commit(); db.refresh(row)
+    return {**_fhh_invite_payload(row), "code": invite_tokens.display_short_code(raw_code)}
+
+
+@router.post("/fhh-invites/{invite_id}/revoke")
+def revoke_fhh_invite(invite_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+    school_id = _school_id(membership)
+    row = db.query(FhhLinkInvite).filter(FhhLinkInvite.id == invite_id, FhhLinkInvite.school_id == school_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="FHH invite not found")
+    if row.consumed_at is not None:
+        raise HTTPException(status_code=409, detail="Consumed invites cannot be revoked")
+    if row.revoked_at is None:
+        row.revoked_at = invite_tokens.now_utc(); row.revoked_by_user_id = membership.user_id
+        write_audit(db, membership.user_id, "school.fhh_invite.revoked", row, {"student_id": row.student_id}, school_id=school_id)
+        db.commit(); db.refresh(row)
+    return _fhh_invite_payload(row)
 
 
 @router.post("/guardian-contacts/{contact_id}/ignore")

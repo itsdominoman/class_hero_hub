@@ -488,6 +488,49 @@ class GuardianLink(Base):
     )
 
 
+def _default_fhh_invite_expires_at():
+    return datetime.now(timezone.utc) + timedelta(hours=72)
+
+
+class FhhLinkInvite(Base):
+    __tablename__ = "fhh_link_invites"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False, index=True)
+    token_hash = Column(String, unique=True, nullable=False, index=True)
+    display_code_last4 = Column(String, nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False, default=_default_fhh_invite_expires_at)
+    consumed_at = Column(DateTime(timezone=True), nullable=True)
+    consumed_by = Column(String, nullable=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (Index("ix_fhh_link_invites_school_student", "school_id", "student_id"),)
+
+
+class FhhLink(Base):
+    __tablename__ = "fhh_links"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False, index=True)
+    source_invite_id = Column(Integer, ForeignKey("fhh_link_invites.id"), nullable=False, unique=True)
+    link_token_hash = Column(String, unique=True, nullable=False, index=True)
+    fhh_child_ref = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="active", server_default="active")
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("status IN ('active', 'revoked')", name="ck_fhh_links_status"),
+        Index("ix_fhh_links_school_student_status", "school_id", "student_id", "status"),
+    )
+
+
 class BehaviourCategory(Base):
     __tablename__ = "behaviour_categories"
 
