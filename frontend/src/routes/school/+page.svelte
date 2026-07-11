@@ -283,6 +283,7 @@
     { key: 'rosters', label: 'school.tabs.rosters' },
     { key: 'teachers', label: 'school.tabs.teachers' },
     { key: 'announcements', label: 'school.tabs.announcements' },
+    { key: 'behaviour', label: 'school.tabs.behaviour' },
     { key: 'students', label: 'school.tabs.students' },
     { key: 'subjects', label: 'school.tabs.subjects' },
     { key: 'defaults', label: 'school.tabs.defaults' },
@@ -380,6 +381,38 @@
   let announcementFiles = $state<FileList | null>(null);
   let announcementSaving = $state(false);
   let viewingAnnouncement = $state<Announcement | null>(null);
+  let behaviourCategories = $state<any[]>([]);
+  let behaviourLoaded = $state(false);
+  let behaviourForm = $state({ type: 'positive', label: '', points_value: 1, sort_order: 10, active: true });
+  let editingBehaviourId = $state<number | null>(null);
+
+  async function loadBehaviour() {
+    if (!schoolId) return;
+    const data = await api.get('/school/behaviour/categories', schoolOptions());
+    behaviourCategories = data?.categories || [];
+    behaviourLoaded = true;
+  }
+
+  function editBehaviour(row: any) {
+    editingBehaviourId = row.id;
+    behaviourForm = { type: row.type, label: row.label, points_value: row.points_value, sort_order: row.sort_order, active: row.active };
+  }
+
+  function resetBehaviourForm() {
+    editingBehaviourId = null;
+    behaviourForm = { type: 'positive', label: '', points_value: 1, sort_order: 10, active: true };
+  }
+
+  async function saveBehaviour() {
+    if (!schoolId || saving) return;
+    saving = true; error = null;
+    try {
+      if (editingBehaviourId) await api.patch(`/school/behaviour/categories/${editingBehaviourId}`, { label: behaviourForm.label, points_value: Number(behaviourForm.points_value), sort_order: Number(behaviourForm.sort_order), active: behaviourForm.active }, schoolOptions());
+      else await api.post('/school/behaviour/categories', { ...behaviourForm, points_value: Number(behaviourForm.points_value), sort_order: Number(behaviourForm.sort_order) }, schoolOptions());
+      await loadBehaviour(); resetBehaviourForm(); notice = $_('school.behaviour.saved');
+    } catch (err: any) { error = err?.message || $_('school.behaviour.saveError'); }
+    finally { saving = false; }
+  }
 
   function baseForm(code = '', name = '') {
     return { code, name, name_ar: '', sort_order: 0, status: 'active' };
@@ -753,6 +786,7 @@
     clearValidation();
     activeTab = key;
     if (key === 'students') ensureStudentsLoaded();
+    if (key === 'behaviour' && !behaviourLoaded) loadBehaviour();
   }
 
   // Load a row's current values into its form and switch that block into edit mode.
@@ -2525,6 +2559,19 @@
               {/if}
             </div>
           </div>
+        {:else if activeTab === 'behaviour'}
+          <section class="rounded-lg border border-slate-200 bg-white p-5">
+            <div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="text-xl font-black text-slate-900">{$_('school.behaviour.title')}</h2><p class="mt-1 text-sm text-slate-500">{$_('school.behaviour.intro')}</p></div><button type="button" class="btn-secondary rounded-lg px-3 py-2" onclick={loadBehaviour}>{$_('school.behaviour.seed')}</button></div>
+            <form class="mt-5 grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-2" onsubmit={(event) => { event.preventDefault(); saveBehaviour(); }}>
+              <select class="rounded-lg border border-slate-200 px-3 py-2" bind:value={behaviourForm.type} disabled={editingBehaviourId !== null} onchange={() => { behaviourForm.points_value = behaviourForm.type === 'positive' ? 1 : -1; }}><option value="positive">{$_('school.behaviour.positive')}</option><option value="needs_work">{$_('school.behaviour.needsWork')}</option></select>
+              <input class="rounded-lg border border-slate-200 px-3 py-2" required maxlength="120" bind:value={behaviourForm.label} placeholder={$_('school.behaviour.label')} />
+              <input class="rounded-lg border border-slate-200 px-3 py-2" type="number" required bind:value={behaviourForm.points_value} />
+              <input class="rounded-lg border border-slate-200 px-3 py-2" type="number" bind:value={behaviourForm.sort_order} />
+              <label class="flex items-center gap-2 text-sm font-bold text-slate-700"><input type="checkbox" bind:checked={behaviourForm.active} /> {$_('school.behaviour.active')}</label>
+              <div class="flex gap-2"><button class="btn-hero rounded-lg px-4 py-2" disabled={saving}>{editingBehaviourId ? $_('school.behaviour.update') : $_('school.behaviour.create')}</button>{#if editingBehaviourId}<button type="button" class="btn-secondary rounded-lg px-4 py-2" onclick={resetBehaviourForm}>{$_('common.cancel')}</button>{/if}</div>
+            </form>
+            <div class="mt-5 grid gap-5 md:grid-cols-2">{#each ['positive', 'needs_work'] as type}<div><h3 class={`font-black ${type === 'positive' ? 'text-emerald-700' : 'text-amber-700'}`}>{type === 'positive' ? $_('school.behaviour.positive') : $_('school.behaviour.needsWork')}</h3><div class="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-200">{#each behaviourCategories.filter((row) => row.type === type) as row}<button type="button" class="flex w-full items-center justify-between gap-2 p-3 text-left hover:bg-slate-50" onclick={() => editBehaviour(row)}><span class:line-through={!row.active} class="truncate text-sm font-bold text-slate-800">{row.label}</span><span class="shrink-0 text-sm font-black text-slate-500">{row.points_value > 0 ? '+' : ''}{row.points_value}</span></button>{/each}</div></div>{/each}</div>
+          </section>
         {:else if activeTab === 'students'}
           <div class="space-y-5">
             <div class="rounded-lg border border-slate-200 bg-white p-5">

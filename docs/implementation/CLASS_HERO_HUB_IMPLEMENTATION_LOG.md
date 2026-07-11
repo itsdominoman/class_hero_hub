@@ -2785,3 +2785,100 @@ Fix (Option 2 from the task, kept on the same route rather than adding `/teach/a
 Files changed: `frontend/src/routes/teach/+page.svelte` (state consolidated from `announcementModalOpen`/separate view modal into `inboxOpen` + `inboxMode: 'list' | 'create'` + existing `viewingAnnouncement`), `frontend/src/lib/i18n/messages.ts` (added `teach.announcements.open`, `.back`, `.count`, EN+AR).
 
 `/school` was not changed in this slice — the Announcements tab was already a normal sidebar item with no global banner (fixed in the prior slice), and admin creation/archive/download continue to work as before.
+## 2026-07-11 — S13: Behaviour / Points MVP
+
+### S13 polish — class-card point totals
+
+- `GET /api/teach/assignments/{assignment_id}` now adds `points_total` to every
+  allow-listed roster student. A single school-scoped grouped query sums all
+  non-reversed behaviour events for the roster; students without events receive zero.
+- Classroom avatar cards display signed compact totals (`+3 pts`, `0 pts`, `-1 pts`),
+  using restrained emerald/neutral/amber text styling.
+- After an award succeeds, the teacher page refetches the authorized class detail before
+  closing the modal, so visible totals come from committed events and remain correct after
+  refresh. Success copy now handles singular and plural in English and Arabic.
+- The award modal now includes roster-scoped **Whole class** and **Clear selection**
+  controls, an immediate selected count, and a count-aware submit label. Whole-class
+  awards reuse the existing single batch request; no per-student frontend fan-out exists.
+- Classroom regression coverage verifies positive plus needs-work arithmetic, zero totals,
+  reversed-event exclusion, and cross-school teacher denial. Focused classroom suite:
+  **28 passed**, 5 warnings. Rebuilt-container full suite: **269 passed**, 10 warnings
+  in 67.68s. Frontend check: **0 errors, 0 warnings**; i18n parity: **664 keys** in
+  both locales; production build successful. Backend and frontend were rebuilt/restarted,
+  followed by a final frontend rebuild/recreate after the whole-class controls were added.
+
+Implemented the first school behaviour system. This slice is deliberately limited to
+school-managed categories, teacher point events, and guardian visibility; it adds no
+rewards, notifications, messaging, homework, photos, attendance, reports, or Family Hero
+Hub integration.
+
+### Model and defaults
+
+- Migration `d5e6f7a8b9c0_add_behaviour_points.py` adds school-scoped
+  `behaviour_categories` and append-style `behaviour_events`.
+- Categories retain a stable ID, `positive` / `needs_work` type, signed configurable
+  value, order, and active state. Events retain category ID, student ID, actor user ID,
+  copied point delta, source, optional note, timestamp, and nullable future reversal
+  metadata. No correction/reversal API was added.
+- The 10 requested Positive and 10 Needs-work starter categories are idempotently seeded
+  when an admin first lists settings or explicitly requests seeding. Existing categories
+  are not overwritten.
+
+### Permission and product behaviour
+
+- School admins may list, create, edit, reorder, and deactivate their own school's
+  categories. There is no hard delete. Category writes and seeding use the audit log.
+- Any active teacher membership in the school may create events for any active student in
+  that same school, independent of class assignment. Student and category school scope,
+  category active state, and actor identity are enforced server-side. Teachers cannot
+  submit a spoofed actor or point delta; the event copies the category's configured value.
+- The class page Award points tile now opens a mobile-safe modal focused on the current
+  roster, supporting 1–40 selected students, Positive / Needs work category selection,
+  and a 500-character optional note. Its processing state blocks double clicks. The
+  backend intentionally has no idempotency key yet, so a retried HTTP request can create
+  a second legitimate-looking event.
+- `/parent` loads one batched points payload for every actively linked child, showing a
+  total and up to five recent non-reversed events per child. Each event includes category,
+  visual type, delta, time, optional teacher display name, and note. Revoked links vanish
+  immediately; the payload exposes no invite, token, guardian-contact, or other-student data.
+
+### Endpoints
+
+- `GET/POST /api/school/behaviour/categories`
+- `PATCH /api/school/behaviour/categories/{category_id}`
+- `POST /api/school/behaviour/categories/seed-defaults`
+- `GET /api/teach/behaviour/categories?school_id=...`
+- `POST /api/teach/behaviour/events`
+- `GET /api/guardian/points`
+
+### Validation
+
+- Focused behaviour suite: **3 passed**, 5 existing dependency warnings.
+- Source-mounted focused suite → **3 passed**, 5 warnings; rebuilt deployed-container
+  full suite → **268 passed**, 10 warnings in 63.13s.
+- `npm run check` → **0 errors, 0 warnings**.
+- `npm run check:i18n` → **parity OK, 658 keys in EN and AR**.
+- `npm run build` → production build completed successfully; the frontend Docker build
+  independently completed the same production build.
+- `docker compose build backend frontend && docker compose up -d backend frontend` → both
+  images rebuilt, containers recreated, and services running.
+- Alembic upgraded PostgreSQL from `c4d5e6f7a8b9` to **`d5e6f7a8b9c0 (head)`**.
+- `backend/scripts/perf_check.py` → all audited endpoints under 1s except the documented
+  pre-existing `/api/school/students` path (**3.449s**, 502 rows); teacher dashboard
+  **0.103s**. S13 guardian points uses one bounded aggregate/join sequence rather than
+  per-child requests.
+- Deployed static route probes returned **200** for `/school`, `/teach`, and `/parent`.
+- Authenticated browser QA was not performed: Dom's role accounts/session were not
+  available in this terminal run. The manual checklist therefore remains pending and no
+  local/source-mounted observation is claimed as deployed role QA.
+
+### Deferred / caveats
+
+- S13b global playground-duty student search UI (the backend permission rule already
+  supports same-school students outside an assigned class).
+- Backend idempotency keys / duplicate request handling.
+- Admin correction and reversal workflow.
+- Reports and analytics, notifications, and the future read-only FHH points API.
+- Manual deployed role-by-role QA requires Dom's real accounts and remains pending; no
+  local-dev observations are represented as deployed QA.
+- Changes remain intentionally uncommitted pending Dom's testing.

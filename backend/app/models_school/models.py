@@ -488,6 +488,52 @@ class GuardianLink(Base):
     )
 
 
+class BehaviourCategory(Base):
+    __tablename__ = "behaviour_categories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    type = Column(String, nullable=False)
+    label = Column(String, nullable=False)
+    points_value = Column(Integer, nullable=False)
+    sort_order = Column(Integer, nullable=False, default=0)
+    active = Column(Boolean, nullable=False, default=True, server_default="true")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        CheckConstraint("type IN ('positive', 'needs_work')", name="ck_behaviour_categories_type"),
+        CheckConstraint(
+            "(type = 'positive' AND points_value > 0) OR (type = 'needs_work' AND points_value < 0)",
+            name="ck_behaviour_categories_value_sign",
+        ),
+        UniqueConstraint("school_id", "type", "label", name="uq_behaviour_categories_school_type_label"),
+        Index("ix_behaviour_categories_school_active_sort", "school_id", "active", "type", "sort_order"),
+    )
+
+
+class BehaviourEvent(Base):
+    __tablename__ = "behaviour_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False, index=True)
+    category_id = Column(Integer, ForeignKey("behaviour_categories.id"), nullable=False, index=True)
+    actor_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    points_delta = Column(Integer, nullable=False)
+    note = Column(Text, nullable=True)
+    source = Column(String, nullable=False, default="teacher", server_default="teacher")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    reversed_at = Column(DateTime(timezone=True), nullable=True)
+    reversed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    reversal_reason = Column(String, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("source IN ('teacher', 'admin', 'correction')", name="ck_behaviour_events_source"),
+        Index("ix_behaviour_events_school_student_created", "school_id", "student_id", "created_at"),
+    )
+
+
 class Announcement(Base):
     __tablename__ = "announcements"
 

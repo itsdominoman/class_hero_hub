@@ -212,6 +212,7 @@ export const en = {
       rosters: 'Classes / Rosters',
       teachers: 'Teachers',
       announcements: 'Announcements',
+      behaviour: 'Behaviour & points',
       students: 'Students',
       subjects: 'Subjects',
       defaults: 'Default subjects',
@@ -574,7 +575,8 @@ export const en = {
       attachmentList: 'Attachments',
       download: 'Download',
       downloadError: 'Failed to download attachment'
-    }
+    },
+    behaviour: { title: 'Behaviour & points categories', intro: 'School-wide categories keep reporting consistent for every teacher.', seed: 'Ensure defaults', positive: 'Positive', needsWork: 'Needs work', label: 'Category label', active: 'Active', create: 'Create category', update: 'Update category', saved: 'Category saved', saveError: 'Failed to save category' }
   },
   teach: {
     title: 'My classes | Class Hero Hub',
@@ -645,6 +647,9 @@ export const en = {
       attachmentList: 'Attachments',
       download: 'Download',
       downloadError: 'Failed to download attachment'
+    },
+    points: {
+      title: 'Award points', open: 'Open award tool', positive: 'Positive', needsWork: 'Needs work', selectStudents: 'Select students', wholeClass: 'Whole class', clearSelection: 'Clear selection', category: 'Category / reason', note: 'Optional note', submit: 'Save points', saveForOne: 'Save points for 1 student', saveForMany: 'Save points for {count} students', saving: 'Saving…', close: 'Close', loadError: 'Failed to load categories', saveError: 'Failed to save points', successOne: 'Points saved for 1 student', successMany: 'Points saved for {count} students', pts: 'pts'
     }
   },
   faq: {
@@ -720,6 +725,7 @@ export const en = {
       points: 'Points & behaviour',
       comingSoon: 'Coming soon'
     },
+    points: { empty: 'No points yet', close: 'Close', total: 'Total', noHistory: 'No recent behaviour events.' },
     announcements: {
       empty: 'No announcements yet.',
       schoolAudience: 'Whole school',
@@ -954,6 +960,7 @@ export const ar = {
       rosters: 'الشعب / القوائم',
       teachers: 'المعلمون',
       announcements: 'الإعلانات',
+      behaviour: 'السلوك والنقاط',
       students: 'الطلاب',
       subjects: 'المواد',
       defaults: 'المواد الافتراضية',
@@ -1316,7 +1323,8 @@ export const ar = {
       attachmentList: 'المرفقات',
       download: 'تنزيل',
       downloadError: 'تعذر تنزيل المرفق'
-    }
+    },
+    behaviour: { title: 'فئات السلوك والنقاط', intro: 'فئات موحدة على مستوى المدرسة لتقارير متسقة.', seed: 'ضمان الفئات الافتراضية', positive: 'إيجابي', needsWork: 'يحتاج إلى تحسين', label: 'اسم الفئة', active: 'نشط', create: 'إنشاء فئة', update: 'تحديث الفئة', saved: 'تم حفظ الفئة', saveError: 'تعذر حفظ الفئة' }
   },
   teach: {
     title: 'صفوفي | كلاس هيرو هب',
@@ -1387,7 +1395,8 @@ export const ar = {
       attachmentList: 'المرفقات',
       download: 'تنزيل',
       downloadError: 'تعذر تنزيل المرفق'
-    }
+    },
+    points: { title: 'منح النقاط', open: 'فتح أداة النقاط', positive: 'إيجابي', needsWork: 'يحتاج إلى تحسين', selectStudents: 'اختر الطلاب', wholeClass: 'الصف بأكمله', clearSelection: 'مسح التحديد', category: 'الفئة / السبب', note: 'ملاحظة اختيارية', submit: 'حفظ النقاط', saveForOne: 'حفظ النقاط لطالب واحد', saveForMany: 'حفظ النقاط لـ {count} طلاب', saving: 'جار الحفظ…', close: 'إغلاق', loadError: 'تعذر تحميل الفئات', saveError: 'تعذر حفظ النقاط', successOne: 'تم حفظ النقاط لطالب واحد', successMany: 'تم حفظ النقاط لـ {count} طلاب', pts: 'نقطة' }
   },
   faq: {
     pageTitle: 'الأسئلة الشائعة | كلاس هيرو هب',
@@ -1462,6 +1471,7 @@ export const ar = {
       points: 'النقاط والسلوك',
       comingSoon: 'قريبا'
     },
+    points: { empty: 'لا توجد نقاط بعد', close: 'إغلاق', total: 'المجموع', noHistory: 'لا توجد أحداث سلوك حديثة.' },
     announcements: {
       empty: 'لا توجد إعلانات بعد.',
       schoolAudience: 'المدرسة كلها',

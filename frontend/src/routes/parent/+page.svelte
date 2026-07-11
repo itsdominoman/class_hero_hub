@@ -47,6 +47,8 @@
     attachments: AnnouncementAttachment[];
     is_read: boolean;
   };
+  type PointEvent = { id: number; category_label: string; type: 'positive' | 'needs_work'; points_delta: number; note?: string | null; teacher_name?: string | null; created_at?: string | null };
+  type ChildPoints = { student_id: number; display_name: string; total: number; recent_events: PointEvent[] };
 
   let identity = $state<Identity | null>(null);
   let children = $state<Child[]>([]);
@@ -58,6 +60,8 @@
   let loading = $state(true);
   let error = $state<string | null>(null);
   let failedAvatars = $state<Record<number, boolean>>({});
+  let childPoints = $state<ChildPoints[]>([]);
+  let pointsOpen = $state(false);
 
   function markAvatarFailed(studentId: number) {
     failedAvatars = { ...failedAvatars, [studentId]: true };
@@ -67,15 +71,17 @@
     loading = true;
       error = null;
     try {
-      const [me, dashboard, announcementData] = await Promise.all([
+      const [me, dashboard, announcementData, pointsData] = await Promise.all([
         api.get('/me'),
         api.get('/guardian/dashboard'),
-        api.get('/guardian/announcements')
+        api.get('/guardian/announcements'),
+        api.get('/guardian/points')
       ]);
       identity = me;
       children = dashboard?.children || [];
       announcements = announcementData?.announcements || [];
       unreadCount = announcementData?.unread_count || 0;
+      childPoints = pointsData?.children || [];
     } catch (err: any) {
       error = err?.message || $_('parent.failedLoad');
       identity = null;
@@ -232,10 +238,10 @@
           <p class="font-bold text-slate-900">{$_('parent.panels.homework')}</p>
           <p class="mt-1 text-sm text-slate-500">{$_('parent.panels.comingSoon')}</p>
         </div>
-        <div class="rounded-2xl border border-dashed border-slate-200 p-5">
+        <button type="button" class="rounded-2xl border border-slate-200 p-5 text-left hover:bg-slate-50" onclick={() => pointsOpen = true}>
           <p class="font-bold text-slate-900">{$_('parent.panels.points')}</p>
-          <p class="mt-1 text-sm text-slate-500">{$_('parent.panels.comingSoon')}</p>
-        </div>
+          {#if childPoints.length}<div class="mt-2 flex flex-wrap gap-2">{#each childPoints as child}<span class="rounded-full bg-violet-50 px-3 py-1 text-sm font-black text-violet-700">{child.display_name}: {child.total}</span>{/each}</div>{:else}<p class="mt-1 text-sm text-slate-500">{$_('parent.points.empty')}</p>{/if}
+        </button>
       </div>
 
       {#if children.length === 0}
@@ -337,6 +343,15 @@
           {/if}
         {/if}
       {/if}
+    </div>
+  </div>
+{/if}
+
+{#if pointsOpen}
+  <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="points-title">
+    <div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6"><div class="flex items-start justify-between gap-3"><h2 id="points-title" class="text-2xl font-black text-slate-900">{$_('parent.panels.points')}</h2><button type="button" class="btn-secondary rounded-lg px-3 py-2" onclick={() => pointsOpen = false}>{$_('parent.points.close')}</button></div>
+      {#if childPoints.length === 0}<p class="mt-6 text-slate-500">{$_('parent.points.empty')}</p>{/if}
+      {#each childPoints as child}<section class="mt-5"><div class="flex items-center justify-between"><h3 class="font-black text-slate-900">{child.display_name}</h3><span class="rounded-full bg-violet-100 px-3 py-1 font-black text-violet-700">{$_('parent.points.total')}: {child.total}</span></div>{#if child.recent_events.length === 0}<p class="mt-3 text-sm text-slate-500">{$_('parent.points.noHistory')}</p>{:else}<div class="mt-3 divide-y divide-slate-100 rounded-xl border border-slate-200">{#each child.recent_events as event}<article class="p-3"><div class="flex items-start justify-between gap-3"><div><p class={`font-bold ${event.type === 'positive' ? 'text-emerald-700' : 'text-amber-700'}`}>{event.category_label}</p><p class="mt-1 text-xs text-slate-500">{formatDate(event.created_at)}{event.teacher_name ? ` · ${event.teacher_name}` : ''}</p></div><span class={`font-black ${event.points_delta > 0 ? 'text-emerald-600' : 'text-amber-600'}`}>{event.points_delta > 0 ? '+' : ''}{event.points_delta}</span></div>{#if event.note}<p class="mt-2 whitespace-pre-wrap text-sm text-slate-600">{event.note}</p>{/if}</article>{/each}</div>{/if}</section>{/each}
     </div>
   </div>
 {/if}

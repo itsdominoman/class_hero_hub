@@ -1,5 +1,5 @@
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
@@ -16,6 +16,8 @@ from app.database import Base, get_db
 from app.main import app
 from app.models_school import (
     AcademicYear,
+    BehaviourCategory,
+    BehaviourEvent,
     BranchCampus,
     ClassSection,
     Enrolment,
@@ -823,6 +825,7 @@ def test_teacher_class_detail_assigns_stable_gender_aware_unique_avatars(db, cli
     assert 74 not in {row["avatar_id"] for row in body["students"]}
     assert len({row["avatar_id"] for row in body["students"]}) == 4
     for row in body["students"]:
+        assert row["points_total"] == 0
         assert row["avatar_url_128"] == f"/avatars/128/{row['avatar_id']}-128.webp"
         assert row["avatar_url_256"] == f"/avatars/256/{row['avatar_id']}-256.webp"
 
@@ -834,6 +837,31 @@ def test_teacher_class_detail_assigns_stable_gender_aware_unique_avatars(db, cli
     serialized = str(body).lower()
     for forbidden in ("guardian", "email", "phone", "invite", "token", "hash", "external_ref", "date_of_birth", "gender"):
         assert forbidden not in serialized
+
+
+def test_teacher_class_detail_batches_persisted_point_totals_and_excludes_reversals(db, client, enrolment_world):
+    world = enrolment_world
+    students, assignment = _add_classroom_students(db, world)
+    positive = BehaviourCategory(school_id=world["alpha"].id, type="positive", label="Great effort", points_value=2, active=True)
+    needs_work = BehaviourCategory(school_id=world["alpha"].id, type="needs_work", label="Off-task", points_value=-1, active=True)
+    db.add_all([positive, needs_work])
+    db.flush()
+    db.add_all([
+        BehaviourEvent(school_id=world["alpha"].id, student_id=students[0].id, category_id=positive.id, actor_user_id=world["alpha_teacher"].id, points_delta=2, source="teacher"),
+        BehaviourEvent(school_id=world["alpha"].id, student_id=students[0].id, category_id=needs_work.id, actor_user_id=world["alpha_teacher"].id, points_delta=-1, source="teacher"),
+        BehaviourEvent(school_id=world["alpha"].id, student_id=students[1].id, category_id=positive.id, actor_user_id=world["alpha_teacher"].id, points_delta=2, source="teacher", reversed_at=datetime.now(timezone.utc)),
+    ])
+    db.commit()
+
+    response = client.get(f"/api/teach/assignments/{assignment.id}", headers=bearer(world["alpha_teacher"].email))
+    assert response.status_code == 200
+    totals = {row["id"]: row["points_total"] for row in response.json()["students"]}
+    assert totals[students[0].id] == 1
+    assert totals[students[1].id] == 0
+    assert totals[students[2].id] == 0
+
+    # An active teacher in another school cannot open this assignment or see its totals.
+    assert client.get(f"/api/teach/assignments/{assignment.id}", headers=bearer(world["beta_teacher"].email)).status_code == 403
 
 
 def test_teacher_subject_group_detail_is_scoped_to_active_assignment(db, client, enrolment_world):

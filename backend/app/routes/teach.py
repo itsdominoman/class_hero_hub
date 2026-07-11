@@ -3,11 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import auth, invite_tokens
 from ..database import get_db
-from ..models_school import AcademicYear, BranchCampus, ClassSection, GradeLevel, Membership, School, StaffAssignment, Subject, SubjectGroup, User
+from ..models_school import AcademicYear, BehaviourEvent, BranchCampus, ClassSection, GradeLevel, Membership, School, StaffAssignment, Subject, SubjectGroup, User
 from ..rosters import roster_payload
 from ..school_scope import open_interval_expression, require_teacher_of
 from ..student_avatars import avatar_urls, ensure_student_avatars
@@ -141,7 +142,7 @@ def teacher_dashboard(
     return {"assignments": _assignment_cards(db, assignments_with_school)}
 
 
-def _classroom_student_payload(row: dict[str, Any], avatar_id: int | None) -> dict[str, Any]:
+def _classroom_student_payload(row: dict[str, Any], avatar_id: int | None, points_total: int = 0) -> dict[str, Any]:
     return {
         "id": row["id"],
         "first_name": row["first_name"],
@@ -149,6 +150,7 @@ def _classroom_student_payload(row: dict[str, Any], avatar_id: int | None) -> di
         "preferred_name": row["preferred_name"],
         "display_name": row["display_name"],
         "name_ar": row["name_ar"],
+        "points_total": points_total,
         **avatar_urls(avatar_id),
     }
 
@@ -190,6 +192,20 @@ def teacher_class_detail(
     )
     student_ids = [row["id"] for row in roster["students"]]
     avatar_ids = ensure_student_avatars(db, student_ids)
+    point_totals = (
+        dict(
+            db.query(BehaviourEvent.student_id, func.coalesce(func.sum(BehaviourEvent.points_delta), 0))
+            .filter(
+                BehaviourEvent.school_id == school.id,
+                BehaviourEvent.student_id.in_(student_ids),
+                BehaviourEvent.reversed_at.is_(None),
+            )
+            .group_by(BehaviourEvent.student_id)
+            .all()
+        )
+        if student_ids
+        else {}
+    )
 
     # The response is deliberately allow-listed for the classroom screen:
     # no guardian, contact, enrolment, import, invite, code, or token fields.
@@ -207,7 +223,7 @@ def teacher_class_detail(
             "grade_level": ({"id": card["grade_level"]["id"], "name": card["grade_level"]["name"], "name_ar": card["grade_level"]["name_ar"]} if card["grade_level"] else None),
         },
         "student_count": len(roster["students"]),
-        "students": [_classroom_student_payload(row, avatar_ids.get(row["id"])) for row in roster["students"]],
+        "students": [_classroom_student_payload(row, avatar_ids.get(row["id"]), int(point_totals.get(row["id"], 0))) for row in roster["students"]],
     }
 
 

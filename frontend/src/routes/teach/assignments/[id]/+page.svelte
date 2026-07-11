@@ -16,6 +16,7 @@
     name_ar?: string | null;
     avatar_id?: number | null;
     avatar_url_256?: string | null;
+    points_total: number;
   };
   type Detail = {
     assignment: {
@@ -33,6 +34,7 @@
     student_count: number;
     students: Student[];
   };
+  type Category = { id: number; type: 'positive' | 'needs_work'; label: string; points_value: number };
 
   let loading = $state(true);
   let error = $state<string | null>(null);
@@ -45,6 +47,15 @@
   let announcementSaving = $state(false);
   let announcementError = $state<string | null>(null);
   let announcementPublished = $state(false);
+  let pointsModalOpen = $state(false);
+  let categories = $state<Category[]>([]);
+  let pointType = $state<'positive' | 'needs_work'>('positive');
+  let categoryId = $state('');
+  let selectedStudents = $state<number[]>([]);
+  let pointNote = $state('');
+  let pointsSaving = $state(false);
+  let pointsError = $state<string | null>(null);
+  let pointsSuccess = $state<string | null>(null);
 
   function classTitle() {
     const assignment = detail?.assignment;
@@ -58,6 +69,62 @@
 
   function schoolOptions(schoolId: number): RequestInit {
     return { headers: { 'X-School-Id': String(schoolId) } };
+  }
+
+  async function openPointsModal() {
+    if (!detail) return;
+    pointsError = null;
+    pointsSuccess = null;
+    pointsModalOpen = true;
+    try {
+      const data = await api.get(`/teach/behaviour/categories?school_id=${detail.assignment.school.id}`);
+      categories = data?.categories || [];
+      categoryId = String(categories.find((row) => row.type === pointType)?.id || '');
+    } catch (err: any) {
+      pointsError = err?.message || $_('teach.points.loadError');
+    }
+  }
+
+  function closePointsModal() {
+    if (!pointsSaving) pointsModalOpen = false;
+  }
+
+  function choosePointType(value: 'positive' | 'needs_work') {
+    pointType = value;
+    categoryId = String(categories.find((row) => row.type === value)?.id || '');
+  }
+
+  function toggleStudent(studentId: number) {
+    selectedStudents = selectedStudents.includes(studentId) ? selectedStudents.filter((id) => id !== studentId) : [...selectedStudents, studentId];
+  }
+
+  function selectWholeClass() {
+    selectedStudents = detail?.students.map((student) => student.id) || [];
+  }
+
+  function clearStudentSelection() {
+    selectedStudents = [];
+  }
+
+  async function submitPoints() {
+    if (!detail || pointsSaving || !selectedStudents.length || !categoryId) return;
+    pointsSaving = true;
+    pointsError = null;
+    try {
+      const result = await api.post('/teach/behaviour/events', { school_id: detail.assignment.school.id, student_ids: selectedStudents, category_id: Number(categoryId), note: pointNote || null });
+      const savedCount = result.created;
+      detail = await api.get(`/teach/assignments/${$page.params.id}`);
+      pointsSuccess = savedCount === 1
+        ? $_('teach.points.successOne')
+        : $_('teach.points.successMany', { values: { count: savedCount } });
+      selectedStudents = [];
+      pointNote = '';
+      pointsModalOpen = false;
+    } catch (err: any) {
+      pointsError = err?.message || $_('teach.points.saveError');
+    } finally {
+      pointsSaving = false;
+    }
   }
 
   function openAnnouncementModal() {
@@ -175,9 +242,9 @@
       </header>
 
       <div class="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <button type="button" disabled class="flex min-h-20 items-center gap-3 rounded-2xl border border-violet-100 bg-white p-4 text-left shadow-sm disabled:cursor-default disabled:opacity-100">
+        <button type="button" class="flex min-h-20 items-center gap-3 rounded-2xl border border-violet-100 bg-white p-4 text-left shadow-sm hover:border-violet-300" onclick={openPointsModal}>
           <span class="rounded-xl bg-violet-100 p-2 text-violet-700"><Star size={21} aria-hidden="true" /></span>
-          <span><strong class="block text-sm text-slate-900">{$_('teach.classDetail.actions.points')}</strong><small class="text-xs font-semibold text-slate-400">{$_('teach.classDetail.comingSoon')}</small></span>
+          <span><strong class="block text-sm text-slate-900">{$_('teach.classDetail.actions.points')}</strong><small class="text-xs font-semibold text-violet-600">{$_('teach.points.open')}</small></span>
         </button>
         <button type="button" disabled class="flex min-h-20 items-center gap-3 rounded-2xl border border-sky-100 bg-white p-4 text-left shadow-sm disabled:cursor-default disabled:opacity-100">
           <span class="rounded-xl bg-sky-100 p-2 text-sky-700"><Camera size={21} aria-hidden="true" /></span>
@@ -196,6 +263,7 @@
       {#if announcementPublished}
         <div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{$_('teach.announcements.created')}</div>
       {/if}
+      {#if pointsSuccess}<div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{pointsSuccess}</div>{/if}
 
       <div class="mt-8 flex items-end justify-between gap-4">
         <div>
@@ -228,6 +296,9 @@
                 {/if}
               </div>
               <h3 class="mt-3 truncate text-sm font-black text-slate-900 sm:text-base" title={student.display_name}>{student.display_name}</h3>
+              <p class={`mt-1 text-xs font-black ${student.points_total > 0 ? 'text-emerald-600' : student.points_total < 0 ? 'text-amber-700' : 'text-slate-400'}`}>
+                {student.points_total > 0 ? '+' : ''}{student.points_total} {$_('teach.points.pts')}
+              </p>
               {#if student.name_ar}
                 <p class="mt-0.5 truncate text-xs font-semibold text-slate-400" dir="auto">{student.name_ar}</p>
               {/if}
@@ -263,6 +334,25 @@
           <button type="button" class="btn-secondary rounded-lg px-4 py-2" disabled={announcementSaving} onclick={closeAnnouncementModal}>{$_('teach.announcements.cancel')}</button>
         </div>
       </form>
+    </div>
+  </div>
+{/if}
+
+{#if pointsModalOpen && detail}
+  <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="award-points-title">
+    <div class="max-h-[94vh] w-full max-w-3xl overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6">
+      <div class="flex items-start justify-between gap-3"><div><h2 id="award-points-title" class="text-2xl font-black text-slate-900">{$_('teach.points.title')}</h2><p class="mt-1 text-sm font-semibold text-slate-500">{classTitle()}</p></div><button type="button" class="btn-secondary rounded-lg px-3 py-2" disabled={pointsSaving} onclick={closePointsModal}>{$_('teach.points.close')}</button></div>
+      {#if pointsError}<div class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{pointsError}</div>{/if}
+      <div class="mt-5 grid grid-cols-2 gap-2"><button type="button" class={`rounded-xl px-4 py-3 font-black ${pointType === 'positive' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`} onclick={() => choosePointType('positive')}>{$_('teach.points.positive')}</button><button type="button" class={`rounded-xl px-4 py-3 font-black ${pointType === 'needs_work' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-800'}`} onclick={() => choosePointType('needs_work')}>{$_('teach.points.needsWork')}</button></div>
+      <div class="mt-5 flex flex-wrap items-center justify-between gap-2">
+        <p class="text-sm font-black text-slate-700">{$_('teach.points.selectStudents')} · {selectedStudents.length}</p>
+        <div class="flex gap-2">
+          <button type="button" class="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-black text-violet-700 disabled:opacity-50" disabled={detail.students.length === 0 || selectedStudents.length === detail.students.length} onclick={selectWholeClass}>{$_('teach.points.wholeClass')}</button>
+          <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600 disabled:opacity-50" disabled={selectedStudents.length === 0} onclick={clearStudentSelection}>{$_('teach.points.clearSelection')}</button>
+        </div>
+      </div>
+      <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">{#each detail.students as student}<button type="button" aria-pressed={selectedStudents.includes(student.id)} class={`min-w-0 rounded-xl border p-3 text-left text-sm font-bold ${selectedStudents.includes(student.id) ? 'border-violet-500 bg-violet-50 text-violet-800' : 'border-slate-200 text-slate-700'}`} onclick={() => toggleStudent(student.id)}><span class="block truncate">{student.display_name}</span></button>{/each}</div>
+      <form class="mt-5 grid gap-3" onsubmit={(event) => { event.preventDefault(); submitPoints(); }}><label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.points.category')}<select class="rounded-lg border border-slate-200 px-3 py-2" required bind:value={categoryId}>{#each categories.filter((row) => row.type === pointType) as category}<option value={category.id}>{category.label} ({category.points_value > 0 ? '+' : ''}{category.points_value})</option>{/each}</select></label><label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.points.note')}<textarea class="min-h-20 rounded-lg border border-slate-200 px-3 py-2" maxlength="500" bind:value={pointNote}></textarea></label><button type="submit" class="btn-hero rounded-lg px-4 py-3" disabled={pointsSaving || !selectedStudents.length || !categoryId}>{pointsSaving ? $_('teach.points.saving') : selectedStudents.length === 1 ? $_('teach.points.saveForOne') : $_('teach.points.saveForMany', { values: { count: selectedStudents.length } })}</button></form>
     </div>
   </div>
 {/if}
