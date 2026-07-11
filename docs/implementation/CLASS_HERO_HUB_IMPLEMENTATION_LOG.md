@@ -1,5 +1,83 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-11 — S17: CHH Integration API Foundation
+
+Implemented a dark-deployable, CHH-only integration surface for Family Hero Hub. No
+FHH repository, UI, database, Caddy, or public-proxy configuration was changed.
+
+### Configuration and security
+
+- Added `FHH_INTEGRATION_ENABLED` (default `false`),
+  `FHH_INTEGRATION_SERVICE_TOKEN`, and `FHH_INTEGRATION_ALLOWED_IPS` (comma-separated
+  IPs/CIDRs, for example `10.250.50.1` or a private mesh subnet).
+- Disabled routes fail closed with 404. Enabled routes require a bearer service token
+  compared with `hmac.compare_digest`; a configured IP allowlist is an additional
+  control, never a replacement for the token. Authentication and link-code surfaces
+  use bounded in-memory rate limiting and generic errors.
+- Runtime validation rejects missing, placeholder, or shorter-than-32-character FHH
+  service tokens whenever the integration is enabled. Secret values are never logged
+  or returned.
+- Dashboard and unlink calls additionally require the one-time-issued per-link secret
+  in `X-FHH-Link-Token`. Only its SHA-256 hash is stored.
+
+### Models and migration
+
+- Migration `d7e8f9a0b1c2_add_fhh_integration_foundation.py` adds
+  `fhh_link_invites`: school/student scope, unique token hash, safe last-four display,
+  72-hour expiry, consumption metadata, soft revocation, and creator/revoker audit
+  identity.
+- It also adds `fhh_links`: durable school/student links, one link per source invite,
+  unique link-token hash, opaque `fhh_child_ref`, active/revoked status, and indexed
+  school/student/status lookup. Raw invite and link secrets are never persisted.
+- Homework completion identity remains unchanged. FHH done/not-done write-back and a
+  nullable `fhh_link_id` completion identity are explicitly deferred to S20; S17 does
+  not manufacture CHH `User` rows. The bundle therefore reports
+  `can_mark_homework_done: false` and an empty completed list.
+
+### Endpoints
+
+- School-admin, active same-school student issuance:
+  `POST/GET /api/school/students/{student_id}/fhh-invites` and
+  `POST /api/school/fhh-invites/{invite_id}/revoke`. Raw code is returned only by the
+  create call; list/revoke payloads expose neither raw code nor token hash. Actions use
+  the existing CHH audit log.
+- Dedicated integration router at `/api/integrations/fhh`:
+  `POST /link/verify`, `POST /link/consume`,
+  `DELETE /links/{link_id}`, and `GET /links/{link_id}/dashboard`.
+- Verify returns only school/student/class confirmation and expiry. Consume locks and
+  single-uses the invite, creates a durable link, and returns its raw link token once.
+  Dashboard queries exactly one linked student and applies current class-section and
+  subject-group/default-enrolment audience scope.
+- The MVP bundle contains school/student confirmation, total/recent points, active
+  homework/notes, announcements, update/photo metadata, upcoming 30-day calendar,
+  permissions, link status, and server time. Attachment/photo payloads contain safe
+  metadata only: no storage keys, filesystem paths, or unauthenticated URLs.
+
+### Deferred
+
+- S18: FHH-side connection model, server client, scan/confirm flow, and family UI.
+- S19: authenticated, resource-scoped media byte proxy/download routes. S17 exposes
+  metadata only.
+- S20: link-scoped homework done/not-done identity and completed-homework bundle.
+- No full FHH dashboard, browser calls to CHH guardian/teacher/school APIs, direct
+  database connection, or public integration proxy was added.
+
+### Validation
+
+- Focused Docker integration suite: `tests/test_integrations_fhh.py` → **4 passed**,
+  5 warnings. Coverage includes disabled/missing/wrong/allowed service auth, IP
+  allowlisting, safe issuance/listing, expiry/revocation, single-use consume, one-time
+  link secret, cross-link isolation, dashboard dual authentication, and revocation.
+- Complete Docker backend suite: `python -m pytest tests -q` → **311 passed**,
+  11 warnings. This includes all existing guardian and relevant points,
+  announcements, homework, updates, calendar, and school tests.
+- `npm run check` → **0 errors, 0 warnings**; `npm run check:i18n` → **842 keys in
+  both en and ar**; `npm run build` → **successful**. Frontend source was untouched.
+- `alembic heads` → single head **d7e8f9a0b1c2**; `git diff --check` → clean.
+- Mesh smoke from FHH dev server was not performed: the CHH deployment remains dark
+  (disabled/not rebuilt with an integration secret), and no secret or deployment
+  change was authorized for this uncommitted slice.
+
 ## 2026-07-11 — S15: Updates & Photos Polish
 
 - Teacher classroom tool cards now use concise labels and actions, with a

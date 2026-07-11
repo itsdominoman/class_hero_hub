@@ -15,6 +15,7 @@ MIN_JWT_SECRET_LENGTH = 32
 MIN_SESSION_SECRET_LENGTH = 32
 MIN_QA_TOKEN_LENGTH = 24
 MIN_GOOGLE_SECRET_LENGTH = 16
+MIN_FHH_SERVICE_TOKEN_LENGTH = 32
 PLACEHOLDER_SECRET_VALUES = {
     "",
     "change_me",
@@ -211,6 +212,20 @@ def validate_runtime_configuration(settings: "Settings" | None = None) -> str:
         _validate_optional_secret("QA_LOGIN_TOKEN", config.QA_LOGIN_TOKEN)
         _validate_optional_secret("QA_CHILD_LOGIN_TOKEN", config.QA_CHILD_LOGIN_TOKEN)
 
+    if config.FHH_INTEGRATION_ENABLED:
+        _validate_secret(
+            "FHH_INTEGRATION_SERVICE_TOKEN",
+            config.FHH_INTEGRATION_SERVICE_TOKEN,
+            min_length=MIN_FHH_SERVICE_TOKEN_LENGTH,
+            required=True,
+        )
+    else:
+        _validate_optional_secret("FHH_INTEGRATION_SERVICE_TOKEN", config.FHH_INTEGRATION_SERVICE_TOKEN)
+    try:
+        parse_ip_networks(config.FHH_INTEGRATION_ALLOWED_IPS)
+    except ValueError as exc:
+        _fail("FHH_INTEGRATION_ALLOWED_IPS", str(exc))
+
     return runtime_environment
 
 class Settings(BaseSettings):
@@ -235,6 +250,9 @@ class Settings(BaseSettings):
     QA_CHILD_LOGIN_TOKEN: str = ""
     QA_BLOCKED_HOSTNAMES: str = "familyherohub.com,www.familyherohub.com"
     TRUSTED_PROXY_IPS: str = "127.0.0.1,::1"
+    FHH_INTEGRATION_ENABLED: bool = False
+    FHH_INTEGRATION_SERVICE_TOKEN: str = ""
+    FHH_INTEGRATION_ALLOWED_IPS: str = ""
     CORS_ORIGINS: str = "https://families.loginto.me,http://localhost:5173,http://localhost:8000"
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
