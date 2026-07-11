@@ -730,7 +730,7 @@ export const en = {
       points: 'Points & behaviour',
       comingSoon: 'Coming soon'
     },
-    points: { empty: 'No points yet', close: 'Close', total: 'Total', noHistory: 'No recent behaviour events.' },
+    points: { empty: 'No points yet', close: 'Close', total: 'Total', currentTotal: 'Current total', pts: 'pts', viewHistory: 'View history', noHistory: 'No recent behaviour events.' },
     announcements: {
       empty: 'No announcements yet.',
       schoolAudience: 'Whole school',
@@ -1481,7 +1481,7 @@ export const ar = {
       points: 'النقاط والسلوك',
       comingSoon: 'قريبا'
     },
-    points: { empty: 'لا توجد نقاط بعد', close: 'إغلاق', total: 'المجموع', noHistory: 'لا توجد أحداث سلوك حديثة.' },
+    points: { empty: 'لا توجد نقاط بعد', close: 'إغلاق', total: 'المجموع', currentTotal: 'المجموع الحالي', pts: 'نقطة', viewHistory: 'عرض السجل', noHistory: 'لا توجد أحداث سلوك حديثة.' },
     announcements: {
       empty: 'لا توجد إعلانات بعد.',
       schoolAudience: 'المدرسة كلها',

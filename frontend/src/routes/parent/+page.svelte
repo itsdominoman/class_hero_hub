@@ -25,6 +25,8 @@
     relationship: string | null;
     link_status: string;
     email_matched_contact: boolean | null;
+    points_total: number;
+    recent_point_events: PointEvent[];
   };
   type AnnouncementAttachment = {
     id: number;
@@ -48,7 +50,6 @@
     is_read: boolean;
   };
   type PointEvent = { id: number; category_label: string; type: 'positive' | 'needs_work'; points_delta: number; note?: string | null; teacher_name?: string | null; created_at?: string | null };
-  type ChildPoints = { student_id: number; display_name: string; total: number; recent_events: PointEvent[] };
 
   let identity = $state<Identity | null>(null);
   let children = $state<Child[]>([]);
@@ -60,8 +61,7 @@
   let loading = $state(true);
   let error = $state<string | null>(null);
   let failedAvatars = $state<Record<number, boolean>>({});
-  let childPoints = $state<ChildPoints[]>([]);
-  let pointsOpen = $state(false);
+  let pointsChild = $state<Child | null>(null);
 
   function markAvatarFailed(studentId: number) {
     failedAvatars = { ...failedAvatars, [studentId]: true };
@@ -71,17 +71,15 @@
     loading = true;
       error = null;
     try {
-      const [me, dashboard, announcementData, pointsData] = await Promise.all([
+      const [me, dashboard, announcementData] = await Promise.all([
         api.get('/me'),
         api.get('/guardian/dashboard'),
-        api.get('/guardian/announcements'),
-        api.get('/guardian/points')
+        api.get('/guardian/announcements')
       ]);
       identity = me;
       children = dashboard?.children || [];
       announcements = announcementData?.announcements || [];
       unreadCount = announcementData?.unread_count || 0;
-      childPoints = pointsData?.children || [];
     } catch (err: any) {
       error = err?.message || $_('parent.failedLoad');
       identity = null;
@@ -107,6 +105,11 @@
   function formatDate(value?: string | null) {
     if (!value) return '';
     return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value));
+  }
+
+  function formatDateTime(value?: string | null) {
+    if (!value) return '';
+    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
   }
 
   function attachmentLabel(attachment: AnnouncementAttachment) {
@@ -206,6 +209,10 @@
                   <p>{[child.grade_level_name, child.class_section_name].filter(Boolean).join(' · ')}</p>
                 {/if}
               </div>
+              <button type="button" class="mt-4 flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-violet-300 hover:bg-violet-50" onclick={() => pointsChild = child}>
+                <span class={`text-lg font-black ${child.points_total > 0 ? 'text-emerald-600' : child.points_total < 0 ? 'text-amber-700' : 'text-slate-500'}`}>{child.points_total > 0 ? '+' : ''}{child.points_total} {$_('parent.points.pts')}</span>
+                <span class="text-sm font-bold text-violet-700">{$_('parent.points.viewHistory')}</span>
+              </button>
             </div>
           {/each}
         </div>
@@ -231,17 +238,13 @@
           </div>
         </button>
         <div class="rounded-2xl border border-dashed border-slate-200 p-5">
-          <p class="font-bold text-slate-900">{$_('parent.panels.classUpdates')}</p>
-          <p class="mt-1 text-sm text-slate-500">{$_('parent.panels.comingSoon')}</p>
-        </div>
-        <div class="rounded-2xl border border-dashed border-slate-200 p-5">
           <p class="font-bold text-slate-900">{$_('parent.panels.homework')}</p>
           <p class="mt-1 text-sm text-slate-500">{$_('parent.panels.comingSoon')}</p>
         </div>
-        <button type="button" class="rounded-2xl border border-slate-200 p-5 text-left hover:bg-slate-50" onclick={() => pointsOpen = true}>
-          <p class="font-bold text-slate-900">{$_('parent.panels.points')}</p>
-          {#if childPoints.length}<div class="mt-2 flex flex-wrap gap-2">{#each childPoints as child}<span class="rounded-full bg-violet-50 px-3 py-1 text-sm font-black text-violet-700">{child.display_name}: {child.total}</span>{/each}</div>{:else}<p class="mt-1 text-sm text-slate-500">{$_('parent.points.empty')}</p>{/if}
-        </button>
+        <div class="rounded-2xl border border-dashed border-slate-200 p-5">
+          <p class="font-bold text-slate-900">{$_('parent.panels.classUpdates')}</p>
+          <p class="mt-1 text-sm text-slate-500">{$_('parent.panels.comingSoon')}</p>
+        </div>
       </div>
 
       {#if children.length === 0}
@@ -347,11 +350,20 @@
   </div>
 {/if}
 
-{#if pointsOpen}
+{#if pointsChild}
   <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="points-title">
-    <div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6"><div class="flex items-start justify-between gap-3"><h2 id="points-title" class="text-2xl font-black text-slate-900">{$_('parent.panels.points')}</h2><button type="button" class="btn-secondary rounded-lg px-3 py-2" onclick={() => pointsOpen = false}>{$_('parent.points.close')}</button></div>
-      {#if childPoints.length === 0}<p class="mt-6 text-slate-500">{$_('parent.points.empty')}</p>{/if}
-      {#each childPoints as child}<section class="mt-5"><div class="flex items-center justify-between"><h3 class="font-black text-slate-900">{child.display_name}</h3><span class="rounded-full bg-violet-100 px-3 py-1 font-black text-violet-700">{$_('parent.points.total')}: {child.total}</span></div>{#if child.recent_events.length === 0}<p class="mt-3 text-sm text-slate-500">{$_('parent.points.noHistory')}</p>{:else}<div class="mt-3 divide-y divide-slate-100 rounded-xl border border-slate-200">{#each child.recent_events as event}<article class="p-3"><div class="flex items-start justify-between gap-3"><div><p class={`font-bold ${event.type === 'positive' ? 'text-emerald-700' : 'text-amber-700'}`}>{event.category_label}</p><p class="mt-1 text-xs text-slate-500">{formatDate(event.created_at)}{event.teacher_name ? ` · ${event.teacher_name}` : ''}</p></div><span class={`font-black ${event.points_delta > 0 ? 'text-emerald-600' : 'text-amber-600'}`}>{event.points_delta > 0 ? '+' : ''}{event.points_delta}</span></div>{#if event.note}<p class="mt-2 whitespace-pre-wrap text-sm text-slate-600">{event.note}</p>{/if}</article>{/each}</div>{/if}</section>{/each}
+    <div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto overflow-x-hidden rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6">
+      <div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="text-sm font-bold uppercase tracking-wide text-violet-600">{$_('parent.panels.points')}</p><h2 id="points-title" class="mt-1 truncate text-2xl font-black text-slate-900">{pointsChild.display_name}</h2></div><button type="button" class="btn-secondary shrink-0 rounded-lg px-3 py-2" onclick={() => pointsChild = null}>{$_('parent.points.close')}</button></div>
+      <div class="mt-5 rounded-xl bg-slate-50 p-4"><p class="text-sm font-bold text-slate-500">{$_('parent.points.currentTotal')}</p><p class={`mt-1 text-3xl font-black ${pointsChild.points_total > 0 ? 'text-emerald-600' : pointsChild.points_total < 0 ? 'text-amber-700' : 'text-slate-600'}`}>{pointsChild.points_total > 0 ? '+' : ''}{pointsChild.points_total} {$_('parent.points.pts')}</p></div>
+      {#if pointsChild.recent_point_events.length === 0}
+        <p class="mt-5 text-sm text-slate-500">{$_('parent.points.noHistory')}</p>
+      {:else}
+        <div class="mt-5 divide-y divide-slate-100 rounded-xl border border-slate-200">
+          {#each pointsChild.recent_point_events as event}
+            <article class="p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class={`font-bold ${event.type === 'positive' ? 'text-emerald-700' : 'text-amber-700'}`}>{event.category_label}</p><p class="mt-1 text-xs text-slate-500">{formatDateTime(event.created_at)}{event.teacher_name ? ` · ${event.teacher_name}` : ''}</p></div><span class={`shrink-0 text-lg font-black ${event.points_delta > 0 ? 'text-emerald-600' : 'text-amber-700'}`}>{event.points_delta > 0 ? '+' : ''}{event.points_delta}</span></div>{#if event.note}<p class="mt-3 whitespace-pre-wrap break-words text-sm text-slate-600">{event.note}</p>{/if}</article>
+          {/each}
+        </div>
+      {/if}
     </div>
   </div>
 {/if}

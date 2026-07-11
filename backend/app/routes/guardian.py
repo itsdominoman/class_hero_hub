@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from .. import auth
+from ..behaviour_service import guardian_points_payload
 from ..database import get_db
 from ..models_school import ClassSection, Enrolment, GradeLevel, GuardianLink, School, Student, User
 from ..school_scope import open_interval_expression
@@ -84,6 +85,9 @@ def guardian_dashboard(
         if grade_level_ids
         else {}
     )
+    points_by_student_id = {
+        row["student_id"]: row for row in guardian_points_payload(db, current_user.id)["children"]
+    }
 
     children: list[dict[str, Any]] = []
     for link in sorted(links, key=lambda row: row.id):
@@ -94,6 +98,7 @@ def guardian_dashboard(
         class_section = class_sections_by_id.get(section_by_student_id.get(student.id))
         grade_level = grade_levels_by_id.get(class_section.grade_level_id) if class_section else None
         display_name = student.preferred_name or f"{student.first_name} {student.last_name}".strip()
+        points = points_by_student_id.get(student.id, {"total": 0, "recent_events": []})
         children.append(
             {
                 "student_id": student.id,
@@ -109,6 +114,8 @@ def guardian_dashboard(
                 "relationship": link.relationship,
                 "link_status": link.status,
                 "email_matched_contact": link.email_matched_contact,
+                "points_total": points["total"],
+                "recent_point_events": points["recent_events"],
             }
         )
 

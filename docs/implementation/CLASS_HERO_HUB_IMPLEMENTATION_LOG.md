@@ -2976,3 +2976,44 @@ adding a location model or changing the class-focused teacher page into a search
 - Backend idempotency keys remain a broader S13 caveat; the UI prevents duplicate clicks,
   but cannot make an ambiguous network retry idempotent.
 - Changes remain intentionally **uncommitted** pending Dom's testing.
+
+## 2026-07-11 — S13b guardian dashboard points UX polish
+
+### Guardian experience
+
+- `/api/guardian/dashboard` child entries now include `points_total` and up to five
+  `recent_point_events`, reusing the existing linked-guardian points aggregation and
+  history logic. The frontend no longer needs a separate `/api/guardian/points` request;
+  that endpoint remains available for compatibility.
+- Every linked-child card shows a signed total: `+N pts`, `0 pts`, or `-N pts`, with
+  restrained emerald, neutral slate, and amber styling respectively.
+- The total row includes **View history** and opens a modal for that child only. The modal
+  shows the child name, current signed total, newest-first category events, signed delta,
+  date and time, safe actor display name, optional note, and a close action. Long notes
+  wrap and the bottom-sheet mobile layout prevents horizontal overflow.
+- Removed the separate buried Points & behaviour dashboard panel. Exact content order is
+  now: linked child cards (including points), Announcements, Homework & diary, then Class
+  updates & photos. Announcement inbox/unread/detail/download behaviour was unchanged.
+
+### Authorization and validation
+
+- Dashboard points use only active, non-revoked guardian links already resolved for the
+  authenticated user. Tests cover link scope, unrelated guardians, revoked links,
+  newest-first history, totals, and the response allow-list. No new child-history route
+  or client-supplied student authorization boundary was introduced.
+- Focused guardian/S13b suites → **19 passed**, 6 warnings.
+- Rebuilt-container full suite: `docker compose exec backend python -m pytest tests -q`
+  → **273 passed**, 11 warnings in 97.49s.
+- `npm run check` → **0 errors, 0 warnings**.
+- `npm run check:i18n` → parity OK, **679 keys** in both EN and AR.
+- `npm run build` → production build successful.
+- `docker compose build backend frontend && docker compose up -d backend frontend` → both
+  images rebuilt and services recreated; both containers are running.
+- Rebuilt deployed API QA with an existing active guardian returned two linked children,
+  both with the new point fields, totals `[2, 1]`, and history counts `[2, 1]`.
+  `/parent` returned **200**.
+- Host Playwright remains unable to launch because `libatk-1.0.so.0` is unavailable, so
+  authenticated visual/mobile modal inspection was not falsely claimed. Dom still needs
+  to confirm the visual order and live class/duty award refresh in a real browser. No
+  behaviour event was created or modified for this read-only QA pass.
+- Changes remain intentionally **uncommitted** pending Dom's testing.

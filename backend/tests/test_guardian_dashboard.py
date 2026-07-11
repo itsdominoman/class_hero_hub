@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
@@ -16,6 +17,8 @@ from app.main import app
 from app.models_school import (
     AcademicYear,
     BranchCampus,
+    BehaviourCategory,
+    BehaviourEvent,
     ClassSection,
     Enrolment,
     GradeLevel,
@@ -280,8 +283,39 @@ def test_response_includes_expected_fields_and_no_invite_details(db, client, wor
         "relationship",
         "link_status",
         "email_matched_contact",
+        "points_total",
+        "recent_point_events",
     ):
         assert field in child
+
+
+def test_dashboard_points_are_link_scoped_allow_listed_and_newest_first(db, client, world):
+    link_guardian(db, school_id=world["alpha"].id, student_id=world["sara"].id, user_id=world["guardian"].id)
+    link_guardian(db, school_id=world["alpha"].id, student_id=world["other_child"].id, user_id=world["other_guardian"].id)
+    positive = BehaviourCategory(school_id=world["alpha"].id, type="positive", label="Helping", points_value=2, active=True)
+    needs_work = BehaviourCategory(school_id=world["alpha"].id, type="needs_work", label="Unsafe play", points_value=-1, active=True)
+    db.add_all([positive, needs_work]); db.flush()
+    db.add_all([
+        BehaviourEvent(school_id=world["alpha"].id, student_id=world["sara"].id, category_id=positive.id, actor_user_id=world["alpha_teacher"].id, points_delta=2, note="Older note", source="teacher", created_at=datetime(2026, 7, 10, 9, 0, tzinfo=timezone.utc)),
+        BehaviourEvent(school_id=world["alpha"].id, student_id=world["sara"].id, category_id=needs_work.id, actor_user_id=world["alpha_teacher"].id, points_delta=-1, note="Newest note", source="teacher", created_at=datetime(2026, 7, 11, 10, 0, tzinfo=timezone.utc)),
+        BehaviourEvent(school_id=world["alpha"].id, student_id=world["other_child"].id, category_id=positive.id, actor_user_id=world["alpha_teacher"].id, points_delta=2, source="teacher", created_at=datetime(2026, 7, 11, 11, 0, tzinfo=timezone.utc)),
+    ]); db.commit()
+
+    response = client.get("/api/guardian/dashboard", headers=bearer(world["guardian"].email))
+    assert response.status_code == 200
+    assert len(response.json()["children"]) == 1
+    child = response.json()["children"][0]
+    assert child["student_id"] == world["sara"].id
+    assert child["points_total"] == 1
+    assert [event["category_label"] for event in child["recent_point_events"]] == ["Unsafe play", "Helping"]
+    assert child["recent_point_events"][0]["teacher_name"] == "Alpha Teacher"
+    assert child["recent_point_events"][0]["note"] == "Newest note"
+    serialized = str(child).lower()
+    assert "token" not in serialized and "invite" not in serialized and "@example.com" not in serialized
+
+    unrelated = client.get("/api/guardian/dashboard", headers=bearer(world["other_guardian"].email)).json()
+    assert {row["student_id"] for row in unrelated["children"]} == {world["other_child"].id}
+    assert all(event["category_label"] != "Unsafe play" for row in unrelated["children"] for event in row["recent_point_events"])
 
 
 # --- Nav/role-summary coverage ---------------------------------------------
