@@ -3574,3 +3574,16 @@ public sharing, child dashboard feed, or FHH integration in this slice.
   and containers recreated; `/teach` and `/parent` return 200.
 - Full backend suite not run (per instructions); changes remain **uncommitted** pending
   Dom's manual QA.
+
+## 2026-07-11 — CHH ↔ FHH integration audit & design
+
+- Read-only audit of CHH (`main` @ `bab9ae3`) and FHH (`develop` @ `fcacb34` on dev,
+  dirty tree) to design the school-link integration (not part of the original 17-slice
+  plan; product direction evolved).
+- Full plan in **`docs/implementation/CHH_FHH_INTEGRATION_API_AUDIT.md`**: dedicated
+  `/api/integrations/fhh/*` surface on CHH (service bearer token over mesh, per-link
+  tokens, dashboard bundle endpoint), QR invite → durable revocable link model
+  mirroring guardian invites, FHH `school_connections` + server-side CHH client,
+  slices S17–S21. Recommended next slice: **S17 CHH Integration API Foundation**.
+- No code changed, no migrations, no commits/pushes; only this log entry and the audit
+  document were written.
