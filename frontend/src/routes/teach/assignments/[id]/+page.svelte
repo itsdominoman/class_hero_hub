@@ -38,6 +38,13 @@
   let error = $state<string | null>(null);
   let detail = $state<Detail | null>(null);
   let failedImages = $state<Record<number, boolean>>({});
+  let announcementModalOpen = $state(false);
+  let announcementTitle = $state('');
+  let announcementBody = $state('');
+  let announcementFiles = $state<FileList | null>(null);
+  let announcementSaving = $state(false);
+  let announcementError = $state<string | null>(null);
+  let announcementPublished = $state(false);
 
   function classTitle() {
     const assignment = detail?.assignment;
@@ -47,6 +54,68 @@
 
   function markImageFailed(studentId: number) {
     failedImages = { ...failedImages, [studentId]: true };
+  }
+
+  function schoolOptions(schoolId: number): RequestInit {
+    return { headers: { 'X-School-Id': String(schoolId) } };
+  }
+
+  function openAnnouncementModal() {
+    announcementError = null;
+    announcementModalOpen = true;
+  }
+
+  function closeAnnouncementModal() {
+    if (announcementSaving) return;
+    announcementModalOpen = false;
+    announcementError = null;
+  }
+
+  function handleAnnouncementFiles(event: Event) {
+    announcementFiles = (event.target as HTMLInputElement).files;
+  }
+
+  async function publishAnnouncement() {
+    const assignment = detail?.assignment;
+    if (!assignment) return;
+
+    const targetId = assignment.target_type === 'subject_group'
+      ? assignment.subject_group?.id
+      : assignment.class_section?.id;
+    if (!targetId) {
+      announcementError = $_('teach.announcements.saveError');
+      return;
+    }
+
+    announcementSaving = true;
+    announcementError = null;
+    try {
+      const created = await api.post(
+        '/school/announcements',
+        {
+          title: announcementTitle,
+          body: announcementBody,
+          audience_type: assignment.target_type,
+          class_section_id: assignment.target_type === 'class_section' ? targetId : null,
+          subject_group_id: assignment.target_type === 'subject_group' ? targetId : null
+        },
+        schoolOptions(assignment.school.id)
+      );
+      for (const file of Array.from(announcementFiles || [])) {
+        const formData = new FormData();
+        formData.append('file', file);
+        await api.upload(`/teach/announcements/${created.id}/attachments`, formData, schoolOptions(assignment.school.id));
+      }
+      announcementTitle = '';
+      announcementBody = '';
+      announcementFiles = null;
+      announcementPublished = true;
+      announcementModalOpen = false;
+    } catch (err: any) {
+      announcementError = err?.message || $_('teach.announcements.saveError');
+    } finally {
+      announcementSaving = false;
+    }
   }
 
   onMount(async () => {
@@ -118,11 +187,15 @@
           <span class="rounded-xl bg-amber-100 p-2 text-amber-700"><BookOpen size={21} aria-hidden="true" /></span>
           <span><strong class="block text-sm text-slate-900">{$_('teach.classDetail.actions.homework')}</strong><small class="text-xs font-semibold text-slate-400">{$_('teach.classDetail.comingSoon')}</small></span>
         </button>
-        <a href="/teach" class="flex min-h-20 items-center gap-3 rounded-2xl border border-emerald-100 bg-white p-4 text-left shadow-sm hover:border-emerald-200">
+        <button type="button" class="flex min-h-20 items-center gap-3 rounded-2xl border border-emerald-100 bg-white p-4 text-left shadow-sm hover:border-emerald-200" onclick={openAnnouncementModal}>
           <span class="rounded-xl bg-emerald-100 p-2 text-emerald-700"><Megaphone size={21} aria-hidden="true" /></span>
-          <span><strong class="block text-sm text-slate-900">{$_('teach.classDetail.actions.announcements')}</strong><small class="text-xs font-semibold text-emerald-600">{$_('teach.classDetail.availableFromClasses')}</small></span>
-        </a>
+          <span><strong class="block text-sm text-slate-900">{$_('teach.classDetail.actions.announcements')}</strong><small class="text-xs font-semibold text-emerald-600">{announcementPublished ? $_('teach.announcements.created') : $_('teach.classDetail.createForClass')}</small></span>
+        </button>
       </div>
+
+      {#if announcementPublished}
+        <div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{$_('teach.announcements.created')}</div>
+      {/if}
 
       <div class="mt-8 flex items-end justify-between gap-4">
         <div>
@@ -165,3 +238,31 @@
     {/if}
   </div>
 </section>
+
+{#if announcementModalOpen && detail}
+  <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="class-announcement-title">
+    <div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-lg bg-white p-5 shadow-xl sm:rounded-lg sm:p-6">
+      <div class="flex items-start justify-between gap-4">
+        <h2 id="class-announcement-title" class="text-xl font-black text-slate-900">{$_('teach.announcements.title')}</h2>
+        <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600" disabled={announcementSaving} onclick={closeAnnouncementModal}>{$_('teach.announcements.close')}</button>
+      </div>
+
+      {#if announcementError}
+        <div class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{announcementError}</div>
+      {/if}
+
+      <form class="mt-4 grid gap-3" onsubmit={(event) => { event.preventDefault(); publishAnnouncement(); }}>
+        <p class="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm font-semibold text-slate-700">
+          {$_('teach.announcements.audience')}: <span class="font-black">{classTitle()}</span>
+        </p>
+        <input class="rounded-lg border border-slate-200 px-3 py-2" required maxlength="160" bind:value={announcementTitle} placeholder={$_('teach.announcements.titlePlaceholder')} />
+        <textarea class="min-h-32 rounded-lg border border-slate-200 px-3 py-2" required maxlength="10000" bind:value={announcementBody} placeholder={$_('teach.announcements.bodyPlaceholder')}></textarea>
+        <input class="rounded-lg border border-slate-200 px-3 py-2 text-sm" type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.txt,application/pdf,image/jpeg,image/png,image/webp,text/plain" onchange={handleAnnouncementFiles} />
+        <div class="flex items-center gap-3">
+          <button type="submit" class="btn-hero rounded-lg px-4 py-2" disabled={announcementSaving}>{announcementSaving ? $_('teach.announcements.publishing') : $_('teach.announcements.publish')}</button>
+          <button type="button" class="btn-secondary rounded-lg px-4 py-2" disabled={announcementSaving} onclick={closeAnnouncementModal}>{$_('teach.announcements.cancel')}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{/if}

@@ -608,6 +608,7 @@ export const en = {
       students: 'Students',
       comingSoon: 'Coming soon',
       availableFromClasses: 'Available from My classes',
+      createForClass: 'Create for this class',
       actions: {
         points: 'Award points',
         updates: 'Updates & photos',
@@ -1349,6 +1350,7 @@ export const ar = {
       students: 'الطلاب',
       comingSoon: 'قريبًا',
       availableFromClasses: 'متاح من صفحة صفوفي',
+      createForClass: 'إنشاء لهذا الصف',
       actions: {
         points: 'منح النقاط',
         updates: 'التحديثات والصور',
