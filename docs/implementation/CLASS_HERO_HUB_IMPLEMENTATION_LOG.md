@@ -3714,3 +3714,29 @@ side; the FHH-side handover is in its nearby implementation log.
 - The FHH integration dashboard now includes the explicit safe field `student.avatar_id` when it is a numeric CHH student avatar ID.
 - The dashboard also carries safe point context fields `staff_display_name` and `class_section_name`; it does not expose staff emails, internal staff IDs, token hashes, storage keys, raw paths, or arbitrary object dumps.
 - The contract does not expose raw avatar URLs, filesystem paths, storage keys, service/link tokens, or arbitrary student fields. FHH copies the needed 256px internal assets, renders them in the browser-facing layer, and remains the only browser-facing API.
+
+## 2026-07-12 — S22a: event-time point context
+
+S22a adds a durable, controlled context to each new behaviour event so historical
+point entries are not labelled from a student's later enrolment.
+
+- `behaviour_events` now records exactly one of four context shapes: `subject` with a
+  validated `subject_group_id`, `class` with a validated `class_section_id`, `duty`
+  with a controlled duty value, or `general` with no target fields. Legacy rows are
+  backfilled as `general` and therefore retain null display context rather than being
+  assigned an invented current class or subject.
+- Subject and class awards validate the active same-school target, the teacher's
+  current assignment, and every student's target roster membership before applying
+  one validated context to the complete batch. Duty awards use the closed vocabulary
+  `break`, `lunch`, `playground`, `hallway`, `assembly`, `bus`, and `general_duty`.
+  The existing `source` remains actor/workflow provenance.
+- Guardian and FHH integration point DTOs can expose the safe display fields
+  `staff_display_name`, `class_section_name`, `subject_name`, `subject_code`,
+  `duty_context`, and `context_type`. They do not expose actor/staff IDs or email,
+  target IDs, tokens/hashes, storage keys/paths, or raw model objects.
+- The FHH backend independently reconstructs its browser DTO from a closed-world
+  allowlist. The FHH browser continues to call FHH only; service and per-link tokens
+  remain server-side.
+
+Reports remain deferred to S24. The guarded realistic demo seeder remains deferred
+to S22b, and homework completion/write-back remains deferred to S23a.

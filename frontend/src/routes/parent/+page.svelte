@@ -49,8 +49,22 @@
     attachments: AnnouncementAttachment[];
     is_read: boolean;
   };
-  type PointEvent = { id: number; category_label: string; type: 'positive' | 'needs_work'; points_delta: number; note?: string | null; teacher_name?: string | null; created_at?: string | null };
+  type PointEvent = { id: number; category_label: string; type: 'positive' | 'needs_work'; points_delta: number; note?: string | null; teacher_name?: string | null; created_at?: string | null; class_section_name?: string | null; subject_name?: string | null; subject_code?: string | null; duty_context?: 'break' | 'lunch' | 'playground' | 'hallway' | 'assembly' | 'bus' | 'general_duty' | null; context_type?: 'class' | 'subject' | 'duty' | 'general' };
   type HomeworkItem = { id: number; item_type: 'homework' | 'diary'; title: string; body?: string; preview?: string; audience_type: 'class_section' | 'subject_group'; class_section_name?: string | null; subject_group_name?: string | null; due_at?: string | null; created_at?: string | null; attachment_count: number; attachments: AnnouncementAttachment[]; resource_links: { url: string; label?: string | null }[] };
+
+  function pointContext(event: PointEvent) {
+    const parts: string[] = [];
+    if (event.subject_name) {
+      parts.push(event.subject_name);
+      if (event.subject_code && !event.subject_name.toLocaleLowerCase().includes(event.subject_code.toLocaleLowerCase())) parts.push(event.subject_code);
+      if (event.class_section_name) parts.push(event.class_section_name);
+    } else if (event.duty_context) {
+      parts.push($_(`parent.points.duty.${event.duty_context}`));
+    } else if (event.class_section_name) {
+      parts.push(event.class_section_name);
+    }
+    return parts;
+  }
 
   type CalendarItem = {
     id: string;
@@ -721,7 +735,7 @@
       {:else}
         <div class="mt-5 divide-y divide-slate-100 rounded-xl border border-slate-200">
           {#each pointsChild.recent_point_events as event}
-            <article class="p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class={`font-bold ${event.type === 'positive' ? 'text-emerald-700' : 'text-amber-700'}`}>{event.category_label}</p><p class="mt-1 text-xs text-slate-500">{formatDateTime(event.created_at)}{event.teacher_name ? ` · ${event.teacher_name}` : ''}</p></div><span class={`shrink-0 text-lg font-black ${event.points_delta > 0 ? 'text-emerald-600' : 'text-amber-700'}`}>{event.points_delta > 0 ? '+' : ''}{event.points_delta}</span></div>{#if event.note}<p class="mt-3 whitespace-pre-wrap break-words text-sm text-slate-600">{event.note}</p>{/if}</article>
+            <article class="p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class={`font-bold ${event.type === 'positive' ? 'text-emerald-700' : 'text-amber-700'}`}>{event.category_label}</p><p class="mt-1 text-xs text-slate-500">{[formatDateTime(event.created_at), event.teacher_name, ...pointContext(event)].filter(Boolean).join(' · ')}</p></div><span class={`shrink-0 text-lg font-black ${event.points_delta > 0 ? 'text-emerald-600' : 'text-amber-700'}`}>{event.points_delta > 0 ? '+' : ''}{event.points_delta}</span></div>{#if event.note}<p class="mt-3 whitespace-pre-wrap break-words text-sm text-slate-600">{event.note}</p>{/if}</article>
           {/each}
         </div>
       {/if}

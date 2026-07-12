@@ -515,3 +515,23 @@ no commit or push was made.*
 
 - `GET /api/integrations/fhh/links/{link_id}/dashboard` explicitly exposes only `student.avatar_id` in addition to the existing allowlisted student fields. It is numeric or null; raw `/avatars` URLs and internal paths are not part of the integration payload.
 - FHH sanitizes the value again and serves the school avatar locally. Browser calls remain FHH-only.
+
+### S22a point-context contract note (2026-07-12)
+
+The linked-school dashboard point contract now carries event-time context rather
+than deriving old event labels from the linked student's current enrolment. CHH
+constructs, and FHH independently sanitizes, these optional safe point fields:
+
+- `staff_display_name`
+- `class_section_name`
+- `subject_name`
+- `subject_code`
+- `duty_context` (`break`, `lunch`, `playground`, `hallway`, `assembly`, `bus`, or
+  `general_duty`)
+- `context_type` (`class`, `subject`, `duty`, or `general`)
+
+Target and actor IDs, staff email, service/link tokens and hashes, storage paths and
+keys, and raw ORM objects are not part of this contract. Legacy events are reported
+as `context_type=general` with no invented class, subject, or duty label. The browser
+still calls FHH only. Reporting, demo seeding, and homework write-back remain outside
+S22a (S24, S22b, and S23a respectively).

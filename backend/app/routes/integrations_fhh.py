@@ -18,6 +18,7 @@ from ..models_school import (
     ClassSection, Enrolment, FhhLink, FhhLinkInvite, GradeLevel, HomeworkAttachment,
     HomeworkItem, School, Student, UpdatePhoto, UpdatePost, User,
 )
+from ..behaviour_service import event_context_payloads
 from ..school_scope import open_interval_expression, write_audit
 from ..rosters import bulk_subject_groups_for_students
 from ..security import BoundedInMemoryRateLimiter, get_client_ip_from_scope, is_ip_trusted, parse_ip_networks
@@ -188,7 +189,8 @@ def dashboard(link_id: int, x_fhh_link_token: str | None = Header(default=None),
     link = _link(db, link_id, x_fhh_link_token); sections, groups = _scope(db, link)
     snap = _snapshot(db, link.school_id, link.student_id)
     total = db.query(func.coalesce(func.sum(BehaviourEvent.points_delta), 0)).filter(BehaviourEvent.student_id == link.student_id, BehaviourEvent.reversed_at.is_(None)).scalar()
-    events = db.query(BehaviourEvent, BehaviourCategory, User).join(BehaviourCategory, BehaviourCategory.id == BehaviourEvent.category_id).outerjoin(User, User.id == BehaviourEvent.actor_user_id).filter(BehaviourEvent.student_id == link.student_id, BehaviourEvent.reversed_at.is_(None)).order_by(BehaviourEvent.created_at.desc()).limit(10).all()
+    events = db.query(BehaviourEvent, BehaviourCategory, User).join(BehaviourCategory, BehaviourCategory.id == BehaviourEvent.category_id).outerjoin(User, User.id == BehaviourEvent.actor_user_id).filter(BehaviourEvent.student_id == link.student_id, BehaviourEvent.reversed_at.is_(None)).order_by(BehaviourEvent.created_at.desc(), BehaviourEvent.id.desc()).limit(10).all()
+    point_contexts = event_context_payloads(db, [event for event, _category, _actor in events])
     homework = db.query(HomeworkItem).filter(*_audience(HomeworkItem, link.school_id, sections, groups, school_wide=False), HomeworkItem.status == "active").order_by(HomeworkItem.created_at.desc()).limit(100).all()
     hids = [x.id for x in homework]; hats = db.query(HomeworkAttachment).filter(HomeworkAttachment.homework_item_id.in_(hids)).all() if hids else []
     hats_by = {i: [a for a in hats if a.homework_item_id == i] for i in hids}
@@ -201,10 +203,9 @@ def dashboard(link_id: int, x_fhh_link_token: str | None = Header(default=None),
     meta = lambda a: {"id": a.id, "original_filename": a.original_filename, "content_type": a.content_type, "size_bytes": a.size_bytes}
     return {
         **snap,
-        # The FHH dashboard receives only display-safe context: the awarding
-        # staff member's configured name and the linked student's current
-        # section name. Never expose account emails or internal identifiers.
-        "points": {"total": int(total or 0), "recent_events": [{"id": e.id, "category_label": c.label, "category_type": c.type, "points_delta": e.points_delta, "note": e.note, "created_at": e.created_at, "staff_display_name": actor.name if actor else None, "class_section_name": snap["student"]["class_section_name"]} for e,c,actor in events]},
+        # Event-time context is purpose-built and display-safe. Never replace
+        # it with current enrolment or expose actor/target identifiers.
+        "points": {"total": int(total or 0), "recent_events": [{"id": e.id, "category_label": c.label, "category_type": c.type, "points_delta": e.points_delta, "note": e.note, "created_at": e.created_at, "staff_display_name": actor.name if actor else None, **point_contexts[e.id]} for e,c,actor in events]},
         "homework": {"active": [{"id": x.id, "item_type": x.item_type, "title": x.title, "body": x.body, "due_at": x.due_at, "resource_links": x.resource_links, "attachments": [meta(a) for a in hats_by[x.id]], "done": False} for x in homework], "completed": []},
         "announcements": [{"id": x.id, "title": x.title, "body": x.body, "audience_type": x.audience_type, "created_at": x.created_at, "attachments": [meta(a) for a in aatts if a.post_id == x.id]} for x in announcements],
         "updates": [{"id": x.id, "body": x.body, "created_at": x.created_at, "photos": [{"id": p.id, "content_type": p.content_type, "size_bytes": p.size_bytes} for p in photos if p.post_id == x.id]} for x in updates],

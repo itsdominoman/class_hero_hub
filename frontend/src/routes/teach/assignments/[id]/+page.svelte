@@ -177,7 +177,10 @@
     pointsSaving = true;
     pointsError = null;
     try {
-      const result = await api.post('/teach/behaviour/events', { school_id: detail.assignment.school.id, student_ids: selectedStudents, category_id: Number(categoryId), note: pointNote || null });
+      const target = detail.assignment.target_type === 'subject_group'
+        ? { context_type: 'subject', subject_group_id: detail.assignment.subject_group?.id }
+        : { context_type: 'class', class_section_id: detail.assignment.class_section?.id };
+      const result = await api.post('/teach/behaviour/events', { school_id: detail.assignment.school.id, student_ids: selectedStudents, category_id: Number(categoryId), note: pointNote || null, ...target });
       const savedCount = result.created;
       detail = await api.get(`/teach/assignments/${$page.params.id}`);
       pointsSuccess = savedCount === 1

@@ -102,6 +102,7 @@
   let pointType = $state<'positive' | 'needs_work'>('positive');
   let categoryId = $state('');
   let pointNote = $state('');
+  let dutyContext = $state('general_duty');
   let pointsSaving = $state(false);
   let pointsSuccess = $state<string | null>(null);
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -216,7 +217,8 @@
     try {
       const result = await api.post('/teach/behaviour/events', {
         school_id: Number(searchSchoolId), student_ids: selectedStudents.map((row) => row.id),
-        category_id: Number(categoryId), note: pointNote || null
+        category_id: Number(categoryId), note: pointNote || null,
+        context_type: 'duty', duty_context: dutyContext
       });
       pointsSuccess = result.created === 1 ? $_('teach.points.successOne') : $_('teach.points.successMany', { values: { count: result.created } });
       selectedStudents = [];
@@ -663,6 +665,7 @@
 
       <div class="mt-5 grid grid-cols-2 gap-2"><button type="button" class={`rounded-xl px-4 py-3 font-black ${pointType === 'positive' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`} onclick={() => choosePointType('positive')}>{$_('teach.points.positive')}</button><button type="button" class={`rounded-xl px-4 py-3 font-black ${pointType === 'needs_work' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-800'}`} onclick={() => choosePointType('needs_work')}>{$_('teach.points.needsWork')}</button></div>
       <form class="mt-4 grid gap-3" onsubmit={(event) => { event.preventDefault(); submitDutyPoints(); }}>
+        <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.points.dutyContext')}<select class="rounded-lg border border-slate-200 px-3 py-2" bind:value={dutyContext}><option value="break">{$_('teach.points.duty.break')}</option><option value="lunch">{$_('teach.points.duty.lunch')}</option><option value="playground">{$_('teach.points.duty.playground')}</option><option value="hallway">{$_('teach.points.duty.hallway')}</option><option value="assembly">{$_('teach.points.duty.assembly')}</option><option value="bus">{$_('teach.points.duty.bus')}</option><option value="general_duty">{$_('teach.points.duty.general_duty')}</option></select></label>
         <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.points.category')}<select class="rounded-lg border border-slate-200 px-3 py-2" required bind:value={categoryId}>{#each categories.filter((row) => row.type === pointType) as category}<option value={category.id}>{category.label} ({category.points_value > 0 ? '+' : ''}{category.points_value})</option>{/each}</select></label>
         <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.points.note')}<textarea class="min-h-20 rounded-lg border border-slate-200 px-3 py-2" maxlength="500" bind:value={pointNote}></textarea></label>
         <button type="submit" class="btn-hero inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3" disabled={pointsSaving || !selectedStudents.length || !categoryId}><Star size={18} aria-hidden="true" />{pointsSaving ? $_('teach.points.saving') : selectedStudents.length === 1 ? $_('teach.points.saveForOne') : $_('teach.points.saveForMany', { values: { count: selectedStudents.length } })}</button>

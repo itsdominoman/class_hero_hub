@@ -732,7 +732,8 @@ export const en = {
       searching: 'Searching…', resultCount: '{count} results', selected: '{count} selected', noClass: 'Class not available', searchError: 'Failed to search students'
     },
     points: {
-      title: 'Award points', open: 'Open', positive: 'Positive', needsWork: 'Needs work', selectStudents: 'Select students', wholeClass: 'Whole class', clearSelection: 'Clear selection', category: 'Category / reason', note: 'Optional note', submit: 'Save points', saveForOne: 'Save points for 1 student', saveForMany: 'Save points for {count} students', saving: 'Saving…', close: 'Close', loadError: 'Failed to load categories', saveError: 'Failed to save points', successOne: 'Points saved for 1 student', successMany: 'Points saved for {count} students', pts: 'pts'
+      title: 'Award points', open: 'Open', positive: 'Positive', needsWork: 'Needs work', selectStudents: 'Select students', wholeClass: 'Whole class', clearSelection: 'Clear selection', category: 'Category / reason', note: 'Optional note', dutyContext: 'Duty context', submit: 'Save points', saveForOne: 'Save points for 1 student', saveForMany: 'Save points for {count} students', saving: 'Saving…', close: 'Close', loadError: 'Failed to load categories', saveError: 'Failed to save points', successOne: 'Points saved for 1 student', successMany: 'Points saved for {count} students', pts: 'pts',
+      duty: { break: 'Break duty', lunch: 'Lunch duty', playground: 'Playground', hallway: 'Hallway', assembly: 'Assembly', bus: 'Bus', general_duty: 'General duty' }
     }
   },
   faq: {
@@ -808,7 +809,7 @@ export const en = {
       points: 'Points & behaviour',
       comingSoon: 'Coming soon'
     },
-    points: { empty: 'No points yet', close: 'Close', total: 'Total', currentTotal: 'Current total', pts: 'pts', viewHistory: 'View history', noHistory: 'No recent behaviour events.' },
+    points: { empty: 'No points yet', close: 'Close', total: 'Total', currentTotal: 'Current total', pts: 'pts', viewHistory: 'View history', noHistory: 'No recent behaviour events.', duty: { break: 'Break duty', lunch: 'Lunch duty', playground: 'Playground', hallway: 'Hallway', assembly: 'Assembly', bus: 'Bus', general_duty: 'General duty' } },
     announcements: {
       empty: 'No announcements yet.',
       schoolAudience: 'Whole school',
@@ -1569,7 +1570,7 @@ export const ar = {
       school: 'المدرسة', searchLabel: 'اسم الطالب أو الرقم المرجعي', placeholder: 'اكتب حرفين على الأقل', minimum: 'أدخل حرفين على الأقل للبحث.',
       searching: 'جار البحث…', resultCount: '{count} نتائج', selected: 'تم اختيار {count}', noClass: 'الصف غير متاح', searchError: 'تعذر البحث عن الطلاب'
     },
-    points: { title: 'منح النقاط', open: 'فتح', positive: 'إيجابي', needsWork: 'يحتاج إلى تحسين', selectStudents: 'اختر الطلاب', wholeClass: 'الصف بأكمله', clearSelection: 'مسح التحديد', category: 'الفئة / السبب', note: 'ملاحظة اختيارية', submit: 'حفظ النقاط', saveForOne: 'حفظ النقاط لطالب واحد', saveForMany: 'حفظ النقاط لـ {count} طلاب', saving: 'جار الحفظ…', close: 'إغلاق', loadError: 'تعذر تحميل الفئات', saveError: 'تعذر حفظ النقاط', successOne: 'تم حفظ النقاط لطالب واحد', successMany: 'تم حفظ النقاط لـ {count} طلاب', pts: 'نقطة' }
+    points: { title: 'منح النقاط', open: 'فتح', positive: 'إيجابي', needsWork: 'يحتاج إلى تحسين', selectStudents: 'اختر الطلاب', wholeClass: 'الصف بأكمله', clearSelection: 'مسح التحديد', category: 'الفئة / السبب', note: 'ملاحظة اختيارية', dutyContext: 'سياق المناوبة', submit: 'حفظ النقاط', saveForOne: 'حفظ النقاط لطالب واحد', saveForMany: 'حفظ النقاط لـ {count} طلاب', saving: 'جار الحفظ…', close: 'إغلاق', loadError: 'تعذر تحميل الفئات', saveError: 'تعذر حفظ النقاط', successOne: 'تم حفظ النقاط لطالب واحد', successMany: 'تم حفظ النقاط لـ {count} طلاب', pts: 'نقطة', duty: { break: 'مناوبة الفسحة', lunch: 'مناوبة الغداء', playground: 'ساحة اللعب', hallway: 'الممر', assembly: 'الطابور', bus: 'الحافلة', general_duty: 'مناوبة عامة' } }
   },
   faq: {
     pageTitle: 'الأسئلة الشائعة | كلاس هيرو هب',
@@ -1644,7 +1645,7 @@ export const ar = {
       points: 'النقاط والسلوك',
       comingSoon: 'قريبا'
     },
-    points: { empty: 'لا توجد نقاط بعد', close: 'إغلاق', total: 'المجموع', currentTotal: 'المجموع الحالي', pts: 'نقطة', viewHistory: 'عرض السجل', noHistory: 'لا توجد أحداث سلوك حديثة.' },
+    points: { empty: 'لا توجد نقاط بعد', close: 'إغلاق', total: 'المجموع', currentTotal: 'المجموع الحالي', pts: 'نقطة', viewHistory: 'عرض السجل', noHistory: 'لا توجد أحداث سلوك حديثة.', duty: { break: 'مناوبة الفسحة', lunch: 'مناوبة الغداء', playground: 'ساحة اللعب', hallway: 'الممر', assembly: 'الطابور', bus: 'الحافلة', general_duty: 'مناوبة عامة' } },
     announcements: {
       empty: 'لا توجد إعلانات بعد.',
       schoolAudience: 'المدرسة كلها',

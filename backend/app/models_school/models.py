@@ -563,9 +563,13 @@ class BehaviourEvent(Base):
     student_id = Column(Integer, ForeignKey("students.id"), nullable=False, index=True)
     category_id = Column(Integer, ForeignKey("behaviour_categories.id"), nullable=False, index=True)
     actor_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    class_section_id = Column(Integer, ForeignKey("class_sections.id"), nullable=True, index=True)
+    subject_group_id = Column(Integer, ForeignKey("subject_groups.id"), nullable=True, index=True)
     points_delta = Column(Integer, nullable=False)
     note = Column(Text, nullable=True)
     source = Column(String, nullable=False, default="teacher", server_default="teacher")
+    context_type = Column(String, nullable=False, default="general", server_default="general")
+    duty_context = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     reversed_at = Column(DateTime(timezone=True), nullable=True)
     reversed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -573,7 +577,20 @@ class BehaviourEvent(Base):
 
     __table_args__ = (
         CheckConstraint("source IN ('teacher', 'admin', 'correction')", name="ck_behaviour_events_source"),
+        CheckConstraint("context_type IN ('class', 'subject', 'duty', 'general')", name="ck_behaviour_events_context_type"),
+        CheckConstraint(
+            "duty_context IS NULL OR duty_context IN ('break', 'lunch', 'playground', 'hallway', 'assembly', 'bus', 'general_duty')",
+            name="ck_behaviour_events_duty_context",
+        ),
+        CheckConstraint(
+            "(context_type = 'subject' AND subject_group_id IS NOT NULL AND class_section_id IS NULL AND duty_context IS NULL) OR "
+            "(context_type = 'class' AND class_section_id IS NOT NULL AND subject_group_id IS NULL AND duty_context IS NULL) OR "
+            "(context_type = 'duty' AND duty_context IS NOT NULL AND class_section_id IS NULL AND subject_group_id IS NULL) OR "
+            "(context_type = 'general' AND class_section_id IS NULL AND subject_group_id IS NULL AND duty_context IS NULL)",
+            name="ck_behaviour_events_context_combination",
+        ),
         Index("ix_behaviour_events_school_student_created", "school_id", "student_id", "created_at"),
+        Index("ix_behaviour_events_school_context_created", "school_id", "context_type", "duty_context", "created_at"),
     )
 
 

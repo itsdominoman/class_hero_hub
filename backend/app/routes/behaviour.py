@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -48,6 +48,36 @@ class EventRequest(BaseModel):
     student_ids: list[int] = Field(min_length=1, max_length=40)
     category_id: int
     note: str | None = Field(default=None, max_length=500)
+    context_type: str = "general"
+    class_section_id: int | None = None
+    subject_group_id: int | None = None
+    duty_context: str | None = None
+
+    @field_validator("context_type")
+    @classmethod
+    def context_type_valid(cls, value):
+        if value not in {"class", "subject", "duty", "general"}:
+            raise ValueError("Invalid behaviour context type")
+        return value
+
+    @field_validator("duty_context")
+    @classmethod
+    def duty_context_valid(cls, value):
+        if value is not None and value not in {"break", "lunch", "playground", "hallway", "assembly", "bus", "general_duty"}:
+            raise ValueError("Invalid duty context")
+        return value
+
+    @model_validator(mode="after")
+    def context_combination_valid(self):
+        valid = (
+            (self.context_type == "subject" and self.subject_group_id is not None and self.class_section_id is None and self.duty_context is None)
+            or (self.context_type == "class" and self.class_section_id is not None and self.subject_group_id is None and self.duty_context is None)
+            or (self.context_type == "duty" and self.duty_context is not None and self.class_section_id is None and self.subject_group_id is None)
+            or (self.context_type == "general" and self.class_section_id is None and self.subject_group_id is None and self.duty_context is None)
+        )
+        if not valid:
+            raise ValueError("Behaviour context fields do not match context_type")
+        return self
 
 
 @school_router.get("/behaviour/categories")
@@ -97,7 +127,18 @@ def teacher_categories(school_id: int, user: User = Depends(auth.get_current_use
 
 @teacher_router.post("/behaviour/events", status_code=201)
 def award_points(body: EventRequest, user: User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
-    rows = create_events(db, school_id=body.school_id, student_ids=body.student_ids, category_id=body.category_id, actor=user, note=body.note)
+    rows = create_events(
+        db,
+        school_id=body.school_id,
+        student_ids=body.student_ids,
+        category_id=body.category_id,
+        actor=user,
+        note=body.note,
+        context_type=body.context_type,
+        class_section_id=body.class_section_id,
+        subject_group_id=body.subject_group_id,
+        duty_context=body.duty_context,
+    )
     write_audit(db, user, "behaviour.events.created", ("behaviour_events", None), {"event_ids": [r.id for r in rows], "student_ids": body.student_ids, "category_id": body.category_id}, body.school_id); db.commit()
     return {"created": len(rows), "events": [{"id": r.id, "student_id": r.student_id, "category_id": r.category_id, "points_delta": r.points_delta} for r in rows]}
 

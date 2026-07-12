@@ -13,7 +13,7 @@ from sqlalchemy.pool import StaticPool
 from app import auth, database, invite_tokens
 from app.database import Base, get_db
 from app.main import app
-from app.models_school import AcademicYear, BehaviourCategory, BehaviourEvent, BranchCampus, ClassSection, Enrolment, FhhLink, FhhLinkInvite, GradeLevel, Membership, School, Student, User
+from app.models_school import AcademicYear, BehaviourCategory, BehaviourEvent, BranchCampus, ClassSection, Enrolment, FhhLink, FhhLinkInvite, GradeLevel, Membership, School, Student, Subject, SubjectGroup, User
 from app.routes import integrations_fhh
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -137,16 +137,28 @@ def test_dashboard_link_token_scope_and_revocation(db, client, world):
 
 def test_dashboard_point_events_include_only_safe_display_context(db, client, world):
     category = BehaviourCategory(school_id=world["school"].id, type="positive", label="Respectful behaviour", points_value=1, active=True)
-    db.add(category); db.flush()
-    db.add(BehaviourEvent(school_id=world["school"].id, student_id=world["one"].id, category_id=category.id, actor_user_id=world["admin"].id, points_delta=1, source="teacher"))
+    subject = Subject(school_id=world["school"].id, code="ENG", name="English", status="active")
+    db.add_all([category, subject]); db.flush()
+    group = SubjectGroup(school_id=world["school"].id, academic_year_id=world["year"].id, class_section_id=world["section"].id, subject_id=subject.id, code="1A-ENG", name="1A English", status="active", enrolment_policy="default_for_section")
+    db.add(group); db.flush()
+    db.add_all([
+        BehaviourEvent(school_id=world["school"].id, student_id=world["one"].id, category_id=category.id, actor_user_id=world["admin"].id, points_delta=1, source="teacher", context_type="subject", subject_group_id=group.id),
+        BehaviourEvent(school_id=world["school"].id, student_id=world["one"].id, category_id=category.id, actor_user_id=world["admin"].id, points_delta=1, source="teacher", context_type="duty", duty_context="break"),
+    ])
     db.commit()
     linked = consume(client, issue(client, world).json()["code"], "one").json()
     response = client.get(f"/api/integrations/fhh/links/{linked['link_id']}/dashboard", headers=service(link_token=linked["link_token"]))
     assert response.status_code == 200
-    event = response.json()["points"]["recent_events"][0]
-    assert event["staff_display_name"] == world["admin"].name
-    assert event["class_section_name"] == world["section"].name
-    assert "actor_user_id" not in event and "email" not in event
+    events = response.json()["points"]["recent_events"]
+    subject_event = next(event for event in events if event["context_type"] == "subject")
+    assert subject_event["staff_display_name"] == world["admin"].name
+    assert subject_event["class_section_name"] == world["section"].name
+    assert subject_event["subject_name"] == "English" and subject_event["subject_code"] == "ENG"
+    duty_event = next(event for event in events if event["context_type"] == "duty")
+    assert duty_event["duty_context"] == "break" and duty_event["class_section_name"] is None
+    for event in events:
+        for forbidden in ("actor_user_id", "staff_id", "email", "subject_group_id", "subject_id", "class_section_id", "token", "hash", "storage_key", "path"):
+            assert forbidden not in event
 
 
 def test_models_store_only_hashed_tokens_and_have_scope_indexes(db):

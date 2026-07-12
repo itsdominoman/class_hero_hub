@@ -297,7 +297,7 @@ def test_dashboard_points_are_link_scoped_allow_listed_and_newest_first(db, clie
     db.add_all([positive, needs_work]); db.flush()
     db.add_all([
         BehaviourEvent(school_id=world["alpha"].id, student_id=world["sara"].id, category_id=positive.id, actor_user_id=world["alpha_teacher"].id, points_delta=2, note="Older note", source="teacher", created_at=datetime(2026, 7, 10, 9, 0, tzinfo=timezone.utc)),
-        BehaviourEvent(school_id=world["alpha"].id, student_id=world["sara"].id, category_id=needs_work.id, actor_user_id=world["alpha_teacher"].id, points_delta=-1, note="Newest note", source="teacher", created_at=datetime(2026, 7, 11, 10, 0, tzinfo=timezone.utc)),
+        BehaviourEvent(school_id=world["alpha"].id, student_id=world["sara"].id, category_id=needs_work.id, actor_user_id=world["alpha_teacher"].id, points_delta=-1, note="Newest note", source="teacher", context_type="duty", duty_context="playground", created_at=datetime(2026, 7, 11, 10, 0, tzinfo=timezone.utc)),
         BehaviourEvent(school_id=world["alpha"].id, student_id=world["other_child"].id, category_id=positive.id, actor_user_id=world["alpha_teacher"].id, points_delta=2, source="teacher", created_at=datetime(2026, 7, 11, 11, 0, tzinfo=timezone.utc)),
     ]); db.commit()
 
@@ -310,6 +310,14 @@ def test_dashboard_points_are_link_scoped_allow_listed_and_newest_first(db, clie
     assert [event["category_label"] for event in child["recent_point_events"]] == ["Unsafe play", "Helping"]
     assert child["recent_point_events"][0]["teacher_name"] == "Alpha Teacher"
     assert child["recent_point_events"][0]["note"] == "Newest note"
+    assert child["recent_point_events"][0]["context_type"] == "duty"
+    assert child["recent_point_events"][0]["duty_context"] == "playground"
+    assert child["recent_point_events"][0]["subject_name"] is None
+    assert child["recent_point_events"][0]["subject_code"] is None
+    assert child["recent_point_events"][0]["class_section_name"] is None
+    for event in child["recent_point_events"]:
+        for forbidden in ("actor_user_id", "staff_id", "email", "subject_group_id", "subject_id", "class_section_id", "token", "hash", "storage_key", "path"):
+            assert forbidden not in event
     serialized = str(child).lower()
     assert "token" not in serialized and "invite" not in serialized and "@example.com" not in serialized
 
