@@ -43,7 +43,7 @@ S13–S16 CHH slices.
 ### Implemented-status note — 2026-07-12
 
 The original audit/design remains historical and is intentionally not rewritten.
-Since it was authored, S19 and S20 have been implemented across CHH and FHH:
+Since it was authored, S19, S20, and S21a have been implemented across CHH and FHH:
 
 - S19 linked-school dashboard/display slice is implemented. FHH owns the parent-authenticated
   link/dashboard UI and uses an explicit sanitized allowlist; the browser/app talks only
@@ -52,12 +52,15 @@ Since it was authored, S19 and S20 have been implemented across CHH and FHH:
 - S20 protected media proxy is implemented. CHH now serves scoped integration-only bytes
   for announcement attachments, homework attachments, and update photos; FHH proxies them
   through parent/family-scoped routes. Service and per-link tokens remain server-side.
+- S21a school dashboard polish and safe school-avatar plumbing are implemented. CHH now
+  exposes the explicit numeric `student.avatar_id` in the dashboard payload, FHH renders
+  local copied 256px school avatar assets, and the browser still calls FHH only.
 - Media 401/403/404/410 failures are treated as media-unavailable and do not revoke a
   durable FHH school connection. Dashboard/link validation remains a separate revocation
   path.
-- The S20 media endpoint tests, safe school-avatar plumbing, and homework write-back remain
-  deferred. See the dated S19/S20 implementation-log entries for exact files, QA findings,
-  deployment notes, and validation results.
+- The S20 media endpoint tests and homework write-back remain deferred. See the dated
+  S19/S20/S21a implementation-log entries for exact files, QA findings, deployment notes,
+  and validation results.
 
 ---
 

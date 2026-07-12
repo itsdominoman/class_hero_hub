@@ -3704,11 +3704,13 @@ side; the FHH-side handover is in its nearby implementation log.
   coverage.
 - Re-upload fresh CHH media when testing successful announcement/homework downloads.
 - Homework done/not-done write-back remains deferred.
-- A safe school-avatar field for FHH remains deferred; CHH school avatars and FHH
-  home avatars must remain separate identities.
+- Safe school-avatar plumbing was deferred in S20 and later implemented in S21a via
+  explicit `student.avatar_id`; CHH school avatars and FHH home avatars must remain
+  separate identities.
 - Rebuild/restart only the changed CHH service after deployment and verify the
   served/runtime code; do not restart unrelated services.
 ### S21a — FHH school avatar contract (2026-07-12)
 
 - The FHH integration dashboard now includes the explicit safe field `student.avatar_id` when it is a numeric CHH student avatar ID.
-- The contract does not expose raw avatar URLs, filesystem paths, storage keys, service/link tokens, or arbitrary student fields. FHH copies the needed 256px internal assets and remains the only browser-facing API.
+- The dashboard also carries safe point context fields `staff_display_name` and `class_section_name`; it does not expose staff emails, internal staff IDs, token hashes, storage keys, raw paths, or arbitrary object dumps.
+- The contract does not expose raw avatar URLs, filesystem paths, storage keys, service/link tokens, or arbitrary student fields. FHH copies the needed 256px internal assets, renders them in the browser-facing layer, and remains the only browser-facing API.
