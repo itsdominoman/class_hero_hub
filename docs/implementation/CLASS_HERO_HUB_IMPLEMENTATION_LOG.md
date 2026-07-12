@@ -1,5 +1,41 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-12 — S22b: Guarded Realistic Demo Activity Seeder
+
+Implemented the S22b demo activity seeder surface for United International School
+without touching FHH or homework completion.
+
+### Manifest and provenance
+
+- Added `demo_seed_records` with a dedicated migration and ORM model.
+- The manifest is keyed by `(seed_namespace, entity_type, entity_key)` and stores
+  the created model name/id plus JSON metadata for deterministic reruns.
+- Namespace `s22-demo-v1` is reserved for this demo data set.
+
+### Seeder
+
+- Added `backend/scripts/seed_realistic_demo_school.py`.
+- The script is dry-run by default and only writes with `--apply`.
+- Writes also require `APP_ENV=development` and
+  `DEMO_SEED_CONFIRM=united-international-school`.
+- It aborts on school mismatch, suspension, or missing current academic year.
+- It excludes Bob Smith and any already-linked students from deterministic persona
+  selection.
+- It seeds behaviour events with the S22a context fields, plus homework items,
+  announcements, update posts, and calendar events on top of existing setup data.
+- Photo attachments are optional and use local reviewed assets only when a manifest
+  is available; otherwise the photo step is skipped cleanly.
+- No email, invite, magic-link, token, WhatsApp, auth, guardian-link, or FHH-link
+  changes are made.
+
+### Tests and docs
+
+- Added focused backend tests for dry-run rollback, write guards, repeated applies,
+  context coverage, persona exclusion, rollback-on-failure, and a safe Alembic
+  upgrade path for the manifest table.
+- Updated `docs/DEMO_DATA.md` with the guarded run instructions and the no-hotlink,
+  no-homework-completion policy.
+
 ## 2026-07-11 — S17: CHH Integration API Foundation
 
 Implemented a dark-deployable, CHH-only integration surface for Family Hero Hub. No

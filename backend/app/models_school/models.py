@@ -262,6 +262,25 @@ class StaffAssignment(Base):
     )
 
 
+class DemoSeedRecord(Base):
+    __tablename__ = "demo_seed_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    seed_namespace = Column(String, nullable=False, index=True)
+    entity_type = Column(String, nullable=False, index=True)
+    entity_key = Column(String, nullable=False)
+    model_name = Column(String, nullable=False)
+    model_id = Column(Integer, nullable=True, index=True)
+    metadata_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("seed_namespace", "entity_type", "entity_key", name="uq_demo_seed_records_namespace_type_key"),
+        Index("ix_demo_seed_records_namespace_type", "seed_namespace", "entity_type"),
+    )
+
+
 class Student(Base):
     __tablename__ = "students"
 

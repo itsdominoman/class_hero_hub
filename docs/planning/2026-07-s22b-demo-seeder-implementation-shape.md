@@ -4,6 +4,11 @@
 **Date:** 2026-07-12  
 **Scope:** inspect-only pass; no data mutation, no seeder execution, no commit/push/merge/tag
 
+**Carry-on note:** the guarded seeder implementation has now been landed in code and
+focused validation passed. No `--apply` run was performed against the live dev
+database. If work resumes later, the remaining actions are operational review only
+unless new demo assets or additional guard refinements are requested.
+
 ## 1. Existing setup-data inventory
 
 United International School is present exactly once in the dev database:
@@ -307,4 +312,3 @@ Proceed with S22b implementation using:
 - no internet dependency
 - no changes to existing FHH/CHH link data
 - local reviewed photos only
-
