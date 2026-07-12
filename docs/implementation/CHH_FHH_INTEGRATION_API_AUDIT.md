@@ -40,6 +40,25 @@ homework done/not-done.
 Estimated effort: 5 slices (S17–S21 below), each roughly the size of the recent
 S13–S16 CHH slices.
 
+### Implemented-status note — 2026-07-12
+
+The original audit/design remains historical and is intentionally not rewritten.
+Since it was authored, S19 and S20 have been implemented across CHH and FHH:
+
+- S19 linked-school dashboard/display slice is implemented. FHH owns the parent-authenticated
+  link/dashboard UI and uses an explicit sanitized allowlist; the browser/app talks only
+  to FHH, never CHH. The final parent UX keeps school access out of the main dashboard:
+  only a linked child modal/action-sheet action and Settings → School connections expose it.
+- S20 protected media proxy is implemented. CHH now serves scoped integration-only bytes
+  for announcement attachments, homework attachments, and update photos; FHH proxies them
+  through parent/family-scoped routes. Service and per-link tokens remain server-side.
+- Media 401/403/404/410 failures are treated as media-unavailable and do not revoke a
+  durable FHH school connection. Dashboard/link validation remains a separate revocation
+  path.
+- The S20 media endpoint tests, safe school-avatar plumbing, and homework write-back remain
+  deferred. See the dated S19/S20 implementation-log entries for exact files, QA findings,
+  deployment notes, and validation results.
+
 ---
 
 ## 2. Access & repo status (Part 1 verification)

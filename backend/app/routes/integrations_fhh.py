@@ -21,6 +21,10 @@ from ..models_school import (
 from ..school_scope import open_interval_expression, write_audit
 from ..rosters import bulk_subject_groups_for_students
 from ..security import BoundedInMemoryRateLimiter, get_client_ip_from_scope, is_ip_trusted, parse_ip_networks
+from .announcements import _attachment_path
+from .homework import _file_response
+from .updates import _photo_response
+from fastapi.responses import FileResponse
 from .guardian import initials_from_name
 
 router = APIRouter()
@@ -143,6 +147,33 @@ def _audience(model, school_id: int, sections: set[int], groups: set[int], *, sc
     return [model.school_id == school_id, or_(*clauses)] if clauses else [model.id == -1]
 
 
+def _linked_announcement(db: Session, link: FhhLink, announcement_id: int) -> Announcement | None:
+    sections, groups = _scope(db, link)
+    return db.query(Announcement).filter(
+        Announcement.id == announcement_id,
+        Announcement.status == "published",
+        *_audience(Announcement, link.school_id, sections, groups, school_wide=True),
+    ).first()
+
+
+def _linked_homework(db: Session, link: FhhLink, homework_id: int) -> HomeworkItem | None:
+    sections, groups = _scope(db, link)
+    return db.query(HomeworkItem).filter(
+        HomeworkItem.id == homework_id,
+        HomeworkItem.status == "active",
+        *_audience(HomeworkItem, link.school_id, sections, groups, school_wide=False),
+    ).first()
+
+
+def _linked_update(db: Session, link: FhhLink, update_id: int) -> UpdatePost | None:
+    sections, groups = _scope(db, link)
+    return db.query(UpdatePost).filter(
+        UpdatePost.id == update_id,
+        UpdatePost.status == "active",
+        *_audience(UpdatePost, link.school_id, sections, groups, school_wide=False),
+    ).first()
+
+
 @router.delete("/links/{link_id}", dependencies=[Depends(require_fhh_service)])
 def revoke_link(link_id: int, x_fhh_link_token: str | None = Header(default=None), db: Session = Depends(get_db)):
     link = _link(db, link_id, x_fhh_link_token)
@@ -177,3 +208,54 @@ def dashboard(link_id: int, x_fhh_link_token: str | None = Header(default=None),
         "calendar_upcoming": [{"id": x.id, "kind": "event", "title": x.title, "event_type": x.event_type, "starts_at": x.starts_at, "ends_at": x.ends_at, "all_day": x.all_day} for x in calendar],
         "permissions": {"can_mark_homework_done": False}, "link": {"link_id": link.id, "status": link.status}, "server_time": now,
     }
+
+
+@router.get("/links/{link_id}/announcements/{announcement_id}/attachments/{attachment_id}/download", dependencies=[Depends(require_fhh_service)])
+def download_announcement_attachment(link_id: int, announcement_id: int, attachment_id: int, x_fhh_link_token: str | None = Header(default=None), db: Session = Depends(get_db)):
+    link = _link(db, link_id, x_fhh_link_token)
+    announcement = _linked_announcement(db, link, announcement_id)
+    if not announcement:
+        raise HTTPException(status_code=404, detail="Not found")
+    attachment = db.query(AnnouncementAttachment).filter(
+        AnnouncementAttachment.id == attachment_id,
+        AnnouncementAttachment.post_id == announcement.id,
+        AnnouncementAttachment.school_id == link.school_id,
+    ).first()
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Not found")
+    path = _attachment_path(attachment.storage_key)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(path, media_type=attachment.content_type, filename=attachment.original_filename)
+
+
+@router.get("/links/{link_id}/homework/{homework_id}/attachments/{attachment_id}/download", dependencies=[Depends(require_fhh_service)])
+def download_homework_attachment(link_id: int, homework_id: int, attachment_id: int, x_fhh_link_token: str | None = Header(default=None), db: Session = Depends(get_db)):
+    link = _link(db, link_id, x_fhh_link_token)
+    homework = _linked_homework(db, link, homework_id)
+    if not homework:
+        raise HTTPException(status_code=404, detail="Not found")
+    attachment = db.query(HomeworkAttachment).filter(
+        HomeworkAttachment.id == attachment_id,
+        HomeworkAttachment.homework_item_id == homework.id,
+        HomeworkAttachment.school_id == link.school_id,
+    ).first()
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Not found")
+    return _file_response(attachment)
+
+
+@router.get("/links/{link_id}/updates/{update_id}/photos/{photo_id}/view", dependencies=[Depends(require_fhh_service)])
+def view_update_photo(link_id: int, update_id: int, photo_id: int, x_fhh_link_token: str | None = Header(default=None), db: Session = Depends(get_db)):
+    link = _link(db, link_id, x_fhh_link_token)
+    update = _linked_update(db, link, update_id)
+    if not update:
+        raise HTTPException(status_code=404, detail="Not found")
+    photo = db.query(UpdatePhoto).filter(
+        UpdatePhoto.id == photo_id,
+        UpdatePhoto.post_id == update.id,
+        UpdatePhoto.school_id == link.school_id,
+    ).first()
+    if not photo:
+        raise HTTPException(status_code=404, detail="Not found")
+    return _photo_response(photo)

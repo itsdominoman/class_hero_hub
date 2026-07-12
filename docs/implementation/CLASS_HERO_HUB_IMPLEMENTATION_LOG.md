@@ -3665,3 +3665,46 @@ public sharing, child dashboard feed, or FHH integration in this slice.
   slices S17–S21. Recommended next slice: **S17 CHH Integration API Foundation**.
 - No code changed, no migrations, no commits/pushes; only this log entry and the audit
   document were written.
+
+## 2026-07-12 — S20: protected CHH media proxy for FHH
+
+S20 media delivery is implemented across CHH and FHH. This entry records the CHH
+side; the FHH-side handover is in its nearby implementation log.
+
+### CHH implementation
+
+- Changed `backend/app/routes/integrations_fhh.py` only.
+- Added protected byte endpoints for linked FHH media:
+  - `GET /api/integrations/fhh/links/{link_id}/announcements/{announcement_id}/attachments/{attachment_id}/download`
+  - `GET /api/integrations/fhh/links/{link_id}/homework/{homework_id}/attachments/{attachment_id}/download`
+  - `GET /api/integrations/fhh/links/{link_id}/updates/{update_id}/photos/{photo_id}/view`
+- Every endpoint requires the FHH service bearer token, the per-link token, an active
+  non-revoked durable `fhh_link`, and the linked student's school/class/subject-group
+  audience scope. Resource ownership and audience mismatches return 404.
+- Existing safe storage helpers (`_attachment_path`, `_file_response`, and
+  `_photo_response`) are reused. Storage keys, filesystem paths, service tokens,
+  link tokens, and token hashes are never returned.
+- These endpoints are integration-only and are consumed by the FHH backend proxy;
+  the FHH browser/app never calls CHH directly.
+
+### Validation and QA
+
+- `docker compose run --rm backend pytest -q tests/test_integrations_fhh.py` — **5
+  passed**.
+- `git diff --check` — passed.
+- Manual QA confirmed FHH can render an update photo through the proxy and open its
+  lightbox. An older announcement attachment failed safely because its protected
+  CHH file was absent from the container volume; this was a real missing-file 404,
+  not an audience or proxy authorization failure.
+
+### Caveats and deferred work
+
+- Dedicated CHH byte-endpoint tests for all three media types remain deferred; the
+  existing integration suite validates the foundation and FHH has focused proxy
+  coverage.
+- Re-upload fresh CHH media when testing successful announcement/homework downloads.
+- Homework done/not-done write-back remains deferred.
+- A safe school-avatar field for FHH remains deferred; CHH school avatars and FHH
+  home avatars must remain separate identities.
+- Rebuild/restart only the changed CHH service after deployment and verify the
+  served/runtime code; do not restart unrelated services.
