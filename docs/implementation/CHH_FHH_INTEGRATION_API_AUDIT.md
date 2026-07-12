@@ -1,7 +1,7 @@
 # CHH ↔ FHH Integration API — Audit & Design
 
 **Date:** 2026-07-11
-**Status:** Design/audit only — no code changed, nothing committed.
+**Status:** Historical design/audit; S21a appended the safe avatar contract note below. No code was committed.
 **Scope:** Read-only audit of Class Hero Hub (CHH, restore server 10.250.50.5,
 `/opt/apps/class_hero_hub`, branch `main` @ `bab9ae3`) and Family Hero Hub (FHH, dev
 server 10.250.50.1, `/opt/apps/family-hero-hub`, branch `develop` @ `fcacb34`, dirty
@@ -506,5 +506,9 @@ the auth model has soaked.
 > exposure. Minimal-code philosophy applies.
 
 ---
-*Audit performed read-only on 2026-07-11. No code, migrations, services, commits, or
-pushes were touched in either repo.*
+*Original audit performed read-only on 2026-07-11. S21a changes are documented above;
+no commit or push was made.*
+### S21a avatar contract note (2026-07-12)
+
+- `GET /api/integrations/fhh/links/{link_id}/dashboard` explicitly exposes only `student.avatar_id` in addition to the existing allowlisted student fields. It is numeric or null; raw `/avatars` URLs and internal paths are not part of the integration payload.
+- FHH sanitizes the value again and serves the school avatar locally. Browser calls remain FHH-only.

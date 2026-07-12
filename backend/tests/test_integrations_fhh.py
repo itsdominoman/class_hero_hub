@@ -13,7 +13,7 @@ from sqlalchemy.pool import StaticPool
 from app import auth, database, invite_tokens
 from app.database import Base, get_db
 from app.main import app
-from app.models_school import AcademicYear, BranchCampus, ClassSection, Enrolment, FhhLink, FhhLinkInvite, GradeLevel, Membership, School, Student, User
+from app.models_school import AcademicYear, BehaviourCategory, BehaviourEvent, BranchCampus, ClassSection, Enrolment, FhhLink, FhhLinkInvite, GradeLevel, Membership, School, Student, User
 from app.routes import integrations_fhh
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -126,12 +126,27 @@ def test_dashboard_link_token_scope_and_revocation(db, client, world):
     assert client.get(url, headers=service("wrong")).status_code == 401
     assert client.get(url, headers=service(link_token=two["link_token"])).status_code == 404
     ok = client.get(url, headers=service(link_token=one["link_token"])); assert ok.status_code == 200
-    assert ok.json()["student"]["display_name"] == "Sara A" and "Omar" not in ok.text
+    assert ok.json()["student"]["display_name"] == "Sara A"
+    assert "avatar_id" in ok.json()["student"] and "Omar" not in ok.text
     for forbidden in ("token_hash", "link_token_hash", "storage_key", "/app/data/", "file://", "http://", "https://"):
         assert forbidden not in ok.text
     deleted = client.delete(f"/api/integrations/fhh/links/{one['link_id']}", headers=service(link_token=one["link_token"]))
     assert deleted.status_code == 200
     assert client.get(url, headers=service(link_token=one["link_token"])).status_code == 404
+
+
+def test_dashboard_point_events_include_only_safe_display_context(db, client, world):
+    category = BehaviourCategory(school_id=world["school"].id, type="positive", label="Respectful behaviour", points_value=1, active=True)
+    db.add(category); db.flush()
+    db.add(BehaviourEvent(school_id=world["school"].id, student_id=world["one"].id, category_id=category.id, actor_user_id=world["admin"].id, points_delta=1, source="teacher"))
+    db.commit()
+    linked = consume(client, issue(client, world).json()["code"], "one").json()
+    response = client.get(f"/api/integrations/fhh/links/{linked['link_id']}/dashboard", headers=service(link_token=linked["link_token"]))
+    assert response.status_code == 200
+    event = response.json()["points"]["recent_events"][0]
+    assert event["staff_display_name"] == world["admin"].name
+    assert event["class_section_name"] == world["section"].name
+    assert "actor_user_id" not in event and "email" not in event
 
 
 def test_models_store_only_hashed_tokens_and_have_scope_indexes(db):

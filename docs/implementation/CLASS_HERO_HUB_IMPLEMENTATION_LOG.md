@@ -3708,3 +3708,7 @@ side; the FHH-side handover is in its nearby implementation log.
   home avatars must remain separate identities.
 - Rebuild/restart only the changed CHH service after deployment and verify the
   served/runtime code; do not restart unrelated services.
+### S21a — FHH school avatar contract (2026-07-12)
+
+- The FHH integration dashboard now includes the explicit safe field `student.avatar_id` when it is a numeric CHH student avatar ID.
+- The contract does not expose raw avatar URLs, filesystem paths, storage keys, service/link tokens, or arbitrary student fields. FHH copies the needed 256px internal assets and remains the only browser-facing API.
