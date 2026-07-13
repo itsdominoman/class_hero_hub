@@ -263,18 +263,21 @@ def breakdowns(date_from: date | None = None, date_to: date | None = None, branc
     base = _query(db, membership.school_id, filters); dims = base._report_aliases
     class_name = func.coalesce(dims["direct_section"].name, dims["group_section"].name, dims["historic_section"].name)
     grade_name = func.coalesce(dims["grade"].name, dims["group_grade"].name, dims["historic_grade"].name)
-    classes = base.filter(BehaviourEvent.context_type == "class").with_entities(class_name.label("label"), *_measures()).group_by(class_name).order_by(func.count(BehaviourEvent.id).desc()).all()
-    grades = base.filter(BehaviourEvent.context_type.in_(("class", "subject"))).with_entities(grade_name.label("label"), *_measures()).group_by(grade_name).all()
-    subjects = base.filter(BehaviourEvent.context_type == "subject").with_entities(dims["subject"].name.label("label"), *_measures()).group_by(dims["subject"].name).all()
-    duties = base.filter(BehaviourEvent.context_type == "duty").with_entities(BehaviourEvent.duty_context.label("label"), *_measures()).group_by(BehaviourEvent.duty_context).all()
-    categories = base.with_entities(BehaviourCategory.label.label("label"), *_measures()).group_by(BehaviourCategory.label).all()
-    pack = lambda rows: [{"label": row.label or "Unattributed", **_metric_payload(row)} for row in rows]
-    return {"filters": filters.payload(), "classes": pack(classes), "grades": pack(grades), "subjects": pack(subjects), "duty_contexts": pack(duties), "categories": pack(categories)}
+    class_key = func.coalesce(BehaviourEvent.class_section_id, dims["group"].class_section_id, dims["historic_section"].id)
+    grade_key = func.coalesce(dims["grade"].id, dims["group_grade"].id, dims["historic_grade"].id)
+    classes = base.filter(BehaviourEvent.context_type == "class").with_entities(class_key.label("dimension_key"), class_name.label("label"), *_measures()).group_by(class_key, class_name).order_by(func.count(BehaviourEvent.id).desc(), class_name.asc(), class_key.asc()).all()
+    grades = base.filter(BehaviourEvent.context_type.in_(("class", "subject"))).with_entities(grade_key.label("dimension_key"), grade_name.label("label"), *_measures()).group_by(grade_key, grade_name).order_by(func.count(BehaviourEvent.id).desc(), grade_name.asc(), grade_key.asc()).all()
+    subjects = base.filter(BehaviourEvent.context_type == "subject").with_entities(dims["subject"].id.label("dimension_key"), dims["subject"].name.label("label"), *_measures()).group_by(dims["subject"].id, dims["subject"].name).order_by(func.count(BehaviourEvent.id).desc(), dims["subject"].name.asc(), dims["subject"].id.asc()).all()
+    duties = base.filter(BehaviourEvent.context_type == "duty").with_entities(BehaviourEvent.duty_context.label("dimension_key"), BehaviourEvent.duty_context.label("label"), *_measures()).group_by(BehaviourEvent.duty_context).order_by(func.count(BehaviourEvent.id).desc(), BehaviourEvent.duty_context.asc()).all()
+    categories = base.with_entities(BehaviourCategory.id.label("dimension_key"), BehaviourCategory.label.label("label"), BehaviourCategory.type.label("category_type"), *_measures()).group_by(BehaviourCategory.id, BehaviourCategory.label, BehaviourCategory.type).order_by(func.count(BehaviourEvent.id).desc(), BehaviourCategory.label.asc(), BehaviourCategory.id.asc()).all()
+    pack = lambda rows: [{"label": row.label or "Unattributed", "dimension_key": row.dimension_key, **_metric_payload(row)} for row in rows]
+    return {"filters": filters.payload(), "classes": pack(classes), "grades": pack(grades), "subjects": pack(subjects), "duty_contexts": pack(duties), "categories": [{**item, "category_type": row.category_type} for item, row in zip(pack(categories), categories)]}
 
 
 def _student_rows(query, type_value: str, limit: int = 20):
-    rows = query.filter(BehaviourCategory.type == type_value).with_entities(Student.first_name, Student.last_name, Student.preferred_name, *_measures()).group_by(Student.id, Student.first_name, Student.last_name, Student.preferred_name).order_by(func.count(BehaviourEvent.id).desc()).limit(limit).all()
-    return [{"display_name": row.preferred_name or f"{row.first_name} {row.last_name}".strip(), **_metric_payload(row)} for row in rows]
+    type_count = func.sum(case((BehaviourCategory.type == type_value, 1), else_=0))
+    rows = query.filter(BehaviourCategory.type == type_value).with_entities(Student.id.label("dimension_key"), Student.first_name, Student.last_name, Student.preferred_name, *_measures()).group_by(Student.id, Student.first_name, Student.last_name, Student.preferred_name).order_by(type_count.desc(), Student.last_name.asc(), Student.first_name.asc(), Student.id.asc()).limit(limit).all()
+    return [{"display_name": row.preferred_name or f"{row.first_name} {row.last_name}".strip(), "dimension_key": row.dimension_key, **_metric_payload(row)} for row in rows]
 
 
 @router.get("/reports/behaviour/students")
@@ -285,9 +288,9 @@ def students(date_from: date | None = None, date_to: date | None = None, branch_
     previous = replace(filters, date_from=previous_start, date_to=filters.date_from - timedelta(days=1), start=filters.start - timedelta(days=(filters.date_to - filters.date_from).days + 1), end=filters.start)
     current_signed = base.with_entities(BehaviourEvent.student_id.label("student_id"), func.sum(BehaviourEvent.points_delta).label("current_total")).group_by(BehaviourEvent.student_id).subquery()
     prior_signed = _query(db, membership.school_id, previous).with_entities(BehaviourEvent.student_id.label("student_id"), func.sum(BehaviourEvent.points_delta).label("prior_total")).group_by(BehaviourEvent.student_id).subquery()
-    changes = db.query(Student.first_name, Student.last_name, Student.preferred_name, current_signed.c.current_total, func.coalesce(prior_signed.c.prior_total, 0).label("prior_total")).join(current_signed, current_signed.c.student_id == Student.id).outerjoin(prior_signed, prior_signed.c.student_id == Student.id).order_by((current_signed.c.current_total - func.coalesce(prior_signed.c.prior_total, 0)).desc()).limit(20).all()
-    improving = [{"display_name": r.preferred_name or f"{r.first_name} {r.last_name}".strip(), "signed_points_change": int(r.current_total - r.prior_total)} for r in changes if r.current_total > r.prior_total]
-    worsening = [{"display_name": r.preferred_name or f"{r.first_name} {r.last_name}".strip(), "signed_points_change": int(r.current_total - r.prior_total)} for r in reversed(changes) if r.current_total < r.prior_total]
+    changes = db.query(Student.id.label("dimension_key"), Student.first_name, Student.last_name, Student.preferred_name, current_signed.c.current_total, func.coalesce(prior_signed.c.prior_total, 0).label("prior_total")).join(current_signed, current_signed.c.student_id == Student.id).outerjoin(prior_signed, prior_signed.c.student_id == Student.id).order_by((current_signed.c.current_total - func.coalesce(prior_signed.c.prior_total, 0)).desc()).limit(20).all()
+    improving = [{"display_name": r.preferred_name or f"{r.first_name} {r.last_name}".strip(), "dimension_key": r.dimension_key, "signed_points_change": int(r.current_total - r.prior_total)} for r in changes if r.current_total > r.prior_total]
+    worsening = [{"display_name": r.preferred_name or f"{r.first_name} {r.last_name}".strip(), "dimension_key": r.dimension_key, "signed_points_change": int(r.current_total - r.prior_total)} for r in reversed(changes) if r.current_total < r.prior_total]
     return {"filters": filters.payload(), "comparison_period": {"date_from": previous.date_from.isoformat(), "date_to": previous.date_to.isoformat()}, "repeated_needs_work": _student_rows(base, "needs_work"), "top_positive": _student_rows(base, "positive"), "improving": improving[:20], "worsening": worsening[:20]}
 
 
@@ -295,8 +298,8 @@ def students(date_from: date | None = None, date_to: date | None = None, branch_
 def teachers(date_from: date | None = None, date_to: date | None = None, branch_campus_id: int | None = None, grade_level_id: int | None = None, class_section_id: int | None = None, subject_id: int | None = None, subject_group_id: int | None = None, duty_context: str | None = None, category_id: int | None = None, actor_user_id: int | None = None, student_id: int | None = None, category_type: str | None = None, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     filters = _filters(db, membership, **_report_params(date_from, date_to, branch_campus_id, grade_level_id, class_section_id, subject_id, subject_group_id, duty_context, category_id, actor_user_id, student_id, category_type))
     query = _query(db, membership.school_id, filters); actor = query._report_aliases["actor"]
-    rows = query.with_entities(actor.name.label("display_name"), *_measures()).group_by(actor.id, actor.name).order_by(func.count(BehaviourEvent.id).desc()).limit(100).all()
-    return {"filters": filters.payload(), "teachers": [{"display_name": row.display_name or "Staff member", **_metric_payload(row)} for row in rows]}
+    rows = query.with_entities(actor.id.label("dimension_key"), actor.name.label("display_name"), *_measures()).group_by(actor.id, actor.name).order_by(func.count(BehaviourEvent.id).desc(), actor.name.asc(), actor.id.asc()).limit(100).all()
+    return {"filters": filters.payload(), "teachers": [{"display_name": row.display_name or "Staff member", "dimension_key": row.dimension_key, **_metric_payload(row)} for row in rows]}
 
 
 def _matrix_dimension(name: str, dims: dict, local_day):
@@ -354,7 +357,7 @@ def matrix(row_dimension: str, column_dimension: str | None = None, limit: int =
         results = base.with_entities(row_key.label("row_key"), row_label.label("row_label"), *_measures()).group_by(row_key, row_label).order_by(order_expr.desc(), row_label.asc()).limit(limit + 1).all()
         rows_truncated = len(results) > limit
         results = results[:limit]
-        return {"filters": filters.payload(), "row_dimension": row_dimension, "column_dimension": None, "measures": sorted(MATRIX_ORDER_BY) + ["active_students"], "rows": [{"label": r.row_label or "Unattributed", **_metric_payload(r)} for r in results], "truncation": {"row_limit": limit, "rows_truncated": rows_truncated, "columns_truncated": False, "max_cells": MAX_MATRIX_CELLS, "returned_rows": len(results), "returned_cells": 0}}
+        return {"filters": filters.payload(), "row_dimension": row_dimension, "column_dimension": None, "measures": sorted(MATRIX_ORDER_BY) + ["active_students"], "rows": [{"label": r.row_label or "Unattributed", "dimension_key": r.row_key, **_metric_payload(r)} for r in results], "truncation": {"row_limit": limit, "rows_truncated": rows_truncated, "columns_truncated": False, "max_cells": MAX_MATRIX_CELLS, "returned_rows": len(results), "returned_cells": 0}}
 
     col_key, col_label = _matrix_dimension(column_dimension, dims, local_day)
     top_rows = base.with_entities(row_key.label("row_key"), row_label.label("row_label"), *_measures()).group_by(row_key, row_label).order_by(order_expr.desc(), row_label.asc()).limit(limit + 1).all()
@@ -378,8 +381,8 @@ def matrix(row_dimension: str, column_dimension: str | None = None, limit: int =
         for column in top_columns:
             metrics = cell_map.get((row.row_key, column.column_key))
             if metrics is not None:
-                row_cells.append({"label": column.column_label or "Unattributed", **metrics})
-        rows.append({"label": row.row_label or "Unattributed", "cells": row_cells})
+                row_cells.append({"label": column.column_label or "Unattributed", "dimension_key": column.column_key, **metrics})
+        rows.append({"label": row.row_label or "Unattributed", "dimension_key": row.row_key, "cells": row_cells})
     return {"filters": filters.payload(), "row_dimension": row_dimension, "column_dimension": column_dimension, "measures": sorted(MATRIX_ORDER_BY) + ["active_students"], "rows": rows, "truncation": {"row_limit": limit, "column_limit": column_limit, "rows_truncated": rows_truncated, "columns_truncated": columns_truncated, "max_cells": MAX_MATRIX_CELLS, "returned_rows": len(rows), "returned_cells": len(cells)}}
 
 

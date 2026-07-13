@@ -68,6 +68,9 @@
             <a href="/school" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
               {$_('nav.school')}
             </a>
+            <a href="/school/reports" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
+              {$_('nav.reports')}
+            </a>
           {/if}
           {#if hasTeacher}
             <a href="/teach" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
@@ -98,6 +101,9 @@
           {#if hasSchoolAdmin}
             <a href="/school" class="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-hero hover:text-hero">
               {$_('nav.school')}
+            </a>
+            <a href="/school/reports" class="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-hero hover:text-hero">
+              {$_('nav.reports')}
             </a>
           {/if}
           {#if currentUser.is_platform_admin}

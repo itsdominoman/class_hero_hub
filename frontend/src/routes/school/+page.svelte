@@ -2250,6 +2250,12 @@
             {$_(tab.label)}
           </button>
         {/each}
+        <a
+          href="/school/reports"
+          class="whitespace-nowrap rounded-lg border border-hero/30 bg-hero/10 px-3 py-2 text-left text-sm font-bold text-hero transition hover:bg-hero hover:text-white lg:mt-3 lg:block lg:w-full"
+        >
+          {$_('nav.reports')} →
+        </a>
       </nav>
 
       <div class="min-w-0">

@@ -151,7 +151,7 @@ def test_matrix_validation_and_single_dimension(client, report_world):
 
 def test_report_endpoint_smoke_and_matrix_pairs(client, db, report_world):
     world = report_world
-    add_context_events(db, world)
+    context = add_context_events(db, world)
     headers_value = headers(world["admin"], world["school"])
     for path in (
         "/api/school/reports/behaviour/trends",
@@ -164,6 +164,11 @@ def test_report_endpoint_smoke_and_matrix_pairs(client, db, report_world):
         assert response.status_code == 200, response.text
     trend = client.get("/api/school/reports/behaviour/trends", headers=headers_value).json()
     assert trend["interval"] == "day" and sum(row["total_events"] for row in trend["series"]) == 4
+    breakdowns = client.get("/api/school/reports/behaviour/breakdowns", headers=headers_value).json()
+    assert breakdowns["classes"][0]["dimension_key"] == context["section"].id
+    assert breakdowns["grades"][0]["dimension_key"] == context["grade"].id
+    assert breakdowns["subjects"][0]["dimension_key"] == context["subject"].id
+    assert all(row["category_type"] in {"positive", "needs_work"} for row in breakdowns["categories"])
     student_support = client.get("/api/school/reports/behaviour/students", headers=headers_value).json()
     assert student_support["repeated_needs_work"][0]["display_name"] == "Ava Student"
     teacher_usage = client.get("/api/school/reports/behaviour/teachers", headers=headers_value).json()
