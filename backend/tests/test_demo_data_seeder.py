@@ -5,7 +5,7 @@ from importlib import util
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine, func, inspect
+from sqlalchemy import create_engine, func, inspect, or_
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -27,6 +27,8 @@ from app.models_school import (  # noqa: E402
     Enrolment,
     GradeLevel,
     GuardianLink,
+    FhhLink,
+    FhhLinkInvite,
     HomeworkItem,
     Membership,
     School,
@@ -283,6 +285,112 @@ def build_world(db):
     }
 
 
+def build_showcase_world(db):
+    base = build_world(db)
+    school = base["school"]
+    year = base["year"]
+    sections = base["sections"]
+    teachers = base["teachers"]
+    bob = base["bob"]
+
+    kg_grade = GradeLevel(school_id=school.id, code="KG1", name="Kindergarten 1", status="active", sort_order=0)
+    db.add(kg_grade)
+    db.flush()
+    kg_section = ClassSection(
+        school_id=school.id,
+        branch_campus_id=next(iter(sections.values())).branch_campus_id,
+        academic_year_id=year.id,
+        grade_level_id=kg_grade.id,
+        code="A",
+        name="KG1 A",
+        status="active",
+        sort_order=0,
+    )
+    db.add(kg_section)
+    db.flush()
+    sections["KG1 A"] = kg_section
+
+    extra_subjects = {}
+    for order, (code, name) in enumerate((("ARA", "Arabic"), ("ICT", "ICT"), ("PE", "PE")), start=10):
+        subject = Subject(school_id=school.id, code=code, name=name, status="active", sort_order=order)
+        db.add(subject)
+        db.flush()
+        extra_subjects[code] = subject
+
+    kg_teacher = User(email="teacher4@demo.test", name="Dana Teacher", status="active")
+    db.add(kg_teacher)
+    db.flush()
+    kg_membership = Membership(school_id=school.id, user_id=kg_teacher.id, role="teacher", status="active")
+    db.add(kg_membership)
+    db.flush()
+    teachers.append((kg_teacher, kg_membership))
+
+    db.add(
+        StaffAssignment(
+            school_id=school.id,
+            membership_id=kg_membership.id,
+            class_section_id=kg_section.id,
+            role="homeroom",
+            valid_from=year.start_date or datetime.now(timezone.utc).date(),
+        )
+    )
+
+    for subject in list(extra_subjects.values()) + list(base["subjects"].values()):
+        group = SubjectGroup(
+            school_id=school.id,
+            academic_year_id=year.id,
+            class_section_id=kg_section.id,
+            subject_id=subject.id,
+            code=f"KG1A-{subject.code}",
+            name=f"KG1 A {subject.name}",
+            status="active",
+            enrolment_policy="default_for_section",
+        )
+        db.add(group)
+        db.flush()
+        db.add(
+            StaffAssignment(
+                school_id=school.id,
+                membership_id=kg_membership.id,
+                subject_group_id=group.id,
+                role="subject",
+                valid_from=year.start_date or datetime.now(timezone.utc).date(),
+            )
+        )
+
+    bob_enrolment = db.query(Enrolment).filter(Enrolment.student_id == bob.id, Enrolment.kind == "member").one()
+    bob_enrolment.class_section_id = kg_section.id
+
+    invite = FhhLinkInvite(
+        school_id=school.id,
+        student_id=bob.id,
+        token_hash="bob-fhh-invite-hash",
+        display_code_last4="1234",
+        created_by_user_id=teachers[0][0].id,
+    )
+    db.add(invite)
+    db.flush()
+    db.add(
+        FhhLink(
+            school_id=school.id,
+            student_id=bob.id,
+            source_invite_id=invite.id,
+            link_token_hash="bob-fhh-link-hash",
+            fhh_child_ref="child-bob-smith",
+            status="active",
+        )
+    )
+
+    for first_name, last_name in (("Mila", "Stone"), ("Noor", "Ali"), ("Omar", "Hassan")):
+        student = Student(school_id=school.id, first_name=first_name, last_name=last_name, status="active")
+        db.add(student)
+        db.flush()
+        db.add(Enrolment(school_id=school.id, student_id=student.id, class_section_id=kg_section.id, kind="member"))
+
+    db.commit()
+    return {**base, "kg_section": kg_section, "kg_teacher": kg_teacher}
+
+
 def current_counts(db):
     return {
         "behaviour_events": db.query(BehaviourEvent).count(),
@@ -293,6 +401,20 @@ def current_counts(db):
         "calendar_events": db.query(CalendarEvent).count(),
         "demo_seed_records": db.query(DemoSeedRecord).count(),
     }
+
+
+def namespace_counts(db, namespace: str):
+    return {
+        row[0]: row[1]
+        for row in db.query(DemoSeedRecord.entity_type, func.count(DemoSeedRecord.id))
+        .filter(DemoSeedRecord.seed_namespace == namespace)
+        .group_by(DemoSeedRecord.entity_type)
+        .all()
+    }
+
+
+def demo_seed_record_total(db, namespace: str) -> int:
+    return db.query(DemoSeedRecord).filter(DemoSeedRecord.seed_namespace == namespace).count()
 
 
 @pytest.fixture
@@ -324,11 +446,11 @@ def test_dry_run_rolls_back_without_commit(db, world, monkeypatch):
 def test_apply_requires_development_and_confirm(monkeypatch):
     monkeypatch.setenv("APP_ENV", "test")
     monkeypatch.delenv("DEMO_SEED_CONFIRM", raising=False)
-    assert module.main(["--apply", "--as-of", "2026-07-12"]) == 1
+    assert module.main(["--apply", "--scale", "showcase", "--as-of", "2026-07-12"]) == 1
 
     monkeypatch.setenv("APP_ENV", "development")
     monkeypatch.setenv("DEMO_SEED_CONFIRM", "wrong")
-    assert module.main(["--apply", "--as-of", "2026-07-12"]) == 1
+    assert module.main(["--apply", "--scale", "showcase", "--as-of", "2026-07-12"]) == 1
 
 
 def test_wrong_school_suspended_or_missing_year_abort(db, world):
@@ -391,6 +513,117 @@ def test_persona_selection_excludes_bob_and_linked_students(db, world):
     excluded_ids = {world["bob"].id, world["linked"].id}
     assert all(selection.student_id not in excluded_ids for selection in summary.personas.values())
     assert all(selection.student_name != "Bob Smith" for selection in summary.personas.values())
+
+
+def test_showcase_dry_run_rolls_back_without_commit(db, monkeypatch):
+    build_showcase_world(db)
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("DEMO_SEED_CONFIRM", "united-international-school")
+
+    summary = module.seed_school(db, school_slug="united-international-school", as_of=module.parse_as_of("2026-07-12"), apply=False, scale="showcase")
+
+    assert summary.mode == "dry-run"
+    assert summary.scale == "showcase"
+    assert demo_seed_record_total(db, "s22c-showcase-v1") == 0
+    assert namespace_counts(db, "s22c-showcase-v1") == {}
+
+
+def test_showcase_creates_expected_manifest_counts_and_is_idempotent(db, monkeypatch):
+    build_showcase_world(db)
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("DEMO_SEED_CONFIRM", "united-international-school")
+
+    first = module.seed_school(db, school_slug="united-international-school", as_of=module.parse_as_of("2026-07-12"), apply=True, scale="showcase")
+    first_namespace_counts = namespace_counts(db, "s22c-showcase-v1")
+    first_total = demo_seed_record_total(db, "s22c-showcase-v1")
+    second = module.seed_school(db, school_slug="united-international-school", as_of=module.parse_as_of("2026-07-12"), apply=True, scale="showcase")
+    second_namespace_counts = namespace_counts(db, "s22c-showcase-v1")
+
+    assert first.scale == "showcase"
+    assert first.counts["created"] == 2390
+    assert first.counts["already_present"] == 0
+    assert second.counts["created"] == 0
+    assert second.counts["already_present"] == 2390
+    assert first_namespace_counts == {
+        "announcement": 60,
+        "behaviour_event": 2000,
+        "calendar_event": 80,
+        "homework_item": 200,
+        "update_post": 50,
+    }
+    assert second_namespace_counts == first_namespace_counts
+    assert first_total == 2390
+    assert demo_seed_record_total(db, "s22-demo-v1") == 0
+
+
+def test_showcase_includes_bob_kg1a_and_required_contexts(db, monkeypatch):
+    build_showcase_world(db)
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("DEMO_SEED_CONFIRM", "united-international-school")
+
+    module.seed_school(db, school_slug="united-international-school", as_of=module.parse_as_of("2026-07-12"), apply=True, scale="showcase")
+
+    bob = db.query(Student).filter(Student.first_name == "Bob", Student.last_name == "Smith").one()
+    section_id, section_code, grade_code = module.class_section_for_student(db, bob.id)
+    assert f"{grade_code} {section_code}" == "KG1 A"
+    assert db.query(FhhLink).filter(FhhLink.student_id == bob.id, FhhLink.status == "active").count() == 1
+    kg1_subject_group_ids = [
+        row[0]
+        for row in db.query(SubjectGroup.id).filter(SubjectGroup.class_section_id == section_id).all()
+    ]
+
+    bob_behaviour_count = (
+        db.query(BehaviourEvent)
+        .join(DemoSeedRecord, DemoSeedRecord.model_id == BehaviourEvent.id)
+        .filter(
+            DemoSeedRecord.seed_namespace == "s22c-showcase-v1",
+            DemoSeedRecord.entity_type == "behaviour_event",
+            BehaviourEvent.student_id == bob.id,
+        )
+        .count()
+    )
+    assert 1 <= bob_behaviour_count <= 12
+
+    behaviour_contexts = {
+        row[0]: row[1]
+        for row in db.query(BehaviourEvent.context_type, func.count(BehaviourEvent.id))
+        .join(DemoSeedRecord, DemoSeedRecord.model_id == BehaviourEvent.id)
+        .filter(DemoSeedRecord.seed_namespace == "s22c-showcase-v1", DemoSeedRecord.entity_type == "behaviour_event")
+        .group_by(BehaviourEvent.context_type)
+        .all()
+    }
+    assert behaviour_contexts["class"] > 0
+    assert behaviour_contexts["subject"] > 0
+    assert behaviour_contexts["duty"] > 0
+
+    kg1_updates = (
+        db.query(UpdatePost)
+        .join(DemoSeedRecord, DemoSeedRecord.model_id == UpdatePost.id)
+        .filter(
+            DemoSeedRecord.seed_namespace == "s22c-showcase-v1",
+            DemoSeedRecord.entity_type == "update_post",
+            or_(
+                (UpdatePost.audience_type == "class_section") & (UpdatePost.class_section_id == section_id),
+                (UpdatePost.audience_type == "subject_group") & (UpdatePost.subject_group_id.in_(kg1_subject_group_ids)),
+            ),
+        )
+        .count()
+    )
+    kg1_calendar_events = (
+        db.query(CalendarEvent)
+        .join(DemoSeedRecord, DemoSeedRecord.model_id == CalendarEvent.id)
+        .filter(
+            DemoSeedRecord.seed_namespace == "s22c-showcase-v1",
+            DemoSeedRecord.entity_type == "calendar_event",
+            or_(
+                (CalendarEvent.audience_type == "class_section") & (CalendarEvent.class_section_id == section_id),
+                (CalendarEvent.audience_type == "subject_group") & (CalendarEvent.subject_group_id.in_(kg1_subject_group_ids)),
+            ),
+        )
+        .count()
+    )
+    assert kg1_updates >= 10
+    assert kg1_calendar_events >= 10
 
 
 def test_manual_records_are_not_modified(db, world, monkeypatch):
