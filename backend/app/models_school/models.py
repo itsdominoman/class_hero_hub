@@ -610,6 +610,11 @@ class BehaviourEvent(Base):
         ),
         Index("ix_behaviour_events_school_student_created", "school_id", "student_id", "created_at"),
         Index("ix_behaviour_events_school_context_created", "school_id", "context_type", "duty_context", "created_at"),
+        Index("ix_behaviour_events_school_created", "school_id", "created_at"),
+        Index("ix_behaviour_events_school_class_created", "school_id", "class_section_id", "created_at"),
+        Index("ix_behaviour_events_school_subject_group_created", "school_id", "subject_group_id", "created_at"),
+        Index("ix_behaviour_events_school_actor_created", "school_id", "actor_user_id", "created_at"),
+        Index("ix_behaviour_events_school_category_created", "school_id", "category_id", "created_at"),
     )
 
 
