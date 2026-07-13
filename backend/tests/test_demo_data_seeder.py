@@ -387,8 +387,86 @@ def build_showcase_world(db):
         db.flush()
         db.add(Enrolment(school_id=school.id, student_id=student.id, class_section_id=kg_section.id, kind="member"))
 
+    base["subjects"].update(extra_subjects)
     db.commit()
     return {**base, "kg_section": kg_section, "kg_teacher": kg_teacher}
+
+
+def build_management_world(db):
+    base = build_showcase_world(db)
+    school = base["school"]
+    year = base["year"]
+    sections = base["sections"]
+
+    extra_subjects = {}
+    for order, (code, name) in enumerate((("ARA", "Arabic"), ("ICT", "ICT"), ("PE", "PE")), start=20):
+        if code in base["subjects"]:
+            continue
+        subject = Subject(school_id=school.id, code=code, name=name, status="active", sort_order=order)
+        db.add(subject)
+        db.flush()
+        extra_subjects[code] = subject
+    base["subjects"].update(extra_subjects)
+
+    teacher_by_grade = {
+        "KG1": base["teachers"][-1][1],
+        "G1": base["teachers"][0][1],
+        "G4": base["teachers"][1][1],
+        "G10": base["teachers"][2][1],
+    }
+
+    for section_code, section in sections.items():
+        grade_prefix = section_code.split(" ", 1)[0]
+        membership = teacher_by_grade.get(grade_prefix, base["teachers"][0][1])
+        for subject in base["subjects"].values():
+            exists = (
+                db.query(SubjectGroup)
+                .filter(
+                    SubjectGroup.school_id == school.id,
+                    SubjectGroup.class_section_id == section.id,
+                    SubjectGroup.subject_id == subject.id,
+                )
+                .count()
+            )
+            if exists:
+                continue
+            group = SubjectGroup(
+                school_id=school.id,
+                academic_year_id=year.id,
+                class_section_id=section.id,
+                subject_id=subject.id,
+                code=f"{section_code.replace(' ', '')}-{subject.code}",
+                name=f"{section.name} {subject.name}",
+                status="active",
+                enrolment_policy="default_for_section",
+            )
+            db.add(group)
+            db.flush()
+            db.add(
+                StaffAssignment(
+                    school_id=school.id,
+                    membership_id=membership.id,
+                    subject_group_id=group.id,
+                    role="subject",
+                    valid_from=year.start_date or datetime.now(timezone.utc).date(),
+                )
+            )
+
+    section_codes = list(sections.keys())
+    for idx in range(70 * len(section_codes)):
+        section_code = section_codes[idx % len(section_codes)]
+        student = Student(
+            school_id=school.id,
+            first_name=f"Mgmt{idx:03d}",
+            last_name=section_code.replace(" ", ""),
+            status="active",
+        )
+        db.add(student)
+        db.flush()
+        db.add(Enrolment(school_id=school.id, student_id=student.id, class_section_id=sections[section_code].id, kind="member"))
+
+    db.commit()
+    return base
 
 
 def current_counts(db):
@@ -446,11 +524,11 @@ def test_dry_run_rolls_back_without_commit(db, world, monkeypatch):
 def test_apply_requires_development_and_confirm(monkeypatch):
     monkeypatch.setenv("APP_ENV", "test")
     monkeypatch.delenv("DEMO_SEED_CONFIRM", raising=False)
-    assert module.main(["--apply", "--scale", "showcase", "--as-of", "2026-07-12"]) == 1
+    assert module.main(["--apply", "--scale", "management", "--as-of", "2026-07-12"]) == 1
 
     monkeypatch.setenv("APP_ENV", "development")
     monkeypatch.setenv("DEMO_SEED_CONFIRM", "wrong")
-    assert module.main(["--apply", "--scale", "showcase", "--as-of", "2026-07-12"]) == 1
+    assert module.main(["--apply", "--scale", "management", "--as-of", "2026-07-12"]) == 1
 
 
 def test_wrong_school_suspended_or_missing_year_abort(db, world):
@@ -624,6 +702,100 @@ def test_showcase_includes_bob_kg1a_and_required_contexts(db, monkeypatch):
     )
     assert kg1_updates >= 10
     assert kg1_calendar_events >= 10
+
+
+def test_management_dry_run_rolls_back_without_commit(db, monkeypatch):
+    build_management_world(db)
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("DEMO_SEED_CONFIRM", "united-international-school")
+
+    summary = module.seed_school(db, school_slug="united-international-school", as_of=module.parse_as_of("2026-07-12"), apply=False, scale="management")
+
+    assert summary.mode == "dry-run"
+    assert summary.scale == "management"
+    assert demo_seed_record_total(db, "s22d-management-v1") == 0
+
+
+def test_management_creates_expected_manifest_counts_and_is_idempotent(db, monkeypatch):
+    build_management_world(db)
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("DEMO_SEED_CONFIRM", "united-international-school")
+
+    first = module.seed_school(db, school_slug="united-international-school", as_of=module.parse_as_of("2026-07-12"), apply=True, scale="management")
+    first_namespace_counts = namespace_counts(db, "s22d-management-v1")
+    first_total = demo_seed_record_total(db, "s22d-management-v1")
+    second = module.seed_school(db, school_slug="united-international-school", as_of=module.parse_as_of("2026-07-12"), apply=True, scale="management")
+    second_namespace_counts = namespace_counts(db, "s22d-management-v1")
+
+    assert first.counts["created"] == 8620
+    assert first.counts["already_present"] == 0
+    assert second.counts["created"] == 0
+    assert second.counts["already_present"] == 8620
+    assert first_total == 8620
+    assert first_namespace_counts == {
+        "announcement": 100,
+        "behaviour_event": 8000,
+        "calendar_event": 120,
+        "homework_item": 300,
+        "update_post": 100,
+    }
+    assert second_namespace_counts == first_namespace_counts
+    assert demo_seed_record_total(db, "s22-demo-v1") == 0
+    assert demo_seed_record_total(db, "s22c-showcase-v1") == 0
+
+
+def test_management_includes_bob_kg1a_and_required_distribution(db, monkeypatch):
+    world = build_management_world(db)
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("DEMO_SEED_CONFIRM", "united-international-school")
+
+    module.seed_school(db, school_slug="united-international-school", as_of=module.parse_as_of("2026-07-12"), apply=True, scale="management")
+
+    bob = db.query(Student).filter(Student.first_name == "Bob", Student.last_name == "Smith").one()
+    section_id, section_code, grade_code = module.class_section_for_student(db, bob.id)
+    assert f"{grade_code} {section_code}" == "KG1 A"
+
+    bob_behaviour_count = (
+        db.query(BehaviourEvent)
+        .join(DemoSeedRecord, DemoSeedRecord.model_id == BehaviourEvent.id)
+        .filter(
+            DemoSeedRecord.seed_namespace == "s22d-management-v1",
+            DemoSeedRecord.entity_type == "behaviour_event",
+            BehaviourEvent.student_id == bob.id,
+        )
+        .count()
+    )
+    assert 6 <= bob_behaviour_count <= 20
+
+    contexts = {row[0]: row[1] for row in db.query(BehaviourEvent.context_type, func.count(BehaviourEvent.id)).join(DemoSeedRecord, DemoSeedRecord.model_id == BehaviourEvent.id).filter(DemoSeedRecord.seed_namespace == "s22d-management-v1", DemoSeedRecord.entity_type == "behaviour_event").group_by(BehaviourEvent.context_type).all()}
+    assert contexts["class"] > 0
+    assert contexts["subject"] > 0
+    assert contexts["duty"] > 0
+    unique_students = (
+        db.query(func.count(func.distinct(BehaviourEvent.student_id)))
+        .join(DemoSeedRecord, DemoSeedRecord.model_id == BehaviourEvent.id)
+        .filter(DemoSeedRecord.seed_namespace == "s22d-management-v1", DemoSeedRecord.entity_type == "behaviour_event")
+        .scalar()
+    )
+    unique_sections = (
+        db.query(func.count(func.distinct(BehaviourEvent.class_section_id)))
+        .join(DemoSeedRecord, DemoSeedRecord.model_id == BehaviourEvent.id)
+        .filter(
+            DemoSeedRecord.seed_namespace == "s22d-management-v1",
+            DemoSeedRecord.entity_type == "behaviour_event",
+            BehaviourEvent.class_section_id.isnot(None),
+        )
+        .scalar()
+    )
+    unique_teachers = (
+        db.query(func.count(func.distinct(BehaviourEvent.actor_user_id)))
+        .join(DemoSeedRecord, DemoSeedRecord.model_id == BehaviourEvent.id)
+        .filter(DemoSeedRecord.seed_namespace == "s22d-management-v1", DemoSeedRecord.entity_type == "behaviour_event")
+        .scalar()
+    )
+    assert unique_students is not None and unique_students >= 450
+    assert unique_sections is not None and unique_sections >= 6
+    assert unique_teachers is not None and unique_teachers >= 4
 
 
 def test_manual_records_are_not_modified(db, world, monkeypatch):

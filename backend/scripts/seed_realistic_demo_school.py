@@ -52,8 +52,10 @@ TARGET_SCHOOL_NAME = "United International School"
 DEFAULT_SCHOOL_SLUG = "united-international-school"
 SEED_NAMESPACE = "s22-demo-v1"
 SHOWCASE_SEED_NAMESPACE = "s22c-showcase-v1"
+MANAGEMENT_SEED_NAMESPACE = "s22d-management-v1"
 SCALE_DEMO = "demo"
 SCALE_SHOWCASE = "showcase"
+SCALE_MANAGEMENT = "management"
 LOCAL_ASSET_MANIFEST_CANDIDATES = (
     ROOT / "docs" / "demo-assets" / "manifest.json",
     ROOT / "backend" / "demo-assets" / "manifest.json",
@@ -136,7 +138,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--apply", action="store_true", help="Commit changes; default is dry-run.")
     parser.add_argument("--as-of", dest="as_of", default=None, help="Anchor date for deterministic output (YYYY-MM-DD).")
     parser.add_argument("--school-slug", dest="school_slug", default=DEFAULT_SCHOOL_SLUG, help="Target school slug.")
-    parser.add_argument("--scale", choices=(SCALE_DEMO, SCALE_SHOWCASE), default=SCALE_DEMO, help="Seed size/profile.")
+    parser.add_argument("--scale", choices=(SCALE_DEMO, SCALE_SHOWCASE, SCALE_MANAGEMENT), default=SCALE_DEMO, help="Seed size/profile.")
     return parser.parse_args(argv)
 
 
@@ -1760,6 +1762,623 @@ def build_showcase_calendar_tasks(world: World, personas: dict[str, PersonaSelec
     return tasks
 
 
+def build_management_behaviour_tasks(
+    world: World,
+    db,
+    personas: dict[str, PersonaSelection],
+    pool: list[dict],
+    as_of: date,
+) -> list[SeedTask]:
+    bob, _ = resolve_bob_for_showcase(world, db)
+    section_index = section_by_code(world)
+    subject_codes = [code for code in ("ENG", "MAT", "SCI", "ARA", "ICT", "PE") if any(subject.code == code for subject in world.subjects)]
+    if not subject_codes:
+        fail("No usable subjects were available for management seeding")
+
+    kg1_section = section_index.get("KG1 A")
+    if kg1_section is None:
+        fail("KG1 A section is required for management seeding")
+
+    positive_categories = [category for category in world.behaviour_categories if category.type == "positive" and category.active]
+    needs_work_categories = [category for category in world.behaviour_categories if category.type == "needs_work" and category.active]
+    if not positive_categories or not needs_work_categories:
+        fail("Behaviour categories were not available for management seeding")
+
+    tasks: list[SeedTask] = []
+    teacher_cycle = cycle(pool)
+    active_students = [student for student in world.students if student.status == "active" and student.id not in world.linked_student_ids]
+    active_students.sort(key=lambda student: (student.id != bob.id, student.id))
+    if len(active_students) < 450:
+        fail("Management seeding requires at least 450 active students in the demo dataset")
+
+    grades = grade_code_map(world)
+    section_lookup = {section.id: section for section in world.sections}
+    student_section_map = {
+        student.id: class_section_for_student(db, student.id)[0]
+        for student in active_students
+    }
+    section_groups: dict[int, list[SubjectGroup]] = defaultdict(list)
+    for group in world.subject_groups:
+        section_groups[group.class_section_id].append(group)
+    for groups in section_groups.values():
+        groups.sort(key=lambda group: group.id)
+
+    section_order = [section for section in world.sections if section.status == "active"]
+    section_order.sort(key=lambda section: (grades.get(section.grade_level_id, ""), section.code, section.id))
+
+    def next_teacher(class_section_id: int | None = None, subject_group_id: int | None = None) -> User:
+        chosen = teacher_for_target(pool, class_section_id=class_section_id, subject_group_id=subject_group_id)
+        if chosen is not None:
+            return chosen
+        return next(teacher_cycle)["user"]
+
+    def category_for(idx: int, positive: bool) -> BehaviourCategory:
+        categories = positive_categories if positive else needs_work_categories
+        return categories[idx % len(categories)]
+
+    def student_section(student_id: int) -> ClassSection:
+        section_id = student_section_map.get(student_id)
+        section = section_lookup.get(section_id) if section_id is not None else None
+        if section is None:
+            fail(f"Could not resolve section for student_id={student_id}")
+        return section
+
+    # Bob gets visible but limited coverage.
+    bob_subject_groups = [group for group in section_groups.get(kg1_section.id, []) if next((sub for sub in world.subjects if sub.id == group.subject_id), None) is not None]
+    if not bob_subject_groups:
+        fail("KG1 A subject groups are required for management seeding")
+    bob_specs = [
+        ("class", kg1_section.id, None, None, category_for(0, True), "KG1 A routine check-in"),
+        ("subject", None, bob_subject_groups[0].id, None, category_for(1, True), "KG1 A reading support"),
+        ("subject", None, bob_subject_groups[1 % len(bob_subject_groups)].id, None, category_for(2, False), "KG1 A phonics reminder"),
+        ("duty", None, None, "break", category_for(3, False), "Break reminder for KG1 A"),
+        ("duty", None, None, "playground", category_for(4, True), "Playground safe play"),
+        ("class", kg1_section.id, None, None, category_for(5, True), "Back on task in KG1 A"),
+        ("subject", None, bob_subject_groups[2 % len(bob_subject_groups)].id, None, category_for(6, True), "KG1 A maths counting"),
+        ("duty", None, None, "hallway", category_for(7, False), "Hallway reset"),
+        ("subject", None, bob_subject_groups[3 % len(bob_subject_groups)].id, None, category_for(8, True), "KG1 A science observation"),
+        ("class", kg1_section.id, None, None, category_for(9, True), "KG1 A positive routine"),
+        ("duty", None, None, "assembly", category_for(10, True), "Assembly listening"),
+        ("general", None, None, None, category_for(11, True), "General reflection"),
+    ]
+    for idx, (context_type, class_section_id, subject_group_id, duty_context, category, note) in enumerate(bob_specs):
+        teacher = next_teacher(class_section_id=class_section_id or kg1_section.id, subject_group_id=subject_group_id)
+        tasks.append(
+            event_blueprint(
+                key=f"mg-bob:{idx}",
+                student_id=bob.id,
+                actor_user_id=teacher.id,
+                category=category,
+                points_delta=category.points_value,
+                note=note,
+                created_at=make_time(as_of, -54 + idx * 3, 8 + (idx % 4), (idx * 5) % 60),
+                context_type="general" if context_type == "general" else context_type,
+                class_section_id=class_section_id if context_type == "class" else None,
+                subject_group_id=subject_group_id,
+                duty_context=duty_context,
+            )
+        )
+
+    # Extra KG1 A visibility for parent/phone demos.
+    kg1_students = [student for student in active_students if student_section(student.id).id == kg1_section.id]
+    if len(kg1_students) < 4:
+        fail("KG1 A needs several active students for management seeding")
+
+    kg1_subject_cycle = cycle(bob_subject_groups)
+    kg1_duty_cycle = cycle(DUTY_CONTEXTS)
+    kg1_teacher_cycle = cycle(pool)
+    for idx in range(24):
+        student = kg1_students[idx % len(kg1_students)]
+        if idx < 8:
+            teacher = next_teacher(class_section_id=kg1_section.id)
+            category = category_for(idx, positive=(idx % 3 != 1))
+            tasks.append(
+                event_blueprint(
+                    key=f"mg-kg1-class:{idx}",
+                    student_id=student.id,
+                    actor_user_id=teacher.id,
+                    category=category,
+                    points_delta=category.points_value,
+                    note="KG1 A classroom routine snapshot" if idx % 2 == 0 else "KG1 A reminder",
+                    created_at=make_time(as_of, -48 + idx * 2, 8, 15 + idx),
+                    context_type="class",
+                    class_section_id=kg1_section.id,
+                )
+            )
+        elif idx < 16:
+            group = next(kg1_subject_cycle)
+            subject = next((item for item in world.subjects if item.id == group.subject_id), None)
+            teacher = next_teacher(class_section_id=kg1_section.id, subject_group_id=group.id)
+            category = category_for(idx, positive=True)
+            tasks.append(
+                event_blueprint(
+                    key=f"mg-kg1-subject:{idx}",
+                    student_id=student.id,
+                    actor_user_id=teacher.id,
+                    category=category,
+                    points_delta=category.points_value,
+                    note=f"KG1 A {subject.code if subject else 'SUB'} parent update",
+                    created_at=make_time(as_of, -46 + idx * 2, 9, 5 + idx),
+                    context_type="subject",
+                    subject_group_id=group.id,
+                )
+            )
+        else:
+            teacher = next_teacher(class_section_id=kg1_section.id)
+            duty_context = next(kg1_duty_cycle)
+            category = category_for(idx, positive=(idx % 4 != 1))
+            tasks.append(
+                event_blueprint(
+                    key=f"mg-kg1-duty:{idx}",
+                    student_id=student.id,
+                    actor_user_id=teacher.id,
+                    category=category,
+                    points_delta=category.points_value,
+                    note=f"KG1 A {DUTY_LABELS[duty_context].lower()} note",
+                    created_at=make_time(as_of, -44 + idx * 2, 12, 10 + idx),
+                    context_type="duty",
+                    duty_context=duty_context,
+                )
+            )
+
+    eligible_students = [student for student in active_students if student.id != bob.id]
+    subject_group_cache: dict[tuple[int, str], SubjectGroup] = {}
+    for section in section_order:
+        for code in subject_codes:
+            group = subject_group_for_section_and_code(world, section.id, code)
+            if group is not None:
+                subject_group_cache[(section.id, code)] = group
+    if not subject_group_cache:
+        fail("No subject groups were available for management seeding")
+
+    mode_cycle = ("class", "subject", "duty", "general")
+    duty_cycle = cycle(DUTY_CONTEXTS)
+    for idx in range(8000 - len(tasks)):
+        student = eligible_students[idx % len(eligible_students)]
+        section = student_section(student.id)
+        mode = mode_cycle[idx % len(mode_cycle)]
+        positive = (idx % 7) not in {3, 5}
+        category = category_for(idx, positive=positive)
+        days_offset = -56 + (idx % 70)
+        hour = 7 + (idx % 6)
+        minute = (idx * 7) % 60
+        if mode == "subject":
+            subject_code = subject_codes[idx % len(subject_codes)]
+            group = subject_group_cache.get((section.id, subject_code))
+            if group is None:
+                group = next(iter(subject_group_cache.values()))
+            teacher = next_teacher(class_section_id=group.class_section_id, subject_group_id=group.id)
+            subject = next((item for item in world.subjects if item.id == group.subject_id), None)
+            tasks.append(
+                event_blueprint(
+                    key=f"mg-subject:{idx}",
+                    student_id=student.id,
+                    actor_user_id=teacher.id,
+                    category=category,
+                    points_delta=category.points_value,
+                    note=f"{subject.code if subject else 'SUB'} report {idx:04d}",
+                    created_at=make_time(as_of, days_offset, hour, minute),
+                    context_type="subject",
+                    subject_group_id=group.id,
+                )
+            )
+        elif mode == "class":
+            teacher = next_teacher(class_section_id=section.id)
+            tasks.append(
+                event_blueprint(
+                    key=f"mg-class:{idx}",
+                    student_id=student.id,
+                    actor_user_id=teacher.id,
+                    category=category,
+                    points_delta=category.points_value,
+                    note=f"Class report for {section.name}",
+                    created_at=make_time(as_of, days_offset, hour, minute),
+                    context_type="class",
+                    class_section_id=section.id,
+                )
+            )
+        elif mode == "duty":
+            teacher = next_teacher(class_section_id=section.id)
+            duty_context = next(duty_cycle)
+            tasks.append(
+                event_blueprint(
+                    key=f"mg-duty:{idx}",
+                    student_id=student.id,
+                    actor_user_id=teacher.id,
+                    category=category,
+                    points_delta=category.points_value,
+                    note=f"{DUTY_LABELS[duty_context]} duty report",
+                    created_at=make_time(as_of, days_offset, hour, minute),
+                    context_type="duty",
+                    duty_context=duty_context,
+                )
+            )
+        else:
+            teacher = next_teacher(class_section_id=section.id)
+            tasks.append(
+                event_blueprint(
+                    key=f"mg-general:{idx}",
+                    student_id=student.id,
+                    actor_user_id=teacher.id,
+                    category=category,
+                    points_delta=category.points_value,
+                    note=f"General trend report {idx:04d}",
+                    created_at=make_time(as_of, days_offset, hour, minute),
+                    context_type="general",
+                )
+            )
+
+    if len(tasks) != 8000:
+        fail(f"Management behaviour task count mismatch: expected 8000, got {len(tasks)}")
+    return tasks
+
+
+def build_management_homework_tasks(world: World, as_of: date) -> list[SeedTask]:
+    section_index = section_by_code(world)
+    kg1_section = section_index.get("KG1 A")
+    if kg1_section is None:
+        fail("KG1 A section is required for management homework seeding")
+    subject_codes = [code for code in ("ENG", "MAT", "SCI", "ARA", "ICT", "PE") if any(subject.code == code for subject in world.subjects)]
+    if not subject_codes:
+        fail("No usable subjects were available for management homework seeding")
+    kg1_groups = [group for code in subject_codes if (group := subject_group_for_section_and_code(world, kg1_section.id, code)) is not None]
+    if not kg1_groups:
+        fail("KG1 A subject groups are required for management homework seeding")
+
+    teacher_id = world.teacher_memberships[0].user_id
+    tasks: list[SeedTask] = []
+    for idx in range(20):
+        if idx % 2 == 0:
+            tasks.append(
+                SeedTask(
+                    entity_type="homework_item",
+                    entity_key=f"mg-kg1-homework:{idx}",
+                    model_name="homework_items",
+                    payload={
+                        "item_type": "homework",
+                        "title": f"KG1 A family task {idx + 1}",
+                        "body": "Read the prompt with your child and return a short note.",
+                        "audience_type": "class_section",
+                        "class_section_id": kg1_section.id,
+                        "subject_group_id": None,
+                        "due_at": make_time(as_of, -14 + idx, 14, 0),
+                        "status": "active",
+                        "resource_links": [],
+                        "author_user_id": teacher_id,
+                    },
+                )
+            )
+        else:
+            group = kg1_groups[idx % len(kg1_groups)]
+            subject = next((item for item in world.subjects if item.id == group.subject_id), None)
+            tasks.append(
+                SeedTask(
+                    entity_type="homework_item",
+                    entity_key=f"mg-kg1-subject-homework:{idx}",
+                    model_name="homework_items",
+                    payload={
+                        "item_type": "homework",
+                        "title": f"KG1 A {subject.code if subject else 'SUB'} practice {idx + 1}",
+                        "body": "Complete the activity and bring it back tomorrow.",
+                        "audience_type": "subject_group",
+                        "class_section_id": None,
+                        "subject_group_id": group.id,
+                        "due_at": make_time(as_of, -12 + idx, 14, 0),
+                        "status": "active",
+                        "resource_links": [],
+                        "author_user_id": teacher_id,
+                    },
+                )
+            )
+
+    section_cycle = cycle(section for section in world.sections if section.status == "active")
+    subject_cycle = cycle(subject_codes)
+    student_cycle = cycle(student for student in world.students if student.status == "active" and student.id not in world.linked_student_ids)
+    while len(tasks) < 300:
+        section = next(section_cycle)
+        subject_code = next(subject_cycle)
+        student = next(student_cycle)
+        audience_type = "class_section" if len(tasks) % 3 else "subject_group"
+        group = subject_group_for_section_and_code(world, section.id, subject_code)
+        if audience_type == "subject_group" and group is None:
+            audience_type = "class_section"
+        tasks.append(
+            SeedTask(
+                entity_type="homework_item",
+                entity_key=f"mg-homework:{len(tasks)}",
+                model_name="homework_items",
+                payload={
+                    "item_type": "homework",
+                    "title": f"Management homework {len(tasks):03d}",
+                    "body": f"Support task for {student_name(student)} in {section.name}.",
+                    "audience_type": audience_type,
+                    "class_section_id": section.id if audience_type == "class_section" else None,
+                    "subject_group_id": group.id if audience_type == "subject_group" and group is not None else None,
+                    "due_at": make_time(as_of, -20 + (len(tasks) % 40), 15, (len(tasks) * 3) % 60),
+                    "status": "active",
+                    "resource_links": [],
+                    "author_user_id": teacher_id,
+                },
+            )
+        )
+
+    if len(tasks) != 300:
+        fail(f"Management homework task count mismatch: expected 300, got {len(tasks)}")
+    return tasks
+
+
+def build_management_announcement_tasks(world: World, as_of: date) -> list[SeedTask]:
+    section_index = section_by_code(world)
+    kg1_section = section_index.get("KG1 A")
+    if kg1_section is None:
+        fail("KG1 A section is required for management announcements")
+    subject_codes = [code for code in ("ENG", "MAT", "SCI", "ARA", "ICT", "PE") if any(subject.code == code for subject in world.subjects)]
+    if not subject_codes:
+        fail("No usable subjects were available for management announcements")
+    kg1_groups = [group for code in subject_codes if (group := subject_group_for_section_and_code(world, kg1_section.id, code)) is not None]
+    if not kg1_groups:
+        fail("KG1 A subject groups are required for management announcements")
+
+    teacher_id = world.teacher_memberships[0].user_id
+    tasks: list[SeedTask] = []
+    for idx in range(15):
+        if idx % 2 == 0:
+            tasks.append(
+                SeedTask(
+                    entity_type="announcement",
+                    entity_key=f"mg-kg1-announcement:{idx}",
+                    model_name="announcements",
+                    payload={
+                        "author_user_id": teacher_id,
+                        "title": f"KG1 A family update {idx + 1}",
+                        "body": "A short parent-visible note for KG1 A families.",
+                        "audience_type": "class_section",
+                        "class_section_id": kg1_section.id,
+                        "subject_group_id": None,
+                        "status": "published",
+                        "created_at": make_time(as_of, -10 + idx, 7, 30),
+                    },
+                )
+            )
+        else:
+            group = kg1_groups[idx % len(kg1_groups)]
+            subject = next((item for item in world.subjects if item.id == group.subject_id), None)
+            tasks.append(
+                SeedTask(
+                    entity_type="announcement",
+                    entity_key=f"mg-kg1-subject-announcement:{idx}",
+                    model_name="announcements",
+                    payload={
+                        "author_user_id": teacher_id,
+                        "title": f"KG1 A {subject.code if subject else 'SUB'} note {idx + 1}",
+                        "body": "A simple note to keep the parent feed useful and current.",
+                        "audience_type": "subject_group",
+                        "class_section_id": None,
+                        "subject_group_id": group.id,
+                        "status": "published",
+                        "created_at": make_time(as_of, -9 + idx, 8, 15),
+                    },
+                )
+            )
+
+    section_cycle = cycle(section for section in world.sections if section.status == "active")
+    subject_cycle = cycle(subject_codes)
+    while len(tasks) < 100:
+        section = next(section_cycle)
+        subject_code = next(subject_cycle)
+        group = subject_group_for_section_and_code(world, section.id, subject_code)
+        audience_type = "class_section" if len(tasks) % 4 else "subject_group"
+        if audience_type == "subject_group" and group is None:
+            audience_type = "class_section"
+        tasks.append(
+            SeedTask(
+                entity_type="announcement",
+                entity_key=f"mg-announcement:{len(tasks)}",
+                model_name="announcements",
+                payload={
+                    "author_user_id": teacher_id,
+                    "title": f"Management note {len(tasks):03d}",
+                    "body": f"Reporting announcement for {section.name} with {subject_code} context.",
+                    "audience_type": audience_type,
+                    "class_section_id": section.id if audience_type == "class_section" else None,
+                    "subject_group_id": group.id if audience_type == "subject_group" and group is not None else None,
+                    "status": "published",
+                    "created_at": make_time(as_of, -18 + (len(tasks) % 35), 9, (len(tasks) * 2) % 60),
+                },
+            )
+        )
+
+    if len(tasks) != 100:
+        fail(f"Management announcement task count mismatch: expected 100, got {len(tasks)}")
+    return tasks
+
+
+def build_management_update_tasks(world: World, as_of: date) -> list[SeedTask]:
+    section_index = section_by_code(world)
+    kg1_section = section_index.get("KG1 A")
+    if kg1_section is None:
+        fail("KG1 A section is required for management updates")
+    subject_codes = [code for code in ("ENG", "MAT", "SCI", "ARA", "ICT", "PE") if any(subject.code == code for subject in world.subjects)]
+    if not subject_codes:
+        fail("No usable subjects were available for management updates")
+    kg1_groups = [group for code in subject_codes if (group := subject_group_for_section_and_code(world, kg1_section.id, code)) is not None]
+    if not kg1_groups:
+        fail("KG1 A subject groups are required for management updates")
+
+    teacher_id = world.teacher_memberships[0].user_id
+    tasks: list[SeedTask] = []
+    for idx in range(20):
+        if idx % 2 == 0:
+            tasks.append(
+                SeedTask(
+                    entity_type="update_post",
+                    entity_key=f"mg-kg1-update:{idx}",
+                    model_name="update_posts",
+                    payload={
+                        "author_user_id": teacher_id,
+                        "body": f"KG1 A parent update {idx + 1} with a useful classroom snapshot.",
+                        "audience_type": "class_section",
+                        "class_section_id": kg1_section.id,
+                        "subject_group_id": None,
+                        "status": "active",
+                        "created_at": make_time(as_of, -8 + idx, 8, 10),
+                    },
+                )
+            )
+        else:
+            group = kg1_groups[idx % len(kg1_groups)]
+            subject = next((item for item in world.subjects if item.id == group.subject_id), None)
+            tasks.append(
+                SeedTask(
+                    entity_type="update_post",
+                    entity_key=f"mg-kg1-subject-update:{idx}",
+                    model_name="update_posts",
+                    payload={
+                        "author_user_id": teacher_id,
+                        "body": f"KG1 A {subject.code if subject else 'SUB'} subject update for parents.",
+                        "audience_type": "subject_group",
+                        "class_section_id": None,
+                        "subject_group_id": group.id,
+                        "status": "active",
+                        "created_at": make_time(as_of, -7 + idx, 8, 40),
+                    },
+                )
+            )
+
+    section_cycle = cycle(section for section in world.sections if section.status == "active")
+    subject_cycle = cycle(subject_codes)
+    while len(tasks) < 100:
+        section = next(section_cycle)
+        subject_code = next(subject_cycle)
+        group = subject_group_for_section_and_code(world, section.id, subject_code)
+        audience_type = "class_section" if len(tasks) % 3 else "subject_group"
+        if audience_type == "subject_group" and group is None:
+            audience_type = "class_section"
+        tasks.append(
+            SeedTask(
+                entity_type="update_post",
+                entity_key=f"mg-update:{len(tasks)}",
+                model_name="update_posts",
+                payload={
+                    "author_user_id": teacher_id,
+                    "body": f"Management update {len(tasks):03d} for {section.name}.",
+                    "audience_type": audience_type,
+                    "class_section_id": section.id if audience_type == "class_section" else None,
+                    "subject_group_id": group.id if audience_type == "subject_group" and group is not None else None,
+                    "status": "active",
+                    "created_at": make_time(as_of, -16 + (len(tasks) % 32), 9, (len(tasks) * 3) % 60),
+                },
+            )
+        )
+
+    if len(tasks) != 100:
+        fail(f"Management update task count mismatch: expected 100, got {len(tasks)}")
+    return tasks
+
+
+def build_management_calendar_tasks(world: World, as_of: date) -> list[SeedTask]:
+    section_index = section_by_code(world)
+    kg1_section = section_index.get("KG1 A")
+    if kg1_section is None:
+        fail("KG1 A section is required for management calendar events")
+    subject_codes = [code for code in ("ENG", "MAT", "SCI", "ARA", "ICT", "PE") if any(subject.code == code for subject in world.subjects)]
+    if not subject_codes:
+        fail("No usable subjects were available for management calendar events")
+    kg1_groups = [group for code in subject_codes if (group := subject_group_for_section_and_code(world, kg1_section.id, code)) is not None]
+    if not kg1_groups:
+        fail("KG1 A subject groups are required for management calendar events")
+
+    teacher_id = world.teacher_memberships[0].user_id
+    tasks: list[SeedTask] = []
+    for idx in range(20):
+        if idx % 2 == 0:
+            tasks.append(
+                SeedTask(
+                    entity_type="calendar_event",
+                    entity_key=f"mg-kg1-calendar:{idx}",
+                    model_name="calendar_events",
+                    payload={
+                        "author_user_id": teacher_id,
+                        "title": f"KG1 A planned event {idx + 1}",
+                        "body": "A parent-visible KG1 A calendar item.",
+                        "event_type": "reminder" if idx % 4 else "event",
+                        "audience_type": "class_section",
+                        "class_section_id": kg1_section.id,
+                        "subject_group_id": None,
+                        "starts_at": make_time(as_of, -6 + idx, 8, 0),
+                        "ends_at": make_time(as_of, -6 + idx, 9, 0),
+                        "all_day": False,
+                        "status": "active",
+                        "created_at": make_time(as_of, -12 + idx, 7, 45),
+                    },
+                )
+            )
+        else:
+            group = kg1_groups[idx % len(kg1_groups)]
+            subject = next((item for item in world.subjects if item.id == group.subject_id), None)
+            tasks.append(
+                SeedTask(
+                    entity_type="calendar_event",
+                    entity_key=f"mg-kg1-subject-calendar:{idx}",
+                    model_name="calendar_events",
+                    payload={
+                        "author_user_id": teacher_id,
+                        "title": f"KG1 A {subject.code if subject else 'SUB'} event {idx + 1}",
+                        "body": "A calendar reminder for KG1 A families.",
+                        "event_type": "test" if idx % 3 else "trip",
+                        "audience_type": "subject_group",
+                        "class_section_id": None,
+                        "subject_group_id": group.id,
+                        "starts_at": make_time(as_of, 2 + idx, 10, 30),
+                        "ends_at": make_time(as_of, 2 + idx, 11, 30),
+                        "all_day": False,
+                        "status": "active",
+                        "created_at": make_time(as_of, -11 + idx, 7, 30),
+                    },
+                )
+            )
+
+    section_cycle = cycle(section for section in world.sections if section.status == "active")
+    subject_cycle = cycle(subject_codes)
+    event_types = cycle(["event", "test", "reminder", "trip", "civvies", "charity"])
+    while len(tasks) < 120:
+        section = next(section_cycle)
+        subject_code = next(subject_cycle)
+        group = subject_group_for_section_and_code(world, section.id, subject_code)
+        audience_type = "school" if len(tasks) % 5 == 0 else ("class_section" if len(tasks) % 2 else "subject_group")
+        if audience_type == "subject_group" and group is None:
+            audience_type = "class_section"
+        event_type = next(event_types)
+        starts_at = make_time(as_of, -24 + (len(tasks) % 60), 8 + (len(tasks) % 4), 0)
+        if len(tasks) % 7 == 0:
+            starts_at = make_time(as_of, 5 + (len(tasks) % 18), 9, 30)
+        tasks.append(
+            SeedTask(
+                entity_type="calendar_event",
+                entity_key=f"mg-calendar:{len(tasks)}",
+                model_name="calendar_events",
+                payload={
+                    "author_user_id": teacher_id,
+                    "title": f"Management calendar item {len(tasks):03d}",
+                    "body": f"Calendar report item for {section.name}.",
+                    "event_type": event_type,
+                    "audience_type": audience_type,
+                    "class_section_id": section.id if audience_type == "class_section" else None,
+                    "subject_group_id": group.id if audience_type == "subject_group" and group is not None else None,
+                    "starts_at": starts_at,
+                    "ends_at": starts_at + timedelta(hours=1),
+                    "all_day": len(tasks) % 6 == 0,
+                    "status": "active",
+                    "created_at": make_time(as_of, -18 + (len(tasks) % 30), 7, (len(tasks) * 2) % 60),
+                },
+            )
+        )
+
+    if len(tasks) != 120:
+        fail(f"Management calendar task count mismatch: expected 120, got {len(tasks)}")
+    return tasks
+
+
 def load_manifest_assets() -> tuple[list[dict], str | None]:
     return maybe_load_photo_assets()
 
@@ -1872,6 +2491,8 @@ def seed_namespace_for_scale(scale: str) -> str:
         return SEED_NAMESPACE
     if scale == SCALE_SHOWCASE:
         return SHOWCASE_SEED_NAMESPACE
+    if scale == SCALE_MANAGEMENT:
+        return MANAGEMENT_SEED_NAMESPACE
     fail(f"Unsupported scale {scale!r}")
 
 
@@ -1890,6 +2511,12 @@ def seed_school(db, *, school_slug: str, as_of: date, apply: bool, scale: str = 
             announcement_tasks = build_showcase_announcement_tasks(world, personas, as_of)
             update_tasks = build_showcase_update_tasks(world, personas, as_of)
             calendar_tasks = build_showcase_calendar_tasks(world, personas, as_of)
+        elif scale == SCALE_MANAGEMENT:
+            behaviour_tasks = build_management_behaviour_tasks(world, db, personas, pool, as_of)
+            homework_tasks = build_management_homework_tasks(world, as_of)
+            announcement_tasks = build_management_announcement_tasks(world, as_of)
+            update_tasks = build_management_update_tasks(world, as_of)
+            calendar_tasks = build_management_calendar_tasks(world, as_of)
         else:
             behaviour_tasks = build_behaviour_tasks(world, db, personas, pool, as_of)
             homework_tasks = build_homework_tasks(world, personas, as_of)
