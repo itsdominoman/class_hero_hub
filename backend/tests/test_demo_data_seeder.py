@@ -583,6 +583,23 @@ def test_seeded_behaviour_events_include_required_contexts(db, world, monkeypatc
     assert counts["subject"] > 0
     assert counts["class"] > 0
     assert counts["duty"] > 0
+    quick_actions = {
+        (category.type, category.label): category.quick_action_order
+        for category in db.query(BehaviourCategory)
+        .filter(BehaviourCategory.school_id == world["school"].id, BehaviourCategory.is_quick_action.is_(True))
+        .all()
+    }
+    assert quick_actions == {
+        ("positive", "Listening well"): 1,
+        ("positive", "Good work"): 2,
+        ("positive", "Teamwork"): 3,
+        ("positive", "Kindness"): 5,
+        ("positive", "Great effort"): 6,
+        ("needs_work", "Not following instructions"): 6,
+        ("needs_work", "Off-task"): 5,
+        ("needs_work", "Unsafe behaviour"): 4,
+        ("needs_work", "Not listening"): 1,
+    }
 
 
 def test_persona_selection_excludes_bob_and_linked_students(db, world):

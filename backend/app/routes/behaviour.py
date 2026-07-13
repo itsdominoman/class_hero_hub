@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import auth
-from ..behaviour_service import category_payload, create_events, guardian_points_payload, seed_default_categories, visible_categories
+from ..behaviour_service import category_payload, create_events, guardian_points_payload, quick_actions_payload, seed_default_categories, visible_categories
 from ..database import get_db
 from ..models_school import BehaviourCategory, Membership, User
 from ..school_scope import require_school_role, write_audit
@@ -20,6 +20,8 @@ class CategoryRequest(BaseModel):
     points_value: int
     sort_order: int = 0
     active: bool = True
+    is_quick_action: bool = False
+    quick_action_order: int | None = Field(default=None, ge=1)
 
     @field_validator("type")
     @classmethod
@@ -35,12 +37,49 @@ class CategoryRequest(BaseModel):
             raise ValueError("points value must match category type")
         return value
 
+    @model_validator(mode="after")
+    def quick_action_valid(self):
+        if self.active and self.is_quick_action and self.quick_action_order is None:
+            raise ValueError("quick_action_order is required for quick actions")
+        return self
+
 
 class CategoryPatch(BaseModel):
     label: str | None = Field(default=None, min_length=1, max_length=120)
     points_value: int | None = None
     sort_order: int | None = None
     active: bool | None = None
+    is_quick_action: bool | None = None
+    quick_action_order: int | None = Field(default=None, ge=1)
+
+
+class QuickActionsRequest(BaseModel):
+    positive_category_ids: list[int] = Field(default_factory=list, max_length=6)
+    needs_work_category_ids: list[int] = Field(default_factory=list, max_length=6)
+
+
+def apply_quick_action_fields(db: Session, row: BehaviourCategory, values: dict) -> None:
+    active = values.get("active", row.active)
+    quick = values.get("is_quick_action", row.is_quick_action)
+    quick_order = values.get("quick_action_order", row.quick_action_order)
+    if not active:
+        values["is_quick_action"] = False
+        values["quick_action_order"] = None
+        return
+    if quick and quick_order is None:
+        raise HTTPException(422, "quick_action_order is required for quick actions")
+    if not quick:
+        values["quick_action_order"] = None
+        return
+    existing_quick_count = db.query(BehaviourCategory).filter(
+        BehaviourCategory.school_id == row.school_id,
+        BehaviourCategory.type == row.type,
+        BehaviourCategory.active.is_(True),
+        BehaviourCategory.is_quick_action.is_(True),
+        BehaviourCategory.id != row.id,
+    ).count()
+    if existing_quick_count >= 6:
+        raise HTTPException(422, "A school can have at most six quick actions per type")
 
 
 class EventRequest(BaseModel):
@@ -96,7 +135,10 @@ def seed_categories(membership: Membership = Depends(require_school_role("school
 @school_router.post("/behaviour/categories", status_code=201)
 def create_category(body: CategoryRequest, membership: Membership = Depends(require_school_role("school_admin")), user: User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
     values = body.model_dump(); values["label"] = body.label.strip()
-    row = BehaviourCategory(school_id=membership.school_id, **values); db.add(row)
+    row = BehaviourCategory(school_id=membership.school_id, **values)
+    apply_quick_action_fields(db, row, values)
+    for key, value in values.items(): setattr(row, key, value)
+    db.add(row)
     try: db.flush()
     except IntegrityError: db.rollback(); raise HTTPException(409, "Category label already exists")
     write_audit(db, user, "behaviour.category.created", row, category_payload(row), membership.school_id); db.commit(); db.refresh(row)
@@ -111,6 +153,7 @@ def edit_category(category_id: int, body: CategoryPatch, membership: Membership 
     if "label" in values: values["label"] = values["label"].strip()
     prospective = values.get("points_value", row.points_value)
     if prospective == 0 or (row.type == "positive" and prospective < 0) or (row.type == "needs_work" and prospective > 0): raise HTTPException(422, "Points value must match category type")
+    apply_quick_action_fields(db, row, values)
     for key, value in values.items(): setattr(row, key, value)
     try: db.flush()
     except IntegrityError: db.rollback(); raise HTTPException(409, "Category label already exists")
@@ -118,11 +161,64 @@ def edit_category(category_id: int, body: CategoryPatch, membership: Membership 
     return category_payload(row)
 
 
+@school_router.put("/behaviour/quick-actions")
+def configure_quick_actions(body: QuickActionsRequest, membership: Membership = Depends(require_school_role("school_admin")), user: User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
+    requested = {
+        "positive": body.positive_category_ids,
+        "needs_work": body.needs_work_category_ids,
+    }
+    all_ids = [category_id for ids in requested.values() for category_id in ids]
+    if len(all_ids) != len(set(all_ids)):
+        raise HTTPException(422, "Quick action category IDs must be unique")
+    rows = db.query(BehaviourCategory).filter(
+        BehaviourCategory.school_id == membership.school_id,
+        BehaviourCategory.id.in_(all_ids),
+    ).all() if all_ids else []
+    by_id = {row.id: row for row in rows}
+    if len(by_id) != len(all_ids):
+        raise HTTPException(422, "Quick action categories must belong to this school")
+    for category_type, ids in requested.items():
+        for category_id in ids:
+            row = by_id[category_id]
+            if not row.active:
+                raise HTTPException(422, "Quick action categories must be active")
+            if row.type != category_type:
+                raise HTTPException(422, "Quick action category type does not match its list")
+
+    categories = db.query(BehaviourCategory).filter(BehaviourCategory.school_id == membership.school_id).all()
+    for row in categories:
+        row.is_quick_action = False
+        row.quick_action_order = None
+    for category_type, ids in requested.items():
+        for order, category_id in enumerate(ids, 1):
+            row = by_id[category_id]
+            row.is_quick_action = True
+            row.quick_action_order = order
+    db.flush()
+    write_audit(
+        db,
+        user,
+        "behaviour.quick_actions.updated",
+        ("behaviour_categories", None),
+        {"positive_category_ids": requested["positive"], "needs_work_category_ids": requested["needs_work"]},
+        membership.school_id,
+    )
+    db.commit()
+    return {"categories": [category_payload(row) for row in visible_categories(db, membership.school_id, active_only=False)]}
+
+
 @teacher_router.get("/behaviour/categories")
 def teacher_categories(school_id: int, user: User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
     from ..behaviour_service import active_teacher_membership
     active_teacher_membership(db, user.id, school_id)
     return {"categories": [category_payload(r) for r in visible_categories(db, school_id)]}
+
+
+@teacher_router.get("/behaviour/quick-actions")
+def teacher_quick_actions(school_id: int, user: User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
+    from ..behaviour_service import active_teacher_membership
+    active_teacher_membership(db, user.id, school_id)
+    return quick_actions_payload(db, school_id)
 
 
 @teacher_router.post("/behaviour/events", status_code=201)

@@ -560,6 +560,8 @@ class BehaviourCategory(Base):
     points_value = Column(Integer, nullable=False)
     sort_order = Column(Integer, nullable=False, default=0)
     active = Column(Boolean, nullable=False, default=True, server_default="true")
+    is_quick_action = Column(Boolean, nullable=False, default=False, server_default="false")
+    quick_action_order = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -569,8 +571,13 @@ class BehaviourCategory(Base):
             "(type = 'positive' AND points_value > 0) OR (type = 'needs_work' AND points_value < 0)",
             name="ck_behaviour_categories_value_sign",
         ),
+        CheckConstraint(
+            "NOT is_quick_action OR quick_action_order IS NOT NULL",
+            name="ck_behaviour_categories_quick_action_order",
+        ),
         UniqueConstraint("school_id", "type", "label", name="uq_behaviour_categories_school_type_label"),
         Index("ix_behaviour_categories_school_active_sort", "school_id", "active", "type", "sort_order"),
+        Index("ix_behaviour_categories_school_quick_actions", "school_id", "active", "is_quick_action", "type", "quick_action_order", "sort_order"),
     )
 
 

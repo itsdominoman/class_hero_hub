@@ -80,6 +80,10 @@ DUTY_LABELS = {
     "lunch": "Lunch",
     "assembly": "Assembly",
 }
+QUICK_ACTION_DEFAULTS = {
+    "positive": ["Listening well", "Good work", "Teamwork", "Helping others", "Kindness", "Great effort"],
+    "needs_work": ["Not listening", "Disrupting others", "Unkind behaviour", "Unsafe behaviour", "Off-task", "Not following instructions"],
+}
 
 
 @dataclass(frozen=True)
@@ -2496,8 +2500,24 @@ def seed_namespace_for_scale(scale: str) -> str:
     fail(f"Unsupported scale {scale!r}")
 
 
+def apply_demo_quick_action_defaults(db, world: World) -> None:
+    """Keep demo-school quick actions aligned with the standard teacher workflow."""
+    categories_by_key = {(category.type, category.label): category for category in world.behaviour_categories}
+    for category in world.behaviour_categories:
+        category.is_quick_action = False
+        category.quick_action_order = None
+    for category_type, labels in QUICK_ACTION_DEFAULTS.items():
+        for order, label in enumerate(labels, 1):
+            category = categories_by_key.get((category_type, label))
+            if category is not None and category.active:
+                category.is_quick_action = True
+                category.quick_action_order = order
+    db.flush()
+
+
 def seed_school(db, *, school_slug: str, as_of: date, apply: bool, scale: str = SCALE_DEMO) -> RunSummary:
     world = load_world(db, school_slug)
+    apply_demo_quick_action_defaults(db, world)
     personas = select_personas(world, db)
     pool = teacher_pool(world, db)
     seed_namespace = seed_namespace_for_scale(scale)

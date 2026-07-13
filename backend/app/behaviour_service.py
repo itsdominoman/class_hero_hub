@@ -16,12 +16,25 @@ DEFAULT_CATEGORIES = {
     "positive": ["Listening well", "Good work", "Teamwork", "Helping others", "Kindness", "Great effort", "Respectful behaviour", "Leadership", "Improvement", "Participation", "Good sportsmanship", "Safe play", "Helping at break", "Lining up well", "Responsible behaviour"],
     "needs_work": ["Late for class", "Homework incomplete", "Not listening", "Disrupting others", "Unkind behaviour", "Fighting / rough play", "Disrespect", "Off-task", "Forgot equipment", "Unsafe behaviour", "Out of bounds", "Wandering halls", "Unsafe play", "Running indoors", "Leaving area without permission", "Not following instructions"],
 }
+DEFAULT_QUICK_ACTIONS = {
+    "positive": ["Listening well", "Good work", "Teamwork", "Helping others", "Kindness", "Great effort"],
+    "needs_work": ["Not listening", "Disrupting others", "Unkind behaviour", "Unsafe behaviour", "Off-task", "Not following instructions"],
+}
 CONTEXT_TYPES = {"class", "subject", "duty", "general"}
 DUTY_CONTEXTS = {"break", "lunch", "playground", "hallway", "assembly", "bus", "general_duty"}
 
 
 def category_payload(row: BehaviourCategory) -> dict:
-    return {"id": row.id, "type": row.type, "label": row.label, "points_value": row.points_value, "sort_order": row.sort_order, "active": row.active}
+    return {
+        "id": row.id,
+        "type": row.type,
+        "label": row.label,
+        "points_value": row.points_value,
+        "sort_order": row.sort_order,
+        "active": row.active,
+        "is_quick_action": row.is_quick_action,
+        "quick_action_order": row.quick_action_order,
+    }
 
 
 def seed_default_categories(db: Session, school_id: int) -> list[BehaviourCategory]:
@@ -31,7 +44,17 @@ def seed_default_categories(db: Session, school_id: int) -> list[BehaviourCatego
         for index, label in enumerate(labels, 1):
             if (category_type, label) in existing:
                 continue
-            row = BehaviourCategory(school_id=school_id, type=category_type, label=label, points_value=1 if category_type == "positive" else -1, sort_order=index * 10, active=True)
+            quick_order = (DEFAULT_QUICK_ACTIONS[category_type].index(label) + 1) if label in DEFAULT_QUICK_ACTIONS[category_type] else None
+            row = BehaviourCategory(
+                school_id=school_id,
+                type=category_type,
+                label=label,
+                points_value=1 if category_type == "positive" else -1,
+                sort_order=index * 10,
+                active=True,
+                is_quick_action=quick_order is not None,
+                quick_action_order=quick_order,
+            )
             db.add(row)
             created.append(row)
     db.flush()
@@ -43,6 +66,28 @@ def visible_categories(db: Session, school_id: int, *, active_only: bool = True)
     if active_only:
         query = query.filter(BehaviourCategory.active.is_(True))
     return query.order_by(BehaviourCategory.type.asc(), BehaviourCategory.sort_order.asc(), BehaviourCategory.label.asc()).all()
+
+
+def quick_actions_payload(db: Session, school_id: int) -> dict:
+    rows = db.query(BehaviourCategory).filter(
+        BehaviourCategory.school_id == school_id,
+        BehaviourCategory.active.is_(True),
+    ).order_by(
+        BehaviourCategory.type.asc(),
+        BehaviourCategory.is_quick_action.desc(),
+        BehaviourCategory.quick_action_order.asc().nullslast(),
+        BehaviourCategory.sort_order.asc(),
+        BehaviourCategory.label.asc(),
+    ).all()
+    result = {
+        "quick_actions": {"positive": [], "needs_work": []},
+        "other_actions": {"positive": [], "needs_work": []},
+    }
+    for row in rows:
+        payload = {"id": row.id, "label": row.label, "points_value": row.points_value}
+        bucket = "quick_actions" if row.is_quick_action else "other_actions"
+        result[bucket][row.type].append(payload)
+    return result
 
 
 def active_teacher_membership(db: Session, user_id: int, school_id: int) -> Membership:
