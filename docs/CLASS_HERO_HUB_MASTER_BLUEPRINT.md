@@ -5,6 +5,10 @@
 **Repo:** `/opt/apps/class_hero_hub`
 **Companion documents:** `docs/audits/CLAUDE_CLASS_HERO_HUB_AUDIT.md` and `docs/audits/CODEX_CLASS_HERO_HUB_AUDIT.md` (2026-06-16). Those cover the inherited system and competitor research in depth; this blueprint is the *decision and execution* document. Where this document and the audits disagree, this document wins — it reflects the 2026-07-07 product brief (points/behaviour is in scope, child views may come later, compliance analysis deferred).
 
+**Current authority note (2026-07-16):** this blueprint remains historical/current context for the earlier CHH build sequence, but its messaging schema, §19, S15, and related S16 notification assumptions are **partially superseded**. The authoritative cross-repository Messaging v1 specification is
+[`docs/planning/2026-07-messaging-v1-architecture-plan.md`](planning/2026-07-messaging-v1-architecture-plan.md).
+Do not implement the simple `(student × teacher)`/plain-text/`message_reads` design below as the current product.
+
 ---
 
 ## 0. How to use this document
@@ -271,6 +275,10 @@ audit_logs (append-only)          id, school_id NULL, actor_user_id, action, ent
                                   detail JSONB, created_at
 ```
 
+> **Historical Messaging S15 schema:** the three messaging rows above are retained only to preserve
+> the original blueprint. They are superseded by the participant/access-history, external-FHH-parent,
+> media, receipt, policy, outbox, moderation, and audit schema in the 2026-07 Messaging v1 plan.
+
 Key modelling decisions and why:
 
 1. **Grade level and section are separate.** "Grade 1A" is `grade_level=G1` + `label=A`. Rollover, reporting, and subject-group defaults all key off grade level; a single free-text class name can't support that.
@@ -377,6 +385,10 @@ Design decisions, per the brief's questions:
 - **Revoking access:** admin revokes a `guardian_link` (custody changes etc.); revocation takes effect on next request via the same status-check-per-request idiom used today.
 
 ## 19. Messaging architecture
+
+> **Historical and superseded for implementation.** This section records the original S15 scope.
+> Use [`docs/planning/2026-07-messaging-v1-architecture-plan.md`](planning/2026-07-messaging-v1-architecture-plan.md)
+> for all current Messaging v1 decisions.
 
 - **Model:** one thread per (student × teacher) — see §9 decision 3. School-admin↔guardian threads reuse the same table with an admin membership as `teacher_membership_id`.
 - **MVP includes:** parent replies (per-school toggle, default on); teacher inbox grouped by class; guardian unified inbox; unread tracking (`message_reads`); plain text (no attachments); i18n UI. New-message email notification (best-effort, deduped by thread+hour).
@@ -613,6 +625,12 @@ Global conventions for every slice: work on a feature branch; do not touch `dock
 - **Risk:** MEDIUM. Depends on S6 (+S10 for parent view).
 
 ### S15 — Messaging v1
+
+**Superseded implementation definition:** the goal/DB/tests below are historical. The current
+Messaging v1 is split into the independently testable slices in
+[`docs/planning/2026-07-messaging-v1-architecture-plan.md`](planning/2026-07-messaging-v1-architecture-plan.md)
+§22.
+
 - **Goal:** (student × teacher) threads per §19; teacher inbox; guardian unified inbox + initiate; unread tracking; per-school replies toggle; admin threads.
 - **DB:** `conversations`, `messages`, `message_reads` revision.
 - **Tests:** governance suite (no guardian↔guardian path constructible, ex-teacher loses write at assignment end, both guardians see thread), unread counts, scope.

@@ -81,3 +81,16 @@ This section is updated as the cleanup is applied.
 - Rewrote top-level `README.md` as a Class Hero Hub repo README.
 - Left proposed-deletion product/manual files in place for review.
 - Preserved all audit trail docs.
+
+## 2026-07-16 messaging documentation authority update
+
+- Added `docs/planning/2026-07-messaging-v1-architecture-plan.md` as the primary
+  authoritative CHH/FHH Messaging v1 architecture and implementation plan.
+- Marked the master blueprint's original S15 messaging model partially superseded rather
+  than deleting it.
+- Linked the current plan from the README, product strategy, implementation/integration
+  audit, and implementation log.
+- The FHH companion source is unambiguously identified as
+  `/opt/apps/family-hero-hub/docs/planning/2026-07-fhh-school-messaging-integration-plan.md`.
+- Messaging remains planned; no documentation updated in this pass claims that messaging,
+  notification workers, native deep links, or new schema have been implemented.

@@ -4,6 +4,13 @@
 **Author:** Claude (Fable 5) — opinion/strategy report requested by Dom after the post-S4 checkpoint audit. Deliberately unconstrained by the existing blueprint and codebase. No code was changed.
 **Companions:** `docs/CLASS_HERO_HUB_MASTER_BLUEPRINT.md` (execution plan), `docs/audits/2026-07-07-post-s4-fable-checkpoint-audit.md` (technical audit).
 
+**Authority note (2026-07-16):** this remains useful product-strategy history. Its messaging,
+notification-channel, safeguarding, and pilot recommendations have now been reconciled against the
+live CHH and FHH repositories in
+[`docs/planning/2026-07-messaging-v1-architecture-plan.md`](../planning/2026-07-messaging-v1-architecture-plan.md).
+That plan is authoritative for Messaging v1 architecture and implementation; this document does
+not mean messaging or the proposed notification channels are implemented.
+
 ---
 
 ## 1. Executive summary

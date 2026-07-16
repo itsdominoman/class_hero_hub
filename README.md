@@ -10,7 +10,8 @@ context only. Current Class Hero Hub planning and audit material lives in
 
 ## Current Docs
 
-- [Master implementation blueprint](docs/CLASS_HERO_HUB_MASTER_BLUEPRINT.md)
+- [Messaging v1 architecture plan — authoritative cross-repository source](docs/planning/2026-07-messaging-v1-architecture-plan.md)
+- [Master implementation blueprint — partially superseded for Messaging v1](docs/CLASS_HERO_HUB_MASTER_BLUEPRINT.md)
 - [Implementation log](docs/implementation/CLASS_HERO_HUB_IMPLEMENTATION_LOG.md)
 - [Product strategy notes](docs/product/CLASS_HERO_HUB_PRODUCT_STRATEGY_NOTES.md)
 - [Backend performance notes](docs/BACKEND_PERFORMANCE.md)

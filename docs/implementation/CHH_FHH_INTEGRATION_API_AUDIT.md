@@ -1,11 +1,19 @@
 # CHH ↔ FHH Integration API — Audit & Design
 
 **Date:** 2026-07-11
-**Status:** Historical design/audit; S21a appended the safe avatar contract note below. No code was committed.
+**Status:** Historical/partially superseded design audit. The linked-school foundation described
+here was subsequently implemented, but this document is not the Messaging v1 specification.
+Messaging extends the boundary through the authoritative
+[`../planning/2026-07-messaging-v1-architecture-plan.md`](../planning/2026-07-messaging-v1-architecture-plan.md).
 **Scope:** Read-only audit of Class Hero Hub (CHH, restore server 10.250.50.5,
 `/opt/apps/class_hero_hub`, branch `main` @ `bab9ae3`) and Family Hero Hub (FHH, dev
 server 10.250.50.1, `/opt/apps/family-hero-hub`, branch `develop` @ `fcacb34`, dirty
 working tree with in-flight push-notification work).
+
+**Current checkpoint note (2026-07-16):** CHH is clean at `main` /
+`4b25971fa049bcaeb1184c92fdbfa28ba59b5195`; FHH is clean at `develop` /
+`c9e52feec30b9d2b1377159b71bf94a3de123fa5`. The older status above is retained as
+the audit-time historical record, not current repository state.
 
 ---
 
@@ -230,6 +238,11 @@ Principles:
 4. **Strictly one-way data flow** plus two explicit write-backs: homework done/not-done
    and link removal. The integration API accepts no other FHH-originated data; request
    schemas make it structurally impossible to send family data.
+
+For Messaging v1, FHH-originated school messages and individual parent receipt acknowledgements
+are additional explicit writes, but they remain link-scoped, server-to-server, and data-minimized.
+They do not authorize unrelated FHH family/home data to flow to CHH. See the current Messaging v1
+plan rather than extending this historical endpoint list ad hoc.
 
 ## 6. Proposed endpoint contract (CHH side)
 

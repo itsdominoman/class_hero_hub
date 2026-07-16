@@ -3800,3 +3800,25 @@ to S22b, and homework completion/write-back remains deferred to S23a.
 # Updates & Photos image optimisation (2026-07-14)
 
 CHH now processes update photos server-side. It accepts JPEG/JPG, PNG, WEBP and iPhone HEIC/HEIF raw uploads up to 50 MB, automatically converts HEIC/HEIF, corrects EXIF orientation, converts to web-safe RGB, removes metadata and resizes the longest edge to 1600 px. Only one optimised JPEG or transparency-preserving WEBP is stored (target <1 MB, hard maximum 1.5 MB); the raw source is discarded after processing. Optimisation starts at quality 85 and only reduces to meet the target; quality 78 is the preferred floor, allowing detailed artwork to remain closer to the budget when needed. The existing authenticated CHH and FHH media paths therefore serve only the optimised image.
+
+## 2026-07-16 — Messaging v1 cross-repository architecture audit (documentation only)
+
+- Verified CHH clean at `main` /
+  `4b25971fa049bcaeb1184c92fdbfa28ba59b5195` and FHH clean at `develop` /
+  `c9e52feec30b9d2b1377159b71bf94a3de123fa5`; both match their handover checkpoints.
+- Audited the current models, migrations, auth/CSRF/native bearer flows, school/family
+  authorization, FHH server-to-server boundary, protected media, push foundations,
+  navigation, i18n/RTL, tests, deployment topology, lifecycle/deletion, and existing docs.
+- Created the authoritative plan:
+  `docs/planning/2026-07-messaging-v1-architecture-plan.md`.
+- Created the FHH companion:
+  `/opt/apps/family-hero-hub/docs/planning/2026-07-fhh-school-messaging-integration-plan.md`.
+- Selected CHH as the sole message system of record, with FHH as a protected proxy and
+  parent-push owner. The plan resolves individual FHH parent attribution/read state,
+  contact-hours versus message state, honest receipts, durable outbox/retry, protected
+  photos, safeguarding, and implementation slices.
+- Marked the older blueprint S15 model as historical/partially superseded. Messaging is
+  still not implemented.
+- Only documentation files changed. No source, migration, schema, configuration,
+  dependency, test, database, service, deployment, build, Git branch, commit, push, tag,
+  or PR action was performed.
