@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -20,6 +22,27 @@ if settings.DATABASE_URL.startswith("sqlite"):
 announcements.UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 homework.UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 updates.UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+
+
+class ProtectedMediaAccessLogFilter(logging.Filter):
+    """Redact protected integration media parameters from Uvicorn access logs."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if not isinstance(record.args, tuple) or len(record.args) < 5:
+            return True
+        path = str(record.args[2])
+        is_protected_media = (
+            path.startswith("/api/integrations/fhh/links/")
+            and ("/attachments/" in path or "/photos/" in path)
+        )
+        if is_protected_media:
+            args = list(record.args)
+            args[2] = "/api/integrations/fhh/links/<redacted>/<protected-media>"
+            record.args = tuple(args)
+        return True
+
+
+protected_media_access_log_filter = ProtectedMediaAccessLogFilter()
 
 
 def _me_payload(current_user: User, db: Session) -> dict:
@@ -66,6 +89,12 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title=settings.APP_NAME if hasattr(settings, "APP_NAME") else "Class Hero Hub")
     app.state.runtime_environment = settings.runtime_environment
+
+    @app.on_event("startup")
+    async def install_protected_media_access_log_filter() -> None:
+        access_logger = logging.getLogger("uvicorn.access")
+        if protected_media_access_log_filter not in access_logger.filters:
+            access_logger.addFilter(protected_media_access_log_filter)
 
     app.add_middleware(TrustedProxyHeadersMiddleware, trusted_proxy_ips=settings.TRUSTED_PROXY_IPS)
 
