@@ -9,7 +9,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from . import auth, database, schemas
 from .database import Base, close_request_db, engine, ensure_runtime_schema, get_db, settings, validate_runtime_configuration
 from .models_school import Membership, PlatformAdmin, School, User
-from .routes import announcements, authentication, behaviour, calendar, dev, guardian, homework, integrations_fhh, join, messaging, messaging_policy, platform, school, school_reports, teach, updates
+from .routes import announcements, authentication, behaviour, calendar, dev, guardian, homework, integrations_fhh, integrations_fhh_messaging, join, messaging, messaging_policy, platform, school, school_reports, teach, updates
 from .security import TrustedProxyHeadersMiddleware, parse_csv_values
 
 if settings.DATABASE_URL.startswith("sqlite"):
@@ -35,9 +35,17 @@ class ProtectedMediaAccessLogFilter(logging.Filter):
             path.startswith("/api/integrations/fhh/links/")
             and ("/attachments/" in path or "/photos/" in path)
         )
-        if is_protected_media:
+        is_fhh_messaging = (
+            path.startswith("/api/integrations/fhh/links/")
+            and "/messaging" in path
+        )
+        if is_protected_media or is_fhh_messaging:
             args = list(record.args)
-            args[2] = "/api/integrations/fhh/links/<redacted>/<protected-media>"
+            args[2] = (
+                "/api/integrations/fhh/links/<redacted>/messaging/<redacted>"
+                if is_fhh_messaging
+                else "/api/integrations/fhh/links/<redacted>/<protected-media>"
+            )
             record.args = tuple(args)
         return True
 
@@ -167,6 +175,11 @@ def create_app() -> FastAPI:
     )
     app.include_router(behaviour.guardian_router, prefix="/api/guardian", tags=["behaviour"])
     app.include_router(integrations_fhh.router, prefix="/api/integrations/fhh", tags=["fhh-integration"])
+    app.include_router(
+        integrations_fhh_messaging.router,
+        prefix="/api/integrations/fhh",
+        tags=["fhh-messaging-integration"],
+    )
 
     if settings.runtime_environment != "production":
         app.include_router(dev.router, prefix="/api/dev", tags=["dev"])

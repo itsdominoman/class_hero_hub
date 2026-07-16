@@ -232,6 +232,7 @@ def _source_is_current(
                 FhhMessagingIdentityLink.fhh_link_id == fhh_link.id,
                 FhhMessagingIdentityLink.identity_id == participant.external_participant_id,
                 FhhMessagingIdentityLink.status == "active",
+                FhhMessagingIdentityLink.revoked_at.is_(None),
             )
             .first()
         )

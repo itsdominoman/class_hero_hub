@@ -649,6 +649,53 @@ class FhhMessagingLifecycleEvent(Base):
     )
 
 
+class FhhMessagingAssertionUse(Base):
+    """One-time actor assertion evidence; assertion material is never retained."""
+
+    __tablename__ = "fhh_messaging_assertion_uses"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    jti = Column(Uuid(as_uuid=True), nullable=False)
+    school_id = Column(
+        Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    fhh_link_id = Column(
+        Integer, ForeignKey("fhh_links.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    identity_id = Column(
+        Integer,
+        ForeignKey("fhh_messaging_identities.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    request_method = Column(String(8), nullable=False)
+    request_path_hash = Column(String(64), nullable=False)
+    body_hash = Column(String(64), nullable=False)
+    used_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "jti",
+            name="uq_fhh_messaging_assertion_uses_jti",
+        ),
+        CheckConstraint(
+            "request_method IN ('GET', 'POST')",
+            name="ck_fhh_messaging_assertion_uses_method",
+        ),
+        Index(
+            "ix_fhh_messaging_assertion_uses_expiry",
+            "expires_at",
+            "id",
+        ),
+        Index(
+            "ix_fhh_messaging_assertion_uses_link_used",
+            "fhh_link_id",
+            "used_at",
+        ),
+    )
+
+
 class Conversation(Base):
     __tablename__ = "conversations"
 

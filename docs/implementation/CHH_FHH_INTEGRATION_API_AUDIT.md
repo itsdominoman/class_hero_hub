@@ -70,6 +70,22 @@ Since it was authored, S19, S20, and S21a have been implemented across CHH and F
   S19/S20/S21a implementation-log entries for exact files, QA findings, deployment notes,
   and validation results.
 
+### Messaging integration status — 2026-07-17
+
+The historical design below is not the messaging contract. Messaging Slice 5 is now
+implemented behind disabled flags using the primary Messaging v1 plan:
+
+- CHH owns conversations/messages; FHH is a parent-authenticated, child/link-scoped
+  proxy and does not mirror school message content.
+- Every messaging integration call requires service bearer + exact link credential +
+  a separate, short-lived, request-bound, one-time actor assertion.
+- Parent identity is the pre-synchronized opaque school subject plus minimized
+  server-owned display name/locale. Family IDs, FHH parent IDs, email, device tokens,
+  and home data are not accepted.
+- Current endpoint and recovery details are in
+  [`../operations/FHH_MESSAGING_INTEGRATION.md`](../operations/FHH_MESSAGING_INTEGRATION.md).
+- Parent UI/navigation is Slice 6 and is not implemented at this checkpoint.
+
 ---
 
 ## 2. Access & repo status (Part 1 verification)

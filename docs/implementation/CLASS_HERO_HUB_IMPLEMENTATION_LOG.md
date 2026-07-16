@@ -4001,3 +4001,57 @@ CHH now processes update photos server-side. It accepts JPEG/JPG, PNG, WEBP and 
 - Photos, CHH guardian UI, FHH parent integration/UI, final delivery/read indicators,
   contact-hours scheduling, notification dispatch, push/native deep links,
   safeguarding UI, and retention workers remain unimplemented.
+
+## 2026-07-17 — S25e FHH parent identity and messaging integration
+
+- Added the protected FHH messaging integration family under
+  `/api/integrations/fhh/links/{link_id}/messaging/*`: inbox/unread, bounded
+  link-student recipient discovery, find/create, detail, stable message history,
+  idempotent text send, and acknowledgement groundwork.
+- Kept the existing three-part trust boundary. Every call requires the FHH service
+  bearer, exact per-link header credential, and a new short-lived actor assertion
+  signed with a separate secret. Assertions bind fixed issuer/audience, opaque
+  external subject, link, trusted display/locale, method, path, canonical body hash,
+  expiry, and one-time UUID `jti`.
+- Added Alembic `e4f5a6b7c8d9_add_fhh_messaging_assertion_replay.py`. Its only table,
+  `fhh_messaging_assertion_uses`, stores expiry-indexed replay evidence and hashes; it
+  never stores assertion material or FHH private/family data.
+- Recipient references are encrypted and expire after 24 hours. Conversation/message
+  IDs remain opaque UUIDs. Integration access-log paths are redacted and responses are
+  explicit private/no-store DTOs.
+- External FHH identities now participate in shared student/staff conversations as
+  individual parents. Two parents on one linked child have distinct immutable sender
+  attribution and independent read cursors. Same-school siblings reuse the school
+  subject; different schools do not.
+- Replaced lazy per-conversation guardian resolution with a set-based reconciliation
+  pass. The regression fixture exercises 20 conversations with bounded steady-state
+  SELECTs.
+- FHH added server-only actor derivation/signing, pooled CHH client methods,
+  parent/family/child/link authorization, child-scoped proxy routes, unified inbox and
+  unread fan-out capped at 20 connections, encrypted parent-bound federated cursors,
+  closed sanitizers, and safe upstream error mapping. FHH persists no conversation or
+  message copy.
+- Focused validation:
+  - CHH messaging integration/API/core/prerequisite/FHH/auth: **57 passed**.
+  - FHH proxy/identity/lifecycle/link/deletion/push focused set: **42 passed**;
+    extended security and parent-auth regression set: **84 passed**.
+  - Disposable PostgreSQL fresh upgrade, downgrade to `d3e4f5a6b7c8`, and re-upgrade
+    to `e4f5a6b7c8d9` passed.
+- Development backup/migration/deployment:
+  - CHH pgBackRest full backup `20260716-222353F` completed before migration.
+  - FHH pgBackRest full backup `20260716-222509F` completed after correcting
+    root-owned repository metadata left by the earlier root-run backup. The backup
+    completed successfully; the existing pgBackRest log-directory permission warning
+    remains an operations follow-up.
+  - CHH Alembic advanced to `e4f5a6b7c8d9`; FHH remained at `a2b3c4d5e6f7`.
+  - Separate matching assertion secrets were installed without printing them and
+    remain distinct from service/link credentials.
+  - CHH backend and FHH backend/lifecycle worker were rebuilt/restarted; frontends and
+    databases were not recreated.
+  - Loopback health, CHH public root/`/messages`, existing FHH linked-school dashboard,
+    lifecycle worker, and current link state passed. Runtime remained
+    `MESSAGING_ENABLED=false` / `SCHOOL_MESSAGING_ENABLED=false`, zero enabled CHH
+    schools, zero conversations/messages, and no FHH message mirror.
+- Parent messaging UI/navigation, photos, final receipt UI, contact-hours scheduling,
+  notification bridge/push, safeguarding administration, and retention cleanup remain
+  unimplemented.

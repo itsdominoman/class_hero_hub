@@ -2076,8 +2076,50 @@ Each slice is separately deployable/testable. File lists are likely touch points
 
 **Objective:** resolve individual multi-parent identity and expose safe link-scoped text messaging to FHH backend.
 
+**Implementation status (2026-07-17): implemented as CHH S25e / FHH-B+C.**
+
+- CHH remains the sole message store. FHH stores no conversation or message rows and
+  exposes parent-authenticated proxy routes only when
+  `SCHOOL_MESSAGING_ENABLED=true`.
+- Every FHH request now requires all three server-side credentials: the existing
+  service bearer, the exact per-link credential, and a separate five-minute HS256
+  actor assertion. Assertions have fixed issuer/audience, opaque school-scoped
+  subject, link ID, trusted display name/locale, method, path, canonical request-body
+  digest, expiry, and one-time UUID `jti`; no assertion or link credential is placed
+  in a URL or client response.
+- CHH migration `e4f5a6b7c8d9` adds only
+  `fhh_messaging_assertion_uses`, an expiry-indexed replay-evidence ledger. It stores
+  hashes and minimized foreign keys, never the assertion, message body, email, family
+  ID, FHH parent ID, home data, or device token.
+- Added link/student-scoped CHH integration endpoints for inbox/unread, safe recipient
+  discovery, create/find, detail, stable history, idempotent text send, and receipt
+  acknowledgement groundwork. Recipient references are encrypted, expiring, and
+  school/student bound. All response DTOs are explicit and private/no-store.
+- FHH derives actors only from the authenticated active `ParentUser`, active exact
+  `SchoolConnection`, and active synchronized identity-link. It signs each upstream
+  request server-side, wraps CHH cursors in parent/family-bound encrypted FHH cursors,
+  sanitizes every CHH response through closed allowlists, and fans out the unified
+  inbox across at most 20 active connections without persistence.
+- Same-school siblings reuse the same opaque external subject while retaining
+  per-connection grants. Different schools use different subjects. Two active parents
+  on one child map to distinct CHH participants, immutable sender snapshots, and
+  independent read cursors.
+- Guardian participant reconciliation was changed from a per-conversation query loop
+  to bounded, set-based school/student resolution. A 20-conversation external inbox
+  regression test confirms a bounded steady-state SELECT count.
+- Runtime keys are separate from the service/link credentials. CHH and FHH development
+  remain dark (`MESSAGING_ENABLED=false`,
+  `SCHOOL_MESSAGING_ENABLED=false`, zero enabled schools), so no parent route or staff
+  route is user-accessible yet.
+- Validation passed for assertion forgery/replay/expiry/audience/path/body binding,
+  Arabic identity comparison, multi-parent attribution/read isolation, sibling and
+  different-school identity scope, cross-family/child/link/conversation denial,
+  sanitizer allowlists, encrypted cursors/recipients, lifecycle/deletion/unlink
+  regressions, and fresh PostgreSQL upgrade/downgrade/re-upgrade.
+
 - CHH files: integration router, actor assertion validation, external participant service, tests/config.
-- FHH files: models/migration, identity service, CHH messaging client, school-message routes/schemas.
+- FHH files: existing FHH-A identity/link models, actor service, CHH messaging client,
+  school-message routes/schemas; no new FHH migration was required.
 - Privacy: only opaque school subject, display name, locale; no email/family/device data.
 - Tests: forged identity, replay, sibling same-school reuse, cross-link/family, parent deletion.
 - Deploy: FHH migration/backend, CHH config/API; UI hidden.
@@ -2222,6 +2264,10 @@ This ledger records the documentation-only maintenance performed by the audit. P
 
 - CHH `docs/planning/2026-07-messaging-v1-architecture-plan.md` — this authoritative source.
 - FHH `docs/planning/2026-07-fhh-school-messaging-integration-plan.md` — parent/integration companion.
+- CHH `docs/operations/FHH_MESSAGING_INTEGRATION.md` — Slice 5 credential,
+  endpoint, failure, and dark-rollout operations.
+- FHH `docs/operations/SCHOOL_MESSAGING_PROXY.md` — parent proxy/assertion operations
+  and recovery.
 
 ### Updated
 
@@ -2236,11 +2282,14 @@ CHH:
 - `docs/planning/2026-07-messaging-v1-architecture-plan.md` — Slice 1 implementation
   status, migrations, lifecycle protocol, retry behavior, and remaining non-implemented
   scope recorded; later updated with the Slice 2 core-schema implementation and its
-  plan-compatible live-code adjustments, Slice 3 API evidence, and Slice 4 staff UI.
+  plan-compatible live-code adjustments, Slice 3 API evidence, Slice 4 staff UI, and
+  Slice 5 FHH identity/proxy evidence.
 - `docs/implementation/CLASS_HERO_HUB_IMPLEMENTATION_LOG.md` — S25a implementation,
   validation, deployment, and the pre-existing unrelated full-suite failure recorded;
-  later updated with S25b schema, S25c APIs, and S25d staff UI validation/deployment
-  evidence.
+  later updated with S25b schema, S25c APIs, S25d staff UI, and S25e integration
+  validation/deployment evidence.
+- `README.md` and `docs/implementation/CHH_FHH_INTEGRATION_API_AUDIT.md` — Slice 5
+  operations link and current protected messaging-boundary status.
 
 FHH:
 
@@ -2264,6 +2313,9 @@ FHH:
   retry/recovery, privacy, and operations runbook.
 - FHH companion/status/roadmap/deployment/upgrade documents — FHH-A implementation
   state and remaining messaging scope recorded.
+- FHH companion, `README.md`, project status, roadmap, QA matrix, current deployment,
+  and upgrade tracker — FHH-B/C identity/proxy implementation, validation, dark
+  deployment, and remaining Slice 6+ scope recorded.
 
 ### Marked historical/partially superseded
 
@@ -2298,7 +2350,8 @@ FHH:
 - legally reviewed messaging privacy/retention/safeguarding notice;
 - school admin policy and moderation user guide;
 - staff/guardian/FHH parent user manuals after UI exists;
-- messaging operations/outbox/incident runbook;
+- notification/contact-hours outbox and messaging incident runbook beyond the
+  implemented lifecycle/proxy operations;
 - data export/offboarding specification;
 - Android/iOS message deep-link and push release checklist;
 - updated Play/App Store data-safety/privacy disclosures when message content collection is implemented;

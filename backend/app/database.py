@@ -16,6 +16,7 @@ MIN_SESSION_SECRET_LENGTH = 32
 MIN_QA_TOKEN_LENGTH = 24
 MIN_GOOGLE_SECRET_LENGTH = 16
 MIN_FHH_SERVICE_TOKEN_LENGTH = 32
+MIN_FHH_ASSERTION_SECRET_LENGTH = 32
 PLACEHOLDER_SECRET_VALUES = {
     "",
     "change_me",
@@ -221,6 +222,32 @@ def validate_runtime_configuration(settings: "Settings" | None = None) -> str:
         )
     else:
         _validate_optional_secret("FHH_INTEGRATION_SERVICE_TOKEN", config.FHH_INTEGRATION_SERVICE_TOKEN)
+    if config.MESSAGING_ENABLED and config.FHH_INTEGRATION_ENABLED:
+        _validate_secret(
+            "FHH_MESSAGING_ASSERTION_SECRET",
+            config.FHH_MESSAGING_ASSERTION_SECRET,
+            min_length=MIN_FHH_ASSERTION_SECRET_LENGTH,
+            required=True,
+        )
+    else:
+        _validate_optional_secret(
+            "FHH_MESSAGING_ASSERTION_SECRET",
+            config.FHH_MESSAGING_ASSERTION_SECRET,
+        )
+    if config.MESSAGING_ENABLED and config.FHH_INTEGRATION_ENABLED:
+        if not config.FHH_MESSAGING_ASSERTION_ISSUER.strip():
+            _fail("FHH_MESSAGING_ASSERTION_ISSUER", "must not be empty")
+        if not config.FHH_MESSAGING_ASSERTION_AUDIENCE.strip():
+            _fail("FHH_MESSAGING_ASSERTION_AUDIENCE", "must not be empty")
+    if (
+        config.FHH_MESSAGING_ASSERTION_SECRET
+        and config.FHH_MESSAGING_ASSERTION_SECRET
+        == config.FHH_INTEGRATION_SERVICE_TOKEN
+    ):
+        _fail(
+            "FHH_MESSAGING_ASSERTION_SECRET",
+            "must be separate from FHH_INTEGRATION_SERVICE_TOKEN",
+        )
     try:
         parse_ip_networks(config.FHH_INTEGRATION_ALLOWED_IPS)
     except ValueError as exc:
@@ -253,6 +280,9 @@ class Settings(BaseSettings):
     FHH_INTEGRATION_ENABLED: bool = False
     FHH_INTEGRATION_SERVICE_TOKEN: str = ""
     FHH_INTEGRATION_ALLOWED_IPS: str = ""
+    FHH_MESSAGING_ASSERTION_SECRET: str = ""
+    FHH_MESSAGING_ASSERTION_ISSUER: str = "fhh-school-messaging"
+    FHH_MESSAGING_ASSERTION_AUDIENCE: str = "chh-school-messaging"
     MESSAGING_ENABLED: bool = False
     CORS_ORIGINS: str = "https://families.loginto.me,http://localhost:5173,http://localhost:8000"
     SMTP_HOST: str = ""

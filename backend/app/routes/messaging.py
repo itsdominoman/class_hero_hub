@@ -69,6 +69,15 @@ class GuardianActor:
     policy: SchoolMessagingPolicy
 
 
+@dataclass(frozen=True)
+class ExternalGuardianActor:
+    identity: FhhMessagingIdentity
+    identity_link: FhhMessagingIdentityLink
+    link: FhhLink
+    school: School
+    policy: SchoolMessagingPolicy
+
+
 class StaffConversationCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -389,45 +398,175 @@ def _staff_participant(
     return participant
 
 
-def _current_guardian_rows(
-    db: Session, *, school_id: int, student_id: int
-) -> tuple[list[tuple[GuardianLink, User]], list[tuple[FhhLink, FhhMessagingIdentity]]]:
-    chh_rows = (
-        db.query(GuardianLink, User)
-        .join(User, User.id == GuardianLink.user_id)
-        .filter(
-            GuardianLink.school_id == school_id,
-            GuardianLink.student_id == student_id,
-            GuardianLink.status == "active",
-            GuardianLink.revoked_at.is_(None),
-            User.status == "active",
+def _ensure_current_guardians_for_conversations(
+    db: Session,
+    *,
+    conversations: list[Conversation],
+    initial: bool = False,
+) -> int:
+    eligible = [
+        row
+        for row in conversations
+        if row.student_id is not None and row.kind == "student_staff"
+    ]
+    if not eligible:
+        return 0
+    conversation_ids = [row.id for row in eligible]
+    student_ids_by_school: dict[int, set[int]] = {}
+    for row in eligible:
+        student_ids_by_school.setdefault(row.school_id, set()).add(row.student_id)
+
+    chh_by_scope: dict[tuple[int, int], list[tuple[GuardianLink, User]]] = {}
+    fhh_by_scope: dict[
+        tuple[int, int], list[tuple[FhhLink, FhhMessagingIdentity]]
+    ] = {}
+    for school_id, student_ids in student_ids_by_school.items():
+        chh_rows = (
+            db.query(GuardianLink, User)
+            .join(User, User.id == GuardianLink.user_id)
+            .filter(
+                GuardianLink.school_id == school_id,
+                GuardianLink.student_id.in_(student_ids),
+                GuardianLink.status == "active",
+                GuardianLink.revoked_at.is_(None),
+                User.status == "active",
+            )
+            .order_by(GuardianLink.student_id, GuardianLink.id)
+            .all()
         )
-        .order_by(GuardianLink.id)
+        for link, user in chh_rows:
+            chh_by_scope.setdefault((school_id, link.student_id), []).append(
+                (link, user)
+            )
+        fhh_rows = (
+            db.query(FhhLink, FhhMessagingIdentity)
+            .join(
+                FhhMessagingIdentityLink,
+                FhhMessagingIdentityLink.fhh_link_id == FhhLink.id,
+            )
+            .join(
+                FhhMessagingIdentity,
+                FhhMessagingIdentity.id == FhhMessagingIdentityLink.identity_id,
+            )
+            .filter(
+                FhhLink.school_id == school_id,
+                FhhLink.student_id.in_(student_ids),
+                FhhLink.status == "active",
+                FhhLink.revoked_at.is_(None),
+                FhhMessagingIdentityLink.school_id == school_id,
+                FhhMessagingIdentityLink.status == "active",
+                FhhMessagingIdentityLink.revoked_at.is_(None),
+                FhhMessagingIdentity.school_id == school_id,
+                FhhMessagingIdentity.status == "active",
+            )
+            .order_by(
+                FhhLink.student_id,
+                FhhMessagingIdentity.id,
+                FhhLink.id,
+            )
+            .all()
+        )
+        for link, identity in fhh_rows:
+            fhh_by_scope.setdefault((school_id, link.student_id), []).append(
+                (link, identity)
+            )
+
+    existing = (
+        db.query(ConversationParticipant)
+        .filter(ConversationParticipant.conversation_id.in_(conversation_ids))
         .all()
     )
-    fhh_rows = (
-        db.query(FhhLink, FhhMessagingIdentity)
-        .join(
-            FhhMessagingIdentityLink,
-            FhhMessagingIdentityLink.fhh_link_id == FhhLink.id,
+    existing_chh: dict[int, set[int]] = {}
+    existing_fhh: dict[int, set[int]] = {}
+    for row in existing:
+        if (
+            row.participant_kind == "chh_guardian"
+            and row.left_at is None
+            and row.user_id is not None
+        ):
+            existing_chh.setdefault(row.conversation_id, set()).add(row.user_id)
+        elif (
+            row.participant_kind == "fhh_parent"
+            and row.left_at is None
+            and row.external_participant_id is not None
+        ):
+            existing_fhh.setdefault(row.conversation_id, set()).add(
+                row.external_participant_id
+            )
+
+    pending: list[
+        tuple[ConversationParticipant, str, int | None, int]
+    ] = []
+    for conversation in eligible:
+        visible_from = (
+            1
+            if initial
+            else int(conversation.last_message_sequence or 0) + 1
         )
-        .join(
-            FhhMessagingIdentity,
-            FhhMessagingIdentity.id == FhhMessagingIdentityLink.identity_id,
+        current_chh = existing_chh.setdefault(conversation.id, set())
+        for link, user in chh_by_scope.get(
+            (conversation.school_id, conversation.student_id), []
+        ):
+            if user.id in current_chh:
+                continue
+            participant = ConversationParticipant(
+                conversation_id=conversation.id,
+                participant_kind="chh_guardian",
+                user_id=user.id,
+                side="guardian",
+                display_name_snapshot=link.display_name
+                or user.name
+                or "Guardian",
+                last_delivered_sequence=max(0, visible_from - 1),
+                last_read_sequence=max(0, visible_from - 1),
+            )
+            db.add(participant)
+            pending.append(
+                (participant, "guardian_link", link.id, visible_from)
+            )
+            current_chh.add(user.id)
+
+        current_fhh = existing_fhh.setdefault(conversation.id, set())
+        for link, identity in fhh_by_scope.get(
+            (conversation.school_id, conversation.student_id), []
+        ):
+            if identity.id in current_fhh:
+                continue
+            participant = ConversationParticipant(
+                conversation_id=conversation.id,
+                participant_kind="fhh_parent",
+                external_participant_id=identity.id,
+                side="guardian",
+                display_name_snapshot=identity.display_name,
+                last_delivered_sequence=max(0, visible_from - 1),
+                last_read_sequence=max(0, visible_from - 1),
+            )
+            db.add(participant)
+            pending.append((participant, "fhh_link", link.id, visible_from))
+            current_fhh.add(identity.id)
+
+    if not pending:
+        return 0
+    db.flush()
+    for participant, source_type, source_id, visible_from in pending:
+        db.add(
+            ConversationAccessGrant(
+                conversation_id=participant.conversation_id,
+                participant_id=participant.id,
+                source_type=source_type,
+                guardian_link_id=(
+                    source_id if source_type == "guardian_link" else None
+                ),
+                fhh_link_id=source_id if source_type == "fhh_link" else None,
+                grant_reason=(
+                    "conversation_created"
+                    if initial
+                    else "guardian_authorized_later"
+                ),
+                visible_from_sequence=visible_from,
+            )
         )
-        .filter(
-            FhhLink.school_id == school_id,
-            FhhLink.student_id == student_id,
-            FhhLink.status == "active",
-            FhhLink.revoked_at.is_(None),
-            FhhMessagingIdentityLink.status == "active",
-            FhhMessagingIdentityLink.revoked_at.is_(None),
-            FhhMessagingIdentity.status == "active",
-        )
-        .order_by(FhhMessagingIdentity.id, FhhLink.id)
-        .all()
-    )
-    return chh_rows, fhh_rows
+    return len(pending)
 
 
 def _ensure_current_guardians(
@@ -436,83 +575,11 @@ def _ensure_current_guardians(
     conversation: Conversation,
     initial: bool = False,
 ) -> int:
-    if conversation.student_id is None or conversation.kind != "student_staff":
-        return 0
-    chh_rows, fhh_rows = _current_guardian_rows(
-        db, school_id=conversation.school_id, student_id=conversation.student_id
+    return _ensure_current_guardians_for_conversations(
+        db,
+        conversations=[conversation],
+        initial=initial,
     )
-    existing = (
-        db.query(ConversationParticipant)
-        .filter(ConversationParticipant.conversation_id == conversation.id)
-        .all()
-    )
-    existing_chh = {
-        row.user_id
-        for row in existing
-        if row.participant_kind == "chh_guardian" and row.left_at is None
-    }
-    existing_fhh = {
-        row.external_participant_id
-        for row in existing
-        if row.participant_kind == "fhh_parent" and row.left_at is None
-    }
-    visible_from = 1 if initial else int(conversation.last_message_sequence or 0) + 1
-    added = 0
-    for link, user in chh_rows:
-        if user.id in existing_chh:
-            continue
-        participant = ConversationParticipant(
-            conversation_id=conversation.id,
-            participant_kind="chh_guardian",
-            user_id=user.id,
-            side="guardian",
-            display_name_snapshot=link.display_name or user.name or "Guardian",
-            last_delivered_sequence=max(0, visible_from - 1),
-            last_read_sequence=max(0, visible_from - 1),
-        )
-        db.add(participant)
-        db.flush()
-        db.add(
-            ConversationAccessGrant(
-                conversation_id=conversation.id,
-                participant_id=participant.id,
-                source_type="guardian_link",
-                guardian_link_id=link.id,
-                grant_reason=(
-                    "conversation_created" if initial else "guardian_authorized_later"
-                ),
-                visible_from_sequence=visible_from,
-            )
-        )
-        added += 1
-    for link, identity in fhh_rows:
-        if identity.id in existing_fhh:
-            continue
-        participant = ConversationParticipant(
-            conversation_id=conversation.id,
-            participant_kind="fhh_parent",
-            external_participant_id=identity.id,
-            side="guardian",
-            display_name_snapshot=identity.display_name,
-            last_delivered_sequence=max(0, visible_from - 1),
-            last_read_sequence=max(0, visible_from - 1),
-        )
-        db.add(participant)
-        db.flush()
-        db.add(
-            ConversationAccessGrant(
-                conversation_id=conversation.id,
-                participant_id=participant.id,
-                source_type="fhh_link",
-                fhh_link_id=link.id,
-                grant_reason=(
-                    "conversation_created" if initial else "guardian_authorized_later"
-                ),
-                visible_from_sequence=visible_from,
-            )
-        )
-        added += 1
-    return added
 
 
 def _find_conversation(
@@ -600,6 +667,46 @@ def _guardian_access(
     return conversation, participant
 
 
+def _external_guardian_access(
+    db: Session,
+    *,
+    actor: ExternalGuardianActor,
+    public_id: UUID,
+) -> tuple[Conversation, ConversationParticipant]:
+    conversation = _find_conversation(
+        db, school_id=actor.school.id, public_id=public_id
+    )
+    if (
+        conversation is None
+        or conversation.student_id != actor.link.student_id
+        or conversation.kind != "student_staff"
+    ):
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    added = _ensure_current_guardians(db, conversation=conversation)
+    _reconcile_closed_assignments(db, [conversation])
+    participant = (
+        db.query(ConversationParticipant)
+        .filter(
+            ConversationParticipant.conversation_id == conversation.id,
+            ConversationParticipant.participant_kind == "fhh_parent",
+            ConversationParticipant.external_participant_id == actor.identity.id,
+            ConversationParticipant.left_at.is_(None),
+        )
+        .first()
+    )
+    if participant is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    try:
+        participant_sequence_access(
+            db, conversation=conversation, participant=participant
+        )
+    except MessagingAccessDenied:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if added:
+        db.commit()
+    return conversation, participant
+
+
 def _reconcile_closed_assignments(
     db: Session,
     conversations: list[Conversation],
@@ -662,16 +769,18 @@ def _reconcile_closed_assignments(
         db.commit()
 
 
-def _actor_ref(actor: StaffActor | GuardianActor) -> str:
+def _actor_ref(actor: StaffActor | GuardianActor | ExternalGuardianActor) -> str:
     if isinstance(actor, StaffActor):
         return f"staff:{actor.membership.id}"
+    if isinstance(actor, ExternalGuardianActor):
+        return f"fhh:{actor.identity.id}:link:{actor.link.id}"
     return f"guardian:{actor.user.id}"
 
 
 def _participant_for_actor(
     conversation: Conversation,
     participants: list[ConversationParticipant],
-    actor: StaffActor | GuardianActor,
+    actor: StaffActor | GuardianActor | ExternalGuardianActor,
 ) -> ConversationParticipant | None:
     for row in participants:
         if row.conversation_id != conversation.id or row.left_at is not None:
@@ -684,6 +793,12 @@ def _participant_for_actor(
             and row.user_id == actor.user.id
         ):
             return row
+        if (
+            isinstance(actor, ExternalGuardianActor)
+            and row.participant_kind == "fhh_parent"
+            and row.external_participant_id == actor.identity.id
+        ):
+            return row
     return None
 
 
@@ -691,7 +806,7 @@ def _conversation_payloads(
     db: Session,
     *,
     rows: list[Conversation],
-    actor: StaffActor | GuardianActor,
+    actor: StaffActor | GuardianActor | ExternalGuardianActor,
 ) -> list[dict[str, Any]]:
     if not rows:
         return []
@@ -791,23 +906,27 @@ def _conversation_payloads(
 def _authorized_inbox_pairs(
     db: Session,
     *,
-    actor: StaffActor | GuardianActor,
+    actor: StaffActor | GuardianActor | ExternalGuardianActor,
 ) -> list[tuple[Conversation, ConversationParticipant]]:
     school_id = actor.school.id
-    if isinstance(actor, GuardianActor):
-        student_ids = [
-            row[0]
-            for row in db.query(GuardianLink.student_id)
-            .filter(
-                GuardianLink.school_id == school_id,
-                GuardianLink.user_id == actor.user.id,
-                GuardianLink.status == "active",
-                GuardianLink.revoked_at.is_(None),
-            )
-            .all()
-        ]
+    if isinstance(actor, (GuardianActor, ExternalGuardianActor)):
+        student_ids = (
+            [actor.link.student_id]
+            if isinstance(actor, ExternalGuardianActor)
+            else [
+                row[0]
+                for row in db.query(GuardianLink.student_id)
+                .filter(
+                    GuardianLink.school_id == school_id,
+                    GuardianLink.user_id == actor.user.id,
+                    GuardianLink.status == "active",
+                    GuardianLink.revoked_at.is_(None),
+                )
+                .all()
+            ]
+        )
         if student_ids:
-            for conversation in (
+            guardian_conversations = (
                 db.query(Conversation)
                 .filter(
                     Conversation.school_id == school_id,
@@ -815,8 +934,11 @@ def _authorized_inbox_pairs(
                     Conversation.kind == "student_staff",
                 )
                 .all()
-            ):
-                _ensure_current_guardians(db, conversation=conversation)
+            )
+            _ensure_current_guardians_for_conversations(
+                db,
+                conversations=guardian_conversations,
+            )
             db.flush()
 
     participant_query = db.query(ConversationParticipant).join(
@@ -827,10 +949,17 @@ def _authorized_inbox_pairs(
             ConversationParticipant.participant_kind == "staff",
             ConversationParticipant.membership_id == actor.membership.id,
         )
-    else:
+    elif isinstance(actor, GuardianActor):
         participant_query = participant_query.filter(
             ConversationParticipant.participant_kind == "chh_guardian",
             ConversationParticipant.user_id == actor.user.id,
+        )
+    else:
+        participant_query = participant_query.filter(
+            Conversation.student_id == actor.link.student_id,
+            Conversation.kind == "student_staff",
+            ConversationParticipant.participant_kind == "fhh_parent",
+            ConversationParticipant.external_participant_id == actor.identity.id,
         )
     participants = (
         participant_query.filter(
@@ -872,11 +1001,12 @@ def _authorized_inbox_pairs(
 def _inbox(
     db: Session,
     *,
-    actor: StaffActor | GuardianActor,
+    actor: StaffActor | GuardianActor | ExternalGuardianActor,
     response: Response,
     limit: int,
     cursor: str | None,
     unread_only: bool,
+    include_item_cursors: bool = False,
 ) -> dict[str, Any]:
     _private(response)
     school_id = actor.school.id
@@ -915,6 +1045,21 @@ def _inbox(
     page_pairs = page_pairs[:limit]
     page_rows = [row[0] for row in page_pairs]
     items = _conversation_payloads(db, rows=page_rows, actor=actor)
+    if include_item_cursors:
+        item_by_id = {item["id"]: item for item in items}
+        for row in page_rows:
+            item = item_by_id.get(str(row.public_id))
+            if item is None:
+                continue
+            item["cursor_after"] = _encode_cursor(
+                {
+                    "type": "inbox",
+                    "actor": actor_reference,
+                    "school_id": school_id,
+                    "activity": (row.last_message_at or row.created_at).isoformat(),
+                    "id": row.id,
+                }
+            )
     next_cursor = None
     if has_more and page_rows:
         last = page_rows[-1]
@@ -937,7 +1082,7 @@ def _conversation_detail(
     db: Session,
     *,
     conversation: Conversation,
-    actor: StaffActor | GuardianActor,
+    actor: StaffActor | GuardianActor | ExternalGuardianActor,
     response: Response,
 ) -> dict[str, Any]:
     _private(response)
@@ -1086,6 +1231,8 @@ def _create_student_staff_for_staff(
             )
             .one()
         )
+        _ensure_current_guardians(db, conversation=existing)
+        db.commit()
         return existing
     staff = _staff_participant(
         db,
@@ -1462,6 +1609,104 @@ def _create_for_guardian(
     return conversation
 
 
+def _create_for_external_guardian(
+    db: Session,
+    *,
+    actor: ExternalGuardianActor,
+    staff_membership_id: int,
+) -> Conversation:
+    student = (
+        db.query(Student)
+        .filter(
+            Student.id == actor.link.student_id,
+            Student.school_id == actor.school.id,
+            Student.status == "active",
+        )
+        .first()
+    )
+    if student is None:
+        raise HTTPException(status_code=404, detail="Student not found")
+    target_membership, target_user = _target_staff(
+        db,
+        school_id=actor.school.id,
+        membership_id=staff_membership_id,
+    )
+    try:
+        assignment = _staff_can_access_student(
+            db, membership=target_membership, student=student
+        )
+    except MessagingAccessDenied:
+        raise HTTPException(status_code=404, detail="Staff recipient not found")
+    existing = (
+        db.query(Conversation)
+        .filter(
+            Conversation.school_id == actor.school.id,
+            Conversation.kind == "student_staff",
+            Conversation.student_id == student.id,
+            Conversation.primary_staff_membership_id == target_membership.id,
+            Conversation.status == "active",
+        )
+        .first()
+    )
+    if existing:
+        _ensure_current_guardians(db, conversation=existing)
+        db.commit()
+        return existing
+    conversation = Conversation(
+        school_id=actor.school.id,
+        kind="student_staff",
+        student_id=student.id,
+        primary_staff_membership_id=target_membership.id,
+    )
+    db.add(conversation)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        existing = (
+            db.query(Conversation)
+            .filter(
+                Conversation.school_id == actor.school.id,
+                Conversation.kind == "student_staff",
+                Conversation.student_id == student.id,
+                Conversation.primary_staff_membership_id == target_membership.id,
+                Conversation.status == "active",
+            )
+            .one()
+        )
+        _ensure_current_guardians(db, conversation=existing)
+        db.commit()
+        return existing
+    _staff_participant(
+        db,
+        conversation=conversation,
+        membership=target_membership,
+        user=target_user,
+        assignment=assignment,
+    )
+    _ensure_current_guardians(db, conversation=conversation, initial=True)
+    external_participant = (
+        db.query(ConversationParticipant)
+        .filter(
+            ConversationParticipant.conversation_id == conversation.id,
+            ConversationParticipant.participant_kind == "fhh_parent",
+            ConversationParticipant.external_participant_id == actor.identity.id,
+        )
+        .one()
+    )
+    conversation.created_by_participant_id = external_participant.id
+    record_messaging_audit(
+        db,
+        school_id=actor.school.id,
+        event_type="conversation.created",
+        participant=external_participant,
+        conversation_id=conversation.id,
+        detail={"kind": conversation.kind, "student_id": student.id},
+    )
+    db.commit()
+    return conversation
+
+
 @staff_router.get("/inbox")
 def staff_inbox(
     response: Response,
@@ -1501,7 +1746,10 @@ def guardian_inbox(
 
 
 def _unread_count(
-    db: Session, *, actor: StaffActor | GuardianActor, response: Response
+    db: Session,
+    *,
+    actor: StaffActor | GuardianActor | ExternalGuardianActor,
+    response: Response,
 ) -> dict[str, int]:
     _private(response)
     pairs = _authorized_inbox_pairs(db, actor=actor)
@@ -1886,7 +2134,7 @@ def _send(
     conversation: Conversation,
     participant: ConversationParticipant,
     body: MessageSendRequest,
-    actor: StaffActor | GuardianActor,
+    actor: StaffActor | GuardianActor | ExternalGuardianActor,
     response: Response,
 ) -> dict[str, Any]:
     _private(response)
