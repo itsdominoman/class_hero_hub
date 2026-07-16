@@ -382,11 +382,11 @@
     const value = assignment.target_type === 'subject_group' ? assignment.subject_group?.id : assignment.class_section?.id;
     return value ? `?${key}=${value}` : '';
   }
-  function updatePhotoPath(post: UpdatePost, photo: UpdatePhoto) {
-    return protectedUpdatePhotoPath(post.id, photo.id);
+  function updatePhotoPath(post: UpdatePost, photo: UpdatePhoto, variant: 'thumbnail' | 'full') {
+    return protectedUpdatePhotoPath(post.id, photo.id, variant);
   }
-  function updatePhotoKey(post: UpdatePost, photo: UpdatePhoto) {
-    return protectedUpdatePhotoKey(post.id, photo.id);
+  function updatePhotoKey(post: UpdatePost, photo: UpdatePhoto, variant: 'thumbnail' | 'full' = 'thumbnail') {
+    return protectedUpdatePhotoKey(post.id, photo.id, variant);
   }
   function updatePhotoUrl(post: UpdatePost, photo: UpdatePhoto) {
     return updatePhotoObjectUrls[updatePhotoKey(post, photo)];
@@ -402,15 +402,15 @@
     updatePhotoObjectUrls = {};
     updatePhotoLoadStates = {};
   }
-  async function loadProtectedUpdatePhoto(post: UpdatePost, photo: UpdatePhoto) {
+  async function loadProtectedUpdatePhoto(post: UpdatePost, photo: UpdatePhoto, variant: 'thumbnail' | 'full') {
     if (!detail) return;
-    const key = updatePhotoKey(post, photo);
+    const key = updatePhotoKey(post, photo, variant);
     if (updatePhotoObjectUrls[key]) return;
     updatePhotoLoadStates = { ...updatePhotoLoadStates, [key]: 'loading' };
     try {
       const objectUrl = await protectedPhotoCache.load(
         key,
-        updatePhotoPath(post, photo),
+        updatePhotoPath(post, photo, variant),
         detail.assignment.school.id,
         api.download
       );
@@ -420,16 +420,16 @@
       if (err instanceof ProtectedUpdatePhotoClearedError) return;
       // Deliberately omit credentials, filenames, and raw URLs from diagnostics.
       console.warn('[CHH] Protected update photo fetch failed', {
-        category: 'teacher-update-photo',
+        category: variant === 'thumbnail' ? 'teacher-update-photo-thumbnail' : 'teacher-update-photo-full',
         status: typeof err?.status === 'number' ? err.status : 'network-or-media'
       });
-      updatePhotoFailed(post, photo);
+      updatePhotoLoadStates = { ...updatePhotoLoadStates, [key]: 'failed' };
     }
   }
   async function openUpdatePhoto(post: UpdatePost, photo: UpdatePhoto) {
-    const key = updatePhotoKey(post, photo);
+    const key = updatePhotoKey(post, photo, 'full');
     updatePhotoLightbox = { key, alt: photo.original_filename };
-    await loadProtectedUpdatePhoto(post, photo);
+    await loadProtectedUpdatePhoto(post, photo, 'full');
   }
   async function loadUpdateItems() {
     if (!detail) return;
@@ -540,7 +540,7 @@
       const loadedUpdate = await api.get(`/teach/updates/${post.id}`, schoolOptions(detail.assignment.school.id));
       viewingUpdate = loadedUpdate;
       updatesMode = 'list';
-      void Promise.all(loadedUpdate.photos.map((photo: UpdatePhoto) => loadProtectedUpdatePhoto(loadedUpdate, photo)));
+      void Promise.all(loadedUpdate.photos.map((photo: UpdatePhoto) => loadProtectedUpdatePhoto(loadedUpdate, photo, 'thumbnail')));
     }
     catch (err: any) { updatesListError = err?.message || $_('teach.updates.loadError'); }
   }

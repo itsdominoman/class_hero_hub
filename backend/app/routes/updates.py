@@ -24,7 +24,11 @@ from .announcements import (
     _teacher_has_target,
     _teacher_membership,
 )
-from ..update_image_service import MAX_RAW_IMAGE_BYTES, optimise_update_photo
+from ..update_image_service import (
+    MAX_RAW_IMAGE_BYTES,
+    create_update_thumbnail,
+    optimise_update_photo,
+)
 
 teacher_router = APIRouter()
 guardian_router = APIRouter()
@@ -162,12 +166,50 @@ def _path(storage_key: str) -> Path:
     return path
 
 
-def _photo_response(photo: UpdatePhoto):
-    path = _path(photo.storage_key)
+def thumbnail_storage_key(storage_key: str, extension: str) -> str:
+    if extension not in {".jpg", ".webp"}:
+        raise ValueError("Unsupported thumbnail extension")
+    full = Path(storage_key)
+    return str(full.with_name(f"{full.stem}.thumbnail{extension}"))
+
+
+def thumbnail_storage_keys(storage_key: str) -> tuple[str, str]:
+    return (
+        thumbnail_storage_key(storage_key, ".jpg"),
+        thumbnail_storage_key(storage_key, ".webp"),
+    )
+
+
+def _thumbnail_path(photo: UpdatePhoto) -> tuple[Path, str]:
+    for storage_key, content_type in zip(
+        thumbnail_storage_keys(photo.storage_key),
+        ("image/jpeg", "image/webp"),
+        strict=True,
+    ):
+        path = _path(storage_key)
+        if path.exists():
+            return path, content_type
+    raise HTTPException(status_code=404, detail="Photo thumbnail not found")
+
+
+def _photo_response(photo: UpdatePhoto, *, thumbnail: bool = False):
+    if thumbnail:
+        path, content_type = _thumbnail_path(photo)
+    else:
+        path, content_type = _path(photo.storage_key), photo.content_type
     if not path.exists():
         raise HTTPException(status_code=404, detail="Photo not found")
     # No filename → inline display in <img>/lightbox instead of a download.
-    return FileResponse(path, media_type=photo.content_type)
+    return FileResponse(
+        path,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "private, no-store, max-age=0",
+            "Pragma": "no-cache",
+            "X-Content-Type-Options": "nosniff",
+            "Cross-Origin-Resource-Policy": "same-origin",
+        },
+    )
 
 
 def _guardian_query(db: Session, current_user: User):
@@ -241,12 +283,16 @@ async def upload_photo(post_id: int, request: Request, file: UploadFile = File(.
     raw = await file.read(MAX_RAW_IMAGE_BYTES + 1)
     try:
         optimized = optimise_update_photo(raw)
-        # The only persistent artifact is this generated display image. `raw`
-        # never has a storage key and is released in the finally block below.
+        thumbnail = create_update_thumbnail(optimized.content)
+        # The only persistent artifacts are the generated display image and its
+        # protected feed derivative. `raw` never has a storage key.
         storage_key = f"school-{school_id}/update-{post.id}/{uuid.uuid4().hex}{optimized.extension}"
         path = _path(storage_key)
+        thumbnail_key = thumbnail_storage_key(storage_key, thumbnail.extension)
+        thumbnail_path = _path(thumbnail_key)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(optimized.content)
+        thumbnail_path.write_bytes(thumbnail.content)
         photo = UpdatePhoto(post_id=post.id, school_id=school_id, uploaded_by_user_id=current_user.id, original_filename=original, storage_key=storage_key, content_type=optimized.content_type, size_bytes=len(optimized.content))
         db.add(photo); db.flush()
         write_audit(db, current_user.id, "school.update.photo_uploaded", photo, {"post_id": post.id, "filename": original, "size_bytes": len(optimized.content)}, school_id=school_id)
@@ -254,15 +300,21 @@ async def upload_photo(post_id: int, request: Request, file: UploadFile = File(.
         logger.info(
             "event=update_image_optimised input_size_bytes=%d input_format=%s input_width=%d input_height=%d "
             "output_size_bytes=%d output_format=%s output_width=%d output_height=%d quality_used=%d "
-            "raw_original_retained=false processing_ms=%d school_id=%d update_id=%d photo_id=%d",
+            "thumbnail_size_bytes=%d thumbnail_format=%s thumbnail_width=%d thumbnail_height=%d "
+            "thumbnail_quality_used=%d raw_original_retained=false processing_ms=%d thumbnail_processing_ms=%d "
+            "school_id=%d update_id=%d photo_id=%d",
             len(raw), optimized.input_format, optimized.input_width, optimized.input_height,
             len(optimized.content), optimized.content_type, optimized.output_width, optimized.output_height,
-            optimized.quality_used, optimized.processing_ms, school_id, post.id, photo.id,
+            optimized.quality_used, len(thumbnail.content), thumbnail.content_type,
+            thumbnail.output_width, thumbnail.output_height, thumbnail.quality_used,
+            optimized.processing_ms, thumbnail.processing_ms, school_id, post.id, photo.id,
         )
         return _photo_payload(photo)
     except Exception:
         if 'path' in locals() and path.exists():
             path.unlink()
+        if 'thumbnail_path' in locals() and thumbnail_path.exists():
+            thumbnail_path.unlink()
         db.rollback()
         raise
     finally:
@@ -310,6 +362,16 @@ def teacher_view_photo(post_id: int, photo_id: int, request: Request, current_us
     return _photo_response(photo)
 
 
+@teacher_router.get("/updates/{post_id}/photos/{photo_id}/thumbnail")
+def teacher_view_photo_thumbnail(post_id: int, photo_id: int, request: Request, current_user: User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
+    school_id = _school_id_from_header(request.headers)
+    post = _teacher_post(db, current_user, school_id, post_id)
+    photo = db.query(UpdatePhoto).filter(UpdatePhoto.id == photo_id, UpdatePhoto.post_id == post.id, UpdatePhoto.school_id == school_id).first()
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return _photo_response(photo, thumbnail=True)
+
+
 @guardian_router.get("/updates")
 def guardian_list(current_user: User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
     query = _guardian_query(db, current_user)
@@ -332,3 +394,12 @@ def guardian_view_photo(post_id: int, photo_id: int, current_user: User = Depend
     if not photo:
         raise HTTPException(status_code=404, detail="Photo not found")
     return _photo_response(photo)
+
+
+@guardian_router.get("/updates/{post_id}/photos/{photo_id}/thumbnail")
+def guardian_view_photo_thumbnail(post_id: int, photo_id: int, current_user: User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
+    post = _guardian_post(db, current_user, post_id)
+    photo = db.query(UpdatePhoto).filter(UpdatePhoto.id == photo_id, UpdatePhoto.post_id == post.id, UpdatePhoto.school_id == post.school_id).first()
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return _photo_response(photo, thumbnail=True)

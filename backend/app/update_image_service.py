@@ -25,6 +25,10 @@ TARGET_OUTPUT_IMAGE_BYTES = 1 * 1024 * 1024
 MAX_IMAGE_DIMENSION = 1600
 STARTING_QUALITY = 85
 PREFERRED_MINIMUM_QUALITY = 78
+THUMBNAIL_MAX_DIMENSION = 400
+TARGET_THUMBNAIL_IMAGE_BYTES = 100 * 1024
+MAX_THUMBNAIL_IMAGE_BYTES = 160 * 1024
+THUMBNAIL_STARTING_QUALITY = 82
 # Large enough for modern phone photographs, while preventing decompression
 # bombs from allocating unbounded memory.
 Image.MAX_IMAGE_PIXELS = 64_000_000
@@ -152,3 +156,67 @@ def optimise_update_photo(raw: bytes) -> OptimizedImage:
                 return _completed(candidate, input_format=input_format, input_size=input_size, output_size=resized.size, quality=quality, started_at=started_at)
         dimension = int(dimension * 0.8)
     raise _invalid("Photo could not be compressed below the 1.5 MB storage limit")
+
+
+def create_update_thumbnail(display_image: bytes) -> OptimizedImage:
+    """Create a metadata-free feed derivative without ever upscaling.
+
+    The input may be a newly generated display image or an older stored update
+    photo. Re-running the same orientation and colour normalisation makes the
+    legacy backfill safe for files that still contain EXIF orientation data.
+    """
+    started_at = perf_counter()
+    if not display_image:
+        raise _invalid("Photo is empty")
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(display_image)) as source:
+                if source.format not in _SOURCE_FORMATS:
+                    raise _invalid("Photo type not allowed")
+                input_format = source.format
+                input_size = source.size
+                image, has_alpha = _normalise_rgb(source)
+    except HTTPException:
+        raise
+    except (Image.DecompressionBombError, Image.DecompressionBombWarning):
+        raise _invalid("Photo dimensions are too large to process safely")
+    except (UnidentifiedImageError, OSError, ValueError):
+        raise _invalid("Photo is not a supported image")
+
+    # Keep the derivative close to 400px. Detailed images may step down modestly
+    # only when quality reduction alone cannot meet the practical 100KB target.
+    dimensions = (THUMBNAIL_MAX_DIMENSION, 360, 320, 288)
+    smallest_candidate: OptimizedImage | None = None
+    smallest_size: tuple[int, int] | None = None
+    smallest_quality = 0
+    for dimension in dimensions:
+        resized = _resize(image, dimension)
+        for quality in (THUMBNAIL_STARTING_QUALITY, 78, 74, 70, 66, 62, 58, 54, 50, 45):
+            candidate = _encode(resized, has_alpha, quality)
+            if smallest_candidate is None or len(candidate.content) < len(smallest_candidate.content):
+                smallest_candidate = candidate
+                smallest_size = resized.size
+                smallest_quality = quality
+            if len(candidate.content) <= TARGET_THUMBNAIL_IMAGE_BYTES:
+                return _completed(
+                    candidate,
+                    input_format=input_format,
+                    input_size=input_size,
+                    output_size=resized.size,
+                    quality=quality,
+                    started_at=started_at,
+                )
+        if max(image.size) <= dimension:
+            break
+
+    if smallest_candidate is not None and len(smallest_candidate.content) <= MAX_THUMBNAIL_IMAGE_BYTES:
+        return _completed(
+            smallest_candidate,
+            input_format=input_format,
+            input_size=input_size,
+            output_size=smallest_size or image.size,
+            quality=smallest_quality,
+            started_at=started_at,
+        )
+    raise _invalid("Photo thumbnail could not be compressed safely")

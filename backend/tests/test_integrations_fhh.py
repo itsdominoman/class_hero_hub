@@ -222,6 +222,15 @@ def test_fhh_update_photo_proxy_serves_only_optimised_artifact(db, client, world
     assert response.headers["content-type"] == "image/jpeg"
     assert response.content == path.read_bytes()
     assert b"heic" not in response.content.lower()
+    thumbnail_key = updates.thumbnail_storage_key(storage_key, ".jpg")
+    thumbnail_path = updates._path(thumbnail_key)
+    thumbnail_path.write_bytes(b"protected-thumbnail")
+    thumbnail = client.get(f"/api/integrations/fhh/links/{linked['link_id']}/updates/{update.id}/photos/{photo.id}/thumbnail", headers=service(link_token=linked["link_token"]))
+    assert thumbnail.status_code == 200
+    assert thumbnail.content == b"protected-thumbnail"
+    assert thumbnail.headers["content-type"] == "image/jpeg"
+    assert thumbnail.headers["cache-control"] == "private, no-store, max-age=0"
+    assert thumbnail.headers["x-content-type-options"] == "nosniff"
 
 
 def test_fhh_update_photo_rejects_invalid_revoked_cross_student_and_cross_school_links(db, client, world):
@@ -251,6 +260,8 @@ def test_fhh_update_photo_rejects_invalid_revoked_cross_student_and_cross_school
     db.add(update); db.flush()
     storage_key = f"school-{world['school'].id}/update-{update.id}/scoped.jpg"
     path = updates._path(storage_key); path.parent.mkdir(parents=True); path.write_bytes(b"scoped-private-bytes")
+    thumbnail_path = updates._path(updates.thumbnail_storage_key(storage_key, ".jpg"))
+    thumbnail_path.write_bytes(b"scoped-private-thumbnail")
     photo = UpdatePhoto(
         post_id=update.id,
         school_id=world["school"].id,
@@ -263,10 +274,15 @@ def test_fhh_update_photo_rejects_invalid_revoked_cross_student_and_cross_school
     db.add(photo); db.commit()
 
     one_url = f"/api/integrations/fhh/links/{one_link['link_id']}/updates/{update.id}/photos/{photo.id}/view"
+    one_thumbnail_url = f"/api/integrations/fhh/links/{one_link['link_id']}/updates/{update.id}/photos/{photo.id}/thumbnail"
     assert client.get(one_url, headers=service(link_token="invalid-link-token")).status_code == 404
     assert client.get(one_url, headers=service(link_token=one_link["link_token"])).content == b"scoped-private-bytes"
+    assert client.get(one_thumbnail_url, headers=service(link_token="invalid-link-token")).status_code == 404
+    assert client.get(one_thumbnail_url, headers=service(link_token=one_link["link_token"])).content == b"scoped-private-thumbnail"
     two_url = f"/api/integrations/fhh/links/{two_link['link_id']}/updates/{update.id}/photos/{photo.id}/view"
+    two_thumbnail_url = f"/api/integrations/fhh/links/{two_link['link_id']}/updates/{update.id}/photos/{photo.id}/thumbnail"
     assert client.get(two_url, headers=service(link_token=two_link["link_token"])).status_code == 404
+    assert client.get(two_thumbnail_url, headers=service(link_token=two_link["link_token"])).status_code == 404
 
     other_school = School(name="Other", slug="other", status="active")
     db.add(other_school); db.flush()
@@ -296,6 +312,7 @@ def test_fhh_update_photo_rejects_invalid_revoked_cross_student_and_cross_school
     stored_one_link = db.query(FhhLink).filter(FhhLink.id == one_link["link_id"]).one()
     stored_one_link.status = "revoked"; stored_one_link.revoked_at = invite_tokens.now_utc(); db.commit()
     assert client.get(one_url, headers=service(link_token=one_link["link_token"])).status_code == 404
+    assert client.get(one_thumbnail_url, headers=service(link_token=one_link["link_token"])).status_code == 404
 
 
 def test_dashboard_point_events_include_only_safe_display_context(db, client, world):

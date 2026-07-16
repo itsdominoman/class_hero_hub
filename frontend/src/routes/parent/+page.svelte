@@ -270,6 +270,9 @@
   function updatePhotoUrl(post: UpdatePost, photo: UpdatePhoto) {
     return `/api/guardian/updates/${post.id}/photos/${photo.id}/view`;
   }
+  function updatePhotoThumbnailUrl(post: UpdatePost, photo: UpdatePhoto) {
+    return `/api/guardian/updates/${post.id}/photos/${photo.id}/thumbnail`;
+  }
   function updatePhotoKey(post: UpdatePost, photo: UpdatePhoto) { return `${post.id}:${photo.id}`; }
   function updatePhotoLoaded(post: UpdatePost, photo: UpdatePhoto) {
     updatePhotoLoadStates = { ...updatePhotoLoadStates, [updatePhotoKey(post, photo)]: 'loaded' };
@@ -634,7 +637,7 @@
                         {:else if photoState !== 'loaded'}
                           <span class="absolute inset-0 flex items-center justify-center p-1 text-center text-[10px] font-semibold text-slate-500">{$_('parent.updates.photoLoading')}</span>
                         {/if}
-                        <img src={updatePhotoUrl(post, photo)} alt={photo.original_filename} loading="lazy" class={`h-full w-full object-cover transition-opacity ${photoState === 'loaded' ? 'opacity-100' : 'opacity-0'}`} onload={() => updatePhotoLoaded(post, photo)} onerror={() => updatePhotoFailed(post, photo)} />
+                        <img src={updatePhotoThumbnailUrl(post, photo)} alt={photo.original_filename} loading="lazy" class={`h-full w-full object-cover transition-opacity ${photoState === 'loaded' ? 'opacity-100' : 'opacity-0'}`} onload={() => updatePhotoLoaded(post, photo)} onerror={() => updatePhotoFailed(post, photo)} />
                       </button>
                     {/each}
                   </div>
@@ -666,7 +669,7 @@
                   {:else if photoState !== 'loaded'}
                     <span class="absolute inset-0 flex items-center justify-center p-2 text-center text-xs font-semibold text-slate-500">{$_('parent.updates.photoLoading')}</span>
                   {/if}
-                  <img src={updatePhotoUrl(selectedUpdate, photo)} alt={photo.original_filename} loading="lazy" class={`h-full w-full object-cover transition-opacity ${photoState === 'loaded' ? 'opacity-100' : 'opacity-0'}`} onload={() => updatePhotoLoaded(selectedUpdate!, photo)} onerror={() => updatePhotoFailed(selectedUpdate!, photo)} />
+                  <img src={updatePhotoThumbnailUrl(selectedUpdate, photo)} alt={photo.original_filename} loading="lazy" class={`h-full w-full object-cover transition-opacity ${photoState === 'loaded' ? 'opacity-100' : 'opacity-0'}`} onload={() => updatePhotoLoaded(selectedUpdate!, photo)} onerror={() => updatePhotoFailed(selectedUpdate!, photo)} />
                 </button>
               {/each}
             </div>

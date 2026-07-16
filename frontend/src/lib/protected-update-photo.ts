@@ -12,12 +12,24 @@ export class ProtectedUpdatePhotoClearedError extends Error {
   }
 }
 
-export function protectedUpdatePhotoKey(postId: number, photoId: number): string {
-  return `${postId}:${photoId}`;
+export type ProtectedUpdatePhotoVariant = 'thumbnail' | 'full';
+
+export function protectedUpdatePhotoKey(
+  postId: number,
+  photoId: number,
+  variant: ProtectedUpdatePhotoVariant
+): string {
+  return `${postId}:${photoId}:${variant}`;
 }
 
-export function protectedUpdatePhotoPath(postId: number, photoId: number): string {
-  return `/api/teach/updates/${postId}/photos/${photoId}/view`;
+export function protectedUpdatePhotoPath(
+  postId: number,
+  photoId: number,
+  variant: ProtectedUpdatePhotoVariant
+): string {
+  return variant === 'thumbnail'
+    ? `/api/teach/updates/${postId}/photos/${photoId}/thumbnail`
+    : `/api/teach/updates/${postId}/photos/${photoId}/view`;
 }
 
 export class ProtectedUpdatePhotoCache {

@@ -7,6 +7,7 @@ os.environ["APP_ENV"] = "test"
 os.environ["DEV_AUTH_ENABLED"] = "false"
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from PIL import Image
 from pillow_heif import register_heif_opener
@@ -35,11 +36,16 @@ from app.models_school import (
     User,
 )
 from app.routes import updates
+from app.update_thumbnail_backfill import backfill_update_photo_thumbnails
 from app.update_image_service import (
     MAX_OUTPUT_IMAGE_BYTES,
+    MAX_THUMBNAIL_IMAGE_BYTES,
     PREFERRED_MINIMUM_QUALITY,
     STARTING_QUALITY,
     TARGET_OUTPUT_IMAGE_BYTES,
+    TARGET_THUMBNAIL_IMAGE_BYTES,
+    THUMBNAIL_MAX_DIMENSION,
+    create_update_thumbnail,
     optimise_update_photo,
 )
 
@@ -255,6 +261,13 @@ def test_unassigned_teacher_cannot_upload_or_view_photo(client, world):
     allowed = client.get(f'/api/teach/updates/{post["id"]}/photos/{photo["id"]}/view', headers=bearer(world["teacher"].email, world["alpha"].id))
     assert allowed.status_code == 200 and allowed.headers["content-type"] == "image/jpeg"
     assert "attachment" not in allowed.headers.get("content-disposition", "")
+    thumbnail_url = f'/api/teach/updates/{post["id"]}/photos/{photo["id"]}/thumbnail'
+    assert client.get(thumbnail_url, headers=bearer(world["other_teacher"].email, world["alpha"].id)).status_code == 404
+    thumbnail = client.get(thumbnail_url, headers=bearer(world["teacher"].email, world["alpha"].id))
+    assert thumbnail.status_code == 200 and thumbnail.headers["content-type"] == "image/jpeg"
+    assert thumbnail.headers["cache-control"] == "private, no-store, max-age=0"
+    assert thumbnail.headers["x-content-type-options"] == "nosniff"
+    assert client.get(thumbnail_url, headers=bearer(world["teacher"].email, world["beta"].id)).status_code == 403
 
 
 def test_guardian_sees_only_relevant_active_posts(db, client, world):
@@ -281,6 +294,9 @@ def test_guardian_photo_view_authorization(client, world):
     allowed = client.get(f'/api/guardian/updates/{post["id"]}/photos/{photo["id"]}/view', headers=bearer(world["guardian"].email))
     assert allowed.status_code == 200 and allowed.headers["content-type"] == "image/jpeg"
     assert client.get(f'/api/guardian/updates/{post["id"]}/photos/{photo["id"]}/view', headers=bearer(world["other_guardian"].email)).status_code == 404
+    thumbnail_url = f'/api/guardian/updates/{post["id"]}/photos/{photo["id"]}/thumbnail'
+    assert client.get(thumbnail_url, headers=bearer(world["guardian"].email)).status_code == 200
+    assert client.get(thumbnail_url, headers=bearer(world["other_guardian"].email)).status_code == 404
     # Invalid photo ids do not leak files
     assert client.get(f'/api/guardian/updates/{post["id"]}/photos/999999/view', headers=bearer(world["guardian"].email)).status_code == 404
 
@@ -328,7 +344,7 @@ def test_storage_keys_are_safe_and_traversal_is_blocked(db, client, world):
     assert tampered.status_code == 404
 
 
-def test_optimisation_corrects_orientation_strips_metadata_and_keeps_only_display_image(db, client, world):
+def test_optimisation_corrects_orientation_strips_metadata_and_separates_thumbnail(db, client, world):
     post = create_update(client, world).json()
     raw = image_bytes("JPEG", size=(1000, 1800), orientation=6)
     photo = upload_photo(client, world, post["id"], filename="portrait.jpg", content=raw).json()
@@ -337,12 +353,23 @@ def test_optimisation_corrects_orientation_strips_metadata_and_keeps_only_displa
     assert stored.content_type == "image/jpeg" and stored.size_bytes == stored_path.stat().st_size
     assert stored.size_bytes < 1.5 * 1024 * 1024
     assert stored_path.suffix == ".jpg" and stored_path.read_bytes() != raw
+    thumbnail_path, thumbnail_content_type = updates._thumbnail_path(stored)
+    assert thumbnail_path != stored_path
+    assert thumbnail_content_type == "image/jpeg"
     with Image.open(stored_path) as image:
         assert image.size == (1600, 889)  # orientation is applied before resize
         assert not image.getexif()
-    assert [path for path in updates.UPLOAD_ROOT.rglob("*") if path.is_file()] == [stored_path]
+    with Image.open(thumbnail_path) as image:
+        assert image.size == (400, 222)
+        assert not image.getexif()
+        assert not image.info.get("icc_profile")
+    assert sorted(path for path in updates.UPLOAD_ROOT.rglob("*") if path.is_file()) == sorted([stored_path, thumbnail_path])
     response = client.get(f'/api/teach/updates/{post["id"]}/photos/{photo["id"]}/view', headers=bearer(world["teacher"].email, world["alpha"].id))
     assert response.status_code == 200 and response.headers["content-type"] == "image/jpeg"
+    thumbnail_response = client.get(f'/api/teach/updates/{post["id"]}/photos/{photo["id"]}/thumbnail', headers=bearer(world["teacher"].email, world["alpha"].id))
+    assert thumbnail_response.status_code == 200
+    assert thumbnail_response.content == thumbnail_path.read_bytes()
+    assert len(thumbnail_response.content) < len(response.content)
 
 
 def test_huge_dimensions_are_resized_and_transparency_uses_webp(db, client, world):
@@ -371,6 +398,56 @@ def test_optimisation_is_quality_first_for_simple_and_detailed_images():
     detailed = optimise_update_photo(raw.getvalue())
     assert detailed.quality_used >= PREFERRED_MINIMUM_QUALITY
     assert len(detailed.content) <= MAX_OUTPUT_IMAGE_BYTES
+
+    thumbnail = create_update_thumbnail(detailed.content)
+    assert max(thumbnail.output_width, thumbnail.output_height) <= THUMBNAIL_MAX_DIMENSION
+    assert len(thumbnail.content) <= MAX_THUMBNAIL_IMAGE_BYTES
+    assert len(thumbnail.content) <= TARGET_THUMBNAIL_IMAGE_BYTES or thumbnail.quality_used == 45
+
+
+def test_thumbnail_never_upscales_small_images():
+    thumbnail = create_update_thumbnail(image_bytes("JPEG", (240, 160)))
+    assert (thumbnail.output_width, thumbnail.output_height) == (240, 160)
+
+
+def test_thumbnail_failure_leaves_no_photo_record_or_files(db, client, world, monkeypatch):
+    post = create_update(client, world).json()
+
+    def fail_thumbnail(_content):
+        raise HTTPException(status_code=500, detail="thumbnail failure")
+
+    monkeypatch.setattr(updates, "create_update_thumbnail", fail_thumbnail)
+    response = upload_photo(client, world, post["id"])
+    assert response.status_code == 500
+    assert db.query(UpdatePhoto).count() == 0
+    assert not [path for path in updates.UPLOAD_ROOT.rglob("*") if path.is_file()]
+
+
+def test_thumbnail_backfill_is_dry_run_by_default_and_idempotent(db, client, world):
+    post = create_update(client, world).json()
+    upload_photo(client, world, post["id"])
+    photo = db.query(UpdatePhoto).one()
+    thumbnail_path, _ = updates._thumbnail_path(photo)
+    thumbnail_path.unlink()
+
+    dry_run = backfill_update_photo_thumbnails(db)
+    assert dry_run.mode == "dry-run"
+    assert dry_run.total_photos == 1
+    assert dry_run.missing_thumbnails == 1
+    assert dry_run.generated_thumbnails == 0
+    assert dry_run.thumbnail_bytes > 0
+    assert dry_run.samples[1]["sample"] == "median"
+    assert dry_run.four_photo_full_bytes >= dry_run.four_photo_thumbnail_bytes
+    assert not thumbnail_path.exists()
+
+    applied = backfill_update_photo_thumbnails(db, apply=True)
+    assert applied.generated_thumbnails == 1
+    generated_path, _ = updates._thumbnail_path(photo)
+    assert generated_path.exists()
+
+    rerun = backfill_update_photo_thumbnails(db, apply=True)
+    assert rerun.generated_thumbnails == 0
+    assert rerun.existing_thumbnails == 1
 
 
 def test_body_validation_and_unauthenticated_blocked(client, world):

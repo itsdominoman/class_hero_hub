@@ -273,3 +273,19 @@ def view_update_photo(link_id: int, update_id: int, photo_id: int, x_fhh_link_to
     if not photo:
         raise HTTPException(status_code=404, detail="Not found")
     return _photo_response(photo)
+
+
+@router.get("/links/{link_id}/updates/{update_id}/photos/{photo_id}/thumbnail", dependencies=[Depends(require_fhh_service)])
+def view_update_photo_thumbnail(link_id: int, update_id: int, photo_id: int, x_fhh_link_token: str | None = Header(default=None), db: Session = Depends(get_db)):
+    link = _link(db, link_id, x_fhh_link_token)
+    update = _linked_update(db, link, update_id)
+    if not update:
+        raise HTTPException(status_code=404, detail="Not found")
+    photo = db.query(UpdatePhoto).filter(
+        UpdatePhoto.id == photo_id,
+        UpdatePhoto.post_id == update.id,
+        UpdatePhoto.school_id == link.school_id,
+    ).first()
+    if not photo:
+        raise HTTPException(status_code=404, detail="Not found")
+    return _photo_response(photo, thumbnail=True)
