@@ -4,12 +4,17 @@
   import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
   import { initI18n } from '$lib/i18n';
+  import { errorStatus, messagingApi } from '$lib/messaging/api';
+  import type { MessagingMembership } from '$lib/messaging/types';
   import { isNativePlatform } from '$lib/nativeAuth';
   import { defaultLandingPath, hasRole, type SessionUser } from '$lib/roleRouting';
 
   let { children } = $props();
   let currentUser = $state<SessionUser | null>(null);
   let mobileMenuOpen = $state(false);
+  let messagingMemberships = $state<MessagingMembership[]>([]);
+  let messagingAvailable = $state(false);
+  let messagingUnread = $state(0);
   // Capacitor exposes this synchronously before the app shell is hydrated.
   // Keep public website chrome out of the native shell while preserving it on web.
   let nativeApp = $state(isNativePlatform());
@@ -17,8 +22,39 @@
   async function loadSession() {
     try {
       currentUser = await api.get('/me');
+      messagingMemberships = (currentUser?.memberships || []).filter(
+        (row): row is MessagingMembership =>
+          (row.role === 'teacher' || row.role === 'school_admin') &&
+          Number.isInteger(row.membership_id)
+      );
+      await refreshMessagingBadge();
     } catch {
       currentUser = null;
+      messagingMemberships = [];
+      messagingAvailable = false;
+      messagingUnread = 0;
+    }
+  }
+
+  async function refreshMessagingBadge() {
+    if (messagingMemberships.length === 0 || document.hidden) return;
+    const results = await Promise.all(
+      messagingMemberships.map(async (membership) => {
+        try {
+          return await messagingApi.unreadCount(membership);
+        } catch (error) {
+          if (errorStatus(error) === 404 || errorStatus(error) === 403) return null;
+          throw error;
+        }
+      })
+    ).catch(() => null);
+    if (results) {
+      const enabled = results.filter((result) => result !== null);
+      messagingAvailable = enabled.length > 0;
+      messagingUnread = enabled.reduce((sum, result) => sum + (result?.total || 0), 0);
+      if (!messagingAvailable) {
+        messagingUnread = 0;
+      }
     }
   }
 
@@ -27,6 +63,9 @@
       await api.post('/auth/logout', {});
     } finally {
       currentUser = null;
+      messagingMemberships = [];
+      messagingAvailable = false;
+      messagingUnread = 0;
       window.location.href = '/';
     }
   }
@@ -48,9 +87,14 @@
     const onKeydown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') closeMobileMenu();
     };
+    const onFocus = () => void refreshMessagingBadge();
+    const badgeTimer = setInterval(() => void refreshMessagingBadge(), 30_000);
     window.addEventListener('keydown', onKeydown);
+    window.addEventListener('focus', onFocus);
     return () => {
       window.removeEventListener('keydown', onKeydown);
+      window.removeEventListener('focus', onFocus);
+      clearInterval(badgeTimer);
       document.body.classList.remove('mobile-menu-open');
     };
   });
@@ -100,6 +144,14 @@
           {#if hasTeacher}
             <a href="/teach" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
               {$_('nav.teach')}
+            </a>
+          {/if}
+          {#if messagingAvailable}
+            <a href="/messages" class="relative text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
+              {$_('nav.messages')}
+              {#if messagingUnread > 0}
+                <span class="absolute -right-3 -top-3 grid min-w-5 place-items-center rounded-full bg-hero px-1 text-[0.6rem] leading-5 text-white" aria-label={$_('messaging.unreadCount', { values: { count: messagingUnread } })}>{messagingUnread > 99 ? '99+' : messagingUnread}</span>
+              {/if}
             </a>
           {/if}
           {#if !hasAnyRole}
@@ -196,6 +248,12 @@
           <a href="/school/reports" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.reports')}</a>
         {/if}
         {#if hasTeacher}<a href="/teach" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.teach')}</a>{/if}
+        {#if messagingAvailable}
+          <a href="/messages" onclick={closeMobileMenu} class="mobile-nav-link flex items-center justify-between gap-3">
+            <span>{$_('nav.messages')}</span>
+            {#if messagingUnread > 0}<span class="rounded-full bg-hero px-2 py-0.5 text-xs text-white" aria-label={$_('messaging.unreadCount', { values: { count: messagingUnread } })}>{messagingUnread > 99 ? '99+' : messagingUnread}</span>{/if}
+          </a>
+        {/if}
         {#if !hasAnyRole}<a href={dashboardHref} onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.dashboard')}</a>{/if}
       </nav>
       <button onclick={handleLogout} class="btn-hero mt-auto rounded-2xl px-5 py-3 text-sm uppercase tracking-wide">{$_('nav.logout')}</button>

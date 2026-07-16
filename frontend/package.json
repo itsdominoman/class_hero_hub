@@ -7,6 +7,7 @@
     "dev": "vite dev --host 0.0.0.0",
     "build": "vite build",
     "test:protected-update-photos": "node --test --experimental-strip-types tests/protected-update-photo.test.mjs",
+    "test:messaging": "node --test --experimental-strip-types tests/messaging-presentation.test.mjs",
     "preview": "vite preview",
     "test:e2e": "bash ./scripts/run-playwright-e2e.sh",
     "test:e2e:public": "bash ./scripts/run-playwright-e2e.sh public",

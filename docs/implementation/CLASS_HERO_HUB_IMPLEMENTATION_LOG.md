@@ -3951,3 +3951,53 @@ CHH now processes update photos server-side. It accepts JPEG/JPG, PNG, WEBP and 
 - Staff/guardian messaging UI, FHH parent integration, photos, final receipt display,
   contact hours, notification dispatch, push, safeguarding UI, and retention workers
   remain unimplemented.
+
+## 2026-07-17 — S25d CHH staff messaging UI
+
+- Added the isolated, responsive `/messages` teacher/school-admin surface. It includes
+  an inbox, unread badge, search and status filters, recipient compose flow,
+  student/guardian/staff context, signed-cursor history loading, chronological text
+  messages, and current-access read-only handling.
+- Added stable optimistic send/retry. The browser creates one client UUID, retains it
+  after a failed or unknown response, and retries the same UUID so the Slice 3 API can
+  reconcile a committed message without duplication.
+- Added foreground refresh through 20-second focused polling plus focus and reconnect
+  refresh. No WebSocket, SSE, Redis, background worker, notification delivery, or push
+  infrastructure was introduced.
+- The global navigation calls the fail-closed unread endpoint and shows the Messages
+  link/badge only when both global and school policy permit it. Development remains
+  globally disabled, so the link and inbox remain unavailable to users.
+- Added desktop split-pane and mobile single-pane layouts, safe mobile back behavior,
+  loading/empty/offline/retry/revoked/read-only states, keyboard send, accessible
+  labels/focus, `dir="auto"` for mixed-direction names/content, and full English/
+  Arabic key parity.
+- Validation before deployment:
+  - `npm run check`: zero errors and zero warnings.
+  - `npm run check:i18n`: 1,128 keys in both English and Arabic.
+  - `npm run test:messaging`: 3 focused presentation/search tests passed, including
+    Arabic search and direct/student context.
+  - Existing protected-update-photo frontend tests: 6 passed.
+  - Messaging Playwright tests in the repository-supported browser container:
+    3 passed, covering deep-link/send reconciliation, mobile Arabic/RTL/back behavior,
+    and fail-closed feature flags. The host-local browser could not start because the
+    host lacks `libatk-1.0.so.0`; no host package was installed.
+  - Existing backend messaging API regression tests: 8 passed.
+  - `npm run build`: production static build passed.
+- No migration was required; development remains at `d3e4f5a6b7c8`.
+- Development backup/deployment:
+  - Pre-deploy pgBackRest full backup `20260716-213529F` completed as the PostgreSQL
+    runtime user.
+  - The first documented Compose frontend update also recreated the unchanged backend
+    dependency. Both services restarted successfully. A post-smoke send-refresh race
+    was then fixed and the final frontend replacement used `--no-deps`, leaving the
+    backend untouched on the second deployment.
+  - Loopback/public root and `/messages`, backend health, FHH health, and seven existing
+    public-page browser checks passed. The final deployed messaging browser suite
+    passed 3/3.
+  - Runtime inspection confirmed Alembic `d3e4f5a6b7c8`,
+    `MESSAGING_ENABLED=false`, zero enabled school policies, zero conversations, and
+    zero messages. The navigation therefore exposes no Messages entry to current
+    development users.
+- Photos, CHH guardian UI, FHH parent integration/UI, final delivery/read indicators,
+  contact-hours scheduling, notification dispatch, push/native deep links,
+  safeguarding UI, and retention workers remain unimplemented.

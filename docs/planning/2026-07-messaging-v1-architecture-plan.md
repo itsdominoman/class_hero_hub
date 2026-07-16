@@ -1,9 +1,9 @@
 # CHH/FHH Messaging v1 architecture and implementation plan
 
-**Status:** authoritative architecture and implementation plan; Slices 1–3 policy,
-lifecycle, CHH core-record, and CHH text API foundations implemented through
-2026-07-17. Messaging remains disabled; staff/guardian inbox UI and FHH messaging
-integration remain unimplemented.
+**Status:** authoritative architecture and implementation plan; Slices 1–4 policy,
+lifecycle, CHH core-record, CHH text API, and CHH staff UI foundations implemented
+through 2026-07-17. Messaging remains globally and per-school disabled; CHH guardian
+UI and FHH messaging integration remain unimplemented.
 
 **Audit date:** 2026-07-16
 
@@ -21,8 +21,11 @@ receipt cursor/evidence groundwork, immutable audit, and safe sequencing service
 does not expose those records by itself. Slice 3 provides disabled CHH staff and
 CHH-guardian text APIs with explicit actor context, signed pagination, unread counts,
 idempotent sends, receipt acknowledgement groundwork, and read-only closure handling.
-It does **not** provide photos, user-facing final receipts, contact-hours scheduling,
-notification delivery, push, FHH parent messaging, native deep links, or messaging UI.
+Slice 4 provides the disabled CHH teacher/admin `/messages` inbox and text conversation
+surface with search/filter/compose, optimistic retry, foreground refresh, responsive
+navigation, and EN/AR/RTL support. It does **not** provide photos, user-facing final
+receipts, contact-hours scheduling, notification delivery, push, FHH parent messaging,
+native deep links, or CHH guardian messaging UI.
 
 ## 1. Executive recommendation
 
@@ -2041,6 +2044,26 @@ Each slice is separately deployable/testable. File lists are likely touch points
 
 **Objective:** polished shared `/messages` staff surface and unread badge.
 
+**Implementation status (2026-07-17): implemented as S25d.**
+
+- Added an isolated `/messages` route family backed only by the Slice 3 staff API,
+  with explicit school and membership context from `/api/me`. The layout advertises
+  Messages and its unread badge only after the fail-closed unread endpoint confirms
+  that global and school policy permit access.
+- Added bounded inbox loading, local search/status filters, current student/guardian/
+  staff context, recipient discovery, compose, signed-cursor older-message loading,
+  read acknowledgement, and exact server-supplied sender attribution.
+- Sends use a client-generated UUID and render optimistically. Failure retains the
+  body and UUID for a safe idempotent retry; success reconciles to the authoritative
+  CHH message. Foreground polling every 20 seconds plus focus/online refresh provides
+  v1 freshness without WebSockets, SSE, Redis, or a worker.
+- Added desktop split-pane and mobile single-pane behavior, safe back navigation,
+  offline/read-only/revoked/loading/empty/partial-failure states, keyboard send,
+  focusable controls, `dir="auto"` for user content, and complete EN/AR key parity.
+- Deliberately omitted photos, native deep links/push, contact-hours scheduling,
+  final delivery/read indicators, typing, presence, reactions, forwarding, and CHH
+  guardian UI.
+
 - Files: routes/components/store described in §13, layout nav, i18n.
 - Scope: inbox/search/filter/compose/thread/offline/retry/mobile/desktop; no photo/push yet.
 - Authorization: UI consumes capability flags; backend remains authority.
@@ -2213,10 +2236,11 @@ CHH:
 - `docs/planning/2026-07-messaging-v1-architecture-plan.md` — Slice 1 implementation
   status, migrations, lifecycle protocol, retry behavior, and remaining non-implemented
   scope recorded; later updated with the Slice 2 core-schema implementation and its
-  plan-compatible live-code adjustments.
+  plan-compatible live-code adjustments, Slice 3 API evidence, and Slice 4 staff UI.
 - `docs/implementation/CLASS_HERO_HUB_IMPLEMENTATION_LOG.md` — S25a implementation,
   validation, deployment, and the pre-existing unrelated full-suite failure recorded;
-  later updated with S25b schema, tests, backup, migration, and deployment evidence.
+  later updated with S25b schema, S25c APIs, and S25d staff UI validation/deployment
+  evidence.
 
 FHH:
 

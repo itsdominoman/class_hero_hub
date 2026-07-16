@@ -1,4 +1,9 @@
-export type SessionMembership = { role: string; school_id: number; school_name: string };
+export type SessionMembership = {
+  membership_id: number;
+  role: string;
+  school_id: number;
+  school_name: string;
+};
 
 export type SessionUser = {
   is_platform_admin?: boolean;
