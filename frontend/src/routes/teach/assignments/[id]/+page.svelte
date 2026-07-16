@@ -5,7 +5,12 @@
   import { ArrowLeft, BookOpen, CalendarDays, Camera, Megaphone, Star, Users } from 'lucide-svelte';
   import { api } from '$lib/api';
   import { initialsFromStudentName } from '$lib/guardianDisplay';
-  import { isNativePlatform } from '$lib/nativeAuth';
+  import {
+    ProtectedUpdatePhotoCache,
+    ProtectedUpdatePhotoClearedError,
+    protectedUpdatePhotoKey,
+    protectedUpdatePhotoPath
+  } from '$lib/protected-update-photo';
 
   type Ref = { id: number; name?: string | null; name_ar?: string | null };
   type Student = {
@@ -105,7 +110,8 @@
   let updatesListError = $state<string | null>(null);
   let updatePhotoLoadStates = $state<Record<string, 'loading' | 'loaded' | 'failed'>>({});
   let updatePhotoObjectUrls = $state<Record<string, string>>({});
-  let updatePhotoLightbox = $state<{ key: string; url?: string; alt: string } | null>(null);
+  let updatePhotoLightbox = $state<{ key: string; alt: string } | null>(null);
+  const protectedPhotoCache = new ProtectedUpdatePhotoCache();
   let isNativeAndroid = $state(false);
   let updatePhotoPicking = $state(false);
   let calendarModalOpen = $state(false);
@@ -377,11 +383,13 @@
     return value ? `?${key}=${value}` : '';
   }
   function updatePhotoPath(post: UpdatePost, photo: UpdatePhoto) {
-    return `/api/teach/updates/${post.id}/photos/${photo.id}/view?school_id=${detail?.assignment.school.id}`;
+    return protectedUpdatePhotoPath(post.id, photo.id);
   }
-  function updatePhotoKey(post: UpdatePost, photo: UpdatePhoto) { return `${post.id}:${photo.id}`; }
+  function updatePhotoKey(post: UpdatePost, photo: UpdatePhoto) {
+    return protectedUpdatePhotoKey(post.id, photo.id);
+  }
   function updatePhotoUrl(post: UpdatePost, photo: UpdatePhoto) {
-    return isNativePlatform() ? updatePhotoObjectUrls[updatePhotoKey(post, photo)] : updatePhotoPath(post, photo);
+    return updatePhotoObjectUrls[updatePhotoKey(post, photo)];
   }
   function updatePhotoLoaded(post: UpdatePost, photo: UpdatePhoto) {
     updatePhotoLoadStates = { ...updatePhotoLoadStates, [updatePhotoKey(post, photo)]: 'loaded' };
@@ -390,21 +398,26 @@
     updatePhotoLoadStates = { ...updatePhotoLoadStates, [updatePhotoKey(post, photo)]: 'failed' };
   }
   function clearUpdatePhotoObjectUrls() {
-    for (const url of Object.values(updatePhotoObjectUrls)) URL.revokeObjectURL(url);
+    protectedPhotoCache.clear();
     updatePhotoObjectUrls = {};
     updatePhotoLoadStates = {};
   }
-  async function loadNativeUpdatePhoto(post: UpdatePost, photo: UpdatePhoto) {
-    if (!isNativePlatform()) return;
+  async function loadProtectedUpdatePhoto(post: UpdatePost, photo: UpdatePhoto) {
+    if (!detail) return;
     const key = updatePhotoKey(post, photo);
-    if (updatePhotoObjectUrls[key] || updatePhotoLoadStates[key] === 'loading') return;
+    if (updatePhotoObjectUrls[key]) return;
     updatePhotoLoadStates = { ...updatePhotoLoadStates, [key]: 'loading' };
     try {
-      const blob = await api.download(updatePhotoPath(post, photo), schoolOptions(detail!.assignment.school.id));
-      if (!blob.size || !blob.type.startsWith('image/')) throw new Error('Protected media response was not an image.');
-      updatePhotoObjectUrls = { ...updatePhotoObjectUrls, [key]: URL.createObjectURL(blob) };
+      const objectUrl = await protectedPhotoCache.load(
+        key,
+        updatePhotoPath(post, photo),
+        detail.assignment.school.id,
+        api.download
+      );
+      updatePhotoObjectUrls = { ...updatePhotoObjectUrls, [key]: objectUrl };
       updatePhotoLoadStates = { ...updatePhotoLoadStates, [key]: 'loaded' };
     } catch (err: any) {
+      if (err instanceof ProtectedUpdatePhotoClearedError) return;
       // Deliberately omit credentials, filenames, and raw URLs from diagnostics.
       console.warn('[CHH] Protected update photo fetch failed', {
         category: 'teacher-update-photo',
@@ -415,8 +428,8 @@
   }
   async function openUpdatePhoto(post: UpdatePost, photo: UpdatePhoto) {
     const key = updatePhotoKey(post, photo);
-    updatePhotoLightbox = { key, url: isNativePlatform() ? undefined : updatePhotoPath(post, photo), alt: photo.original_filename };
-    await loadNativeUpdatePhoto(post, photo);
+    updatePhotoLightbox = { key, alt: photo.original_filename };
+    await loadProtectedUpdatePhoto(post, photo);
   }
   async function loadUpdateItems() {
     if (!detail) return;
@@ -527,7 +540,7 @@
       const loadedUpdate = await api.get(`/teach/updates/${post.id}`, schoolOptions(detail.assignment.school.id));
       viewingUpdate = loadedUpdate;
       updatesMode = 'list';
-      void Promise.all(loadedUpdate.photos.map((photo: UpdatePhoto) => loadNativeUpdatePhoto(loadedUpdate, photo)));
+      void Promise.all(loadedUpdate.photos.map((photo: UpdatePhoto) => loadProtectedUpdatePhoto(loadedUpdate, photo)));
     }
     catch (err: any) { updatesListError = err?.message || $_('teach.updates.loadError'); }
   }
@@ -1069,7 +1082,7 @@
 {/if}
 
 {#if updatePhotoLightbox}
-  {@const lightboxSource = updatePhotoLightbox.url || updatePhotoObjectUrls[updatePhotoLightbox.key]}
+  {@const lightboxSource = updatePhotoObjectUrls[updatePhotoLightbox.key]}
   {@const lightboxState = updatePhotoLoadStates[updatePhotoLightbox.key]}
   <div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/90 p-4" role="dialog" aria-modal="true" aria-label={updatePhotoLightbox.alt}>
     <button type="button" class="absolute end-4 top-4 rounded-lg bg-white/10 px-4 py-2 font-bold text-white" onclick={() => updatePhotoLightbox = null}>{$_('teach.updates.close')}</button>
