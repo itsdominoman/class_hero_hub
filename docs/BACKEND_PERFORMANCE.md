@@ -33,7 +33,7 @@ row.** If a page needs data for every row in a list, add a batch backend endpoin
 
 | Endpoint | Before | After |
 |---|---|---|
-| `GET /api/school/students` | Called `current_subject_groups_for_student` per student, which rescanned every subject group's full roster per call. 502 students × 214 groups → 55s+ hang, DB connections pooled up idle-in-transaction. | `bulk_subject_groups_for_students` resolves every group's roster once, builds a `student_id → groups` reverse map. Class-section lookup batched too. **2.3s** for 502 students, 214 groups. Still the slowest endpoint — see below. |
+| `GET /api/school/students` | Called `current_subject_groups_for_student` per student, then an interim bulk implementation still issued 2–3 queries per group. At the 2026-07-16 demo scale this was 779 route-handler queries and 2.7–3.3s internally. | `resolve_rosters_for_students` loads groups, active class enrolments, and explicit member/exclusion rows once, then derives defaults in memory. **5 route-handler queries and 174–329ms internally** for 502 students / 258 groups before deployment; see the dedicated roster audit. |
 | `GET /api/teach/dashboard` | `_assignment_card` did up to 6 single-row queries per assignment (class_section, branch, year, grade_level, subject_group, subject). Bounded by one teacher's own assignment count, so low risk today, but a real violation of the rule. | `_assignment_cards` batches all referenced entities via `IN(...)` once per request regardless of assignment count. |
 | `GET /api/school/teachers/assignments` (batch) | Fixed the *frontend* fan-out (67 concurrent requests → 1), but `_assignment_payload` still ran 2 queries per assignment row inside the batch endpoint — the N+1 moved server-side instead of disappearing. | `_assignment_payloads_bulk` batches class_section/subject_group lookups once per request. |
 | `GET /api/school/teachers/{id}/assignments` (single teacher) | Same `_assignment_payload` per-row pattern; bounded by one teacher's assignment count. | Now shares `_assignment_payloads_bulk`. |
@@ -46,26 +46,22 @@ row.** If a page needs data for every row in a list, add a batch backend endpoin
 | Frontend `/school` page | Single `Promise.all` of 11 fixed calls (not per-row — fine), but always included `GET /api/school/students`, the heaviest call, even when the Students tab was never opened. `/school` is tabbed (`{#if activeTab === ...}`), so most visits paid for data they never saw. | `students` is now lazy: fetched once, on first need, triggered by opening the Students tab or opening a subject-group roster's "add student" picker (`ensureStudentsLoaded()`), not on every page load. `loadAll()` keeps it fresh afterwards if already loaded, so mutations elsewhere still sync it. |
 | Frontend `/school` Teachers panel (historical) | One `GET /teachers/{id}/assignments` per teacher on page load — 67 concurrent requests with 67 teachers, the incident that started this audit. | Replaced with the single batch endpoint above. |
 
-### `GET /api/school/students`: why it's still 2.3s, not under 1s
+### `GET /api/school/students`: set-based resolution completed 2026-07-16
 
-At current demo scale (502 students, 214 active subject groups), `bulk_subject_groups_for_students`
-still issues roughly 2-3 queries **per subject group** (one for exclusions, one for the
-default-policy roster if applicable, one for explicit members) — about 500-650 round trips
-total, each a few milliseconds. That's O(groups), not O(students × groups) anymore (the
-actual bug), but it's still a per-group loop rather than a handful of whole-school queries.
+The dedicated roster optimisation replaced the interim per-group loop. At the current
+demo scale (502 students, 258 non-archived subject groups), the whole-school helper now
+uses three queries rather than 775 and completes in 132–153ms warm internally. The
+Students route adds the student-list query and caller context for five handler queries
+total. Class-filtered and one-student callers pass their selected student IDs so they do
+not hydrate unrelated enrolments.
 
-Getting this under 1s requires rewriting `subject_group_members`/`bulk_subject_groups_for_students`
-in `app/rosters.py` to resolve default and explicit memberships for *all* groups in 2-3
-whole-school queries (join enrolments to subject_groups, group by `subject_group_id` in
-Python) instead of looping per group. That function is the shared resolver behind every
-roster endpoint (admin roster detail views, teacher roster views, `list_students`), so a
-rewrite needs its own careful pass with full regression coverage across all three call
-sites — deliberately not attempted in this pass given the size of the rest of this audit.
-Recommended as the next dedicated slice if `/students` needs to be faster than 2.3s;
-`backend/scripts/perf_check.py` will show the improvement directly.
+`backend/tests/test_roster_resolution.py` asserts explicit/default/exclusion semantics,
+school/year/branch/archive scope, deterministic output, and a query count that stays
+constant when another 20 groups are added. The detailed evidence and rollback procedure
+are in `docs/audit/2026-07-chh-roster-query-optimisation.md`.
 
-Note this endpoint is no longer on the critical path of a normal `/school` visit (see the
-frontend row above) — it only runs when someone actually opens the Students tab.
+The endpoint remains lazy on the frontend and runs when the Students tab or a student
+picker actually needs it.
 
 ## Indexes added (migration `e1f2a3b4c5d6`)
 
@@ -84,7 +80,7 @@ Not justified at current data volume; add if search becomes slow at real scale.
 
 ## Regression tests
 
-`backend/tests/test_students_enrolments.py` and `backend/tests/test_staff_assignments.py`
+`backend/tests/test_roster_resolution.py`, `backend/tests/test_students_enrolments.py`, and `backend/tests/test_staff_assignments.py`
 include query-shape regression tests: they monkeypatch the per-group resolver or count raw
 SQL statements via a SQLAlchemy `before_cursor_execute` listener, and assert the count stays
 roughly flat as the number of students/assignments/subject-groups grows, instead of scaling

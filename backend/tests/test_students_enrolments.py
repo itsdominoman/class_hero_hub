@@ -648,7 +648,7 @@ def test_list_students_includes_explicit_only_subject_group(db, client, enrolmen
     assert [(g["source"], g["enrolment_id"]) for g in by_id[student_id]["current_subject_groups"]] == [("explicit", explicit.json()["id"])]
 
 
-def test_list_students_resolves_subject_groups_once_per_group_not_per_student(db, client, enrolment_world, monkeypatch):
+def test_list_students_uses_set_based_subject_group_resolution(db, client, enrolment_world, monkeypatch):
     world = enrolment_world
     world["group"].enrolment_policy = "default_for_section"
     db.commit()
@@ -675,7 +675,9 @@ def test_list_students_resolves_subject_groups_once_per_group_not_per_student(db
     response = client.get("/api/school/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id))
     assert response.status_code == 200
     assert len(response.json()) == len(student_ids)
-    assert calls["n"] == expected_group_calls
+    # Whole-school resolution no longer calls the single-group helper at all;
+    # query-count scaling is asserted directly in test_roster_resolution.py.
+    assert calls["n"] == 0
 
 
 def test_enrolment_date_validation(db, client, enrolment_world):

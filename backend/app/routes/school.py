@@ -47,7 +47,7 @@ from ..models_school import (
     SubjectGroup,
     User,
 )
-from ..rosters import bulk_subject_groups_for_students, current_subject_groups_for_student, roster_payload
+from ..rosters import resolve_rosters_for_students, roster_payload
 from .platform import _invite_payload, _issue_staff_invite
 from ..school_scope import is_open_interval, open_interval_expression, require_school_role, write_audit
 
@@ -655,20 +655,15 @@ def _clean_student_payload(payload: StudentRequest) -> dict[str, Any]:
 
 
 def _current_student_context(db: Session, school_id: int, student_id: int) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
-    open_rows = (
-        db.query(Enrolment)
-        .filter(Enrolment.school_id == school_id, Enrolment.student_id == student_id, *open_interval_expression(Enrolment, _today()))
-        .order_by(Enrolment.id.asc())
-        .all()
+    resolution = resolve_rosters_for_students(
+        db,
+        school_id,
+        _today(),
+        student_ids=[student_id],
     )
-    class_section = None
-    subject_groups = []
-    for row in open_rows:
-        if row.class_section_id is not None:
-            section = db.query(ClassSection).filter(ClassSection.id == row.class_section_id).first()
-            class_section = _payload(section) if section else None
-    subject_groups = current_subject_groups_for_student(db, school_id, student_id, _today())
-    return class_section, subject_groups
+    sections = resolution.class_sections_by_student.get(student_id, [])
+    class_section = _payload(sections[-1]) if sections else None
+    return class_section, resolution.subject_groups_by_student.get(student_id, [])
 
 
 def _student_with_context(db: Session, row: Student) -> dict[str, Any]:
@@ -802,31 +797,25 @@ def _revoke_guardian_membership_if_last_link(db: Session, school_id: int, user_i
 
 def _students_with_context_bulk(db: Session, school_id: int, rows: list[Student]) -> list[dict[str, Any]]:
     today = _today()
-    subject_groups_by_student = bulk_subject_groups_for_students(db, school_id, today)
-
     student_ids = [row.id for row in rows]
-    section_id_by_student: dict[int, int] = {}
-    if student_ids:
-        section_enrolments = (
-            db.query(Enrolment)
-            .filter(
-                Enrolment.school_id == school_id,
-                Enrolment.student_id.in_(student_ids),
-                Enrolment.class_section_id.is_not(None),
-                *open_interval_expression(Enrolment, today),
-            )
-            .order_by(Enrolment.id.asc())
-            .all()
-        )
-        for enrolment in section_enrolments:
-            section_id_by_student[enrolment.student_id] = enrolment.class_section_id
-    section_ids = set(section_id_by_student.values())
-    sections_by_id = {s.id: _payload(s) for s in (db.query(ClassSection).filter(ClassSection.id.in_(section_ids)).all() if section_ids else [])}
+    resolution = resolve_rosters_for_students(
+        db,
+        school_id,
+        today,
+        student_ids=student_ids,
+    )
 
     payloads = []
     for row in rows:
-        class_section = sections_by_id.get(section_id_by_student.get(row.id))
-        payloads.append(_student_payload(row, current_class_section=class_section, current_subject_groups=subject_groups_by_student.get(row.id, [])))
+        sections = resolution.class_sections_by_student.get(row.id, [])
+        class_section = _payload(sections[-1]) if sections else None
+        payloads.append(
+            _student_payload(
+                row,
+                current_class_section=class_section,
+                current_subject_groups=resolution.subject_groups_by_student.get(row.id, []),
+            )
+        )
     return payloads
 
 

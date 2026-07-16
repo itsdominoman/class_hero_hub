@@ -19,8 +19,8 @@ from ..models_school import (
     HomeworkItem, School, Student, UpdatePhoto, UpdatePost, User,
 )
 from ..behaviour_service import event_context_payloads
+from ..rosters import resolve_rosters_for_students
 from ..school_scope import open_interval_expression, write_audit
-from ..rosters import bulk_subject_groups_for_students
 from ..security import BoundedInMemoryRateLimiter, get_client_ip_from_scope, is_ip_trusted, parse_ip_networks
 from .announcements import _attachment_path
 from .homework import _file_response
@@ -132,12 +132,22 @@ def consume(body: ConsumeRequest, request: Request, db: Session = Depends(get_db
 
 
 def _scope(db: Session, link: FhhLink):
-    enrolments = db.query(Enrolment).filter(Enrolment.student_id == link.student_id, Enrolment.kind == "member", *open_interval_expression(Enrolment)).all()
-    sections = {e.class_section_id for e in enrolments if e.class_section_id}
-    groups = {e.subject_group_id for e in enrolments if e.subject_group_id}
-    for group in bulk_subject_groups_for_students(db, link.school_id, datetime.now(timezone.utc).date()).get(link.student_id, []):
-        if group.get("id") is not None:
-            groups.add(group["id"])
+    today = datetime.now(timezone.utc).date()
+    resolution = resolve_rosters_for_students(
+        db,
+        link.school_id,
+        today,
+        student_ids=[link.student_id],
+    )
+    sections = {
+        section.id
+        for section in resolution.class_sections_by_student.get(link.student_id, [])
+    }
+    groups = {
+        group["id"]
+        for group in resolution.subject_groups_by_student.get(link.student_id, [])
+        if group.get("id") is not None
+    }
     return sections, groups
 
 

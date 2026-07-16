@@ -7,7 +7,7 @@ os.environ["DEV_AUTH_ENABLED"] = "false"
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -595,6 +595,47 @@ def test_guardian_sees_relevant_school_class_subject_posts_without_duplicates(db
     assert "Other class" not in titles
     assert all("body" not in row for row in resp.json()["announcements"])
     assert all("preview" in row for row in resp.json()["announcements"])
+
+
+def test_guardian_audience_query_count_is_bounded_by_school_not_group_count(db, world):
+    guardian = world["guardian"]
+    school_id = world["alpha"].id
+    year_id = world["year"].id
+    section_id = world["section"].id
+    subject_id = world["subject"].id
+
+    def measured_query_count():
+        statements = []
+
+        def count_statement(*_args):
+            statements.append(1)
+
+        event.listen(engine, "before_cursor_execute", count_statement)
+        try:
+            announcements._guardian_audience(db, guardian)
+        finally:
+            event.remove(engine, "before_cursor_execute", count_statement)
+        return len(statements)
+
+    db.refresh(guardian)
+    baseline = measured_query_count()
+    assert baseline <= 4
+
+    for index in range(20):
+        db.add(SubjectGroup(
+            school_id=school_id,
+            academic_year_id=year_id,
+            class_section_id=section_id,
+            subject_id=subject_id,
+            code=f"SCALE-{index}",
+            name=f"Scale {index}",
+            status="active",
+            enrolment_policy="default_for_section",
+        ))
+    db.commit()
+
+    db.refresh(guardian)
+    assert measured_query_count() == baseline
 
 
 def test_revoked_link_loses_access_and_archived_hidden(db, client, world):

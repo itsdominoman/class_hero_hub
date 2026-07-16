@@ -20,7 +20,6 @@ from ..models_school import (
     AnnouncementAttachment,
     AnnouncementRead,
     ClassSection,
-    Enrolment,
     GuardianLink,
     Membership,
     School,
@@ -28,7 +27,7 @@ from ..models_school import (
     SubjectGroup,
     User,
 )
-from ..rosters import bulk_subject_groups_for_students
+from ..rosters import resolve_rosters_for_students
 from ..school_scope import open_interval_expression, write_audit
 
 staff_router = APIRouter()
@@ -388,30 +387,33 @@ def _guardian_audience(db: Session, current_user: User) -> tuple[set[int], set[i
         )
         .all()
     )
-    student_ids = {link.student_id for link in links}
-    school_ids = {link.school_id for link in links}
-    if not student_ids:
+    student_ids_by_school: dict[int, set[int]] = {}
+    for link in links:
+        student_ids_by_school.setdefault(link.school_id, set()).add(link.student_id)
+    school_ids = set(student_ids_by_school)
+    if not school_ids:
         return set(), set(), set()
 
     today = datetime.now(timezone.utc).date()
-    enrolments = (
-        db.query(Enrolment)
-        .filter(
-            Enrolment.student_id.in_(student_ids),
-            Enrolment.kind == "member",
-            *open_interval_expression(Enrolment, today),
+    class_section_ids: set[int] = set()
+    subject_group_ids: set[int] = set()
+    for school_id, student_ids in student_ids_by_school.items():
+        resolution = resolve_rosters_for_students(
+            db,
+            school_id,
+            today,
+            student_ids=student_ids,
         )
-        .all()
-    )
-    class_section_ids = {row.class_section_id for row in enrolments if row.class_section_id is not None}
-    subject_group_ids = {row.subject_group_id for row in enrolments if row.subject_group_id is not None}
-
-    for school_id in school_ids:
-        grouped = bulk_subject_groups_for_students(db, school_id, today)
         for student_id in student_ids:
-            for group in grouped.get(student_id, []):
-                if group.get("id") is not None:
-                    subject_group_ids.add(group["id"])
+            class_section_ids.update(
+                section.id
+                for section in resolution.class_sections_by_student.get(student_id, [])
+            )
+            subject_group_ids.update(
+                group["id"]
+                for group in resolution.subject_groups_by_student.get(student_id, [])
+                if group.get("id") is not None
+            )
 
     return school_ids, class_section_ids, subject_group_ids
 
