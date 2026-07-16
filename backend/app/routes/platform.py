@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from .. import auth, invite_tokens
 from ..database import get_db, settings
 from ..mailer import StaffInviteEmail, send_staff_invite
-from ..models_school import Membership, School, StaffInvite, Student, User
+from ..models_school import Membership, School, SchoolMessagingPolicy, StaffInvite, Student, User
 from ..school_scope import require_platform_admin, write_audit
 
 router = APIRouter(dependencies=[Depends(require_platform_admin)])
@@ -235,6 +235,8 @@ def create_school(
         status="pending_setup",
     )
     db.add(school)
+    db.flush()
+    db.add(SchoolMessagingPolicy(school_id=school.id))
     db.commit()
     db.refresh(school)
     staff_invite, _raw_token, warning = _issue_staff_invite(db, school, str(payload.admin_email), current_user)

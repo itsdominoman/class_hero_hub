@@ -253,6 +253,7 @@ class Settings(BaseSettings):
     FHH_INTEGRATION_ENABLED: bool = False
     FHH_INTEGRATION_SERVICE_TOKEN: str = ""
     FHH_INTEGRATION_ALLOWED_IPS: str = ""
+    MESSAGING_ENABLED: bool = False
     CORS_ORIGINS: str = "https://families.loginto.me,http://localhost:5173,http://localhost:8000"
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587

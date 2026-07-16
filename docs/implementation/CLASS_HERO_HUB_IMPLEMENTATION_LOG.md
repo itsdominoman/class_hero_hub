@@ -3822,3 +3822,48 @@ CHH now processes update photos server-side. It accepts JPEG/JPG, PNG, WEBP and 
 - Only documentation files changed. No source, migration, schema, configuration,
   dependency, test, database, service, deployment, build, Git branch, commit, push, tag,
   or PR action was performed.
+
+## 2026-07-16 — S25a Messaging policy and lifecycle prerequisites
+
+- Added fail-closed global `MESSAGING_ENABLED=false` and one versioned
+  `school_messaging_policies` row per school. School admins can read/update only their
+  school policy through `/api/school/messaging-policy`; changes use current membership
+  scope and the append-only `AuditLog`. Global and per-school enablement remain
+  separate, and effective messaging remains disabled.
+- Added opaque `schools.messaging_remote_ref` and included it only in the protected
+  CHH→FHH server response. It is not a browser/native DTO and is not a credential.
+- Added the minimum CHH lifecycle receiver and state for FHH school-scoped parent
+  identities. `POST /api/integrations/fhh/links/{link_id}/messaging-lifecycle` requires
+  the existing service bearer and per-link header credential, forbids extra fields,
+  applies stable event UUIDs idempotently, rejects cross-link reuse, serializes
+  same-school identity updates, and audits applied lifecycle changes.
+- Supported lifecycle actions are `parent_granted`, `parent_profile_changed`,
+  `parent_revoked`, `identity_anonymized`, `link_revoked`, and `family_deleted`.
+  Repeated events are harmless; stale per-link versions are ignored; revoked links
+  cannot be re-granted.
+- Alembic revision: `c2d3e4f5a6b7_add_messaging_policy_lifecycle.py`.
+- Focused CHH prerequisite/integration/school/security validation passed: **94 tests**.
+  The complete CHH suite produced **365 passed / 1 failed**; the failure is the
+  pre-existing `test_demo_data_seeder.py::test_forced_failure_rolls_back_cleanly`
+  monkeypatch signature mismatch already present at handover commit `4b25971`.
+  Messaging-related code does not touch the demo seeder or its test.
+- PostgreSQL migration validation passed on a disposable database for fresh upgrade,
+  downgrade to `b1c2d3e4f5a6`, and re-upgrade to head.
+- Development backup/migration/deployment:
+  - CHH pgBackRest full backup `20260716-200840F` completed before the migration.
+    The CHH backup volume had not previously had a stanza initialized and
+    `postgres/pgbackrest.conf` still names the old `familyhero` database role while
+    this stack uses `classhero`; the backup was completed with the current role
+    explicitly supplied. Correcting that stale operational configuration remains a
+    separate infrastructure follow-up.
+  - Development Alembic advanced from `b1c2d3e4f5a6` to `c2d3e4f5a6b7`.
+  - Only the CHH backend image/service was rebuilt and restarted; PostgreSQL and the
+    unchanged frontend were not rebuilt.
+  - Loopback and public CHH health/root checks passed. Runtime inspection confirmed
+    `MESSAGING_ENABLED=false`, one policy row for the existing school, zero enabled
+    school rows, and no conversation route.
+  - The existing FHH→CHH linked-school dashboard call remained successful after both
+    deployments and returned an active link through the sanitized FHH DTO.
+- Conversations, participants, messages, photos, receipts, contact-hours scheduling,
+  notification delivery, push, inbox routes, native deep links, and messaging UI
+  remain unimplemented.

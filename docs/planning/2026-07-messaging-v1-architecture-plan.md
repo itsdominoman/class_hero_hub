@@ -1,6 +1,6 @@
 # CHH/FHH Messaging v1 architecture and implementation plan
 
-**Status:** authoritative recommended architecture and implementation plan; Messaging v1 is not implemented
+**Status:** authoritative architecture and implementation plan; Slice 1 policy/lifecycle prerequisites implemented on 2026-07-16, while Messaging v1 conversations and user features remain unimplemented
 
 **Audit date:** 2026-07-16
 
@@ -9,7 +9,12 @@
 **Companion:** Family Hero Hub repository, `docs/planning/2026-07-fhh-school-messaging-integration-plan.md`
 **Supersedes for messaging:** `docs/CLASS_HERO_HUB_MASTER_BLUEPRINT.md` §9/§19/S15 and any earlier statement that Messaging v1 is plain-text-only, has one `(student × teacher)` table without participant/access history, uses best-effort in-request notification delivery, or has no photo, contact-hours, receipt, safeguarding, FHH-parent-identity, or durable-outbox requirement.
 
-This is the primary cross-repository source of truth for Messaging v1. It separates verified current code from recommended architecture. Nothing in this document claims that messaging tables, APIs, workers, routes, native push handling, or user interfaces already exist.
+This is the primary cross-repository source of truth for Messaging v1. It separates
+verified current code from recommended architecture. Slice 1 now provides disabled
+feature flags, the CHH school policy row/API, opaque school references, minimized FHH
+identity lifecycle state, and durable unlink/deletion synchronization. It does **not**
+provide conversations, messages, photos, receipts, contact-hours scheduling,
+notification delivery, push, inbox routes, native deep links, or messaging UI.
 
 ## 1. Executive recommendation
 
@@ -1920,6 +1925,28 @@ Each slice is separately deployable/testable. File lists are likely touch points
 
 **Objective:** encode approved defaults and close the FHH deletion/unlink gap before message data exists.
 
+**Implementation status (2026-07-16): implemented as S25a / FHH-A.**
+
+- CHH migration `c2d3e4f5a6b7` adds `schools.messaging_remote_ref`,
+  `school_messaging_policies`, minimized FHH lifecycle identity/link state, and the
+  idempotent lifecycle-event ledger.
+- `MESSAGING_ENABLED=false` remains the global default. Every school policy is also
+  created with `enabled=false`; the school-admin policy API reports a separate
+  `effective_enabled` value and audits versioned changes.
+- FHH migration `a2b3c4d5e6f7` adds `remote_school_ref`, server-owned parent/device
+  locale, school-scoped opaque identities, identity-link lifecycle state, and
+  `school_messaging_lifecycle_outbox`.
+- FHH unlink, grown-up removal, verified parent roster/profile reconciliation, and
+  family deletion commit locally before remote delivery. A dedicated database-backed
+  lifecycle worker leases rows with `SKIP LOCKED`, preserves event UUIDs across
+  retries, applies exponential backoff, and distinguishes retryable transport/service
+  failures from terminal link/schema conflicts.
+- The CHH receiver requires the existing FHH service bearer and per-link credential,
+  serializes school lifecycle application, is repeat-safe, rejects payload extras,
+  and writes the existing append-only school audit log.
+- No conversation, participant, message, media, receipt, contact-window,
+  notification-outbox, push, inbox, parent messaging API, or messaging UI was added.
+
 - CHH likely files: `backend/app/database.py`, `backend/app/models_school/models.py`, `backend/app/schemas.py`, new Alembic revision, school settings routes/UI, `frontend/src/lib/i18n/messages.ts`.
 - FHH likely files: `backend/app/models.py`, `backend/app/services/account_deletion_service.py`, new lifecycle outbox service/route/client changes, Alembic revision, tests.
 - Scope: feature flags disabled, policy model, remote school reference, parent/token locale, durable unlink/delete sync skeleton.
@@ -2073,7 +2100,12 @@ Each slice is separately deployable/testable. File lists are likely touch points
 ### 23.1 Top unresolved decisions/risks
 
 1. **Retention/legal/export policy:** seven years is the recommended technical default, but Oman/GCC legal counsel and school contracts must confirm retention, disclosure, legal hold, parent data-subject handling, and offboarding format before production.
-2. **External-parent lifecycle completeness:** FHH currently deletes/anonymizes family data and tokens without revoking `SchoolConnection`/CHH identity. Slice 1 is a release blocker; the exact behavior for partial family/grown-up deletion and verified name changes needs product/legal sign-off.
+2. **External-parent lifecycle policy:** the technical deletion/unlink gap is closed by
+   S25a/FHH-A. Local removal now commits first and durable lifecycle events reconcile
+   CHH without transferring family IDs, parent database IDs, email, home data, device
+   tokens, or message content. Product/legal sign-off is still required for the
+   long-term naming/anonymisation and record-retention policy before Messaging v1 is
+   enabled.
 3. **Native push operations:** CHH has no staff push foundation, FHH push is best-effort without outbox/deep links/preferences, and checked-in iOS push entitlement evidence is absent. Messaging must not promise reliable background delivery until credentials, capabilities, workers, metrics, and real-device tests are complete.
 
 Additional follow-ups:
@@ -2123,6 +2155,11 @@ CHH:
 - `docs/implementation/CHH_FHH_INTEGRATION_API_AUDIT.md` — current checkpoint correction and messaging boundary supersession note.
 - `docs/implementation/CLASS_HERO_HUB_IMPLEMENTATION_LOG.md` — documentation-only architecture audit entry.
 - `docs/DOCS_CLEANUP_REPORT.md` — current documentation authority/index note.
+- `docs/planning/2026-07-messaging-v1-architecture-plan.md` — Slice 1 implementation
+  status, migrations, lifecycle protocol, retry behavior, and remaining non-implemented
+  scope recorded.
+- `docs/implementation/CLASS_HERO_HUB_IMPLEMENTATION_LOG.md` — S25a implementation,
+  validation, deployment, and the pre-existing unrelated full-suite failure recorded.
 
 FHH:
 
@@ -2142,6 +2179,10 @@ FHH:
 - `docs/UPGRADE_TRACKER.md` — documentation-only audit entry and stale PostgreSQL cutover verification corrected.
 - `docs/QA_COVERAGE_MATRIX.md` — explicitly records that linked-school/push tests are not Messaging v1 coverage.
 - `docs/manuals/parent-user-manual.md`, `docs/manuals/quick-start-for-parents.md`, and `docs/manuals/faq.md` — current linked-school usage documented and messaging clearly marked unavailable.
+- FHH `docs/operations/SCHOOL_MESSAGING_LIFECYCLE_OUTBOX.md` — lifecycle event,
+  retry/recovery, privacy, and operations runbook.
+- FHH companion/status/roadmap/deployment/upgrade documents — FHH-A implementation
+  state and remaining messaging scope recorded.
 
 ### Marked historical/partially superseded
 

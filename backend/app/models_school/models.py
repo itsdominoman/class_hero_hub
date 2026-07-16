@@ -1,6 +1,7 @@
+import uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, event
+from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, Uuid, event
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -24,6 +25,7 @@ class School(Base):
     __tablename__ = "schools"
 
     id = Column(Integer, primary_key=True, index=True)
+    messaging_remote_ref = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
     name = Column(String)
     name_ar = Column(String, nullable=True)
     slug = Column(String, unique=True, index=True)
@@ -547,6 +549,103 @@ class FhhLink(Base):
     __table_args__ = (
         CheckConstraint("status IN ('active', 'revoked')", name="ck_fhh_links_status"),
         Index("ix_fhh_links_school_student_status", "school_id", "student_id", "status"),
+    )
+
+
+class SchoolMessagingPolicy(Base):
+    __tablename__ = "school_messaging_policies"
+
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), primary_key=True)
+    enabled = Column(Boolean, nullable=False, default=False, server_default="false")
+    guardian_replies_enabled = Column(Boolean, nullable=False, default=True, server_default="true")
+    delivery_receipts_visible = Column(Boolean, nullable=False, default=True, server_default="true")
+    read_receipts_visible = Column(Boolean, nullable=False, default=False, server_default="false")
+    allow_staff_out_of_hours_opt_in = Column(Boolean, nullable=False, default=False, server_default="false")
+    teachers_may_mark_urgent = Column(Boolean, nullable=False, default=False, server_default="false")
+    notification_preview_mode = Column(String(24), nullable=False, default="generic", server_default="generic")
+    retention_days = Column(Integer, nullable=False, default=2557, server_default="2557")
+    email_mode = Column(String(16), nullable=False, default="off", server_default="off")
+    policy_version = Column(Integer, nullable=False, default=1, server_default="1")
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    updated_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="SET NULL"), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("notification_preview_mode IN ('generic', 'sender_only', 'body')", name="ck_school_messaging_policies_preview"),
+        CheckConstraint("email_mode IN ('off', 'immediate', 'digest')", name="ck_school_messaging_policies_email_mode"),
+        CheckConstraint("retention_days BETWEEN 30 AND 36500", name="ck_school_messaging_policies_retention"),
+        CheckConstraint("policy_version >= 1", name="ck_school_messaging_policies_version"),
+    )
+
+
+class FhhMessagingIdentity(Base):
+    """Minimal lifecycle identity synchronized from FHH; not a participant."""
+
+    __tablename__ = "fhh_messaging_identities"
+
+    id = Column(Integer, primary_key=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    provider = Column(String(24), nullable=False, default="fhh", server_default="fhh")
+    external_subject_ref = Column(Uuid(as_uuid=True), nullable=False)
+    display_name = Column(String(200), nullable=False)
+    preferred_locale = Column(String(8), nullable=False, default="en", server_default="en")
+    status = Column(String(16), nullable=False, default="active", server_default="active")
+    first_seen_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    last_seen_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    anonymized_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("school_id", "provider", "external_subject_ref", name="uq_fhh_messaging_identity_subject"),
+        CheckConstraint("preferred_locale IN ('en', 'ar')", name="ck_fhh_messaging_identities_locale"),
+        CheckConstraint("status IN ('active', 'revoked', 'anonymized')", name="ck_fhh_messaging_identities_status"),
+    )
+
+
+class FhhMessagingIdentityLink(Base):
+    __tablename__ = "fhh_messaging_identity_links"
+
+    id = Column(Integer, primary_key=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    fhh_link_id = Column(Integer, ForeignKey("fhh_links.id", ondelete="RESTRICT"), nullable=False, index=True)
+    identity_id = Column(Integer, ForeignKey("fhh_messaging_identities.id", ondelete="RESTRICT"), nullable=False, index=True)
+    status = Column(String(16), nullable=False, default="active", server_default="active")
+    sync_version = Column(Integer, nullable=False, default=1, server_default="1")
+    granted_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("fhh_link_id", "identity_id", name="uq_fhh_messaging_identity_link"),
+        CheckConstraint("status IN ('active', 'revoked')", name="ck_fhh_messaging_identity_links_status"),
+        CheckConstraint("sync_version >= 1", name="ck_fhh_messaging_identity_links_version"),
+        Index("ix_fhh_messaging_identity_links_school_status", "school_id", "status"),
+    )
+
+
+class FhhMessagingLifecycleEvent(Base):
+    __tablename__ = "fhh_messaging_lifecycle_events"
+
+    id = Column(Integer, primary_key=True)
+    event_id = Column(Uuid(as_uuid=True), nullable=False, unique=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    fhh_link_id = Column(Integer, ForeignKey("fhh_links.id", ondelete="RESTRICT"), nullable=False, index=True)
+    action = Column(String(40), nullable=False)
+    external_subject_ref = Column(Uuid(as_uuid=True), nullable=True)
+    sync_version = Column(Integer, nullable=False)
+    outcome = Column(String(24), nullable=False)
+    occurred_at = Column(DateTime(timezone=True), nullable=False)
+    applied_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('parent_granted', 'parent_profile_changed', 'parent_revoked', "
+            "'identity_anonymized', 'link_revoked', 'family_deleted')",
+            name="ck_fhh_messaging_lifecycle_events_action",
+        ),
+        CheckConstraint("sync_version >= 1", name="ck_fhh_messaging_lifecycle_events_version"),
+        CheckConstraint("outcome IN ('applied', 'stale_ignored')", name="ck_fhh_messaging_lifecycle_events_outcome"),
+        Index("ix_fhh_messaging_lifecycle_events_link_applied", "fhh_link_id", "applied_at"),
     )
 
 

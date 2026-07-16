@@ -9,7 +9,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from . import auth, database, schemas
 from .database import Base, close_request_db, engine, ensure_runtime_schema, get_db, settings, validate_runtime_configuration
 from .models_school import Membership, PlatformAdmin, School, User
-from .routes import announcements, authentication, behaviour, calendar, dev, guardian, homework, integrations_fhh, join, platform, school, school_reports, teach, updates
+from .routes import announcements, authentication, behaviour, calendar, dev, guardian, homework, integrations_fhh, join, messaging_policy, platform, school, school_reports, teach, updates
 from .security import TrustedProxyHeadersMiddleware, parse_csv_values
 
 if settings.DATABASE_URL.startswith("sqlite"):
@@ -144,6 +144,7 @@ def create_app() -> FastAPI:
     app.include_router(announcements.staff_router, prefix="/api/school", tags=["announcements"])
     app.include_router(calendar.staff_router, prefix="/api/school", tags=["calendar"])
     app.include_router(school.router, prefix="/api/school", tags=["school"])
+    app.include_router(messaging_policy.router, prefix="/api/school", tags=["messaging-policy"])
     app.include_router(behaviour.school_router, prefix="/api/school", tags=["behaviour"])
     app.include_router(school_reports.router, prefix="/api/school", tags=["reports"])
     app.include_router(teach.router, prefix="/api/teach", tags=["teach"])
