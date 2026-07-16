@@ -4,10 +4,15 @@
   import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
   import { initI18n } from '$lib/i18n';
+  import { isNativePlatform } from '$lib/nativeAuth';
   import { defaultLandingPath, hasRole, type SessionUser } from '$lib/roleRouting';
 
   let { children } = $props();
   let currentUser = $state<SessionUser | null>(null);
+  let mobileMenuOpen = $state(false);
+  // Capacitor exposes this synchronously before the app shell is hydrated.
+  // Keep public website chrome out of the native shell while preserving it on web.
+  let nativeApp = $state(isNativePlatform());
 
   async function loadSession() {
     try {
@@ -26,9 +31,29 @@
     }
   }
 
+  function closeMobileMenu() {
+    mobileMenuOpen = false;
+    document.body.classList.remove('mobile-menu-open');
+  }
+
+  function toggleMobileMenu() {
+    mobileMenuOpen = !mobileMenuOpen;
+    document.body.classList.toggle('mobile-menu-open', mobileMenuOpen);
+  }
+
   initI18n();
 
-  onMount(loadSession);
+  onMount(() => {
+    void loadSession();
+    const onKeydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeMobileMenu();
+    };
+    window.addEventListener('keydown', onKeydown);
+    return () => {
+      window.removeEventListener('keydown', onKeydown);
+      document.body.classList.remove('mobile-menu-open');
+    };
+  });
 
   let hasSchoolAdmin = $derived(hasRole(currentUser, 'school_admin'));
   let hasTeacher = $derived(hasRole(currentUser, 'teacher'));
@@ -41,10 +66,10 @@
   <header class="bg-white/80 backdrop-blur-xl sticky top-0 z-50 border-b border-slate-200/50 shadow-sm pt-[var(--safe-top)]">
     <div class="max-w-7xl mx-auto px-3 sm:px-4 min-h-20 py-3 flex items-center justify-between gap-3">
       <a href="/" class="flex min-w-0 items-center gap-3 group">
-        <img src="/family-hero-hub-logo.png" alt={$_('app.name')} class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl object-cover shadow-xl shadow-hero/30 group-hover:rotate-6 transition-all duration-300 shrink-0" />
-        <div class="flex flex-col -space-y-1 min-w-0">
-          <span class="truncate text-lg sm:text-2xl font-bold tracking-tighter text-slate-900 uppercase leading-none">{$_('app.classHero')}</span>
-          <span class="text-xs font-bold text-hero tracking-wide uppercase opacity-80 leading-none">{$_('app.hub')}</span>
+        <img src="/chh-logo-master.png" alt={$_('app.name')} class="h-11 w-11 shrink-0 rounded-2xl object-contain shadow-xl shadow-hero/30 transition-all duration-300 group-hover:rotate-6 sm:h-12 sm:w-12" />
+        <div class="brand-title flex min-w-0 flex-col -space-y-1">
+          <span class="text-lg font-bold uppercase leading-none tracking-tighter text-slate-900 sm:text-2xl">{$_('app.classHero')}</span>
+          <span class="text-xs font-bold uppercase leading-none tracking-wide text-hero opacity-80">{$_('app.hub')}</span>
         </div>
       </a>
       
@@ -87,39 +112,16 @@
       </nav>
 
       {#if currentUser}
-        <div class="md:hidden flex min-w-0 items-center gap-2 overflow-x-auto">
-          {#if hasGuardian}
-            <a href="/parent" class="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-hero hover:text-hero">
-              {$_('nav.family')}
-            </a>
-          {/if}
-          {#if hasTeacher}
-            <a href="/teach" class="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-hero hover:text-hero">
-              {$_('nav.teach')}
-            </a>
-          {/if}
-          {#if hasSchoolAdmin}
-            <a href="/school" class="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-hero hover:text-hero">
-              {$_('nav.school')}
-            </a>
-            <a href="/school/reports" class="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-hero hover:text-hero">
-              {$_('nav.reports')}
-            </a>
-          {/if}
-          {#if currentUser.is_platform_admin}
-            <a href="/platform" class="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-hero hover:text-hero">
-              {$_('nav.admin')}
-            </a>
-          {/if}
-          {#if !hasAnyRole}
-            <a href={dashboardHref} class="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-hero hover:text-hero">
-              {$_('nav.dashboard')}
-            </a>
-          {/if}
-          <button onclick={handleLogout} class="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-hero hover:text-hero">
-            {$_('nav.logout')}
-          </button>
-        </div>
+        <button
+          type="button"
+          class="md:hidden inline-flex shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white p-3 text-slate-700 shadow-sm transition hover:border-hero hover:text-hero"
+          aria-label={mobileMenuOpen ? $_('nav.closeMenu') : $_('nav.openMenu')}
+          aria-expanded={mobileMenuOpen}
+          aria-controls="mobile-navigation"
+          onclick={toggleMobileMenu}
+        >
+          <span aria-hidden="true" class="text-xl leading-none">{mobileMenuOpen ? '×' : '☰'}</span>
+        </button>
       {:else}
         <a href="/login" class="md:hidden inline-flex shrink-0 items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-white shadow-sm">
           {$_('nav.login')}
@@ -132,13 +134,14 @@
     {@render children()}
   </main>
 
+  {#if !nativeApp}
   <footer class="bg-slate-900 text-slate-400 pt-16 pb-[calc(4rem+var(--safe-bottom))] md:pt-20 mt-16 md:mt-20 relative overflow-hidden">
     <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-hero/50 to-transparent"></div>
     <div class="max-w-7xl mx-auto px-4">
       <div class="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
         <div class="text-left">
           <div class="flex items-center gap-3 mb-6 opacity-50 grayscale">
-            <img src="/family-hero-hub-logo.png" alt={$_('app.name')} class="w-10 h-10 rounded-xl object-cover bg-white" />
+            <img src="/chh-logo-master.png" alt={$_('app.name')} class="h-10 w-10 rounded-xl bg-white object-contain" />
             <span class="text-xl font-bold tracking-tighter text-white uppercase">{$_('app.name')}</span>
           </div>
           <p class="text-lg leading-relaxed max-w-md">{$_('footer.description')}</p>
@@ -174,4 +177,38 @@
       </div>
     </div>
   </footer>
+  {/if}
 </div>
+
+{#if currentUser && mobileMenuOpen}
+  <div class="md:hidden fixed inset-0 z-[100]" role="presentation">
+    <button type="button" class="absolute inset-0 h-full w-full bg-slate-950/45" aria-label={$_('nav.closeMenu')} onclick={closeMobileMenu}></button>
+    <div id="mobile-navigation" class="absolute inset-y-0 right-0 flex w-[min(22rem,88vw)] flex-col overflow-y-auto bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-label={$_('nav.menu')}>
+      <div class="flex items-center justify-between border-b border-slate-200 pb-4">
+        <span class="text-lg font-bold text-slate-900">{$_('nav.menu')}</span>
+        <button type="button" class="rounded-xl p-2 text-slate-700 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero" aria-label={$_('nav.closeMenu')} onclick={closeMobileMenu}><span aria-hidden="true" class="text-2xl leading-none">×</span></button>
+      </div>
+      <nav class="mt-5 flex flex-col gap-2" aria-label={$_('nav.menu')}>
+        {#if hasGuardian}<a href="/parent" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.family')}</a>{/if}
+        {#if currentUser.is_platform_admin}<a href="/platform" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.admin')}</a>{/if}
+        {#if hasSchoolAdmin}
+          <a href="/school" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.school')}</a>
+          <a href="/school/reports" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.reports')}</a>
+        {/if}
+        {#if hasTeacher}<a href="/teach" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.teach')}</a>{/if}
+        {#if !hasAnyRole}<a href={dashboardHref} onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.dashboard')}</a>{/if}
+      </nav>
+      <button onclick={handleLogout} class="btn-hero mt-auto rounded-2xl px-5 py-3 text-sm uppercase tracking-wide">{$_('nav.logout')}</button>
+    </div>
+  </div>
+{/if}
+
+<style>
+  :global(body.mobile-menu-open) { overflow: hidden; }
+  .mobile-nav-link { border-radius: .9rem; padding: .9rem 1rem; color: #334155; font-size: .95rem; font-weight: 700; }
+  .mobile-nav-link:hover, .mobile-nav-link:focus-visible { background: #f0fdf4; color: #0f766e; outline: none; }
+  @media (max-width: 420px) {
+    .brand-title > span:first-child { font-size: 1rem; }
+    .brand-title > span:last-child { display: block; font-size: .6875rem; }
+  }
+</style>

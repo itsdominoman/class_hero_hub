@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import uuid
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -17,24 +18,19 @@ from ..database import get_db
 from ..models_school import ClassSection, StaffAssignment, SubjectGroup, UpdatePhoto, UpdatePost, User
 from ..school_scope import open_interval_expression, write_audit
 from .announcements import (
-    MAX_ATTACHMENT_BYTES as MAX_PHOTO_BYTES,
     _guardian_audience,
     _safe_filename,
     _school_id_from_header,
     _teacher_has_target,
     _teacher_membership,
 )
+from ..update_image_service import MAX_RAW_IMAGE_BYTES, optimise_update_photo
 
 teacher_router = APIRouter()
 guardian_router = APIRouter()
+logger = logging.getLogger(__name__)
 UPLOAD_ROOT = Path(os.environ.get("UPDATE_UPLOAD_DIR", "/app/data/update_uploads"))
 MAX_PHOTOS_PER_POST = 5
-ALLOWED_PHOTO_EXTENSIONS = {
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".png": "image/png",
-    ".webp": "image/webp",
-}
 
 
 class UpdateCreateRequest(BaseModel):
@@ -153,14 +149,9 @@ def _payload(row: UpdatePost, sections, groups, authors, photos, *, include_body
     return result
 
 
-def _validate_photo_filename(filename: str | None) -> tuple[str, str, str]:
+def _safe_photo_filename(filename: str | None) -> str:
     original = _safe_filename(filename)
-    ext = Path(original).suffix.lower()
-    if ext not in ALLOWED_PHOTO_EXTENSIONS:
-        if ext in {".heic", ".heif"}:
-            raise HTTPException(status_code=400, detail="iPhone photo format is not supported yet. Please upload JPG, PNG, or WEBP.")
-        raise HTTPException(status_code=400, detail="Photo type not allowed")
-    return original, ext, ALLOWED_PHOTO_EXTENSIONS[ext]
+    return original or "photo"
 
 
 def _path(storage_key: str) -> Path:
@@ -246,19 +237,37 @@ async def upload_photo(post_id: int, request: Request, file: UploadFile = File(.
         raise HTTPException(status_code=409, detail="Archived updates cannot be changed")
     if db.query(UpdatePhoto).filter(UpdatePhoto.post_id == post.id).count() >= MAX_PHOTOS_PER_POST:
         raise HTTPException(status_code=400, detail="Maximum 5 photos")
-    original, ext, content_type = _validate_photo_filename(file.filename)
-    content = await file.read(MAX_PHOTO_BYTES + 1)
-    if len(content) > MAX_PHOTO_BYTES:
-        raise HTTPException(status_code=400, detail="Photo is too large. Maximum 10 MB.")
-    if not content:
-        raise HTTPException(status_code=400, detail="Photo is empty")
-    storage_key = f"school-{school_id}/update-{post.id}/{uuid.uuid4().hex}{ext}"
-    path = _path(storage_key); path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(content)
-    photo = UpdatePhoto(post_id=post.id, school_id=school_id, uploaded_by_user_id=current_user.id, original_filename=original, storage_key=storage_key, content_type=content_type, size_bytes=len(content))
-    db.add(photo); db.flush()
-    write_audit(db, current_user.id, "school.update.photo_uploaded", photo, {"post_id": post.id, "filename": original, "size_bytes": len(content)}, school_id=school_id)
-    db.commit(); db.refresh(photo)
-    return _photo_payload(photo)
+    original = _safe_photo_filename(file.filename)
+    raw = await file.read(MAX_RAW_IMAGE_BYTES + 1)
+    try:
+        optimized = optimise_update_photo(raw)
+        # The only persistent artifact is this generated display image. `raw`
+        # never has a storage key and is released in the finally block below.
+        storage_key = f"school-{school_id}/update-{post.id}/{uuid.uuid4().hex}{optimized.extension}"
+        path = _path(storage_key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(optimized.content)
+        photo = UpdatePhoto(post_id=post.id, school_id=school_id, uploaded_by_user_id=current_user.id, original_filename=original, storage_key=storage_key, content_type=optimized.content_type, size_bytes=len(optimized.content))
+        db.add(photo); db.flush()
+        write_audit(db, current_user.id, "school.update.photo_uploaded", photo, {"post_id": post.id, "filename": original, "size_bytes": len(optimized.content)}, school_id=school_id)
+        db.commit(); db.refresh(photo)
+        logger.info(
+            "event=update_image_optimised input_size_bytes=%d input_format=%s input_width=%d input_height=%d "
+            "output_size_bytes=%d output_format=%s output_width=%d output_height=%d quality_used=%d "
+            "raw_original_retained=false processing_ms=%d school_id=%d update_id=%d photo_id=%d",
+            len(raw), optimized.input_format, optimized.input_width, optimized.input_height,
+            len(optimized.content), optimized.content_type, optimized.output_width, optimized.output_height,
+            optimized.quality_used, optimized.processing_ms, school_id, post.id, photo.id,
+        )
+        return _photo_payload(photo)
+    except Exception:
+        if 'path' in locals() and path.exists():
+            path.unlink()
+        db.rollback()
+        raise
+    finally:
+        await file.close()
+        del raw
 
 
 @teacher_router.patch("/updates/{post_id}")

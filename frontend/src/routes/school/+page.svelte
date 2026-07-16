@@ -409,6 +409,11 @@
   let behaviourLoaded = $state(false);
   let behaviourForm = $state({ type: 'positive', label: '', points_value: 1, sort_order: 10, active: true });
   let editingBehaviourId = $state<number | null>(null);
+  let quickBehaviourSaving = $state(false);
+  let quickBehaviourError = $state<string | null>(null);
+
+  type BehaviourType = 'positive' | 'needs_work';
+  const quickBehaviourLimit = 6;
 
   async function loadBehaviour() {
     if (!schoolId) return;
@@ -436,6 +441,67 @@
       await loadBehaviour(); resetBehaviourForm(); notice = $_('school.behaviour.saved');
     } catch (err: any) { error = err?.message || $_('school.behaviour.saveError'); }
     finally { saving = false; }
+  }
+
+  function quickBehaviourRows(type: BehaviourType) {
+    return behaviourCategories.filter((row) => row.type === type && row.active && row.is_quick_action)
+      .sort((a, b) => (a.quick_action_order ?? 999) - (b.quick_action_order ?? 999));
+  }
+
+  function availableBehaviourRows(type: BehaviourType) {
+    return behaviourCategories.filter((row) => row.type === type && row.active && !row.is_quick_action);
+  }
+
+  function applyQuickBehaviourIds(type: BehaviourType, ids: number[]) {
+    behaviourCategories = behaviourCategories.map((row) => {
+      if (row.type !== type) return row;
+      const order = ids.indexOf(row.id);
+      return { ...row, is_quick_action: order >= 0, quick_action_order: order >= 0 ? order + 1 : null };
+    });
+  }
+
+  function addQuickBehaviour(type: BehaviourType, id: number) {
+    if (quickBehaviourSaving) return;
+    const ids = quickBehaviourRows(type).map((row) => row.id);
+    if (ids.length >= quickBehaviourLimit) {
+      quickBehaviourError = $_('school.behaviour.quickMax', { values: { count: quickBehaviourLimit } });
+      return;
+    }
+    quickBehaviourError = null;
+    applyQuickBehaviourIds(type, [...ids, id]);
+  }
+
+  function removeQuickBehaviour(type: BehaviourType, id: number) {
+    if (quickBehaviourSaving) return;
+    quickBehaviourError = null;
+    applyQuickBehaviourIds(type, quickBehaviourRows(type).map((row) => row.id).filter((rowId) => rowId !== id));
+  }
+
+  function moveQuickBehaviour(type: BehaviourType, index: number, direction: -1 | 1) {
+    if (quickBehaviourSaving) return;
+    const ids = quickBehaviourRows(type).map((row) => row.id);
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= ids.length) return;
+    [ids[index], ids[targetIndex]] = [ids[targetIndex], ids[index]];
+    applyQuickBehaviourIds(type, ids);
+  }
+
+  async function saveQuickBehaviours() {
+    if (!schoolId || quickBehaviourSaving) return;
+    quickBehaviourSaving = true;
+    quickBehaviourError = null;
+    try {
+      const result = await api.put('/school/behaviour/quick-actions', {
+        positive_category_ids: quickBehaviourRows('positive').map((row) => row.id),
+        needs_work_category_ids: quickBehaviourRows('needs_work').map((row) => row.id)
+      }, schoolOptions());
+      behaviourCategories = result?.categories || behaviourCategories;
+      notice = $_('school.behaviour.quickSaved');
+    } catch (err: any) {
+      quickBehaviourError = err?.message || $_('school.behaviour.quickSaveError');
+    } finally {
+      quickBehaviourSaving = false;
+    }
   }
 
   function baseForm(code = '', name = '') {
@@ -2755,7 +2821,30 @@
               <label class="flex items-center gap-2 text-sm font-bold text-slate-700"><input type="checkbox" bind:checked={behaviourForm.active} /> {$_('school.behaviour.active')}</label>
               <div class="flex gap-2"><button class="btn-hero rounded-lg px-4 py-2" disabled={saving}>{editingBehaviourId ? $_('school.behaviour.update') : $_('school.behaviour.create')}</button>{#if editingBehaviourId}<button type="button" class="btn-secondary rounded-lg px-4 py-2" onclick={resetBehaviourForm}>{$_('common.cancel')}</button>{/if}</div>
             </form>
-            <div class="mt-5 grid gap-5 md:grid-cols-2">{#each ['positive', 'needs_work'] as type}<div><h3 class={`font-black ${type === 'positive' ? 'text-emerald-700' : 'text-amber-700'}`}>{type === 'positive' ? $_('school.behaviour.positive') : $_('school.behaviour.needsWork')}</h3><div class="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-200">{#each behaviourCategories.filter((row) => row.type === type) as row}<button type="button" class="flex w-full items-center justify-between gap-2 p-3 text-left hover:bg-slate-50" onclick={() => editBehaviour(row)}><span class:line-through={!row.active} class="truncate text-sm font-bold text-slate-800">{row.label}</span><span class="shrink-0 text-sm font-black text-slate-500">{row.points_value > 0 ? '+' : ''}{row.points_value}</span></button>{/each}</div></div>{/each}</div>
+            <section class="mt-7 rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50/70 to-white p-4 sm:p-5" aria-labelledby="quick-behaviour-title">
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><h3 id="quick-behaviour-title" class="text-lg font-black text-slate-900">{$_('school.behaviour.quickTitle')}</h3><p class="mt-1 max-w-2xl text-sm text-slate-600">{$_('school.behaviour.quickIntro')}</p><p class="mt-1 text-sm font-semibold text-slate-500">{$_('school.behaviour.otherAvailable')}</p></div><span class="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-black text-violet-700 shadow-sm ring-1 ring-violet-100">{$_('school.behaviour.quickMax', { values: { count: quickBehaviourLimit } })}</span></div>
+              {#if quickBehaviourError}<p class="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-800" role="alert">{quickBehaviourError}</p>{/if}
+              <div class="mt-5 grid gap-4 lg:grid-cols-2">
+                {#each ['positive', 'needs_work'] as type}
+                  {@const behaviourType = type as BehaviourType}
+                  {@const isPositive = behaviourType === 'positive'}
+                  {@const selected = quickBehaviourRows(behaviourType)}
+                  {@const available = availableBehaviourRows(behaviourType)}
+                  <section class={`rounded-2xl border p-4 ${isPositive ? 'border-emerald-200 bg-emerald-50/70' : 'border-orange-200 bg-orange-50/70'}`}>
+                    <div class="flex items-center justify-between gap-3"><h4 class={`font-black ${isPositive ? 'text-emerald-800' : 'text-orange-800'}`}>{isPositive ? $_('school.behaviour.quickPositive') : $_('school.behaviour.quickNeedsWork')}</h4><span class={`rounded-full bg-white px-2.5 py-1 text-xs font-black ${isPositive ? 'text-emerald-700' : 'text-orange-700'}`}>{selected.length}/{quickBehaviourLimit}</span></div>
+                    <div class="mt-3 space-y-2">
+                      {#if selected.length === 0}<p class="rounded-xl bg-white/70 px-3 py-3 text-sm font-semibold text-slate-500">{$_('school.behaviour.quickEmpty')}</p>{/if}
+                      {#each selected as row, index (row.id)}
+                        <div class="flex min-w-0 items-center gap-2 rounded-xl border border-white bg-white px-3 py-2 shadow-sm"><span class="min-w-0 flex-1 truncate text-sm font-black text-slate-800">{row.label}</span><span class={`shrink-0 text-xs font-black ${isPositive ? 'text-emerald-700' : 'text-orange-700'}`}>{row.points_value > 0 ? '+' : ''}{row.points_value}</span><div class="flex shrink-0 gap-1"><button type="button" class="rounded-lg border border-slate-200 px-2 py-1 text-xs font-black text-slate-600 disabled:opacity-40" disabled={quickBehaviourSaving || index === 0} aria-label={$_('school.behaviour.moveUp')} onclick={() => moveQuickBehaviour(behaviourType, index, -1)}>↑</button><button type="button" class="rounded-lg border border-slate-200 px-2 py-1 text-xs font-black text-slate-600 disabled:opacity-40" disabled={quickBehaviourSaving || index === selected.length - 1} aria-label={$_('school.behaviour.moveDown')} onclick={() => moveQuickBehaviour(behaviourType, index, 1)}>↓</button><button type="button" class="rounded-lg border border-red-200 px-2 py-1 text-xs font-black text-red-700 disabled:opacity-40" disabled={quickBehaviourSaving} onclick={() => removeQuickBehaviour(behaviourType, row.id)}>{$_('school.behaviour.remove')}</button></div></div>
+                      {/each}
+                    </div>
+                    <div class="mt-4 border-t border-white/80 pt-3"><p class={`text-xs font-black uppercase tracking-wide ${isPositive ? 'text-emerald-800' : 'text-orange-800'}`}>{$_('school.behaviour.addToQuick')}</p><div class="mt-2 flex flex-wrap gap-2">{#each available as row (row.id)}<button type="button" class={`rounded-lg border bg-white px-3 py-2 text-sm font-bold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-45 ${isPositive ? 'border-emerald-200 text-emerald-800 hover:border-emerald-400' : 'border-orange-200 text-orange-800 hover:border-orange-400'}`} disabled={quickBehaviourSaving || selected.length >= quickBehaviourLimit} onclick={() => addQuickBehaviour(behaviourType, row.id)}>+ {row.label}</button>{/each}{#if behaviourCategories.filter((row) => row.type === behaviourType && row.active).length === 0}<p class="text-sm font-semibold text-slate-500">{$_('school.behaviour.noActive')}</p>{/if}</div></div>
+                  </section>
+                {/each}
+              </div>
+              <div class="mt-5 flex justify-end"><button type="button" class="btn-hero rounded-xl px-4 py-3 disabled:opacity-60" disabled={quickBehaviourSaving} onclick={saveQuickBehaviours}>{quickBehaviourSaving ? $_('school.behaviour.quickSaving') : $_('school.behaviour.quickSave')}</button></div>
+            </section>
+            <div class="mt-7 grid gap-5 md:grid-cols-2">{#each ['positive', 'needs_work'] as type}<div><h3 class={`font-black ${type === 'positive' ? 'text-emerald-700' : 'text-amber-700'}`}>{type === 'positive' ? $_('school.behaviour.positive') : $_('school.behaviour.needsWork')}</h3><div class="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-200">{#each behaviourCategories.filter((row) => row.type === type) as row}<button type="button" class="flex w-full items-center justify-between gap-2 p-3 text-left hover:bg-slate-50" onclick={() => editBehaviour(row)}><span class="min-w-0"><span class:line-through={!row.active} class="block truncate text-sm font-bold text-slate-800">{row.label}</span><span class="mt-1 flex flex-wrap gap-1">{#if row.is_quick_action}<span class="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-black text-violet-700">{$_('school.behaviour.quickBadge')}</span>{/if}{#if !row.active}<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-500">{$_('school.behaviour.inactive')}</span>{/if}</span></span><span class="shrink-0 text-sm font-black text-slate-500">{row.points_value > 0 ? '+' : ''}{row.points_value}</span></button>{/each}</div></div>{/each}</div>
           </section>
         {:else if activeTab === 'students'}
           <div class="space-y-5">

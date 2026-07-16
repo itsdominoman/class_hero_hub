@@ -13,3 +13,6 @@ pytest
 aiosqlite
 authlib
 itsdangerous
+google-auth[requests]
+Pillow>=10.3.0
+pillow-heif>=0.18.0

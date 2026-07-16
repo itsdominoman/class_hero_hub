@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
+  import { isNativePlatform } from '$lib/nativeAuth';
   import LanguageSelector from '$lib/components/LanguageSelector.svelte';
   import { defaultLandingPath, type SessionUser } from '$lib/roleRouting';
   import {
@@ -21,8 +22,18 @@
   let authenticated = $state(false);
   let sessionLoaded = $state(false);
   let sessionUser = $state<SessionUser | null>(null);
+  let nativeApp = $state(isNativePlatform());
 
   onMount(async () => {
+    if (nativeApp) {
+      try {
+        sessionUser = await api.get('/me');
+        window.location.replace(defaultLandingPath(sessionUser));
+      } catch {
+        window.location.replace('/login');
+      }
+      return;
+    }
     try {
       sessionUser = await api.get('/me');
       authenticated = true;
@@ -76,6 +87,9 @@
   <meta name="description" content={$_('home.metaDescription')} />
 </svelte:head>
 
+{#if nativeApp}
+  <div class="min-h-[calc(100dvh-5rem)]" aria-busy="true"></div>
+{:else}
 <div class="relative max-w-full overflow-hidden bg-hero-pattern">
   <section class="px-3 sm:px-4 py-14 sm:py-18 lg:py-24">
     <div class="mx-auto mb-4 flex max-w-7xl justify-end">
@@ -212,3 +226,4 @@
     </div>
   </section>
 </div>
+{/if}

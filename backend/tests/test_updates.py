@@ -1,4 +1,5 @@
 import os
+from io import BytesIO
 from datetime import date, timedelta
 
 os.environ["DATABASE_URL"] = "sqlite://"
@@ -7,6 +8,8 @@ os.environ["DEV_AUTH_ENABLED"] = "false"
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
+from pillow_heif import register_heif_opener
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -32,6 +35,15 @@ from app.models_school import (
     User,
 )
 from app.routes import updates
+from app.update_image_service import (
+    MAX_OUTPUT_IMAGE_BYTES,
+    PREFERRED_MINIMUM_QUALITY,
+    STARTING_QUALITY,
+    TARGET_OUTPUT_IMAGE_BYTES,
+    optimise_update_photo,
+)
+
+register_heif_opener()
 
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -159,7 +171,19 @@ def create_update(client, world, **overrides):
     return client.post("/api/teach/updates", headers=bearer(overrides.pop("email", world["teacher"].email), overrides.pop("school_id", world["alpha"].id)), json=payload)
 
 
-def upload_photo(client, world, post_id, filename="photo.jpg", content=b"jpegdata", **overrides):
+def image_bytes(format="JPEG", size=(120, 80), *, orientation=None, transparency=False):
+    image = Image.new("RGBA" if transparency else "RGB", size, (20, 80, 160, 120) if transparency else (20, 80, 160))
+    output = BytesIO()
+    options = {}
+    if orientation:
+        exif = Image.Exif(); exif[274] = orientation; options["exif"] = exif
+    image.save(output, format=format, **options)
+    return output.getvalue()
+
+
+def upload_photo(client, world, post_id, filename="photo.jpg", content=None, **overrides):
+    if content is None:
+        content = image_bytes()
     return client.post(
         f"/api/teach/updates/{post_id}/photos",
         headers=bearer(overrides.pop("email", world["teacher"].email), overrides.pop("school_id", world["alpha"].id)),
@@ -207,17 +231,17 @@ def test_teacher_list_scoped_to_target_and_assignments(client, world):
 
 def test_photo_type_size_and_count_rules(client, world):
     post = create_update(client, world).json()
-    for filename in ("a.jpg", "b.jpeg", "c.png", "d.webp"):
-        assert upload_photo(client, world, post["id"], filename=filename).status_code == 201, filename
-    # Rejected types never hit storage
+    for filename, format in (("a.jpg", "JPEG"), ("b.png", "PNG"), ("c.webp", "WEBP"), ("iphone.heic", "HEIF")):
+        response = upload_photo(client, world, post["id"], filename=filename, content=image_bytes(format))
+        assert response.status_code == 201, f"{filename}: {response.text}"
+        assert response.json()["content_type"] == "image/jpeg"
+    # Content, rather than a claimed extension or MIME type, is decisive.
     for filename in ("clip.mp4", "movie.mov", "sound.mp3", "archive.zip", "run.exe", "raw.cr2", "page.html"):
-        assert upload_photo(client, world, post["id"], filename=filename).status_code == 400, filename
-    heic = upload_photo(client, world, post["id"], filename="iphone.heic")
-    assert heic.status_code == 400 and "iPhone photo format" in heic.json()["detail"]
-    oversized = upload_photo(client, world, post["id"], filename="big.jpg", content=b"x" * (10 * 1024 * 1024 + 1))
+        assert upload_photo(client, world, post["id"], filename=filename, content=b"not-an-image").status_code == 400, filename
+    oversized = upload_photo(client, world, post["id"], filename="big.jpg", content=b"x" * (50 * 1024 * 1024 + 1))
     assert oversized.status_code == 400
     # Fifth photo is allowed, sixth is not
-    assert upload_photo(client, world, post["id"], filename="e.png").status_code == 201
+    assert upload_photo(client, world, post["id"], filename="e.png", content=image_bytes("PNG")).status_code == 201
     sixth = upload_photo(client, world, post["id"], filename="f.png")
     assert sixth.status_code == 400 and "Maximum 5 photos" in sixth.json()["detail"]
 
@@ -229,7 +253,7 @@ def test_unassigned_teacher_cannot_upload_or_view_photo(client, world):
     denied = client.get(f'/api/teach/updates/{post["id"]}/photos/{photo["id"]}/view', headers=bearer(world["other_teacher"].email, world["alpha"].id))
     assert denied.status_code == 404
     allowed = client.get(f'/api/teach/updates/{post["id"]}/photos/{photo["id"]}/view', headers=bearer(world["teacher"].email, world["alpha"].id))
-    assert allowed.status_code == 200 and allowed.content == b"jpegdata"
+    assert allowed.status_code == 200 and allowed.headers["content-type"] == "image/jpeg"
     assert "attachment" not in allowed.headers.get("content-disposition", "")
 
 
@@ -255,7 +279,7 @@ def test_guardian_photo_view_authorization(client, world):
     post = create_update(client, world).json()
     photo = upload_photo(client, world, post["id"]).json()
     allowed = client.get(f'/api/guardian/updates/{post["id"]}/photos/{photo["id"]}/view', headers=bearer(world["guardian"].email))
-    assert allowed.status_code == 200 and allowed.content == b"jpegdata"
+    assert allowed.status_code == 200 and allowed.headers["content-type"] == "image/jpeg"
     assert client.get(f'/api/guardian/updates/{post["id"]}/photos/{photo["id"]}/view', headers=bearer(world["other_guardian"].email)).status_code == 404
     # Invalid photo ids do not leak files
     assert client.get(f'/api/guardian/updates/{post["id"]}/photos/999999/view', headers=bearer(world["guardian"].email)).status_code == 404
@@ -302,6 +326,51 @@ def test_storage_keys_are_safe_and_traversal_is_blocked(db, client, world):
     db.commit()
     tampered = client.get(f'/api/guardian/updates/{post["id"]}/photos/{photo["id"]}/view', headers=bearer(world["guardian"].email))
     assert tampered.status_code == 404
+
+
+def test_optimisation_corrects_orientation_strips_metadata_and_keeps_only_display_image(db, client, world):
+    post = create_update(client, world).json()
+    raw = image_bytes("JPEG", size=(1000, 1800), orientation=6)
+    photo = upload_photo(client, world, post["id"], filename="portrait.jpg", content=raw).json()
+    stored = db.query(UpdatePhoto).one()
+    stored_path = updates._path(stored.storage_key)
+    assert stored.content_type == "image/jpeg" and stored.size_bytes == stored_path.stat().st_size
+    assert stored.size_bytes < 1.5 * 1024 * 1024
+    assert stored_path.suffix == ".jpg" and stored_path.read_bytes() != raw
+    with Image.open(stored_path) as image:
+        assert image.size == (1600, 889)  # orientation is applied before resize
+        assert not image.getexif()
+    assert [path for path in updates.UPLOAD_ROOT.rglob("*") if path.is_file()] == [stored_path]
+    response = client.get(f'/api/teach/updates/{post["id"]}/photos/{photo["id"]}/view', headers=bearer(world["teacher"].email, world["alpha"].id))
+    assert response.status_code == 200 and response.headers["content-type"] == "image/jpeg"
+
+
+def test_huge_dimensions_are_resized_and_transparency_uses_webp(db, client, world):
+    post = create_update(client, world).json()
+    photo = upload_photo(client, world, post["id"], filename="large.png", content=image_bytes("PNG", (3200, 2400), transparency=True)).json()
+    stored = db.query(UpdatePhoto).one()
+    assert stored.content_type == "image/webp" and stored.size_bytes <= 1.5 * 1024 * 1024
+    with Image.open(updates._path(stored.storage_key)) as image:
+        assert max(image.size) == 1600
+        assert image.mode == "RGBA"
+
+
+def test_optimisation_is_quality_first_for_simple_and_detailed_images():
+    # A low-detail image should retain the initial quality rather than being
+    # made tiny simply because it can be compressed further.
+    simple = optimise_update_photo(image_bytes("JPEG", (1600, 1200)))
+    assert simple.quality_used == STARTING_QUALITY
+    assert len(simple.content) <= TARGET_OUTPUT_IMAGE_BYTES
+
+    # Deterministic high-frequency pixels emulate detailed artwork/writing.
+    # It needs more bytes at 1600px, so it may use the preferred 78 quality
+    # and remain above the normal target, but it must never exceed the cap.
+    source = Image.frombytes("RGB", (1600, 1200), bytes((index * 73 + index // 17) % 256 for index in range(1600 * 1200 * 3)))
+    raw = BytesIO()
+    source.save(raw, format="JPEG", quality=95)
+    detailed = optimise_update_photo(raw.getvalue())
+    assert detailed.quality_used >= PREFERRED_MINIMUM_QUALITY
+    assert len(detailed.content) <= MAX_OUTPUT_IMAGE_BYTES
 
 
 def test_body_validation_and_unauthenticated_blocked(client, world):

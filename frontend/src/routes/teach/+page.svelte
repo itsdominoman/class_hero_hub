@@ -116,6 +116,30 @@
     return [card.subject?.name, card.grade_level?.name, card.branch?.name, card.academic_year?.name].filter(Boolean).join(' · ');
   }
 
+  function compactGradeLabel(value?: string | null) {
+    const label = value?.trim().replace(/\s+/g, ' ');
+    if (!label) return '';
+    const kg = label.match(/^kg\s*(\d+)\s*([a-z])?$/i);
+    if (kg) return `KG${kg[1]}${kg[2]?.toUpperCase() || ''}`;
+    const grade = label.match(/^(?:grade|year|g)?\s*(\d+)\s*([a-z])?$/i);
+    if (grade) return `G${grade[1]}${grade[2]?.toUpperCase() || ''}`;
+    return label;
+  }
+
+  function mobileClassLabel(card: AssignmentCard) {
+    const grade = compactGradeLabel(card.grade_level?.name);
+    const section = compactGradeLabel(card.class_section?.name) || card.class_section?.code || '';
+    const className = grade && /^[a-z]$/i.test(section) ? `${grade}${section.toUpperCase()}` : grade || section;
+    const subjectName = card.role === 'homeroom' ? $_('teach.roles.homeroom') : card.subject?.name || titleFor(card);
+    return [className, subjectName, card.branch?.name].filter(Boolean).join(' ');
+  }
+
+  function mobileClassAriaLabel(card: AssignmentCard) {
+    const className = card.grade_level?.name || card.class_section?.name || card.class_section?.code || titleFor(card);
+    const subjectName = card.role === 'homeroom' ? $_('teach.roles.homeroom') : card.subject?.name || titleFor(card);
+    return [className, subjectName, card.branch?.name].filter(Boolean).join(' ');
+  }
+
   function audienceOptions() {
     return assignments
       .map((card) => {
@@ -609,7 +633,14 @@
     {:else}
       <div class="mt-6 grid gap-4 md:grid-cols-2">
         {#each assignments as card}
-          <article class="rounded-lg border border-slate-200 bg-white p-5">
+          <a
+            class="btn-hero flex min-h-16 w-full items-center rounded-2xl px-5 py-4 text-left text-base font-black leading-snug shadow-sm transition hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero md:hidden"
+            href={`/teach/assignments/${card.id}`}
+            aria-label={mobileClassAriaLabel(card)}
+          >
+            <span class="break-words">{mobileClassLabel(card)}</span>
+          </a>
+          <article class="hidden rounded-lg border border-slate-200 bg-white p-5 md:block">
             <div class="flex items-start justify-between gap-3">
               <div>
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{card.school.name}</p>

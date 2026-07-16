@@ -112,6 +112,41 @@ def test_google_callback_upserts_user(db, client, monkeypatch):
     assert user.last_login_at is not None
 
 
+def test_native_google_login_verifies_token_and_returns_bearer_token(db, client, monkeypatch):
+    monkeypatch.setattr(auth_routes, "GOOGLE_NATIVE_LOGIN_RATE_LIMIT", BoundedInMemoryRateLimiter(60, 100))
+    monkeypatch.setattr(
+        auth,
+        "verify_google_id_token",
+        lambda token: {
+            "email": "native-oauth-user@example.com",
+            "name": "Native OAuth User",
+            "sub": "native-google-sub",
+        }
+        if token == "verified-id-token"
+        else None,
+    )
+
+    response = client.post("/api/auth/google/native", json={"id_token": "verified-id-token"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["token_type"] == "bearer"
+    assert payload["access_token"]
+    user = db.query(User).filter_by(email="native-oauth-user@example.com").one()
+    assert user.google_sub == "native-google-sub"
+
+
+def test_native_google_login_rejects_invalid_token_without_creating_user(db, client, monkeypatch):
+    monkeypatch.setattr(auth_routes, "GOOGLE_NATIVE_LOGIN_RATE_LIMIT", BoundedInMemoryRateLimiter(60, 100))
+    monkeypatch.setattr(auth, "verify_google_id_token", lambda _token: None)
+
+    response = client.post("/api/auth/google/native", json={"id_token": "invalid-id-token"})
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid Google ID token"
+    assert db.query(User).count() == 0
+
+
 def magic_token_from_url(url: str) -> str:
     query = parse_qs(urlparse(url).query)
     return (query.get("magicToken") or query.get("token"))[0]

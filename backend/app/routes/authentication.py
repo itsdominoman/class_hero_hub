@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 MAGIC_LOGIN_TTL = timedelta(minutes=15)
 MAGIC_REQUEST_RATE_LIMIT = BoundedInMemoryRateLimiter(60, 5)
 MAGIC_EXCHANGE_RATE_LIMIT = BoundedInMemoryRateLimiter(60, 20)
+GOOGLE_NATIVE_LOGIN_RATE_LIMIT = BoundedInMemoryRateLimiter(60, 12)
 
 
 class MagicLoginRequest(BaseModel):
@@ -224,6 +225,45 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
     )
     auth.set_csrf_cookie(response, auth.create_csrf_token())
     return response
+
+
+@router.post("/google/native", response_model=schemas.NativeGoogleLoginResponse)
+async def google_native_login(
+    payload: schemas.NativeGoogleLoginRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Exchange a verified Android Credential Manager ID token for a CHH JWT."""
+    _rate_limit(GOOGLE_NATIVE_LOGIN_RATE_LIMIT, request, "Too many Google native login attempts")
+    claims = auth.verify_google_id_token(payload.id_token)
+    if not claims:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google ID token")
+
+    email = auth.normalize_email(claims.get("email"))
+    now = datetime.now(timezone.utc)
+    user = db.query(User).filter(func.lower(User.email) == email).first()
+    if user is None:
+        user = User(
+            email=email,
+            name=claims.get("name"),
+            google_sub=claims.get("sub"),
+            last_login_at=now,
+        )
+        db.add(user)
+    else:
+        if (user.status or "active").lower() != "active":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account is not active")
+        user.email = email
+        user.name = claims.get("name")
+        user.google_sub = claims.get("sub")
+        user.last_login_at = now
+    db.commit()
+
+    access_token = auth.create_access_token(data={"sub": user.email})
+    return schemas.NativeGoogleLoginResponse(
+        access_token=access_token,
+        expires_in=auth.parent_session_cookie_max_age_seconds(),
+    )
 
 
 @router.post("/logout")

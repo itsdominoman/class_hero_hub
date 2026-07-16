@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Class Hero Hub</string>
+    <string name="title_activity_main">Class Hero Hub</string>
+    <string name="package_name">com.classherohub.app</string>
+    <string name="custom_url_scheme">com.classherohub.app</string>
+</resources>

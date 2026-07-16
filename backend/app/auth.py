@@ -1,8 +1,9 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import hmac
 import httpx
+import logging
 import secrets
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
@@ -14,6 +15,7 @@ from .database import get_db, settings
 from .models_school import PlatformAdmin, User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
+logger = logging.getLogger(__name__)
 
 
 def normalize_email(email: str | None) -> str:
@@ -116,6 +118,53 @@ async def verify_google_token(token: str):
         if response.status_code != 200:
             return None
         return response.json()
+
+
+def verify_google_id_token(token: str) -> dict | None:
+    """Verify a native Google ID token against CHH's configured web client."""
+    if not token or not settings.GOOGLE_CLIENT_ID:
+        logger.warning("Native Google token verification rejected: missing token or client configuration")
+        return None
+
+    try:
+        from google.auth.transport import requests as google_requests
+        from google.oauth2 import id_token as google_id_token
+
+        claims = google_id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            audience=settings.GOOGLE_CLIENT_ID,
+        )
+    except ImportError:
+        logger.warning("Native Google token verification unavailable: google-auth is not installed")
+        return None
+    except Exception as exc:
+        logger.warning("Native Google token verification rejected (%s)", exc.__class__.__name__)
+        return None
+
+    if claims.get("iss") not in {"accounts.google.com", "https://accounts.google.com"}:
+        logger.warning("Native Google token verification rejected: invalid issuer")
+        return None
+    if claims.get("aud") != settings.GOOGLE_CLIENT_ID:
+        logger.warning("Native Google token verification rejected: invalid audience")
+        return None
+    if claims.get("email_verified") is not True:
+        logger.warning("Native Google token verification rejected: unverified email")
+        return None
+    if not normalize_email(claims.get("email")):
+        logger.warning("Native Google token verification rejected: missing email")
+        return None
+
+    try:
+        expires_at = datetime.fromtimestamp(float(claims["exp"]), tz=timezone.utc)
+    except (KeyError, TypeError, ValueError, OverflowError):
+        logger.warning("Native Google token verification rejected: invalid expiry")
+        return None
+    if expires_at <= datetime.now(timezone.utc):
+        logger.warning("Native Google token verification rejected: expired token")
+        return None
+
+    return claims
 
 
 CSRF_COOKIE_NAME = "csrf_token"

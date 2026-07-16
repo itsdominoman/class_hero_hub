@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import { page } from '$app/stores';
   import { _ } from 'svelte-i18n';
   import { ArrowLeft, BookOpen, CalendarDays, Camera, Megaphone, Star, Users } from 'lucide-svelte';
   import { api } from '$lib/api';
   import { initialsFromStudentName } from '$lib/guardianDisplay';
+  import { isNativePlatform } from '$lib/nativeAuth';
 
   type Ref = { id: number; name?: string | null; name_ar?: string | null };
   type Student = {
@@ -35,6 +36,8 @@
     students: Student[];
   };
   type Category = { id: number; type: 'positive' | 'needs_work'; label: string; points_value: number };
+  type QuickAction = { id: number; label: string; points_value: number };
+  type QuickActions = { quick_actions: Record<'positive' | 'needs_work', QuickAction[]>; other_actions: Record<'positive' | 'needs_work', QuickAction[]> };
   type ResourceLink = { url: string; label?: string | null };
   type HomeworkItem = { id: number; item_type: 'homework' | 'diary'; title: string; body?: string; due_at?: string | null; status: 'active' | 'archived'; attachment_count: number; attachments?: { id: number; original_filename: string; size_bytes: number }[]; resource_links: ResourceLink[] };
   type CalendarItem = {
@@ -100,7 +103,11 @@
   let viewingUpdate = $state<UpdatePost | null>(null);
   let updateEditing = $state<UpdatePost | null>(null);
   let updatesListError = $state<string | null>(null);
-  let updatePhotoLoadStates = $state<Record<string, 'loaded' | 'failed'>>({});
+  let updatePhotoLoadStates = $state<Record<string, 'loading' | 'loaded' | 'failed'>>({});
+  let updatePhotoObjectUrls = $state<Record<string, string>>({});
+  let updatePhotoLightbox = $state<{ key: string; url?: string; alt: string } | null>(null);
+  let isNativeAndroid = $state(false);
+  let updatePhotoPicking = $state(false);
   let calendarModalOpen = $state(false);
   let calendarMode = $state<'list' | 'create' | 'edit'>('list');
   let calendarItems = $state<CalendarItem[]>([]);
@@ -122,6 +129,91 @@
   let pointsSaving = $state(false);
   let pointsError = $state<string | null>(null);
   let pointsSuccess = $state<string | null>(null);
+  let quickActions = $state<QuickActions | null>(null);
+  let quickActionsLoading = $state(true);
+  let quickActionsError = $state<string | null>(null);
+  let quickAwardStudent = $state<Student | null>(null);
+  let quickAwardMode = $state<'quick' | 'other_positive' | 'other_needs_work'>('quick');
+  let quickAwardSaving = $state(false);
+  let quickAwardError = $state<string | null>(null);
+  let quickAwardNotice = $state<string | null>(null);
+  let quickAwardDialog = $state<HTMLDivElement | undefined>(undefined);
+  let quickAwardTrigger: HTMLButtonElement | undefined;
+
+  async function loadQuickActions() {
+    if (!detail) return;
+    quickActionsLoading = true;
+    quickActionsError = null;
+    try {
+      quickActions = await api.get(`/teach/behaviour/quick-actions?school_id=${detail.assignment.school.id}`);
+    } catch (err: any) {
+      quickActionsError = err?.message || $_('teach.quickAward.loadError');
+    } finally {
+      quickActionsLoading = false;
+    }
+  }
+
+  async function openQuickAward(student: Student, trigger: HTMLButtonElement) {
+    quickAwardTrigger = trigger;
+    quickAwardStudent = student;
+    quickAwardMode = 'quick';
+    quickAwardError = null;
+    await tick();
+    quickAwardDialog?.focus();
+  }
+
+  function closeQuickAward() {
+    if (quickAwardSaving) return;
+    quickAwardStudent = null;
+    quickAwardError = null;
+    quickAwardMode = 'quick';
+    void tick().then(() => quickAwardTrigger?.focus());
+  }
+
+  function quickAwardKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeQuickAward();
+    }
+  }
+
+  function awardContext() {
+    if (!detail) return null;
+    return detail.assignment.target_type === 'subject_group'
+      ? { context_type: 'subject', subject_group_id: detail.assignment.subject_group?.id }
+      : { context_type: 'class', class_section_id: detail.assignment.class_section?.id };
+  }
+
+  function actionLabel(action: QuickAction, student: Student) {
+    return $_('teach.quickAward.actionLabel', { values: { behaviour: action.label, student: student.display_name, points: action.points_value } });
+  }
+
+  async function submitQuickAward(action: QuickAction) {
+    if (!detail || !quickAwardStudent || quickAwardSaving) return;
+    const student = quickAwardStudent;
+    const context = awardContext();
+    if (!context) return;
+    quickAwardSaving = true;
+    quickAwardError = null;
+    try {
+      const result = await api.post('/teach/behaviour/events', {
+        school_id: detail.assignment.school.id, student_ids: [student.id], category_id: action.id, note: null, ...context
+      });
+      const delta = result?.events?.[0]?.points_delta;
+      if (typeof delta === 'number') {
+        detail = { ...detail, students: detail.students.map((row) => row.id === student.id ? { ...row, points_total: row.points_total + delta } : row) };
+      }
+      quickAwardNotice = $_('teach.quickAward.success', { values: { behaviour: action.label, points: action.points_value } });
+      quickAwardStudent = null;
+      quickAwardMode = 'quick';
+      void tick().then(() => quickAwardTrigger?.focus());
+      void api.get(`/teach/assignments/${$page.params.id}`).then((fresh) => { detail = fresh; }).catch(() => undefined);
+    } catch (err: any) {
+      quickAwardError = err?.message || $_('teach.quickAward.saveError');
+    } finally {
+      quickAwardSaving = false;
+    }
+  }
 
   function classTitle() {
     const assignment = detail?.assignment;
@@ -271,7 +363,11 @@
     if (homeworkNoticeTimer) clearTimeout(homeworkNoticeTimer);
     homeworkNoticeTimer = setTimeout(() => { homeworkNotice = null; homeworkNoticeTimer = null; }, 5000);
   }
-  onDestroy(() => { if (homeworkNoticeTimer) clearTimeout(homeworkNoticeTimer); if (updatesNoticeTimer) clearTimeout(updatesNoticeTimer); });
+  onDestroy(() => {
+    if (homeworkNoticeTimer) clearTimeout(homeworkNoticeTimer);
+    if (updatesNoticeTimer) clearTimeout(updatesNoticeTimer);
+    clearUpdatePhotoObjectUrls();
+  });
 
   function updatesQuery() {
     const assignment = detail?.assignment;
@@ -280,15 +376,47 @@
     const value = assignment.target_type === 'subject_group' ? assignment.subject_group?.id : assignment.class_section?.id;
     return value ? `?${key}=${value}` : '';
   }
-  function updatePhotoUrl(post: UpdatePost, photo: UpdatePhoto) {
+  function updatePhotoPath(post: UpdatePost, photo: UpdatePhoto) {
     return `/api/teach/updates/${post.id}/photos/${photo.id}/view?school_id=${detail?.assignment.school.id}`;
   }
   function updatePhotoKey(post: UpdatePost, photo: UpdatePhoto) { return `${post.id}:${photo.id}`; }
+  function updatePhotoUrl(post: UpdatePost, photo: UpdatePhoto) {
+    return isNativePlatform() ? updatePhotoObjectUrls[updatePhotoKey(post, photo)] : updatePhotoPath(post, photo);
+  }
   function updatePhotoLoaded(post: UpdatePost, photo: UpdatePhoto) {
     updatePhotoLoadStates = { ...updatePhotoLoadStates, [updatePhotoKey(post, photo)]: 'loaded' };
   }
   function updatePhotoFailed(post: UpdatePost, photo: UpdatePhoto) {
     updatePhotoLoadStates = { ...updatePhotoLoadStates, [updatePhotoKey(post, photo)]: 'failed' };
+  }
+  function clearUpdatePhotoObjectUrls() {
+    for (const url of Object.values(updatePhotoObjectUrls)) URL.revokeObjectURL(url);
+    updatePhotoObjectUrls = {};
+    updatePhotoLoadStates = {};
+  }
+  async function loadNativeUpdatePhoto(post: UpdatePost, photo: UpdatePhoto) {
+    if (!isNativePlatform()) return;
+    const key = updatePhotoKey(post, photo);
+    if (updatePhotoObjectUrls[key] || updatePhotoLoadStates[key] === 'loading') return;
+    updatePhotoLoadStates = { ...updatePhotoLoadStates, [key]: 'loading' };
+    try {
+      const blob = await api.download(updatePhotoPath(post, photo), schoolOptions(detail!.assignment.school.id));
+      if (!blob.size || !blob.type.startsWith('image/')) throw new Error('Protected media response was not an image.');
+      updatePhotoObjectUrls = { ...updatePhotoObjectUrls, [key]: URL.createObjectURL(blob) };
+      updatePhotoLoadStates = { ...updatePhotoLoadStates, [key]: 'loaded' };
+    } catch (err: any) {
+      // Deliberately omit credentials, filenames, and raw URLs from diagnostics.
+      console.warn('[CHH] Protected update photo fetch failed', {
+        category: 'teacher-update-photo',
+        status: typeof err?.status === 'number' ? err.status : 'network-or-media'
+      });
+      updatePhotoFailed(post, photo);
+    }
+  }
+  async function openUpdatePhoto(post: UpdatePost, photo: UpdatePhoto) {
+    const key = updatePhotoKey(post, photo);
+    updatePhotoLightbox = { key, url: isNativePlatform() ? undefined : updatePhotoPath(post, photo), alt: photo.original_filename };
+    await loadNativeUpdatePhoto(post, photo);
   }
   async function loadUpdateItems() {
     if (!detail) return;
@@ -309,25 +437,60 @@
     }
     updatesSaving = false; updatesAbortController = null; updatesModalOpen = false; updatesError = null; updateEditing = null; resetUpdateForm();
   }
-  const allowedPhotoExt = new Set(['jpg', 'jpeg', 'png', 'webp']);
-  const photoMimeExt: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+  const allowedPhotoExt = new Set(['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']);
+  const photoMimeExt: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif' };
   function photoExt(file: File) { return file.name.split('.').pop()?.toLowerCase() || ''; }
-  // Shared by the upload picker and the camera capture input: rejected batches
-  // are dropped whole; accepted photos accumulate into updatePhotos (max 5 total).
-  function handleUpdateFiles(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const picked = Array.from(input.files || []);
-    input.value = '';
+  // Shared by web file inputs and native Camera results: rejected batches are
+  // dropped whole; accepted photos accumulate into updatePhotos (max 5 total).
+  function addUpdatePhotos(picked: File[]) {
     if (!picked.length) return;
     updatesError = null;
     if (updatePhotos.length + picked.length > 5) updatesError = $_('teach.updates.maxPhotos');
-    else if (picked.some((file) => ['heic', 'heif'].includes(photoExt(file)))) updatesError = $_('teach.updates.heicError');
     else if (picked.some((file) => !allowedPhotoExt.has(photoExt(file)) && !photoMimeExt[file.type])) updatesError = $_('teach.updates.fileTypeError');
-    else if (picked.some((file) => file.size > 10 * 1024 * 1024)) updatesError = $_('teach.updates.fileSizeError');
+    else if (picked.some((file) => file.size > 50 * 1024 * 1024)) updatesError = $_('teach.updates.fileSizeError');
     if (updatesError) return;
     // Camera captures can arrive without a filename extension; the backend
     // validates by extension, so give those files one from their MIME type.
     updatePhotos = [...updatePhotos, ...picked.map((file) => allowedPhotoExt.has(photoExt(file)) ? file : new File([file], `photo-${Date.now()}-${Math.floor(Math.random() * 1000)}.${photoMimeExt[file.type]}`, { type: file.type }))];
+  }
+  function handleUpdateFiles(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const picked = Array.from(input.files || []);
+    input.value = '';
+    addUpdatePhotos(picked);
+  }
+  function isCameraCancellation(error: unknown) {
+    const message = String((error as { message?: string })?.message || error || '').toLowerCase();
+    return message.includes('cancel') || message.includes('dismiss');
+  }
+  async function detectNativeAndroid() {
+    const { Capacitor } = await import('@capacitor/core');
+    isNativeAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+  }
+  async function pickNativeUpdatePhoto(source: 'camera' | 'photos') {
+    if (updatePhotoPicking) return;
+    updatePhotoPicking = true;
+    updatesError = null;
+    try {
+      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+      const photo = await Camera.getPhoto({
+        source: source === 'camera' ? CameraSource.Camera : CameraSource.Photos,
+        resultType: CameraResultType.Uri,
+        quality: 85,
+        allowEditing: false
+      });
+      if (!photo.webPath) throw new Error('Camera did not return a photo URI.');
+      const response = await fetch(photo.webPath);
+      if (!response.ok) throw new Error('Could not read the selected photo.');
+      const extension = photo.format === 'png' ? 'png' : photo.format === 'webp' ? 'webp' : 'jpg';
+      const mimeType = extension === 'jpg' ? 'image/jpeg' : `image/${extension}`;
+      const blob = await response.blob();
+      addUpdatePhotos([new File([blob], `photo-${Date.now()}.${extension}`, { type: mimeType })]);
+    } catch (err) {
+      if (!isCameraCancellation(err)) updatesError = $_('teach.updates.cameraError');
+    } finally {
+      updatePhotoPicking = false;
+    }
   }
   function removeUpdatePhoto(index: number) { updatePhotos = updatePhotos.filter((_, i) => i !== index); }
   async function publishUpdate() {
@@ -359,7 +522,13 @@
   }
   async function openUpdateDetail(post: UpdatePost) {
     if (!detail) return;
-    try { viewingUpdate = await api.get(`/teach/updates/${post.id}`, schoolOptions(detail.assignment.school.id)); updatesMode = 'list'; }
+    try {
+      clearUpdatePhotoObjectUrls();
+      const loadedUpdate = await api.get(`/teach/updates/${post.id}`, schoolOptions(detail.assignment.school.id));
+      viewingUpdate = loadedUpdate;
+      updatesMode = 'list';
+      void Promise.all(loadedUpdate.photos.map((photo: UpdatePhoto) => loadNativeUpdatePhoto(loadedUpdate, photo)));
+    }
     catch (err: any) { updatesListError = err?.message || $_('teach.updates.loadError'); }
   }
   function startEditUpdate(post: UpdatePost) { updateEditing = post; updatesError = null; updatesNotice = null; updateBody = post.body || ''; }
@@ -571,9 +740,10 @@
   }
 
   onMount(async () => {
+    void detectNativeAndroid().catch(() => { isNativeAndroid = false; });
     try {
       detail = await api.get(`/teach/assignments/${$page.params.id}`);
-      await loadHomeworkItems();
+      await Promise.all([loadHomeworkItems(), loadQuickActions()]);
     } catch (err: any) {
       if (err?.status === 401) {
         window.location.href = `/login?returnTo=${encodeURIComponent($page.url.pathname)}`;
@@ -656,6 +826,7 @@
       {#if homeworkNotice}<div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">{homeworkNotice}</div>{/if}
       {#if updatesNotice && !updatesModalOpen}<div class="mt-4 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm font-semibold text-sky-800">{updatesNotice}</div>{/if}
       {#if pointsSuccess}<div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{pointsSuccess}</div>{/if}
+      {#if quickAwardNotice}<div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700" role="status">{quickAwardNotice}</div>{/if}
 
       <div class="mt-8 flex items-end justify-between gap-4">
         <div>
@@ -672,7 +843,7 @@
       {:else}
         <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {#each detail.students as student (student.id)}
-            <article class="group min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md sm:p-4">
+            <button type="button" class="group min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-300/70 sm:p-4" aria-label={$_('teach.quickAward.openForStudent', { values: { student: student.display_name } })} onclick={(event) => openQuickAward(student, event.currentTarget)}>
               <div class="relative mx-auto aspect-square w-full max-w-36 overflow-hidden rounded-2xl bg-gradient-to-b from-violet-50 to-sky-50">
                 <div class="absolute inset-0 flex items-center justify-center text-3xl font-black text-hero">{initialsFromStudentName(student)}</div>
                 {#if student.avatar_url_256 && !failedImages[student.id]}
@@ -694,13 +865,70 @@
               {#if student.name_ar}
                 <p class="mt-0.5 truncate text-xs font-semibold text-slate-400" dir="auto">{student.name_ar}</p>
               {/if}
-            </article>
+            </button>
           {/each}
         </div>
       {/if}
     {/if}
   </div>
 </section>
+
+{#if quickAwardStudent && detail}
+  <div class="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/45 p-2 backdrop-blur-[2px] sm:items-center sm:p-5" role="presentation" onclick={(event) => { if (event.target === event.currentTarget) closeQuickAward(); }}>
+    <div bind:this={quickAwardDialog} tabindex="-1" class="max-h-[calc(100vh-1rem)] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-2 shadow-2xl outline-none sm:max-h-[94vh] sm:rounded-3xl sm:p-7" role="dialog" aria-modal="true" aria-labelledby="quick-award-title" onkeydown={quickAwardKeydown}>
+      <div class="flex items-start justify-between gap-2 sm:gap-4">
+        <div class="flex min-w-0 items-center gap-2 sm:gap-3">
+          <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-violet-100 to-sky-100 text-sm font-black text-hero ring-2 ring-violet-50 sm:h-14 sm:w-14 sm:rounded-2xl sm:text-lg sm:ring-4">
+            {#if quickAwardStudent.avatar_url_256 && !failedImages[quickAwardStudent.id]}
+              <img src={quickAwardStudent.avatar_url_256} alt="" class="h-full w-full object-contain p-1" />
+            {:else}{initialsFromStudentName(quickAwardStudent)}{/if}
+          </div>
+          <div class="min-w-0"><p class="text-[10px] font-black uppercase tracking-[0.08em] text-violet-600 sm:text-xs sm:tracking-[0.16em]">{$_('teach.quickAward.title')}</p><h2 id="quick-award-title" class="truncate text-lg font-black text-slate-900 sm:text-2xl">{quickAwardStudent.display_name}</h2><p class="mt-0.5 truncate text-xs font-semibold text-slate-500 sm:mt-1 sm:text-sm">{$_('teach.quickAward.context')}: {classTitle()} · {quickAwardStudent.points_total > 0 ? '+' : ''}{quickAwardStudent.points_total} {$_('teach.points.pts')}</p></div>
+        </div>
+        <button type="button" class="rounded-xl border border-slate-200 px-3 py-2 text-sm font-black text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-200 disabled:opacity-50" disabled={quickAwardSaving} onclick={closeQuickAward}>{$_('teach.points.close')}</button>
+      </div>
+
+      <div class="sr-only" aria-live="polite">{quickAwardError || quickAwardNotice || ''}</div>
+      {#if quickAwardError}<div class="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-800" role="alert">{quickAwardError}</div>{/if}
+
+      {#if quickActionsLoading}
+        <div class="mt-6 rounded-2xl bg-slate-50 p-8 text-center text-sm font-bold text-slate-500">{$_('common.loading')}</div>
+      {:else if quickActionsError && !quickActions}
+        <div class="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5 text-center"><p class="text-sm font-bold text-red-800">{quickActionsError}</p><button type="button" class="mt-3 rounded-xl bg-white px-4 py-2 text-sm font-black text-violet-700 shadow-sm ring-1 ring-violet-100" onclick={loadQuickActions}>{$_('teach.quickAward.retry')}</button></div>
+      {:else if quickActions}
+        {#if quickAwardMode === 'quick' && quickActions.quick_actions.positive.length === 0 && quickActions.quick_actions.needs_work.length === 0}
+          <p class="mt-6 rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm font-bold text-violet-800">{$_('teach.quickAward.noQuickActions')}</p>
+        {/if}
+        <div class="mt-3 grid grid-cols-2 gap-1 sm:mt-6 sm:gap-4">
+          {#each ['positive', 'needs_work'] as type}
+            {@const isPositive = type === 'positive'}
+            {@const otherMode = isPositive ? 'other_positive' : 'other_needs_work'}
+            {@const showingOther = quickAwardMode === otherMode}
+            {@const actions = showingOther ? quickActions.other_actions[type as 'positive' | 'needs_work'] : quickActions.quick_actions[type as 'positive' | 'needs_work']}
+            <section class={`flex min-w-0 flex-col rounded-2xl border p-1.5 sm:p-5 ${isPositive ? 'border-emerald-200 bg-emerald-50/70' : 'border-orange-200 bg-orange-50/70'}`}>
+              <div class="flex items-start justify-between gap-1 sm:items-center sm:gap-3"><h3 class={`text-[10px] font-black uppercase leading-tight tracking-[0.04em] sm:text-sm sm:tracking-[0.13em] ${isPositive ? 'text-emerald-800' : 'text-orange-800'}`}><span class="sm:hidden">{isPositive ? $_('teach.points.positive') : $_('teach.points.needsWork')}</span><span class="hidden sm:inline">{isPositive ? $_('teach.quickAward.positive') : $_('teach.quickAward.needsWork')}</span></h3>{#if showingOther}<button type="button" class={`text-xs font-black leading-tight underline underline-offset-4 sm:text-sm ${isPositive ? 'text-emerald-800' : 'text-orange-800'}`} disabled={quickAwardSaving} onclick={() => quickAwardMode = 'quick'}>{$_('teach.quickAward.back')}</button>{/if}</div>
+              <div class="mt-1.5 flex flex-1 flex-col gap-1 sm:mt-3 sm:gap-2">
+                {#if actions.length}
+                  {#each actions as action}
+                    <button type="button" class={`grid min-h-11 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded-xl border bg-white px-1.5 py-2 text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-wait disabled:opacity-60 sm:min-h-14 sm:gap-3 sm:px-4 sm:py-3 ${isPositive ? 'border-emerald-200 text-emerald-950 hover:border-emerald-400 hover:shadow-md focus-visible:ring-emerald-200' : 'border-orange-200 text-orange-950 hover:border-orange-400 hover:shadow-md focus-visible:ring-orange-200'}`} disabled={quickAwardSaving} title={action.label} aria-label={actionLabel(action, quickAwardStudent)} onclick={() => submitQuickAward(action)}><span class="min-w-0 break-normal text-[13px] font-bold leading-[1.15] sm:truncate sm:whitespace-nowrap sm:text-base sm:font-black">{quickAwardSaving ? $_('teach.quickAward.saving') : action.label}</span><span class={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-black sm:rounded-lg sm:px-2 sm:py-1 sm:text-sm ${isPositive ? 'bg-emerald-100 text-emerald-800' : 'bg-orange-100 text-orange-800'}`}>{action.points_value > 0 ? '+' : ''}{action.points_value}</span></button>
+                  {/each}
+                {:else if showingOther}
+                  <p class="rounded-xl bg-white/70 px-3 py-4 text-sm font-semibold text-slate-500">{$_('teach.quickAward.noOther')}</p>
+                {/if}
+                {#if !showingOther && quickActions.other_actions[type as 'positive' | 'needs_work'].length}
+                  <button type="button" class={`mt-auto min-h-11 rounded-xl border border-dashed bg-white/70 px-2 py-2 text-xs font-black leading-tight transition hover:bg-white focus-visible:outline-none focus-visible:ring-4 disabled:opacity-60 sm:min-h-12 sm:px-4 sm:py-3 sm:text-sm ${isPositive ? 'border-emerald-300 text-emerald-800 focus-visible:ring-emerald-200' : 'border-orange-300 text-orange-800 focus-visible:ring-orange-200'}`} disabled={quickAwardSaving} onclick={() => quickAwardMode = otherMode}>{isPositive ? $_('teach.quickAward.otherPositive') : $_('teach.quickAward.otherNeedsWork')}</button>
+                {/if}
+              </div>
+            </section>
+          {/each}
+        </div>
+        {#if quickActions.quick_actions.positive.length === 0 && quickActions.quick_actions.needs_work.length === 0 && quickActions.other_actions.positive.length === 0 && quickActions.other_actions.needs_work.length === 0}
+          <p class="mt-4 text-center text-sm font-semibold text-slate-500">{$_('teach.quickAward.noBehaviours')}</p>
+        {/if}
+      {/if}
+    </div>
+  </div>
+{/if}
 
 {#if announcementModalOpen && detail}
   <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="class-announcement-title">
@@ -790,14 +1018,15 @@
             <div class="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {#each viewingUpdate.photos as photo (photo.id)}
                 {@const photoState = updatePhotoLoadStates[updatePhotoKey(viewingUpdate, photo)]}
-                <div class="relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                {@const photoUrl = updatePhotoUrl(viewingUpdate, photo)}
+                <button type="button" class="relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-100" onclick={() => openUpdatePhoto(viewingUpdate!, photo)}>
                   {#if photoState === 'failed'}
                     <p class="absolute inset-0 flex items-center justify-center p-2 text-center text-xs font-semibold text-slate-500">{$_('teach.updates.photoLoadError')}</p>
                   {:else if photoState !== 'loaded'}
                     <p class="absolute inset-0 flex items-center justify-center p-2 text-center text-xs font-semibold text-slate-500">{$_('teach.updates.photoLoading')}</p>
                   {/if}
-                  <img src={updatePhotoUrl(viewingUpdate, photo)} alt={photo.original_filename} loading="lazy" class={`h-full w-full object-cover transition-opacity ${photoState === 'loaded' ? 'opacity-100' : 'opacity-0'}`} onload={() => updatePhotoLoaded(viewingUpdate!, photo)} onerror={() => updatePhotoFailed(viewingUpdate!, photo)} />
-                </div>
+                  {#if photoUrl}<img src={photoUrl} alt={photo.original_filename} loading="lazy" class={`h-full w-full object-cover transition-opacity ${photoState === 'loaded' ? 'opacity-100' : 'opacity-0'}`} onload={() => updatePhotoLoaded(viewingUpdate!, photo)} onerror={() => updatePhotoFailed(viewingUpdate!, photo)} />{/if}
+                </button>
               {/each}
             </div>
           {:else}
@@ -812,8 +1041,13 @@
         <div class="grid gap-2">
           <span class="text-sm font-bold text-slate-700">{$_('teach.updates.photos')}</span>
           <div class="flex flex-wrap gap-2">
-            <label class="btn-secondary cursor-pointer rounded-lg px-4 py-2 text-sm">{$_('teach.updates.uploadPhotos')}<input class="hidden" type="file" multiple accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onchange={handleUpdateFiles} /></label>
-            <label class="btn-secondary cursor-pointer rounded-lg px-4 py-2 text-sm">{$_('teach.updates.takePhoto')}<input class="hidden" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onchange={handleUpdateFiles} /></label>
+            {#if isNativeAndroid}
+              <button type="button" class="btn-secondary rounded-lg px-4 py-2 text-sm disabled:opacity-50" disabled={updatePhotoPicking} onclick={() => pickNativeUpdatePhoto('photos')}>{$_('teach.updates.uploadPhotos')}</button>
+              <button type="button" class="btn-secondary rounded-lg px-4 py-2 text-sm disabled:opacity-50" disabled={updatePhotoPicking} onclick={() => pickNativeUpdatePhoto('camera')}>{$_('teach.updates.takePhoto')}</button>
+            {:else}
+              <label class="btn-secondary cursor-pointer rounded-lg px-4 py-2 text-sm">{$_('teach.updates.uploadPhotos')}<input class="hidden" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif" onchange={handleUpdateFiles} /></label>
+              <label class="btn-secondary cursor-pointer rounded-lg px-4 py-2 text-sm">{$_('teach.updates.takePhoto')}<input class="hidden" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment" onchange={handleUpdateFiles} /></label>
+            {/if}
           </div>
           {#if updatePhotos.length}
             <ul class="grid gap-1">
@@ -831,6 +1065,21 @@
       </form>
       {/if}
     </div>
+  </div>
+{/if}
+
+{#if updatePhotoLightbox}
+  {@const lightboxSource = updatePhotoLightbox.url || updatePhotoObjectUrls[updatePhotoLightbox.key]}
+  {@const lightboxState = updatePhotoLoadStates[updatePhotoLightbox.key]}
+  <div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/90 p-4" role="dialog" aria-modal="true" aria-label={updatePhotoLightbox.alt}>
+    <button type="button" class="absolute end-4 top-4 rounded-lg bg-white/10 px-4 py-2 font-bold text-white" onclick={() => updatePhotoLightbox = null}>{$_('teach.updates.close')}</button>
+    {#if lightboxState === 'failed'}
+      <p class="rounded-xl bg-white/10 p-4 text-center text-sm font-semibold text-white">{$_('teach.updates.photoLoadError')}</p>
+    {:else if !lightboxSource}
+      <p class="rounded-xl bg-white/10 p-4 text-center text-sm font-semibold text-white">{$_('teach.updates.photoLoading')}</p>
+    {:else}
+      <img src={lightboxSource} alt={updatePhotoLightbox.alt} class="max-h-full max-w-full rounded-xl object-contain" />
+    {/if}
   </div>
 {/if}
 

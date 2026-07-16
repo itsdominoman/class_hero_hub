@@ -3776,3 +3776,27 @@ point entries are not labelled from a student's later enrolment.
 
 Reports remain deferred to S24. The guarded realistic demo seeder remains deferred
 to S22b, and homework completion/write-back remains deferred to S23a.
+
+## 2026-07-14 — Android APK implementation catch-up
+
+- Created the CHH Capacitor Android project with application ID
+  `com.classherohub.app`, app name **Class Hero Hub**, CHH branding/splash assets, and
+  debug output at `frontend/android/app/build/outputs/apk/debug/app-debug.apk`.
+- Added native Google login through Android Credential Manager, with encrypted bearer
+  token storage and the backend `POST /api/auth/google/native` verification path.
+  Browser OAuth remains separate and retains CSRF/state validation.
+- Native shell refinements: bypass the public homepage, hide the website footer, and
+  route directly to login or the role dashboard; status/navigation-bar icons are set
+  for the light Android shell.
+- Added compact mobile teacher class-selection controls, S24 quick behaviour overlay
+  and admin-configured actions, plus reporting mobile/control-centre polish.
+- Updates & photos now uses Capacitor Camera on Android: **Take photo** opens the
+  native camera and **Upload photos** opens the gallery/photo picker. Captures become
+  normal `File` uploads through the existing validation/multipart endpoint; browser
+  file-picker behaviour is unchanged.
+- Current Android runbooks: `docs/implementation/CHH_ANDROID_APK_IMPLEMENTATION_LOG.md`,
+  `docs/testing/CHH_ANDROID_APK_SMOKE_TEST.md`, and
+  `docs/ops/CHH_ANDROID_GOOGLE_OAUTH_SETUP.md`.
+# Updates & Photos image optimisation (2026-07-14)
+
+CHH now processes update photos server-side. It accepts JPEG/JPG, PNG, WEBP and iPhone HEIC/HEIF raw uploads up to 50 MB, automatically converts HEIC/HEIF, corrects EXIF orientation, converts to web-safe RGB, removes metadata and resizes the longest edge to 1600 px. Only one optimised JPEG or transparency-preserving WEBP is stored (target <1 MB, hard maximum 1.5 MB); the raw source is discarded after processing. Optimisation starts at quality 85 and only reduces to meet the target; quality 78 is the preferred floor, allowing detailed artwork to remain closer to the budget when needed. The existing authenticated CHH and FHH media paths therefore serve only the optimised image.

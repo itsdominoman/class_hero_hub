@@ -19,6 +19,9 @@ export const en = {
     admin: 'Admin',
     school: 'School',
     reports: 'Reporting',
+    menu: 'Menu',
+    openMenu: 'Open menu',
+    closeMenu: 'Close menu',
     teach: 'Teach',
     product: 'Product',
     support: 'Support',
@@ -646,7 +649,7 @@ export const en = {
       downloadError: 'Failed to download attachment'
     },
     calendar: { title: 'School calendar', intro: 'Create and manage school-wide events for families and teachers.', create: 'Create school event', upcoming: 'Upcoming school-wide events' },
-    behaviour: { title: 'Behaviour & points categories', intro: 'School-wide categories keep reporting consistent for every teacher.', seed: 'Ensure defaults', positive: 'Positive', needsWork: 'Needs work', label: 'Category label', active: 'Active', create: 'Create category', update: 'Update category', saved: 'Category saved', saveError: 'Failed to save category' }
+    behaviour: { title: 'Behaviour & points categories', intro: 'School-wide categories keep reporting consistent for every teacher.', seed: 'Ensure defaults', positive: 'Positive', needsWork: 'Needs work', label: 'Category label', active: 'Active', create: 'Create category', update: 'Update category', saved: 'Category saved', saveError: 'Failed to save category', quickTitle: 'Quick behaviours', quickIntro: 'These appear in the teacher quick award popup.', otherAvailable: 'All other active categories remain available under Other.', quickPositive: 'Quick positive behaviours', quickNeedsWork: 'Quick needs-work behaviours', addToQuick: 'Add to quick list', remove: 'Remove', moveUp: 'Move up', moveDown: 'Move down', quickSave: 'Save quick behaviours', quickSaving: 'Saving…', quickMax: 'Max {count} quick behaviours', noActive: 'No active categories available.', quickEmpty: 'No quick behaviours selected yet.', quickBadge: 'Quick', inactive: 'Inactive', quickSaved: 'Quick behaviours saved', quickSaveError: 'Failed to save quick behaviours' }
   },
   teach: {
     title: 'My classes | Class Hero Hub',
@@ -667,7 +670,7 @@ export const en = {
     emptySubjectRoster: 'No students are enrolled in this subject group yet.',
     rosterLoadError: 'Failed to load roster',
     roles: {
-      homeroom: 'Homeroom',
+      homeroom: 'Home Room',
       subject: 'Subject'
     },
     classDetail: {
@@ -725,7 +728,7 @@ export const en = {
       types: { homework: 'Homework', diary: 'Note' }
     },
     updates: {
-      title: 'Updates & photos', audience: 'Audience', body: 'What happened?', photos: 'Add photos', uploadPhotos: 'Upload photos', takePhoto: 'Take photo', removePhoto: 'Remove', photoRules: 'JPG, PNG, or WEBP images. Maximum 10 MB each and 5 photos.', create: 'Post', saving: 'Posting…', created: 'Update posted', cancel: 'Cancel', close: 'Close', saveError: 'Failed to post update', empty: 'No updates yet', view: 'View', edit: 'Edit', archive: 'Archive', archived: 'Archived', archiveError: 'Failed to archive update', loadError: 'Failed to load updates', photoCount: '{count} photos', noPhotos: 'This update has no photos', photoLoading: 'Loading photo…', photoLoadError: 'Photo could not be loaded.', fileTypeError: 'Photo type not allowed.', heicError: 'iPhone photo format is not supported yet. Please upload JPG, PNG, or WEBP.', fileSizeError: 'Photo is too large. Maximum 10 MB.', maxPhotos: 'Maximum 5 photos.', cancelUpload: 'Cancel upload', cancelled: 'Update cancelled.', cancelledAfterCreate: 'Update exists, but photo upload was cancelled.', photoFailed: 'Update exists, but photo upload did not complete.', createTab: 'Create update', previousTab: 'Previous updates', back: 'Back', saveChanges: 'Save changes', updated: 'Update saved', updateError: 'Failed to save update'
+      title: 'Updates & photos', audience: 'Audience', body: 'What happened?', photos: 'Add photos', uploadPhotos: 'Upload photos', takePhoto: 'Take photo', removePhoto: 'Remove', photoRules: 'JPG, PNG, WEBP, HEIC, or HEIF images. Raw uploads up to 50 MB each; CHH optimises them automatically. Maximum 5 photos.', create: 'Post', saving: 'Posting…', created: 'Update posted', cancel: 'Cancel', close: 'Close', saveError: 'Failed to post update', empty: 'No updates yet', view: 'View', edit: 'Edit', archive: 'Archive', archived: 'Archived', archiveError: 'Failed to archive update', loadError: 'Failed to load updates', photoCount: '{count} photos', noPhotos: 'This update has no photos', photoLoading: 'Loading photo…', photoLoadError: 'Photo could not be loaded.', cameraError: 'The camera could not be opened. Please try again or upload a photo.', fileTypeError: 'Photo type not allowed.', heicError: 'iPhone photo format is not supported yet. Please upload JPG, PNG, or WEBP.', fileSizeError: 'Photo is too large. Maximum raw upload size is 50 MB.', maxPhotos: 'Maximum 5 photos.', cancelUpload: 'Cancel upload', cancelled: 'Update cancelled.', cancelledAfterCreate: 'Update exists, but photo upload was cancelled.', photoFailed: 'Update exists, but photo upload did not complete.', createTab: 'Create update', previousTab: 'Previous updates', back: 'Back', saveChanges: 'Save changes', updated: 'Update saved', updateError: 'Failed to save update'
     },
     studentSearch: {
       find: 'Find student', title: 'Find student', subtitle: 'Search your school and award points without opening a class.',
@@ -735,6 +738,9 @@ export const en = {
     points: {
       title: 'Award points', open: 'Open', positive: 'Positive', needsWork: 'Needs work', selectStudents: 'Select students', wholeClass: 'Whole class', clearSelection: 'Clear selection', category: 'Category / reason', note: 'Optional note', dutyContext: 'Duty context', submit: 'Save points', saveForOne: 'Save points for 1 student', saveForMany: 'Save points for {count} students', saving: 'Saving…', close: 'Close', loadError: 'Failed to load categories', saveError: 'Failed to save points', successOne: 'Points saved for 1 student', successMany: 'Points saved for {count} students', pts: 'pts',
       duty: { break: 'Break duty', lunch: 'Lunch duty', playground: 'Playground', hallway: 'Hallway', assembly: 'Assembly', bus: 'Bus', general_duty: 'General duty' }
+    },
+    quickAward: {
+      title: 'Quick award', context: 'Context', positive: 'Positive behaviours', needsWork: 'Needs-work behaviours', otherPositive: 'Other positive', otherNeedsWork: 'Other needs work', back: 'Back to quick actions', saving: 'Saving…', success: '{behaviour} awarded ({points} points)', saveError: 'Could not award behaviour. Please try again.', loadError: 'Could not load quick actions.', retry: 'Retry', noQuickActions: 'No quick actions configured yet.', noOther: 'No other behaviours available.', noBehaviours: 'Behaviour categories need to be configured by an admin.', openForStudent: 'Award behaviour to {student}', actionLabel: 'Award {behaviour} to {student}, {points} points'
     }
   },
   faq: {
@@ -861,6 +867,28 @@ export const en = {
     staffMember: 'Staff member',
     deepDive: 'Explore patterns',
     deepDiveIntro: 'Compare safe, grouped reporting measures and open matching events.',
+    overviewOnly: 'Overview',
+    closeSection: 'Close section',
+    backToOverview: 'Back to overview',
+    viewMatchingEvents: 'View matching events',
+    launcherBehaviourTrend: 'Behaviour trend',
+    launcherBehaviourTrendDescription: 'Review daily behaviour activity across the selected period.',
+    launcherClassComparison: 'Class comparison',
+    launcherClassComparisonDescription: 'Compare activity by class section and open matching records.',
+    launcherGradeComparison: 'Grade comparison',
+    launcherGradeComparisonDescription: 'Compare behaviour activity across grades and years.',
+    launcherSubjectComparison: 'Subject comparison',
+    launcherSubjectComparisonDescription: 'See where activity is being recorded by subject.',
+    launcherDutyHotspots: 'Duty hotspots',
+    launcherDutyHotspotsDescription: 'Identify duty contexts that may need attention.',
+    launcherCategoryBreakdown: 'Category breakdown',
+    launcherCategoryBreakdownDescription: 'Understand the mix of recorded behaviour categories.',
+    launcherStudentSupport: 'Student support',
+    launcherStudentSupportDescription: 'Use safe patterns to guide student support conversations.',
+    launcherTeacherUsage: 'Teacher usage',
+    launcherTeacherUsageDescription: 'Review recording activity, not teacher performance.',
+    launcherEventsDescription: 'Open the safe, paginated events matching the current filters.',
+    launcherPatternsDescription: 'Explore grouped patterns with optional rows and columns.',
     rowDimension: 'Rows',
     columnDimension: 'Columns',
     orderBy: 'Order by',
@@ -960,6 +988,9 @@ export const ar = {
     admin: 'الإدارة',
     school: 'المدرسة',
     reports: 'التقارير',
+    menu: 'القائمة',
+    openMenu: 'فتح القائمة',
+    closeMenu: 'إغلاق القائمة',
     teach: 'التدريس',
     product: 'المنتج',
     support: 'الدعم',
@@ -1587,7 +1618,7 @@ export const ar = {
       downloadError: 'تعذر تنزيل المرفق'
     },
     calendar: { title: 'تقويم المدرسة', intro: 'أنشئ وأدر الأحداث على مستوى المدرسة للعائلات والمعلمين.', create: 'إنشاء حدث مدرسي', upcoming: 'الأحداث المدرسية القادمة' },
-    behaviour: { title: 'فئات السلوك والنقاط', intro: 'فئات موحدة على مستوى المدرسة لتقارير متسقة.', seed: 'ضمان الفئات الافتراضية', positive: 'إيجابي', needsWork: 'يحتاج إلى تحسين', label: 'اسم الفئة', active: 'نشط', create: 'إنشاء فئة', update: 'تحديث الفئة', saved: 'تم حفظ الفئة', saveError: 'تعذر حفظ الفئة' }
+    behaviour: { title: 'فئات السلوك والنقاط', intro: 'فئات موحدة على مستوى المدرسة لتقارير متسقة.', seed: 'ضمان الفئات الافتراضية', positive: 'إيجابي', needsWork: 'يحتاج إلى تحسين', label: 'اسم الفئة', active: 'نشط', create: 'إنشاء فئة', update: 'تحديث الفئة', saved: 'تم حفظ الفئة', saveError: 'تعذر حفظ الفئة', quickTitle: 'السلوكيات السريعة', quickIntro: 'تظهر هذه في نافذة المنح السريع للمعلم.', otherAvailable: 'تبقى جميع الفئات النشطة الأخرى متاحة ضمن «أخرى».', quickPositive: 'السلوكيات الإيجابية السريعة', quickNeedsWork: 'السلوكيات السريعة التي تحتاج إلى تحسين', addToQuick: 'إضافة إلى القائمة السريعة', remove: 'إزالة', moveUp: 'نقل لأعلى', moveDown: 'نقل لأسفل', quickSave: 'حفظ السلوكيات السريعة', quickSaving: 'جار الحفظ…', quickMax: 'الحد الأقصى {count} سلوكيات سريعة', noActive: 'لا توجد فئات نشطة متاحة.', quickEmpty: 'لم يتم اختيار سلوكيات سريعة بعد.', quickBadge: 'سريع', inactive: 'غير نشط', quickSaved: 'تم حفظ السلوكيات السريعة', quickSaveError: 'تعذر حفظ السلوكيات السريعة' }
   },
   teach: {
     title: 'صفوفي | كلاس هيرو هب',
@@ -1666,14 +1697,15 @@ export const ar = {
       types: { homework: 'الواجب', diary: 'ملاحظة' }
     },
     updates: {
-      title: 'التحديثات والصور', audience: 'الجمهور', body: 'ماذا حدث؟', photos: 'إضافة صور', uploadPhotos: 'تحميل الصور', takePhoto: 'التقاط صورة', removePhoto: 'إزالة', photoRules: 'صور JPG أو PNG أو WEBP. الحد الأقصى 10 ميجابايت لكل صورة و5 صور.', create: 'نشر', saving: 'جار النشر…', created: 'تم نشر التحديث', cancel: 'إلغاء', close: 'إغلاق', saveError: 'تعذر نشر التحديث', empty: 'لا توجد تحديثات بعد', view: 'عرض', edit: 'تعديل', archive: 'أرشفة', archived: 'مؤرشف', archiveError: 'تعذرت أرشفة التحديث', loadError: 'تعذر تحميل التحديثات', photoCount: '{count} صور', noPhotos: 'لا توجد صور لهذا التحديث', photoLoading: 'جار تحميل الصورة…', photoLoadError: 'تعذر تحميل الصورة.', fileTypeError: 'نوع الصورة غير مسموح.', heicError: 'تنسيق صور iPhone غير مدعوم بعد. يرجى رفع JPG أو PNG أو WEBP.', fileSizeError: 'الصورة كبيرة جدًا. الحد الأقصى 10 ميجابايت.', maxPhotos: 'الحد الأقصى 5 صور.', cancelUpload: 'إلغاء الرفع', cancelled: 'تم إلغاء التحديث.', cancelledAfterCreate: 'التحديث موجود، لكن تم إلغاء رفع الصور.', photoFailed: 'التحديث موجود، لكن لم يكتمل رفع الصور.', createTab: 'إنشاء تحديث', previousTab: 'التحديثات السابقة', back: 'رجوع', saveChanges: 'حفظ التغييرات', updated: 'تم حفظ التحديث', updateError: 'تعذر حفظ التحديث'
+      title: 'التحديثات والصور', audience: 'الجمهور', body: 'ماذا حدث؟', photos: 'إضافة صور', uploadPhotos: 'تحميل الصور', takePhoto: 'التقاط صورة', removePhoto: 'إزالة', photoRules: 'صور JPG أو PNG أو WEBP أو HEIC أو HEIF. حتى 50 ميجابايت للصورة الخام؛ ويجري CHH تحسينها تلقائيًا. الحد الأقصى 5 صور.', create: 'نشر', saving: 'جار النشر…', created: 'تم نشر التحديث', cancel: 'إلغاء', close: 'إغلاق', saveError: 'تعذر نشر التحديث', empty: 'لا توجد تحديثات بعد', view: 'عرض', edit: 'تعديل', archive: 'أرشفة', archived: 'مؤرشف', archiveError: 'تعذرت أرشفة التحديث', loadError: 'تعذر تحميل التحديثات', photoCount: '{count} صور', noPhotos: 'لا توجد صور لهذا التحديث', photoLoading: 'جار تحميل الصورة…', photoLoadError: 'تعذر تحميل الصورة.', cameraError: 'تعذر فتح الكاميرا. يرجى المحاولة مرة أخرى أو تحميل صورة.', fileTypeError: 'نوع الصورة غير مسموح.', heicError: 'تنسيق صور iPhone غير مدعوم بعد. يرجى رفع JPG أو PNG أو WEBP.', fileSizeError: 'الصورة كبيرة جدًا. الحد الأقصى للرفع الخام 50 ميجابايت.', maxPhotos: 'الحد الأقصى 5 صور.', cancelUpload: 'إلغاء الرفع', cancelled: 'تم إلغاء التحديث.', cancelledAfterCreate: 'التحديث موجود، لكن تم إلغاء رفع الصور.', photoFailed: 'التحديث موجود، لكن لم يكتمل رفع الصور.', createTab: 'إنشاء تحديث', previousTab: 'التحديثات السابقة', back: 'رجوع', saveChanges: 'حفظ التغييرات', updated: 'تم حفظ التحديث', updateError: 'تعذر حفظ التحديث'
     },
     studentSearch: {
       find: 'البحث عن طالب', title: 'البحث عن طالب', subtitle: 'ابحث في مدرستك وامنح النقاط دون فتح صف.',
       school: 'المدرسة', searchLabel: 'اسم الطالب أو الرقم المرجعي', placeholder: 'اكتب حرفين على الأقل', minimum: 'أدخل حرفين على الأقل للبحث.',
       searching: 'جار البحث…', resultCount: '{count} نتائج', selected: 'تم اختيار {count}', noClass: 'الصف غير متاح', searchError: 'تعذر البحث عن الطلاب'
     },
-    points: { title: 'منح النقاط', open: 'فتح', positive: 'إيجابي', needsWork: 'يحتاج إلى تحسين', selectStudents: 'اختر الطلاب', wholeClass: 'الصف بأكمله', clearSelection: 'مسح التحديد', category: 'الفئة / السبب', note: 'ملاحظة اختيارية', dutyContext: 'سياق المناوبة', submit: 'حفظ النقاط', saveForOne: 'حفظ النقاط لطالب واحد', saveForMany: 'حفظ النقاط لـ {count} طلاب', saving: 'جار الحفظ…', close: 'إغلاق', loadError: 'تعذر تحميل الفئات', saveError: 'تعذر حفظ النقاط', successOne: 'تم حفظ النقاط لطالب واحد', successMany: 'تم حفظ النقاط لـ {count} طلاب', pts: 'نقطة', duty: { break: 'مناوبة الفسحة', lunch: 'مناوبة الغداء', playground: 'ساحة اللعب', hallway: 'الممر', assembly: 'الطابور', bus: 'الحافلة', general_duty: 'مناوبة عامة' } }
+    points: { title: 'منح النقاط', open: 'فتح', positive: 'إيجابي', needsWork: 'يحتاج إلى تحسين', selectStudents: 'اختر الطلاب', wholeClass: 'الصف بأكمله', clearSelection: 'مسح التحديد', category: 'الفئة / السبب', note: 'ملاحظة اختيارية', dutyContext: 'سياق المناوبة', submit: 'حفظ النقاط', saveForOne: 'حفظ النقاط لطالب واحد', saveForMany: 'حفظ النقاط لـ {count} طلاب', saving: 'جار الحفظ…', close: 'إغلاق', loadError: 'تعذر تحميل الفئات', saveError: 'تعذر حفظ النقاط', successOne: 'تم حفظ النقاط لطالب واحد', successMany: 'تم حفظ النقاط لـ {count} طلاب', pts: 'نقطة', duty: { break: 'مناوبة الفسحة', lunch: 'مناوبة الغداء', playground: 'ساحة اللعب', hallway: 'الممر', assembly: 'الطابور', bus: 'الحافلة', general_duty: 'مناوبة عامة' } },
+    quickAward: { title: 'منح سريع', context: 'السياق', positive: 'سلوكيات إيجابية', needsWork: 'سلوكيات تحتاج إلى تحسين', otherPositive: 'إيجابيات أخرى', otherNeedsWork: 'سلوكيات أخرى تحتاج إلى تحسين', back: 'العودة للإجراءات السريعة', saving: 'جار الحفظ…', success: 'تم منح {behaviour} ({points} نقاط)', saveError: 'تعذر منح السلوك. يرجى المحاولة مرة أخرى.', loadError: 'تعذر تحميل الإجراءات السريعة.', retry: 'إعادة المحاولة', noQuickActions: 'لم يتم إعداد إجراءات سريعة بعد.', noOther: 'لا توجد سلوكيات أخرى متاحة.', noBehaviours: 'يجب على مسؤول المدرسة إعداد فئات السلوك.', openForStudent: 'منح سلوك للطالب {student}', actionLabel: 'منح {behaviour} للطالب {student}، {points} نقاط' }
   },
   faq: {
     pageTitle: 'الأسئلة الشائعة | كلاس هيرو هب',
@@ -1799,6 +1831,28 @@ export const ar = {
     staffMember: 'موظف',
     deepDive: 'استكشاف الأنماط',
     deepDiveIntro: 'قارن مقاييس تقارير مجمعة وآمنة، ثم افتح الأحداث المطابقة.',
+    overviewOnly: 'النظرة العامة',
+    closeSection: 'إغلاق القسم',
+    backToOverview: 'العودة إلى النظرة العامة',
+    viewMatchingEvents: 'عرض الأحداث المطابقة',
+    launcherBehaviourTrend: 'اتجاه السلوك',
+    launcherBehaviourTrendDescription: 'راجع نشاط السلوك اليومي خلال الفترة المحددة.',
+    launcherClassComparison: 'مقارنة الشعب',
+    launcherClassComparisonDescription: 'قارن النشاط حسب الشعبة وافتح السجلات المطابقة.',
+    launcherGradeComparison: 'مقارنة الصفوف',
+    launcherGradeComparisonDescription: 'قارن نشاط السلوك عبر الصفوف والسنوات.',
+    launcherSubjectComparison: 'مقارنة المواد',
+    launcherSubjectComparisonDescription: 'اطّلع على أماكن تسجيل النشاط حسب المادة.',
+    launcherDutyHotspots: 'نقاط التركيز للمناوبات',
+    launcherDutyHotspotsDescription: 'حدّد سياقات المناوبة التي قد تحتاج إلى اهتمام.',
+    launcherCategoryBreakdown: 'تفصيل الفئات',
+    launcherCategoryBreakdownDescription: 'افهم مزيج فئات السلوك المسجلة.',
+    launcherStudentSupport: 'دعم الطلاب',
+    launcherStudentSupportDescription: 'استخدم أنماطاً آمنة لتوجيه حوارات دعم الطلاب.',
+    launcherTeacherUsage: 'استخدام المعلمين',
+    launcherTeacherUsageDescription: 'راجع نشاط التسجيل، وليس أداء المعلم.',
+    launcherEventsDescription: 'افتح الأحداث الآمنة والمقسمة إلى صفحات التي تطابق الفلاتر الحالية.',
+    launcherPatternsDescription: 'استكشف الأنماط المجمعة مع صفوف وأعمدة اختيارية.',
     rowDimension: 'الصفوف',
     columnDimension: 'الأعمدة',
     orderBy: 'الترتيب حسب',

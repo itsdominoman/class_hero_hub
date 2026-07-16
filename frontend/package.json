@@ -21,6 +21,9 @@
     "format": "prettier --write ."
   },
   "devDependencies": {
+    "@capacitor/android": "^7.6.7",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.6.7",
     "@playwright/test": "^1.59.1",
     "@sveltejs/adapter-auto": "^3.2.0",
     "@sveltejs/adapter-static": "^3.0.1",
@@ -47,6 +50,8 @@
     "esbuild": "^0.25.0"
   },
   "dependencies": {
+    "@capacitor/camera": "^7.0.5",
+    "@capacitor/core": "^7.6.7",
     "clsx": "^2.1.1",
     "lucide-svelte": "^0.378.0",
     "qrcode": "^1.5.4",

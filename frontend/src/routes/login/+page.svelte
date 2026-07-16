@@ -3,6 +3,7 @@
   import { page } from '$app/state';
   import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
+  import { isNativePlatform, signInWithNativeGoogle } from '$lib/nativeAuth';
   import LanguageSelector from '$lib/components/LanguageSelector.svelte';
 
   let magicEmail = $state('');
@@ -19,7 +20,21 @@
 
   const returnTo = $derived(safeReturnTo(page.url.searchParams.get('returnTo')));
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
+    if (isNativePlatform()) {
+      try {
+        if (await signInWithNativeGoogle()) window.location.replace(returnTo);
+      } catch (error) {
+        const diagnostic = error as { source?: string; code?: string; status?: number };
+        console.error(
+          '[CHH] Native Google login stopped:',
+          diagnostic.source ?? 'unknown',
+          diagnostic.code ?? diagnostic.status ?? 'unknown'
+        );
+        magicError = 'Google sign-in could not be completed. Please try again.';
+      }
+      return;
+    }
     window.location.href = `/api/auth/google/login?return_to=${encodeURIComponent(returnTo)}`;
   };
 
@@ -77,7 +92,7 @@
         <LanguageSelector compact />
       </div>
       <div class="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-xl shadow-hero/20 border border-slate-200 mx-auto mb-6 relative overflow-hidden">
-        <img src="/family-hero-hub-logo.png" alt={$_('app.name')} class="w-full h-full object-cover" />
+        <img src="/chh-logo-master.png" alt={$_('app.name')} class="w-full h-full object-contain" />
       </div>
 
       <h1 class="text-3xl font-black text-slate-900 mb-3">{$_('login.title')}</h1>

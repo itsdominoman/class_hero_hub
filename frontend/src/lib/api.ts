@@ -1,4 +1,5 @@
 import { normalizeErrorMessage } from '$lib/errors';
+import { getNativeAccessToken, isNativePlatform, nativeApiUrl } from '$lib/nativeAuth';
 
 const API_BASE = '/api';
 
@@ -21,6 +22,10 @@ function isUnsafeMethod(method: string): boolean {
 function buildApiUrl(path: string): string {
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path;
+  }
+
+  if (isNativePlatform()) {
+    return nativeApiUrl(path);
   }
 
   if (path.startsWith('/api/')) {
@@ -61,7 +66,10 @@ async function request(path: string, options: RequestInit = {}) {
     headers.set('Content-Type', 'application/json');
   }
 
-  if (isUnsafeMethod(method)) {
+  if (isNativePlatform()) {
+    const token = await getNativeAccessToken();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+  } else if (isUnsafeMethod(method)) {
     const csrfToken = getCookie('csrf_token');
     if (csrfToken) {
       headers.set('X-CSRF-Token', csrfToken);
@@ -72,7 +80,7 @@ async function request(path: string, options: RequestInit = {}) {
     ...options,
     method,
     headers,
-    credentials: 'include'
+    credentials: isNativePlatform() ? 'omit' : 'include'
   });
 
   if (!res.ok) {
@@ -98,12 +106,15 @@ async function request(path: string, options: RequestInit = {}) {
 async function upload(path: string, formData: FormData, options: RequestInit = {}) {
   const url = buildApiUrl(path);
   const headers = new Headers(options.headers || {});
-  const csrfToken = getCookie('csrf_token');
-  if (csrfToken) {
-    headers.set('X-CSRF-Token', csrfToken);
+  if (isNativePlatform()) {
+    const token = await getNativeAccessToken();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+  } else {
+    const csrfToken = getCookie('csrf_token');
+    if (csrfToken) headers.set('X-CSRF-Token', csrfToken);
   }
 
-  const res = await fetch(url, { ...options, method: 'POST', headers, body: formData, credentials: 'include' });
+  const res = await fetch(url, { ...options, method: 'POST', headers, body: formData, credentials: isNativePlatform() ? 'omit' : 'include' });
   if (!res.ok) {
     await throwForErrorResponse(res);
   }
@@ -114,7 +125,12 @@ async function upload(path: string, formData: FormData, options: RequestInit = {
 // bypasses request()'s JSON-only response handling and returns a Blob.
 async function download(path: string, options: RequestInit = {}): Promise<Blob> {
   const url = buildApiUrl(path);
-  const res = await fetch(url, { ...options, method: 'GET', credentials: 'include' });
+  const headers = new Headers(options.headers || {});
+  if (isNativePlatform()) {
+    const token = await getNativeAccessToken();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+  }
+  const res = await fetch(url, { ...options, method: 'GET', headers, credentials: isNativePlatform() ? 'omit' : 'include' });
   if (!res.ok) {
     await throwForErrorResponse(res);
   }
