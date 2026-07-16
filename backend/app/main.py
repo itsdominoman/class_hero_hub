@@ -9,7 +9,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from . import auth, database, schemas
 from .database import Base, close_request_db, engine, ensure_runtime_schema, get_db, settings, validate_runtime_configuration
 from .models_school import Membership, PlatformAdmin, School, User
-from .routes import announcements, authentication, behaviour, calendar, dev, guardian, homework, integrations_fhh, join, messaging_policy, platform, school, school_reports, teach, updates
+from .routes import announcements, authentication, behaviour, calendar, dev, guardian, homework, integrations_fhh, join, messaging, messaging_policy, platform, school, school_reports, teach, updates
 from .security import TrustedProxyHeadersMiddleware, parse_csv_values
 
 if settings.DATABASE_URL.startswith("sqlite"):
@@ -77,6 +77,7 @@ def _me_payload(current_user: User, db: Session) -> dict:
             {
                 "school_id": school.id,
                 "school_name": school.name,
+                "membership_id": membership.id,
                 "role": membership.role,
             }
             for membership, school in memberships
@@ -145,6 +146,7 @@ def create_app() -> FastAPI:
     app.include_router(calendar.staff_router, prefix="/api/school", tags=["calendar"])
     app.include_router(school.router, prefix="/api/school", tags=["school"])
     app.include_router(messaging_policy.router, prefix="/api/school", tags=["messaging-policy"])
+    app.include_router(messaging.staff_router, prefix="/api/messaging", tags=["messaging"])
     app.include_router(behaviour.school_router, prefix="/api/school", tags=["behaviour"])
     app.include_router(school_reports.router, prefix="/api/school", tags=["reports"])
     app.include_router(teach.router, prefix="/api/teach", tags=["teach"])
@@ -158,6 +160,11 @@ def create_app() -> FastAPI:
     app.include_router(updates.guardian_router, prefix="/api/guardian", tags=["updates"])
     app.include_router(calendar.guardian_router, prefix="/api/guardian", tags=["calendar"])
     app.include_router(guardian.router, prefix="/api/guardian", tags=["guardian"])
+    app.include_router(
+        messaging.guardian_router,
+        prefix="/api/guardian/messaging",
+        tags=["guardian-messaging"],
+    )
     app.include_router(behaviour.guardian_router, prefix="/api/guardian", tags=["behaviour"])
     app.include_router(integrations_fhh.router, prefix="/api/integrations/fhh", tags=["fhh-integration"])
 

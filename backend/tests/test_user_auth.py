@@ -226,10 +226,20 @@ def test_cookie_auth_resolves_user_for_me_v2(db, client, seeded_schools):
         "locale": "en",
     }
     assert payload["is_platform_admin"] is False
+    membership = (
+        db.query(Membership)
+        .filter(
+            Membership.school_id == seeded_schools["schools"]["alpha"].id,
+            Membership.user_id == alpha_teacher.id,
+            Membership.role == "teacher",
+        )
+        .one()
+    )
     assert payload["memberships"] == [
         {
             "school_id": seeded_schools["schools"]["alpha"].id,
             "school_name": "Alpha Academy",
+            "membership_id": membership.id,
             "role": "teacher",
         }
     ]

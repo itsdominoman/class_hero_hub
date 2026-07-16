@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from uuid import UUID
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from .models_school import (
@@ -16,6 +17,7 @@ from .models_school import (
     GuardianLink,
     Membership,
     Message,
+    MessageReceiptEvent,
     MessagingAuditEvent,
     StaffAssignment,
 )
@@ -313,6 +315,263 @@ def participant_sequence_access(
     )
 
 
+def participant_sequence_access_map(
+    db: Session,
+    *,
+    conversations: list[Conversation],
+    participants: list[ConversationParticipant],
+    now: datetime | None = None,
+) -> dict[int, SequenceAccess]:
+    """Resolve many participant grants with bounded, set-based source loading."""
+
+    now = now or _utc_now()
+    conversations_by_id = {row.id: row for row in conversations}
+    active_participants = [
+        row
+        for row in participants
+        if row.left_at is None and row.conversation_id in conversations_by_id
+    ]
+    if not active_participants:
+        return {}
+
+    participant_ids = [row.id for row in active_participants]
+    grants = (
+        db.query(ConversationAccessGrant)
+        .filter(ConversationAccessGrant.participant_id.in_(participant_ids))
+        .order_by(ConversationAccessGrant.id)
+        .all()
+    )
+    membership_ids = {
+        value
+        for row in active_participants
+        for value in (row.membership_id,)
+        if value is not None
+    } | {row.membership_id for row in grants if row.membership_id is not None}
+    memberships_by_id = {
+        row.id: row
+        for row in (
+            db.query(Membership).filter(Membership.id.in_(membership_ids)).all()
+            if membership_ids
+            else []
+        )
+    }
+    assignment_ids = {
+        row.staff_assignment_id
+        for row in grants
+        if row.staff_assignment_id is not None
+    }
+    assignments_by_id = {
+        row.id: row
+        for row in (
+            db.query(StaffAssignment)
+            .filter(StaffAssignment.id.in_(assignment_ids))
+            .all()
+            if assignment_ids
+            else []
+        )
+    }
+    guardian_link_ids = {
+        row.guardian_link_id for row in grants if row.guardian_link_id is not None
+    }
+    guardian_links_by_id = {
+        row.id: row
+        for row in (
+            db.query(GuardianLink).filter(GuardianLink.id.in_(guardian_link_ids)).all()
+            if guardian_link_ids
+            else []
+        )
+    }
+    fhh_link_ids = {row.fhh_link_id for row in grants if row.fhh_link_id is not None}
+    fhh_links_by_id = {
+        row.id: row
+        for row in (
+            db.query(FhhLink).filter(FhhLink.id.in_(fhh_link_ids)).all()
+            if fhh_link_ids
+            else []
+        )
+    }
+    external_identity_ids = {
+        row.external_participant_id
+        for row in active_participants
+        if row.external_participant_id is not None
+    }
+    identities_by_id = {
+        row.id: row
+        for row in (
+            db.query(FhhMessagingIdentity)
+            .filter(FhhMessagingIdentity.id.in_(external_identity_ids))
+            .all()
+            if external_identity_ids
+            else []
+        )
+    }
+    identity_links = (
+        db.query(FhhMessagingIdentityLink)
+        .filter(
+            FhhMessagingIdentityLink.fhh_link_id.in_(fhh_link_ids),
+            FhhMessagingIdentityLink.identity_id.in_(external_identity_ids),
+        )
+        .all()
+        if fhh_link_ids and external_identity_ids
+        else []
+    )
+    active_identity_link_pairs = {
+        (row.fhh_link_id, row.identity_id)
+        for row in identity_links
+        if row.status == "active" and row.revoked_at is None
+    }
+    student_ids = {
+        row.student_id for row in conversations if row.student_id is not None
+    }
+    resolutions_by_school: dict[int, object] = {}
+    for school_id in {row.school_id for row in conversations if row.student_id is not None}:
+        school_student_ids = {
+            row.student_id
+            for row in conversations
+            if row.school_id == school_id and row.student_id is not None
+        }
+        resolutions_by_school[school_id] = resolve_rosters_for_students(
+            db, school_id, now.date(), student_ids=school_student_ids
+        )
+
+    participant_by_id = {row.id: row for row in active_participants}
+    current_by_participant: dict[int, list[ConversationAccessGrant]] = {}
+    manual_by_participant: dict[int, list[ConversationAccessGrant]] = {}
+    for grant in grants:
+        participant = participant_by_id.get(grant.participant_id)
+        if participant is None or not _timestamp_grant_is_open(grant, now):
+            continue
+        conversation = conversations_by_id[participant.conversation_id]
+        if grant.source_type == "manual_history_grant":
+            manual_by_participant.setdefault(participant.id, []).append(grant)
+            continue
+
+        source_is_current = False
+        if grant.source_type == "staff_assignment":
+            membership = memberships_by_id.get(participant.membership_id)
+            assignment = assignments_by_id.get(grant.staff_assignment_id)
+            resolution = resolutions_by_school.get(conversation.school_id)
+            if (
+                participant.participant_kind == "staff"
+                and membership is not None
+                and membership.school_id == conversation.school_id
+                and membership.role == "teacher"
+                and membership.status == "active"
+                and membership.revoked_at is None
+                and assignment is not None
+                and assignment.school_id == conversation.school_id
+                and assignment.membership_id == participant.membership_id
+                and assignment.valid_from <= now.date()
+                and (assignment.valid_to is None or assignment.valid_to > now.date())
+                and conversation.student_id is not None
+                and resolution is not None
+            ):
+                section_ids = {
+                    row.id
+                    for row in resolution.class_sections_by_student.get(
+                        conversation.student_id, []
+                    )
+                }
+                group_ids = {
+                    row["id"]
+                    for row in resolution.subject_groups_by_student.get(
+                        conversation.student_id, []
+                    )
+                    if row.get("id") is not None
+                }
+                source_is_current = (
+                    assignment.class_section_id in section_ids
+                    if assignment.class_section_id is not None
+                    else assignment.subject_group_id in group_ids
+                )
+        elif grant.source_type == "school_admin_membership":
+            membership = memberships_by_id.get(grant.membership_id)
+            source_is_current = (
+                participant.participant_kind == "staff"
+                and membership is not None
+                and membership.id == participant.membership_id
+                and membership.school_id == conversation.school_id
+                and membership.status == "active"
+                and membership.revoked_at is None
+                and (
+                    membership.role == "school_admin"
+                    or (
+                        conversation.kind == "staff_direct"
+                        and membership.role == "teacher"
+                    )
+                )
+            )
+        elif grant.source_type == "guardian_link":
+            link = guardian_links_by_id.get(grant.guardian_link_id)
+            source_is_current = (
+                participant.participant_kind == "chh_guardian"
+                and link is not None
+                and link.school_id == conversation.school_id
+                and link.user_id == participant.user_id
+                and link.status == "active"
+                and link.revoked_at is None
+                and (
+                    conversation.student_id is None
+                    or link.student_id == conversation.student_id
+                )
+            )
+        elif grant.source_type == "fhh_link":
+            link = fhh_links_by_id.get(grant.fhh_link_id)
+            identity = identities_by_id.get(participant.external_participant_id)
+            source_is_current = (
+                participant.participant_kind == "fhh_parent"
+                and link is not None
+                and link.school_id == conversation.school_id
+                and link.status == "active"
+                and link.revoked_at is None
+                and (
+                    conversation.student_id is None
+                    or link.student_id == conversation.student_id
+                )
+                and identity is not None
+                and identity.school_id == conversation.school_id
+                and identity.status == "active"
+                and (
+                    link.id,
+                    participant.external_participant_id,
+                )
+                in active_identity_link_pairs
+            )
+        if source_is_current:
+            current_by_participant.setdefault(participant.id, []).append(grant)
+
+    access_by_participant: dict[int, SequenceAccess] = {}
+    for participant in active_participants:
+        current = current_by_participant.get(participant.id, [])
+        if not current:
+            continue
+        visible_from = min(row.visible_from_sequence for row in current)
+        visible_through = (
+            None
+            if any(row.visible_through_sequence is None for row in current)
+            else max(int(row.visible_through_sequence) for row in current)
+        )
+        manual = manual_by_participant.get(participant.id, [])
+        if manual:
+            visible_from = min(
+                [visible_from, *(row.visible_from_sequence for row in manual)]
+            )
+            if any(row.visible_through_sequence is None for row in manual):
+                visible_through = None
+            elif visible_through is not None:
+                visible_through = max(
+                    [
+                        visible_through,
+                        *(int(row.visible_through_sequence) for row in manual),
+                    ]
+                )
+        access_by_participant[participant.id] = SequenceAccess(
+            visible_from=visible_from,
+            visible_through=visible_through,
+        )
+    return access_by_participant
+
+
 def assert_participant_can_send(
     db: Session,
     *,
@@ -473,6 +732,14 @@ def send_text_message(
     db.flush()
     conversation.last_message_sequence = sequence
     conversation.last_message_at = message.created_at or _utc_now()
+    participant.last_delivered_sequence = max(
+        int(participant.last_delivered_sequence or 0), sequence
+    )
+    participant.last_delivered_at = message.created_at or _utc_now()
+    participant.last_read_sequence = max(
+        int(participant.last_read_sequence or 0), sequence
+    )
+    participant.last_read_at = message.created_at or _utc_now()
     record_messaging_audit(
         db,
         school_id=conversation.school_id,
@@ -484,3 +751,72 @@ def send_text_message(
         request_correlation_id=request_correlation_id,
     )
     return message, False
+
+
+def acknowledge_messages(
+    db: Session,
+    *,
+    conversation: Conversation,
+    participant: ConversationParticipant,
+    event_type: str,
+    through_sequence: int,
+    client_ack_id: UUID,
+    occurred_at: datetime,
+    device_session_ref: str | None = None,
+) -> tuple[MessageReceiptEvent, bool]:
+    if event_type not in {"delivered", "read"}:
+        raise MessagingValidationError("Unsupported acknowledgement type")
+    if through_sequence < 0 or through_sequence > conversation.last_message_sequence:
+        raise MessagingValidationError("Acknowledgement sequence is invalid")
+    access = participant_sequence_access(
+        db, conversation=conversation, participant=participant
+    )
+    if through_sequence > 0 and not access.includes(through_sequence):
+        raise MessagingAccessDenied("Acknowledgement is outside the visible history")
+
+    existing = (
+        db.query(MessageReceiptEvent)
+        .filter(
+            MessageReceiptEvent.participant_id == participant.id,
+            MessageReceiptEvent.event_type == event_type,
+            MessageReceiptEvent.client_ack_id == client_ack_id,
+        )
+        .first()
+    )
+    if existing is not None:
+        if existing.through_sequence != through_sequence:
+            raise MessagingConflict(
+                "Client acknowledgement id was reused with a different sequence"
+            )
+        return existing, True
+
+    locked = (
+        db.query(ConversationParticipant)
+        .filter(ConversationParticipant.id == participant.id)
+        .with_for_update()
+        .one()
+    )
+    recorded_at = _utc_now()
+    if event_type == "read":
+        if through_sequence > int(locked.last_read_sequence or 0):
+            locked.last_read_sequence = through_sequence
+            locked.last_read_at = recorded_at
+        if through_sequence > int(locked.last_delivered_sequence or 0):
+            locked.last_delivered_sequence = through_sequence
+            locked.last_delivered_at = recorded_at
+    elif through_sequence > int(locked.last_delivered_sequence or 0):
+        locked.last_delivered_sequence = through_sequence
+        locked.last_delivered_at = recorded_at
+
+    event = MessageReceiptEvent(
+        conversation_id=conversation.id,
+        participant_id=participant.id,
+        event_type=event_type,
+        through_sequence=through_sequence,
+        client_ack_id=client_ack_id,
+        device_session_ref=device_session_ref,
+        occurred_at=occurred_at,
+    )
+    db.add(event)
+    db.flush()
+    return event, False

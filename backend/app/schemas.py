@@ -17,6 +17,7 @@ class UserPublic(BaseModel):
 class MeMembership(BaseModel):
     school_id: int
     school_name: str
+    membership_id: int
     role: str
 
 

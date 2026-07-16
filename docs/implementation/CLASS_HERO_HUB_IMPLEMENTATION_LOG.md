@@ -3910,3 +3910,44 @@ CHH now processes update photos server-side. It accepts JPEG/JPG, PNG, WEBP and 
 - Public APIs, inbox/search routes, CHH/FHH messaging UI, photos, final receipts,
   contact hours, notification dispatch, push, safeguarding UI, and retention workers
   remain unimplemented.
+
+## 2026-07-17 — S25c CHH text messaging APIs
+
+- Added disabled staff APIs at `/api/messaging/*` and CHH guardian APIs at
+  `/api/guardian/messaging/*` for inbox, unread counts, bounded recipient discovery,
+  create/find, detail, signed stable message pagination, idempotent text send, receipt
+  acknowledgement groundwork, and controlled conversation closure.
+- Added explicit actor context. School staff are bound to an active teacher/admin
+  `Membership`; overlapping roles require `X-Membership-Id`, now safely returned by
+  `/api/me`. CHH guardians are bound to a specific school and current `GuardianLink`.
+- Added actor/school/conversation-bound signed cursors, private/no-store responses,
+  UUID resource identifiers, no-email recipient DTOs, current-source revalidation,
+  late-guardian next-sequence access, shared guardian visibility, and read-only
+  assignment-expiry handling.
+- Sending remains one CHH transaction: conversation lock, sequence, message,
+  sender-cursor advance, and immutable audit. Duplicate client message UUIDs return the
+  committed row, supporting timeout reconciliation.
+- Validation:
+  - 26 focused API/core/prerequisite tests passed, covering feature flags, two schools,
+    shared guardians, guardian replies, assignment expiry, revocation, cursor
+    tampering/stability, idempotency, explicit multi-role context, cookie+CSRF, native
+    bearer behavior, and bounded inbox query count.
+  - Complete backend suite: **387 passed, 1 skipped, 1 failed**. The sole failure is
+    the unchanged pre-existing demo-seeder monkeypatch mismatch.
+- No Alembic migration was required for this slice; development remains at
+  `d3e4f5a6b7c8`.
+- Development backup/deployment:
+  - The first backup attempt exposed root-owned pgBackRest `archive.info` files from
+    earlier root-run backup commands. WAL archival failed safely before deployment.
+    Repository ownership was restored to `postgres`, the pending WAL segment was
+    archived, `pgbackrest check` passed, and future commands were run as `postgres`.
+  - Successful pre-deploy full backup: `20260716-211117F`.
+  - Only the CHH backend was rebuilt/restarted. Loopback API health, public CHH root,
+    and FHH loopback health passed.
+  - Runtime remained `MESSAGING_ENABLED=false`, with zero enabled school policies,
+    zero conversations, and zero messages. The only current development school remains
+    `pending_setup`, so staff route access also remains denied by existing school
+    status enforcement.
+- Staff/guardian messaging UI, FHH parent integration, photos, final receipt display,
+  contact hours, notification dispatch, push, safeguarding UI, and retention workers
+  remain unimplemented.

@@ -1,8 +1,9 @@
 # CHH/FHH Messaging v1 architecture and implementation plan
 
-**Status:** authoritative architecture and implementation plan; Slices 1–2 policy,
-lifecycle, and CHH core-record foundations implemented through 2026-07-17. Public
-messaging APIs, inboxes, and user messaging remain unimplemented.
+**Status:** authoritative architecture and implementation plan; Slices 1–3 policy,
+lifecycle, CHH core-record, and CHH text API foundations implemented through
+2026-07-17. Messaging remains disabled; staff/guardian inbox UI and FHH messaging
+integration remain unimplemented.
 
 **Audit date:** 2026-07-16
 
@@ -17,9 +18,11 @@ flags, the CHH school policy row/API, opaque school references, minimized FHH id
 lifecycle state, and durable unlink/deletion synchronization. Slice 2 provides the
 disabled CHH conversation/message record model, participant/access history, internal
 receipt cursor/evidence groundwork, immutable audit, and safe sequencing service. It
-does **not** provide public messaging APIs, photos, user-facing receipts, contact-hours
-scheduling, notification delivery, push, inbox routes, native deep links, or messaging
-UI.
+does not expose those records by itself. Slice 3 provides disabled CHH staff and
+CHH-guardian text APIs with explicit actor context, signed pagination, unread counts,
+idempotent sends, receipt acknowledgement groundwork, and read-only closure handling.
+It does **not** provide photos, user-facing final receipts, contact-hours scheduling,
+notification delivery, push, FHH parent messaging, native deep links, or messaging UI.
 
 ## 1. Executive recommendation
 
@@ -1999,6 +2002,31 @@ Each slice is separately deployable/testable. File lists are likely touch points
 ### Slice 3 — CHH messaging APIs, pagination, unread, text send
 
 **Objective:** staff and CHH guardian text APIs.
+
+**Implementation status (2026-07-17): implemented as S25c.**
+
+- Added `/api/messaging/*` for school-admin/teacher inbox, unread counts, bounded
+  recipient discovery, create/find, detail, stable message pagination, idempotent text
+  send, batched delivery/read acknowledgement groundwork, and controlled admin
+  closure.
+- Added matching `/api/guardian/messaging/*` routes. Every request requires an
+  explicit school context and every conversation is authorized through the individual
+  guardian participant plus a current `GuardianLink`; broad guardian-dashboard
+  aggregation is not reused.
+- Staff requests bind to an explicit `Membership`. Users with overlapping teacher and
+  administrator roles must send `X-Membership-Id`; `/api/me` now returns the safe
+  membership ID needed by clients. Cookie-authenticated writes retain CSRF enforcement
+  and bearer-authenticated native writes retain the existing bearer behavior.
+- Conversation and message API identifiers are opaque UUIDs. Inbox and message cursors
+  are signed, actor/school/conversation-bound, expiry-limited, and reject tampering.
+  Message pages remain stable while new messages arrive.
+- Shared student/staff conversations include every currently authorized CHH/FHH
+  guardian participant. Guardians authorized later start at the next sequence by
+  default. Current source state is revalidated in bounded batches; assignment expiry
+  closes the old conversation read-only and prevents former-teacher sends.
+- All responses use explicit allowlists and private/no-store headers. Recipient search
+  omits emails and FHH identifiers. The live global and school flags remain disabled,
+  so deployed routes are not available to users.
 
 - Files: new `backend/app/routes/messaging.py`, service/query modules, `backend/app/main.py`, tests.
 - API: inbox, recipients, find/create, messages, send, receipts internal but receipt UI off.
