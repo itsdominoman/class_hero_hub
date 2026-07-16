@@ -3867,3 +3867,46 @@ CHH now processes update photos server-side. It accepts JPEG/JPG, PNG, WEBP and 
 - Conversations, participants, messages, photos, receipts, contact-hours scheduling,
   notification delivery, push, inbox routes, native deep links, and messaging UI
   remain unimplemented.
+
+## 2026-07-17 — S25b Messaging core schema and access history
+
+- Added the disabled CHH-authoritative record foundation for `student_staff`,
+  `staff_direct`, and `guardian_direct` conversations:
+  `conversations`, `conversation_participants`, `conversation_access_grants`,
+  immutable `messages`, internal `message_receipt_events` groundwork, and immutable
+  `messaging_audit_events`.
+- Added opaque public UUIDs, strict school tenancy, exact conversation/participant
+  shape checks, active-thread partial uniqueness, per-conversation monotonic sequence,
+  sender/client UUID idempotency, source/access indexes, tombstone-ready fields, and
+  PostgreSQL append-only/immutability triggers.
+- Reused the minimized Slice 1 `fhh_messaging_identities` registry for future external
+  FHH participants. No family ID, FHH parent database ID, email, device token, or home
+  data was introduced.
+- Added the core access service. Historical grants never authorize by themselves:
+  current membership, assignment/roster, guardian-link, or FHH link/identity state is
+  revalidated. `staff_direct` teacher access uses a current school membership;
+  student-related teacher access remains assignment-backed.
+- Added atomic text-send groundwork with conversation-row locking, strict sequence
+  allocation, immutable attribution snapshots, duplicate-send reconciliation, and
+  audit insertion. It is not exposed by a public route in this slice.
+- Alembic revision: `d3e4f5a6b7c8_add_messaging_core.py`.
+- Validation:
+  - 18 focused SQLite core/prerequisite tests passed.
+  - Disposable PostgreSQL fresh upgrade, downgrade to `c2d3e4f5a6b7`, and re-upgrade
+    to head passed.
+  - A real two-session PostgreSQL concurrent-send test passed with sequences `[1, 2]`.
+  - Complete backend suite: **379 passed, 1 skipped, 1 failed**. The sole failure is
+    the unchanged pre-existing
+    `test_demo_data_seeder.py::test_forced_failure_rolls_back_cleanly` monkeypatch
+    signature mismatch documented at S25a.
+- Development backup/migration/deployment:
+  - CHH pgBackRest full backup `20260716-204232F` completed before migration.
+  - Development Alembic advanced from `c2d3e4f5a6b7` to `d3e4f5a6b7c8`.
+  - Only the CHH backend image/service was rebuilt and restarted.
+  - Loopback API health and public CHH root passed. FHH loopback health remained
+    healthy; its public root continued returning the existing informational `403`.
+  - Runtime inspection confirmed `MESSAGING_ENABLED=false`, zero enabled school
+    policies, zero conversations/messages, and zero public messaging routes.
+- Public APIs, inbox/search routes, CHH/FHH messaging UI, photos, final receipts,
+  contact hours, notification dispatch, push, safeguarding UI, and retention workers
+  remain unimplemented.

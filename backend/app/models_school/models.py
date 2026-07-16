@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, Uuid, event
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, Uuid, event, inspect as sa_inspect, text as sql_text
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -647,6 +647,475 @@ class FhhMessagingLifecycleEvent(Base):
         CheckConstraint("outcome IN ('applied', 'stale_ignored')", name="ck_fhh_messaging_lifecycle_events_outcome"),
         Index("ix_fhh_messaging_lifecycle_events_link_applied", "fhh_link_id", "applied_at"),
     )
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    public_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    branch_campus_id = Column(Integer, ForeignKey("branch_campuses.id", ondelete="RESTRICT"), nullable=True)
+    kind = Column(String(24), nullable=False)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="RESTRICT"), nullable=True)
+    primary_staff_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
+    staff_membership_low_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
+    staff_membership_high_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
+    internal_guardian_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    external_guardian_participant_id = Column(
+        Integer,
+        ForeignKey("fhh_messaging_identities.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    context_class_section_id = Column(Integer, ForeignKey("class_sections.id", ondelete="SET NULL"), nullable=True)
+    context_subject_group_id = Column(Integer, ForeignKey("subject_groups.id", ondelete="SET NULL"), nullable=True)
+    context_label = Column(String(200), nullable=True)
+    context_label_ar = Column(String(200), nullable=True)
+    status = Column(String(32), nullable=False, default="active", server_default="active")
+    last_message_sequence = Column(BigInteger, nullable=False, default=0, server_default="0")
+    last_message_at = Column(DateTime(timezone=True), nullable=True)
+    created_by_participant_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey(
+            "conversation_participants.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_conversations_created_by_participant",
+        ),
+        nullable=True,
+    )
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    closed_reason = Column(String(64), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "(kind = 'student_staff' AND student_id IS NOT NULL AND primary_staff_membership_id IS NOT NULL "
+            "AND staff_membership_low_id IS NULL AND staff_membership_high_id IS NULL "
+            "AND internal_guardian_user_id IS NULL AND external_guardian_participant_id IS NULL) OR "
+            "(kind = 'staff_direct' AND student_id IS NULL AND primary_staff_membership_id IS NULL "
+            "AND staff_membership_low_id IS NOT NULL AND staff_membership_high_id IS NOT NULL "
+            "AND staff_membership_low_id < staff_membership_high_id "
+            "AND internal_guardian_user_id IS NULL AND external_guardian_participant_id IS NULL) OR "
+            "(kind = 'guardian_direct' AND primary_staff_membership_id IS NOT NULL "
+            "AND staff_membership_low_id IS NULL AND staff_membership_high_id IS NULL "
+            "AND ((internal_guardian_user_id IS NOT NULL AND external_guardian_participant_id IS NULL) "
+            "OR (internal_guardian_user_id IS NULL AND external_guardian_participant_id IS NOT NULL)))",
+            name="ck_conversations_kind_shape",
+        ),
+        CheckConstraint(
+            "status IN ('active', 'closed_assignment_ended', 'closed_student_archived', "
+            "'closed_restricted', 'archived')",
+            name="ck_conversations_status",
+        ),
+        CheckConstraint("last_message_sequence >= 0", name="ck_conversations_last_sequence"),
+        CheckConstraint(
+            "(context_class_section_id IS NULL OR context_subject_group_id IS NULL)",
+            name="ck_conversations_single_context",
+        ),
+        Index(
+            "uq_conversations_active_student_staff",
+            "school_id",
+            "student_id",
+            "primary_staff_membership_id",
+            unique=True,
+            postgresql_where=sql_text("kind = 'student_staff' AND status = 'active'"),
+            sqlite_where=sql_text("kind = 'student_staff' AND status = 'active'"),
+        ),
+        Index(
+            "uq_conversations_active_staff_direct",
+            "school_id",
+            "staff_membership_low_id",
+            "staff_membership_high_id",
+            unique=True,
+            postgresql_where=sql_text("kind = 'staff_direct' AND status = 'active'"),
+            sqlite_where=sql_text("kind = 'staff_direct' AND status = 'active'"),
+        ),
+        Index(
+            "uq_conversations_active_guardian_direct_internal_student",
+            "school_id",
+            "primary_staff_membership_id",
+            "internal_guardian_user_id",
+            "student_id",
+            unique=True,
+            postgresql_where=sql_text(
+                "kind = 'guardian_direct' AND status = 'active' "
+                "AND internal_guardian_user_id IS NOT NULL AND student_id IS NOT NULL"
+            ),
+            sqlite_where=sql_text(
+                "kind = 'guardian_direct' AND status = 'active' "
+                "AND internal_guardian_user_id IS NOT NULL AND student_id IS NOT NULL"
+            ),
+        ),
+        Index(
+            "uq_conversations_active_guardian_direct_internal_general",
+            "school_id",
+            "primary_staff_membership_id",
+            "internal_guardian_user_id",
+            unique=True,
+            postgresql_where=sql_text(
+                "kind = 'guardian_direct' AND status = 'active' "
+                "AND internal_guardian_user_id IS NOT NULL AND student_id IS NULL"
+            ),
+            sqlite_where=sql_text(
+                "kind = 'guardian_direct' AND status = 'active' "
+                "AND internal_guardian_user_id IS NOT NULL AND student_id IS NULL"
+            ),
+        ),
+        Index(
+            "uq_conversations_active_guardian_direct_external_student",
+            "school_id",
+            "primary_staff_membership_id",
+            "external_guardian_participant_id",
+            "student_id",
+            unique=True,
+            postgresql_where=sql_text(
+                "kind = 'guardian_direct' AND status = 'active' "
+                "AND external_guardian_participant_id IS NOT NULL AND student_id IS NOT NULL"
+            ),
+            sqlite_where=sql_text(
+                "kind = 'guardian_direct' AND status = 'active' "
+                "AND external_guardian_participant_id IS NOT NULL AND student_id IS NOT NULL"
+            ),
+        ),
+        Index(
+            "uq_conversations_active_guardian_direct_external_general",
+            "school_id",
+            "primary_staff_membership_id",
+            "external_guardian_participant_id",
+            unique=True,
+            postgresql_where=sql_text(
+                "kind = 'guardian_direct' AND status = 'active' "
+                "AND external_guardian_participant_id IS NOT NULL AND student_id IS NULL"
+            ),
+            sqlite_where=sql_text(
+                "kind = 'guardian_direct' AND status = 'active' "
+                "AND external_guardian_participant_id IS NOT NULL AND student_id IS NULL"
+            ),
+        ),
+        Index("ix_conversations_school_status_activity", "school_id", "status", "last_message_at", "id"),
+        Index("ix_conversations_school_student_status", "school_id", "student_id", "status"),
+        Index(
+            "ix_conversations_school_primary_staff_activity",
+            "school_id",
+            "primary_staff_membership_id",
+            "status",
+            "last_message_at",
+        ),
+    )
+
+
+class ConversationParticipant(Base):
+    __tablename__ = "conversation_participants"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    conversation_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("conversations.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    participant_kind = Column(String(24), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
+    external_participant_id = Column(
+        Integer,
+        ForeignKey("fhh_messaging_identities.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    side = Column(String(16), nullable=False)
+    display_name_snapshot = Column(String(200), nullable=False)
+    joined_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    left_at = Column(DateTime(timezone=True), nullable=True)
+    last_delivered_sequence = Column(BigInteger, nullable=False, default=0, server_default="0")
+    last_delivered_at = Column(DateTime(timezone=True), nullable=True)
+    last_read_sequence = Column(BigInteger, nullable=False, default=0, server_default="0")
+    last_read_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "(participant_kind = 'staff' AND user_id IS NOT NULL AND membership_id IS NOT NULL "
+            "AND external_participant_id IS NULL AND side = 'staff') OR "
+            "(participant_kind = 'chh_guardian' AND user_id IS NOT NULL AND membership_id IS NULL "
+            "AND external_participant_id IS NULL AND side = 'guardian') OR "
+            "(participant_kind = 'fhh_parent' AND user_id IS NULL AND membership_id IS NULL "
+            "AND external_participant_id IS NOT NULL AND side = 'guardian')",
+            name="ck_conversation_participants_actor_shape",
+        ),
+        CheckConstraint("last_delivered_sequence >= 0", name="ck_conversation_participants_delivered"),
+        CheckConstraint("last_read_sequence >= 0", name="ck_conversation_participants_read"),
+        Index(
+            "uq_conversation_participants_active_staff",
+            "conversation_id",
+            "membership_id",
+            unique=True,
+            postgresql_where=sql_text("participant_kind = 'staff' AND left_at IS NULL"),
+            sqlite_where=sql_text("participant_kind = 'staff' AND left_at IS NULL"),
+        ),
+        Index(
+            "uq_conversation_participants_active_chh_guardian",
+            "conversation_id",
+            "user_id",
+            unique=True,
+            postgresql_where=sql_text("participant_kind = 'chh_guardian' AND left_at IS NULL"),
+            sqlite_where=sql_text("participant_kind = 'chh_guardian' AND left_at IS NULL"),
+        ),
+        Index(
+            "uq_conversation_participants_active_fhh_parent",
+            "conversation_id",
+            "external_participant_id",
+            unique=True,
+            postgresql_where=sql_text("participant_kind = 'fhh_parent' AND left_at IS NULL"),
+            sqlite_where=sql_text("participant_kind = 'fhh_parent' AND left_at IS NULL"),
+        ),
+        Index("ix_conversation_participants_conversation_side", "conversation_id", "side", "left_at"),
+    )
+
+
+class ConversationAccessGrant(Base):
+    __tablename__ = "conversation_access_grants"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    conversation_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("conversations.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    participant_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("conversation_participants.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    source_type = Column(String(32), nullable=False)
+    staff_assignment_id = Column(Integer, ForeignKey("staff_assignments.id", ondelete="RESTRICT"), nullable=True)
+    membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
+    guardian_link_id = Column(Integer, ForeignKey("guardian_links.id", ondelete="RESTRICT"), nullable=True)
+    fhh_link_id = Column(Integer, ForeignKey("fhh_links.id", ondelete="RESTRICT"), nullable=True)
+    valid_from = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    valid_to = Column(DateTime(timezone=True), nullable=True)
+    visible_from_sequence = Column(BigInteger, nullable=False, default=1, server_default="1")
+    visible_through_sequence = Column(BigInteger, nullable=True)
+    grant_reason = Column(String(64), nullable=False)
+    granted_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
+    revoke_reason = Column(String(64), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "(source_type = 'staff_assignment' AND staff_assignment_id IS NOT NULL "
+            "AND membership_id IS NULL AND guardian_link_id IS NULL AND fhh_link_id IS NULL) OR "
+            "(source_type = 'school_admin_membership' AND staff_assignment_id IS NULL "
+            "AND membership_id IS NOT NULL AND guardian_link_id IS NULL AND fhh_link_id IS NULL) OR "
+            "(source_type = 'guardian_link' AND staff_assignment_id IS NULL "
+            "AND membership_id IS NULL AND guardian_link_id IS NOT NULL AND fhh_link_id IS NULL) OR "
+            "(source_type = 'fhh_link' AND staff_assignment_id IS NULL "
+            "AND membership_id IS NULL AND guardian_link_id IS NULL AND fhh_link_id IS NOT NULL) OR "
+            "(source_type = 'manual_history_grant' AND staff_assignment_id IS NULL "
+            "AND membership_id IS NULL AND guardian_link_id IS NULL AND fhh_link_id IS NULL "
+            "AND granted_by_membership_id IS NOT NULL)",
+            name="ck_conversation_access_grants_source_shape",
+        ),
+        CheckConstraint("visible_from_sequence >= 1", name="ck_conversation_access_grants_visible_from"),
+        CheckConstraint(
+            "visible_through_sequence IS NULL OR visible_through_sequence >= visible_from_sequence",
+            name="ck_conversation_access_grants_visible_range",
+        ),
+        CheckConstraint("valid_to IS NULL OR valid_to >= valid_from", name="ck_conversation_access_grants_valid_range"),
+        CheckConstraint(
+            "(revoked_at IS NULL AND revoke_reason IS NULL AND revoked_by_membership_id IS NULL) OR "
+            "(revoked_at IS NOT NULL AND revoke_reason IS NOT NULL)",
+            name="ck_conversation_access_grants_revoke_shape",
+        ),
+        Index(
+            "ix_conversation_access_grants_participant_validity",
+            "conversation_id",
+            "participant_id",
+            "valid_from",
+            "valid_to",
+        ),
+        Index("ix_conversation_access_grants_staff_assignment", "staff_assignment_id", "revoked_at"),
+        Index("ix_conversation_access_grants_membership", "membership_id", "revoked_at"),
+        Index("ix_conversation_access_grants_guardian_link", "guardian_link_id", "revoked_at"),
+        Index("ix_conversation_access_grants_fhh_link", "fhh_link_id", "revoked_at"),
+    )
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    public_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    conversation_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("conversations.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    sequence = Column(BigInteger, nullable=False)
+    sender_participant_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("conversation_participants.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    sender_display_name_snapshot = Column(String(200), nullable=False)
+    client_message_id = Column(Uuid(as_uuid=True), nullable=False)
+    body = Column(Text, nullable=True)
+    state = Column(String(16), nullable=False, default="active", server_default="active")
+    urgent = Column(Boolean, nullable=False, default=False, server_default="false")
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    tombstoned_at = Column(DateTime(timezone=True), nullable=True)
+    tombstoned_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
+    tombstone_reason = Column(String(160), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("conversation_id", "sequence", name="uq_messages_conversation_sequence"),
+        UniqueConstraint(
+            "conversation_id",
+            "sender_participant_id",
+            "client_message_id",
+            name="uq_messages_sender_client_id",
+        ),
+        CheckConstraint("sequence >= 1", name="ck_messages_sequence"),
+        CheckConstraint(
+            "body IS NULL OR (length(body) BETWEEN 1 AND 10000)",
+            name="ck_messages_body_length",
+        ),
+        CheckConstraint("state IN ('active', 'tombstoned')", name="ck_messages_state"),
+        CheckConstraint(
+            "(state = 'active' AND tombstoned_at IS NULL AND tombstoned_by_membership_id IS NULL "
+            "AND tombstone_reason IS NULL) OR "
+            "(state = 'tombstoned' AND tombstoned_at IS NOT NULL AND tombstone_reason IS NOT NULL)",
+            name="ck_messages_tombstone_shape",
+        ),
+        Index("ix_messages_conversation_page", "conversation_id", "sequence"),
+        Index("ix_messages_school_created", "school_id", "created_at", "id"),
+    )
+
+
+class MessageReceiptEvent(Base):
+    __tablename__ = "message_receipt_events"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    conversation_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("conversations.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    participant_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("conversation_participants.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    event_type = Column(String(16), nullable=False)
+    through_sequence = Column(BigInteger, nullable=False)
+    client_ack_id = Column(Uuid(as_uuid=True), nullable=False)
+    device_session_ref = Column(String(96), nullable=True)
+    occurred_at = Column(DateTime(timezone=True), nullable=False)
+    recorded_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint(
+            "participant_id",
+            "event_type",
+            "client_ack_id",
+            name="uq_message_receipt_events_client_ack",
+        ),
+        CheckConstraint("event_type IN ('delivered', 'read')", name="ck_message_receipt_events_type"),
+        CheckConstraint("through_sequence >= 0", name="ck_message_receipt_events_sequence"),
+        Index("ix_message_receipt_events_conversation_recorded", "conversation_id", "recorded_at", "id"),
+    )
+
+
+class MessagingAuditEvent(Base):
+    __tablename__ = "messaging_audit_events"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    event_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    actor_kind = Column(String(24), nullable=False)
+    actor_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    actor_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
+    actor_external_participant_id = Column(
+        Integer,
+        ForeignKey("fhh_messaging_identities.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    event_type = Column(String(80), nullable=False)
+    conversation_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("conversations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    message_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("messages.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    participant_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("conversation_participants.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    detail = Column(JSON, nullable=False, default=dict)
+    request_correlation_id = Column(String(96), nullable=True)
+    occurred_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint(
+            "(actor_kind = 'system' AND actor_user_id IS NULL AND actor_membership_id IS NULL "
+            "AND actor_external_participant_id IS NULL) OR "
+            "(actor_kind IN ('staff', 'safeguarding_admin') AND actor_user_id IS NOT NULL "
+            "AND actor_membership_id IS NOT NULL AND actor_external_participant_id IS NULL) OR "
+            "(actor_kind = 'chh_guardian' AND actor_user_id IS NOT NULL "
+            "AND actor_membership_id IS NULL AND actor_external_participant_id IS NULL) OR "
+            "(actor_kind = 'fhh_parent' AND actor_user_id IS NULL "
+            "AND actor_membership_id IS NULL AND actor_external_participant_id IS NOT NULL)",
+            name="ck_messaging_audit_events_actor_shape",
+        ),
+        Index("ix_messaging_audit_events_school_occurred", "school_id", "occurred_at", "id"),
+        Index("ix_messaging_audit_events_type_occurred", "event_type", "occurred_at", "id"),
+    )
+
+
+@event.listens_for(Message, "before_update", propagate=True)
+def _prevent_message_immutable_update(mapper, connection, target):
+    state = sa_inspect(target)
+    immutable_fields = (
+        "public_id",
+        "school_id",
+        "conversation_id",
+        "sequence",
+        "sender_participant_id",
+        "sender_display_name_snapshot",
+        "client_message_id",
+        "body",
+        "urgent",
+        "created_at",
+    )
+    if any(state.attrs[field].history.has_changes() for field in immutable_fields):
+        raise ValueError("Message attribution and content are immutable")
+
+
+@event.listens_for(MessageReceiptEvent, "before_update", propagate=True)
+@event.listens_for(MessagingAuditEvent, "before_update", propagate=True)
+def _prevent_messaging_append_only_update(mapper, connection, target):
+    raise ValueError("Messaging evidence rows are append-only")
+
+
+@event.listens_for(MessageReceiptEvent, "before_delete", propagate=True)
+@event.listens_for(MessagingAuditEvent, "before_delete", propagate=True)
+@event.listens_for(Message, "before_delete", propagate=True)
+def _prevent_messaging_append_only_delete(mapper, connection, target):
+    raise ValueError("Messaging evidence rows are append-only")
 
 
 class BehaviourCategory(Base):

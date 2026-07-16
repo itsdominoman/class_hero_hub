@@ -1,6 +1,8 @@
 # CHH/FHH Messaging v1 architecture and implementation plan
 
-**Status:** authoritative architecture and implementation plan; Slice 1 policy/lifecycle prerequisites implemented on 2026-07-16, while Messaging v1 conversations and user features remain unimplemented
+**Status:** authoritative architecture and implementation plan; Slices 1–2 policy,
+lifecycle, and CHH core-record foundations implemented through 2026-07-17. Public
+messaging APIs, inboxes, and user messaging remain unimplemented.
 
 **Audit date:** 2026-07-16
 
@@ -10,11 +12,14 @@
 **Supersedes for messaging:** `docs/CLASS_HERO_HUB_MASTER_BLUEPRINT.md` §9/§19/S15 and any earlier statement that Messaging v1 is plain-text-only, has one `(student × teacher)` table without participant/access history, uses best-effort in-request notification delivery, or has no photo, contact-hours, receipt, safeguarding, FHH-parent-identity, or durable-outbox requirement.
 
 This is the primary cross-repository source of truth for Messaging v1. It separates
-verified current code from recommended architecture. Slice 1 now provides disabled
-feature flags, the CHH school policy row/API, opaque school references, minimized FHH
-identity lifecycle state, and durable unlink/deletion synchronization. It does **not**
-provide conversations, messages, photos, receipts, contact-hours scheduling,
-notification delivery, push, inbox routes, native deep links, or messaging UI.
+verified current code from recommended architecture. Slice 1 provides disabled feature
+flags, the CHH school policy row/API, opaque school references, minimized FHH identity
+lifecycle state, and durable unlink/deletion synchronization. Slice 2 provides the
+disabled CHH conversation/message record model, participant/access history, internal
+receipt cursor/evidence groundwork, immutable audit, and safe sequencing service. It
+does **not** provide public messaging APIs, photos, user-facing receipts, contact-hours
+scheduling, notification delivery, push, inbox routes, native deep links, or messaging
+UI.
 
 ## 1. Executive recommendation
 
@@ -1961,6 +1966,28 @@ Each slice is separately deployable/testable. File lists are likely touch points
 
 **Objective:** create conversations, participants, grants, messages, policies, immutable messaging audit without public UI.
 
+**Implementation status (2026-07-17): implemented as S25b.**
+
+- CHH migration `d3e4f5a6b7c8` adds `conversations`,
+  `conversation_participants`, `conversation_access_grants`, `messages`,
+  `message_receipt_events`, and `messaging_audit_events`, including opaque public UUIDs,
+  conversation-kind checks, partial current-thread uniqueness, actor-shape checks,
+  message idempotency/sequence constraints, source indexes, and append-only database
+  guards.
+- The already implemented minimized `fhh_messaging_identities` table is used as the
+  plan's external-participant registry rather than duplicating the same school-scoped
+  identity in a second table.
+- `backend/app/messaging_service.py` revalidates current memberships, assignments,
+  guardian links, and FHH link/identity grants in addition to the historical ledger.
+  The approved `school_admin_membership` source also represents an ordinary current
+  teacher membership only in `staff_direct`; student access remains assignment-backed.
+- Sending locks the conversation row, allocates a monotonic sequence, preserves an
+  immutable sender snapshot, reconciles duplicate client UUIDs, and writes message
+  audit evidence in the same transaction.
+- PostgreSQL fresh upgrade, downgrade/re-upgrade, and two-session concurrent send
+  validation passed. Messaging remains globally and per-school disabled; no public
+  route, UI, media, notification outbox, contact-hours logic, or push work was added.
+
 - Files: `backend/app/models_school/models.py`, `backend/app/schemas.py`, new messaging service modules, Alembic, model/constraint tests.
 - Schema: core tables through messages/receipt events; feature disabled.
 - Authorization: reusable dynamic grant resolver; no route hand-filtering.
@@ -2157,9 +2184,11 @@ CHH:
 - `docs/DOCS_CLEANUP_REPORT.md` — current documentation authority/index note.
 - `docs/planning/2026-07-messaging-v1-architecture-plan.md` — Slice 1 implementation
   status, migrations, lifecycle protocol, retry behavior, and remaining non-implemented
-  scope recorded.
+  scope recorded; later updated with the Slice 2 core-schema implementation and its
+  plan-compatible live-code adjustments.
 - `docs/implementation/CLASS_HERO_HUB_IMPLEMENTATION_LOG.md` — S25a implementation,
-  validation, deployment, and the pre-existing unrelated full-suite failure recorded.
+  validation, deployment, and the pre-existing unrelated full-suite failure recorded;
+  later updated with S25b schema, tests, backup, migration, and deployment evidence.
 
 FHH:
 
