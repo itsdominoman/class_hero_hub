@@ -141,8 +141,10 @@ FHH Playwright coverage verifies:
 - empty/loading/partial/offline/closed/read-only/revoked states;
 - no protected thread body after link revocation.
 
-Frontend state remains in memory only. Route teardown, logout, or revocation clears
-protected message state; it is not written to local storage or IndexedDB.
+Protected message state remains in memory only. Route teardown, logout, or revocation
+clears it; no inbox row, participant identity, draft or message body is written to
+local storage or IndexedDB. S25j adds only a versioned, content-free disclosure-
+acknowledgement preference keyed by authenticated account ID.
 
 ## Validation and release gate
 
@@ -291,6 +293,33 @@ camera/auth checks remain mandatory before sign-off.
 
 S25i adds no messaging photos, final receipt UI, contact-hours worker, notification
 delivery/push, safeguarding administration UI, retention worker, or CHH guardian UI.
+
+## S25j compact conversation header and disclosure
+
+S25j is a frontend-only presentation change. Student conversations now use a compact
+two-line header: `Student · grade/class`, then current staff context and active guardian
+count, such as `Homeroom · 3 guardians`. The main header no longer repeats the full
+guardian-name list.
+
+The former separate guardian and safeguarding banners are one EN/AR combined panel.
+It explains shared-guardian visibility and authorized school safeguarding/
+administrative review, and exposes the full participant list, relationship and active
+status. The first eligible conversation opens the panel until the user chooses **I
+understand**. Thereafter a focusable shield button reopens it. The acknowledgement is
+a versioned boolean local preference keyed by `/me` account ID; no participant or
+message content is persisted, and different accounts sharing a browser do not share
+the acknowledgement.
+
+Focused validation passed 6 messaging presentation/state/Back tests, 1,147-key EN/AR
+parity, clean Svelte checking, the production frontend build, and all 6 focused
+Messaging Playwright flows. Browser coverage verifies the compact header, combined
+notice, full details, acknowledgement, reload persistence, account isolation, Arabic
+RTL, optimistic send, polling/draft preservation, Android layout/Back behavior and
+revocation safety. Deployment rebuilt only the CHH frontend; no backend, migration,
+database, configuration or APK action was included.
+
+S25j adds no messaging photos, final receipt UI, contact-hours worker, notification
+delivery/push, safeguarding administration UI or retention worker.
 
 ## Operator diagnostics
 

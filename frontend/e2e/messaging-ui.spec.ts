@@ -25,7 +25,8 @@ const conversation = {
     grade_label_ar: 'الروضة الأولى'
   },
   context: { label: 'Class 4A', label_ar: 'الصف ٤ أ' },
-  participants: ['Aisha Al Balushi'],
+  staff_context: { relationship: 'homeroom_teacher', subjects: [] },
+  participants: ['Aisha Al Balushi', 'Fatma Al Balushi'],
   last_message: {
     id: existingMessageId,
     sequence: 1,
@@ -46,11 +47,11 @@ const conversation = {
   }
 };
 
-async function mockSession(page: Page) {
+async function mockSession(page: Page, accountId = 5) {
   await page.route('**/api/me', async (route) => {
     await route.fulfill({
       json: {
-        id: 5,
+        id: accountId,
         name: 'Teacher One',
         is_platform_admin: false,
         memberships: [membership]
@@ -98,7 +99,8 @@ async function mockEnabledMessaging(
           ...threadConversation,
           participant_details: [
             { kind: 'staff', side: 'staff', display_name: 'Teacher One', active: true },
-            { kind: 'chh_guardian', side: 'guardian', display_name: 'Aisha Al Balushi', relationship: 'mother', active: true }
+            { kind: 'chh_guardian', side: 'guardian', display_name: 'Aisha Al Balushi', relationship: 'mother', active: true },
+            { kind: 'chh_guardian', side: 'guardian', display_name: 'Fatma Al Balushi', relationship: 'guardian', active: true }
           ],
           shared_guardian_visibility: true,
           safeguarding_disclosure: true
@@ -193,8 +195,19 @@ test('deep link loads the staff thread and reconciles a stable optimistic send',
   await page.goto(`/messages?conversation=${conversationId}`);
 
   await expect(page.getByRole('heading', { name: 'Mariam Al Harthy · KG1A' })).toBeVisible();
+  await expect(page.getByText('Homeroom · 2 guardians', { exact: true })).toBeVisible();
   const thread = page.locator('section[aria-label*="Mariam Al Harthy"]');
-  await expect(thread.getByText('Aisha Al Balushi', { exact: true })).toBeVisible();
+  const notice = page.getByTestId('conversation-information-panel');
+  await expect(notice.getByRole('heading', { name: 'Conversation visibility and safeguarding' })).toBeVisible();
+  await expect(notice.getByText('All currently authorized guardians for this student share this conversation.')).toBeVisible();
+  await expect(notice.getByText(/School administrators may review school communications/)).toBeVisible();
+  await expect(notice.getByText('Aisha Al Balushi · Mother', { exact: true })).toBeVisible();
+  await expect(notice.getByText('Fatma Al Balushi · Guardian', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'I understand' }).click();
+  await expect(notice).toHaveCount(0);
+  const informationButton = page.getByRole('button', { name: 'Conversation information' });
+  await expect(informationButton).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('chh.messaging.conversation-notice.s25j.user.5'))).toBe('acknowledged');
   await expect(thread.getByText('Aisha Al Balushi · Mother')).toBeVisible();
   await expect(thread.getByText('Please review the homework')).toBeVisible();
 
@@ -203,6 +216,17 @@ test('deep link loads the staff thread and reconciles a stable optimistic send',
   await composer.press('Control+Enter');
   await expect(thread.getByText('Thank you — I will follow up.')).toBeVisible();
   await expect(thread.getByText('Failed')).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.getByTestId('conversation-information-panel')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Conversation information' }).click();
+  await expect(page.getByTestId('conversation-information-panel').getByText('Fatma Al Balushi · Guardian', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+
+  await page.unroute('**/api/me');
+  await mockSession(page, 6);
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'I understand' })).toBeVisible();
 });
 
 test('resume refresh appends messages without disturbing draft focus, selection, or scroll intent', async ({ page }) => {
@@ -352,6 +376,8 @@ test('mobile Arabic layout preserves RTL chrome, mixed content, and safe back na
 
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   await expect(page.getByRole('heading', { name: 'Mariam Al Harthy' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'رؤية المحادثة وحماية الطلبة' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'فهمت' })).toBeVisible();
   const thread = page.locator('section[aria-label*="Mariam Al Harthy"]');
   await expect(thread.getByText('Please review the homework')).toHaveAttribute('dir', 'auto');
   await page.getByRole('button', { name: 'العودة إلى صندوق الوارد' }).click();

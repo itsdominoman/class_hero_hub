@@ -1,4 +1,4 @@
-import type { ConversationSummary, MessagingStudent } from './types';
+import type { ConversationDetail, ConversationSummary, MessagingStudent, StaffContext } from './types';
 
 export function studentAcademicLabel(
   student: Pick<MessagingStudent, 'class_label' | 'class_label_ar' | 'grade_label' | 'grade_label_ar'> | null,
@@ -26,6 +26,33 @@ export function conversationSubtitle(conversation: ConversationSummary, arabic =
   const context = (arabic ? conversation.context.label_ar : conversation.context.label)?.trim();
   const participants = conversation.participants.join(', ');
   return [participants, conversation.student ? '' : context].filter(Boolean).join(' · ');
+}
+
+export function staffContextLabel(
+  context: StaffContext | null | undefined,
+  arabic: boolean,
+  labels: {
+    administration: string;
+    homeroom: string;
+    teacher: string;
+    staff: string;
+  }
+): string {
+  if (!context) return '';
+  if (context.relationship === 'school_administration') return labels.administration;
+  if (context.relationship === 'homeroom_teacher') return labels.homeroom;
+  const subjects = context.subjects
+    .map((subject) => (arabic ? subject.name_ar || subject.name : subject.name || subject.name_ar))
+    .filter((name): name is string => Boolean(name));
+  if (subjects.length) return subjects.join(', ');
+  return context.relationship === 'subject_teacher' ? labels.teacher : labels.staff;
+}
+
+export function activeGuardianCount(conversation: ConversationDetail): number {
+  const participantCount = conversation.participant_details.filter(
+    (participant) => participant.side === 'guardian' && participant.active
+  ).length;
+  return participantCount || (conversation.student ? conversation.participants.filter(Boolean).length : 0);
 }
 
 export function filterConversations(

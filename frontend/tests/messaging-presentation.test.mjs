@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  activeGuardianCount,
   conversationSubtitle,
   conversationTitle,
-  filterConversations
+  filterConversations,
+  staffContextLabel
 } from '../src/lib/messaging/presentation.ts';
 import { highestServerSequence, mergeIncomingMessages } from '../src/lib/messaging/state.ts';
 import { chooseNativeBackAction } from '../src/lib/native/back-policy.ts';
@@ -47,6 +49,33 @@ test('conversation presentation preserves explicit student and participant conte
   assert.equal(conversationTitle(baseConversation), 'Mariam Al Harthy · KG1A');
   assert.equal(conversationTitle(baseConversation, true), 'Mariam Al Harthy · الروضة الأولى أ');
   assert.equal(conversationSubtitle(baseConversation), 'Aisha Al Balushi');
+});
+
+test('compact conversation context uses staff assignment and active guardian count', () => {
+  assert.equal(staffContextLabel(
+    { relationship: 'homeroom_teacher', subjects: [] },
+    false,
+    { administration: 'Administration', homeroom: 'Homeroom', teacher: 'Teacher', staff: 'Staff' }
+  ), 'Homeroom');
+  assert.equal(staffContextLabel(
+    {
+      relationship: 'subject_teacher',
+      subjects: [{ name: 'Maths', name_ar: 'الرياضيات' }, { name: 'Science', name_ar: 'العلوم' }]
+    },
+    true,
+    { administration: 'الإدارة', homeroom: 'الفصل', teacher: 'المعلم', staff: 'الموظف' }
+  ), 'الرياضيات, العلوم');
+  assert.equal(activeGuardianCount({
+    ...baseConversation,
+    participant_details: [
+      { kind: 'staff', side: 'staff', display_name: 'Teacher One', active: true },
+      { kind: 'chh_guardian', side: 'guardian', display_name: 'Aisha', active: true },
+      { kind: 'chh_guardian', side: 'guardian', display_name: 'Fatma', active: true },
+      { kind: 'chh_guardian', side: 'guardian', display_name: 'Former guardian', active: false }
+    ],
+    shared_guardian_visibility: true,
+    safeguarding_disclosure: true
+  }), 2);
 });
 
 test('incremental refresh merges monotonically without dropping optimistic drafts', () => {

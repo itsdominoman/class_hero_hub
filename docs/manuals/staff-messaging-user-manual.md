@@ -16,6 +16,17 @@ currently authorized guardians for that student, but each incoming message ident
 the exact sender and relationship when the school record provides it, for example
 `Dom Brown · Father`. Never infer which guardian sent an ambiguously labelled row.
 
+The conversation header stays compact: the first line identifies the student and
+class, for example `Bob Smith · KG1A`; the second shows your current context and the
+number of active guardians, for example `Homeroom · 3 guardians`. On the first shared-
+guardian conversation opened by an account, one combined notice explains guardian
+visibility and authorized school safeguarding/administrative review. Choose **I
+understand** to acknowledge it. The large notice then stays hidden and a shield button
+in the header reopens the same notice, participant list, relationships and status.
+The acknowledgement is stored as a content-free preference for that signed-in account
+on that browser/device; it never stores participant names or message content. Clearing
+browser/app web storage makes the notice appear again.
+
 ## Live conversation behavior
 
 While an active thread is visible and the device is online, it checks for newer

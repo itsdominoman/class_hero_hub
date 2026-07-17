@@ -17,6 +17,8 @@
     RecipientResults
   } from '$lib/messaging/types';
 
+  const NOTICE_PREFERENCE_PREFIX = 'chh.messaging.conversation-notice.s25j.user';
+
   let loadingSession = $state(true);
   let available = $state(true);
   let memberships = $state<MessagingMembership[]>([]);
@@ -42,6 +44,10 @@
   let mobileThreadOpen = $state(false);
   let activeDraft = $state('');
   let conversationDrafts = $state<Record<string, string>>({});
+  let noticeAccountId = $state<string | null>(null);
+  let noticeAcknowledged = $state(false);
+  let noticeOpen = $state(false);
+  let noticeConversationKey = $state<string | null>(null);
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let activeEpoch = 0;
   let activeRefreshInFlight = false;
@@ -62,6 +68,39 @@
 
   function draftKey(conversationId: string, membershipId = membership?.membership_id) {
     return membershipId ? `${membershipId}:${conversationId}` : null;
+  }
+
+  function noticePreferenceKey(accountId: string) {
+    return `${NOTICE_PREFERENCE_PREFIX}.${accountId}`;
+  }
+
+  function loadNoticePreference(accountId: string) {
+    try {
+      return localStorage.getItem(noticePreferenceKey(accountId)) === 'acknowledged';
+    } catch {
+      return false;
+    }
+  }
+
+  function prepareConversationNotice(detail: ConversationDetail) {
+    const key = `${noticeAccountId || 'unknown'}:${detail.id}`;
+    if (noticeConversationKey === key) return;
+    noticeConversationKey = key;
+    noticeOpen = Boolean(
+      (detail.shared_guardian_visibility || detail.safeguarding_disclosure) &&
+      !noticeAcknowledged
+    );
+  }
+
+  function acknowledgeConversationNotice() {
+    noticeAcknowledged = true;
+    noticeOpen = false;
+    if (!noticeAccountId) return;
+    try {
+      localStorage.setItem(noticePreferenceKey(noticeAccountId), 'acknowledged');
+    } catch {
+      // The in-memory acknowledgement still keeps the current view compact.
+    }
   }
 
   function saveActiveDraft() {
@@ -86,6 +125,8 @@
     mobileThreadOpen = false;
     conversationError = null;
     activeDraft = '';
+    noticeOpen = false;
+    noticeConversationKey = null;
     updateConversationQuery(null);
   }
 
@@ -156,6 +197,7 @@
         membership?.membership_id !== requestMembership
       ) return;
       selectedConversation = detail;
+      prepareConversationNotice(detail);
       messages = page.items;
       messagesCursor = page.next_cursor;
       const highest = page.items.at(-1)?.sequence ?? 0;
@@ -441,7 +483,11 @@
 
   async function initialize() {
     try {
-      const user = (await api.get('/me')) as SessionUser;
+      const user = (await api.get('/me')) as SessionUser & { id?: number | string };
+      if (user.id !== undefined && user.id !== null) {
+        noticeAccountId = String(user.id);
+        noticeAcknowledged = loadNoticePreference(noticeAccountId);
+      }
       memberships = (user.memberships || []).filter(
         (row): row is MessagingMembership =>
           (row.role === 'teacher' || row.role === 'school_admin') &&
@@ -631,10 +677,15 @@
           hasOlder={Boolean(messagesCursor)}
           {sending}
           {offline}
+          {noticeOpen}
+          {noticeAcknowledged}
           onback={closeConversation}
           onloadolder={() => void loadOlderMessages()}
           onsend={sendMessage}
           onretry={retryMessage}
+          ontogglenotice={() => noticeOpen = !noticeOpen}
+          onacknowledgenotice={acknowledgeConversationNotice}
+          onclosenotice={() => noticeOpen = false}
         />
       </main>
     </section>
