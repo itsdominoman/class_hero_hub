@@ -11,6 +11,7 @@ context only. Current Class Hero Hub planning and audit material lives in
 ## Current Docs
 
 - [Messaging v1 architecture plan — authoritative cross-repository source](docs/planning/2026-07-messaging-v1-architecture-plan.md)
+- [Messaging v1 Slice 7 text hardening evidence and recovery](docs/implementation/MESSAGING_V1_TEXT_HARDENING.md)
 - [FHH messaging integration operations](docs/operations/FHH_MESSAGING_INTEGRATION.md)
 - [Master implementation blueprint — partially superseded for Messaging v1](docs/CLASS_HERO_HUB_MASTER_BLUEPRINT.md)
 - [Implementation log](docs/implementation/CLASS_HERO_HUB_IMPLEMENTATION_LOG.md)

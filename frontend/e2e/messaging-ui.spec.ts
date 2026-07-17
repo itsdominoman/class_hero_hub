@@ -49,7 +49,11 @@ async function mockSession(page: Page) {
   });
 }
 
-async function mockEnabledMessaging(page: Page) {
+async function mockEnabledMessaging(
+  page: Page,
+  threadConversation = conversation,
+  detailStatus = 200
+) {
   await page.route('**/api/messaging/**', async (route: Route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -62,13 +66,25 @@ async function mockEnabledMessaging(page: Page) {
       return;
     }
     if (path.endsWith('/inbox')) {
-      await route.fulfill({ json: { items: [conversation], next_cursor: null } });
+      await route.fulfill({
+        json: {
+          items: detailStatus === 200 ? [threadConversation] : [],
+          next_cursor: null
+        }
+      });
       return;
     }
     if (path.endsWith(`/conversations/${conversationId}`)) {
+      if (detailStatus !== 200) {
+        await route.fulfill({
+          status: detailStatus,
+          json: { detail: 'Conversation not found' }
+        });
+        return;
+      }
       await route.fulfill({
         json: {
-          ...conversation,
+          ...threadConversation,
           participant_details: [
             { kind: 'staff', side: 'staff', display_name: 'Teacher One', active: true },
             { kind: 'chh_guardian', side: 'guardian', display_name: 'Aisha Al Balushi', active: true }
@@ -188,4 +204,34 @@ test('global or school feature disablement fails closed', async ({ page }) => {
   await page.goto('/messages');
   await expect(page.getByRole('heading', { name: 'Messages are not available' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Messages' })).toHaveCount(0);
+});
+
+test('closed, offline, and revoked thread states remain explicit and content-safe', async ({ page }) => {
+  const closedConversation = {
+    ...conversation,
+    status: 'closed_assignment_ended',
+    read_only: true,
+    capabilities: {
+      ...conversation.capabilities,
+      can_send: false
+    }
+  };
+  await mockEnabledMessaging(page, closedConversation);
+  await page.goto(`/messages?conversation=${conversationId}`);
+  await expect(page.getByText('Read only', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('This conversation is read only because current access or assignment has ended.')
+  ).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toBeDisabled();
+
+  await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+  await expect(page.getByText('Offline — showing the latest loaded messages')).toBeVisible();
+
+  await page.unroute('**/api/messaging/**');
+  await mockEnabledMessaging(page, conversation, 404);
+  await page.goto(`/messages?conversation=${conversationId}`);
+  await expect(
+    page.getByText('Your access to this conversation has changed. The inbox has been refreshed.')
+  ).toBeVisible();
+  await expect(page.getByText('Please review the homework')).toHaveCount(0);
 });

@@ -851,11 +851,26 @@ def test_forced_failure_rolls_back_cleanly(db, world, monkeypatch):
     original = module.persist_task
     call_count = {"value": 0}
 
-    def boom(db_session, task, *, apply, counts, school_id=None):
+    def boom(
+        db_session,
+        task,
+        *,
+        apply,
+        counts,
+        school_id=None,
+        seed_namespace=module.SEED_NAMESPACE,
+    ):
         call_count["value"] += 1
         if call_count["value"] == 4:
             raise RuntimeError("boom")
-        return original(db_session, task, apply=apply, counts=counts, school_id=school_id)
+        return original(
+            db_session,
+            task,
+            apply=apply,
+            counts=counts,
+            school_id=school_id,
+            seed_namespace=seed_namespace,
+        )
 
     monkeypatch.setattr(module, "persist_task", boom)
 

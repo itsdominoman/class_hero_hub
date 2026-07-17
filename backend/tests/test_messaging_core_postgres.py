@@ -110,19 +110,23 @@ def test_concurrent_sends_allocate_strict_monotonic_sequences():
 
     barrier = Barrier(2)
 
-    def send(participant_id: int, body: str) -> int:
+    def send(
+        participant_id: int,
+        body: str,
+        client_message_id=None,
+    ) -> tuple[int, bool]:
         session = Session()
         try:
             barrier.wait(timeout=5)
-            message, _ = send_text_message(
+            message, duplicate = send_text_message(
                 session,
                 conversation_id=conversation_id,
                 sender_participant_id=participant_id,
-                client_message_id=uuid4(),
+                client_message_id=client_message_id or uuid4(),
                 body=body,
             )
             session.commit()
-            return message.sequence
+            return message.sequence, duplicate
         finally:
             session.close()
 
@@ -131,7 +135,25 @@ def test_concurrent_sends_allocate_strict_monotonic_sequences():
             executor.submit(send, participant_ids[0], "One"),
             executor.submit(send, participant_ids[1], "Two"),
         ]
-        assert sorted(future.result(timeout=10) for future in futures) == [1, 2]
+        assert sorted(future.result(timeout=10)[0] for future in futures) == [1, 2]
+
+    # A timeout retry can race the still-finishing first request. The row lock and
+    # second idempotency lookup must converge on one committed message.
+    barrier = Barrier(2)
+    stable_id = uuid4()
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(
+                send,
+                participant_ids[0],
+                "Idempotent concurrent retry",
+                stable_id,
+            )
+            for _ in range(2)
+        ]
+        results = [future.result(timeout=10) for future in futures]
+    assert [row[0] for row in results] == [3, 3]
+    assert sorted(row[1] for row in results) == [False, True]
 
     verify = Session()
     try:
@@ -141,8 +163,8 @@ def test_concurrent_sends_allocate_strict_monotonic_sequences():
             .order_by(Message.sequence)
             .all()
         )
-        assert [row.sequence for row in rows] == [1, 2]
-        assert len({row.id for row in rows}) == 2
+        assert [row.sequence for row in rows] == [1, 2, 3]
+        assert len({row.id for row in rows}) == 3
     finally:
         verify.close()
         engine.dispose()

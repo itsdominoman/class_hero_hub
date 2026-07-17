@@ -1,9 +1,10 @@
 # CHH/FHH Messaging v1 architecture and implementation plan
 
-**Status:** authoritative architecture and implementation plan; Slices 1–4 policy,
-lifecycle, CHH core-record, CHH text API, and CHH staff UI foundations implemented
-through 2026-07-17. Messaging remains globally and per-school disabled; CHH guardian
-UI and FHH messaging integration remain unimplemented.
+**Status:** authoritative architecture and implementation plan; Slices 1–7 policy,
+lifecycle, CHH core-record, CHH text API/staff UI, and FHH identity/proxy/parent UI
+foundations plus cross-repository text hardening implemented through 2026-07-17.
+Messaging remains globally and per-school disabled; CHH guardian UI and Slices 8–13
+remain unimplemented.
 
 **Audit date:** 2026-07-16
 
@@ -23,9 +24,16 @@ CHH-guardian text APIs with explicit actor context, signed pagination, unread co
 idempotent sends, receipt acknowledgement groundwork, and read-only closure handling.
 Slice 4 provides the disabled CHH teacher/admin `/messages` inbox and text conversation
 surface with search/filter/compose, optimistic retry, foreground refresh, responsive
-navigation, and EN/AR/RTL support. It does **not** provide photos, user-facing final
-receipts, contact-hours scheduling, notification delivery, push, FHH parent messaging,
-native deep links, or CHH guardian messaging UI.
+navigation, and EN/AR/RTL support. Slice 5 adds minimized individual FHH-parent actor
+identity and child/link-scoped protected proxy APIs without mirroring school messages.
+Slice 6 adds the disabled FHH parent aggregated school inbox, exact child conversation
+route, conditional navigation, compose/reply, stable retry, and EN/AR/RTL states. These
+slices do **not** provide photos, user-facing final receipts, contact-hours scheduling,
+notification delivery, push, native deep links, safeguarding administration UI,
+retention cleanup, or CHH guardian messaging UI. Slice 7 hardens the cross-repository
+text flow with lifecycle/revocation races, exact identity namespace checks,
+concurrency/idempotency, bounded queries, stable pagination, security review, and
+desktop/mobile EN/AR/RTL state validation.
 
 ## 1. Executive recommendation
 
@@ -2130,23 +2138,79 @@ Each slice is separately deployable/testable. File lists are likely touch points
 
 **Objective:** dedicated aggregated school inbox plus child entry points.
 
-- Files: new FHH routes/components/store, parent shell/layout entry, small child-context links, i18n.
-- Scope: text read/send/reply, filters, badges, contact-hours copy placeholders, no photo/push.
-- Privacy: memory-only state; sanitized DTOs; no parent monolith implementation.
-- Tests: multiple children/schools/parents, revoked/no-link behavior, RTL/accessibility/mobile back.
-- Deploy: frontend behind feature flag.
-- Rollback: hide route/nav.
-- Exit: parent text flow is obvious, separate from home features, and cross-repo E2E works.
+**Implementation status (2026-07-17): implemented as FHH-D / S25f and deployed dark.**
+
+- Added the isolated FHH `/school-messages` federated inbox and
+  `/school-messages/[childId]/[conversationId]` thread route. The parent shell,
+  child-school modal, and linked-school dashboard offer small conditional entry
+  points only after the authenticated local availability projection reports an active
+  connection.
+- Added a local-only `GET /api/school-messages/availability` projection. It is
+  authenticated, feature-gated, family-scoped, capped at 20 connections, private/
+  no-store, and allowlists only child display context plus school names. It makes no
+  CHH call and exposes no connection/link/parent/family identifier or credential.
+- The federated inbox owns child/school/unread/search filters and pagination. The
+  thread owns message pagination, exact immutable sender snapshots, child/school/
+  class context, reply/compose, best-effort internal read-cursor acknowledgement, and
+  active/closed/read-only/restricted/revoked/offline/partial-failure states.
+- Send timeout retry retains the same client-generated UUID. A 403/404 clears
+  protected in-memory thread data; a transient 502 keeps already-visible data for an
+  explicit retry. No message content is written to localStorage or IndexedDB, and
+  logout/route destruction clears the messaging store.
+- Responsive desktop split-pane and mobile single-pane navigation, native-safe back
+  behavior, initial focus/focus trap/Escape/focus return, keyboard send,
+  `dir="auto"` mixed-direction content, disclosures, and English/Fusha Arabic key
+  parity are implemented.
+- Focused validation passed 9 backend proxy tests, 138 frontend unit tests, 4
+  Playwright messaging tests against both preview and deployed frontend, 1,386-key
+  EN/AR parity, and the production frontend build. No migration was added.
+- FHH development backup `20260716-230656F` preceded a backend/frontend-only rebuild.
+  Health, authenticated parent/children, existing linked-school dashboard, disabled
+  availability, and deployed browser-flow smokes passed. Runtime remains
+  `SCHOOL_MESSAGING_ENABLED=false`; CHH remains disabled too.
+- Photos, final receipt presentation, contact-hours scheduling, notification/push/
+  deep links, safeguarding administration UI, retention cleanup, and a message mirror
+  remain out of scope.
+- Rollback: keep the runtime flag false or hide the route/navigation; CHH message
+  records and FHH lifecycle synchronization are unaffected.
+- Exit: the parent text surface exists and is isolated from home/family features;
+  Slice 7 must complete the full cross-repository security/E2E gate before enablement.
 
 ### Slice 7 — cross-repository text E2E hardening
 
+**Implementation status (2026-07-17): implemented and deployed dark as S25f/S25g.**
+
 **Objective:** stabilize identity, lifecycle, concurrency, errors, and support diagnostics before media/notifications.
 
-- Files: tests, safe observability, runbook/docs; minimal fixes only.
-- Scope: all lifecycle sample flows, load/query tests, idempotency, revocation races.
-- Deploy: pilot-like staging with flags restricted.
-- Rollback: keep disabled.
-- Exit: complete two-school/two-family E2E matrix and security review green.
+- CHH applies escaped database-side recipient search before bounded caps, scopes
+  FHH-linked recipient assignments before limiting, fails closed for archived linked
+  students, and preserves valid one-based grant windows when empty assignment threads
+  close.
+- FHH resolves a capped connection set's school-scoped parent actors in one query,
+  rejects provider/school namespace mismatches, and excludes inactive children from
+  unread fan-out.
+- Authorization/lifecycle regression coverage includes two schools/families,
+  multiple parents/guardians/children, siblings, overlapping roles, assignment
+  expiry/replacement, guardian/grown-up/link/account/family revocation, student
+  archive, school suspension, stale actors, and no sibling-link fallback.
+- Attack/failure coverage includes forged/replayed assertions, swapped identifiers,
+  CSRF, cursor tampering, timeout/idempotent retry, simultaneous PostgreSQL sends,
+  partial/all-upstream outage, revocation while open, and content clearing.
+- Representative CHH 100-conversation measurements are 20 inbox SELECTs, 17 unread
+  SELECTs, 24 message-page SELECTs, and `136.52 ms` development p95 across 12 inbox
+  requests. FHH resolves 20 identities in one SELECT and unified inbox/unread in at
+  most three local SELECTs plus one bounded upstream call per eligible link.
+- Desktop/mobile CHH and FHH Playwright covers English, Arabic/RTL, mixed-direction,
+  keyboard/accessibility, optimistic retry, feature-disabled, closed, offline,
+  partial, and revoked states.
+- The detailed evidence, endpoint security review, diagnostics, and recovery
+  procedure are in
+  [`../implementation/MESSAGING_V1_TEXT_HARDENING.md`](../implementation/MESSAGING_V1_TEXT_HARDENING.md).
+- Deploy: development backends only; flags and every school policy remain disabled.
+- Rollback: keep flags false and roll forward any defect; no Slice 7 migration exists.
+- Exit: the cross-repository text security/performance/E2E gate is green. Pilot
+  enablement still requires the later policy/disclosure/operations decision gates;
+  Slice 8+ remains separate.
 
 ### Slice 8 — protected photo media and viewers
 
@@ -2268,6 +2332,13 @@ This ledger records the documentation-only maintenance performed by the audit. P
   endpoint, failure, and dark-rollout operations.
 - FHH `docs/operations/SCHOOL_MESSAGING_PROXY.md` — parent proxy/assertion operations
   and recovery.
+- FHH `docs/implementation/FHH_SCHOOL_MESSAGING_UI.md` — Slice 6 routes, transient
+  state, failure handling, accessibility, validation, rollout, and remaining scope.
+- CHH `docs/implementation/MESSAGING_V1_TEXT_HARDENING.md` — Slice 7 endpoint
+  security review, lifecycle/attack matrix, query and timing evidence, browser QA,
+  operator diagnostics, rollout gate, and non-goals.
+- FHH `docs/implementation/FHH_SCHOOL_MESSAGING_HARDENING.md` — companion Slice 7
+  parent proxy, identity fan-out, QA, and recovery record.
 
 ### Updated
 
@@ -2316,6 +2387,18 @@ FHH:
 - FHH companion, `README.md`, project status, roadmap, QA matrix, current deployment,
   and upgrade tracker — FHH-B/C identity/proxy implementation, validation, dark
   deployment, and remaining Slice 6+ scope recorded.
+- FHH companion, `README.md`, project status, roadmap, design, QA matrix, current
+  deployment, upgrade tracker, proxy operations, parent manuals/FAQ, compliance note,
+  and historical link/dashboard records — FHH-D parent UI implementation,
+  dark-deployment state, validation, privacy boundary, and remaining Slice 7+ scope
+  recorded.
+- CHH primary plan, implementation log, FHH integration operations, integration API
+  audit, and documentation index — Slice 7 hardening, measured bounds, dark
+  deployment, and remaining Slice 8+ scope recorded.
+- FHH companion, project status, roadmap, QA matrix, current deployment, upgrade
+  tracker, proxy operations, implementation record, and README — FHH-H / Slice 7
+  hardening, bounded identity resolution, regression evidence, and remaining Slice
+  8+ scope recorded.
 
 ### Marked historical/partially superseded
 
@@ -2349,7 +2432,7 @@ FHH:
 
 - legally reviewed messaging privacy/retention/safeguarding notice;
 - school admin policy and moderation user guide;
-- staff/guardian/FHH parent user manuals after UI exists;
+- staff/guardian user manuals and an enabled-pilot FHH parent workflow after rollout;
 - notification/contact-hours outbox and messaging incident runbook beyond the
   implemented lifecycle/proxy operations;
 - data export/offboarding specification;

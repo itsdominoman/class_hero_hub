@@ -84,7 +84,14 @@ implemented behind disabled flags using the primary Messaging v1 plan:
   and home data are not accepted.
 - Current endpoint and recovery details are in
   [`../operations/FHH_MESSAGING_INTEGRATION.md`](../operations/FHH_MESSAGING_INTEGRATION.md).
-- Parent UI/navigation is Slice 6 and is not implemented at this checkpoint.
+- Parent UI/navigation was subsequently implemented dark in FHH-D / Slice 6. It
+  remains inaccessible while the FHH runtime flag is false; the companion plan and
+  FHH implementation record are the current UI authority.
+- Cross-repository text authorization, lifecycle, concurrency, pagination,
+  performance, and browser-state hardening completed in Slice 7. The current evidence
+  and operator diagnostics are in
+  [`MESSAGING_V1_TEXT_HARDENING.md`](MESSAGING_V1_TEXT_HARDENING.md); this historical
+  audit still must not be used as the messaging contract.
 
 ---
 

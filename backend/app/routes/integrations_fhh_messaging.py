@@ -10,6 +10,7 @@ from uuid import UUID
 from cryptography.fernet import Fernet, InvalidToken
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from ..database import get_db, settings
@@ -38,6 +39,7 @@ from .messaging import (
     _inbox,
     _message_page,
     _private,
+    _search_pattern,
     _send,
     _unread_count,
 )
@@ -213,8 +215,10 @@ def recipients(
             Student.school_id == actor.school.id,
             Student.status == "active",
         )
-        .one()
+        .first()
     )
+    if student is None:
+        raise HTTPException(status_code=404, detail="Messaging is unavailable")
     resolution = resolve_rosters_for_students(
         db,
         actor.school.id,
@@ -230,7 +234,13 @@ def recipients(
         for row in resolution.subject_groups_by_student.get(student.id, [])
         if row.get("id") is not None
     }
-    assignment_rows = (
+    assignment_scope = []
+    if section_ids:
+        assignment_scope.append(StaffAssignment.class_section_id.in_(section_ids))
+    if group_ids:
+        assignment_scope.append(StaffAssignment.subject_group_id.in_(group_ids))
+    needle = q.strip().casefold()
+    assignment_query = (
         db.query(StaffAssignment, Membership, User)
         .join(Membership, Membership.id == StaffAssignment.membership_id)
         .join(User, User.id == Membership.user_id)
@@ -241,9 +251,20 @@ def recipients(
             Membership.revoked_at.is_(None),
             User.status == "active",
         )
-        .limit(500)
-        .all()
     )
+    if assignment_scope:
+        assignment_query = assignment_query.filter(or_(*assignment_scope))
+    else:
+        assignment_query = assignment_query.filter(False)
+    if needle:
+        pattern = _search_pattern(needle)
+        assignment_query = assignment_query.filter(
+            or_(
+                func.coalesce(User.name, "").ilike(pattern, escape="\\"),
+                func.coalesce(User.name_ar, "").ilike(pattern, escape="\\"),
+            )
+        )
+    assignment_rows = assignment_query.limit(500).all()
     staff_by_membership: dict[int, tuple[Membership, User]] = {}
     for assignment, membership, user in assignment_rows:
         if (
@@ -251,7 +272,7 @@ def recipients(
             or assignment.subject_group_id in group_ids
         ):
             staff_by_membership[membership.id] = (membership, user)
-    for membership, user in (
+    admin_query = (
         db.query(Membership, User)
         .join(User, User.id == Membership.user_id)
         .filter(
@@ -261,11 +282,17 @@ def recipients(
             Membership.revoked_at.is_(None),
             User.status == "active",
         )
-        .limit(50)
-        .all()
-    ):
+    )
+    if needle:
+        pattern = _search_pattern(needle)
+        admin_query = admin_query.filter(
+            or_(
+                func.coalesce(User.name, "").ilike(pattern, escape="\\"),
+                func.coalesce(User.name_ar, "").ilike(pattern, escape="\\"),
+            )
+        )
+    for membership, user in admin_query.limit(50).all():
         staff_by_membership[membership.id] = (membership, user)
-    needle = q.strip().casefold()
     rows = [
         (membership, user)
         for membership, user in staff_by_membership.values()

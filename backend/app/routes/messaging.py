@@ -307,6 +307,56 @@ def _student_name(row: Student) -> str:
     ).strip()
 
 
+def _search_pattern(value: str) -> str:
+    """Build a literal contains pattern instead of accepting SQL wildcard input."""
+
+    escaped = (
+        value.replace("\\", "\\\\")
+        .replace("%", "\\%")
+        .replace("_", "\\_")
+    )
+    return f"%{escaped}%"
+
+
+def _student_search_expression(
+    db: Session,
+    *,
+    school_id: int,
+    needle: str,
+):
+    pattern = _search_pattern(needle)
+    guardian_student_ids = (
+        db.query(GuardianLink.student_id)
+        .join(User, User.id == GuardianLink.user_id)
+        .filter(
+            GuardianLink.school_id == school_id,
+            GuardianLink.status == "active",
+            GuardianLink.revoked_at.is_(None),
+            User.status == "active",
+            or_(
+                func.coalesce(GuardianLink.display_name, "").ilike(
+                    pattern, escape="\\"
+                ),
+                func.coalesce(User.name, "").ilike(pattern, escape="\\"),
+                func.coalesce(User.name_ar, "").ilike(pattern, escape="\\"),
+            ),
+        )
+    )
+    display_name = (
+        func.coalesce(Student.preferred_name, Student.first_name, "")
+        + " "
+        + func.coalesce(Student.last_name, "")
+    )
+    return or_(
+        func.coalesce(Student.first_name, "").ilike(pattern, escape="\\"),
+        func.coalesce(Student.preferred_name, "").ilike(pattern, escape="\\"),
+        func.coalesce(Student.last_name, "").ilike(pattern, escape="\\"),
+        func.coalesce(Student.name_ar, "").ilike(pattern, escape="\\"),
+        display_name.ilike(pattern, escape="\\"),
+        Student.id.in_(guardian_student_ids),
+    )
+
+
 def _staff_can_access_student(
     db: Session,
     *,
@@ -752,8 +802,11 @@ def _reconcile_closed_assignments(
         )
         for grant in grants:
             grant.valid_to = grant.valid_to or now
-            grant.visible_through_sequence = int(
-                conversation.last_message_sequence or 0
+            # The schema's historical window is 1-based. Closing an empty thread
+            # must not write an impossible ``1..0`` range.
+            grant.visible_through_sequence = max(
+                int(grant.visible_from_sequence or 1),
+                int(conversation.last_message_sequence or 0),
             )
             grant.revoked_at = now
             grant.revoke_reason = "current_source_ended"
@@ -1795,15 +1848,27 @@ def staff_recipients(
     db: Session = Depends(get_db),
 ):
     _private(response)
-    needle = q.strip().lower()
+    needle = q.strip().casefold()
     if actor.membership.role == "school_admin":
-        students = (
+        students_query = (
             db.query(Student)
             .filter(
                 Student.school_id == actor.school.id,
                 Student.status == "active",
             )
-            .order_by(Student.last_name, Student.first_name, Student.id)
+        )
+        if needle:
+            students_query = students_query.filter(
+                _student_search_expression(
+                    db,
+                    school_id=actor.school.id,
+                    needle=needle,
+                )
+            )
+        students = (
+            students_query.order_by(
+                Student.last_name, Student.first_name, Student.id
+            )
             .limit(MAX_RECIPIENT_CANDIDATES)
             .all()
         )
@@ -1837,22 +1902,33 @@ def staff_recipients(
                 for group in groups
             )
         }
-        students = (
+        students_query = (
             db.query(Student)
-            .filter(Student.id.in_(student_ids), Student.status == "active")
-            .order_by(Student.last_name, Student.first_name, Student.id)
+            .filter(
+                Student.id.in_(student_ids),
+                Student.school_id == actor.school.id,
+                Student.status == "active",
+            )
+            if student_ids
+            else None
+        )
+        if students_query is not None and needle:
+            students_query = students_query.filter(
+                _student_search_expression(
+                    db,
+                    school_id=actor.school.id,
+                    needle=needle,
+                )
+            )
+        students = (
+            students_query.order_by(
+                Student.last_name, Student.first_name, Student.id
+            )
             .limit(MAX_RECIPIENT_CANDIDATES)
             .all()
-            if student_ids
+            if students_query is not None
             else []
         )
-    if needle:
-        students = [
-            row
-            for row in students
-            if needle in _student_name(row).lower()
-            or needle in (row.name_ar or "").lower()
-        ]
     guardian_rows = (
         db.query(GuardianLink, User)
         .join(User, User.id == GuardianLink.user_id)
@@ -1873,7 +1949,7 @@ def staff_recipients(
         )
     staff_rows = []
     if actor.membership.role == "school_admin":
-        staff_rows = (
+        staff_query = (
             db.query(Membership, User)
             .join(User, User.id == Membership.user_id)
             .filter(
@@ -1883,14 +1959,20 @@ def staff_recipients(
                 Membership.revoked_at.is_(None),
                 Membership.id != actor.membership.id,
             )
-            .order_by(User.name, Membership.id)
+        )
+        if needle:
+            pattern = _search_pattern(needle)
+            staff_query = staff_query.filter(
+                or_(
+                    func.coalesce(User.name, "").ilike(pattern, escape="\\"),
+                    func.coalesce(User.name_ar, "").ilike(pattern, escape="\\"),
+                )
+            )
+        staff_rows = (
+            staff_query.order_by(User.name, Membership.id)
             .limit(MAX_RECIPIENT_CANDIDATES)
             .all()
         )
-        if needle:
-            staff_rows = [
-                row for row in staff_rows if needle in (row[1].name or "").lower()
-            ]
     return {
         "students": [
             {

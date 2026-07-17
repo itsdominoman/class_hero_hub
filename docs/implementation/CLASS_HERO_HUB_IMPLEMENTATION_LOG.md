@@ -4055,3 +4055,82 @@ CHH now processes update photos server-side. It accepts JPEG/JPG, PNG, WEBP and 
 - Parent messaging UI/navigation, photos, final receipt UI, contact-hours scheduling,
   notification bridge/push, safeguarding administration, and retention cleanup remain
   unimplemented.
+
+## 2026-07-17 — S25f FHH parent school messaging UI
+
+- Added the separate FHH `/school-messages` federated inbox and
+  `/school-messages/[childId]/[conversationId]` thread route, with conditional shell,
+  child-school, and linked-school-dashboard entry points. FHH home/family surfaces do
+  not receive or persist school-message data.
+- Added an authenticated local-only availability projection for navigation. It is
+  feature-gated, family-scoped, capped, private/no-store, does not call CHH, and
+  exposes only child display context plus school names.
+- Added child/school/unread/search filters, pagination, compose/reply, exact sender
+  attribution, shared-guardian/safeguarding disclosure, stable client-UUID timeout
+  retry, internal best-effort read acknowledgement, and explicit closed/read-only/
+  restricted/revoked/offline/error/partial states.
+- Message/thread state is transient memory only. Revocation-like 403/404 responses
+  clear protected thread state; transient upstream failures preserve already visible
+  state for explicit retry. Logout and route teardown clear messaging state.
+- Added responsive desktop/mobile layouts, native-safe back behavior, keyboard/focus/
+  screen-reader behavior, mixed-direction content, and English/Fusha Arabic parity.
+- FHH validation passed: backend proxy **9**, frontend unit **138**, messaging browser
+  E2E **4** against preview and deployed frontend, and **1,386** EN/AR keys. The
+  production frontend build passed. No FHH migration was added.
+- FHH pgBackRest full backup `20260716-230656F` completed before rebuilding/restarting
+  only the FHH backend and frontend. Health, authenticated parent/child, existing
+  linked-school dashboard, disabled availability, and deployed browser-flow smokes
+  passed.
+- CHH source/schema/runtime did not change in this slice. CHH and FHH flags remain
+  false, so neither staff nor parent messaging is accessible.
+- Slice 7 cross-repository hardening, photos, final receipt UI, contact-hours
+  scheduling, notification/push/deep links, safeguarding administration UI, retention
+  cleanup, and CHH guardian UI remain unimplemented.
+
+## 2026-07-17 — S25f/S25g cross-repository text messaging hardening
+
+- Completed the Slice 7 authorization, lifecycle-race, concurrency, pagination,
+  performance, browser-state, and endpoint-security gate for the text-only CHH/FHH
+  messaging foundation.
+- CHH recipient discovery now performs escaped literal database search before its
+  candidate cap, including student EN/AR and active guardian names. FHH-linked
+  recipient discovery scopes assignments before limiting and archived students fail
+  closed instead of producing an internal error.
+- Corrected zero-message assignment closure so its historical access grant keeps a
+  valid one-based visibility range.
+- FHH now resolves a capped set of active school-scoped parent actors in one query,
+  rejects provider/school namespace mismatches, and excludes inactive children from
+  unified unread fan-out.
+- Expanded regression coverage for replacement teachers, old-thread non-inheritance,
+  expired assignments, student archive, school suspension, dual-role actors, revoked
+  identities/links, stale parents, no sibling fallback, CSRF, and protected-content
+  clearing.
+- Repaired the pre-existing demo-seeder rollback test harness documented since S25a:
+  its monkeypatch now forwards the runtime seeder's `seed_namespace` keyword. The
+  complete CHH backend suite is green at **398 passed, 1 skipped**.
+- Disposable PostgreSQL validation passed a clean full Alembic upgrade to
+  `e4f5a6b7c8d9` and simultaneous unique/idempotent sends. No Slice 7 migration was
+  added.
+- The representative 100-conversation CHH fixture measured 20 inbox SELECTs, 17
+  unread SELECTs, 24 history SELECTs, and `136.52 ms` development inbox p95. FHH
+  resolves 20 actors with one SELECT and keeps unified inbox/unread at at most three
+  local SELECTs.
+- Detailed security, test, browser QA, performance, and recovery evidence is in
+  [`MESSAGING_V1_TEXT_HARDENING.md`](MESSAGING_V1_TEXT_HARDENING.md).
+- CHH pgBackRest full backup `20260717-000934F` and FHH full backup
+  `20260717-000941F` completed successfully before the Slice 7 development
+  deployment. The known FHH log-directory permission warning did not affect the
+  repository backup and remains an operations follow-up.
+- No-op development migration checks remained at CHH `e4f5a6b7c8d9` and FHH
+  `a2b3c4d5e6f7`. Only the two affected backend images/services were rebuilt and
+  restarted; frontends, databases, and the lifecycle worker were not recreated.
+- Post-deployment smokes passed both API health checks, CHH web and FHH loopback web,
+  authenticated FHH parent/children, the existing live linked-school dashboard, an
+  actual protected update thumbnail, lifecycle-worker/outbox state, and anonymous
+  authorization denial. Runtime logs contained no new errors.
+- Focused tests from the rebuilt images passed: CHH messaging API/integration
+  **18**, and FHH school-link/account-deletion/grown-up/lifecycle/push **44**.
+- Development deployment remains dark: both global flags and every CHH school policy
+  remain disabled. Photos, final receipt UI, contact-hours scheduling, notification/
+  push/deep links, safeguarding administration UI, retention cleanup, and CHH
+  guardian UI remain unimplemented.

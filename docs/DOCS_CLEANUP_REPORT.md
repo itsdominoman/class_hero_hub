@@ -94,3 +94,30 @@ This section is updated as the cleanup is applied.
   `/opt/apps/family-hero-hub/docs/planning/2026-07-fhh-school-messaging-integration-plan.md`.
 - Messaging remains planned; no documentation updated in this pass claims that messaging,
   notification workers, native deep links, or new schema have been implemented.
+
+## 2026-07-17 FHH parent messaging UI authority update
+
+- The CHH primary plan now records FHH-D / Slice 6 as implemented and deployed dark.
+- The FHH companion plan and
+  `docs/implementation/FHH_SCHOOL_MESSAGING_UI.md` in the FHH repository are the
+  current parent-surface references.
+- Historical S18/S19 integration documents remain preserved, but current status no
+  longer says the parent UI is absent.
+- Both applications remain disabled for messaging. This documentation does not claim
+  photos, final receipt presentation, contact-hours scheduling, notification/push,
+  native deep links, safeguarding administration UI, retention cleanup, or pilot
+  enablement.
+
+## 2026-07-17 text messaging hardening authority update
+
+- Added `docs/implementation/MESSAGING_V1_TEXT_HARDENING.md` as the Slice 7
+  security/performance/browser-validation and operator-recovery record.
+- The primary plan now records Slices 1–7 as implemented and deployed dark; it does
+  not claim pilot enablement.
+- The FHH companion hardening record is
+  `/opt/apps/family-hero-hub/docs/implementation/FHH_SCHOOL_MESSAGING_HARDENING.md`.
+- Historical integration and blueprint documents continue to point to the primary
+  plan and cannot reasonably be mistaken for current Messaging v1 authority.
+- Both applications remain disabled. Photos, final receipt presentation,
+  contact-hours scheduling, notifications/push, safeguarding administration UI,
+  retention cleanup, and CHH guardian UI remain Slices 8–13 work.

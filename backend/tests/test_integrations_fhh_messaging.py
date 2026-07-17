@@ -31,6 +31,7 @@ from app.models_school import (
     FhhMessagingIdentityLink,
     GradeLevel,
     Membership,
+    Message,
     School,
     SchoolMessagingPolicy,
     StaffAssignment,
@@ -506,6 +507,89 @@ def test_link_and_student_swaps_cannot_cross_scope_or_mutate_state(db, client):
     assert db.query(ConversationParticipant).filter(
         ConversationParticipant.external_participant_id == parent.id
     ).count() == 1
+
+
+def test_revoked_identity_link_archived_student_link_revoke_and_school_suspend_fail_closed(
+    db, client
+):
+    world = _world(db)
+    parent = world["identities"][0]
+    recipients = _request(client, world, parent, "GET", "/recipients")
+    assert recipients.status_code == 200
+    created = _request(
+        client,
+        world,
+        parent,
+        "POST",
+        "/conversations",
+        body={
+            "kind": "student_staff",
+            "recipient_ref": recipients.json()["staff"][0]["recipient_ref"],
+        },
+    )
+    assert created.status_code == 200
+    conversation_id = created.json()["conversation_id"]
+    participant_count = db.query(ConversationParticipant).count()
+
+    identity_link = (
+        db.query(FhhMessagingIdentityLink)
+        .filter(
+            FhhMessagingIdentityLink.fhh_link_id == world["links"][0].id,
+            FhhMessagingIdentityLink.identity_id == parent.id,
+        )
+        .one()
+    )
+    identity_link.status = "revoked"
+    identity_link.revoked_at = datetime.now(timezone.utc)
+    db.commit()
+    denied_identity = _request(
+        client,
+        world,
+        parent,
+        "POST",
+        f"/conversations/{conversation_id}/messages",
+        body={
+            "client_message_id": str(uuid4()),
+            "body": "Must not be accepted",
+            "urgent": False,
+        },
+    )
+    assert denied_identity.status_code == 409
+    assert db.query(Message).count() == 0
+    assert db.query(ConversationParticipant).count() == participant_count
+
+    identity_link.status = "active"
+    identity_link.revoked_at = None
+    world["students"][0].status = "archived"
+    db.commit()
+    archived = _request(client, world, parent, "GET", "/recipients")
+    assert archived.status_code == 404
+
+    world["students"][0].status = "active"
+    world["links"][0].status = "revoked"
+    world["links"][0].revoked_at = datetime.now(timezone.utc)
+    db.commit()
+    revoked_link = _request(
+        client,
+        world,
+        parent,
+        "GET",
+        f"/conversations/{conversation_id}",
+    )
+    assert revoked_link.status_code == 404
+
+    world["links"][0].status = "active"
+    world["links"][0].revoked_at = None
+    world["school"].status = "suspended"
+    db.commit()
+    suspended = _request(
+        client,
+        world,
+        parent,
+        "GET",
+        f"/conversations/{conversation_id}",
+    )
+    assert suspended.status_code == 404
 
 
 def test_assertion_and_payload_never_accept_fhh_private_identifiers(db, client):

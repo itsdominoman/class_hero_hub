@@ -1,7 +1,8 @@
 # FHH Messaging Integration Operations
 
-**Status:** Slice 5 deployed dark on CHH/FHH development, 2026-07-17.  
+**Status:** Slices 5–7 proxy, parent UI, and text hardening deployed dark on development, 2026-07-17.
 **Architecture authority:** [`../planning/2026-07-messaging-v1-architecture-plan.md`](../planning/2026-07-messaging-v1-architecture-plan.md)
+**Hardening evidence:** [`../implementation/MESSAGING_V1_TEXT_HARDENING.md`](../implementation/MESSAGING_V1_TEXT_HARDENING.md)
 
 ## Runtime boundary
 
@@ -66,6 +67,9 @@ Keep both global flags false until a named pilot:
 - CHH `MESSAGING_ENABLED=false`
 - FHH `SCHOOL_MESSAGING_ENABLED=false`
 
-Then enable only an approved CHH school policy after completing Slice 6/7 UI and E2E
-gates. Slice 5 adds no parent UI, photos, final receipt display, contact-hours worker,
-notification bridge, push, safeguarding UI, or retention worker.
+Slice 7 E2E and security gates are complete. Keep the feature dark until a named pilot
+also completes the plan's policy, disclosure, support, and operational approval gates;
+Slice 7 completion is not automatic pilot authorization. FHH contains a feature-gated
+parent text UI, but photos, final receipt display, contact-hours worker, notification
+bridge, push/deep links, safeguarding administration UI, and retention worker remain
+unimplemented.
