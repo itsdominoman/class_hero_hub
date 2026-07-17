@@ -3,8 +3,10 @@
 **Status:** authoritative architecture and implementation plan; Slices 1–7 policy,
 lifecycle, CHH core-record, CHH text API/staff UI, and FHH identity/proxy/parent UI
 foundations plus cross-repository text hardening implemented through 2026-07-17.
-Messaging remains globally and per-school disabled; CHH guardian UI and Slices 8–13
-remain unimplemented.
+S25h adds non-disruptive live refresh and assignment-derived identity context. The
+development global flags are enabled and only United International School has an
+enabled CHH school policy; production remains disabled. CHH guardian UI and Slices
+8–13 remain unimplemented.
 
 **Audit date:** 2026-07-16
 
@@ -33,7 +35,10 @@ notification delivery, push, native deep links, safeguarding administration UI,
 retention cleanup, or CHH guardian messaging UI. Slice 7 hardens the cross-repository
 text flow with lifecycle/revocation races, exact identity namespace checks,
 concurrency/idempotency, bounded queries, stable pagination, security review, and
-desktop/mobile EN/AR/RTL state validation.
+desktop/mobile EN/AR/RTL state validation. S25h keeps the same architecture while
+adding a 12-second active-thread delta poll, immediate focus/visibility/app-resume
+refresh, append-only stale-safe merge behavior, and unambiguous student, guardian,
+teacher-role, and subject context derived by CHH.
 
 ## 1. Executive recommendation
 
@@ -63,7 +68,10 @@ Key decisions:
 - Parent messages are accepted and visible at all times. The default contact-hours rule holds only staff push/email notifications outside the school schedule; it does not hold or hide the committed message.
 - “Sent” means committed by CHH. “Delivered” requires an authenticated client acknowledgement that the message was fetched/rendered. “Read” requires a participant thread-view acknowledgement. FCM acceptance is never shown as device delivery.
 - Messaging v1 supports text and photos only, up to five photos per message. Existing CHH update-photo processing should be generalized or wrapped, not copied.
-- Use foreground polling, focus/resume refresh, native push, and a database-backed outbox worker. Do not add WebSockets, SSE, Redis, Celery, RQ, or PostgreSQL `LISTEN/NOTIFY` as a durability mechanism in v1.
+- Use 12-second active-thread delta polling plus focus/visibility/app-resume refresh.
+  Native push and the database-backed notification outbox remain later slices. Do
+  not add WebSockets, SSE, Redis, Celery, RQ, or PostgreSQL `LISTEN/NOTIFY` as a
+  durability mechanism in v1.
 - FHH continues to own parent device tokens. CHH hands off minimal, idempotent notification events to FHH; FHH performs parent fan-out and FCM delivery. Device tokens never move to CHH.
 - School admins have disclosed safeguarding access without impersonation. Each non-participant access requires a reason and creates immutable audit evidence. Safeguarding reads do not alter participant-visible receipts.
 
@@ -2212,6 +2220,29 @@ Each slice is separately deployable/testable. File lists are likely touch points
   enablement still requires the later policy/disclosure/operations decision gates;
   Slice 8+ remains separate.
 
+#### S25h development usability hardening
+
+**Implementation status (2026-07-17): implemented for development testing.**
+
+- Both visible active-thread surfaces poll every 12 seconds and request only rows
+  after the highest known authoritative sequence. Polls are single-flight, epoch
+  guarded, paused while hidden/offline/backgrounded, and refreshed immediately on
+  browser focus, visibility restoration, network restoration, or Capacitor app
+  resume.
+- Delta responses merge append-only into the current in-memory thread. They never
+  replace composer state, draft text, selection, focus, or future attachment state;
+  optimistic client-UUID reconciliation and retry semantics remain intact. A stale
+  response cannot remove a newer row.
+- Incoming rows scroll automatically only when the reader is within 96 px of the
+  bottom. Otherwise a localized, keyboard-accessible **New messages** control is
+  shown without stealing focus.
+- CHH now returns current student class/grade context, exact guardian sender and
+  available relationship, and current staff relationship/subjects from dated CHH
+  assignments. FHH receives only the allowlisted, link-scoped projection.
+- No schema migration was needed. Photos, final receipt presentation, contact-hours
+  scheduling, notification/push, safeguarding administration, retention cleanup,
+  and CHH guardian UI remain separate later work.
+
 ### Slice 8 — protected photo media and viewers
 
 **Objective:** text + up to five safe photos end-to-end.
@@ -2399,6 +2430,13 @@ FHH:
   tracker, proxy operations, implementation record, and README — FHH-H / Slice 7
   hardening, bounded identity resolution, regression evidence, and remaining Slice
   8+ scope recorded.
+- CHH primary plan, hardening/operations records, implementation and Android logs,
+  Android smoke matrix, README, and staff messaging manual — S25h 12-second safe
+  delta refresh, resume behavior, identity-context rules, regression evidence, and
+  development-pilot state.
+- FHH companion, hardening/UI/proxy records, project status, roadmap, QA and
+  deployment matrices, implementation tracker, README, Android smoke record, and
+  parent manuals — S25h parent refresh/context behavior and development-pilot state.
 
 ### Marked historical/partially superseded
 

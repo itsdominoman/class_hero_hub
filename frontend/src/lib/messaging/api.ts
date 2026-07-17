@@ -80,12 +80,13 @@ export const messagingApi = {
   messages(
     membership: MessagingMembership,
     conversationId: string,
-    cursor?: string | null
+    options: { cursor?: string | null; afterSequence?: number; limit?: number } = {}
   ): Promise<MessagePage> {
     return api.get(
       queryPath(`/messaging/conversations/${conversationId}/messages`, {
-        cursor,
-        limit: 75
+        cursor: options.cursor,
+        after_sequence: options.afterSequence,
+        limit: options.limit ?? 75
       }),
       { headers: contextHeaders(membership) }
     );

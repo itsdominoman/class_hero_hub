@@ -50,6 +50,25 @@ device model, Android version, APK filename, checksum, date, and tester with the
 - [ ] Open and close the hamburger drawer; verify navigation destinations work.
 - [ ] Log out, reopen the app, and log in again successfully.
 
+## Messaging development pilot
+
+- [ ] Sign in as an authorized United International School teacher/admin and confirm
+      **Messages** appears; verify it remains absent for a school whose policy is off.
+- [ ] Open a thread and confirm the header/inbox show `Student · grade/class`.
+- [ ] With two authorized guardians, send from each FHH account and confirm every
+      message shows the exact guardian name and relationship when available.
+- [ ] Keep the CHH composer focused with draft text and the Android keyboard open.
+      Send a reply from FHH, wait at least 12 seconds, and confirm the incoming row
+      appears without losing text, selection, focus, keyboard, or optimistic rows.
+- [ ] Scroll away from the bottom, receive another reply, and confirm **New messages**
+      appears without jumping. Activate it and confirm it reaches the new row.
+- [ ] Background and resume the app and confirm the active thread refreshes
+      immediately without duplicating rows.
+- [ ] Confirm Arabic/Fusha labels, RTL layout, and mixed-direction names/body text are
+      readable and do not reverse timestamps or status meaning.
+- [ ] Recheck Android Back, safe areas, keyboard resize, session restoration, direct
+      login, protected update media, camera and gallery flows after messaging tests.
+
 ## Browser regression check
 
 - [ ] In a desktop or mobile browser (not the APK), confirm the public homepage/footer

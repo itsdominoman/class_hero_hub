@@ -160,6 +160,7 @@ export const en = {
     safeguardingDisclosure: 'School administrators may review school communications for safeguarding and operational purposes. Their review does not create a participant read receipt.',
     loadOlder: 'Load older messages',
     loadingOlder: 'Loading…',
+    newMessages: '{count} new messages',
     threadEmptyTitle: 'Start the conversation',
     threadEmptyBody: 'Messages will appear here in chronological order.',
     messageUnavailable: 'This message is no longer available.',
@@ -190,6 +191,12 @@ export const en = {
     actingAs: 'Acting as',
     chooseSchool: 'Choose a school',
     offlineBanner: 'Offline — showing the latest loaded messages',
+    relationships: {
+      mother: 'Mother',
+      father: 'Father',
+      guardian: 'Guardian',
+      other: 'Guardian contact'
+    },
     filters: {
       all: 'All',
       unread: 'Unread',
@@ -1201,6 +1208,7 @@ export const ar = {
     safeguardingDisclosure: 'يجوز لمسؤولي المدرسة مراجعة المراسلات المدرسية لأغراض حماية الطلبة والتشغيل. لا تنشئ مراجعتهم إشعار قراءة لأطراف المحادثة.',
     loadOlder: 'تحميل رسائل أقدم',
     loadingOlder: 'جار التحميل…',
+    newMessages: '{count} رسائل جديدة',
     threadEmptyTitle: 'ابدأ المحادثة',
     threadEmptyBody: 'ستظهر الرسائل هنا بالترتيب الزمني.',
     messageUnavailable: 'لم تعد هذه الرسالة متاحة.',
@@ -1231,6 +1239,12 @@ export const ar = {
     actingAs: 'الاستخدام بصفة',
     chooseSchool: 'اختر مدرسة',
     offlineBanner: 'غير متصل — يتم عرض أحدث الرسائل المحملة',
+    relationships: {
+      mother: 'الأم',
+      father: 'الأب',
+      guardian: 'ولي الأمر',
+      other: 'جهة اتصال ولي الأمر'
+    },
     filters: {
       all: 'الكل',
       unread: 'غير المقروءة',

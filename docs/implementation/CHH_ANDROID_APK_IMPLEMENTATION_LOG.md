@@ -15,6 +15,13 @@ Scope: implementation record for the Class Hero Hub (CHH) Capacitor Android app.
   file. The current camera-updates artifact is
   `chh-debug-camera-updates-2026-07-14-71ef53f.apk`.
 - Debug builds use Android's debug signing; no release signing has been configured.
+- S25h development retest artifact:
+  `/opt/apps/class_hero_hub/tmp/class-hero-hub-messaging-usability-dev.apk`
+  (`95,763,254` bytes, SHA-256
+  `4461a7991b41ebac26feff63265cc7a3d5513761f30f53a32b71d1703163298b`).
+  It is the debug variant, version code `1`, version name `1.0`, package
+  `com.classherohub.app`, target/compile SDK 35, and uses the fixed native API
+  `https://class.familyherohub.com/api`.
 - The merged Android manifest explicitly removes the transitive biometric and
   fingerprint permissions from the encrypted-preferences dependency. CHH does
   not use biometric authentication and the APK requests no camera or storage
@@ -59,6 +66,14 @@ CSRF/state validation and must not be weakened or disabled for the native flow.
   practical on a phone.
 - The S24 quick behaviour overlay is available from the class roster and uses the
   configured quick/other positive and needs-work behaviours.
+- The S25h Messages thread listens for Capacitor app resume as well as browser focus,
+  visibility and online restoration. Its 12-second delta refresh is append-only and
+  does not remount the composer, dismiss the soft keyboard, overwrite a draft, or
+  move selection. Auto-scroll follows only a reader already near the bottom.
+- Native validation for S25h passed Gradle `testDebugUnitTest`, `lintDebug`,
+  `assembleDebug`, and `assembleDebugAndroidTest`. APK signature verification passed
+  v1/v2 debug schemes and the instrumented test APK assembled; execution of device
+  tests and the two-party keyboard/resume flow still requires a physical device.
 
 ## Updates & photos
 

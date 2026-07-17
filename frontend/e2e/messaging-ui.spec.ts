@@ -15,13 +15,23 @@ const conversation = {
   kind: 'student_staff',
   status: 'active',
   read_only: false,
-  student: { id: 91, display_name: 'Mariam Al Harthy', name_ar: 'مريم الحارثية' },
+  student: {
+    id: 91,
+    display_name: 'Mariam Al Harthy',
+    name_ar: 'مريم الحارثية',
+    class_label: 'KG1A',
+    class_label_ar: 'الروضة الأولى أ',
+    grade_label: 'KG1',
+    grade_label_ar: 'الروضة الأولى'
+  },
   context: { label: 'Class 4A', label_ar: 'الصف ٤ أ' },
   participants: ['Aisha Al Balushi'],
   last_message: {
     id: existingMessageId,
     sequence: 1,
     sender_display_name: 'Aisha Al Balushi',
+    sender_kind: 'chh_guardian',
+    sender_relationship: 'mother',
     body: 'Please review the homework',
     state: 'active',
     created_at: '2026-07-17T08:00:00Z'
@@ -52,7 +62,8 @@ async function mockSession(page: Page) {
 async function mockEnabledMessaging(
   page: Page,
   threadConversation = conversation,
-  detailStatus = 200
+  detailStatus = 200,
+  messageProvider?: (url: URL) => Promise<unknown> | unknown
 ) {
   await page.route('**/api/messaging/**', async (route: Route) => {
     const request = route.request();
@@ -87,7 +98,7 @@ async function mockEnabledMessaging(
           ...threadConversation,
           participant_details: [
             { kind: 'staff', side: 'staff', display_name: 'Teacher One', active: true },
-            { kind: 'chh_guardian', side: 'guardian', display_name: 'Aisha Al Balushi', active: true }
+            { kind: 'chh_guardian', side: 'guardian', display_name: 'Aisha Al Balushi', relationship: 'mother', active: true }
           ],
           shared_guardian_visibility: true,
           safeguarding_disclosure: true
@@ -96,6 +107,10 @@ async function mockEnabledMessaging(
       return;
     }
     if (path.endsWith(`/conversations/${conversationId}/messages`) && request.method() === 'GET') {
+      if (messageProvider) {
+        await route.fulfill({ json: await messageProvider(url) });
+        return;
+      }
       await route.fulfill({
         json: {
           items: [
@@ -103,6 +118,8 @@ async function mockEnabledMessaging(
               id: existingMessageId,
               sequence: 1,
               sender_display_name: 'Aisha Al Balushi',
+              sender_kind: 'chh_guardian',
+              sender_relationship: 'mother',
               sender_is_self: false,
               body: 'Please review the homework',
               state: 'active',
@@ -110,7 +127,8 @@ async function mockEnabledMessaging(
               created_at: '2026-07-17T08:00:00Z'
             }
           ],
-          next_cursor: null
+          next_cursor: null,
+          latest_sequence: 1
         }
       });
       return;
@@ -151,6 +169,9 @@ async function mockEnabledMessaging(
               display_name: 'Mariam Al Harthy',
               name_ar: 'مريم الحارثية',
               guardian_names: ['Aisha Al Balushi']
+              ,guardian_details: [{ display_name: 'Aisha Al Balushi', relationship: 'mother' }]
+              ,class_label: 'KG1A'
+              ,class_label_ar: 'الروضة الأولى أ'
             }
           ],
           staff: []
@@ -171,9 +192,10 @@ test('deep link loads the staff thread and reconciles a stable optimistic send',
   await mockEnabledMessaging(page);
   await page.goto(`/messages?conversation=${conversationId}`);
 
-  await expect(page.getByRole('heading', { name: 'Mariam Al Harthy' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Mariam Al Harthy · KG1A' })).toBeVisible();
   const thread = page.locator('section[aria-label*="Mariam Al Harthy"]');
-  await expect(thread.getByText('Aisha Al Balushi · Class 4A')).toBeVisible();
+  await expect(thread.getByText('Aisha Al Balushi', { exact: true })).toBeVisible();
+  await expect(thread.getByText('Aisha Al Balushi · Mother')).toBeVisible();
   await expect(thread.getByText('Please review the homework')).toBeVisible();
 
   const composer = page.getByRole('textbox', { name: 'Message', exact: true });
@@ -181,6 +203,72 @@ test('deep link loads the staff thread and reconciles a stable optimistic send',
   await composer.press('Control+Enter');
   await expect(thread.getByText('Thank you — I will follow up.')).toBeVisible();
   await expect(thread.getByText('Failed')).toHaveCount(0);
+});
+
+test('resume refresh appends messages without disturbing draft focus, selection, or scroll intent', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const initialItems = Array.from({ length: 18 }, (_, index) => ({
+    id: `00000000-0000-4000-8000-${String(index + 200).padStart(12, '0')}`,
+    sequence: index + 1,
+    sender_display_name: 'Aisha Al Balushi',
+    sender_kind: 'chh_guardian',
+    sender_relationship: 'mother',
+    sender_is_self: false,
+    body: `Historical message ${index + 1} ${'content '.repeat(8)}`,
+    state: 'active',
+    urgent: false,
+    created_at: `2026-07-17T08:${String(index).padStart(2, '0')}:00Z`
+  }));
+  let incrementalRequests = 0;
+  await mockEnabledMessaging(page, conversation, 200, async (url) => {
+    if (url.searchParams.has('after_sequence')) {
+      incrementalRequests += 1;
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      return {
+        items: [{
+          id: '00000000-0000-4000-8000-000000000999',
+          sequence: 19,
+          sender_display_name: 'Dom Brown',
+          sender_kind: 'chh_guardian',
+          sender_relationship: 'father',
+          sender_is_self: false,
+          body: 'A newly arrived message',
+          state: 'active',
+          urgent: false,
+          created_at: '2026-07-17T09:00:00Z'
+        }],
+        next_cursor: null,
+        latest_sequence: 19
+      };
+    }
+    return { items: initialItems, next_cursor: null, latest_sequence: 18 };
+  });
+  await page.goto(`/messages?conversation=${conversationId}`);
+
+  const composer = page.getByRole('textbox', { name: 'Message', exact: true });
+  await composer.fill('Draft stays exactly here');
+  await composer.focus();
+  await composer.evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(6, 11));
+  const timeline = page.getByTestId('message-timeline');
+  await timeline.evaluate((element) => {
+    element.scrollTop = 0;
+    element.dispatchEvent(new Event('scroll'));
+  });
+
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('chh:app-resume'));
+    window.dispatchEvent(new Event('chh:app-resume'));
+  });
+  await expect(page.getByText('A newly arrived message')).toBeVisible();
+  await expect(page.getByText('Dom Brown · Father')).toBeVisible();
+  await expect(page.getByRole('button', { name: '1 new messages' })).toBeVisible();
+  await expect(composer).toHaveValue('Draft stays exactly here');
+  expect(await composer.evaluate((element: HTMLTextAreaElement) => ({
+    focused: document.activeElement === element,
+    start: element.selectionStart,
+    end: element.selectionEnd
+  }))).toEqual({ focused: true, start: 6, end: 11 });
+  expect(incrementalRequests).toBe(1);
 });
 
 test('mobile Arabic layout preserves RTL chrome, mixed content, and safe back navigation', async ({ page }) => {

@@ -8,6 +8,15 @@ export type MessagingStudent = {
   id: number;
   display_name: string;
   name_ar?: string | null;
+  class_label?: string | null;
+  class_label_ar?: string | null;
+  grade_label?: string | null;
+  grade_label_ar?: string | null;
+};
+
+export type StaffContext = {
+  relationship: 'school_administration' | 'homeroom_teacher' | 'subject_teacher' | 'school_staff';
+  subjects: Array<{ name?: string | null; name_ar?: string | null }>;
 };
 
 export type MessagingCapabilities = {
@@ -21,6 +30,8 @@ export type InboxMessage = {
   id: string;
   sequence: number;
   sender_display_name: string;
+  sender_kind?: string | null;
+  sender_relationship?: string | null;
   body: string | null;
   state: string;
   created_at: string;
@@ -33,6 +44,7 @@ export type ConversationSummary = {
   read_only: boolean;
   student: MessagingStudent | null;
   context: { label?: string | null; label_ar?: string | null };
+  staff_context?: StaffContext | null;
   participants: string[];
   last_message: InboxMessage | null;
   last_message_at: string | null;
@@ -44,6 +56,7 @@ export type ParticipantDetail = {
   kind: string;
   side: 'staff' | 'guardian';
   display_name: string;
+  relationship?: string | null;
   active: boolean;
 };
 
@@ -57,6 +70,8 @@ export type MessageItem = {
   id: string;
   sequence: number;
   sender_display_name: string;
+  sender_kind?: string | null;
+  sender_relationship?: string | null;
   sender_is_self: boolean;
   body: string | null;
   state: string;
@@ -78,6 +93,7 @@ export type InboxPage = {
 export type MessagePage = {
   items: MessageItem[];
   next_cursor: string | null;
+  latest_sequence: number;
 };
 
 export type RecipientStudent = {
@@ -85,6 +101,11 @@ export type RecipientStudent = {
   display_name: string;
   name_ar?: string | null;
   guardian_names: string[];
+  guardian_details?: Array<{ display_name: string; relationship?: string | null }>;
+  class_label?: string | null;
+  class_label_ar?: string | null;
+  grade_label?: string | null;
+  grade_label_ar?: string | null;
 };
 
 export type RecipientStaff = {

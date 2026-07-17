@@ -4134,3 +4134,30 @@ CHH now processes update photos server-side. It accepts JPEG/JPG, PNG, WEBP and 
   remain disabled. Photos, final receipt UI, contact-hours scheduling, notification/
   push/deep links, safeguarding administration UI, retention cleanup, and CHH
   guardian UI remain unimplemented.
+
+## 2026-07-17 — S25h messaging live refresh and identity context
+
+- Fixed the CHH real-device keyboard/draft defect by separating active-thread delta
+  refresh from inbox loading. The previous 20-second inbox refresh reopened the
+  selected thread and remounted the composer; the new 12-second poll appends only
+  messages newer than the highest authoritative sequence.
+- Added single-flight and route/actor epoch guards, hidden/offline pause, immediate
+  focus/visibility/network/Capacitor-resume refresh, append-only stale-safe merging,
+  and bottom-intent behavior. Incoming rows do not replace drafts, selection, focus,
+  optimistic sends, or future attachment state. Readers away from the bottom receive
+  a localized **New messages** control.
+- Added current student class/grade to inbox, header and compose results; exact
+  guardian sender plus relationship to message rows; and current homeroom,
+  subject-teacher subjects, or school-administration context. All values are derived
+  from CHH's dated records and projected through closed FHH DTOs.
+- Added `after_sequence` delta reads to staff, guardian, and protected FHH integration
+  message endpoints. It is mutually exclusive with signed historical cursors and
+  does not weaken per-request school/student/link/assignment authorization.
+- Focused validation passed: CHH messaging API/integration **22**, related backend
+  authentication/CSRF/assignment/roster/integration **54 passed, 1 skipped**,
+  protected update photos **6**, messaging frontend unit **4**, focused Playwright
+  **5**, 1,133-key EN/AR parity, Svelte check, and production frontend build.
+- No migration or later messaging feature was added. Development remains enabled
+  only for United International School; production remains disabled. Photos, final
+  receipt UI, contact-hours scheduling, push/notifications, safeguarding tools and
+  retention work remain out of scope.

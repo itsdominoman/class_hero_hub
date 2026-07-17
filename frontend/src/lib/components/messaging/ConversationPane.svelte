@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n';
+  import { tick } from 'svelte';
+  import { _, locale } from 'svelte-i18n';
   import type { ConversationDetail, OptimisticMessage } from '$lib/messaging/types';
   import { conversationSubtitle, conversationTitle } from '$lib/messaging/presentation';
+  import { highestServerSequence } from '$lib/messaging/state';
   import MessageComposer from './MessageComposer.svelte';
 
   let {
@@ -30,6 +32,58 @@
     onretry: (message: OptimisticMessage) => void;
   } = $props();
 
+  const arabic = $derived($locale === 'ar');
+  let timeline = $state<HTMLDivElement>();
+  let nearBottom = $state(true);
+  let unseenMessages = $state(0);
+  let previousHighest = 0;
+  let trackedConversationId: string | null = null;
+
+  function updateScrollPosition() {
+    if (!timeline) return;
+    nearBottom = timeline.scrollHeight - timeline.scrollTop - timeline.clientHeight < 96;
+    if (nearBottom) unseenMessages = 0;
+  }
+
+  function scrollToLatest(behavior: ScrollBehavior = 'smooth') {
+    if (!timeline) return;
+    timeline.scrollTo({ top: timeline.scrollHeight, behavior });
+    nearBottom = true;
+    unseenMessages = 0;
+  }
+
+  $effect(() => {
+    const nextConversationId = conversation?.id ?? null;
+    if (nextConversationId === trackedConversationId) return;
+    trackedConversationId = nextConversationId;
+    previousHighest = 0;
+    nearBottom = true;
+    unseenMessages = 0;
+  });
+
+  $effect(() => {
+    const highest = highestServerSequence(messages);
+    const added = Math.max(0, highest - previousHighest);
+    const shouldFollow = nearBottom;
+    previousHighest = Math.max(previousHighest, highest);
+    if (!added) return;
+    void tick().then(() => {
+      if (shouldFollow) scrollToLatest('auto');
+      else unseenMessages += added;
+    });
+  });
+
+  function relationshipLabel(value: string | null | undefined) {
+    return value && ['mother', 'father', 'guardian', 'other'].includes(value)
+      ? $_(`messaging.relationships.${value}`)
+      : '';
+  }
+
+  function senderLabel(message: OptimisticMessage) {
+    const relationship = relationshipLabel(message.sender_relationship);
+    return [message.sender_display_name, relationship].filter(Boolean).join(' · ');
+  }
+
   function formatDate(value: string) {
     return new Intl.DateTimeFormat(undefined, {
       dateStyle: 'medium',
@@ -54,18 +108,18 @@
     </div>
   </div>
 {:else}
-  <section class="flex h-full min-h-0 flex-col bg-slate-50/70" aria-label={$_('messaging.conversationWith', { values: { name: conversationTitle(conversation) } })}>
+  <section class="flex h-full min-h-0 flex-col bg-slate-50/70" aria-label={$_('messaging.conversationWith', { values: { name: conversationTitle(conversation, arabic) } })}>
     <header class="border-b border-slate-200 bg-white px-3 py-3 sm:px-5 sm:py-4">
       <div class="flex items-start gap-3">
         <button type="button" class="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200 text-slate-600 md:hidden" onclick={onback} aria-label={$_('messaging.backToInbox')}>←</button>
         <div class="min-w-0 flex-1">
           <div class="flex flex-wrap items-center gap-2">
-            <h2 dir="auto" class="truncate text-base font-extrabold text-slate-900 sm:text-lg">{conversationTitle(conversation)}</h2>
+            <h2 dir="auto" class="truncate text-base font-extrabold text-slate-900 sm:text-lg">{conversationTitle(conversation, arabic)}</h2>
             {#if conversation.read_only}
               <span class="rounded-full bg-slate-100 px-2 py-1 text-[0.65rem] font-bold uppercase tracking-wide text-slate-600">{$_('messaging.readOnly')}</span>
             {/if}
           </div>
-          <p dir="auto" class="mt-0.5 truncate text-xs font-semibold text-slate-500">{conversationSubtitle(conversation)}</p>
+          <p dir="auto" class="mt-0.5 truncate text-xs font-semibold text-slate-500">{conversationSubtitle(conversation, arabic)}</p>
           {#if conversation.shared_guardian_visibility}
             <p class="mt-1 text-[0.68rem] font-medium text-slate-400">{$_('messaging.sharedGuardians')}</p>
           {/if}
@@ -79,7 +133,7 @@
       </div>
     {/if}
 
-    <div class="min-h-0 flex-1 overflow-y-auto px-3 py-5 sm:px-6" aria-live="polite">
+    <div bind:this={timeline} onscroll={updateScrollPosition} class="relative min-h-0 flex-1 overflow-y-auto px-3 py-5 sm:px-6" aria-live="polite" data-testid="message-timeline">
       {#if hasOlder}
         <div class="mb-5 text-center">
           <button type="button" class="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 shadow-sm hover:border-hero hover:text-hero disabled:opacity-50" disabled={loadingOlder} onclick={onloadolder}>
@@ -107,7 +161,7 @@
                 class="rounded-2xl px-4 py-3 shadow-sm ring-1 ring-slate-100"
               >
                 {#if !message.sender_is_self}
-                  <p dir="auto" class="mb-1 text-[0.68rem] font-extrabold text-emerald-700">{message.sender_display_name}</p>
+                  <p dir="auto" class="mb-1 text-[0.68rem] font-extrabold text-emerald-700">{senderLabel(message)}</p>
                 {/if}
                 {#if message.state === 'active'}
                   <p dir="auto" class="whitespace-pre-wrap break-words text-sm leading-6">{message.body}</p>
@@ -128,6 +182,13 @@
             </li>
           {/each}
         </ol>
+      {/if}
+      {#if unseenMessages > 0}
+        <div class="sticky bottom-2 z-10 mt-4 flex justify-center">
+          <button type="button" onclick={() => scrollToLatest()} class="rounded-full bg-slate-900 px-4 py-2 text-xs font-extrabold text-white shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero">
+            {$_('messaging.newMessages', { values: { count: unseenMessages } })}
+          </button>
+        </div>
       {/if}
     </div>
 

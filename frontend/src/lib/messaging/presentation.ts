@@ -1,14 +1,31 @@
-import type { ConversationSummary } from './types';
+import type { ConversationSummary, MessagingStudent } from './types';
 
-export function conversationTitle(conversation: ConversationSummary): string {
-  if (conversation.student?.display_name) return conversation.student.display_name;
+export function studentAcademicLabel(
+  student: Pick<MessagingStudent, 'class_label' | 'class_label_ar' | 'grade_label' | 'grade_label_ar'> | null,
+  arabic = false
+): string {
+  if (!student) return '';
+  return (
+    (arabic ? student.class_label_ar : student.class_label) ||
+    (arabic ? student.grade_label_ar : student.grade_label) ||
+    student.class_label ||
+    student.grade_label ||
+    ''
+  ).trim();
+}
+
+export function conversationTitle(conversation: ConversationSummary, arabic = false): string {
+  if (conversation.student?.display_name) {
+    const academic = studentAcademicLabel(conversation.student, arabic);
+    return [conversation.student.display_name, academic].filter(Boolean).join(' · ');
+  }
   return conversation.participants.join(', ') || 'Conversation';
 }
 
-export function conversationSubtitle(conversation: ConversationSummary): string {
-  const context = conversation.context.label?.trim();
+export function conversationSubtitle(conversation: ConversationSummary, arabic = false): string {
+  const context = (arabic ? conversation.context.label_ar : conversation.context.label)?.trim();
   const participants = conversation.participants.join(', ');
-  return [participants, context].filter(Boolean).join(' · ');
+  return [participants, conversation.student ? '' : context].filter(Boolean).join(' · ');
 }
 
 export function filterConversations(
@@ -28,6 +45,10 @@ export function filterConversations(
     const haystack = [
       conversation.student?.display_name,
       conversation.student?.name_ar,
+      conversation.student?.class_label,
+      conversation.student?.class_label_ar,
+      conversation.student?.grade_label,
+      conversation.student?.grade_label_ar,
       conversation.context.label,
       conversation.context.label_ar,
       ...conversation.participants,

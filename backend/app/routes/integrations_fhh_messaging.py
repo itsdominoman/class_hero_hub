@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-from datetime import datetime, timezone
 from typing import Literal
 from uuid import UUID
 
@@ -21,9 +20,10 @@ from ..models_school import (
     School,
     StaffAssignment,
     Student,
+    Subject,
+    SubjectGroup,
     User,
 )
-from ..rosters import resolve_rosters_for_students
 from ..school_scope import open_interval_expression
 from .integrations_fhh import _link, require_fhh_service
 from .messaging import (
@@ -41,6 +41,7 @@ from .messaging import (
     _private,
     _search_pattern,
     _send,
+    _student_context_catalog,
     _unread_count,
 )
 
@@ -222,11 +223,10 @@ def recipients(
     )
     if student is None:
         raise HTTPException(status_code=404, detail="Messaging is unavailable")
-    resolution = resolve_rosters_for_students(
+    student_contexts, resolution, subjects = _student_context_catalog(
         db,
-        actor.school.id,
-        datetime.now(timezone.utc).date(),
-        student_ids=[student.id],
+        school_id=actor.school.id,
+        student_ids={student.id},
     )
     section_ids = {
         row.id
@@ -261,20 +261,37 @@ def recipients(
         assignment_query = assignment_query.filter(False)
     if needle:
         pattern = _search_pattern(needle)
+        matching_subject_group_ids = (
+            db.query(SubjectGroup.id)
+            .join(Subject, Subject.id == SubjectGroup.subject_id)
+            .filter(
+                SubjectGroup.school_id == actor.school.id,
+                or_(
+                    func.coalesce(Subject.name, "").ilike(pattern, escape="\\"),
+                    func.coalesce(Subject.name_ar, "").ilike(pattern, escape="\\"),
+                    func.coalesce(SubjectGroup.name, "").ilike(pattern, escape="\\"),
+                    func.coalesce(SubjectGroup.name_ar, "").ilike(pattern, escape="\\"),
+                ),
+            )
+        )
         assignment_query = assignment_query.filter(
             or_(
                 func.coalesce(User.name, "").ilike(pattern, escape="\\"),
                 func.coalesce(User.name_ar, "").ilike(pattern, escape="\\"),
+                func.coalesce(StaffAssignment.role, "").ilike(pattern, escape="\\"),
+                StaffAssignment.subject_group_id.in_(matching_subject_group_ids),
             )
         )
     assignment_rows = assignment_query.limit(500).all()
     staff_by_membership: dict[int, tuple[Membership, User]] = {}
+    assignments_by_membership: dict[int, list[StaffAssignment]] = {}
     for assignment, membership, user in assignment_rows:
         if (
             assignment.class_section_id in section_ids
             or assignment.subject_group_id in group_ids
         ):
             staff_by_membership[membership.id] = (membership, user)
+            assignments_by_membership.setdefault(membership.id, []).append(assignment)
     admin_query = (
         db.query(Membership, User)
         .join(User, User.id == Membership.user_id)
@@ -292,18 +309,56 @@ def recipients(
             or_(
                 func.coalesce(User.name, "").ilike(pattern, escape="\\"),
                 func.coalesce(User.name_ar, "").ilike(pattern, escape="\\"),
+                func.coalesce(Membership.role, "").ilike(pattern, escape="\\"),
             )
         )
     for membership, user in admin_query.limit(50).all():
         staff_by_membership[membership.id] = (membership, user)
-    rows = [
-        (membership, user)
-        for membership, user in staff_by_membership.values()
-        if not needle
-        or needle in (user.name or "").casefold()
-        or needle in (user.name_ar or "").casefold()
-    ]
+    rows = list(staff_by_membership.values())
     rows.sort(key=lambda row: ((row[1].name or "").casefold(), row[0].id))
+    student_groups = {
+        int(group["id"]): group
+        for group in resolution.subject_groups_by_student.get(student.id, [])
+        if group.get("id") is not None
+    }
+    student_sections = {
+        section.id
+        for section in resolution.class_sections_by_student.get(student.id, [])
+    }
+
+    def staff_context(membership: Membership) -> dict:
+        if membership.role == "school_admin":
+            return {"relationship": "school_administration", "subjects": []}
+        matching = assignments_by_membership.get(membership.id, [])
+        has_homeroom = any(
+            assignment.role in {"homeroom", "class_teacher"}
+            and assignment.class_section_id in student_sections
+            for assignment in matching
+        )
+        subject_rows: list[Subject] = []
+        seen: set[int] = set()
+        for assignment in matching:
+            group = student_groups.get(assignment.subject_group_id or -1)
+            subject_id = int(group["subject_id"]) if group and group.get("subject_id") else None
+            subject = subjects.get(subject_id) if subject_id is not None else None
+            if subject and subject.id not in seen:
+                subject_rows.append(subject)
+                seen.add(subject.id)
+        return {
+            "relationship": (
+                "homeroom_teacher"
+                if has_homeroom
+                else "subject_teacher"
+                if subject_rows
+                else "school_staff"
+            ),
+            "subjects": [
+                {"name": subject.name, "name_ar": subject.name_ar}
+                for subject in subject_rows
+            ],
+        }
+
+    student_context = student_contexts.get(student.id, {})
     db.commit()
     return {
         "student": {
@@ -316,6 +371,7 @@ def recipients(
                 if part
             ).strip(),
             "name_ar": student.name_ar,
+            **student_context,
         },
         "staff": [
             {
@@ -327,6 +383,7 @@ def recipients(
                 "display_name": user.name,
                 "name_ar": user.name_ar,
                 "role": membership.role,
+                "staff_context": staff_context(membership),
             }
             for membership, user in rows[:MAX_RECIPIENTS]
         ],
@@ -403,6 +460,7 @@ def messages(
     response: Response,
     limit: int = Query(default=50, ge=1, le=100),
     cursor: str | None = None,
+    after_sequence: int | None = Query(default=None, ge=0),
     x_fhh_link_token: str | None = Header(default=None),
     x_fhh_messaging_actor: str | None = Header(default=None),
     db: Session = Depends(get_db),
@@ -425,6 +483,7 @@ def messages(
         response=response,
         limit=limit,
         cursor=cursor,
+        after_sequence=after_sequence,
     )
     db.commit()
     return payload

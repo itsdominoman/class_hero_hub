@@ -36,6 +36,8 @@ from app.models_school import (
     SchoolMessagingPolicy,
     StaffAssignment,
     Student,
+    Subject,
+    SubjectGroup,
     User,
 )
 from app.routes import integrations_fhh
@@ -94,12 +96,36 @@ def _world(db):
         name="Verified Teacher",
         google_sub="assertion-teacher",
     )
-    db.add_all([school, teacher_user])
+    subject_teacher_user = User(
+        email="assertion-subject-teacher@test",
+        name="Zulu Subject Teacher",
+        name_ar="معلم المواد",
+        google_sub="assertion-subject-teacher",
+    )
+    admin_user = User(
+        email="assertion-school-admin@test",
+        name="Zulu School Office",
+        name_ar="إدارة المدرسة",
+        google_sub="assertion-school-admin",
+    )
+    db.add_all([school, teacher_user, subject_teacher_user, admin_user])
     db.flush()
     teacher = Membership(
         school_id=school.id,
         user_id=teacher_user.id,
         role="teacher",
+        status="active",
+    )
+    subject_teacher = Membership(
+        school_id=school.id,
+        user_id=subject_teacher_user.id,
+        role="teacher",
+        status="active",
+    )
+    school_admin = Membership(
+        school_id=school.id,
+        user_id=admin_user.id,
+        role="school_admin",
         status="active",
     )
     branch = BranchCampus(
@@ -127,6 +153,8 @@ def _world(db):
     db.add_all(
         [
             teacher,
+            subject_teacher,
+            school_admin,
             branch,
             year,
             grade,
@@ -146,6 +174,40 @@ def _world(db):
     )
     db.add(section)
     db.flush()
+    subjects = [
+        Subject(
+            school_id=school.id,
+            code="ENG",
+            name="English",
+            name_ar="اللغة الإنجليزية",
+            status="active",
+        ),
+        Subject(
+            school_id=school.id,
+            code="SCI",
+            name="Science",
+            name_ar="العلوم",
+            status="active",
+        ),
+    ]
+    db.add_all(subjects)
+    db.flush()
+    groups = [
+        SubjectGroup(
+            school_id=school.id,
+            academic_year_id=year.id,
+            class_section_id=section.id,
+            subject_id=subject.id,
+            code=f"{subject.code}-ASSERT",
+            name=subject.name,
+            name_ar=subject.name_ar,
+            status="active",
+            enrolment_policy="default_for_section",
+        )
+        for subject in subjects
+    ]
+    db.add_all(groups)
+    db.flush()
     db.add(
         StaffAssignment(
             school_id=school.id,
@@ -154,6 +216,18 @@ def _world(db):
             role="homeroom",
             valid_from=date.today() - timedelta(days=5),
         )
+    )
+    db.add_all(
+        [
+            StaffAssignment(
+                school_id=school.id,
+                membership_id=subject_teacher.id,
+                subject_group_id=group.id,
+                role="subject",
+                valid_from=date.today() - timedelta(days=5),
+            )
+            for group in groups
+        ]
     )
     for student in students:
         db.add(
@@ -221,6 +295,8 @@ def _world(db):
     return {
         "school": school,
         "teacher": teacher,
+        "subject_teacher": subject_teacher,
+        "school_admin": school_admin,
         "students": students,
         "links": links,
         "tokens": tokens,
@@ -285,6 +361,10 @@ def test_two_fhh_parents_have_distinct_attribution_and_read_state(db, client):
         + ("=" * (-len(recipient["recipient_ref"]) % 4))
     )
     assert b"membership_id" not in decoded_reference
+    assert recipient["staff_context"] == {
+        "relationship": "homeroom_teacher",
+        "subjects": [],
+    }
 
     create_body = {
         "kind": "student_staff",
@@ -366,6 +446,46 @@ def test_two_fhh_parents_have_distinct_attribution_and_read_state(db, client):
     by_identity = {row.external_participant_id: row for row in participants}
     assert by_identity[parent_one.id].last_read_sequence == 1
     assert by_identity[parent_two.id].last_read_sequence == 1
+
+
+def test_recipients_expose_current_assignment_context_without_raw_membership_ids(db, client):
+    world = _world(db)
+    response = _request(client, world, world["identities"][0], "GET", "/recipients")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["student"]["class_label"] == "Class"
+    assert payload["student"]["grade_label"] == "Grade"
+    by_name = {row["display_name"]: row for row in payload["staff"]}
+    assert by_name["Zulu Subject Teacher"]["staff_context"] == {
+        "relationship": "subject_teacher",
+        "subjects": [
+            {"name": "English", "name_ar": "اللغة الإنجليزية"},
+            {"name": "Science", "name_ar": "العلوم"},
+        ],
+    }
+    assert by_name["Zulu School Office"]["staff_context"] == {
+        "relationship": "school_administration",
+        "subjects": [],
+    }
+    assert all("membership_id" not in row for row in payload["staff"])
+
+    path = _path(world["links"][0], "/recipients")
+    searched = client.get(
+        f"{path}?q=Science",
+        headers=_headers(
+            world["tokens"][0],
+            _assertion(
+                world["identities"][0],
+                world["links"][0],
+                method="GET",
+                path=path,
+            ),
+        ),
+    )
+    assert searched.status_code == 200
+    assert [row["display_name"] for row in searched.json()["staff"]] == [
+        "Zulu Subject Teacher"
+    ]
 
 
 def test_assertions_are_one_time_request_bound_and_profile_bound(db, client):
@@ -661,7 +781,8 @@ def test_external_inbox_guardian_resolution_uses_bounded_selects(db, client):
         event.remove(engine, "before_cursor_execute", count)
     assert steady_state.status_code == 200
     assert len(steady_state.json()["items"]) == 20
-    assert len(statements) <= 25
+    # Assignment-derived context uses fixed set-based roster/subject queries.
+    assert len(statements) <= 28
 
 
 def test_runtime_requires_separate_assertion_secret_only_for_fhh_messaging():

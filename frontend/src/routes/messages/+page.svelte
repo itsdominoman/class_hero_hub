@@ -8,6 +8,7 @@
   import InboxList from '$lib/components/messaging/InboxList.svelte';
   import { errorStatus, messagingApi } from '$lib/messaging/api';
   import { filterConversations } from '$lib/messaging/presentation';
+  import { highestServerSequence, mergeIncomingMessages } from '$lib/messaging/state';
   import type {
     ConversationDetail,
     ConversationSummary,
@@ -40,6 +41,8 @@
   let offline = $state(false);
   let mobileThreadOpen = $state(false);
   let pollTimer: ReturnType<typeof setInterval> | null = null;
+  let activeEpoch = 0;
+  let activeRefreshInFlight = false;
 
   let filteredConversations = $derived(filterConversations(conversations, search, filter));
   let totalUnread = $derived(conversations.reduce((sum, row) => sum + row.unread_count, 0));
@@ -55,20 +58,35 @@
     return new URL(window.location.href).searchParams.get('conversation');
   }
 
+  function preserveNewerSummary(
+    current: ConversationSummary | undefined,
+    incoming: ConversationSummary
+  ): ConversationSummary {
+    if (!current) return incoming;
+    const currentSequence = current.last_message?.sequence ?? 0;
+    const incomingSequence = incoming.last_message?.sequence ?? 0;
+    return currentSequence > incomingSequence
+      ? {
+          ...incoming,
+          last_message: current.last_message,
+          last_message_at: current.last_message_at,
+          unread_count: current.unread_count
+        }
+      : incoming;
+  }
+
   async function loadInbox(options: { preserveError?: boolean; openRequested?: boolean } = {}) {
     if (!membership || loadingInbox || offline) return;
     loadingInbox = true;
     if (!options.preserveError) error = null;
     try {
       const page = await messagingApi.inbox(membership);
-      conversations = page.items;
+      const existing = new Map(conversations.map((row) => [row.id, row]));
+      conversations = page.items.map((row) => preserveNewerSummary(existing.get(row.id), row));
       available = true;
-      const requested = options.openRequested ? requestedConversationId() : selectedId;
-      if (requested) {
-        const exists = page.items.some((row) => row.id === requested);
-        if (exists || options.openRequested) await openConversation(requested, false);
-      } else if (selectedId && !page.items.some((row) => row.id === selectedId)) {
-        closeConversation();
+      if (options.openRequested) {
+        const requested = requestedConversationId();
+        if (requested) await openConversation(requested, false);
       }
     } catch (cause) {
       if (errorStatus(cause) === 404) {
@@ -84,7 +102,10 @@
 
   async function openConversation(id: string, updateUrl = true) {
     if (!membership) return;
+    const requestMembership = membership.membership_id;
+    const requestEpoch = ++activeEpoch;
     selectedId = id;
+    loadingOlder = false;
     mobileThreadOpen = true;
     loadingConversation = true;
     conversationError = null;
@@ -94,6 +115,11 @@
         messagingApi.detail(membership, id),
         messagingApi.messages(membership, id)
       ]);
+      if (
+        requestEpoch !== activeEpoch ||
+        selectedId !== id ||
+        membership?.membership_id !== requestMembership
+      ) return;
       selectedConversation = detail;
       messages = page.items;
       messagesCursor = page.next_cursor;
@@ -110,6 +136,7 @@
         }
       }
     } catch (cause) {
+      if (requestEpoch !== activeEpoch || selectedId !== id) return;
       const status = errorStatus(cause);
       conversationError =
         status === 403 || status === 404
@@ -121,7 +148,7 @@
       messages = [];
       if (status === 403 || status === 404) void loadInbox({ preserveError: true });
     } finally {
-      loadingConversation = false;
+      if (requestEpoch === activeEpoch) loadingConversation = false;
     }
   }
 
@@ -130,10 +157,12 @@
   }
 
   function closeConversation() {
+    activeEpoch += 1;
     selectedId = null;
     selectedConversation = null;
     messages = [];
     messagesCursor = null;
+    loadingOlder = false;
     mobileThreadOpen = false;
     conversationError = null;
     updateConversationQuery(null);
@@ -141,17 +170,90 @@
 
   async function loadOlderMessages() {
     if (!membership || !selectedId || !messagesCursor || loadingOlder) return;
+    const id = selectedId;
+    const requestEpoch = activeEpoch;
     loadingOlder = true;
     try {
-      const page = await messagingApi.messages(membership, selectedId, messagesCursor);
-      const known = new Set(messages.map((row) => row.id));
-      messages = [...page.items.filter((row) => !known.has(row.id)), ...messages];
+      const page = await messagingApi.messages(membership, id, {
+        cursor: messagesCursor
+      });
+      if (requestEpoch !== activeEpoch || selectedId !== id) return;
+      messages = mergeIncomingMessages(messages, page.items);
       messagesCursor = page.next_cursor;
     } catch (cause) {
       conversationError = cause instanceof Error ? cause.message : $_('messaging.olderLoadError');
     } finally {
-      loadingOlder = false;
+      if (requestEpoch === activeEpoch) loadingOlder = false;
     }
+  }
+
+  async function refreshActiveConversation() {
+    if (
+      !membership ||
+      !selectedId ||
+      !selectedConversation ||
+      activeRefreshInFlight ||
+      offline ||
+      document.hidden
+    ) return;
+    const id = selectedId;
+    const requestMembership = membership.membership_id;
+    const requestEpoch = activeEpoch;
+    const afterSequence = highestServerSequence(messages);
+    activeRefreshInFlight = true;
+    try {
+      const [detail, page] = await Promise.all([
+        messagingApi.detail(membership, id),
+        messagingApi.messages(membership, id, { afterSequence, limit: 100 })
+      ]);
+      if (
+        requestEpoch !== activeEpoch ||
+        selectedId !== id ||
+        membership?.membership_id !== requestMembership
+      ) return;
+      const currentSequence = selectedConversation.last_message?.sequence ?? 0;
+      const detailSequence = detail.last_message?.sequence ?? 0;
+      selectedConversation =
+        currentSequence > detailSequence
+          ? {
+              ...detail,
+              last_message: selectedConversation.last_message,
+              last_message_at: selectedConversation.last_message_at,
+              unread_count: selectedConversation.unread_count
+            }
+          : detail;
+      messages = mergeIncomingMessages(messages, page.items);
+      const highest = highestServerSequence(messages);
+      if (highest > 0 && (page.items.length > 0 || detail.unread_count > 0)) {
+        try {
+          await messagingApi.acknowledgeRead(membership, id, highest);
+          if (requestEpoch !== activeEpoch || selectedId !== id) return;
+          conversations = conversations.map((row) =>
+            row.id === id ? { ...row, unread_count: 0 } : row
+          );
+          if (selectedConversation) selectedConversation = { ...selectedConversation, unread_count: 0 };
+        } catch {
+          conversationError = $_('messaging.readUpdateError');
+        }
+      }
+    } catch (cause) {
+      if (requestEpoch !== activeEpoch || selectedId !== id) return;
+      const status = errorStatus(cause);
+      if (status === 403 || status === 404) {
+        conversationError = $_('messaging.accessChanged');
+        selectedConversation = null;
+        messages = [];
+        activeEpoch += 1;
+      }
+    } finally {
+      activeRefreshInFlight = false;
+    }
+  }
+
+  function refreshVisible() {
+    if (offline || document.hidden) return;
+    void loadInbox({ preserveError: true });
+    void refreshActiveConversation();
   }
 
   async function dispatchMessage(clientMessageId: string, body: string): Promise<boolean> {
@@ -180,8 +282,9 @@
     try {
       const saved = await messagingApi.send(membership, selectedId, clientMessageId, body);
       const reconciled: OptimisticMessage = { ...saved, sender_is_self: true };
-      messages = messages.map((row) =>
-        row.client_message_id === clientMessageId ? reconciled : row
+      messages = mergeIncomingMessages(
+        messages.filter((row) => row.client_message_id !== clientMessageId),
+        [reconciled]
       );
       selectedConversation = {
         ...selectedConversation,
@@ -189,6 +292,8 @@
           id: saved.id,
           sequence: saved.sequence,
           sender_display_name: saved.sender_display_name,
+          sender_kind: saved.sender_kind,
+          sender_relationship: saved.sender_relationship,
           body: saved.body,
           state: saved.state,
           created_at: saved.created_at
@@ -203,6 +308,8 @@
                 id: saved.id,
                 sequence: saved.sequence,
                 sender_display_name: saved.sender_display_name,
+                sender_kind: saved.sender_kind,
+                sender_relationship: saved.sender_relationship,
                 body: saved.body,
                 state: saved.state,
                 created_at: saved.created_at
@@ -335,25 +442,40 @@
 
     const onOnline = () => {
       offline = false;
-      void loadInbox({ preserveError: true });
-      if (selectedId) void openConversation(selectedId, false);
+      refreshVisible();
     };
     const onOffline = () => {
       offline = true;
     };
     const onFocus = () => {
-      if (!offline) void loadInbox({ preserveError: true });
+      refreshVisible();
     };
+    const onVisibility = () => {
+      if (!document.hidden) refreshVisible();
+    };
+    const onAppResume = () => refreshVisible();
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
     window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('chh:app-resume', onAppResume);
+    let removeNativeListener: (() => Promise<void>) | null = null;
+    void import('@capacitor/app').then(async ({ App }) => {
+      const handle = await App.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) refreshVisible();
+      });
+      removeNativeListener = () => handle.remove();
+    }).catch(() => undefined);
     pollTimer = setInterval(() => {
-      if (!document.hidden && !offline) void loadInbox({ preserveError: true });
-    }, 20_000);
+      refreshVisible();
+    }, 12_000);
     return () => {
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
       window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('chh:app-resume', onAppResume);
+      if (removeNativeListener) void removeNativeListener();
       if (pollTimer) clearInterval(pollTimer);
     };
   });

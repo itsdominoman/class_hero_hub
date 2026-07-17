@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n';
+  import { _, locale } from 'svelte-i18n';
   import type { ConversationSummary } from '$lib/messaging/types';
   import { conversationSubtitle, conversationTitle } from '$lib/messaging/presentation';
 
@@ -14,6 +14,7 @@
     loading?: boolean;
     onselect: (conversation: ConversationSummary) => void;
   } = $props();
+  const arabic = $derived($locale === 'ar');
 
   function formatTime(value: string | null | undefined) {
     if (!value) return '';
@@ -51,19 +52,19 @@
             onclick={() => onselect(conversation)}
           >
             <span class="mt-0.5 grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-100 font-bold text-slate-600 group-hover:bg-white" aria-hidden="true">
-              {conversationTitle(conversation).trim().slice(0, 1).toLocaleUpperCase()}
+              {conversationTitle(conversation, arabic).trim().slice(0, 1).toLocaleUpperCase()}
             </span>
             <span class="min-w-0 flex-1">
               <span class="flex items-start justify-between gap-3">
                 <span dir="auto" class:font-extrabold={conversation.unread_count > 0} class="truncate text-sm font-bold text-slate-900">
-                  {conversationTitle(conversation)}
+                  {conversationTitle(conversation, arabic)}
                 </span>
                 <span class="shrink-0 text-[0.7rem] font-semibold text-slate-400">
                   {formatTime(conversation.last_message_at)}
                 </span>
               </span>
               <span dir="auto" class="mt-0.5 block truncate text-xs font-semibold text-slate-500">
-                {conversationSubtitle(conversation)}
+                {conversationSubtitle(conversation, arabic)}
               </span>
               <span class="mt-2 flex items-center justify-between gap-3">
                 <span dir="auto" class:font-bold={conversation.unread_count > 0} class="truncate text-xs text-slate-500">

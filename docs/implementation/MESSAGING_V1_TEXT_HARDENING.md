@@ -2,7 +2,9 @@
 
 **Status:** Slice 7 implemented and validated on development, 2026-07-17
 **Architecture authority:** [`../planning/2026-07-messaging-v1-architecture-plan.md`](../planning/2026-07-messaging-v1-architecture-plan.md)
-**Runtime state:** dark; global and school feature flags remain disabled
+**Runtime state:** enabled for development testing only; CHH is enabled only for
+United International School and FHH's development proxy flag is enabled. Production
+remains disabled.
 
 ## Outcome and scope
 
@@ -98,7 +100,7 @@ fixture:
 
 | Operation | SELECT statements | Representative result |
 | --- | ---: | --- |
-| staff inbox, 50 rows | 20 | bounded independently of the 100-conversation population |
+| staff inbox, 50 rows | 26 maximum after S25h context projection | bounded independently of the 100-conversation population |
 | staff unread count | 17 | set-based current-access and cursor resolution |
 | message history, 50 rows | 24 | ordered sequences `51..100` |
 | 12 repeated inbox requests | 20 each | observed p95 `136.52 ms` |
@@ -159,7 +161,7 @@ Validation performed for this hardening checkpoint includes:
   visual harness retains pre-existing calendar-width and missing-resource findings
   outside the Messaging routes.
 
-The feature stays dark after deployment:
+The original Slice 7 deployment stayed dark:
 
 - CHH `MESSAGING_ENABLED=false`;
 - FHH `SCHOOL_MESSAGING_ENABLED=false`;
@@ -167,6 +169,58 @@ The feature stays dark after deployment:
 
 A later pilot must still complete the policy/disclosure/operations approval described
 by the architecture plan. Slice 7 does not authorize enablement by itself.
+
+## S25h live-refresh and context hardening
+
+Real-device testing found two usability defects after the Slice 7 gate: CHH's inbox
+timer reopened the selected thread and remounted its composer, while FHH had no
+active-thread timer. S25h corrects both without changing the CHH-authoritative data
+model or adding real-time infrastructure.
+
+The shared client contract is:
+
+- poll a visible active conversation every **12 seconds** with `after_sequence` set
+  to the highest known authoritative message sequence;
+- keep one poll in flight, discard responses for an old actor/route epoch, and merge
+  only additive rows by server ID/sequence;
+- never replace the composer or its draft, focus, selection, or future attachment
+  state during refresh;
+- pause while `document.hidden`, offline, or backgrounded, then refresh immediately
+  on `focus`, visibility restoration, `online`, and Capacitor `appStateChange` resume;
+- preserve the user's reading position. Auto-scroll only within 96 px of the bottom;
+  otherwise expose a localized, focusable **New messages** button;
+- preserve optimistic rows and stable client UUID retry/reconciliation behavior.
+
+The API accepts either the existing signed historical `cursor` or `after_sequence`,
+never both. Delta pages are ascending and include `latest_sequence`; authorization is
+revalidated on every request, so revocation still fails closed.
+
+CHH is also the only source for the added context. Current enrolment/section data
+produces `Student · grade/class`; exact guardian participant/sender data produces
+`Name · relationship` where available; current dated assignments produce homeroom,
+subject-teacher subject lists, or school-administration context. FHH may sanitize and
+display these fields but clients cannot submit them. Queries are set-based and fixed
+cost; the new context projection raises the staff-inbox ceiling to 26 SELECTs but is
+still independent of conversation and guardian population.
+
+Focused S25h validation passed 22 CHH messaging API/integration tests, 54 related
+authentication/CSRF/assignment/roster/integration tests (1 skipped), 4 messaging
+state/presentation unit tests, 6 protected update-photo tests, 1,133-key EN/AR parity,
+clean Svelte checking and production build, and 5 focused Playwright browser/mobile
+flows. The Playwright resume case proves draft text, focus and selection survive a
+new incoming row and exercises the non-bottom indicator. No migration was added.
+
+Development testing is now explicitly enabled: the CHH global flag is true, only
+United International School has an enabled school policy, and the FHH development
+flag is true. This is not a production enablement and does not implement photos,
+final receipt indicators, contact-hours scheduling, notification delivery/push,
+safeguarding administration, or retention cleanup.
+
+S25h deployment protection used CHH pgBackRest full backup `20260717-054356F`
+(`--pg1-user=classhero` was required to override a stale repository setting that
+still names the removed `familyhero` role) and FHH backup `20260717-054333F`. Both
+live databases were already at their heads (`e4f5a6b7c8d9` and `a2b3c4d5e6f7`), so
+no migration ran.
 
 Development release evidence:
 

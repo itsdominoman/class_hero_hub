@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n';
+  import { _, locale } from 'svelte-i18n';
+  import { studentAcademicLabel } from '$lib/messaging/presentation';
   import type { MessagingMembership, RecipientResults } from '$lib/messaging/types';
 
   let {
@@ -25,6 +26,13 @@
   let query = $state('');
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
   let searchInput: HTMLInputElement;
+  const arabic = $derived($locale === 'ar');
+
+  function relationshipLabel(value: string | null | undefined) {
+    return value && ['mother', 'father', 'guardian', 'other'].includes(value)
+      ? $_(`messaging.relationships.${value}`)
+      : '';
+  }
 
   $effect(() => {
     searchInput?.focus();
@@ -78,9 +86,11 @@
               {#each recipients.students as student (student.student_id)}
                 <li>
                   <button type="button" disabled={creating} onclick={() => onstudent(student.student_id)} class="w-full rounded-2xl px-3 py-3 text-start hover:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-hero disabled:opacity-50">
-                    <span dir="auto" class="block text-sm font-bold text-slate-900">{student.display_name}</span>
+                    <span dir="auto" class="block text-sm font-bold text-slate-900">{student.display_name}{studentAcademicLabel(student, arabic) ? ` · ${studentAcademicLabel(student, arabic)}` : ''}</span>
                     <span dir="auto" class="mt-0.5 block text-xs text-slate-500">
-                      {student.guardian_names.length ? student.guardian_names.join(', ') : $_('messaging.guardianAvailable')}
+                      {student.guardian_details?.length
+                        ? student.guardian_details.map((guardian) => [guardian.display_name, relationshipLabel(guardian.relationship)].filter(Boolean).join(' · ')).join(', ')
+                        : student.guardian_names.length ? student.guardian_names.join(', ') : $_('messaging.guardianAvailable')}
                     </span>
                   </button>
                 </li>

@@ -115,7 +115,7 @@ def _school_world(db, suffix):
         status="active",
     )
     grade = GradeLevel(
-        school_id=school.id, code=f"G-{suffix}", name="Grade", status="active"
+        school_id=school.id, code=f"G-{suffix}", name="KG1", name_ar="الروضة الأولى", status="active"
     )
     student = Student(
         school_id=school.id,
@@ -132,7 +132,8 @@ def _school_world(db, suffix):
         academic_year_id=year.id,
         grade_level_id=grade.id,
         code=f"C-{suffix}",
-        name="Class",
+        name="KG1A",
+        name_ar="الروضة الأولى أ",
         status="active",
     )
     db.add(section)
@@ -156,7 +157,7 @@ def _school_world(db, suffix):
             school_id=school.id,
             student_id=student.id,
             user_id=users[key].id,
-            relationship="guardian",
+            relationship="father" if key == "guardian" else "mother",
             display_name=users[key].name,
             status="active",
         )
@@ -171,6 +172,9 @@ def _school_world(db, suffix):
         "teacher": teacher,
         "student": student,
         "assignment": assignment,
+        "section": section,
+        "year": year,
+        "grade": grade,
         "links": links,
         "policy": policy,
     }
@@ -251,6 +255,96 @@ def test_shared_guardians_text_send_unread_ack_and_idempotent_retry(db, client):
         )
 
 
+def test_incremental_refresh_is_append_only_and_guardian_attribution_is_exact(db, client):
+    world = _school_world(db, "incremental")
+    conversation_id = _create_teacher_thread(client, world)
+    teacher_headers = _headers(
+        world["users"]["teacher"], world["school"], world["teacher"]
+    )
+    guardian_headers = _headers(world["users"]["guardian"], world["school"])
+
+    first = client.post(
+        f"/api/guardian/messaging/conversations/{conversation_id}/messages",
+        headers=guardian_headers,
+        json={"client_message_id": str(uuid4()), "body": "First parent note"},
+    )
+    assert first.status_code == 200
+    assert first.json()["sender_display_name"] == world["users"]["guardian"].name
+    assert first.json()["sender_kind"] == "chh_guardian"
+    assert first.json()["sender_relationship"] == "father"
+
+    initial = client.get(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=teacher_headers,
+    )
+    assert initial.status_code == 200
+    assert initial.json()["latest_sequence"] == 1
+    assert initial.json()["items"][0]["sender_relationship"] == "father"
+
+    second = client.post(
+        f"/api/guardian/messaging/conversations/{conversation_id}/messages",
+        headers=_headers(world["users"]["guardian2"], world["school"]),
+        json={"client_message_id": str(uuid4()), "body": "Second parent note"},
+    )
+    assert second.status_code == 200
+    assert second.json()["sender_relationship"] == "mother"
+
+    incremental = client.get(
+        f"/api/messaging/conversations/{conversation_id}/messages?after_sequence=1",
+        headers=teacher_headers,
+    )
+    assert incremental.status_code == 200
+    assert incremental.json()["latest_sequence"] == 2
+    assert [row["sequence"] for row in incremental.json()["items"]] == [2]
+    assert incremental.json()["items"][0]["sender_display_name"] == world["users"]["guardian2"].name
+    assert incremental.json()["items"][0]["sender_relationship"] == "mother"
+
+    empty = client.get(
+        f"/api/messaging/conversations/{conversation_id}/messages?after_sequence=2",
+        headers=teacher_headers,
+    )
+    assert empty.status_code == 200
+    assert empty.json()["items"] == []
+    assert client.get(
+        f"/api/messaging/conversations/{conversation_id}/messages?cursor=invalid&after_sequence=1",
+        headers=teacher_headers,
+    ).status_code == 400
+
+
+def test_inbox_detail_and_recipient_context_show_current_class_and_guardians(db, client):
+    world = _school_world(db, "context")
+    conversation_id = _create_teacher_thread(client, world)
+    headers = _headers(world["users"]["teacher"], world["school"], world["teacher"])
+    inbox = client.get("/api/messaging/inbox", headers=headers)
+    assert inbox.status_code == 200
+    summary = inbox.json()["items"][0]
+    assert summary["student"]["class_label"] == "KG1A"
+    assert summary["student"]["grade_label"] == "KG1"
+    assert summary["staff_context"] == {
+        "relationship": "homeroom_teacher",
+        "subjects": [],
+    }
+
+    detail = client.get(
+        f"/api/messaging/conversations/{conversation_id}", headers=headers
+    )
+    guardian_details = [
+        row for row in detail.json()["participant_details"] if row["side"] == "guardian"
+    ]
+    assert {(row["display_name"], row["relationship"]) for row in guardian_details} == {
+        (world["users"]["guardian"].name, "father"),
+        (world["users"]["guardian2"].name, "mother"),
+    }
+
+    recipients = client.get("/api/messaging/recipients?q=KG1A", headers=headers)
+    assert recipients.status_code == 200
+    student = recipients.json()["students"][0]
+    assert student["student_id"] == world["student"].id
+    assert student["class_label"] == "KG1A"
+    assert {(row["display_name"], row["relationship"]) for row in student["guardian_details"]} == {
+        (world["users"]["guardian"].name, "father"),
+        (world["users"]["guardian2"].name, "mother"),
+    }
 def test_guardian_can_create_and_reply_only_for_explicit_link_and_assignment(db, client):
     one = _school_world(db, "one")
     two = _school_world(db, "two")
@@ -424,7 +518,9 @@ def test_inbox_query_count_is_bounded(db, client):
     finally:
         event.remove(engine, "before_cursor_execute", count)
     assert response.status_code == 200
-    assert len(statements) <= 20
+    # Current class/grade and staff-role context adds only fixed, set-based
+    # roster lookups; the budget must not grow with conversations.
+    assert len(statements) <= 26
 
 
 def test_recipient_search_filters_before_cap_and_searches_guardian_names(db, client):
@@ -695,7 +791,7 @@ def test_representative_inbox_unread_and_history_are_bounded_and_fast(db, client
     assert inbox.status_code == 200
     assert len(inbox.json()["items"]) == 50
     inbox_select_count = len(selects)
-    assert inbox_select_count <= 20
+    assert inbox_select_count <= 26
 
     selects.clear()
     event.listen(engine, "before_cursor_execute", count_selects)

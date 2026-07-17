@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -29,16 +29,19 @@ from ..models_school import (
     Conversation,
     ConversationAccessGrant,
     ConversationParticipant,
+    Enrolment,
     FhhLink,
     FhhMessagingIdentity,
     FhhMessagingIdentityLink,
     GuardianLink,
+    GradeLevel,
     Membership,
     Message,
     School,
     SchoolMessagingPolicy,
     StaffAssignment,
     Student,
+    Subject,
     SubjectGroup,
     User,
 )
@@ -52,6 +55,155 @@ guardian_router = APIRouter()
 CURSOR_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
 MAX_INBOX_CANDIDATES = 2000
 MAX_RECIPIENT_CANDIDATES = 250
+
+
+def _student_context_catalog(
+    db: Session,
+    *,
+    school_id: int,
+    student_ids: set[int],
+) -> tuple[dict[int, dict[str, Any]], Any, dict[int, Subject]]:
+    """Resolve current class/grade and subject context with bounded queries."""
+    if not student_ids:
+        return {}, resolve_rosters_for_students(db, school_id, _utc_now().date(), student_ids=[]), {}
+    resolution = resolve_rosters_for_students(
+        db,
+        school_id,
+        _utc_now().date(),
+        student_ids=student_ids,
+    )
+    sections = {
+        section.id: section
+        for rows in resolution.class_sections_by_student.values()
+        for section in rows
+    }
+    grade_ids = {section.grade_level_id for section in sections.values()}
+    grades = {
+        row.id: row
+        for row in db.query(GradeLevel)
+        .filter(GradeLevel.school_id == school_id, GradeLevel.id.in_(grade_ids))
+        .all()
+    } if grade_ids else {}
+    subject_ids = {
+        int(group["subject_id"])
+        for rows in resolution.subject_groups_by_student.values()
+        for group in rows
+        if group.get("subject_id") is not None
+    }
+    subjects = {
+        row.id: row
+        for row in db.query(Subject)
+        .filter(Subject.school_id == school_id, Subject.id.in_(subject_ids))
+        .all()
+    } if subject_ids else {}
+    contexts: dict[int, dict[str, Any]] = {}
+    for student_id in student_ids:
+        student_sections = resolution.class_sections_by_student.get(student_id, [])
+        section = student_sections[0] if student_sections else None
+        grade = grades.get(section.grade_level_id) if section else None
+        contexts[student_id] = {
+            "class_label": section.name if section else None,
+            "class_label_ar": section.name_ar if section else None,
+            "grade_label": grade.name if grade else None,
+            "grade_label_ar": grade.name_ar if grade else None,
+        }
+    return contexts, resolution, subjects
+
+
+def _staff_contexts_for_conversations(
+    db: Session,
+    *,
+    rows: list[Conversation],
+    resolution: Any,
+    subjects: dict[int, Subject],
+) -> dict[int, dict[str, Any]]:
+    membership_ids = {
+        row.primary_staff_membership_id
+        for row in rows
+        if row.kind == "student_staff" and row.primary_staff_membership_id is not None
+    }
+    if not membership_ids:
+        return {}
+    membership_assignment_rows = (
+        db.query(Membership, StaffAssignment)
+        .outerjoin(
+            StaffAssignment,
+            and_(
+                StaffAssignment.membership_id == Membership.id,
+                StaffAssignment.school_id == rows[0].school_id,
+                *open_interval_expression(StaffAssignment),
+            ),
+        )
+        .filter(
+            Membership.id.in_(membership_ids),
+            Membership.school_id == rows[0].school_id,
+        )
+        .order_by(Membership.id, StaffAssignment.id)
+        .all()
+    )
+    memberships = {membership.id: membership for membership, _ in membership_assignment_rows}
+    assignments_by_membership: dict[int, list[StaffAssignment]] = {}
+    for membership, assignment in membership_assignment_rows:
+        if assignment is not None:
+            assignments_by_membership.setdefault(membership.id, []).append(assignment)
+
+    contexts: dict[int, dict[str, Any]] = {}
+    for conversation in rows:
+        membership_id = conversation.primary_staff_membership_id
+        student_id = conversation.student_id
+        if membership_id is None or student_id is None:
+            continue
+        membership = memberships.get(membership_id)
+        if membership and membership.role == "school_admin":
+            contexts[conversation.id] = {
+                "relationship": "school_administration",
+                "subjects": [],
+            }
+            continue
+        section_ids = {
+            section.id
+            for section in resolution.class_sections_by_student.get(student_id, [])
+        }
+        groups = resolution.subject_groups_by_student.get(student_id, [])
+        group_by_id = {
+            int(group["id"]): group
+            for group in groups
+            if group.get("id") is not None
+        }
+        matching = [
+            assignment
+            for assignment in assignments_by_membership.get(membership_id, [])
+            if assignment.class_section_id in section_ids
+            or assignment.subject_group_id in group_by_id
+        ]
+        has_homeroom = any(
+            assignment.role in {"homeroom", "class_teacher"}
+            and assignment.class_section_id in section_ids
+            for assignment in matching
+        )
+        subject_rows: list[Subject] = []
+        seen_subjects: set[int] = set()
+        for assignment in matching:
+            group = group_by_id.get(assignment.subject_group_id or -1)
+            subject_id = int(group["subject_id"]) if group and group.get("subject_id") else None
+            subject = subjects.get(subject_id) if subject_id is not None else None
+            if subject and subject.id not in seen_subjects:
+                subject_rows.append(subject)
+                seen_subjects.add(subject.id)
+        contexts[conversation.id] = {
+            "relationship": (
+                "homeroom_teacher"
+                if has_homeroom
+                else "subject_teacher"
+                if subject_rows
+                else "school_staff"
+            ),
+            "subjects": [
+                {"name": subject.name, "name_ar": subject.name_ar}
+                for subject in subject_rows
+            ],
+        }
+    return contexts
 
 
 @dataclass(frozen=True)
@@ -348,6 +500,26 @@ def _student_search_expression(
             ),
         )
     )
+    class_student_ids = (
+        db.query(Enrolment.student_id)
+        .join(ClassSection, ClassSection.id == Enrolment.class_section_id)
+        .join(GradeLevel, GradeLevel.id == ClassSection.grade_level_id)
+        .filter(
+            Enrolment.school_id == school_id,
+            Enrolment.kind == "member",
+            *open_interval_expression(Enrolment),
+            ClassSection.school_id == school_id,
+            ClassSection.status == "active",
+            or_(
+                func.coalesce(ClassSection.name, "").ilike(pattern, escape="\\"),
+                func.coalesce(ClassSection.name_ar, "").ilike(pattern, escape="\\"),
+                func.coalesce(ClassSection.code, "").ilike(pattern, escape="\\"),
+                func.coalesce(GradeLevel.name, "").ilike(pattern, escape="\\"),
+                func.coalesce(GradeLevel.name_ar, "").ilike(pattern, escape="\\"),
+                func.coalesce(GradeLevel.code, "").ilike(pattern, escape="\\"),
+            ),
+        )
+    )
     display_name = (
         func.coalesce(Student.preferred_name, Student.first_name, "")
         + " "
@@ -360,6 +532,7 @@ def _student_search_expression(
         func.coalesce(Student.name_ar, "").ilike(pattern, escape="\\"),
         display_name.ilike(pattern, escape="\\"),
         Student.id.in_(guardian_student_ids),
+        Student.id.in_(class_student_ids),
     )
 
 
@@ -861,6 +1034,29 @@ def _participant_for_actor(
     return None
 
 
+def _guardian_relationships(
+    db: Session,
+    participant_ids: set[int],
+) -> dict[int, str]:
+    if not participant_ids:
+        return {}
+    rows = (
+        db.query(ConversationAccessGrant.participant_id, GuardianLink.relationship)
+        .join(GuardianLink, GuardianLink.id == ConversationAccessGrant.guardian_link_id)
+        .filter(
+            ConversationAccessGrant.participant_id.in_(participant_ids),
+            ConversationAccessGrant.guardian_link_id.is_not(None),
+        )
+        .order_by(ConversationAccessGrant.id.desc())
+        .all()
+    )
+    relationships: dict[int, str] = {}
+    for participant_id, relationship in rows:
+        if relationship and participant_id not in relationships:
+            relationships[participant_id] = relationship
+    return relationships
+
+
 def _conversation_payloads(
     db: Session,
     *,
@@ -876,12 +1072,32 @@ def _conversation_payloads(
         .order_by(ConversationParticipant.id)
         .all()
     )
+    participants_by_id = {row.id: row for row in participants}
+    guardian_relationships = _guardian_relationships(
+        db,
+        {
+            row.id
+            for row in participants
+            if row.participant_kind == "chh_guardian"
+        },
+    )
     students = {
         row.id: row
         for row in db.query(Student)
         .filter(Student.id.in_({row.student_id for row in rows if row.student_id}))
         .all()
     }
+    student_contexts, roster_resolution, subjects = _student_context_catalog(
+        db,
+        school_id=actor.school.id,
+        student_ids={row.student_id for row in rows if row.student_id is not None},
+    )
+    staff_contexts = _staff_contexts_for_conversations(
+        db,
+        rows=rows,
+        resolution=roster_resolution,
+        subjects=subjects,
+    )
     latest_messages = (
         db.query(Message)
         .join(
@@ -900,6 +1116,8 @@ def _conversation_payloads(
             continue
         student = students.get(conversation.student_id)
         latest = latest_by_conversation.get(conversation.id)
+        latest_sender = participants_by_id.get(latest.sender_participant_id) if latest else None
+        student_context = student_contexts.get(conversation.student_id or -1, {})
         counterpart_names = [
             row.display_name_snapshot
             for row in participants
@@ -918,20 +1136,31 @@ def _conversation_payloads(
                         "id": student.id,
                         "display_name": _student_name(student),
                         "name_ar": student.name_ar,
+                        "class_label": student_context.get("class_label"),
+                        "class_label_ar": student_context.get("class_label_ar"),
+                        "grade_label": student_context.get("grade_label"),
+                        "grade_label_ar": student_context.get("grade_label_ar"),
                     }
                     if student
                     else None
                 ),
                 "context": {
-                    "label": conversation.context_label,
-                    "label_ar": conversation.context_label_ar,
+                    "label": conversation.context_label
+                    or student_context.get("class_label"),
+                    "label_ar": conversation.context_label_ar
+                    or student_context.get("class_label_ar"),
                 },
+                "staff_context": staff_contexts.get(conversation.id),
                 "participants": counterpart_names,
                 "last_message": (
                     {
                         "id": str(latest.public_id),
                         "sequence": latest.sequence,
                         "sender_display_name": latest.sender_display_name_snapshot,
+                        "sender_kind": latest_sender.participant_kind if latest_sender else None,
+                        "sender_relationship": guardian_relationships.get(
+                            latest.sender_participant_id
+                        ),
                         "body": latest.body if latest.state == "active" else None,
                         "state": latest.state,
                         "created_at": latest.created_at,
@@ -1154,12 +1383,21 @@ def _conversation_detail(
         .order_by(ConversationParticipant.id)
         .all()
     )
+    relationships = _guardian_relationships(
+        db,
+        {
+            row.id
+            for row in participants
+            if row.participant_kind == "chh_guardian"
+        },
+    )
     payload = payloads[0]
     payload["participant_details"] = [
         {
             "kind": row.participant_kind,
             "side": row.side,
             "display_name": row.display_name_snapshot,
+            "relationship": relationships.get(row.id),
             "active": row.left_at is None,
         }
         for row in participants
@@ -1178,8 +1416,14 @@ def _message_page(
     response: Response,
     limit: int,
     cursor: str | None,
+    after_sequence: int | None = None,
 ) -> dict[str, Any]:
     _private(response)
+    if cursor and after_sequence is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="Use either cursor or after_sequence",
+        )
     decoded = _decode_cursor(
         cursor,
         cursor_type="messages",
@@ -1190,46 +1434,87 @@ def _message_page(
     access = participant_sequence_access(
         db, conversation=conversation, participant=participant
     )
-    before_sequence = (
-        int(decoded["before"])
-        if decoded
-        else int(conversation.last_message_sequence or 0) + 1
-    )
     query = db.query(Message).filter(
         Message.conversation_id == conversation.id,
-        Message.sequence < before_sequence,
         Message.sequence >= access.visible_from,
     )
     if access.visible_through is not None:
         query = query.filter(Message.sequence <= access.visible_through)
-    rows = query.order_by(Message.sequence.desc()).limit(limit + 1).all()
-    has_more = len(rows) > limit
-    rows = rows[:limit]
     next_cursor = None
-    if has_more and rows:
-        next_cursor = _encode_cursor(
-            {
-                "type": "messages",
-                "actor": actor_ref,
-                "school_id": conversation.school_id,
-                "conversation": str(conversation.public_id),
-                "before": rows[-1].sequence,
-            }
+    if after_sequence is not None:
+        rows = (
+            query.filter(Message.sequence > after_sequence)
+            .order_by(Message.sequence.asc())
+            .limit(limit)
+            .all()
         )
+    else:
+        before_sequence = (
+            int(decoded["before"])
+            if decoded
+            else int(conversation.last_message_sequence or 0) + 1
+        )
+        rows = (
+            query.filter(Message.sequence < before_sequence)
+            .order_by(Message.sequence.desc())
+            .limit(limit + 1)
+            .all()
+        )
+        has_more = len(rows) > limit
+        rows = rows[:limit]
+        if has_more and rows:
+            next_cursor = _encode_cursor(
+                {
+                    "type": "messages",
+                    "actor": actor_ref,
+                    "school_id": conversation.school_id,
+                    "conversation": str(conversation.public_id),
+                    "before": rows[-1].sequence,
+                }
+            )
+        rows = list(reversed(rows))
+    sender_participants = {
+        row.id: row
+        for row in db.query(ConversationParticipant)
+        .filter(
+            ConversationParticipant.id.in_(
+                {message.sender_participant_id for message in rows}
+            )
+        )
+        .all()
+    } if rows else {}
+    relationships = _guardian_relationships(
+        db,
+        {
+            row.id
+            for row in sender_participants.values()
+            if row.participant_kind == "chh_guardian"
+        },
+    )
     items = [
         {
             "id": str(row.public_id),
             "sequence": row.sequence,
             "sender_display_name": row.sender_display_name_snapshot,
+            "sender_kind": (
+                sender_participants[row.sender_participant_id].participant_kind
+                if row.sender_participant_id in sender_participants
+                else None
+            ),
+            "sender_relationship": relationships.get(row.sender_participant_id),
             "sender_is_self": row.sender_participant_id == participant.id,
             "body": row.body if row.state == "active" else None,
             "state": row.state,
             "urgent": row.urgent,
             "created_at": row.created_at,
         }
-        for row in reversed(rows)
+        for row in rows
     ]
-    return {"items": items, "next_cursor": next_cursor}
+    return {
+        "items": items,
+        "next_cursor": next_cursor,
+        "latest_sequence": int(conversation.last_message_sequence or 0),
+    }
 
 
 def _create_student_staff_for_staff(
@@ -1949,9 +2234,15 @@ def staff_recipients(
         else []
     )
     guardian_names: dict[int, list[str]] = {}
+    guardian_details: dict[int, list[dict[str, str | None]]] = {}
     for link, user in guardian_rows:
-        guardian_names.setdefault(link.student_id, []).append(
-            link.display_name or user.name or "Guardian"
+        display_name = link.display_name or user.name or "Guardian"
+        guardian_names.setdefault(link.student_id, []).append(display_name)
+        guardian_details.setdefault(link.student_id, []).append(
+            {
+                "display_name": display_name,
+                "relationship": link.relationship,
+            }
         )
     staff_rows = []
     if actor.membership.role == "school_admin":
@@ -1979,6 +2270,11 @@ def staff_recipients(
             .limit(MAX_RECIPIENT_CANDIDATES)
             .all()
         )
+    student_contexts, _, _ = _student_context_catalog(
+        db,
+        school_id=actor.school.id,
+        student_ids={row.id for row in students},
+    )
     return {
         "students": [
             {
@@ -1986,6 +2282,8 @@ def staff_recipients(
                 "display_name": _student_name(row),
                 "name_ar": row.name_ar,
                 "guardian_names": guardian_names.get(row.id, []),
+                "guardian_details": guardian_details.get(row.id, []),
+                **student_contexts.get(row.id, {}),
             }
             for row in students[:50]
         ],
@@ -2176,6 +2474,7 @@ def staff_messages(
     response: Response,
     limit: int = Query(default=50, ge=1, le=100),
     cursor: str | None = None,
+    after_sequence: int | None = Query(default=None, ge=0),
     actor: StaffActor = Depends(require_staff_actor),
     db: Session = Depends(get_db),
 ):
@@ -2190,6 +2489,7 @@ def staff_messages(
         response=response,
         limit=limit,
         cursor=cursor,
+        after_sequence=after_sequence,
     )
 
 
@@ -2199,6 +2499,7 @@ def guardian_messages(
     response: Response,
     limit: int = Query(default=50, ge=1, le=100),
     cursor: str | None = None,
+    after_sequence: int | None = Query(default=None, ge=0),
     actor: GuardianActor = Depends(require_guardian_actor),
     db: Session = Depends(get_db),
 ):
@@ -2213,6 +2514,7 @@ def guardian_messages(
         response=response,
         limit=limit,
         cursor=cursor,
+        after_sequence=after_sequence,
     )
 
 
@@ -2256,6 +2558,10 @@ def _send(
         "id": str(message.public_id),
         "sequence": message.sequence,
         "sender_display_name": message.sender_display_name_snapshot,
+        "sender_kind": participant.participant_kind,
+        "sender_relationship": _guardian_relationships(db, {participant.id}).get(
+            participant.id
+        ),
         "body": message.body,
         "state": message.state,
         "urgent": message.urgent,

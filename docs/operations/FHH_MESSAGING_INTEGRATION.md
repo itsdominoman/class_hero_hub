@@ -1,6 +1,7 @@
 # FHH Messaging Integration Operations
 
-**Status:** Slices 5–7 proxy, parent UI, and text hardening deployed dark on development, 2026-07-17.
+**Status:** Slices 5–7 plus S25h live-refresh/context hardening enabled for United
+International School development testing, 2026-07-17. Production remains disabled.
 **Architecture authority:** [`../planning/2026-07-messaging-v1-architecture-plan.md`](../planning/2026-07-messaging-v1-architecture-plan.md)
 **Hardening evidence:** [`../implementation/MESSAGING_V1_TEXT_HARDENING.md`](../implementation/MESSAGING_V1_TEXT_HARDENING.md)
 
@@ -43,6 +44,18 @@ school and student. Conversation and message IDs are opaque UUIDs. Recipient
 references are encrypted, expire after 24 hours, and are school/student bound.
 Responses use closed DTOs plus `Cache-Control: private, no-store`.
 
+Message-history GET accepts the existing signed historical `cursor` or an
+`after_sequence` delta boundary, never both. A visible CHH or FHH thread uses the
+delta form every 12 seconds, merges rows append-only, and refreshes immediately on
+focus/visibility/app resume. Polling stops while hidden/offline and all scope and
+revocation checks are repeated for every delta request. `latest_sequence` is a
+server-owned boundary, not a client authorization claim.
+
+Student class/grade, exact guardian relationship and current staff role/subjects are
+derived from CHH's dated enrolment/assignment/participant state and returned only in
+closed DTO fields. FHH and native/browser clients must never supply or override this
+context.
+
 ## Failure and recovery
 
 | Result | Meaning | Operator action |
@@ -60,16 +73,16 @@ not depend on FHH persistence, notification delivery, or any worker.
 Expired assertion-use rows are indexed for a later bounded cleanup/retention slice.
 No cleanup worker is part of Slice 5.
 
-## Dark rollout and verification
+## Development pilot and verification
 
-Keep both global flags false until a named pilot:
+The named development pilot is intentionally configured as follows:
 
-- CHH `MESSAGING_ENABLED=false`
-- FHH `SCHOOL_MESSAGING_ENABLED=false`
+- CHH `MESSAGING_ENABLED=true`
+- FHH `SCHOOL_MESSAGING_ENABLED=true`
+- only the United International School CHH policy is enabled
 
-Slice 7 E2E and security gates are complete. Keep the feature dark until a named pilot
-also completes the plan's policy, disclosure, support, and operational approval gates;
-Slice 7 completion is not automatic pilot authorization. FHH contains a feature-gated
-parent text UI, but photos, final receipt display, contact-hours worker, notification
-bridge, push/deep links, safeguarding administration UI, and retention worker remain
+This configuration is development-only and must not be copied into production.
+Confirm the global flags and exact school policy before every test session and after
+rollback. Photos, final receipt display, contact-hours worker, notification bridge,
+push/deep links, safeguarding administration UI, and retention worker remain
 unimplemented.
