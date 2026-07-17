@@ -590,6 +590,32 @@ def test_assignment_replacement_archive_school_suspension_and_dual_role(db, clie
     ).status_code == 200
 
 
+def test_pending_setup_school_is_eligible_but_archived_school_fails_closed(db, client):
+    world = _school_world(db, "pending-setup")
+    admin_headers = _headers(
+        world["users"]["admin"], world["school"], world["admin"]
+    )
+    guardian_headers = _headers(world["users"]["guardian"], world["school"])
+
+    world["school"].status = "pending_setup"
+    db.commit()
+    assert client.get(
+        "/api/messaging/unread-count", headers=admin_headers
+    ).status_code == 200
+    assert client.get(
+        "/api/guardian/messaging/unread-count", headers=guardian_headers
+    ).status_code == 200
+
+    world["school"].status = "archived"
+    db.commit()
+    assert client.get(
+        "/api/messaging/unread-count", headers=admin_headers
+    ).status_code == 403
+    assert client.get(
+        "/api/guardian/messaging/unread-count", headers=guardian_headers
+    ).status_code == 403
+
+
 def test_representative_inbox_unread_and_history_are_bounded_and_fast(db, client):
     world = _school_world(db, "performance")
     section_id = world["assignment"].class_section_id

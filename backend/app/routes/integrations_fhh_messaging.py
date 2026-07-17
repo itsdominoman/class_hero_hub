@@ -119,7 +119,10 @@ def _actor(
     link = _link(db, link_id, link_token, lock=False)
     school = (
         db.query(School)
-        .filter(School.id == link.school_id, School.status == "active")
+        .filter(
+            School.id == link.school_id,
+            School.status.in_(("pending_setup", "active")),
+        )
         .first()
     )
     if school is None:

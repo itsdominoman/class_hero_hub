@@ -216,7 +216,10 @@ async def require_staff_actor(
     school_id = _school_id_from_header(request)
     school = (
         db.query(School)
-        .filter(School.id == school_id, School.status == "active")
+        .filter(
+            School.id == school_id,
+            School.status.in_(("pending_setup", "active")),
+        )
         .first()
     )
     if school is None:
@@ -275,7 +278,10 @@ async def require_guardian_actor(
     school_id = _school_id_from_header(request)
     school = (
         db.query(School)
-        .filter(School.id == school_id, School.status == "active")
+        .filter(
+            School.id == school_id,
+            School.status.in_(("pending_setup", "active")),
+        )
         .first()
     )
     if school is None:

@@ -514,8 +514,12 @@ def test_revoked_identity_link_archived_student_link_revoke_and_school_suspend_f
 ):
     world = _world(db)
     parent = world["identities"][0]
+    world["school"].status = "pending_setup"
+    db.commit()
     recipients = _request(client, world, parent, "GET", "/recipients")
     assert recipients.status_code == 200
+    world["school"].status = "active"
+    db.commit()
     created = _request(
         client,
         world,
