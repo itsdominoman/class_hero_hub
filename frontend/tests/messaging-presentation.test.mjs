@@ -7,6 +7,7 @@ import {
   filterConversations
 } from '../src/lib/messaging/presentation.ts';
 import { highestServerSequence, mergeIncomingMessages } from '../src/lib/messaging/state.ts';
+import { chooseNativeBackAction } from '../src/lib/native/back-policy.ts';
 
 const baseConversation = {
   id: '00000000-0000-0000-0000-000000000001',
@@ -109,4 +110,12 @@ test('staff-direct conversations fall back to participant identity', () => {
   assert.equal(conversationTitle(direct), 'School Administrator');
   assert.equal(conversationSubtitle(direct), 'School Administrator');
   assert.deepEqual(filterConversations([direct], '', 'active'), [direct]);
+});
+
+test('native Back policy avoids accidental exit and preserves non-root fallback', () => {
+  const roots = ['/', '/login', '/school', '/teach', '/parent'];
+  assert.equal(chooseNativeBackAction('/messages', roots, true, false), 'history');
+  assert.equal(chooseNativeBackAction('/messages', roots, false, false), 'fallback');
+  assert.equal(chooseNativeBackAction('/teach', roots, false, false), 'arm-exit');
+  assert.equal(chooseNativeBackAction('/teach', roots, false, true), 'exit');
 });

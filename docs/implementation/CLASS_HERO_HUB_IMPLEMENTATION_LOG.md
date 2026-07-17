@@ -4161,3 +4161,53 @@ CHH now processes update photos server-side. It accepts JPEG/JPG, PNG, WEBP and 
   only for United International School; production remains disabled. Photos, final
   receipt UI, contact-hours scheduling, push/notifications, safeguarding tools and
   retention work remain out of scope.
+
+## 2026-07-17 — S25i CHH Android messaging safe-area hardening
+
+- Root cause: CHH's composer used ordinary bottom padding, the mobile messaging
+  workspace forced a 38-rem minimum height under IME resize, the Android activity did
+  not explicitly request `adjustResize`, and CHH had no native Back dispatcher. On a
+  real Android device the composer could enter the gesture/three-button navigation
+  hit area and a tap could invoke Home or Recent Apps.
+- Made the composer a sticky, non-shrinking flex child with normal padding plus
+  `env(safe-area-inset-bottom)`, a 48×48 send target, and mobile-only fixed textarea
+  resizing. The workspace now permits mobile `100dvh` shrink and retains the previous
+  38-rem minimum only from `sm` upward.
+- Added Android `windowSoftInputMode="adjustResize"` and native-only shell interaction
+  rules. Added one Capacitor Back listener with a cancelable route event and bounded
+  history/root policy. Focused inputs dismiss first; compose overlay and conversation
+  routing consume subsequent presses; non-root routes fall back safely rather than
+  exiting.
+- Lifted draft state above the composer and retained it per membership/conversation.
+  Conversation → inbox → conversation preserves unsent text while S25h polling,
+  app-resume refresh, optimistic sends, focus/selection and scroll intent remain
+  unchanged.
+- Regression coverage added for bottom inset/padding, IME viewport resize, 48×48 tap
+  target, focus/cursor/selection, keyboard → inbox Back order, draft restoration and
+  native history/root policy. Final validation passed:
+  - messaging frontend unit **5**, protected-media unit **6**, EN/AR parity **1,133**;
+  - Svelte check **0 errors/0 warnings** and production frontend build;
+  - focused messaging Playwright **6/6**;
+  - backend messaging **40 passed, 1 skipped** and auth/school/report/update
+    regression **95 passed**;
+  - app-scoped Gradle `testDebugUnitTest`, `lintDebug`, `assembleDebug`, and
+    `assembleDebugAndroidTest`; APK v1/v2 signature and package verification.
+- Pre-deploy pgBackRest full backup `20260717-073438F` completed. No migration ran;
+  Alembic remains `e4f5a6b7c8d9`. Only the CHH frontend image/service was rebuilt and
+  restarted. Loopback/public frontend and `/messages` returned 200, public/direct API
+  health passed, and anonymous `/api/me`, protected media and messaging remained 401.
+- Runtime verification: `MESSAGING_ENABLED=true`; only United International School's
+  policy is enabled; 3 conversations, 17 messages, 12 participants, 9 receipt events
+  and 230 assertion-use rows. Production remains disabled.
+- Final APK:
+  `/opt/apps/class_hero_hub/tmp/class-hero-hub-s25i-dev.apk`, package
+  `com.classherohub.app`, native API `https://class.familyherohub.com/api`,
+  95,845,408 bytes, SHA-256
+  `55c777e0e344f7777fb308e6cc7d9233f672c01f93ad5b12f6554cef82077834`.
+  The identical artifact was copied to
+  `G:\My Drive\CHH\Remote\class-hero-hub-s25i-dev.apk`.
+- Physical-device gesture-navigation, three-button-navigation, keyboard, Back,
+  authentication/session restore, protected media and camera/gallery smoke checks
+  remain mandatory. No messaging photos, final receipt UI, contact-hours worker,
+  notification delivery/push, safeguarding administration UI, retention worker, or
+  CHH guardian UI was added.

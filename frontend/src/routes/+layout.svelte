@@ -19,6 +19,10 @@
   // Keep public website chrome out of the native shell while preserving it on web.
   let nativeApp = $state(isNativePlatform());
 
+  if (nativeApp && typeof document !== 'undefined') {
+    document.documentElement.classList.add('native-app');
+  }
+
   async function loadSession() {
     try {
       currentUser = await api.get('/me');
@@ -84,18 +88,50 @@
 
   onMount(() => {
     void loadSession();
+    let disposed = false;
+    let removeNativeBackHandler: (() => Promise<void>) | null = null;
     const onKeydown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') closeMobileMenu();
+    };
+    const onNativeBack = (event: Event) => {
+      const active = document.activeElement;
+      const editable =
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        (active instanceof HTMLElement && active.isContentEditable);
+      if (editable) {
+        (active as HTMLElement).blur();
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+      if (mobileMenuOpen) {
+        closeMobileMenu();
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
     };
     const onFocus = () => void refreshMessagingBadge();
     const badgeTimer = setInterval(() => void refreshMessagingBadge(), 30_000);
     window.addEventListener('keydown', onKeydown);
     window.addEventListener('focus', onFocus);
+    window.addEventListener('chh:native-back', onNativeBack, { capture: true });
+    if (nativeApp) {
+      void import('$lib/native/platform-bridge').then(async ({ registerNativeBackButtonHandler }) => {
+        const remove = await registerNativeBackButtonHandler(['/', '/login', '/school', '/teach', '/parent']);
+        if (disposed) await remove();
+        else removeNativeBackHandler = remove;
+      }).catch(() => undefined);
+    }
     return () => {
+      disposed = true;
       window.removeEventListener('keydown', onKeydown);
       window.removeEventListener('focus', onFocus);
+      window.removeEventListener('chh:native-back', onNativeBack, { capture: true });
       clearInterval(badgeTimer);
       document.body.classList.remove('mobile-menu-open');
+      document.documentElement.classList.remove('native-app');
+      if (removeNativeBackHandler) void removeNativeBackHandler();
     };
   });
 

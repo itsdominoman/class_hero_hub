@@ -3,7 +3,9 @@
 **Status:** authoritative architecture and implementation plan; Slices 1–7 policy,
 lifecycle, CHH core-record, CHH text API/staff UI, and FHH identity/proxy/parent UI
 foundations plus cross-repository text hardening implemented through 2026-07-17.
-S25h adds non-disruptive live refresh and assignment-derived identity context. The
+S25h adds non-disruptive live refresh and assignment-derived identity context. S25i
+hardens the CHH Android composer against bottom system insets and IME resize and adds
+ordered hardware Back handling without changing the messaging data model. The
 development global flags are enabled and only United International School has an
 enabled CHH school policy; production remains disabled. CHH guardian UI and Slices
 8–13 remain unimplemented.
@@ -39,6 +41,15 @@ desktop/mobile EN/AR/RTL state validation. S25h keeps the same architecture whil
 adding a 12-second active-thread delta poll, immediate focus/visibility/app-resume
 refresh, append-only stale-safe merge behavior, and unambiguous student, guardian,
 teacher-role, and subject context derived by CHH.
+
+S25i is the completed Android usability checkpoint immediately before Slice 8. CHH
+now applies the bottom safe-area inset to the sticky composer, permits the mobile
+messaging workspace to shrink with the IME, declares Android `adjustResize`, and uses
+a single native Back dispatch chain: keyboard/editable focus → messaging overlay →
+conversation inbox → existing shell/history/root behavior. Drafts are retained per
+membership/conversation when returning to the inbox. Polling, optimistic sends,
+selection, focus, new-message indication and scroll intent remain governed by S25h.
+This checkpoint adds no schema migration or Slice 8+ capability.
 
 ## 1. Executive recommendation
 
@@ -2123,10 +2134,12 @@ Each slice is separately deployable/testable. File lists are likely touch points
 - Guardian participant reconciliation was changed from a per-conversation query loop
   to bounded, set-based school/student resolution. A 20-conversation external inbox
   regression test confirms a bounded steady-state SELECT count.
-- Runtime keys are separate from the service/link credentials. CHH and FHH development
-  remain dark (`MESSAGING_ENABLED=false`,
+- Runtime keys are separate from the service/link credentials. At the S25e checkpoint,
+  CHH and FHH development remained dark (`MESSAGING_ENABLED=false`,
   `SCHOOL_MESSAGING_ENABLED=false`, zero enabled schools), so no parent route or staff
-  route is user-accessible yet.
+  route was user-accessible. This historical deployment state was superseded by the
+  S25h United International School development-pilot enablement recorded at the top
+  of this document.
 - Validation passed for assertion forgery/replay/expiry/audience/path/body binding,
   Arabic identity comparison, multi-parent attribution/read isolation, sibling and
   different-school identity scope, cross-family/child/link/conversation denial,
@@ -2146,7 +2159,8 @@ Each slice is separately deployable/testable. File lists are likely touch points
 
 **Objective:** dedicated aggregated school inbox plus child entry points.
 
-**Implementation status (2026-07-17): implemented as FHH-D / S25f and deployed dark.**
+**Implementation status (2026-07-17): implemented as FHH-D / S25f; its historical
+dark deployment was superseded by the S25h development pilot.**
 
 - Added the isolated FHH `/school-messages` federated inbox and
   `/school-messages/[childId]/[conversationId]` thread route. The parent shell,
@@ -2174,8 +2188,9 @@ Each slice is separately deployable/testable. File lists are likely touch points
   EN/AR parity, and the production frontend build. No migration was added.
 - FHH development backup `20260716-230656F` preceded a backend/frontend-only rebuild.
   Health, authenticated parent/children, existing linked-school dashboard, disabled
-  availability, and deployed browser-flow smokes passed. Runtime remains
-  `SCHOOL_MESSAGING_ENABLED=false`; CHH remains disabled too.
+  availability, and deployed browser-flow smokes passed. At that S25f checkpoint,
+  runtime was `SCHOOL_MESSAGING_ENABLED=false` and CHH was disabled too; S25h later
+  enabled the named development pilot without changing the source defaults.
 - Photos, final receipt presentation, contact-hours scheduling, notification/push/
   deep links, safeguarding administration UI, retention cleanup, and a message mirror
   remain out of scope.
@@ -2186,7 +2201,8 @@ Each slice is separately deployable/testable. File lists are likely touch points
 
 ### Slice 7 — cross-repository text E2E hardening
 
-**Implementation status (2026-07-17): implemented and deployed dark as S25f/S25g.**
+**Implementation status (2026-07-17): implemented as S25f/S25g; its historical dark
+deployment was superseded by the S25h development pilot.**
 
 **Objective:** stabilize identity, lifecycle, concurrency, errors, and support diagnostics before media/notifications.
 
@@ -2453,7 +2469,7 @@ CHH:
 
 - `docs/implementation/CHH_UPDATE_PHOTO_THUMBNAILS.md` — accurate current media implementation evidence.
 - `docs/implementation/FHH_LINKED_SCHOOL_MEDIA_ANDROID.md` — accurate protected Android media evidence.
-- `docs/testing/CHH_ANDROID_APK_SMOKE_TEST.md` and `docs/ops/CHH_ANDROID_GOOGLE_OAUTH_SETUP.md` — current native/auth references; messaging is not implemented.
+- `docs/testing/CHH_ANDROID_APK_SMOKE_TEST.md` and `docs/ops/CHH_ANDROID_GOOGLE_OAUTH_SETUP.md` — current native/auth references; the smoke matrix now covers the S25i messaging composer, IME and ordered Back sequence.
 - `docs/BACKEND_PERFORMANCE.md` and roster optimization docs — current bounded-query foundation.
 - existing guardian/onboarding/report/behaviour plans — not messaging specifications.
 

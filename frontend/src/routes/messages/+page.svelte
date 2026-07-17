@@ -40,6 +40,8 @@
   let creatingConversation = $state(false);
   let offline = $state(false);
   let mobileThreadOpen = $state(false);
+  let activeDraft = $state('');
+  let conversationDrafts = $state<Record<string, string>>({});
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let activeEpoch = 0;
   let activeRefreshInFlight = false;
@@ -56,6 +58,35 @@
 
   function requestedConversationId(): string | null {
     return new URL(window.location.href).searchParams.get('conversation');
+  }
+
+  function draftKey(conversationId: string, membershipId = membership?.membership_id) {
+    return membershipId ? `${membershipId}:${conversationId}` : null;
+  }
+
+  function saveActiveDraft() {
+    if (!selectedId) return;
+    const key = draftKey(selectedId);
+    if (!key) return;
+    conversationDrafts = { ...conversationDrafts, [key]: activeDraft };
+  }
+
+  function restoreDraft(conversationId: string) {
+    const key = draftKey(conversationId);
+    activeDraft = key ? conversationDrafts[key] ?? '' : '';
+  }
+
+  function clearConversationSelection() {
+    activeEpoch += 1;
+    selectedId = null;
+    selectedConversation = null;
+    messages = [];
+    messagesCursor = null;
+    loadingOlder = false;
+    mobileThreadOpen = false;
+    conversationError = null;
+    activeDraft = '';
+    updateConversationQuery(null);
   }
 
   function preserveNewerSummary(
@@ -102,6 +133,10 @@
 
   async function openConversation(id: string, updateUrl = true) {
     if (!membership) return;
+    if (selectedId !== id) {
+      saveActiveDraft();
+      restoreDraft(id);
+    }
     const requestMembership = membership.membership_id;
     const requestEpoch = ++activeEpoch;
     selectedId = id;
@@ -157,15 +192,8 @@
   }
 
   function closeConversation() {
-    activeEpoch += 1;
-    selectedId = null;
-    selectedConversation = null;
-    messages = [];
-    messagesCursor = null;
-    loadingOlder = false;
-    mobileThreadOpen = false;
-    conversationError = null;
-    updateConversationQuery(null);
+    saveActiveDraft();
+    clearConversationSelection();
   }
 
   async function loadOlderMessages() {
@@ -399,10 +427,11 @@
   async function selectMembership(id: number) {
     const next = memberships.find((row) => row.membership_id === id);
     if (!next || next.membership_id === membership?.membership_id) return;
+    saveActiveDraft();
     membership = next;
     available = true;
     conversations = [];
-    closeConversation();
+    clearConversationSelection();
     await loadInbox();
   }
 
@@ -454,11 +483,35 @@
       if (!document.hidden) refreshVisible();
     };
     const onAppResume = () => refreshVisible();
+    const onNativeBack = (event: Event) => {
+      if (event.defaultPrevented) return;
+      // The shell owns its drawer; let its listener consume Back before this route.
+      if (document.body.classList.contains('mobile-menu-open')) return;
+      const active = document.activeElement;
+      if (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement) {
+        active.blur();
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+      if (composeOpen) {
+        composeOpen = false;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+      if (mobileThreadOpen || selectedId) {
+        closeConversation();
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    };
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('chh:app-resume', onAppResume);
+    window.addEventListener('chh:native-back', onNativeBack);
     let removeNativeListener: (() => Promise<void>) | null = null;
     void import('@capacitor/app').then(async ({ App }) => {
       const handle = await App.addListener('appStateChange', ({ isActive }) => {
@@ -475,6 +528,7 @@
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('chh:app-resume', onAppResume);
+      window.removeEventListener('chh:native-back', onNativeBack);
       if (removeNativeListener) void removeNativeListener();
       if (pollTimer) clearInterval(pollTimer);
     };
@@ -513,7 +567,7 @@
       <a href={membership?.role === 'teacher' ? '/teach' : '/school'} class="btn-hero mt-6 inline-flex rounded-2xl px-5 py-3">{$_('messaging.returnDashboard')}</a>
     </section>
   {:else}
-    <section class="flex h-[calc(100dvh-5rem-var(--safe-top))] min-h-[38rem] overflow-hidden border-y border-slate-200 bg-white shadow-xl shadow-slate-200/40 sm:h-[calc(100dvh-8.5rem-var(--safe-top))] sm:rounded-3xl sm:border">
+    <section data-testid="messaging-workspace" class="flex h-[calc(100dvh-5rem-var(--safe-top))] min-h-0 overflow-hidden border-y border-slate-200 bg-white shadow-xl shadow-slate-200/40 sm:h-[calc(100dvh-8.5rem-var(--safe-top))] sm:min-h-[38rem] sm:rounded-3xl sm:border">
       <aside class:hidden={mobileThreadOpen} class="flex min-h-0 w-full flex-col border-e border-slate-200 md:flex md:w-[23rem] lg:w-[27rem]">
         <header class="border-b border-slate-200 px-4 py-4">
           <div class="flex items-center justify-between gap-3">
@@ -569,6 +623,7 @@
           </div>
         {/if}
         <ConversationPane
+          bind:draft={activeDraft}
           conversation={selectedConversation}
           {messages}
           loading={loadingConversation}

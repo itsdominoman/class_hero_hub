@@ -271,6 +271,79 @@ test('resume refresh appends messages without disturbing draft focus, selection,
   expect(incrementalRequests).toBe(1);
 });
 
+test('Android-sized composer honors bottom insets, keyboard resize, and ordered native Back', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockEnabledMessaging(page);
+  await page.goto(`/messages?conversation=${conversationId}`);
+  await page.addStyleTag({ content: ':root { --safe-bottom: 24px !important; }' });
+
+  const form = page.getByTestId('message-composer');
+  const composer = page.getByRole('textbox', { name: 'Message', exact: true });
+  const send = page.getByTestId('message-send');
+  const initialLayout = await form.evaluate((element) => {
+    const formRect = element.getBoundingClientRect();
+    const inputRect = element.querySelector('textarea')!.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return {
+      formBottom: formRect.bottom,
+      inputBottom: inputRect.bottom,
+      viewportHeight: window.innerHeight,
+      paddingBottom: Number.parseFloat(style.paddingBottom),
+      position: style.position
+    };
+  });
+  expect(initialLayout.position).toBe('sticky');
+  expect(initialLayout.paddingBottom).toBeGreaterThanOrEqual(36);
+  expect(initialLayout.formBottom).toBeLessThanOrEqual(initialLayout.viewportHeight + 1);
+  expect(initialLayout.viewportHeight - initialLayout.inputBottom).toBeGreaterThanOrEqual(24);
+  const sendBox = await send.boundingBox();
+  expect(sendBox?.width).toBeGreaterThanOrEqual(48);
+  expect(sendBox?.height).toBeGreaterThanOrEqual(48);
+
+  await composer.fill('Draft survives resize and Back');
+  await composer.focus();
+  await composer.evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(6, 14));
+  await page.setViewportSize({ width: 390, height: 560 });
+  const resized = await page.getByTestId('messaging-workspace').evaluate((element) => ({
+    bottom: element.getBoundingClientRect().bottom,
+    viewportHeight: window.innerHeight
+  }));
+  expect(resized.bottom).toBeLessThanOrEqual(resized.viewportHeight + 1);
+  await expect(composer).toHaveValue('Draft survives resize and Back');
+  expect(await composer.evaluate((element: HTMLTextAreaElement) => ({
+    focused: document.activeElement === element,
+    start: element.selectionStart,
+    end: element.selectionEnd
+  }))).toEqual({ focused: true, start: 6, end: 14 });
+
+  const keyboardBackHandled = await page.evaluate(() =>
+    !window.dispatchEvent(new CustomEvent('chh:native-back', { cancelable: true }))
+  );
+  expect(keyboardBackHandled).toBe(true);
+  await expect(composer).toHaveValue('Draft survives resize and Back');
+  expect(await composer.evaluate((element) => document.activeElement === element)).toBe(false);
+  await expect(page.locator('section[aria-label*="Mariam Al Harthy"]')).toBeVisible();
+
+  const threadBackHandled = await page.evaluate(() =>
+    !window.dispatchEvent(new CustomEvent('chh:native-back', { cancelable: true }))
+  );
+  expect(threadBackHandled).toBe(true);
+  await expect(page.getByRole('heading', { name: 'Messages' })).toBeVisible();
+  await page.getByRole('list', { name: 'Conversation list' }).getByRole('button').first().click();
+  await expect(page.getByRole('textbox', { name: 'Message', exact: true }))
+    .toHaveValue('Draft survives resize and Back');
+
+  await page.getByRole('button', { name: 'Open menu' }).click();
+  await expect(page.getByRole('dialog', { name: 'Menu' })).toBeVisible();
+  const menuBackHandled = await page.evaluate(() =>
+    !window.dispatchEvent(new CustomEvent('chh:native-back', { cancelable: true }))
+  );
+  expect(menuBackHandled).toBe(true);
+  await expect(page.getByRole('dialog', { name: 'Menu' })).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Message', exact: true }))
+    .toHaveValue('Draft survives resize and Back');
+});
+
 test('mobile Arabic layout preserves RTL chrome, mixed content, and safe back navigation', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => localStorage.setItem('familyHeroHub.language', 'ar'));

@@ -28,6 +28,25 @@ If you are already near the bottom, new messages remain in view. If you have scr
 up, the thread preserves your reading position and shows **New messages**; activate it
 to move to the latest row. Polling pauses while hidden, backgrounded, or offline.
 
+## Android composer and Back button
+
+The Android composer stays above both gesture navigation and the three-button system
+bar, with or without the keyboard. Tap only inside the visible message field or Send
+button; a composer tap must not open Home or Recent Apps or minimize CHH.
+
+Hardware Back follows this order:
+
+1. If the keyboard is open, Back closes the keyboard and keeps the conversation open.
+2. If the new-conversation overlay is open, Back closes the overlay.
+3. Otherwise, Back from a conversation returns to the messaging inbox.
+4. From the inbox, the existing app menu, route history and root behavior applies.
+
+An unsent draft is retained when you return from a conversation to the inbox and then
+reopen the same conversation. Drafts stay associated with their conversation and
+school membership. Always confirm the draft before sending, particularly after
+switching conversations. A successful send clears the accepted draft; a failed send
+restores its text for retry.
+
 ## Context and privacy
 
 Names and user-entered message text use automatic direction so mixed Arabic and

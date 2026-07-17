@@ -14,6 +14,7 @@
     hasOlder = false,
     sending = false,
     offline = false,
+    draft = $bindable(''),
     onback,
     onloadolder,
     onsend,
@@ -26,6 +27,7 @@
     hasOlder?: boolean;
     sending?: boolean;
     offline?: boolean;
+    draft?: string;
     onback: () => void;
     onloadolder: () => void;
     onsend: (body: string) => Promise<boolean>;
@@ -196,6 +198,7 @@
       <div class="border-t border-slate-200 bg-slate-100 px-4 py-3 text-center text-xs font-semibold text-slate-600">{$_('messaging.readOnlyNotice')}</div>
     {/if}
     <MessageComposer
+      bind:draft
       disabled={conversation.read_only || !conversation.capabilities.can_send}
       {sending}
       {offline}

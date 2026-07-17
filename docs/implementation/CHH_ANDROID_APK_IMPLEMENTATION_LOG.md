@@ -22,6 +22,14 @@ Scope: implementation record for the Class Hero Hub (CHH) Capacitor Android app.
   It is the debug variant, version code `1`, version name `1.0`, package
   `com.classherohub.app`, target/compile SDK 35, and uses the fixed native API
   `https://class.familyherohub.com/api`.
+- S25i safe-area development artifact:
+  `/opt/apps/class_hero_hub/tmp/class-hero-hub-s25i-dev.apk`
+  (`95,845,408` bytes, SHA-256
+  `55c777e0e344f7777fb308e6cc7d9233f672c01f93ad5b12f6554cef82077834`).
+  It is the debug variant, version code `1`, version name `1.0`, package
+  `com.classherohub.app`, minimum SDK 23, target/compile SDK 35, and contains the
+  fixed native API `https://class.familyherohub.com/api`. The identical file is at
+  `G:\My Drive\CHH\Remote\class-hero-hub-s25i-dev.apk`.
 - The merged Android manifest explicitly removes the transitive biometric and
   fingerprint permissions from the encrypted-preferences dependency. CHH does
   not use biometric authentication and the APK requests no camera or storage
@@ -70,10 +78,24 @@ CSRF/state validation and must not be weakened or disabled for the native flow.
   visibility and online restoration. Its 12-second delta refresh is append-only and
   does not remount the composer, dismiss the soft keyboard, overwrite a draft, or
   move selection. Auto-scroll follows only a reader already near the bottom.
+- S25i reserves the Android bottom system inset inside the sticky composer, explicitly
+  uses activity `adjustResize`, and lets the mobile `100dvh` workspace shrink while
+  the IME is open. The send control remains a 48×48 tap target above gesture and
+  three-button navigation areas.
+- S25i registers one native Back dispatcher. An editable field consumes Back and
+  dismisses the keyboard first; a compose overlay is next; an open conversation then
+  returns to the inbox; existing mobile-menu and bounded root/history handling remain
+  in place. Drafts are retained per membership/conversation when returning to the
+  inbox, and no Back press silently discards an unsent draft.
 - Native validation for S25h passed Gradle `testDebugUnitTest`, `lintDebug`,
   `assembleDebug`, and `assembleDebugAndroidTest`. APK signature verification passed
   v1/v2 debug schemes and the instrumented test APK assembled; execution of device
   tests and the two-party keyboard/resume flow still requires a physical device.
+- Native validation for S25i passed app-scoped Gradle `testDebugUnitTest`, `lintDebug`,
+  `assembleDebug`, and `assembleDebugAndroidTest`; focused Android-sized Playwright
+  coverage passed 6/6 with inset, resize, focus/selection, Back and draft checks.
+  APK verification passed v1/v2 debug signatures and package/app-ID inspection.
+  Gesture-navigation and three-button-navigation device execution remains required.
 
 ## Updates & photos
 
@@ -118,8 +140,12 @@ Capacitor Camera v7 system camera/photo-picker flow does not need one when
 - `frontend/android/app/src/main/java/com/classherohub/app/GoogleAuthPlugin.kt`
 - `frontend/android/app/src/main/java/com/classherohub/app/SecureStoragePlugin.kt`
 - `frontend/src/lib/nativeAuth.ts`
+- `frontend/src/lib/native/back-policy.ts`
+- `frontend/src/lib/native/platform-bridge.ts`
 - `frontend/src/lib/api.ts`
 - `frontend/src/routes/+layout.svelte`
+- `frontend/src/routes/messages/+page.svelte`
+- `frontend/src/lib/components/messaging/MessageComposer.svelte`
 - `frontend/src/routes/+page.svelte`
 - `frontend/src/routes/teach/assignments/[id]/+page.svelte`
 # Updates & Photos image optimisation (2026-07-14)

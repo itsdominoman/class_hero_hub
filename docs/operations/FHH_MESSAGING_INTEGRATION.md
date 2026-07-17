@@ -1,7 +1,8 @@
 # FHH Messaging Integration Operations
 
-**Status:** Slices 5–7 plus S25h live-refresh/context hardening enabled for United
-International School development testing, 2026-07-17. Production remains disabled.
+**Status:** Slices 5–7 plus S25h live-refresh/context and S25i CHH Android
+safe-area/Back hardening enabled for United International School development testing,
+2026-07-17. Production remains disabled.
 **Architecture authority:** [`../planning/2026-07-messaging-v1-architecture-plan.md`](../planning/2026-07-messaging-v1-architecture-plan.md)
 **Hardening evidence:** [`../implementation/MESSAGING_V1_TEXT_HARDENING.md`](../implementation/MESSAGING_V1_TEXT_HARDENING.md)
 
@@ -86,3 +87,16 @@ Confirm the global flags and exact school policy before every test session and a
 rollback. Photos, final receipt display, contact-hours worker, notification bridge,
 push/deep links, safeguarding administration UI, and retention worker remain
 unimplemented.
+
+S25i changed no messaging API, schema, credentials, assertion binding or FHH proxy.
+Its deployment used CHH backup `20260717-073438F`, left Alembic at
+`e4f5a6b7c8d9`, and rebuilt/restarted only the CHH frontend. Post-deploy verification
+confirmed CHH `MESSAGING_ENABLED=true`, only United International School enabled,
+and 3 conversations/17 messages/12 participants/9 receipt events/230 assertion-use
+rows. The CHH frontend and public `/messages` returned 200, direct/public API health
+passed, and anonymous messaging and protected-media requests remained denied.
+
+The S25i APK is
+`/opt/apps/class_hero_hub/tmp/class-hero-hub-s25i-dev.apk`, 95,845,408 bytes,
+SHA-256 `55c777e0e344f7777fb308e6cc7d9233f672c01f93ad5b12f6554cef82077834`.
+Real-device gesture/three-button, IME and ordered Back checks remain required.

@@ -1,6 +1,7 @@
 # Messaging v1 text hardening
 
-**Status:** Slice 7 implemented and validated on development, 2026-07-17
+**Status:** Slice 7, S25h, and S25i implemented and validated on development,
+2026-07-17
 **Architecture authority:** [`../planning/2026-07-messaging-v1-architecture-plan.md`](../planning/2026-07-messaging-v1-architecture-plan.md)
 **Runtime state:** enabled for development testing only; CHH is enabled only for
 United International School and FHH's development proxy flag is enabled. Production
@@ -222,7 +223,8 @@ still names the removed `familyhero` role) and FHH backup `20260717-054333F`. Bo
 live databases were already at their heads (`e4f5a6b7c8d9` and `a2b3c4d5e6f7`), so
 no migration ran.
 
-Development release evidence:
+Historical S25f/S25g dark-release evidence (preserved for audit and superseded by
+the S25h development-pilot enablement described above):
 
 - CHH full backup `20260717-000934F`; FHH full backup `20260717-000941F`;
 - no-op Alembic head checks: CHH `e4f5a6b7c8d9`, FHH `a2b3c4d5e6f7`;
@@ -235,6 +237,60 @@ Development release evidence:
   remained denied;
 - CHH reported zero enabled school policies/conversations/messages and FHH reported
   no conversation/message mirror tables.
+
+## S25i CHH Android safe-area and Back hardening
+
+Real-device testing after S25h found that the CHH composer did not reserve Android's
+bottom system inset. The messaging workspace also retained a 38-rem mobile minimum
+height while the IME was open, and the manifest did not explicitly select resize
+behavior. On gesture and three-button devices this could place the composer in the
+system-navigation hit region, so a composer tap could invoke Home or Recent Apps.
+CHH also lacked the native Back dispatcher already proven in FHH.
+
+S25i keeps the text-only messaging contract and changes only presentation/native
+navigation behavior:
+
+- the composer is a sticky, non-shrinking flex child with bottom padding equal to its
+  normal padding plus `env(safe-area-inset-bottom)` and a 48×48 send target;
+- the mobile workspace can shrink with `100dvh`; the 38-rem minimum remains only at
+  the `sm` breakpoint;
+- Android declares `windowSoftInputMode="adjustResize"` and the native shell applies
+  native-only interaction/overscroll rules without changing browser behavior;
+- one Capacitor Back listener dispatches a cancelable route event. Focused editable
+  content consumes Back first and dismisses the keyboard; the compose overlay is
+  next; an open thread then returns to the inbox; existing mobile-menu/root/history
+  behavior remains bounded and a non-root route never exits accidentally;
+- draft state is lifted above the composer and retained per membership/conversation,
+  so conversation → inbox → conversation does not silently discard an unsent draft;
+  resize, polling and app-resume refresh continue to preserve focus, cursor,
+  selection, optimistic rows and scroll intent.
+
+Focused S25i validation passed 5 messaging state/policy unit tests, 6 protected-media
+unit tests, 1,133-key EN/AR parity, clean Svelte checking and production build, and
+6 focused Playwright flows. The Android-sized Playwright case injects a 24-pixel
+bottom inset, verifies sticky placement/padding and the 48×48 target, simulates IME
+resize, verifies focus/cursor/selection, then proves keyboard → inbox Back ordering
+and draft restoration. Backend regression passed 40 messaging tests with one
+PostgreSQL-only skip and 95 auth/school/report/update tests. App-scoped Gradle
+`testDebugUnitTest`, `lintDebug`, `assembleDebug`, and `assembleDebugAndroidTest`
+passed; the debug APK verifies with v1/v2 signatures.
+
+Deployment used CHH pgBackRest full backup `20260717-073438F`, added no migration,
+and rebuilt/restarted only the CHH frontend. Runtime remains at Alembic
+`e4f5a6b7c8d9`, `MESSAGING_ENABLED=true`, with only United International School's
+policy enabled. At verification time CHH held 3 conversations, 17 messages,
+12 participants, 9 receipt events and 230 assertion-use rows. Production remains
+disabled.
+
+The verified S25i APK is
+`/opt/apps/class_hero_hub/tmp/class-hero-hub-s25i-dev.apk`: 95,845,408 bytes,
+SHA-256 `55c777e0e344f7777fb308e6cc7d9233f672c01f93ad5b12f6554cef82077834`,
+package `com.classherohub.app`, native API
+`https://class.familyherohub.com/api`. Physical-device gesture/three-button and
+camera/auth checks remain mandatory before sign-off.
+
+S25i adds no messaging photos, final receipt UI, contact-hours worker, notification
+delivery/push, safeguarding administration UI, retention worker, or CHH guardian UI.
 
 ## Operator diagnostics
 

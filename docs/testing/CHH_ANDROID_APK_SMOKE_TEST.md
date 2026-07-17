@@ -69,6 +69,47 @@ device model, Android version, APK filename, checksum, date, and tester with the
 - [ ] Recheck Android Back, safe areas, keyboard resize, session restoration, direct
       login, protected update media, camera and gallery flows after messaging tests.
 
+### S25i system navigation, IME and Back matrix
+
+Run every applicable row on the same installed S25i APK in portrait phone layout.
+Record device model, Android version, navigation mode and keyboard.
+
+- [ ] Gesture navigation, keyboard closed: the complete textarea border and send
+      button sit above the gesture area; tapping anywhere in the composer never opens
+      Home/Recent Apps and never minimizes CHH.
+- [ ] Gesture navigation, keyboard open: the composer remains fully above the IME,
+      with no jump, clipped row or inaccessible send target.
+- [ ] Three-button navigation, keyboard closed: the complete composer remains above
+      Back/Home/Recent Apps and every composer tap stays inside CHH.
+- [ ] Three-button navigation, keyboard open: the composer remains fully above the
+      resized viewport and system controls.
+- [ ] With draft text focused and a non-collapsed selection, press hardware Back once:
+      the keyboard closes, the conversation remains open, and draft text, cursor and
+      selection are unchanged.
+- [ ] Press hardware Back again: the conversation closes to the messaging inbox and
+      the app does not exit. Reopen the same conversation and confirm its draft is
+      restored.
+- [ ] Open the new-conversation overlay and press Back: the overlay closes before the
+      active conversation/inbox or shell route changes.
+- [ ] From the inbox, verify existing drawer/history/root Back behavior has no double
+      handling or accidental exit. From a non-root route with no WebView history,
+      verify Back returns safely to the app root.
+- [ ] While typing, receive an FHH reply and exercise the 12-second poll, background/
+      resume refresh and offline/online refresh. Draft, focus, cursor, selection,
+      optimistic rows, reading position and **New messages** behavior must remain
+      intact.
+- [ ] Switch conversations and return; each unsent draft must remain with its own
+      conversation and school membership. A successful send clears only its accepted
+      draft; a failed send restores its text.
+- [ ] Repeat the keyboard-open/closed sequence after app background/resume and after
+      restoring an authenticated session.
+
+Automated S25i coverage verifies CSS inset/padding, `100dvh` resize, 48×48 send target,
+focus/cursor/selection, keyboard → inbox Back order, draft restoration, polling,
+optimistic send, new-message indication and native root/history policy. It cannot
+prove OEM system-bar hit testing, actual IME visibility, camera/gallery UI or native
+Google account selection; those rows require a physical device.
+
 ## Browser regression check
 
 - [ ] In a desktop or mobile browser (not the APK), confirm the public homepage/footer
