@@ -1,6 +1,6 @@
 # CHH Android APK implementation log
 
-Status date: 2026-07-14
+Status date: 2026-07-17
 Scope: implementation record for the Class Hero Hub (CHH) Capacitor Android app.
 
 ## Identity and build output
@@ -15,6 +15,17 @@ Scope: implementation record for the Class Hero Hub (CHH) Capacitor Android app.
   file. The current camera-updates artifact is
   `chh-debug-camera-updates-2026-07-14-71ef53f.apk`.
 - Debug builds use Android's debug signing; no release signing has been configured.
+- The merged Android manifest explicitly removes the transitive biometric and
+  fingerprint permissions from the encrypted-preferences dependency. CHH does
+  not use biometric authentication and the APK requests no camera or storage
+  permission; Capacitor Camera uses the system camera/photo picker.
+- Android application backup is disabled so the bearer token in encrypted
+  preferences cannot be copied or restored independently of its Keystore key.
+- The checked-in instrumented identity test compares the installed target
+  context with CHH's real `com.classherohub.app` application ID, rather than
+  Capacitor's template package. Host-side builds compile it with
+  `./gradlew assembleDebugAndroidTest`; execution still requires a device or
+  emulator.
 
 ## Native authentication
 
