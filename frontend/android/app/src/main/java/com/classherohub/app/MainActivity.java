@@ -15,6 +15,10 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SecureStoragePlugin.class);
         super.onCreate(savedInstanceState);
 
+        // Preserve Capacitor's complete WebChromeClient implementation while
+        // replacing only its WebView audio-capture permission decision.
+        getBridge().getWebView().setWebChromeClient(new AudioCaptureWebChromeClient(getBridge()));
+
         // Android 15 enforces edge-to-edge for targetSdk 35. CHH's shell is
         // light, so system-bar icons must be dark and legible.
         final View decorView = getWindow().getDecorView();
