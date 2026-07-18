@@ -2,6 +2,13 @@
   import { onDestroy, onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { Lock, Mic, Pause, Play, RotateCcw, SendHorizontal, Square, Trash2 } from 'lucide-svelte';
+  import {
+    deleteNativeRecording,
+    isNativeAndroidVoiceRecorder,
+    nativeRecordingBlob,
+    NativeVoiceRecorder,
+    type NativeVoiceRecording
+  } from '$lib/nativeVoiceRecorder';
 
   let {
     disabled = false,
@@ -38,6 +45,11 @@
   let previewUrl = $state('');
   let previewDuration = $state(0);
   let destroyed = false;
+  let nativeRecording = false;
+  let nativeFinishing = false;
+  let previewNativeReference: string | null = null;
+
+  const nativeAndroid = typeof window !== 'undefined' && isNativeAndroidVoiceRecorder();
 
   const formatted = $derived(`${Math.floor(elapsedMs / 60000)}:${String(Math.floor(elapsedMs / 1000) % 60).padStart(2, '0')}`);
 
@@ -73,14 +85,19 @@
 
   function clearPreview() {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
+    const nativeReference = previewNativeReference;
     previewUrl = '';
     previewBlob = null;
     previewDuration = 0;
+    previewNativeReference = null;
+    if (nativeReference) void deleteNativeRecording(nativeReference).catch(() => undefined);
   }
 
   function reset() {
     releaseStream();
     mediaRecorder = null;
+    nativeRecording = false;
+    nativeFinishing = false;
     chunks = [];
     locked = false;
     pointerHeld = false;
@@ -94,7 +111,7 @@
     if (!startedAt) return;
     const now = performance.now();
     elapsedMs = Math.min(180_000, Math.round(now - startedAt - pausedTotal - (pausedAt ? now - pausedAt : 0)));
-    if (elapsedMs >= 180_000 && mediaRecorder?.state !== 'inactive') void finish('preview');
+    if (elapsedMs >= 180_000 && (nativeRecording || mediaRecorder?.state !== 'inactive')) void finish('preview');
   }
 
   function visualize() {
@@ -112,10 +129,53 @@
     animationFrame = requestAnimationFrame(visualize);
   }
 
+  function visualizeNative() {
+    if (!nativeRecording || recorderState === 'paused') return;
+    const phase = performance.now() / 180;
+    levels = Array.from({ length: 18 }, (_, index) => 10 + Math.round(12 * Math.abs(Math.sin(phase + index * 0.55))));
+    animationFrame = requestAnimationFrame(visualizeNative);
+  }
+
   async function startRecording(mode: 'holding' | 'locked') {
     if (disabled || sending || recorderState !== 'idle') return;
     error = '';
     clearPreview();
+    if (nativeAndroid) {
+      await startNativeRecording(mode);
+      return;
+    }
+    await startWebRecording(mode);
+  }
+
+  async function startNativeRecording(mode: 'holding' | 'locked') {
+    try {
+      await NativeVoiceRecorder.start();
+      if (destroyed || (mode === 'holding' && !pointerHeld)) {
+        await NativeVoiceRecorder.cancel().catch(() => undefined);
+        reset();
+        return;
+      }
+      nativeRecording = true;
+      startedAt = performance.now();
+      pausedAt = 0;
+      pausedTotal = 0;
+      elapsedMs = 0;
+      locked = mode === 'locked';
+      recorderState = locked ? 'locked' : 'recording';
+      timer = setInterval(updateElapsed, 100);
+      visualizeNative();
+      haptic(35);
+    } catch (caught) {
+      const code = (caught as { code?: string })?.code || 'recording_start_failed';
+      nativeRecording = false;
+      recorderState = 'error';
+      error = code === 'permission_denied' || code === 'permission_permanently_denied'
+        ? $_('messaging.microphonePermissionDenied')
+        : $_('messaging.microphoneUnavailable');
+    }
+  }
+
+  async function startWebRecording(mode: 'holding' | 'locked') {
     try {
       const mediaDevices = navigator.mediaDevices;
       const mediaDevicesAvailable = Boolean(mediaDevices);
@@ -174,6 +234,48 @@
     }
   }
 
+  async function nativeStopped(result: NativeVoiceRecording, mode: 'send' | 'preview') {
+    let blob: Blob;
+    try {
+      blob = await nativeRecordingBlob(result);
+    } catch {
+      await deleteNativeRecording(result.fileReference).catch(() => undefined);
+      recorderState = 'error';
+      error = $_('messaging.voiceRecordingFailed');
+      reset();
+      return;
+    }
+    const duration = result.durationMs;
+    if (destroyed || duration < 600 || !blob.size) {
+      await deleteNativeRecording(result.fileReference).catch(() => undefined);
+      if (duration < 600 && !destroyed) error = $_('messaging.voiceTooShort');
+      reset();
+      return;
+    }
+    previewNativeReference = result.fileReference;
+    if (mode === 'send') {
+      haptic([25, 30, 25]);
+      const accepted = await onvoice({ blob, duration_ms: duration, mime_type: result.mimeType });
+      if (accepted) {
+        const reference = previewNativeReference;
+        previewNativeReference = null;
+        await deleteNativeRecording(reference).catch(() => undefined);
+        reset();
+      } else {
+        previewBlob = blob;
+        previewDuration = duration;
+        previewUrl = URL.createObjectURL(blob);
+        recorderState = 'preview';
+      }
+      return;
+    }
+    previewBlob = blob;
+    previewDuration = duration;
+    previewUrl = URL.createObjectURL(blob);
+    recorderState = 'preview';
+    haptic(20);
+  }
+
   async function stopped(mimeType: string) {
     updateElapsed();
     const duration = elapsedMs;
@@ -207,6 +309,33 @@
   }
 
   async function finish(mode: 'send' | 'preview' | 'cancel') {
+    if (nativeAndroid) {
+      if (!nativeRecording || nativeFinishing) return;
+      nativeFinishing = true;
+      updateElapsed();
+      if (mode === 'cancel') {
+        await NativeVoiceRecorder.cancel().catch(() => undefined);
+        nativeRecording = false;
+        nativeFinishing = false;
+        haptic([40, 35, 40]);
+        reset();
+        return;
+      }
+      try {
+        const result = await NativeVoiceRecorder.stop();
+        nativeRecording = false;
+        nativeFinishing = false;
+        releaseStream();
+        await nativeStopped(result, mode);
+      } catch {
+        nativeRecording = false;
+        nativeFinishing = false;
+        releaseStream();
+        recorderState = 'error';
+        error = $_('messaging.voiceRecordingFailed');
+      }
+      return;
+    }
     if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
     stopMode = mode;
     if (mediaRecorder.state === 'paused') mediaRecorder.resume();
@@ -257,7 +386,22 @@
     if (!locked) void finish('cancel');
   }
 
-  function pauseRecording() {
+  async function pauseRecording() {
+    if (nativeAndroid) {
+      if (!nativeRecording || (recorderState !== 'recording' && recorderState !== 'locked')) return;
+      try {
+        await NativeVoiceRecorder.pause();
+        pausedAt = performance.now();
+        recorderState = 'paused';
+        if (animationFrame) cancelAnimationFrame(animationFrame);
+        animationFrame = 0;
+        levels = Array(18).fill(8);
+        haptic(15);
+      } catch {
+        error = $_('messaging.voiceRecordingFailed');
+      }
+      return;
+    }
     if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
     mediaRecorder.pause();
     pausedAt = performance.now();
@@ -265,7 +409,23 @@
     haptic(15);
   }
 
-  function resumeRecording() {
+  async function resumeRecording() {
+    if (nativeAndroid) {
+      if (!nativeRecording || recorderState !== 'paused') return;
+      try {
+        await NativeVoiceRecorder.resume();
+        const now = performance.now();
+        pausedTotal += pausedAt ? now - pausedAt : 0;
+        pausedAt = 0;
+        locked = true;
+        recorderState = 'locked';
+        visualizeNative();
+        haptic(15);
+      } catch {
+        error = $_('messaging.voiceRecordingFailed');
+      }
+      return;
+    }
     if (!mediaRecorder || mediaRecorder.state !== 'paused') return;
     const now = performance.now();
     pausedTotal += pausedAt ? now - pausedAt : 0;
@@ -293,14 +453,14 @@
 
   function cancelCurrent() {
     clearPreview();
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') void finish('cancel');
+    if (nativeRecording || (mediaRecorder && mediaRecorder.state !== 'inactive')) void finish('cancel');
     else reset();
   }
 
   function visibilityChanged() {
-    if (document.hidden && mediaRecorder?.state === 'recording') {
+    if (document.hidden && ((nativeRecording && (recorderState === 'recording' || recorderState === 'locked')) || mediaRecorder?.state === 'recording')) {
       locked = true;
-      pauseRecording();
+      void pauseRecording();
     }
   }
 
@@ -321,6 +481,7 @@
     document.removeEventListener('visibilitychange', visibilityChanged);
     window.removeEventListener('chh:native-back', nativeBack, { capture: true });
     clearPreview();
+    if (nativeRecording) void NativeVoiceRecorder.cancel().catch(() => undefined);
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
       stopMode = 'cancel';
       mediaRecorder.stop();
