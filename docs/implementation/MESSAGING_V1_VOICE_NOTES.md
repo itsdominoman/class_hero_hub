@@ -47,7 +47,7 @@ retry states in English and Arabic.
 
 ## Data and API
 
-Alembic revision `a6b7c8d9e0f1` adds `messages.message_type`,
+Alembic revision `b7c8d9e0f1a2` adds `messages.message_type`,
 `message_voice_media`, `school_feature_controls` and append-only
 `school_feature_control_audit_events`. A voice stage records its owner participant,
 school and conversation, idempotent upload UUID, opaque public UUID, random storage
@@ -97,4 +97,3 @@ to that item and cannot revoke the durable FHH school connection.
 The Android app-scoped unit/lint/assembly evidence and deployed pilot evidence are
 recorded in the smoke and current-deployment documents. Real microphone, interruption,
 OEM WebView and speaker/Bluetooth behavior remain device gates.
-

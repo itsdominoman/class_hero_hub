@@ -1,6 +1,6 @@
 """add protected voice notes and compliance feature controls
 
-Revision ID: a6b7c8d9e0f1
+Revision ID: b7c8d9e0f1a2
 Revises: f5a6b7c8d9e0
 Create Date: 2026-07-18
 """
@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "a6b7c8d9e0f1"
+revision = "b7c8d9e0f1a2"
 down_revision = "f5a6b7c8d9e0"
 branch_labels = None
 depends_on = None
