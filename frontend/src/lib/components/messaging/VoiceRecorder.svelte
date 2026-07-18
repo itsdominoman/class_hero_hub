@@ -52,6 +52,13 @@
     return '';
   }
 
+  function microphoneExceptionName(caught: unknown): string {
+    if (caught instanceof DOMException) return caught.name || 'DOMException';
+    if (caught instanceof Error && caught.message === 'unsupported') return 'unsupported';
+    if (caught instanceof Error) return caught.name || 'Error';
+    return 'unknown';
+  }
+
   function releaseStream() {
     if (animationFrame) cancelAnimationFrame(animationFrame);
     animationFrame = 0;
@@ -110,13 +117,20 @@
     error = '';
     clearPreview();
     try {
-      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      const mediaDevices = navigator.mediaDevices;
+      const mediaDevicesAvailable = Boolean(mediaDevices);
+      const getUserMediaAvailable = typeof mediaDevices?.getUserMedia === 'function';
+      console.info('[voice-mic] capture capability', { mediaDevicesAvailable, getUserMediaAvailable });
+      if (!mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
         throw new Error('unsupported');
       }
-      const captured = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        video: false
-      });
+      const captured = await mediaDevices.getUserMedia({ audio: true });
+      const audioTrackCount = captured.getAudioTracks().length;
+      console.info('[voice-mic] getUserMedia resolved', { audioTrackCount });
+      if (!audioTrackCount) {
+        captured.getTracks().forEach((track) => track.stop());
+        throw new DOMException('Audio capture returned no audio track', 'NotFoundError');
+      }
       if (destroyed || (mode === 'holding' && !pointerHeld)) {
         captured.getTracks().forEach((track) => track.stop());
         reset();
@@ -149,10 +163,12 @@
       visualize();
       haptic(35);
     } catch (caught) {
+      const exceptionName = microphoneExceptionName(caught);
+      console.warn('[voice-mic] capture startup failed', { name: exceptionName });
       releaseStream();
       mediaRecorder = null;
       recorderState = 'error';
-      error = caught instanceof DOMException && (caught.name === 'NotAllowedError' || caught.name === 'SecurityError')
+      error = exceptionName === 'NotAllowedError' || exceptionName === 'SecurityError'
         ? $_('messaging.microphonePermissionDenied')
         : $_('messaging.microphoneUnavailable');
     }
