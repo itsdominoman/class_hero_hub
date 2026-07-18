@@ -1,7 +1,9 @@
-"""Safe, one-way optimisation for Updates & Photos uploads.
+"""Safe, one-way optimisation for protected photo uploads.
 
 Raw uploads are deliberately kept in memory only while this function runs.  The
-caller writes only the returned display image to persistent update storage.
+caller writes only the returned display image and thumbnail.  Updates and
+Messaging deliberately share this implementation so their byte, pixel, format,
+orientation, colour and metadata guarantees cannot drift.
 """
 from __future__ import annotations
 
@@ -106,7 +108,7 @@ def _completed(candidate: OptimizedImage, *, input_format: str, input_size: tupl
     )
 
 
-def optimise_update_photo(raw: bytes) -> OptimizedImage:
+def optimise_protected_photo(raw: bytes) -> OptimizedImage:
     """Decode a permitted real image and return a metadata-free display image."""
     started_at = perf_counter()
     if not raw:
@@ -158,7 +160,7 @@ def optimise_update_photo(raw: bytes) -> OptimizedImage:
     raise _invalid("Photo could not be compressed below the 1.5 MB storage limit")
 
 
-def create_update_thumbnail(display_image: bytes) -> OptimizedImage:
+def create_protected_thumbnail(display_image: bytes) -> OptimizedImage:
     """Create a metadata-free feed derivative without ever upscaling.
 
     The input may be a newly generated display image or an older stored update
@@ -220,3 +222,10 @@ def create_update_thumbnail(display_image: bytes) -> OptimizedImage:
             started_at=started_at,
         )
     raise _invalid("Photo thumbnail could not be compressed safely")
+
+
+# Backwards-compatible update-photo names.  New protected-media callers use the
+# neutral names above; existing update routes and backfill tooling keep the same
+# proven behavior without a duplicate processor.
+optimise_update_photo = optimise_protected_photo
+create_update_thumbnail = create_protected_thumbnail

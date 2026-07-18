@@ -13,8 +13,10 @@
     ConversationDetail,
     ConversationSummary,
     MessagingMembership,
+    MessagePhoto,
     OptimisticMessage,
-    RecipientResults
+    RecipientResults,
+    SelectedMessagePhoto
   } from '$lib/messaging/types';
 
   const NOTICE_PREFERENCE_PREFIX = 'chh.messaging.conversation-notice.s25j.user';
@@ -44,6 +46,8 @@
   let mobileThreadOpen = $state(false);
   let activeDraft = $state('');
   let conversationDrafts = $state<Record<string, string>>({});
+  let selectedPhotos = $state<SelectedMessagePhoto[]>([]);
+  let conversationPhotoDrafts = $state<Record<string, SelectedMessagePhoto[]>>({});
   let noticeAccountId = $state<string | null>(null);
   let noticeAcknowledged = $state(false);
   let noticeOpen = $state(false);
@@ -115,6 +119,31 @@
     activeDraft = key ? conversationDrafts[key] ?? '' : '';
   }
 
+  function saveActivePhotos() {
+    if (!selectedId) return;
+    const key = draftKey(selectedId);
+    if (key) conversationPhotoDrafts = { ...conversationPhotoDrafts, [key]: selectedPhotos };
+  }
+
+  function restorePhotos(conversationId: string) {
+    const key = draftKey(conversationId);
+    selectedPhotos = key ? conversationPhotoDrafts[key] ?? [] : [];
+  }
+
+  function clearAllPhotoState() {
+    const selected = new Set<string>();
+    for (const rows of Object.values(conversationPhotoDrafts)) {
+      for (const photo of rows) if (!selected.has(photo.preview_url)) {
+        URL.revokeObjectURL(photo.preview_url);
+        selected.add(photo.preview_url);
+      }
+    }
+    for (const photo of selectedPhotos) if (!selected.has(photo.preview_url)) URL.revokeObjectURL(photo.preview_url);
+    for (const message of messages) for (const url of message.local_photo_urls || []) if (!selected.has(url)) URL.revokeObjectURL(url);
+    selectedPhotos = [];
+    conversationPhotoDrafts = {};
+  }
+
   function clearConversationSelection() {
     activeEpoch += 1;
     selectedId = null;
@@ -125,6 +154,7 @@
     mobileThreadOpen = false;
     conversationError = null;
     activeDraft = '';
+    selectedPhotos = [];
     noticeOpen = false;
     noticeConversationKey = null;
     updateConversationQuery(null);
@@ -176,7 +206,9 @@
     if (!membership) return;
     if (selectedId !== id) {
       saveActiveDraft();
+      saveActivePhotos();
       restoreDraft(id);
+      restorePhotos(id);
     }
     const requestMembership = membership.membership_id;
     const requestEpoch = ++activeEpoch;
@@ -223,7 +255,10 @@
             : $_('messaging.conversationLoadError');
       selectedConversation = null;
       messages = [];
-      if (status === 403 || status === 404) void loadInbox({ preserveError: true });
+      if (status === 403 || status === 404) {
+        clearAllPhotoState();
+        void loadInbox({ preserveError: true });
+      }
     } finally {
       if (requestEpoch === activeEpoch) loadingConversation = false;
     }
@@ -235,6 +270,7 @@
 
   function closeConversation() {
     saveActiveDraft();
+    saveActivePhotos();
     clearConversationSelection();
   }
 
@@ -312,6 +348,7 @@
       if (status === 403 || status === 404) {
         conversationError = $_('messaging.accessChanged');
         selectedConversation = null;
+        clearAllPhotoState();
         messages = [];
         activeEpoch += 1;
       }
@@ -326,7 +363,54 @@
     void refreshActiveConversation();
   }
 
-  async function dispatchMessage(clientMessageId: string, body: string): Promise<boolean> {
+  async function uploadSelectedPhoto(photo: SelectedMessagePhoto) {
+    if (!membership || !selectedId) return;
+    const conversationId = selectedId;
+    selectedPhotos = selectedPhotos.map((item) => item.client_upload_id === photo.client_upload_id ? { ...item, state: 'uploading', error: undefined } : item);
+    try {
+      const staged = await messagingApi.uploadPhoto(membership, conversationId, photo.client_upload_id, photo.file);
+      if (selectedId !== conversationId) return;
+      selectedPhotos = selectedPhotos.map((item) => item.client_upload_id === photo.client_upload_id ? { ...item, state: 'ready', staged_id: staged.id, error: undefined } : item);
+    } catch (cause) {
+      if (selectedId !== conversationId) return;
+      selectedPhotos = selectedPhotos.map((item) => item.client_upload_id === photo.client_upload_id ? { ...item, state: 'failed', error: cause instanceof Error ? cause.message : $_('messaging.photoUploadFailed') } : item);
+    }
+  }
+
+  function selectPhotos(files: File[]) {
+    const available = Math.max(0, 5 - selectedPhotos.length);
+    for (const file of files.slice(0, available)) {
+      const photo: SelectedMessagePhoto = {
+        client_upload_id: crypto.randomUUID(),
+        file,
+        preview_url: URL.createObjectURL(file),
+        state: 'selected'
+      };
+      selectedPhotos = [...selectedPhotos, photo];
+      void uploadSelectedPhoto(photo);
+    }
+  }
+
+  function removePhoto(photo: SelectedMessagePhoto) {
+    selectedPhotos = selectedPhotos.filter((item) => item.client_upload_id !== photo.client_upload_id);
+    URL.revokeObjectURL(photo.preview_url);
+  }
+
+  function retryPhoto(photo: SelectedMessagePhoto) {
+    void uploadSelectedPhoto(photo);
+  }
+
+  function loadMessagePhoto(photo: MessagePhoto, variant: 'thumbnail' | 'full') {
+    if (!membership || !selectedId) return Promise.reject(new Error('Conversation unavailable'));
+    return messagingApi.photo(membership, selectedId, photo.id, variant);
+  }
+
+  async function dispatchMessage(
+    clientMessageId: string,
+    body: string | null,
+    stagedMediaIds: string[] = [],
+    localPhotoUrls: string[] = []
+  ): Promise<boolean> {
     if (!membership || !selectedId || !selectedConversation) return false;
     const optimistic: OptimisticMessage = {
       id: `local:${clientMessageId}`,
@@ -335,10 +419,13 @@
       sender_display_name: '',
       sender_is_self: true,
       body,
+      photos: [],
       state: 'active',
       urgent: false,
       created_at: new Date().toISOString(),
-      local_state: 'sending'
+      local_state: 'sending',
+      staged_media_ids: stagedMediaIds,
+      local_photo_urls: localPhotoUrls
     };
     const existingIndex = messages.findIndex((row) => row.client_message_id === clientMessageId);
     if (existingIndex >= 0) {
@@ -350,7 +437,8 @@
     }
     sending = true;
     try {
-      const saved = await messagingApi.send(membership, selectedId, clientMessageId, body);
+      const saved = await messagingApi.send(membership, selectedId, clientMessageId, body, stagedMediaIds);
+      for (const url of localPhotoUrls) URL.revokeObjectURL(url);
       const reconciled: OptimisticMessage = { ...saved, sender_is_self: true };
       messages = mergeIncomingMessages(
         messages.filter((row) => row.client_message_id !== clientMessageId),
@@ -365,6 +453,7 @@
           sender_kind: saved.sender_kind,
           sender_relationship: saved.sender_relationship,
           body: saved.body,
+          photo_count: saved.photos?.length || 0,
           state: saved.state,
           created_at: saved.created_at
         },
@@ -381,6 +470,7 @@
                 sender_kind: saved.sender_kind,
                 sender_relationship: saved.sender_relationship,
                 body: saved.body,
+                photo_count: saved.photos?.length || 0,
                 state: saved.state,
                 created_at: saved.created_at
               },
@@ -404,13 +494,32 @@
     }
   }
 
-  function sendMessage(body: string) {
-    return dispatchMessage(crypto.randomUUID(), body);
+  async function sendMessage(body: string) {
+    const ready = selectedPhotos.filter((photo) => photo.state === 'ready' && photo.staged_id);
+    if ((!body.trim() && ready.length === 0) || ready.length !== selectedPhotos.length) return false;
+    const photos = selectedPhotos;
+    const accepted = await dispatchMessage(
+      crypto.randomUUID(),
+      body.trim() || null,
+      ready.map((photo) => photo.staged_id!),
+      photos.map((photo) => photo.preview_url)
+    );
+    if (accepted) {
+      const key = selectedId ? draftKey(selectedId) : null;
+      selectedPhotos = [];
+      if (key) conversationPhotoDrafts = { ...conversationPhotoDrafts, [key]: [] };
+    }
+    return accepted;
   }
 
   function retryMessage(message: OptimisticMessage) {
-    if (message.client_message_id && message.body) {
-      void dispatchMessage(message.client_message_id, message.body);
+    if (message.client_message_id && (message.body || message.staged_media_ids?.length)) {
+      void dispatchMessage(
+        message.client_message_id,
+        message.body,
+        message.staged_media_ids || [],
+        message.local_photo_urls || []
+      );
     }
   }
 
@@ -577,6 +686,7 @@
       window.removeEventListener('chh:native-back', onNativeBack);
       if (removeNativeListener) void removeNativeListener();
       if (pollTimer) clearInterval(pollTimer);
+      clearAllPhotoState();
     };
   });
 </script>
@@ -679,10 +789,15 @@
           {offline}
           {noticeOpen}
           {noticeAcknowledged}
+          {selectedPhotos}
           onback={closeConversation}
           onloadolder={() => void loadOlderMessages()}
           onsend={sendMessage}
           onretry={retryMessage}
+          onselectphotos={selectPhotos}
+          onremovephoto={removePhoto}
+          onretryphoto={retryPhoto}
+          loadphoto={loadMessagePhoto}
           ontogglenotice={() => noticeOpen = !noticeOpen}
           onacknowledgenotice={acknowledgeConversationNotice}
           onclosenotice={() => noticeOpen = false}

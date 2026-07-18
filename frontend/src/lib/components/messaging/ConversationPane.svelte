@@ -2,7 +2,7 @@
   import { tick } from 'svelte';
   import { _, locale } from 'svelte-i18n';
   import { ShieldCheck } from 'lucide-svelte';
-  import type { ConversationDetail, OptimisticMessage } from '$lib/messaging/types';
+  import type { ConversationDetail, MessagePhoto, OptimisticMessage, SelectedMessagePhoto } from '$lib/messaging/types';
   import {
     activeGuardianCount,
     conversationTitle,
@@ -10,6 +10,8 @@
   } from '$lib/messaging/presentation';
   import { highestServerSequence } from '$lib/messaging/state';
   import MessageComposer from './MessageComposer.svelte';
+  import ProtectedMessagePhoto from './ProtectedMessagePhoto.svelte';
+  import ProtectedPhotoViewer from './ProtectedPhotoViewer.svelte';
 
   let {
     conversation,
@@ -22,10 +24,15 @@
     noticeOpen = false,
     noticeAcknowledged = false,
     draft = $bindable(''),
+    selectedPhotos = [],
     onback,
     onloadolder,
     onsend,
     onretry,
+    onselectphotos,
+    onremovephoto,
+    onretryphoto,
+    loadphoto,
     ontogglenotice,
     onacknowledgenotice,
     onclosenotice
@@ -40,10 +47,15 @@
     noticeOpen?: boolean;
     noticeAcknowledged?: boolean;
     draft?: string;
+    selectedPhotos?: SelectedMessagePhoto[];
     onback: () => void;
     onloadolder: () => void;
     onsend: (body: string) => Promise<boolean>;
     onretry: (message: OptimisticMessage) => void;
+    onselectphotos: (files: File[]) => void;
+    onremovephoto: (photo: SelectedMessagePhoto) => void;
+    onretryphoto: (photo: SelectedMessagePhoto) => void;
+    loadphoto: (photo: MessagePhoto, variant: 'thumbnail' | 'full') => Promise<Blob>;
     ontogglenotice: () => void;
     onacknowledgenotice: () => void;
     onclosenotice: () => void;
@@ -75,6 +87,13 @@
   let unseenMessages = $state(0);
   let previousHighest = 0;
   let trackedConversationId: string | null = null;
+  let viewerPhotos = $state<MessagePhoto[]>([]);
+  let viewerIndex = $state(0);
+
+  function openViewer(photos: MessagePhoto[], index: number) {
+    viewerPhotos = photos;
+    viewerIndex = index;
+  }
 
   function updateScrollPosition() {
     if (!timeline) return;
@@ -253,7 +272,21 @@
                   <p dir="auto" class="mb-1 text-[0.68rem] font-extrabold text-emerald-700">{senderLabel(message)}</p>
                 {/if}
                 {#if message.state === 'active'}
-                  <p dir="auto" class="whitespace-pre-wrap break-words text-sm leading-6">{message.body}</p>
+                  {#if message.body}<p dir="auto" class="whitespace-pre-wrap break-words text-sm leading-6">{message.body}</p>{/if}
+                  {#if message.photos?.length}
+                    <div class="mt-2 grid gap-1.5" class:grid-cols-2={message.photos.length > 1} class:grid-cols-1={message.photos.length === 1}>
+                      {#each message.photos as photo, photoIndex (photo.id)}
+                        <ProtectedMessagePhoto load={() => loadphoto(photo, 'thumbnail')} onclick={() => openViewer(message.photos, photoIndex)} alt={$_('messaging.photoAlt', { values: { number: photoIndex + 1 } })} />
+                      {/each}
+                    </div>
+                  {/if}
+                  {#if message.local_photo_urls?.length}
+                    <div class="mt-2 grid grid-cols-2 gap-1.5">
+                      {#each message.local_photo_urls as url}
+                        <img src={url} alt={$_('messaging.selectedPhoto')} class="aspect-square w-full rounded-xl object-cover opacity-90" />
+                      {/each}
+                    </div>
+                  {/if}
                 {:else}
                   <p class="text-sm italic opacity-75">{$_('messaging.messageUnavailable')}</p>
                 {/if}
@@ -289,7 +322,15 @@
       disabled={conversation.read_only || !conversation.capabilities.can_send}
       {sending}
       {offline}
+      photos={selectedPhotos}
+      {onselectphotos}
+      {onremovephoto}
+      {onretryphoto}
       {onsend}
     />
   </section>
+{/if}
+
+{#if viewerPhotos.length}
+  <ProtectedPhotoViewer photos={viewerPhotos} bind:index={viewerIndex} load={(photo) => loadphoto(photo, 'full')} onclose={() => viewerPhotos = []} />
 {/if}

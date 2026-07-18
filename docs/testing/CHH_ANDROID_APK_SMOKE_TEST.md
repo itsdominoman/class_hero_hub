@@ -52,6 +52,30 @@ device model, Android version, APK filename, checksum, date, and tester with the
 
 ## Messaging development pilot
 
+### Slice 8 camera, gallery and protected viewer
+
+1. In an active conversation choose one to five gallery photos, including a real
+   HEIC/HEIF image where the device offers it. Confirm each preview reaches Ready.
+2. Remove one selection, force one upload failure, then retry only that photo. Other
+   ready selections and the text draft must remain unchanged.
+3. Use the camera control, deny permission once, then grant it and take a photo.
+   Confirm denial is recoverable and the camera output is not publicly saved by CHH.
+4. Send text-only, photo-only, and text plus five photos. Confirm the timeline uses
+   thumbnails, preserves order, and one unavailable tile does not hide message text or
+   neighboring photos.
+5. Open each photo. Pinch 1×–4×, pan while zoomed, swipe only while unzoomed, and test
+   double-tap, boundaries, viewer close and hardware Back. Back must close the viewer
+   before returning to the inbox; keyboard-first behavior remains unchanged.
+6. Background/resume during selection and after send. Confirm drafts/retries survive
+   safe refresh and no duplicate message/photo appears.
+7. Revoke the staff assignment/guardian link in a second session. A new thumbnail or
+   full request must fail without exposing an old object URL after route reset.
+8. Inspect network traffic: thumbnails only in the timeline; full bytes only after
+   open; no token in a URL; no storage key/path/public CHH URL.
+
+Run this matrix on gesture and three-button navigation in English and Arabic/RTL.
+The automated Gradle/build/signature checks do not replace it.
+
 - [ ] Sign in as an authorized United International School teacher/admin and confirm
       **Messages** appears; verify it remains absent for a school whose policy is off.
 - [ ] Open a thread and confirm the header/inbox show `Student · grade/class`.

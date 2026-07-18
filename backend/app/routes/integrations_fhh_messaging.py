@@ -7,7 +7,7 @@ from typing import Literal
 from uuid import UUID
 
 from cryptography.fernet import Fernet, InvalidToken
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Request, Response, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
@@ -37,13 +37,17 @@ from .messaging import (
     _enabled_policy,
     _external_guardian_access,
     _inbox,
+    _media_for_participant,
     _message_page,
     _private,
+    _protected_media_response,
     _search_pattern,
     _send,
     _student_context_catalog,
+    _upload_media,
     _unread_count,
 )
+from ..message_media_service import MAX_RAW_IMAGE_BYTES
 
 
 router = APIRouter(dependencies=[Depends(require_fhh_service)])
@@ -519,6 +523,88 @@ def send_message(
         body=body,
         actor=actor,
         response=response,
+    )
+
+
+@router.post(
+    "/links/{link_id}/messaging/conversations/{conversation_id}/media",
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_media(
+    link_id: int,
+    conversation_id: UUID,
+    request: Request,
+    response: Response,
+    file: UploadFile = File(...),
+    x_upload_id: UUID = Header(alias="X-Upload-Id"),
+    x_fhh_media_sha256: str = Header(alias="X-FHH-Media-SHA256", min_length=64, max_length=64),
+    x_fhh_media_size: int = Header(alias="X-FHH-Media-Size", ge=1, le=MAX_RAW_IMAGE_BYTES),
+    x_fhh_link_token: str | None = Header(default=None),
+    x_fhh_messaging_actor: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    checksum = x_fhh_media_sha256.lower()
+    if any(character not in "0123456789abcdef" for character in checksum):
+        raise HTTPException(status_code=400, detail="Invalid signed media digest")
+    signed_body = {
+        "client_upload_id": str(x_upload_id),
+        "content_sha256": checksum,
+        "size_bytes": x_fhh_media_size,
+    }
+    actor = _actor(
+        request=request,
+        db=db,
+        link_id=link_id,
+        link_token=x_fhh_link_token,
+        assertion=x_fhh_messaging_actor,
+        body=signed_body,
+    )
+    conversation, participant = _external_guardian_access(
+        db, actor=actor, public_id=conversation_id
+    )
+    return await _upload_media(
+        db,
+        conversation=conversation,
+        participant=participant,
+        file=file,
+        client_upload_id=x_upload_id,
+        response=response,
+        expected_source_checksum=checksum,
+        expected_size=x_fhh_media_size,
+    )
+
+
+@router.get(
+    "/links/{link_id}/messaging/conversations/{conversation_id}/media/{media_id}/{variant}"
+)
+def view_media(
+    link_id: int,
+    conversation_id: UUID,
+    media_id: UUID,
+    variant: Literal["thumbnail", "full"],
+    request: Request,
+    x_fhh_link_token: str | None = Header(default=None),
+    x_fhh_messaging_actor: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    actor = _actor(
+        request=request,
+        db=db,
+        link_id=link_id,
+        link_token=x_fhh_link_token,
+        assertion=x_fhh_messaging_actor,
+    )
+    conversation, participant = _external_guardian_access(
+        db, actor=actor, public_id=conversation_id
+    )
+    return _protected_media_response(
+        _media_for_participant(
+            db,
+            conversation=conversation,
+            participant=participant,
+            media_public_id=media_id,
+        ),
+        variant,
     )
 
 

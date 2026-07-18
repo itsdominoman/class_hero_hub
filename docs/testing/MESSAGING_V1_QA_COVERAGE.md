@@ -1,5 +1,25 @@
 # Messaging v1 QA coverage
 
+## Slice 8 protected-photo gate — 2026-07-18
+
+Automated coverage proves text-only, photo-only and mixed sends; five-photo maximum;
+stable upload/send retry; cross-school, cross-conversation and cross-participant
+denial; revoked participant denial; actual-format sniffing; corrupt/decompression
+limits; EXIF/GPS removal; derived-only storage; expired-stage cleanup; isolated broken
+media; protected headers; FHH response allowlists; thumbnail-only timelines; and the
+fixed 26-SELECT 50-message history budget. Frontend contracts cover browser gallery,
+Android camera capture, selected previews, remove/retry, object-URL cleanup,
+photo-only send, viewer pinch/pan/swipe/arrows/Escape/native Back, EN/AR parity and
+the accepted sticky/safe-area/polling/draft behavior.
+
+Required manual real-device checks remain: grant/deny camera and gallery access;
+select/take five real HEIC/JPEG photos; retry one failed item; send photo-only and
+mixed messages between CHH and FHH; pinch/pan/swipe in both viewers; press Back with
+the viewer and keyboard open; background/resume during upload; revoke access while a
+viewer is open; and confirm no full image is fetched until the viewer opens.
+
+Slices 9–13 are not covered because they remain pending.
+
 **Status date:** 2026-07-17
 **Current checkpoint:** S25i CHH Android safe-area, IME and hardware Back hardening.
 

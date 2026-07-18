@@ -9,6 +9,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from . import auth, database, schemas
 from .database import Base, close_request_db, engine, ensure_runtime_schema, get_db, settings, validate_runtime_configuration
 from .models_school import Membership, PlatformAdmin, School, User
+from .message_media_service import MESSAGE_MEDIA_ROOT
 from .routes import announcements, authentication, behaviour, calendar, dev, guardian, homework, integrations_fhh, integrations_fhh_messaging, join, messaging, messaging_policy, platform, school, school_reports, teach, updates
 from .security import TrustedProxyHeadersMiddleware, parse_csv_values
 
@@ -22,6 +23,7 @@ if settings.DATABASE_URL.startswith("sqlite"):
 announcements.UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 homework.UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 updates.UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+MESSAGE_MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 class ProtectedMediaAccessLogFilter(logging.Filter):
@@ -39,11 +41,17 @@ class ProtectedMediaAccessLogFilter(logging.Filter):
             path.startswith("/api/integrations/fhh/links/")
             and "/messaging" in path
         )
-        if is_protected_media or is_fhh_messaging:
+        is_chh_messaging_media = (
+            (path.startswith("/api/messaging/") or path.startswith("/api/guardian/messaging/"))
+            and "/media/" in path
+        )
+        if is_protected_media or is_fhh_messaging or is_chh_messaging_media:
             args = list(record.args)
             args[2] = (
                 "/api/integrations/fhh/links/<redacted>/messaging/<redacted>"
                 if is_fhh_messaging
+                else "/api/messaging/<redacted>/<protected-media>"
+                if is_chh_messaging_media
                 else "/api/integrations/fhh/links/<redacted>/<protected-media>"
             )
             record.args = tuple(args)

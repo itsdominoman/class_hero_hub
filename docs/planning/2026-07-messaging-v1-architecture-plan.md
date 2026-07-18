@@ -1,5 +1,13 @@
 # CHH/FHH Messaging v1 architecture and implementation plan
 
+**Slice 8 implementation update (2026-07-18):** protected photo messaging is
+implemented across CHH and FHH using the approved CHH-authoritative staged-upload
+architecture. It supports text-only, photo-only and text-plus-up-to-five-photo sends,
+derived-only protected storage, thumbnail timelines and protected viewers. See
+`docs/implementation/MESSAGING_V1_PROTECTED_PHOTOS.md`. Slices 9–13 remain pending;
+production remains unchanged. This update supersedes older status sentences below
+that describe photos or all Slices 8–13 as unimplemented.
+
 **Status:** authoritative architecture and implementation plan; Slices 1–7 policy,
 lifecycle, CHH core-record, CHH text API/staff UI, and FHH identity/proxy/parent UI
 foundations plus cross-repository text hardening implemented through 2026-07-17.
@@ -2260,6 +2268,15 @@ deployment was superseded by the S25h development pilot.**
   and CHH guardian UI remain separate later work.
 
 ### Slice 8 — protected photo media and viewers
+
+**Implementation status (2026-07-18): implemented as CHH/FHH S25n.** The approved
+ownership boundary and staged-upload transaction were retained. CHH migration
+`f5a6b7c8d9e0` adds the constrained media record; CHH stores only normalized full and
+thumbnail derivatives and reauthorizes every byte request. FHH proxies in memory and
+keeps only short-lived object URLs. Browser/Android camera/gallery selection,
+independent upload retry, photo-only/text-plus-photo send, protected timeline grids,
+pinch/pan/swipe viewers, EN/AR/RTL and Back handling are implemented. Slices 9–13 are
+not included.
 
 **Objective:** text + up to five safe photos end-to-end.
 

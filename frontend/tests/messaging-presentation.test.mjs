@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -10,6 +11,12 @@ import {
 } from '../src/lib/messaging/presentation.ts';
 import { highestServerSequence, mergeIncomingMessages } from '../src/lib/messaging/state.ts';
 import { chooseNativeBackAction } from '../src/lib/native/back-policy.ts';
+
+const composerSource = readFileSync(new URL('../src/lib/components/messaging/MessageComposer.svelte', import.meta.url), 'utf8');
+const photoSource = readFileSync(new URL('../src/lib/components/messaging/ProtectedMessagePhoto.svelte', import.meta.url), 'utf8');
+const viewerSource = readFileSync(new URL('../src/lib/components/messaging/ProtectedPhotoViewer.svelte', import.meta.url), 'utf8');
+const pageSource = readFileSync(new URL('../src/routes/messages/+page.svelte', import.meta.url), 'utf8');
+const apiSource = readFileSync(new URL('../src/lib/messaging/api.ts', import.meta.url), 'utf8');
 
 const baseConversation = {
   id: '00000000-0000-0000-0000-000000000001',
@@ -147,4 +154,35 @@ test('native Back policy avoids accidental exit and preserves non-root fallback'
   assert.equal(chooseNativeBackAction('/messages', roots, false, false), 'fallback');
   assert.equal(chooseNativeBackAction('/teach', roots, false, false), 'arm-exit');
   assert.equal(chooseNativeBackAction('/teach', roots, false, true), 'exit');
+});
+
+test('photo composer supports gallery, Android camera, five-photo limit, and independent retry', () => {
+  assert.match(composerSource, /type="file"[^>]+multiple/);
+  assert.match(composerSource, /capture="environment"/);
+  assert.match(composerSource, /photos\.length >= 5/g);
+  assert.match(composerSource, /onretryphoto\(photo\)/);
+  assert.match(composerSource, /!draft\.trim\(\) && !photos\.some/);
+  assert.match(pageSource, /const available = Math\.max\(0, 5 - selectedPhotos\.length\)/);
+  assert.match(pageSource, /files\.slice\(0, available\)/);
+  assert.match(pageSource, /staged_media_ids: stagedMediaIds/);
+});
+
+test('protected photo delivery never renders a stable media URL and cleans blob URLs', () => {
+  assert.match(apiSource, /api\.download\(/);
+  assert.match(apiSource, /\/media\/\$\{mediaId\}\/\$\{variant\}/);
+  assert.doesNotMatch(photoSource, /storage_key|direct_url|public_url/);
+  assert.match(photoSource, /URL\.createObjectURL\(blob\)/);
+  assert.match(photoSource, /URL\.revokeObjectURL\(objectUrl\)/);
+  assert.match(photoSource, /onclick=\{fetchPhoto\}/);
+});
+
+test('full-screen viewer provides protected fetch retry, gestures, navigation, and native Back', () => {
+  assert.match(viewerSource, /touch-action:none/);
+  assert.match(viewerSource, /pointers\.size === 2/);
+  assert.match(viewerSource, /Math\.abs\(dx\) > 56/);
+  assert.match(viewerSource, /event\.key === 'ArrowLeft'/);
+  assert.match(viewerSource, /event\.key === 'Escape'/);
+  assert.match(viewerSource, /chh:native-back/);
+  assert.match(viewerSource, /onclick=\{fetchFull\}/);
+  assert.match(viewerSource, /URL\.revokeObjectURL\(objectUrl\)/);
 });

@@ -321,6 +321,28 @@ database, configuration or APK action was included.
 S25j adds no messaging photos, final receipt UI, contact-hours worker, notification
 delivery/push, safeguarding administration UI or retention worker.
 
+## S25n / Slice 8 protected photo messaging
+
+Slice 8 is implemented on top of the hardened text flow without changing the CHH
+system-of-record decision. `message_media` rows and both protected derivatives exist
+only in CHH. Upload and send UUIDs remain stable and scoped; attachment is atomic with
+message sequencing. The generalized update-photo processor performs format sniffing,
+pixel/byte limits, orientation and colour normalization, metadata stripping and
+derived-only storage. History loads ordered metadata in one batch; thumbnail/full
+bytes are separate current-access checks.
+
+CHH and FHH clients add five-photo camera/gallery selection, per-photo retry/remove,
+photo-only or mixed sends, protected thumbnail grids and a safe-area viewer with
+pinch/pan/swipe/Back. FHH retains neither raw nor protected school photos. Focused
+security coverage proves tenant/uploader/link boundaries, revocation, spoof/corrupt
+handling, metadata removal, raw non-retention, cleanup and text regression. Full
+details and measured query/media evidence are in
+`MESSAGING_V1_PROTECTED_PHOTOS.md`.
+
+No receipt presentation, contact-hours worker, notification/push bridge,
+safeguarding administration, automated retention worker or non-image attachment was
+added. Slices 9–13 remain pending.
+
 ## Operator diagnostics
 
 For a parent proxy failure:

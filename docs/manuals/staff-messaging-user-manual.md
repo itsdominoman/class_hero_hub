@@ -1,5 +1,26 @@
 # Staff messaging user manual
 
+## Sending photos (Slice 8)
+
+An active conversation can contain text, photos, or both. Choose the gallery button
+to select several images or the camera button on Android to take one. Up to five
+photos can be attached to one message.
+
+Each selected photo shows its own state. Wait until every photo is Ready. You can
+remove any selection or retry only a failed photo without losing the message draft or
+other ready photos. A photo-only message is allowed; an empty message with no ready
+photo is not.
+
+Messages show protected thumbnails. Select a thumbnail for the full-screen viewer;
+pinch or double-tap to zoom, pan while zoomed, and swipe between photos while at the
+normal scale. Android Back closes the viewer first. If one photo is unavailable, use
+its Retry control; the message text and other photos still work.
+
+Photos are private school records. The app does not publish a media URL and strips
+camera location/EXIF metadata before storing only protected display versions. Do not
+use messaging photos for video, voice notes, PDFs or office documents; those types are
+not supported. Current conversation access is checked again every time a photo loads.
+
 **Availability:** development pilot only, for authorized United International School
 teachers and administrators. Production is not enabled.
 

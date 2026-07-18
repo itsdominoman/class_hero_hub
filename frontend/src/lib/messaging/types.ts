@@ -33,6 +33,7 @@ export type InboxMessage = {
   sender_kind?: string | null;
   sender_relationship?: string | null;
   body: string | null;
+  photo_count: number;
   state: string;
   created_at: string;
 };
@@ -74,13 +75,39 @@ export type MessageItem = {
   sender_relationship?: string | null;
   sender_is_self: boolean;
   body: string | null;
+  photos: MessagePhoto[];
   state: string;
   urgent: boolean;
   created_at: string;
 };
 
+export type MessagePhoto = {
+  id: string;
+  sort_order: number;
+  content_type: 'image/jpeg' | 'image/webp' | null;
+  full_bytes: number;
+  thumbnail_bytes: number;
+  width: number;
+  height: number;
+  thumbnail_width: number;
+  thumbnail_height: number;
+  thumbnail_available: boolean;
+  full_available: boolean;
+};
+
+export type SelectedMessagePhoto = {
+  client_upload_id: string;
+  file: File;
+  preview_url: string;
+  state: 'selected' | 'uploading' | 'ready' | 'failed';
+  staged_id?: string;
+  error?: string;
+};
+
 export type OptimisticMessage = MessageItem & {
   client_message_id?: string;
+  staged_media_ids?: string[];
+  local_photo_urls?: string[];
   local_state?: 'sending' | 'failed';
   error?: string;
 };

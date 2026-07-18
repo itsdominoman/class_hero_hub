@@ -1044,6 +1044,93 @@ class Message(Base):
     )
 
 
+class MessageMedia(Base):
+    __tablename__ = "message_media"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    public_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    client_upload_id = Column(Uuid(as_uuid=True), nullable=False)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    conversation_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("conversations.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    message_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("messages.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    uploaded_by_participant_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("conversation_participants.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    sort_order = Column(Integer, nullable=False, default=0, server_default="0")
+    state = Column(String(16), nullable=False, default="processing", server_default="processing")
+    storage_backend = Column(String(16), nullable=False, default="local", server_default="local")
+    full_storage_key = Column(String(500), nullable=True)
+    thumbnail_storage_key = Column(String(500), nullable=True)
+    content_type = Column(String(64), nullable=True)
+    full_bytes = Column(Integer, nullable=True)
+    thumbnail_bytes = Column(Integer, nullable=True)
+    width = Column(Integer, nullable=True)
+    height = Column(Integer, nullable=True)
+    thumbnail_width = Column(Integer, nullable=True)
+    thumbnail_height = Column(Integer, nullable=True)
+    source_checksum_sha256 = Column(String(64), nullable=False)
+    checksum_sha256 = Column(String(64), nullable=True)
+    original_filename_safe = Column(String(160), nullable=True)
+    metadata_stripped = Column(Boolean, nullable=False, default=False, server_default="false")
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    attached_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc) + timedelta(hours=24),
+    )
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "conversation_id",
+            "uploaded_by_participant_id",
+            "client_upload_id",
+            name="uq_message_media_participant_upload",
+        ),
+        UniqueConstraint("message_id", "sort_order", name="uq_message_media_message_order"),
+        CheckConstraint("sort_order BETWEEN 0 AND 4", name="ck_message_media_sort_order"),
+        CheckConstraint(
+            "state IN ('processing', 'ready', 'attached', 'failed', 'expired', 'deleted')",
+            name="ck_message_media_state",
+        ),
+        CheckConstraint("storage_backend = 'local'", name="ck_message_media_storage_backend"),
+        CheckConstraint(
+            "(state IN ('ready', 'attached') AND full_storage_key IS NOT NULL "
+            "AND thumbnail_storage_key IS NOT NULL AND content_type IS NOT NULL "
+            "AND full_bytes > 0 AND thumbnail_bytes > 0 AND width > 0 AND height > 0 "
+            "AND thumbnail_width > 0 AND thumbnail_height > 0 AND checksum_sha256 IS NOT NULL "
+            "AND metadata_stripped = true) OR state NOT IN ('ready', 'attached')",
+            name="ck_message_media_ready_shape",
+        ),
+        CheckConstraint(
+            "(state = 'attached' AND message_id IS NOT NULL AND attached_at IS NOT NULL) "
+            "OR (state <> 'attached' AND message_id IS NULL AND attached_at IS NULL)",
+            name="ck_message_media_attachment_shape",
+        ),
+        CheckConstraint(
+            "(state IN ('expired', 'deleted') AND deleted_at IS NOT NULL) "
+            "OR (state NOT IN ('expired', 'deleted') AND deleted_at IS NULL)",
+            name="ck_message_media_deleted_shape",
+        ),
+        Index("ix_message_media_conversation_message", "conversation_id", "message_id", "sort_order"),
+        Index("ix_message_media_state_expiry", "state", "expires_at", "id"),
+    )
+
+
 class MessageReceiptEvent(Base):
     __tablename__ = "message_receipt_events"
 

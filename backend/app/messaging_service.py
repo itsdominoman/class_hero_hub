@@ -21,6 +21,12 @@ from .models_school import (
     MessagingAuditEvent,
     StaffAssignment,
 )
+from .message_media_service import (
+    MessageMediaConflict,
+    MessageMediaValidationError,
+    attach_staged_media,
+    attached_media_map,
+)
 from .rosters import resolve_rosters_for_students
 from .school_scope import open_interval_expression
 
@@ -656,17 +662,50 @@ def normalize_message_body(body: str) -> str:
     return normalized
 
 
-def send_text_message(
+def normalize_optional_message_body(body: str | None) -> str | None:
+    if body is None:
+        return None
+    normalized = body.replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not normalized:
+        return None
+    if len(normalized) > 10_000:
+        raise MessagingValidationError("Message text is too long")
+    return normalized
+
+
+def _existing_message_matches(
+    db: Session,
+    *,
+    existing: Message,
+    body: str | None,
+    urgent: bool,
+    staged_media_ids: list[UUID],
+) -> bool:
+    if existing.body != body or bool(existing.urgent) != bool(urgent):
+        return False
+    attached = attached_media_map(db, [existing.id]).get(existing.id, [])
+    return [row.public_id for row in attached] == staged_media_ids
+
+
+def send_message(
     db: Session,
     *,
     conversation_id: int,
     sender_participant_id: int,
     client_message_id: UUID,
-    body: str,
+    body: str | None,
+    staged_media_ids: list[UUID] | None = None,
     urgent: bool = False,
     request_correlation_id: str | None = None,
 ) -> tuple[Message, bool]:
-    normalized_body = normalize_message_body(body)
+    normalized_body = normalize_optional_message_body(body)
+    media_ids = list(staged_media_ids or [])
+    if len(set(media_ids)) != len(media_ids):
+        raise MessagingValidationError("A photo can be attached only once")
+    if len(media_ids) > 5:
+        raise MessagingValidationError("Maximum 5 photos")
+    if normalized_body is None and not media_ids:
+        raise MessagingValidationError("Message text or at least one photo is required")
     existing = (
         db.query(Message)
         .filter(
@@ -677,7 +716,13 @@ def send_text_message(
         .first()
     )
     if existing is not None:
-        if existing.body != normalized_body or bool(existing.urgent) != bool(urgent):
+        if not _existing_message_matches(
+            db,
+            existing=existing,
+            body=normalized_body,
+            urgent=urgent,
+            staged_media_ids=media_ids,
+        ):
             raise MessagingConflict("Client message id was reused with different content")
         return existing, True
 
@@ -714,7 +759,13 @@ def send_text_message(
         .first()
     )
     if existing is not None:
-        if existing.body != normalized_body or bool(existing.urgent) != bool(urgent):
+        if not _existing_message_matches(
+            db,
+            existing=existing,
+            body=normalized_body,
+            urgent=urgent,
+            staged_media_ids=media_ids,
+        ):
             raise MessagingConflict("Client message id was reused with different content")
         return existing, True
 
@@ -731,6 +782,18 @@ def send_text_message(
     )
     db.add(message)
     db.flush()
+    try:
+        attach_staged_media(
+            db,
+            conversation=conversation,
+            participant=participant,
+            message=message,
+            staged_media_ids=media_ids,
+        )
+    except MessageMediaValidationError as exc:
+        raise MessagingValidationError(str(exc)) from exc
+    except MessageMediaConflict as exc:
+        raise MessagingConflict(str(exc)) from exc
     conversation.last_message_sequence = sequence
     conversation.last_message_at = message.created_at or _utc_now()
     participant.last_delivered_sequence = max(
@@ -748,10 +811,37 @@ def send_text_message(
         participant=participant,
         conversation_id=conversation.id,
         message_id=message.id,
-        detail={"sequence": sequence, "urgent": bool(urgent)},
+        detail={
+            "sequence": sequence,
+            "urgent": bool(urgent),
+            "photo_count": len(media_ids),
+        },
         request_correlation_id=request_correlation_id,
     )
     return message, False
+
+
+def send_text_message(
+    db: Session,
+    *,
+    conversation_id: int,
+    sender_participant_id: int,
+    client_message_id: UUID,
+    body: str,
+    urgent: bool = False,
+    request_correlation_id: str | None = None,
+) -> tuple[Message, bool]:
+    """Compatibility wrapper for the Slice 3 text-only service contract."""
+    return send_message(
+        db,
+        conversation_id=conversation_id,
+        sender_participant_id=sender_participant_id,
+        client_message_id=client_message_id,
+        body=normalize_message_body(body),
+        staged_media_ids=[],
+        urgent=urgent,
+        request_correlation_id=request_correlation_id,
+    )
 
 
 def acknowledge_messages(

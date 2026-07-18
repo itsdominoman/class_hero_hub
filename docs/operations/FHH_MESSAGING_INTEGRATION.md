@@ -1,5 +1,22 @@
 # FHH Messaging Integration Operations
 
+## Slice 8 protected media boundary
+
+FHH uploads bytes server-to-server only after parent/family/child/active-connection
+validation. Its short-lived actor assertion binds the opaque upload UUID, SHA-256 and
+size; CHH then independently verifies link, identity, participant and conversation
+scope before processing. Thumbnail/full requests repeat current access validation.
+
+FHH must expose only the media allowlist (`id`, order/state/type/dimensions/sizes and
+availability). Never forward CHH storage keys, paths, source checksums, filenames,
+credentials, raw upstream errors or direct URLs. Rebuild private/no-store/nosniff
+headers at the FHH boundary. A media 404/409 is item-scoped and must not revoke the
+durable school connection. FHH does not persist media or message history.
+
+For abandoned CHH stages, run the dry-run cleanup command documented in
+`../implementation/MESSAGING_V1_PROTECTED_PHOTOS.md`; there is deliberately no Slice
+13 retention worker yet. Slices 9–13 remain pending.
+
 **Status:** Slices 5–7 plus S25h live-refresh/context and S25i CHH Android
 safe-area/Back hardening enabled for United International School development testing,
 2026-07-17. Production remains disabled.

@@ -2,6 +2,11 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 
 const conversationId = '00000000-0000-4000-8000-000000000101';
 const existingMessageId = '00000000-0000-4000-8000-000000000102';
+const photoId = '00000000-0000-4000-8000-000000000104';
+const pixelPng = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64'
+);
 
 const membership = {
   membership_id: 51,
@@ -153,12 +158,43 @@ async function mockEnabledMessaging(
           id: '00000000-0000-4000-8000-000000000103',
           sequence: 2,
           sender_display_name: 'Teacher One',
+          sender_is_self: true,
           body: body.body,
+          photos: (body.staged_media_ids || []).map((id: string, index: number) => ({
+            id,
+            sort_order: index,
+            state: 'attached',
+            content_type: 'image/jpeg',
+            full_bytes: 1200,
+            thumbnail_bytes: 200,
+            width: 100,
+            height: 80,
+            thumbnail_width: 100,
+            thumbnail_height: 80,
+            thumbnail_available: true,
+            full_available: true
+          })),
           state: 'active',
           urgent: false,
           created_at: '2026-07-17T08:02:00Z',
           duplicate: false
         }
+      });
+      return;
+    }
+    if (path.endsWith(`/conversations/${conversationId}/media`) && request.method() === 'POST') {
+      expect(request.headers()['x-upload-id']).toBeTruthy();
+      await route.fulfill({
+        status: 201,
+        json: { id: photoId, state: 'ready', duplicate: false }
+      });
+      return;
+    }
+    if (path.includes(`/conversations/${conversationId}/media/${photoId}/`)) {
+      await route.fulfill({
+        contentType: 'image/png',
+        headers: { 'Cache-Control': 'private, no-store, max-age=0', 'X-Content-Type-Options': 'nosniff' },
+        body: pixelPng
       });
       return;
     }
@@ -293,6 +329,42 @@ test('resume refresh appends messages without disturbing draft focus, selection,
     end: element.selectionEnd
   }))).toEqual({ focused: true, start: 6, end: 11 });
   expect(incrementalRequests).toBe(1);
+});
+
+test('photo-only browser flow stages, sends, loads a thumbnail, and closes the protected viewer with Back', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  let thumbnailRequests = 0;
+  let fullRequests = 0;
+  await page.on('request', (request) => {
+    if (request.url().endsWith(`/${photoId}/thumbnail`)) thumbnailRequests += 1;
+    if (request.url().endsWith(`/${photoId}/full`)) fullRequests += 1;
+  });
+  await mockEnabledMessaging(page);
+  await page.goto(`/messages?conversation=${conversationId}`);
+
+  const gallery = page.getByLabel('Choose photos').locator('input[type="file"]');
+  await gallery.setInputFiles({ name: 'camera-spoof.txt', mimeType: 'text/plain', buffer: pixelPng });
+  await expect(page.getByText('Ready', { exact: true })).toBeVisible();
+
+  const sendRequest = page.waitForRequest((request) =>
+    request.method() === 'POST' && request.url().endsWith(`/conversations/${conversationId}/messages`)
+  );
+  await page.getByTestId('message-send').click();
+  const sent = await sendRequest;
+  expect(sent.postDataJSON()).toMatchObject({ body: null, staged_media_ids: [photoId] });
+
+  const photo = page.getByRole('button', { name: 'Message photo 1' });
+  await expect(photo).toBeVisible();
+  expect(thumbnailRequests).toBe(1);
+  expect(fullRequests).toBe(0);
+  await photo.click();
+  await expect(page.getByRole('dialog', { name: 'Protected photo viewer' })).toBeVisible();
+  await expect.poll(() => fullRequests).toBe(1);
+  const handled = await page.evaluate(() =>
+    !window.dispatchEvent(new CustomEvent('chh:native-back', { cancelable: true }))
+  );
+  expect(handled).toBe(true);
+  await expect(page.getByRole('dialog', { name: 'Protected photo viewer' })).toHaveCount(0);
 });
 
 test('Android-sized composer honors bottom insets, keyboard resize, and ordered native Back', async ({ page }) => {

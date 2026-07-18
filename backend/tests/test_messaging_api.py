@@ -1,12 +1,14 @@
 import os
+import io
 from time import perf_counter
 from datetime import date, datetime, timedelta, timezone
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
 
 import pytest
+from PIL import Image
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
@@ -27,12 +29,14 @@ from app.models_school import (
     GuardianLink,
     Membership,
     Message,
+    MessageMedia,
     School,
     SchoolMessagingPolicy,
     StaffAssignment,
     Student,
     User,
 )
+from app import message_media_service
 
 
 engine = create_engine(
@@ -837,7 +841,9 @@ def test_representative_inbox_unread_and_history_are_bounded_and_fast(db, client
         range(51, 101)
     )
     history_select_count = len(selects)
-    assert history_select_count <= 25
+    # Slice 8 adds exactly one set-based attachment metadata query for the whole
+    # page. The budget remains fixed as message/photo population grows.
+    assert history_select_count <= 26
 
     durations_ms = []
     for _ in range(12):
@@ -856,3 +862,162 @@ def test_representative_inbox_unread_and_history_are_bounded_and_fast(db, client
     # This is a regression tripwire, not a production SLO. The documented measured
     # value is expected to be much lower on the disposable development database.
     assert p95_ms < 1000
+
+
+def _jpeg_bytes(*, size=(96, 64), exif_gps=False):
+    image = Image.new("RGB", size, (32, 120, 210))
+    output = io.BytesIO()
+    exif = Image.Exif()
+    if exif_gps:
+        exif[0x010E] = "private description"
+        exif[0x0112] = 6
+    image.save(output, "JPEG", exif=exif)
+    return output.getvalue()
+
+
+def test_protected_photo_upload_attach_serve_scope_and_cleanup(
+    db, client, monkeypatch, tmp_path
+):
+    monkeypatch.setattr(message_media_service, "MESSAGE_MEDIA_ROOT", tmp_path)
+    one = _school_world(db, "media-one")
+    two = _school_world(db, "media-two")
+    conversation_id = _create_teacher_thread(client, one)
+    teacher_headers = _headers(one["users"]["teacher"], one["school"], one["teacher"])
+    guardian_headers = _headers(one["users"]["guardian"], one["school"])
+    raw = _jpeg_bytes(exif_gps=True)
+    upload_id = str(uuid4())
+
+    uploaded = client.post(
+        f"/api/messaging/conversations/{conversation_id}/media",
+        headers={**teacher_headers, "X-Upload-Id": upload_id},
+        files={"file": ("spoofed.txt", raw, "text/plain")},
+    )
+    assert uploaded.status_code == 201, uploaded.text
+    staged = uploaded.json()
+    assert staged["state"] == "ready"
+    assert staged["duplicate"] is False
+    assert staged["thumbnail_available"] is False
+    assert staged["full_available"] is False
+
+    retried = client.post(
+        f"/api/messaging/conversations/{conversation_id}/media",
+        headers={**teacher_headers, "X-Upload-Id": upload_id},
+        files={"file": ("anything.png", raw, "image/png")},
+    )
+    assert retried.status_code == 201
+    assert retried.json()["id"] == staged["id"]
+    assert retried.json()["duplicate"] is True
+
+    stolen = client.post(
+        f"/api/guardian/messaging/conversations/{conversation_id}/messages",
+        headers=guardian_headers,
+        json={
+            "client_message_id": str(uuid4()),
+            "body": None,
+            "staged_media_ids": [staged["id"]],
+        },
+    )
+    assert stolen.status_code == 409
+
+    sent_id = str(uuid4())
+    sent = client.post(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=teacher_headers,
+        json={
+            "client_message_id": sent_id,
+            "body": None,
+            "staged_media_ids": [staged["id"]],
+        },
+    )
+    assert sent.status_code == 200, sent.text
+    assert sent.json()["body"] is None
+    assert [photo["id"] for photo in sent.json()["photos"]] == [staged["id"]]
+    assert sent.json()["photos"][0]["thumbnail_available"] is True
+
+    duplicate_send = client.post(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=teacher_headers,
+        json={
+            "client_message_id": sent_id,
+            "body": None,
+            "staged_media_ids": [staged["id"]],
+        },
+    )
+    assert duplicate_send.status_code == 200
+    assert duplicate_send.json()["duplicate"] is True
+
+    history = client.get(
+        f"/api/guardian/messaging/conversations/{conversation_id}/messages",
+        headers=guardian_headers,
+    )
+    assert history.status_code == 200
+    assert history.json()["items"][0]["body"] is None
+    assert history.json()["items"][0]["photos"][0]["id"] == staged["id"]
+
+    for variant in ("thumbnail", "full"):
+        media = client.get(
+            f"/api/guardian/messaging/conversations/{conversation_id}/media/{staged['id']}/{variant}",
+            headers=guardian_headers,
+        )
+        assert media.status_code == 200
+        assert media.headers["cache-control"] == "private, no-store, max-age=0"
+        assert media.headers["x-content-type-options"] == "nosniff"
+        assert media.headers["content-type"] in {"image/jpeg", "image/webp"}
+        decoded = Image.open(io.BytesIO(media.content))
+        assert not decoded.getexif()
+        assert max(decoded.size) <= (400 if variant == "thumbnail" else 1600)
+
+    wrong_school = client.get(
+        f"/api/messaging/conversations/{conversation_id}/media/{staged['id']}/thumbnail",
+        headers=_headers(two["users"]["teacher"], two["school"], two["teacher"]),
+    )
+    assert wrong_school.status_code == 404
+
+    corrupt = client.post(
+        f"/api/messaging/conversations/{conversation_id}/media",
+        headers={**teacher_headers, "X-Upload-Id": str(uuid4())},
+        files={"file": ("fake.jpg", b"not an image", "image/jpeg")},
+    )
+    assert corrupt.status_code == 400
+    text_after_failure = client.post(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=teacher_headers,
+        json={"client_message_id": str(uuid4()), "body": "Text still works"},
+    )
+    assert text_after_failure.status_code == 200
+
+    abandoned_upload_id = str(uuid4())
+    abandoned = client.post(
+        f"/api/messaging/conversations/{conversation_id}/media",
+        headers={**teacher_headers, "X-Upload-Id": abandoned_upload_id},
+        files={"file": ("photo.jpg", _jpeg_bytes(), "image/jpeg")},
+    )
+    assert abandoned.status_code == 201
+    abandoned_row = (
+        db.query(MessageMedia)
+        .filter(MessageMedia.public_id == UUID(abandoned.json()["id"]))
+        .first()
+    )
+    abandoned_row.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+    db.commit()
+    assert message_media_service.cleanup_expired_staged_media(db, limit=10) == 1
+    db.refresh(abandoned_row)
+    assert abandoned_row.state == "expired"
+    assert abandoned_row.full_storage_key is None
+    assert abandoned_row.thumbnail_storage_key is None
+
+    stored_files = [path for path in tmp_path.rglob("*") if path.is_file()]
+    # Only the one attached photo's two metadata-free derivatives remain.
+    assert len(stored_files) == 2
+    assert all(path.read_bytes() != raw for path in stored_files)
+
+    too_many = client.post(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=teacher_headers,
+        json={
+            "client_message_id": str(uuid4()),
+            "body": "too many",
+            "staged_media_ids": [str(uuid4()) for _ in range(6)],
+        },
+    )
+    assert too_many.status_code == 422

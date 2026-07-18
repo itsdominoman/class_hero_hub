@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import hashlib
 from typing import Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi.responses import FileResponse
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import and_, func, or_
@@ -19,10 +21,21 @@ from ..messaging_service import (
     MessagingConflict,
     MessagingValidationError,
     acknowledge_messages,
+    assert_participant_can_send,
     participant_sequence_access,
     participant_sequence_access_map,
     record_messaging_audit,
-    send_text_message,
+    send_message as commit_message,
+)
+from ..message_media_service import (
+    MAX_RAW_IMAGE_BYTES,
+    MessageMediaConflict,
+    MessageMediaValidationError,
+    attached_media_map,
+    cleanup_expired_staged_media,
+    media_payload,
+    protected_media_file,
+    stage_message_photo,
 )
 from ..models_school import (
     ClassSection,
@@ -37,6 +50,7 @@ from ..models_school import (
     GradeLevel,
     Membership,
     Message,
+    MessageMedia,
     School,
     SchoolMessagingPolicy,
     StaffAssignment,
@@ -251,7 +265,8 @@ class MessageSendRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     client_message_id: UUID
-    body: str = Field(min_length=1, max_length=10_000)
+    body: str | None = Field(default=None, max_length=10_000)
+    staged_media_ids: list[UUID] = Field(default_factory=list, max_length=5)
     urgent: bool = False
 
 
@@ -1109,6 +1124,7 @@ def _conversation_payloads(
         .all()
     )
     latest_by_conversation = {row.conversation_id: row for row in latest_messages}
+    latest_media = attached_media_map(db, [row.id for row in latest_messages])
     payloads = []
     for conversation in rows:
         current = _participant_for_actor(conversation, participants, actor)
@@ -1162,6 +1178,7 @@ def _conversation_payloads(
                             latest.sender_participant_id
                         ),
                         "body": latest.body if latest.state == "active" else None,
+                        "photo_count": len(latest_media.get(latest.id, [])),
                         "state": latest.state,
                         "created_at": latest.created_at,
                     }
@@ -1491,6 +1508,7 @@ def _message_page(
             if row.participant_kind == "chh_guardian"
         },
     )
+    media_by_message = attached_media_map(db, [row.id for row in rows])
     items = [
         {
             "id": str(row.public_id),
@@ -1504,6 +1522,7 @@ def _message_page(
             "sender_relationship": relationships.get(row.sender_participant_id),
             "sender_is_self": row.sender_participant_id == participant.id,
             "body": row.body if row.state == "active" else None,
+            "photos": [media_payload(media) for media in media_by_message.get(row.id, [])],
             "state": row.state,
             "urgent": row.urgent,
             "created_at": row.created_at,
@@ -2536,12 +2555,13 @@ def _send(
         if not allowed:
             raise HTTPException(status_code=403, detail="Urgent sending is not allowed")
     try:
-        message, duplicate = send_text_message(
+        message, duplicate = commit_message(
             db,
             conversation_id=conversation.id,
             sender_participant_id=participant.id,
             client_message_id=body.client_message_id,
             body=body.body,
+            staged_media_ids=body.staged_media_ids,
             urgent=body.urgent,
         )
         db.commit()
@@ -2554,6 +2574,7 @@ def _send(
     except MessagingConflict as exc:
         db.rollback()
         raise HTTPException(status_code=409, detail=str(exc))
+    photos = attached_media_map(db, [message.id]).get(message.id, [])
     return {
         "id": str(message.public_id),
         "sequence": message.sequence,
@@ -2563,11 +2584,227 @@ def _send(
             participant.id
         ),
         "body": message.body,
+        "photos": [media_payload(media) for media in photos],
         "state": message.state,
         "urgent": message.urgent,
         "created_at": message.created_at,
         "duplicate": duplicate,
     }
+
+
+async def _upload_media(
+    db: Session,
+    *,
+    conversation: Conversation,
+    participant: ConversationParticipant,
+    file: UploadFile,
+    client_upload_id: UUID,
+    response: Response,
+    expected_source_checksum: str | None = None,
+    expected_size: int | None = None,
+) -> dict[str, Any]:
+    _private(response)
+    try:
+        assert_participant_can_send(
+            db, conversation=conversation, participant=participant
+        )
+        # Small opportunistic batches supplement the explicit operator command;
+        # no message-retention worker or later-slice infrastructure is added.
+        cleanup_expired_staged_media(db, limit=25)
+        raw = await file.read(MAX_RAW_IMAGE_BYTES + 1)
+        if expected_size is not None and len(raw) != expected_size:
+            raise MessageMediaValidationError("Uploaded photo size did not match the signed request")
+        if (
+            expected_source_checksum is not None
+            and hashlib.sha256(raw).hexdigest() != expected_source_checksum
+        ):
+            raise MessageMediaValidationError("Uploaded photo did not match the signed request")
+        row, duplicate = stage_message_photo(
+            db,
+            conversation=conversation,
+            participant=participant,
+            client_upload_id=client_upload_id,
+            raw=raw,
+            filename=file.filename,
+        )
+        return media_payload(row, duplicate=duplicate)
+    except MessageMediaValidationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(exc))
+    except MessageMediaConflict as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc))
+    except MessagingAccessDenied as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc))
+    finally:
+        await file.close()
+        if "raw" in locals():
+            del raw
+
+
+def _media_for_participant(
+    db: Session,
+    *,
+    conversation: Conversation,
+    participant: ConversationParticipant,
+    media_public_id: UUID,
+) -> MessageMedia:
+    row = (
+        db.query(MessageMedia)
+        .filter(
+            MessageMedia.public_id == media_public_id,
+            MessageMedia.school_id == conversation.school_id,
+            MessageMedia.conversation_id == conversation.id,
+            MessageMedia.message_id.is_not(None),
+            MessageMedia.state == "attached",
+        )
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    message = (
+        db.query(Message)
+        .filter(
+            Message.id == row.message_id,
+            Message.conversation_id == conversation.id,
+        )
+        .first()
+    )
+    access = participant_sequence_access(
+        db, conversation=conversation, participant=participant
+    )
+    if message is None or not access.includes(int(message.sequence)):
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return row
+
+
+def _protected_media_response(row: MessageMedia, variant: str) -> FileResponse:
+    try:
+        path, content_type = protected_media_file(row, variant)
+    except MessageMediaValidationError:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return FileResponse(
+        path,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "private, no-store, max-age=0",
+            "Pragma": "no-cache",
+            "X-Content-Type-Options": "nosniff",
+            "Cross-Origin-Resource-Policy": "same-origin",
+            "Content-Disposition": "inline",
+        },
+    )
+
+
+@staff_router.post(
+    "/conversations/{conversation_id}/media",
+    status_code=status.HTTP_201_CREATED,
+)
+async def staff_upload_media(
+    conversation_id: UUID,
+    response: Response,
+    file: UploadFile = File(...),
+    x_upload_id: UUID = Header(alias="X-Upload-Id"),
+    actor: StaffActor = Depends(require_staff_actor),
+    db: Session = Depends(get_db),
+):
+    conversation, participant = _staff_access(
+        db, actor=actor, public_id=conversation_id
+    )
+    try:
+        assert_participant_can_send(
+            db, conversation=conversation, participant=participant
+        )
+    except MessagingAccessDenied as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    return await _upload_media(
+        db,
+        conversation=conversation,
+        participant=participant,
+        file=file,
+        client_upload_id=x_upload_id,
+        response=response,
+    )
+
+
+@guardian_router.post(
+    "/conversations/{conversation_id}/media",
+    status_code=status.HTTP_201_CREATED,
+)
+async def guardian_upload_media(
+    conversation_id: UUID,
+    response: Response,
+    file: UploadFile = File(...),
+    x_upload_id: UUID = Header(alias="X-Upload-Id"),
+    actor: GuardianActor = Depends(require_guardian_actor),
+    db: Session = Depends(get_db),
+):
+    conversation, participant = _guardian_access(
+        db, actor=actor, public_id=conversation_id
+    )
+    try:
+        assert_participant_can_send(
+            db, conversation=conversation, participant=participant
+        )
+    except MessagingAccessDenied as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    return await _upload_media(
+        db,
+        conversation=conversation,
+        participant=participant,
+        file=file,
+        client_upload_id=x_upload_id,
+        response=response,
+    )
+
+
+@staff_router.get(
+    "/conversations/{conversation_id}/media/{media_id}/{variant}"
+)
+def staff_view_media(
+    conversation_id: UUID,
+    media_id: UUID,
+    variant: Literal["thumbnail", "full"],
+    actor: StaffActor = Depends(require_staff_actor),
+    db: Session = Depends(get_db),
+):
+    conversation, participant = _staff_access(
+        db, actor=actor, public_id=conversation_id
+    )
+    return _protected_media_response(
+        _media_for_participant(
+            db,
+            conversation=conversation,
+            participant=participant,
+            media_public_id=media_id,
+        ),
+        variant,
+    )
+
+
+@guardian_router.get(
+    "/conversations/{conversation_id}/media/{media_id}/{variant}"
+)
+def guardian_view_media(
+    conversation_id: UUID,
+    media_id: UUID,
+    variant: Literal["thumbnail", "full"],
+    actor: GuardianActor = Depends(require_guardian_actor),
+    db: Session = Depends(get_db),
+):
+    conversation, participant = _guardian_access(
+        db, actor=actor, public_id=conversation_id
+    )
+    return _protected_media_response(
+        _media_for_participant(
+            db,
+            conversation=conversation,
+            participant=participant,
+            media_public_id=media_id,
+        ),
+        variant,
+    )
 
 
 @staff_router.post("/conversations/{conversation_id}/messages")

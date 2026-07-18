@@ -8,7 +8,7 @@ import type {
   RecipientResults
 } from './types';
 
-function contextHeaders(membership: MessagingMembership): HeadersInit {
+function contextHeaders(membership: MessagingMembership): Record<string, string> {
   return {
     'X-School-Id': String(membership.school_id),
     'X-Membership-Id': String(membership.membership_id)
@@ -96,13 +96,39 @@ export const messagingApi = {
     membership: MessagingMembership,
     conversationId: string,
     clientMessageId: string,
-    body: string
+    body: string | null,
+    stagedMediaIds: string[] = []
   ): Promise<MessageItem & { duplicate: boolean }> {
     return api.post(
       `/messaging/conversations/${conversationId}/messages`,
-      { client_message_id: clientMessageId, body, urgent: false },
+      { client_message_id: clientMessageId, body, staged_media_ids: stagedMediaIds, urgent: false },
       { headers: contextHeaders(membership) }
     ) as Promise<MessageItem & { duplicate: boolean }>;
+  },
+
+  uploadPhoto(
+    membership: MessagingMembership,
+    conversationId: string,
+    uploadId: string,
+    file: File
+  ): Promise<{ id: string; state: string; duplicate: boolean }> {
+    const data = new FormData();
+    data.append('file', file, file.name || 'photo');
+    return api.upload(`/messaging/conversations/${conversationId}/media`, data, {
+      headers: { ...contextHeaders(membership), 'X-Upload-Id': uploadId }
+    }) as Promise<{ id: string; state: string; duplicate: boolean }>;
+  },
+
+  photo(
+    membership: MessagingMembership,
+    conversationId: string,
+    mediaId: string,
+    variant: 'thumbnail' | 'full'
+  ): Promise<Blob> {
+    return api.download(
+      `/messaging/conversations/${conversationId}/media/${mediaId}/${variant}`,
+      { headers: contextHeaders(membership), cache: 'no-store' }
+    );
   },
 
   acknowledgeRead(
