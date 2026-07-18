@@ -30,6 +30,8 @@
     onsend: (body: string) => Promise<boolean>;
   } = $props();
 
+  let voiceActive = $state(false);
+
   async function submit() {
     const value = draft.trim();
     const readyPhotos = photos.filter((photo) => photo.state === 'ready');
@@ -57,10 +59,10 @@
   class="sticky bottom-0 z-20 shrink-0 border-t border-slate-200 bg-white/95 px-3 pb-[calc(0.5rem+var(--safe-bottom))] pt-2 backdrop-blur sm:px-4 sm:pt-2.5"
   onsubmit={(event) => { event.preventDefault(); void submit(); }}
 >
-  {#if offline}
+  {#if offline && !voiceActive}
     <p class="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800" role="status">{$_('messaging.offlineComposer')}</p>
   {/if}
-  {#if photos.length}
+  {#if photos.length && !voiceActive}
     <div class="mb-2 flex gap-2 overflow-x-auto pb-1" aria-label={$_('messaging.selectedPhotos')}>
       {#each photos as photo (photo.client_upload_id)}
         <div class="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
@@ -76,9 +78,10 @@
       {/each}
     </div>
   {/if}
-  <div class="flex items-end gap-2">
-    <label class="sr-only" for="message-body">{$_('messaging.messageLabel')}</label>
-    <div class="flex min-w-0 flex-1 items-end rounded-[1.4rem] border border-slate-200 bg-slate-50 shadow-sm transition focus-within:border-hero focus-within:bg-white focus-within:ring-2 focus-within:ring-hero/15">
+  <div class="flex w-full items-end gap-2" class:min-h-11={voiceActive} data-voice-active={voiceActive || undefined}>
+    {#if !voiceActive}
+      <label class="sr-only" for="message-body">{$_('messaging.messageLabel')}</label>
+      <div class="flex min-w-0 flex-1 items-end rounded-[1.4rem] border border-slate-200 bg-slate-50 shadow-sm transition focus-within:border-hero focus-within:bg-white focus-within:ring-2 focus-within:ring-hero/15">
       <div class="flex h-11 shrink-0 items-center ps-1">
         <label class="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full text-slate-600 transition hover:bg-slate-200/70 focus-within:outline focus-within:outline-2 focus-within:outline-offset-[-2px] focus-within:outline-hero" aria-label={$_('messaging.choosePhotos')}>
           <ImagePlus size={18} aria-hidden="true" />
@@ -100,8 +103,9 @@
         class="min-h-11 max-h-32 min-w-0 flex-1 resize-none bg-transparent px-2 py-2.5 text-sm leading-6 text-slate-900 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60 sm:resize-y"
         dir="auto"
       ></textarea>
-    </div>
-    {#if draft.trim() || photos.length}
+      </div>
+    {/if}
+    {#if !voiceActive && (draft.trim() || photos.length)}
       <button
         type="submit"
         data-testid="message-send"
@@ -111,8 +115,11 @@
       >
         {#if sending}…{:else}<SendHorizontal size={19} class="rtl:-scale-x-100" aria-hidden="true" />{/if}
       </button>
-    {:else if voiceEnabled}
-      <VoiceRecorder disabled={disabled || offline} {sending} {onvoice} />
+    {/if}
+    {#if voiceEnabled}
+      <div class="shrink-0" class:hidden={!voiceActive && Boolean(draft.trim() || photos.length)} class:min-w-0={voiceActive} class:w-full={voiceActive} class:flex-1={voiceActive}>
+        <VoiceRecorder disabled={disabled || offline} {sending} {onvoice} onactivechange={(active) => { voiceActive = active; }} />
+      </div>
     {/if}
   </div>
 </form>
