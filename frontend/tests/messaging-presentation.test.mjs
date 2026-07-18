@@ -167,6 +167,20 @@ test('photo composer supports gallery, Android camera, five-photo limit, and ind
   assert.match(pageSource, /staged_media_ids: stagedMediaIds/);
 });
 
+test('compact composer integrates media controls and reserves the empty action for future voice notes', () => {
+  assert.match(composerSource, /rounded-\[1\.4rem\]/);
+  assert.match(composerSource, /min-h-11 max-h-32/);
+  assert.match(composerSource, /grid h-10 w-10/g);
+  assert.match(composerSource, /pb-\[calc\(0\.5rem\+var\(--safe-bottom\)\)\]/);
+  assert.match(composerSource, /\{#if draft\.trim\(\) \|\| photos\.length\}/);
+  assert.match(composerSource, /data-testid="message-voice-placeholder"/);
+  assert.match(composerSource, /voiceNotesUnavailable/);
+  assert.match(composerSource, /<Mic size=\{19\}/);
+  assert.match(composerSource, /data-testid="message-send"/);
+  assert.match(composerSource, /<SendHorizontal size=\{19\}/);
+  assert.doesNotMatch(composerSource, /h-12 w-12/);
+});
+
 test('protected photo delivery never renders a stable media URL and cleans blob URLs', () => {
   assert.match(apiSource, /api\.download\(/);
   assert.match(apiSource, /\/media\/\$\{mediaId\}\/\$\{variant\}/);

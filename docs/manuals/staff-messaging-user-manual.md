@@ -66,6 +66,11 @@ The Android composer stays above both gesture navigation and the three-button sy
 bar, with or without the keyboard. Tap only inside the visible message field or Send
 button; a composer tap must not open Home or Recent Apps or minimize CHH.
 
+The compact row keeps Gallery and Camera inside the rounded message field. The action
+at the far edge shows a muted microphone placeholder while the draft is empty; voice
+recording is not available. As soon as you type text or select a photo, that position
+becomes Send. The same row supports text-only, photo-only and mixed messages.
+
 Hardware Back follows this order:
 
 1. If the keyboard is open, Back closes the keyboard and keeps the conversation open.
@@ -91,7 +96,14 @@ announcements remain the broadcast channel; Messaging v1 has no groups.
 
 ## Current limits
 
-This pilot is text-only. Messaging photos, final delivery/read indicators,
-contact-hours scheduling, push notifications/deep links, safeguarding administration
-tools, and retention automation are not implemented. A feature being present in the
-development APK does not mean it is enabled in production.
+This development pilot supports protected message photos. Voice notes, final
+delivery/read indicators, contact-hours scheduling, push notifications/deep links,
+safeguarding administration tools, and retention automation are not implemented. A
+feature being present in the development APK does not mean it is enabled in production.
+
+Voice notes are planned as a later messaging feature. A future release must give each
+school an administrator-controlled enable/disable setting that defaults to disabled
+until explicitly enabled. It must also preserve protected storage, safeguarding access,
+retention, moderation, file limits and applicable compliance requirements. The current
+microphone icon is only a disabled layout placeholder; this release adds no setting,
+database field, recording, upload or playback.

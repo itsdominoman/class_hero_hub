@@ -343,6 +343,25 @@ No receipt presentation, contact-hours worker, notification/push bridge,
 safeguarding administration, automated retention worker or non-image attachment was
 added. Slices 9–13 remain pending.
 
+## S25o compact conversation composer
+
+S25o changes only the CHH/FHH composer presentation. Both apps now use the same
+44-pixel action/input proportions, 40-pixel integrated Gallery and Camera controls,
+horizontal spacing, compact protected-photo preview strip, and bottom padding plus the
+existing safe-area inset. The rounded field owns most of the row and the circular
+right-side action changes from a disabled microphone placeholder when empty to Send as
+soon as text or any selected photo exists. The Send action remains disabled until all
+selected photos are ready. Existing draft ownership, focus/cursor, polling, optimistic
+retry, photo-only/mixed sends, independent timeline scrolling, new-message affordance
+and native Back ordering are unchanged.
+
+The microphone placeholder does not record or invoke an API. Voice notes are planned
+for a later messaging feature and will require a per-school administrator-controlled
+enable/disable setting, default disabled until explicitly enabled. Any future design
+must preserve protected storage, safeguarding access, retention, moderation, bounded
+file/duration limits and applicable compliance requirements. S25o adds no setting,
+database field, recording, upload, playback, media contract or other later-slice work.
+
 ## Operator diagnostics
 
 For a parent proxy failure:
