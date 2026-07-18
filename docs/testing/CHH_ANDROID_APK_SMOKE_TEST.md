@@ -28,8 +28,11 @@ locale, network and APK SHA-256.
 10. Disable Voice notes after sending. Confirm new recording disappears while the
     existing note remains playable to authorized participants.
 
-Automated app-scoped `testDebugUnitTest`, `lintDebug` and `assembleDebug` are required
-before delivery but do not replace this device matrix.
+Automated app-scoped `testDebugUnitTest`, `lintDebug` and `assembleDebug` passed on
+2026-07-18. The delivered 95,893,704-byte APK has SHA-256
+`b2fd998690250ac3167a6265b3bd4c0f6a2356d997d336ce6669294b545e324c`; package,
+packaged CHH API endpoint and debug signature inspection passed. These gates do not
+replace this device matrix.
 
 Use this checklist on a physical Android device after installing a debug APK. Record
 device model, Android version, APK filename, checksum, date, and tester with the run.
