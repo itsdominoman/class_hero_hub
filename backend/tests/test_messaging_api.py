@@ -1,5 +1,6 @@
 import os
 import io
+import subprocess
 from time import perf_counter
 from datetime import date, datetime, timedelta, timezone
 from uuid import UUID, uuid4
@@ -30,13 +31,15 @@ from app.models_school import (
     Membership,
     Message,
     MessageMedia,
+    MessageVoiceMedia,
     School,
+    SchoolFeatureControlAuditEvent,
     SchoolMessagingPolicy,
     StaffAssignment,
     Student,
     User,
 )
-from app import message_media_service
+from app import message_media_service, message_voice_service
 
 
 engine = create_engine(
@@ -524,7 +527,9 @@ def test_inbox_query_count_is_bounded(db, client):
     assert response.status_code == 200
     # Current class/grade and staff-role context adds only fixed, set-based
     # roster lookups; the budget must not grow with conversations.
-    assert len(statements) <= 26
+    # Feature capability and attached-voice metadata each add one fixed,
+    # set-based select; the budget remains independent of inbox size.
+    assert len(statements) <= 28
 
 
 def test_recipient_search_filters_before_cap_and_searches_guardian_names(db, client):
@@ -843,7 +848,8 @@ def test_representative_inbox_unread_and_history_are_bounded_and_fast(db, client
     history_select_count = len(selects)
     # Slice 8 adds exactly one set-based attachment metadata query for the whole
     # page. The budget remains fixed as message/photo population grows.
-    assert history_select_count <= 26
+    # Voice-note metadata adds one fixed set-based select for the page.
+    assert history_select_count <= 27
 
     durations_ms = []
     for _ in range(12):
@@ -1021,3 +1027,285 @@ def test_protected_photo_upload_attach_serve_scope_and_cleanup(
         },
     )
     assert too_many.status_code == 422
+
+
+def _voice_tone_bytes(tmp_path, *, duration=1.1, frequency=523):
+    target = tmp_path / f"tone-{duration}-{frequency}.wav"
+    result = subprocess.run(
+        [
+            "ffmpeg",
+            "-nostdin",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            f"sine=frequency={frequency}:sample_rate=44100",
+            "-t",
+            str(duration),
+            str(target),
+        ],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    return target.read_bytes()
+
+
+def test_voice_feature_control_upload_attach_playback_scope_retry_and_cleanup(
+    db, client, monkeypatch, tmp_path
+):
+    media_root = tmp_path / "protected-message-media"
+    monkeypatch.setattr(message_media_service, "MESSAGE_MEDIA_ROOT", media_root)
+    monkeypatch.setattr(message_voice_service, "MESSAGE_MEDIA_ROOT", media_root)
+    one = _school_world(db, "voice-one")
+    two = _school_world(db, "voice-two")
+    conversation_id = _create_teacher_thread(client, one)
+    admin_headers = _headers(one["users"]["admin"], one["school"], one["admin"])
+    teacher_headers = _headers(one["users"]["teacher"], one["school"], one["teacher"])
+    guardian_headers = _headers(one["users"]["guardian"], one["school"])
+
+    controls = client.get("/api/school/feature-controls", headers=admin_headers)
+    assert controls.status_code == 200, controls.text
+    assert controls.json()["voice_notes"]["enabled"] is False
+    assert controls.json()["voice_notes"]["control_version"] == 1
+    raw = _voice_tone_bytes(tmp_path)
+    disabled_upload = client.post(
+        f"/api/messaging/conversations/{conversation_id}/voice-media",
+        headers={**teacher_headers, "X-Upload-Id": str(uuid4())},
+        files={"file": ("voice.bin", raw, "application/octet-stream")},
+    )
+    assert disabled_upload.status_code == 403
+
+    disclosure = controls.json()["voice_notes"]["disclosure_version"]
+    missing_ack = client.put(
+        "/api/school/feature-controls/voice-notes",
+        headers=admin_headers,
+        json={
+            "enabled": True,
+            "expected_control_version": 1,
+            "disclosure_version": disclosure,
+            "acknowledged": False,
+        },
+    )
+    assert missing_ack.status_code == 422
+    enabled = client.put(
+        "/api/school/feature-controls/voice-notes",
+        headers=admin_headers,
+        json={
+            "enabled": True,
+            "expected_control_version": 1,
+            "disclosure_version": disclosure,
+            "acknowledged": True,
+        },
+    )
+    assert enabled.status_code == 200, enabled.text
+    assert enabled.json()["enabled"] is True
+    assert enabled.json()["control_version"] == 2
+    audit = db.query(SchoolFeatureControlAuditEvent).one()
+    assert audit.enabled is True
+    assert audit.acknowledging_user_id == one["users"]["admin"].id
+    assert audit.acknowledging_membership_id == one["admin"].id
+    assert audit.disclosure_version == disclosure
+
+    upload_id = str(uuid4())
+    uploaded = client.post(
+        f"/api/messaging/conversations/{conversation_id}/voice-media",
+        headers={**teacher_headers, "X-Upload-Id": upload_id},
+        files={"file": ("spoofed-video.mp4", raw, "video/mp4")},
+    )
+    assert uploaded.status_code == 201, uploaded.text
+    staged = uploaded.json()
+    assert staged["state"] == "ready"
+    assert staged["content_type"] == "audio/mp4"
+    assert staged["codec"] == "aac"
+    assert staged["container"] == "mp4"
+    assert 1_000 <= staged["duration_ms"] <= 1_200
+    assert staged["available"] is False
+    assert staged["transcription"] == {"available": False, "state": "not_requested"}
+
+    retried = client.post(
+        f"/api/messaging/conversations/{conversation_id}/voice-media",
+        headers={**teacher_headers, "X-Upload-Id": upload_id},
+        files={"file": ("same.webm", raw, "audio/webm")},
+    )
+    assert retried.status_code == 201
+    assert retried.json()["id"] == staged["id"]
+    assert retried.json()["duplicate"] is True
+    conflict = client.post(
+        f"/api/messaging/conversations/{conversation_id}/voice-media",
+        headers={**teacher_headers, "X-Upload-Id": upload_id},
+        files={"file": ("different.wav", _voice_tone_bytes(tmp_path, frequency=660), "audio/wav")},
+    )
+    assert conflict.status_code == 409
+
+    stolen = client.post(
+        f"/api/guardian/messaging/conversations/{conversation_id}/messages",
+        headers=guardian_headers,
+        json={
+            "client_message_id": str(uuid4()),
+            "body": None,
+            "staged_voice_id": staged["id"],
+        },
+    )
+    assert stolen.status_code == 409
+    other_student = Student(
+        school_id=one["school"].id,
+        first_name="Other",
+        last_name="Student",
+        status="active",
+    )
+    db.add(other_student)
+    db.flush()
+    db.add(
+        Enrolment(
+            school_id=one["school"].id,
+            student_id=other_student.id,
+            class_section_id=one["section"].id,
+            kind="member",
+            valid_from=date.today() - timedelta(days=1),
+        )
+    )
+    db.add(
+        GuardianLink(
+            school_id=one["school"].id,
+            student_id=other_student.id,
+            user_id=one["users"]["guardian2"].id,
+            relationship="mother",
+            display_name=one["users"]["guardian2"].name,
+            status="active",
+        )
+    )
+    db.commit()
+    other_conversation = client.post(
+        "/api/messaging/conversations",
+        headers=teacher_headers,
+        json={
+            "kind": "student_staff",
+            "student_id": other_student.id,
+        },
+    )
+    assert other_conversation.status_code == 200
+    moved = client.post(
+        f"/api/messaging/conversations/{other_conversation.json()['conversation_id']}/messages",
+        headers=teacher_headers,
+        json={
+            "client_message_id": str(uuid4()),
+            "body": None,
+            "staged_voice_id": staged["id"],
+        },
+    )
+    assert moved.status_code == 409
+
+    client_message_id = str(uuid4())
+    sent = client.post(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=teacher_headers,
+        json={
+            "client_message_id": client_message_id,
+            "body": None,
+            "staged_voice_id": staged["id"],
+        },
+    )
+    assert sent.status_code == 200, sent.text
+    assert sent.json()["message_type"] == "voice_note"
+    assert sent.json()["body"] is None
+    assert sent.json()["photos"] == []
+    assert sent.json()["voice_note"]["id"] == staged["id"]
+    assert sent.json()["voice_note"]["available"] is True
+    duplicate_send = client.post(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=teacher_headers,
+        json={
+            "client_message_id": client_message_id,
+            "body": None,
+            "staged_voice_id": staged["id"],
+        },
+    )
+    assert duplicate_send.status_code == 200
+    assert duplicate_send.json()["duplicate"] is True
+    assert db.query(Message).filter(Message.message_type == "voice_note").count() == 1
+
+    history = client.get(
+        f"/api/guardian/messaging/conversations/{conversation_id}/messages",
+        headers=guardian_headers,
+    )
+    assert history.status_code == 200
+    assert history.json()["items"][0]["voice_note"]["id"] == staged["id"]
+    played = client.get(
+        f"/api/guardian/messaging/conversations/{conversation_id}/voice-media/{staged['id']}",
+        headers=guardian_headers,
+    )
+    assert played.status_code == 200
+    assert played.headers["content-type"].startswith("audio/mp4")
+    assert played.headers["cache-control"] == "private, no-store, max-age=0"
+    assert played.content != raw
+    wrong_school = client.get(
+        f"/api/messaging/conversations/{conversation_id}/voice-media/{staged['id']}",
+        headers=_headers(two["users"]["teacher"], two["school"], two["teacher"]),
+    )
+    assert wrong_school.status_code == 404
+
+    second = client.post(
+        f"/api/messaging/conversations/{conversation_id}/voice-media",
+        headers={**teacher_headers, "X-Upload-Id": str(uuid4())},
+        files={"file": ("voice.wav", raw, "audio/wav")},
+    )
+    assert second.status_code == 201
+    combined = client.post(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=teacher_headers,
+        json={
+            "client_message_id": str(uuid4()),
+            "body": "Voice notes are their own message",
+            "staged_voice_id": second.json()["id"],
+        },
+    )
+    assert combined.status_code == 422
+    malformed = client.post(
+        f"/api/messaging/conversations/{conversation_id}/voice-media",
+        headers={**teacher_headers, "X-Upload-Id": str(uuid4())},
+        files={"file": ("not-audio.m4a", b"not audio", "audio/mp4")},
+    )
+    assert malformed.status_code == 422
+    short = client.post(
+        f"/api/messaging/conversations/{conversation_id}/voice-media",
+        headers={**teacher_headers, "X-Upload-Id": str(uuid4())},
+        files={"file": ("short.wav", _voice_tone_bytes(tmp_path, duration=0.2), "audio/wav")},
+    )
+    assert short.status_code == 422
+
+    disabled = client.put(
+        "/api/school/feature-controls/voice-notes",
+        headers=admin_headers,
+        json={
+            "enabled": False,
+            "expected_control_version": 2,
+            "disclosure_version": disclosure,
+            "acknowledged": True,
+        },
+    )
+    assert disabled.status_code == 200
+    assert disabled.json()["enabled"] is False
+    assert db.query(SchoolFeatureControlAuditEvent).count() == 2
+    assert client.get(
+        f"/api/guardian/messaging/conversations/{conversation_id}/voice-media/{staged['id']}",
+        headers=guardian_headers,
+    ).status_code == 200
+    assert client.post(
+        f"/api/messaging/conversations/{conversation_id}/voice-media",
+        headers={**teacher_headers, "X-Upload-Id": str(uuid4())},
+        files={"file": ("disabled.wav", raw, "audio/wav")},
+    ).status_code == 403
+
+    abandoned = db.query(MessageVoiceMedia).filter(
+        MessageVoiceMedia.public_id == UUID(second.json()["id"])
+    ).one()
+    abandoned.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+    db.commit()
+    assert message_voice_service.cleanup_expired_staged_voice(db, limit=10) >= 1
+    db.refresh(abandoned)
+    assert abandoned.state == "expired"
+    assert abandoned.storage_key is None

@@ -68,7 +68,7 @@
               </span>
               <span class="mt-2 flex items-center justify-between gap-3">
                 <span dir="auto" class:font-bold={conversation.unread_count > 0} class="truncate text-xs text-slate-500">
-                  {conversation.last_message?.body || $_('messaging.noMessagesYet')}
+                  {conversation.last_message?.body || (conversation.last_message?.message_type === 'voice_note' ? $_('messaging.voiceNote') : conversation.last_message?.photo_count ? $_('messaging.photoMessage') : $_('messaging.noMessagesYet'))}
                 </span>
                 {#if conversation.unread_count > 0}
                   <span class="grid min-w-5 shrink-0 place-items-center rounded-full bg-hero px-1.5 py-0.5 text-[0.65rem] font-extrabold text-white" aria-label={$_('messaging.unreadCount', { values: { count: conversation.unread_count } })}>

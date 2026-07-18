@@ -1,4 +1,4 @@
-"""Safely expire abandoned Messaging v1 staged photos.
+"""Safely expire abandoned Messaging v1 staged photo and voice media.
 
 Dry-run is the default.  Output contains aggregate counts only and never emits
 opaque media IDs, storage keys, filenames, message content, or participant data.
@@ -17,7 +17,8 @@ if str(BACKEND) not in sys.path:
 
 from app.database import SessionLocal
 from app.message_media_service import cleanup_expired_staged_media
-from app.models_school import MessageMedia
+from app.message_voice_service import cleanup_expired_staged_voice
+from app.models_school import MessageMedia, MessageVoiceMedia
 
 
 def main() -> None:
@@ -30,7 +31,7 @@ def main() -> None:
     now = datetime.now(timezone.utc)
     db = SessionLocal()
     try:
-        eligible = (
+        eligible_photos = (
             db.query(MessageMedia)
             .filter(
                 MessageMedia.message_id.is_(None),
@@ -39,8 +40,22 @@ def main() -> None:
             )
             .count()
         )
-        removed = (
+        eligible_voice = (
+            db.query(MessageVoiceMedia)
+            .filter(
+                MessageVoiceMedia.message_id.is_(None),
+                MessageVoiceMedia.state.in_(("processing", "ready", "failed")),
+                MessageVoiceMedia.expires_at <= now,
+            )
+            .count()
+        )
+        removed_photos = (
             cleanup_expired_staged_media(db, now=now, limit=args.limit)
+            if args.apply
+            else 0
+        )
+        removed_voice = (
+            cleanup_expired_staged_voice(db, now=now, limit=args.limit)
             if args.apply
             else 0
         )
@@ -50,8 +65,12 @@ def main() -> None:
         json.dumps(
             {
                 "apply": args.apply,
-                "eligible": eligible,
-                "expired": removed,
+                "eligible": eligible_photos + eligible_voice,
+                "eligible_photos": eligible_photos,
+                "eligible_voice": eligible_voice,
+                "expired": removed_photos + removed_voice,
+                "expired_photos": removed_photos,
+                "expired_voice": removed_voice,
                 "limit": args.limit,
             },
             sort_keys=True,

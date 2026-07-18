@@ -27,6 +27,11 @@ from .message_media_service import (
     attach_staged_media,
     attached_media_map,
 )
+from .message_voice_service import (
+    MessageVoiceConflict,
+    attach_staged_voice,
+    attached_voice_map,
+)
 from .rosters import resolve_rosters_for_students
 from .school_scope import open_interval_expression
 
@@ -680,11 +685,17 @@ def _existing_message_matches(
     body: str | None,
     urgent: bool,
     staged_media_ids: list[UUID],
+    staged_voice_id: UUID | None,
 ) -> bool:
     if existing.body != body or bool(existing.urgent) != bool(urgent):
         return False
+    if existing.message_type != ("voice_note" if staged_voice_id else "standard"):
+        return False
     attached = attached_media_map(db, [existing.id]).get(existing.id, [])
-    return [row.public_id for row in attached] == staged_media_ids
+    if [row.public_id for row in attached] != staged_media_ids:
+        return False
+    voice = attached_voice_map(db, [existing.id]).get(existing.id)
+    return (voice.public_id if voice else None) == staged_voice_id
 
 
 def send_message(
@@ -695,6 +706,7 @@ def send_message(
     client_message_id: UUID,
     body: str | None,
     staged_media_ids: list[UUID] | None = None,
+    staged_voice_id: UUID | None = None,
     urgent: bool = False,
     request_correlation_id: str | None = None,
 ) -> tuple[Message, bool]:
@@ -704,8 +716,12 @@ def send_message(
         raise MessagingValidationError("A photo can be attached only once")
     if len(media_ids) > 5:
         raise MessagingValidationError("Maximum 5 photos")
-    if normalized_body is None and not media_ids:
-        raise MessagingValidationError("Message text or at least one photo is required")
+    if staged_voice_id is not None and (normalized_body is not None or media_ids):
+        raise MessagingValidationError("A voice note must be sent as its own message")
+    if staged_voice_id is not None and urgent:
+        raise MessagingValidationError("A voice note cannot be marked urgent")
+    if normalized_body is None and not media_ids and staged_voice_id is None:
+        raise MessagingValidationError("Message text, a photo, or a voice note is required")
     existing = (
         db.query(Message)
         .filter(
@@ -722,6 +738,7 @@ def send_message(
             body=normalized_body,
             urgent=urgent,
             staged_media_ids=media_ids,
+            staged_voice_id=staged_voice_id,
         ):
             raise MessagingConflict("Client message id was reused with different content")
         return existing, True
@@ -765,6 +782,7 @@ def send_message(
             body=normalized_body,
             urgent=urgent,
             staged_media_ids=media_ids,
+            staged_voice_id=staged_voice_id,
         ):
             raise MessagingConflict("Client message id was reused with different content")
         return existing, True
@@ -777,6 +795,7 @@ def send_message(
         sender_participant_id=participant.id,
         sender_display_name_snapshot=participant.display_name_snapshot,
         client_message_id=client_message_id,
+        message_type="voice_note" if staged_voice_id else "standard",
         body=normalized_body,
         urgent=urgent,
     )
@@ -794,6 +813,17 @@ def send_message(
         raise MessagingValidationError(str(exc)) from exc
     except MessageMediaConflict as exc:
         raise MessagingConflict(str(exc)) from exc
+    if staged_voice_id is not None:
+        try:
+            attach_staged_voice(
+                db,
+                conversation=conversation,
+                participant=participant,
+                message=message,
+                staged_voice_id=staged_voice_id,
+            )
+        except MessageVoiceConflict as exc:
+            raise MessagingConflict(str(exc)) from exc
     conversation.last_message_sequence = sequence
     conversation.last_message_at = message.created_at or _utc_now()
     participant.last_delivered_sequence = max(
@@ -815,6 +845,7 @@ def send_message(
             "sequence": sequence,
             "urgent": bool(urgent),
             "photo_count": len(media_ids),
+            "voice_note": staged_voice_id is not None,
         },
         request_correlation_id=request_correlation_id,
     )
@@ -839,6 +870,7 @@ def send_text_message(
         client_message_id=client_message_id,
         body=normalize_message_body(body),
         staged_media_ids=[],
+        staged_voice_id=None,
         urgent=urgent,
         request_correlation_id=request_correlation_id,
     )

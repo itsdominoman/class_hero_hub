@@ -97,11 +97,12 @@ export const messagingApi = {
     conversationId: string,
     clientMessageId: string,
     body: string | null,
-    stagedMediaIds: string[] = []
+    stagedMediaIds: string[] = [],
+    stagedVoiceId: string | null = null
   ): Promise<MessageItem & { duplicate: boolean }> {
     return api.post(
       `/messaging/conversations/${conversationId}/messages`,
-      { client_message_id: clientMessageId, body, staged_media_ids: stagedMediaIds, urgent: false },
+      { client_message_id: clientMessageId, body, staged_media_ids: stagedMediaIds, staged_voice_id: stagedVoiceId, urgent: false },
       { headers: contextHeaders(membership) }
     ) as Promise<MessageItem & { duplicate: boolean }>;
   },
@@ -119,6 +120,19 @@ export const messagingApi = {
     }) as Promise<{ id: string; state: string; duplicate: boolean }>;
   },
 
+  uploadVoice(
+    membership: MessagingMembership,
+    conversationId: string,
+    uploadId: string,
+    blob: Blob
+  ): Promise<{ id: string; state: string; duration_ms: number; duplicate: boolean }> {
+    const data = new FormData();
+    data.append('file', blob, blob.type.includes('mp4') ? 'voice-note.m4a' : 'voice-note.webm');
+    return api.upload(`/messaging/conversations/${conversationId}/voice-media`, data, {
+      headers: { ...contextHeaders(membership), 'X-Upload-Id': uploadId }
+    }) as Promise<{ id: string; state: string; duration_ms: number; duplicate: boolean }>;
+  },
+
   photo(
     membership: MessagingMembership,
     conversationId: string,
@@ -127,6 +141,17 @@ export const messagingApi = {
   ): Promise<Blob> {
     return api.download(
       `/messaging/conversations/${conversationId}/media/${mediaId}/${variant}`,
+      { headers: contextHeaders(membership), cache: 'no-store' }
+    );
+  },
+
+  voice(
+    membership: MessagingMembership,
+    conversationId: string,
+    mediaId: string
+  ): Promise<Blob> {
+    return api.download(
+      `/messaging/conversations/${conversationId}/voice-media/${mediaId}`,
       { headers: contextHeaders(membership), cache: 'no-store' }
     );
   },

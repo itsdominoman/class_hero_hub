@@ -1,5 +1,26 @@
 # Staff messaging user manual
 
+## Recording and playing voice notes
+
+When your school has enabled Voice notes, press and hold the microphone to record.
+Keep holding and slide horizontally toward Cancel to discard, or slide upward to lock
+hands-free recording. In locked mode you can pause, resume or delete. Recording stops
+automatically at three minutes; a note shorter than 0.6 seconds is cancelled.
+
+After recording, preview the note before sending. You can play/pause, delete and
+re-record, or send it as its own message. Voice cannot be combined with text, photos
+or Urgent. If upload or send fails, use Retry—the app preserves stable retry identity
+so a successful retry does not create a duplicate.
+
+For received notes, select Play; audio is fetched privately at that moment. Seek with
+the progress control and select 1x, 1.5x or 2x. Starting another note stops the first.
+Use Retry for an unavailable/transient item. There is no autoplay or transcription.
+
+Voice notes are school records. Record only relevant, appropriate content; follow the
+school's consent, safeguarding, retention and escalation rules. Offer a text or other
+accessible channel when audio is unsuitable. Turning the school switch off removes
+the recorder for new messages but does not hide existing authorized records.
+
 ## Sending photos (Slice 8)
 
 An active conversation can contain text, photos, or both. Choose the gallery button

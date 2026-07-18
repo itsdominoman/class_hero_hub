@@ -1,27 +1,32 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import { Camera, ImagePlus, Mic, RefreshCw, SendHorizontal, X } from 'lucide-svelte';
+  import { Camera, ImagePlus, RefreshCw, SendHorizontal, X } from 'lucide-svelte';
   import type { SelectedMessagePhoto } from '$lib/messaging/types';
+  import VoiceRecorder from './VoiceRecorder.svelte';
 
   let {
     draft = $bindable(''),
     disabled = false,
     sending = false,
     offline = false,
+    voiceEnabled = false,
     photos = [],
     onselectphotos,
     onremovephoto,
     onretryphoto,
+    onvoice,
     onsend
   }: {
     draft?: string;
     disabled?: boolean;
     sending?: boolean;
     offline?: boolean;
+    voiceEnabled?: boolean;
     photos?: SelectedMessagePhoto[];
     onselectphotos: (files: File[]) => void;
     onremovephoto: (photo: SelectedMessagePhoto) => void;
     onretryphoto: (photo: SelectedMessagePhoto) => void;
+    onvoice: (recording: { blob: Blob; duration_ms: number; mime_type: string }) => Promise<boolean>;
     onsend: (body: string) => Promise<boolean>;
   } = $props();
 
@@ -106,17 +111,8 @@
       >
         {#if sending}…{:else}<SendHorizontal size={19} class="rtl:-scale-x-100" aria-hidden="true" />{/if}
       </button>
-    {:else}
-      <button
-        type="button"
-        data-testid="message-voice-placeholder"
-        class="grid h-11 w-11 shrink-0 cursor-not-allowed place-items-center rounded-full bg-hero/10 text-hero/50"
-        aria-label={$_('messaging.voiceNotesUnavailable')}
-        title={$_('messaging.voiceNotesUnavailable')}
-        disabled
-      >
-        <Mic size={19} aria-hidden="true" />
-      </button>
+    {:else if voiceEnabled}
+      <VoiceRecorder disabled={disabled || offline} {sending} {onvoice} />
     {/if}
   </div>
 </form>

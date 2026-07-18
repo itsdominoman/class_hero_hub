@@ -1,5 +1,36 @@
 # CHH Android APK smoke test
 
+## S25q microphone and protected voice matrix
+
+Use `class-hero-hub-voice-notes-dev.apk` (`com.classherohub.app`) against the CHH
+development API. Record device, Android/WebView version, navigation mode, keyboard,
+locale, network and APK SHA-256.
+
+1. With Voice notes disabled, confirm no microphone is shown and text/photo messaging
+   is unchanged. Enable only through the UIS administrator acknowledgement modal.
+2. Grant microphone permission and record with hold/release. Deny permission once,
+   recover through settings and confirm text messaging remains usable.
+3. Slide horizontally to cancel in English and mirrored Arabic RTL. Record under 0.6
+   seconds (cancelled), then record to the three-minute automatic stop.
+4. Swipe up to lock; pause/resume; background and resume; accept an interruption such
+   as a call/alarm; delete, re-record, preview and send.
+5. Force network loss during upload and send, restore it and Retry. Confirm exactly
+   one note appears and the draft/other messages are intact.
+6. Play received CHH and FHH notes. Test pause, seek near start/end, 1x/1.5x/2x and
+   starting a second note. Confirm no autoplay and useful loading/failure/retry states.
+7. Test speaker, wired headset if available and Bluetooth. Lock/unlock the device and
+   switch conversations while audio is active; no stream/object URL may remain live.
+8. Test hardware Back with keyboard, live recorder, locked recorder and preview. The
+   recorder/preview closes before navigation. Repeat with gesture and three-button
+   navigation in portrait and landscape.
+9. Revoke conversation/link access from another session. New playback must fail
+   privately without exposing a URL/path or revoking unrelated school data.
+10. Disable Voice notes after sending. Confirm new recording disappears while the
+    existing note remains playable to authorized participants.
+
+Automated app-scoped `testDebugUnitTest`, `lintDebug` and `assembleDebug` are required
+before delivery but do not replace this device matrix.
+
 Use this checklist on a physical Android device after installing a debug APK. Record
 device model, Android version, APK filename, checksum, date, and tester with the run.
 

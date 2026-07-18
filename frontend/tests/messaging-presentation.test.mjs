@@ -17,6 +17,8 @@ const photoSource = readFileSync(new URL('../src/lib/components/messaging/Protec
 const viewerSource = readFileSync(new URL('../src/lib/components/messaging/ProtectedPhotoViewer.svelte', import.meta.url), 'utf8');
 const pageSource = readFileSync(new URL('../src/routes/messages/+page.svelte', import.meta.url), 'utf8');
 const apiSource = readFileSync(new URL('../src/lib/messaging/api.ts', import.meta.url), 'utf8');
+const voiceRecorderSource = readFileSync(new URL('../src/lib/components/messaging/VoiceRecorder.svelte', import.meta.url), 'utf8');
+const voicePlayerSource = readFileSync(new URL('../src/lib/components/messaging/ProtectedVoiceNote.svelte', import.meta.url), 'utf8');
 
 const baseConversation = {
   id: '00000000-0000-0000-0000-000000000001',
@@ -167,18 +169,38 @@ test('photo composer supports gallery, Android camera, five-photo limit, and ind
   assert.match(pageSource, /staged_media_ids: stagedMediaIds/);
 });
 
-test('compact composer integrates media controls and reserves the empty action for future voice notes', () => {
+test('compact composer integrates media controls and capability-gated voice notes', () => {
   assert.match(composerSource, /rounded-\[1\.4rem\]/);
   assert.match(composerSource, /min-h-11 max-h-32/);
   assert.match(composerSource, /grid h-10 w-10/g);
   assert.match(composerSource, /pb-\[calc\(0\.5rem\+var\(--safe-bottom\)\)\]/);
   assert.match(composerSource, /\{#if draft\.trim\(\) \|\| photos\.length\}/);
-  assert.match(composerSource, /data-testid="message-voice-placeholder"/);
-  assert.match(composerSource, /voiceNotesUnavailable/);
-  assert.match(composerSource, /<Mic size=\{19\}/);
+  assert.match(composerSource, /\{:else if voiceEnabled\}/);
+  assert.match(composerSource, /<VoiceRecorder disabled=\{disabled \|\| offline\}/);
+  assert.doesNotMatch(composerSource, /message-voice-placeholder/);
   assert.match(composerSource, /data-testid="message-send"/);
   assert.match(composerSource, /<SendHorizontal size=\{19\}/);
   assert.doesNotMatch(composerSource, /h-12 w-12/);
+});
+
+test('voice recorder supports hold, cancel, lock, pause, preview and safe native Back', () => {
+  assert.match(voiceRecorderSource, /getUserMedia/);
+  assert.match(voiceRecorderSource, /audio\/mp4/);
+  assert.match(voiceRecorderSource, /cancelDistance > 72/);
+  assert.match(voiceRecorderSource, /startY - event\.clientY > 72/);
+  assert.match(voiceRecorderSource, /mediaRecorder\.pause\(\)/);
+  assert.match(voiceRecorderSource, /finish\('preview'\)/);
+  assert.match(voiceRecorderSource, /window\.addEventListener\('chh:native-back', nativeBack, \{ capture: true \}\)/);
+  assert.match(voiceRecorderSource, /cancelCurrent\(\)/);
+});
+
+test('protected voice playback loads on demand, coordinates players and releases blob URLs', () => {
+  assert.match(apiSource, /\/voice-media\/\$\{mediaId\}/);
+  assert.match(voicePlayerSource, /const blob = await load\(\)/);
+  assert.match(voicePlayerSource, /blob\.type\.split\(';', 1\)\[0\] !== 'audio\/mp4'/);
+  assert.match(voicePlayerSource, /new CustomEvent\('chh:voice-play'/);
+  assert.match(voicePlayerSource, /URL\.revokeObjectURL\(objectUrl\)/);
+  assert.doesNotMatch(voicePlayerSource, /storage_key|direct_url|public_url/);
 });
 
 test('protected photo delivery never renders a stable media URL and cleans blob URLs', () => {

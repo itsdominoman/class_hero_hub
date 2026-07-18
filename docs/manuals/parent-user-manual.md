@@ -1,5 +1,19 @@
 # Parent User Manual
 
+## Voice notes in school messages
+
+If your school has enabled voice notes, hold the microphone in an open conversation.
+Slide toward Cancel to discard or upward to lock. A locked recording can be paused,
+resumed or deleted. Notes under 0.6 seconds are cancelled and recording stops at
+three minutes. Preview first, then delete/re-record or send; a voice note is sent by
+itself and cannot be mixed with text/photos.
+
+Received notes load privately only when you press Play. You can pause, seek and use
+1x, 1.5x or 2x speed. Playing a second note stops the first. The app does not autoplay
+or transcribe. If permission is denied, allow microphone access in browser/app
+settings or send text instead. Use only appropriate school-related content and follow
+your school's consent, safeguarding and retention guidance.
+
 ## Who this is for
 Parents and caregivers who use Family Hero Hub to manage children, points, rewards, routines, school prep, savings-style goals, and linked child devices.
 

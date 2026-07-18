@@ -24,6 +24,7 @@ export type MessagingCapabilities = {
   can_close: boolean;
   delivery_receipts_visible: boolean;
   read_receipts_visible: boolean;
+  voice_notes_enabled: boolean;
 };
 
 export type InboxMessage = {
@@ -32,8 +33,10 @@ export type InboxMessage = {
   sender_display_name: string;
   sender_kind?: string | null;
   sender_relationship?: string | null;
+  message_type: 'standard' | 'voice_note';
   body: string | null;
   photo_count: number;
+  voice_note: MessageVoiceNote | null;
   state: string;
   created_at: string;
 };
@@ -74,8 +77,10 @@ export type MessageItem = {
   sender_kind?: string | null;
   sender_relationship?: string | null;
   sender_is_self: boolean;
+  message_type: 'standard' | 'voice_note';
   body: string | null;
   photos: MessagePhoto[];
+  voice_note: MessageVoiceNote | null;
   state: string;
   urgent: boolean;
   created_at: string;
@@ -95,6 +100,17 @@ export type MessagePhoto = {
   full_available: boolean;
 };
 
+export type MessageVoiceNote = {
+  id: string;
+  content_type: 'audio/mp4';
+  size_bytes: number;
+  duration_ms: number;
+  codec: 'aac';
+  container: 'mp4';
+  available: boolean;
+  transcription: { available: false; state: 'not_requested' };
+};
+
 export type SelectedMessagePhoto = {
   client_upload_id: string;
   file: File;
@@ -108,6 +124,11 @@ export type OptimisticMessage = MessageItem & {
   client_message_id?: string;
   staged_media_ids?: string[];
   local_photo_urls?: string[];
+  staged_voice_id?: string;
+  voice_upload_id?: string;
+  voice_blob?: Blob;
+  local_voice_url?: string;
+  voice_duration_ms?: number;
   local_state?: 'sending' | 'failed';
   error?: string;
 };

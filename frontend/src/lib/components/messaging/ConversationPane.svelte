@@ -2,7 +2,7 @@
   import { tick } from 'svelte';
   import { _, locale } from 'svelte-i18n';
   import { ShieldCheck } from 'lucide-svelte';
-  import type { ConversationDetail, MessagePhoto, OptimisticMessage, SelectedMessagePhoto } from '$lib/messaging/types';
+  import type { ConversationDetail, MessagePhoto, MessageVoiceNote, OptimisticMessage, SelectedMessagePhoto } from '$lib/messaging/types';
   import {
     activeGuardianCount,
     conversationTitle,
@@ -12,6 +12,7 @@
   import MessageComposer from './MessageComposer.svelte';
   import ProtectedMessagePhoto from './ProtectedMessagePhoto.svelte';
   import ProtectedPhotoViewer from './ProtectedPhotoViewer.svelte';
+  import ProtectedVoiceNote from './ProtectedVoiceNote.svelte';
 
   let {
     conversation,
@@ -32,7 +33,9 @@
     onselectphotos,
     onremovephoto,
     onretryphoto,
+    onvoice,
     loadphoto,
+    loadvoice,
     ontogglenotice,
     onacknowledgenotice,
     onclosenotice
@@ -55,7 +58,9 @@
     onselectphotos: (files: File[]) => void;
     onremovephoto: (photo: SelectedMessagePhoto) => void;
     onretryphoto: (photo: SelectedMessagePhoto) => void;
+    onvoice: (recording: { blob: Blob; duration_ms: number; mime_type: string }) => Promise<boolean>;
     loadphoto: (photo: MessagePhoto, variant: 'thumbnail' | 'full') => Promise<Blob>;
+    loadvoice: (voice: MessageVoiceNote) => Promise<Blob>;
     ontogglenotice: () => void;
     onacknowledgenotice: () => void;
     onclosenotice: () => void;
@@ -280,6 +285,12 @@
                       {/each}
                     </div>
                   {/if}
+                  {#if message.voice_note}
+                    <div class="mt-1"><ProtectedVoiceNote voice={message.voice_note} messageId={message.id} load={() => loadvoice(message.voice_note!)} /></div>
+                  {/if}
+                  {#if message.local_voice_url}
+                    <audio class="mt-1 h-10 w-full min-w-[15rem]" src={message.local_voice_url} controls preload="metadata" aria-label={$_('messaging.voiceNote')}></audio>
+                  {/if}
                   {#if message.local_photo_urls?.length}
                     <div class="mt-2 grid grid-cols-2 gap-1.5">
                       {#each message.local_photo_urls as url}
@@ -323,9 +334,11 @@
       {sending}
       {offline}
       photos={selectedPhotos}
+      voiceEnabled={conversation.capabilities.voice_notes_enabled}
       {onselectphotos}
       {onremovephoto}
       {onretryphoto}
+      {onvoice}
       {onsend}
     />
   </section>

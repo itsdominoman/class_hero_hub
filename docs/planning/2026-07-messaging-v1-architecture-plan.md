@@ -1,5 +1,15 @@
 # CHH/FHH Messaging v1 architecture and implementation plan
 
+**S25q implementation update (2026-07-18):** protected voice notes are implemented
+across CHH and FHH. CHH is the authoritative protected-audio boundary and normalizes
+untrusted recorder input to metadata-free mono AAC-LC/48 kHz/64 kbps in M4A. FHH is
+an authenticated, child-scoped memory-only proxy. Voice is a separate message type
+with stable upload/send retries, protected on-demand playback, seek and
+1x/1.5x/2x. The per-school feature is default-off and versioned/audited; only United
+International School is approved for the development pilot. See
+`docs/implementation/MESSAGING_V1_VOICE_NOTES.md` and
+`docs/operations/VOICE_NOTES_FEATURE_CONTROL.md`. Production remains unchanged.
+
 **Slice 8 implementation update (2026-07-18):** protected photo messaging is
 implemented across CHH and FHH using the approved CHH-authoritative staged-upload
 architecture. It supports text-only, photo-only and text-plus-up-to-five-photo sends,

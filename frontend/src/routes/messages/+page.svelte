@@ -14,6 +14,7 @@
     ConversationSummary,
     MessagingMembership,
     MessagePhoto,
+    MessageVoiceNote,
     OptimisticMessage,
     RecipientResults,
     SelectedMessagePhoto
@@ -140,6 +141,7 @@
     }
     for (const photo of selectedPhotos) if (!selected.has(photo.preview_url)) URL.revokeObjectURL(photo.preview_url);
     for (const message of messages) for (const url of message.local_photo_urls || []) if (!selected.has(url)) URL.revokeObjectURL(url);
+    for (const message of messages) if (message.local_voice_url && !selected.has(message.local_voice_url)) URL.revokeObjectURL(message.local_voice_url);
     selectedPhotos = [];
     conversationPhotoDrafts = {};
   }
@@ -405,6 +407,11 @@
     return messagingApi.photo(membership, selectedId, photo.id, variant);
   }
 
+  function loadMessageVoice(voice: MessageVoiceNote) {
+    if (!membership || !selectedId) return Promise.reject(new Error('Conversation unavailable'));
+    return messagingApi.voice(membership, selectedId, voice.id);
+  }
+
   async function dispatchMessage(
     clientMessageId: string,
     body: string | null,
@@ -418,8 +425,10 @@
       sequence: Number.MAX_SAFE_INTEGER,
       sender_display_name: '',
       sender_is_self: true,
+      message_type: 'standard',
       body,
       photos: [],
+      voice_note: null,
       state: 'active',
       urgent: false,
       created_at: new Date().toISOString(),
@@ -437,7 +446,7 @@
     }
     sending = true;
     try {
-      const saved = await messagingApi.send(membership, selectedId, clientMessageId, body, stagedMediaIds);
+      const saved = await messagingApi.send(membership, selectedId, clientMessageId, body, stagedMediaIds, null);
       for (const url of localPhotoUrls) URL.revokeObjectURL(url);
       const reconciled: OptimisticMessage = { ...saved, sender_is_self: true };
       messages = mergeIncomingMessages(
@@ -452,8 +461,10 @@
           sender_display_name: saved.sender_display_name,
           sender_kind: saved.sender_kind,
           sender_relationship: saved.sender_relationship,
+          message_type: saved.message_type,
           body: saved.body,
           photo_count: saved.photos?.length || 0,
+          voice_note: saved.voice_note,
           state: saved.state,
           created_at: saved.created_at
         },
@@ -469,8 +480,10 @@
                 sender_display_name: saved.sender_display_name,
                 sender_kind: saved.sender_kind,
                 sender_relationship: saved.sender_relationship,
+                message_type: saved.message_type,
                 body: saved.body,
                 photo_count: saved.photos?.length || 0,
+                voice_note: saved.voice_note,
                 state: saved.state,
                 created_at: saved.created_at
               },
@@ -512,7 +525,92 @@
     return accepted;
   }
 
+  async function sendVoicePending(pending: OptimisticMessage) {
+    if (!membership || !selectedId || !selectedConversation || !pending.client_message_id || !pending.voice_blob || !pending.voice_upload_id) return;
+    const conversationId = selectedId;
+    messages = messages.map((row) => row.client_message_id === pending.client_message_id ? { ...row, local_state: 'sending', error: undefined } : row);
+    sending = true;
+    try {
+      let stagedVoiceId = pending.staged_voice_id;
+      if (!stagedVoiceId) {
+        const staged = await messagingApi.uploadVoice(membership, conversationId, pending.voice_upload_id, pending.voice_blob);
+        stagedVoiceId = staged.id;
+        messages = messages.map((row) => row.client_message_id === pending.client_message_id ? { ...row, staged_voice_id: stagedVoiceId } : row);
+      }
+      const saved = await messagingApi.send(
+        membership,
+        conversationId,
+        pending.client_message_id,
+        null,
+        [],
+        stagedVoiceId
+      );
+      if (selectedId !== conversationId || !selectedConversation) return;
+      if (pending.local_voice_url) URL.revokeObjectURL(pending.local_voice_url);
+      messages = mergeIncomingMessages(
+        messages.filter((row) => row.client_message_id !== pending.client_message_id),
+        [{ ...saved, sender_is_self: true }]
+      );
+      const summary = {
+        id: saved.id,
+        sequence: saved.sequence,
+        sender_display_name: saved.sender_display_name,
+        sender_kind: saved.sender_kind,
+        sender_relationship: saved.sender_relationship,
+        message_type: saved.message_type,
+        body: saved.body,
+        photo_count: 0,
+        voice_note: saved.voice_note,
+        state: saved.state,
+        created_at: saved.created_at
+      };
+      selectedConversation = { ...selectedConversation, last_message: summary, last_message_at: saved.created_at };
+      conversations = conversations.map((row) => row.id === conversationId ? { ...row, last_message: summary, last_message_at: saved.created_at } : row);
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : $_('messaging.voiceSendFailed');
+      messages = messages.map((row) => row.client_message_id === pending.client_message_id ? { ...row, local_state: 'failed', error: message } : row);
+    } finally {
+      sending = false;
+    }
+  }
+
+  async function sendVoiceRecording(recording: { blob: Blob; duration_ms: number; mime_type: string }) {
+    if (
+      !membership || !selectedId || !selectedConversation || sending || offline ||
+      !selectedConversation.capabilities.voice_notes_enabled ||
+      activeDraft.trim() || selectedPhotos.length
+    ) return false;
+    const clientMessageId = crypto.randomUUID();
+    const localVoiceUrl = URL.createObjectURL(recording.blob);
+    const pending: OptimisticMessage = {
+      id: `local:${clientMessageId}`,
+      client_message_id: clientMessageId,
+      sequence: Number.MAX_SAFE_INTEGER,
+      sender_display_name: '',
+      sender_is_self: true,
+      message_type: 'voice_note',
+      body: null,
+      photos: [],
+      voice_note: null,
+      state: 'active',
+      urgent: false,
+      created_at: new Date().toISOString(),
+      local_state: 'sending',
+      voice_upload_id: crypto.randomUUID(),
+      voice_blob: recording.blob,
+      local_voice_url: localVoiceUrl,
+      voice_duration_ms: recording.duration_ms
+    };
+    messages = [...messages, pending];
+    await sendVoicePending(pending);
+    return true;
+  }
+
   function retryMessage(message: OptimisticMessage) {
+    if (message.message_type === 'voice_note' && message.client_message_id) {
+      void sendVoicePending(message);
+      return;
+    }
     if (message.client_message_id && (message.body || message.staged_media_ids?.length)) {
       void dispatchMessage(
         message.client_message_id,
@@ -797,7 +895,9 @@
           onselectphotos={selectPhotos}
           onremovephoto={removePhoto}
           onretryphoto={retryPhoto}
+          onvoice={sendVoiceRecording}
           loadphoto={loadMessagePhoto}
+          loadvoice={loadMessageVoice}
           ontogglenotice={() => noticeOpen = !noticeOpen}
           onacknowledgenotice={acknowledgeConversationNotice}
           onclosenotice={() => noticeOpen = false}

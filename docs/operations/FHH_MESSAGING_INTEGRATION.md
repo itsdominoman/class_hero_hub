@@ -1,5 +1,19 @@
 # FHH Messaging Integration Operations
 
+## S25q protected voice boundary
+
+Voice upload follows the same CHH-authoritative principle as photos with stricter
+media rules. FHH reads at most 8 MiB into memory, binds actual size/SHA-256 and the
+opaque upload UUID into its one-use actor assertion, and forwards bytes only
+server-to-server. CHH reauthorizes and normalizes to AAC-LC/M4A; FHH persists no
+audio. Playback is requested only on Play and returns transient `audio/mp4` with
+private/no-store/nosniff headers. The safe metadata allowlist is id, duration, size,
+AAC/MP4/content type, availability and `not_requested` transcription state.
+
+The `capabilities.voice_notes` value is authoritative from CHH. Disabled means no new
+upload/send; existing protected notes remain playable to currently authorized
+participants. See `../implementation/MESSAGING_V1_VOICE_NOTES.md`.
+
 ## Slice 8 protected media boundary
 
 FHH uploads bytes server-to-server only after parent/family/child/active-connection

@@ -1,5 +1,28 @@
 # Messaging v1 QA coverage
 
+## S25q protected-voice gate — 2026-07-18
+
+Focused automated evidence passed without rerunning unrelated project suites:
+
+| Gate | Result | Scope |
+|---|---:|---|
+| CHH backend | 44 passed | actual ffmpeg normalization/rejection, controls/audit, idempotency, scope, cleanup, retained playback |
+| CHH frontend | 12 passed | recorder/player/composer/history contracts and regressions directly affected |
+| FHH backend | 28 passed | child/family/link proxy, bounded buffering, signed checksum/size, allowlist and lifecycle |
+| FHH frontend | 14 passed | recorder/player state and UI parity |
+| EN/AR parity | CHH 1,215; FHH 1,451 | exact key parity |
+| Production web builds | CHH and FHH passed | web/Capacitor assets compile |
+
+App-scoped Android unit, lint and dev assembly plus deployed migration/API smoke are
+release gates recorded separately. Manual device coverage must exercise microphone
+grant/deny, sub-600 ms cancellation, 180-second stop, hold/cancel/lock/pause/resume,
+background/interruption, preview/delete/re-record/send, seek/speed/single-playback,
+Bluetooth/speaker routing, Arabic RTL gestures, three-button/gesture navigation,
+offline retry and access revocation. See `CHH_ANDROID_APK_SMOKE_TEST.md`.
+
+Unimplemented receipt/contact-hours/notification/safeguarding-workflow/retention
+slices remain outside this focused gate.
+
 ## Slice 8 protected-photo gate — 2026-07-18
 
 Automated coverage proves text-only, photo-only and mixed sends; five-photo maximum;

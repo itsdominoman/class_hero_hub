@@ -287,6 +287,14 @@
     id: string; event_id: number; title: string; body?: string | null; event_type: string;
     starts_at: string; ends_at?: string | null; all_day: boolean;
   };
+  type FeatureControl = {
+    feature: 'voice_notes';
+    enabled: boolean;
+    control_version: number;
+    disclosure_version: string;
+    acknowledgement_items: string[];
+    updated_at?: string | null;
+  };
 
   const tabs = [
     { key: 'checklist', label: 'school.tabs.checklist' },
@@ -323,6 +331,10 @@
   let gradeLevelLabel = $state('Grade');
   let labelChoice = $state('Grade');
   let customLabel = $state('');
+  let voiceNotesControl = $state<FeatureControl | null>(null);
+  let complianceDialogOpen = $state(false);
+  let complianceAcknowledged = $state(false);
+  let complianceSaving = $state(false);
 
   let branches = $state<Row[]>([]);
   let stages = $state<Row[]>([]);
@@ -633,8 +645,9 @@
   async function loadAll() {
     if (!schoolId) return;
     const options = schoolOptions();
-    const [settings, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData, templateRows, announcementData] = await Promise.all([
+    const [settings, featureControls, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData, templateRows, announcementData] = await Promise.all([
       api.get('/school/settings', options),
+      api.get('/school/feature-controls', options),
       api.get('/school/setup-checklist', options),
       api.get('/school/branches', options),
       api.get('/school/education-stages', options),
@@ -655,6 +668,7 @@
     gradeLevelLabel = settings.grade_level_label || 'Grade';
     labelChoice = ['Grade', 'Year', 'Form', 'Level'].includes(gradeLevelLabel) ? gradeLevelLabel : 'custom';
     customLabel = labelChoice === 'custom' ? gradeLevelLabel : '';
+    voiceNotesControl = featureControls?.voice_notes || null;
     checklist = checklistData.items || [];
     setupComplete = Boolean(checklistData.complete);
     branches = branchRows;
@@ -1760,6 +1774,37 @@
     }
   }
 
+  async function saveVoiceNotesControl(enabled: boolean, acknowledged = true) {
+    if (!voiceNotesControl || complianceSaving) return;
+    complianceSaving = true;
+    error = null;
+    try {
+      voiceNotesControl = await api.put('/school/feature-controls/voice-notes', {
+        enabled,
+        expected_control_version: voiceNotesControl.control_version,
+        disclosure_version: voiceNotesControl.disclosure_version,
+        acknowledged
+      }, schoolOptions());
+      complianceDialogOpen = false;
+      complianceAcknowledged = false;
+      notice = enabled ? $_('school.compliance.voiceEnabled') : $_('school.compliance.voiceDisabled');
+    } catch (err: any) {
+      error = err?.message || $_('school.compliance.saveError');
+    } finally {
+      complianceSaving = false;
+    }
+  }
+
+  function requestVoiceNotesChange() {
+    if (!voiceNotesControl) return;
+    if (voiceNotesControl.enabled) {
+      void saveVoiceNotesControl(false);
+      return;
+    }
+    complianceAcknowledged = false;
+    complianceDialogOpen = true;
+  }
+
   function sectionPayload() {
     return {
       ...payloadFrom(sectionForm),
@@ -2370,6 +2415,32 @@
             {/if}
             <button class="btn-hero mt-5 rounded-lg px-5 py-2" disabled={saving} onclick={saveSettings}>{$_('school.save')}</button>
           </div>
+          <section class="mt-5 rounded-lg border border-slate-200 bg-white p-5" aria-labelledby="compliance-feature-controls-title">
+            <p class="text-xs font-black uppercase tracking-wide text-hero">{$_('school.compliance.eyebrow')}</p>
+            <h2 id="compliance-feature-controls-title" class="mt-1 text-lg font-black text-slate-900">{$_('school.compliance.title')}</h2>
+            <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{$_('school.compliance.intro')}</p>
+            {#if voiceNotesControl}
+              <div class="mt-5 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h3 class="font-black text-slate-900">{$_('school.compliance.voiceNotes')}</h3>
+                    <span class={voiceNotesControl.enabled ? 'rounded-full bg-emerald-100 px-2 py-1 text-xs font-black text-emerald-800' : 'rounded-full bg-slate-200 px-2 py-1 text-xs font-black text-slate-600'}>
+                      {voiceNotesControl.enabled ? $_('school.compliance.enabled') : $_('school.compliance.disabled')}
+                    </span>
+                  </div>
+                  <p class="mt-1 max-w-2xl text-sm text-slate-600">{$_('school.compliance.voiceHelp')}</p>
+                </div>
+                <button
+                  type="button"
+                  class={voiceNotesControl.enabled ? 'min-h-11 shrink-0 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-black text-red-700' : 'btn-hero min-h-11 shrink-0 rounded-xl px-4 py-2 text-sm font-black'}
+                  disabled={complianceSaving}
+                  onclick={requestVoiceNotesChange}
+                >
+                  {voiceNotesControl.enabled ? $_('school.compliance.disableVoice') : $_('school.compliance.enableVoice')}
+                </button>
+              </div>
+            {/if}
+          </section>
         {:else if activeTab === 'branches'}
           <CrudBlock title={$_('school.branches.title')} rows={branches} path="branches" bind:form={branchForm} {saving} editing={editingPath === 'branches'} errors={{ code: fieldError('branches', 'code'), name: fieldError('branches', 'name') }} onsubmit={() => saveRow('branches', branchForm)} onedit={(row) => editRow('branches', branchForm, row)} oncancel={cancelEdit} onarchive={archiveRow} />
         {:else if activeTab === 'stages'}
@@ -2407,8 +2478,9 @@
               </button>
               {#if editingPath === 'academic-years'}
                 <button class="btn-secondary rounded-lg" disabled={saving} onclick={cancelEdit}>{$_('school.cancel')}</button>
-              {/if}
-            </div>
+  {/if}
+</div>
+
             <RowsTable rows={years} extra={(row) => `${row.is_current ? $_('school.years.current') : ''}${row.start_date || row.end_date ? ` · ${row.start_date || '-'} - ${row.end_date || '-'}` : ''}`} onedit={(row) => editRow('academic-years', yearForm, row)} onarchive={(row) => archiveRow('academic-years', row)} />
           </div>
         {:else if activeTab === 'levels'}
@@ -3658,6 +3730,32 @@
           </div>
         </div>
       {/if}
+    </div>
+  </div>
+{/if}
+
+{#if complianceDialogOpen && voiceNotesControl}
+  <div class="fixed inset-0 z-[100] grid place-items-center bg-slate-950/65 p-4" role="presentation">
+    <div class="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="voice-compliance-title">
+      <h2 id="voice-compliance-title" class="text-xl font-black text-slate-950">{$_('school.compliance.confirmTitle')}</h2>
+      <p class="mt-3 text-sm leading-6 text-slate-600">{$_('school.compliance.confirmIntro')}</p>
+      <ul class="mt-4 list-disc space-y-2 ps-5 text-sm font-semibold text-slate-700">
+        <li>{$_('school.compliance.law')}</li>
+        <li>{$_('school.compliance.consent')}</li>
+        <li>{$_('school.compliance.acceptableUse')}</li>
+        <li>{$_('school.compliance.safeguarding')}</li>
+        <li>{$_('school.compliance.retention')}</li>
+        <li>{$_('school.compliance.accessibility')}</li>
+      </ul>
+      <p class="mt-4 rounded-xl bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">{$_('school.compliance.sharedResponsibility')}</p>
+      <label class="mt-5 flex items-start gap-3 rounded-xl border border-slate-200 p-4 text-sm font-bold text-slate-800">
+        <input class="mt-1" type="checkbox" bind:checked={complianceAcknowledged} />
+        <span>{$_('school.compliance.acknowledge')}</span>
+      </label>
+      <div class="mt-6 flex justify-end gap-3">
+        <button type="button" class="rounded-xl border border-slate-200 px-4 py-2 font-bold text-slate-700" disabled={complianceSaving} onclick={() => complianceDialogOpen = false}>{$_('school.cancel')}</button>
+        <button type="button" class="btn-hero rounded-xl px-4 py-2 font-black" disabled={!complianceAcknowledged || complianceSaving} onclick={() => void saveVoiceNotesControl(true, complianceAcknowledged)}>{$_('school.compliance.confirmEnable')}</button>
+      </div>
     </div>
   </div>
 {/if}

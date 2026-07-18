@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from .. import auth
 from ..database import get_db, settings
+from ..feature_control_service import voice_notes_enabled
 from ..messaging_service import (
     MessagingAccessDenied,
     MessagingConflict,
@@ -37,6 +38,16 @@ from ..message_media_service import (
     protected_media_file,
     stage_message_photo,
 )
+from ..message_voice_service import (
+    MAX_RAW_AUDIO_BYTES,
+    MessageVoiceConflict,
+    MessageVoiceValidationError,
+    attached_voice_map,
+    cleanup_expired_staged_voice,
+    protected_voice_file,
+    stage_message_voice,
+    voice_payload,
+)
 from ..models_school import (
     ClassSection,
     Conversation,
@@ -51,6 +62,7 @@ from ..models_school import (
     Membership,
     Message,
     MessageMedia,
+    MessageVoiceMedia,
     School,
     SchoolMessagingPolicy,
     StaffAssignment,
@@ -267,6 +279,7 @@ class MessageSendRequest(BaseModel):
     client_message_id: UUID
     body: str | None = Field(default=None, max_length=10_000)
     staged_media_ids: list[UUID] = Field(default_factory=list, max_length=5)
+    staged_voice_id: UUID | None = None
     urgent: bool = False
 
 
@@ -1125,6 +1138,8 @@ def _conversation_payloads(
     )
     latest_by_conversation = {row.conversation_id: row for row in latest_messages}
     latest_media = attached_media_map(db, [row.id for row in latest_messages])
+    latest_voice = attached_voice_map(db, [row.id for row in latest_messages])
+    voice_enabled = voice_notes_enabled(db, actor.school.id)
     payloads = []
     for conversation in rows:
         current = _participant_for_actor(conversation, participants, actor)
@@ -1177,8 +1192,12 @@ def _conversation_payloads(
                         "sender_relationship": guardian_relationships.get(
                             latest.sender_participant_id
                         ),
+                        "message_type": latest.message_type,
                         "body": latest.body if latest.state == "active" else None,
                         "photo_count": len(latest_media.get(latest.id, [])),
+                        "voice_note": voice_payload(latest_voice[latest.id])
+                        if latest.id in latest_voice and latest.state == "active"
+                        else None,
                         "state": latest.state,
                         "created_at": latest.created_at,
                     }
@@ -1202,6 +1221,7 @@ def _conversation_payloads(
                     and conversation.status == "active",
                     "delivery_receipts_visible": actor.policy.delivery_receipts_visible,
                     "read_receipts_visible": actor.policy.read_receipts_visible,
+                    "voice_notes_enabled": voice_enabled,
                 },
             }
         )
@@ -1509,6 +1529,7 @@ def _message_page(
         },
     )
     media_by_message = attached_media_map(db, [row.id for row in rows])
+    voice_by_message = attached_voice_map(db, [row.id for row in rows])
     items = [
         {
             "id": str(row.public_id),
@@ -1521,8 +1542,12 @@ def _message_page(
             ),
             "sender_relationship": relationships.get(row.sender_participant_id),
             "sender_is_self": row.sender_participant_id == participant.id,
+            "message_type": row.message_type,
             "body": row.body if row.state == "active" else None,
             "photos": [media_payload(media) for media in media_by_message.get(row.id, [])],
+            "voice_note": voice_payload(voice_by_message[row.id])
+            if row.id in voice_by_message and row.state == "active"
+            else None,
             "state": row.state,
             "urgent": row.urgent,
             "created_at": row.created_at,
@@ -2547,6 +2572,10 @@ def _send(
     response: Response,
 ) -> dict[str, Any]:
     _private(response)
+    if body.staged_voice_id is not None and not voice_notes_enabled(
+        db, conversation.school_id
+    ):
+        raise HTTPException(status_code=403, detail="Voice notes are disabled")
     if body.urgent:
         allowed = isinstance(actor, StaffActor) and (
             actor.membership.role == "school_admin"
@@ -2562,6 +2591,7 @@ def _send(
             client_message_id=body.client_message_id,
             body=body.body,
             staged_media_ids=body.staged_media_ids,
+            staged_voice_id=body.staged_voice_id,
             urgent=body.urgent,
         )
         db.commit()
@@ -2575,6 +2605,7 @@ def _send(
         db.rollback()
         raise HTTPException(status_code=409, detail=str(exc))
     photos = attached_media_map(db, [message.id]).get(message.id, [])
+    voice = attached_voice_map(db, [message.id]).get(message.id)
     return {
         "id": str(message.public_id),
         "sequence": message.sequence,
@@ -2583,8 +2614,10 @@ def _send(
         "sender_relationship": _guardian_relationships(db, {participant.id}).get(
             participant.id
         ),
+        "message_type": message.message_type,
         "body": message.body,
         "photos": [media_payload(media) for media in photos],
+        "voice_note": voice_payload(voice) if voice else None,
         "state": message.state,
         "urgent": message.urgent,
         "created_at": message.created_at,
@@ -2697,6 +2730,116 @@ def _protected_media_response(row: MessageMedia, variant: str) -> FileResponse:
     )
 
 
+async def _upload_voice(
+    db: Session,
+    *,
+    conversation: Conversation,
+    participant: ConversationParticipant,
+    file: UploadFile,
+    client_upload_id: UUID,
+    response: Response,
+    expected_source_checksum: str | None = None,
+    expected_size: int | None = None,
+) -> dict[str, Any]:
+    _private(response)
+    if not voice_notes_enabled(db, conversation.school_id):
+        raise HTTPException(status_code=403, detail="Voice notes are disabled")
+    try:
+        assert_participant_can_send(
+            db, conversation=conversation, participant=participant
+        )
+        cleanup_expired_staged_voice(db, limit=25)
+        raw = await file.read(MAX_RAW_AUDIO_BYTES + 1)
+        if expected_size is not None and len(raw) != expected_size:
+            raise MessageVoiceValidationError(
+                "Uploaded voice note size did not match the signed request"
+            )
+        if (
+            expected_source_checksum is not None
+            and hashlib.sha256(raw).hexdigest() != expected_source_checksum
+        ):
+            raise MessageVoiceValidationError(
+                "Uploaded voice note did not match the signed request"
+            )
+        row, duplicate = stage_message_voice(
+            db,
+            conversation=conversation,
+            participant=participant,
+            client_upload_id=client_upload_id,
+            raw=raw,
+        )
+        return voice_payload(row, duplicate=duplicate)
+    except MessageVoiceValidationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(exc))
+    except MessageVoiceConflict as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc))
+    except MessagingAccessDenied as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc))
+    finally:
+        await file.close()
+        if "raw" in locals():
+            del raw
+
+
+def _voice_for_participant(
+    db: Session,
+    *,
+    conversation: Conversation,
+    participant: ConversationParticipant,
+    media_public_id: UUID,
+) -> MessageVoiceMedia:
+    row = (
+        db.query(MessageVoiceMedia)
+        .filter(
+            MessageVoiceMedia.public_id == media_public_id,
+            MessageVoiceMedia.school_id == conversation.school_id,
+            MessageVoiceMedia.conversation_id == conversation.id,
+            MessageVoiceMedia.message_id.is_not(None),
+            MessageVoiceMedia.state == "attached",
+        )
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Voice note not found")
+    message = (
+        db.query(Message)
+        .filter(
+            Message.id == row.message_id,
+            Message.conversation_id == conversation.id,
+            Message.message_type == "voice_note",
+        )
+        .first()
+    )
+    access = participant_sequence_access(
+        db, conversation=conversation, participant=participant
+    )
+    if message is None or not access.includes(int(message.sequence)):
+        raise HTTPException(status_code=404, detail="Voice note not found")
+    return row
+
+
+def _protected_voice_response(row: MessageVoiceMedia) -> FileResponse:
+    try:
+        path, content_type = protected_voice_file(row)
+    except MessageVoiceValidationError:
+        raise HTTPException(status_code=404, detail="Voice note not found")
+    return FileResponse(
+        path,
+        media_type=content_type,
+        filename="voice-note.m4a",
+        content_disposition_type="inline",
+        headers={
+            "Cache-Control": "private, no-store, max-age=0",
+            "Pragma": "no-cache",
+            "X-Content-Type-Options": "nosniff",
+            "Cross-Origin-Resource-Policy": "same-origin",
+        },
+    )
+
+
 @staff_router.post(
     "/conversations/{conversation_id}/media",
     status_code=status.HTTP_201_CREATED,
@@ -2759,6 +2902,56 @@ async def guardian_upload_media(
     )
 
 
+@staff_router.post(
+    "/conversations/{conversation_id}/voice-media",
+    status_code=status.HTTP_201_CREATED,
+)
+async def staff_upload_voice(
+    conversation_id: UUID,
+    response: Response,
+    file: UploadFile = File(...),
+    x_upload_id: UUID = Header(alias="X-Upload-Id"),
+    actor: StaffActor = Depends(require_staff_actor),
+    db: Session = Depends(get_db),
+):
+    conversation, participant = _staff_access(
+        db, actor=actor, public_id=conversation_id
+    )
+    return await _upload_voice(
+        db,
+        conversation=conversation,
+        participant=participant,
+        file=file,
+        client_upload_id=x_upload_id,
+        response=response,
+    )
+
+
+@guardian_router.post(
+    "/conversations/{conversation_id}/voice-media",
+    status_code=status.HTTP_201_CREATED,
+)
+async def guardian_upload_voice(
+    conversation_id: UUID,
+    response: Response,
+    file: UploadFile = File(...),
+    x_upload_id: UUID = Header(alias="X-Upload-Id"),
+    actor: GuardianActor = Depends(require_guardian_actor),
+    db: Session = Depends(get_db),
+):
+    conversation, participant = _guardian_access(
+        db, actor=actor, public_id=conversation_id
+    )
+    return await _upload_voice(
+        db,
+        conversation=conversation,
+        participant=participant,
+        file=file,
+        client_upload_id=x_upload_id,
+        response=response,
+    )
+
+
 @staff_router.get(
     "/conversations/{conversation_id}/media/{media_id}/{variant}"
 )
@@ -2804,6 +2997,50 @@ def guardian_view_media(
             media_public_id=media_id,
         ),
         variant,
+    )
+
+
+@staff_router.get(
+    "/conversations/{conversation_id}/voice-media/{media_id}"
+)
+def staff_view_voice(
+    conversation_id: UUID,
+    media_id: UUID,
+    actor: StaffActor = Depends(require_staff_actor),
+    db: Session = Depends(get_db),
+):
+    conversation, participant = _staff_access(
+        db, actor=actor, public_id=conversation_id
+    )
+    return _protected_voice_response(
+        _voice_for_participant(
+            db,
+            conversation=conversation,
+            participant=participant,
+            media_public_id=media_id,
+        )
+    )
+
+
+@guardian_router.get(
+    "/conversations/{conversation_id}/voice-media/{media_id}"
+)
+def guardian_view_voice(
+    conversation_id: UUID,
+    media_id: UUID,
+    actor: GuardianActor = Depends(require_guardian_actor),
+    db: Session = Depends(get_db),
+):
+    conversation, participant = _guardian_access(
+        db, actor=actor, public_id=conversation_id
+    )
+    return _protected_voice_response(
+        _voice_for_participant(
+            db,
+            conversation=conversation,
+            participant=participant,
+            media_public_id=media_id,
+        )
     )
 
 

@@ -578,6 +578,51 @@ class SchoolMessagingPolicy(Base):
     )
 
 
+class SchoolFeatureControl(Base):
+    """Current school-level state for jurisdiction-sensitive product features."""
+
+    __tablename__ = "school_feature_controls"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    feature = Column(String(40), nullable=False)
+    enabled = Column(Boolean, nullable=False, default=False, server_default="false")
+    control_version = Column(Integer, nullable=False, default=1, server_default="1")
+    disclosure_version = Column(String(40), nullable=False)
+    updated_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("school_id", "feature", name="uq_school_feature_controls_school_feature"),
+        CheckConstraint("feature IN ('voice_notes')", name="ck_school_feature_controls_feature"),
+        CheckConstraint("control_version >= 1", name="ck_school_feature_controls_version"),
+    )
+
+
+class SchoolFeatureControlAuditEvent(Base):
+    """Append-only evidence for every compliance-controlled feature decision."""
+
+    __tablename__ = "school_feature_control_audit_events"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    event_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    feature = Column(String(40), nullable=False)
+    enabled = Column(Boolean, nullable=False)
+    control_version = Column(Integer, nullable=False)
+    disclosure_version = Column(String(40), nullable=False)
+    acknowledging_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    acknowledging_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False)
+    occurred_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint("feature IN ('voice_notes')", name="ck_school_feature_audit_feature"),
+        CheckConstraint("control_version >= 1", name="ck_school_feature_audit_version"),
+        Index("ix_school_feature_audit_school_feature_time", "school_id", "feature", "occurred_at", "id"),
+    )
+
+
 class FhhMessagingIdentity(Base):
     """Minimal lifecycle identity synchronized from FHH; not a participant."""
 
@@ -1011,6 +1056,7 @@ class Message(Base):
     )
     sender_display_name_snapshot = Column(String(200), nullable=False)
     client_message_id = Column(Uuid(as_uuid=True), nullable=False)
+    message_type = Column(String(24), nullable=False, default="standard", server_default="standard")
     body = Column(Text, nullable=True)
     state = Column(String(16), nullable=False, default="active", server_default="active")
     urgent = Column(Boolean, nullable=False, default=False, server_default="false")
@@ -1028,6 +1074,7 @@ class Message(Base):
             name="uq_messages_sender_client_id",
         ),
         CheckConstraint("sequence >= 1", name="ck_messages_sequence"),
+        CheckConstraint("message_type IN ('standard', 'voice_note')", name="ck_messages_type"),
         CheckConstraint(
             "body IS NULL OR (length(body) BETWEEN 1 AND 10000)",
             name="ck_messages_body_length",
@@ -1128,6 +1175,92 @@ class MessageMedia(Base):
         ),
         Index("ix_message_media_conversation_message", "conversation_id", "message_id", "sort_order"),
         Index("ix_message_media_state_expiry", "state", "expires_at", "id"),
+    )
+
+
+class MessageVoiceMedia(Base):
+    __tablename__ = "message_voice_media"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    public_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    client_upload_id = Column(Uuid(as_uuid=True), nullable=False)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    conversation_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("conversations.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    message_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("messages.id", ondelete="RESTRICT"),
+        nullable=True,
+        unique=True,
+        index=True,
+    )
+    uploaded_by_participant_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("conversation_participants.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    state = Column(String(16), nullable=False, default="processing", server_default="processing")
+    storage_backend = Column(String(16), nullable=False, default="local", server_default="local")
+    storage_key = Column(String(500), nullable=True)
+    content_type = Column(String(64), nullable=True)
+    size_bytes = Column(Integer, nullable=True)
+    duration_ms = Column(Integer, nullable=True)
+    codec = Column(String(24), nullable=True)
+    container = Column(String(24), nullable=True)
+    source_checksum_sha256 = Column(String(64), nullable=False)
+    checksum_sha256 = Column(String(64), nullable=True)
+    metadata_stripped = Column(Boolean, nullable=False, default=False, server_default="false")
+    transcription_state = Column(String(24), nullable=False, default="not_requested", server_default="not_requested")
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    attached_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc) + timedelta(hours=24),
+    )
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "conversation_id",
+            "uploaded_by_participant_id",
+            "client_upload_id",
+            name="uq_message_voice_media_participant_upload",
+        ),
+        CheckConstraint(
+            "state IN ('processing', 'ready', 'attached', 'failed', 'expired', 'deleted')",
+            name="ck_message_voice_media_state",
+        ),
+        CheckConstraint("storage_backend = 'local'", name="ck_message_voice_media_storage_backend"),
+        CheckConstraint(
+            "(state IN ('ready', 'attached') AND storage_key IS NOT NULL "
+            "AND content_type = 'audio/mp4' AND size_bytes > 0 "
+            "AND duration_ms BETWEEN 600 AND 180000 AND codec = 'aac' "
+            "AND container = 'mp4' AND checksum_sha256 IS NOT NULL "
+            "AND metadata_stripped = true) OR state NOT IN ('ready', 'attached')",
+            name="ck_message_voice_media_ready_shape",
+        ),
+        CheckConstraint(
+            "(state = 'attached' AND message_id IS NOT NULL AND attached_at IS NOT NULL) "
+            "OR (state <> 'attached' AND message_id IS NULL AND attached_at IS NULL)",
+            name="ck_message_voice_media_attachment_shape",
+        ),
+        CheckConstraint(
+            "(state IN ('expired', 'deleted') AND deleted_at IS NOT NULL) "
+            "OR (state NOT IN ('expired', 'deleted') AND deleted_at IS NULL)",
+            name="ck_message_voice_media_deleted_shape",
+        ),
+        CheckConstraint(
+            "transcription_state IN ('not_requested')",
+            name="ck_message_voice_media_transcription_state",
+        ),
+        Index("ix_message_voice_media_conversation_message", "conversation_id", "message_id"),
+        Index("ix_message_voice_media_state_expiry", "state", "expires_at", "id"),
     )
 
 
