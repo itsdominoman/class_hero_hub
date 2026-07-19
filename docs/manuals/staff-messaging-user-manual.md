@@ -128,3 +128,17 @@ until explicitly enabled. It must also preserve protected storage, safeguarding 
 retention, moderation, file limits and applicable compliance requirements. The current
 microphone icon is only a disabled layout placeholder; this release adds no setting,
 database field, recording, upload or playback.
+
+## Message guardians from Quick Award
+
+From a class roster, open Quick Award for a student and choose **Message guardians**.
+The shortcut recognizes both current CHH guardian accounts and current FHH-linked
+parent identities. If you already have an active conversation for that student, CHH
+opens that exact conversation; it does not create a second thread. Otherwise, the
+normal protected messaging flow creates or reuses the conversation safely.
+
+The shortcut keeps the class, assignment, student and Quick Award mode that you came
+from. Explicitly close the conversation, or send a message successfully, to return to
+the same student's Quick Award overlay. If school messaging is disabled, your current
+assignment is no longer valid, or the student genuinely has no authorized CHH/FHH
+guardian, CHH shows the existing unavailable state instead of opening a thread.

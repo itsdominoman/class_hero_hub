@@ -26,6 +26,10 @@ from app.models_school import (
     ConversationAccessGrant,
     ConversationParticipant,
     Enrolment,
+    FhhLink,
+    FhhLinkInvite,
+    FhhMessagingIdentity,
+    FhhMessagingIdentityLink,
     GradeLevel,
     GuardianLink,
     Membership,
@@ -352,6 +356,77 @@ def test_inbox_detail_and_recipient_context_show_current_class_and_guardians(db,
         (world["users"]["guardian"].name, "father"),
         (world["users"]["guardian2"].name, "mother"),
     }
+
+
+def test_staff_recipient_resolves_fhh_guardian_and_existing_conversation_idempotently(db, client):
+    world = _school_world(db, "fhh-recipient")
+    for link in world["links"]:
+        link.status = "revoked"
+        link.revoked_at = datetime.now(timezone.utc)
+
+    invite = FhhLinkInvite(
+        school_id=world["school"].id,
+        student_id=world["student"].id,
+        token_hash=f"invite-{uuid4()}",
+        display_code_last4="4321",
+        expires_at=datetime.now(timezone.utc) + timedelta(days=1),
+        consumed_at=datetime.now(timezone.utc),
+        consumed_by="bob-child",
+        created_by_user_id=world["users"]["teacher"].id,
+    )
+    db.add(invite)
+    db.flush()
+    fhh_link = FhhLink(
+        school_id=world["school"].id,
+        student_id=world["student"].id,
+        source_invite_id=invite.id,
+        link_token_hash=f"link-{uuid4()}",
+        fhh_child_ref="bob-child",
+    )
+    identity = FhhMessagingIdentity(
+        school_id=world["school"].id,
+        external_subject_ref=uuid4(),
+        display_name="Bob's FHH Parent",
+        preferred_locale="en",
+    )
+    db.add_all([fhh_link, identity])
+    db.flush()
+    db.add(
+        FhhMessagingIdentityLink(
+            school_id=world["school"].id,
+            fhh_link_id=fhh_link.id,
+            identity_id=identity.id,
+            status="active",
+            sync_version=1,
+        )
+    )
+    db.commit()
+
+    conversation_id = _create_teacher_thread(client, world)
+    headers = _headers(world["users"]["teacher"], world["school"], world["teacher"])
+    recipients = client.get(
+        f"/api/messaging/recipients?student_id={world['student'].id}",
+        headers=headers,
+    )
+    assert recipients.status_code == 200
+    assert len(recipients.json()["students"]) == 1
+    student = recipients.json()["students"][0]
+    assert student["guardian_names"] == ["Bob's FHH Parent"]
+    assert student["guardian_details"] == [
+        {"display_name": "Bob's FHH Parent", "relationship": None}
+    ]
+    assert student["conversation_id"] == conversation_id
+
+    reopened = client.post(
+        "/api/messaging/conversations",
+        headers=headers,
+        json={"kind": "student_staff", "student_id": world["student"].id},
+    )
+    assert reopened.status_code == 200
+    assert reopened.json()["conversation_id"] == conversation_id
+    assert db.query(Conversation).filter(Conversation.kind == "student_staff").count() == 1
+
+
 def test_guardian_can_create_and_reply_only_for_explicit_link_and_assignment(db, client):
     one = _school_world(db, "one")
     two = _school_world(db, "two")

@@ -91,6 +91,7 @@
     void loadSession();
     let disposed = false;
     let removeNativeBackHandler: (() => Promise<void>) | null = null;
+    let removeNativeInsetsHandler: (() => Promise<void>) | null = null;
     const onKeydown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') closeMobileMenu();
     };
@@ -118,6 +119,11 @@
     window.addEventListener('focus', onFocus);
     window.addEventListener('chh:native-back', onNativeBack, { capture: true });
     if (nativeApp) {
+      void import('$lib/native/system-insets').then(async ({ registerNativeSystemInsets }) => {
+        const remove = await registerNativeSystemInsets();
+        if (disposed) await remove();
+        else removeNativeInsetsHandler = remove;
+      }).catch(() => undefined);
       void import('$lib/native/platform-bridge').then(async ({ registerNativeBackButtonHandler }) => {
         const remove = await registerNativeBackButtonHandler(['/', '/login', '/school', '/teach', '/parent']);
         if (disposed) await remove();
@@ -132,6 +138,7 @@
       clearInterval(badgeTimer);
       document.body.classList.remove('mobile-menu-open');
       document.documentElement.classList.remove('native-app');
+      if (removeNativeInsetsHandler) void removeNativeInsetsHandler();
       if (removeNativeBackHandler) void removeNativeBackHandler();
     };
   });

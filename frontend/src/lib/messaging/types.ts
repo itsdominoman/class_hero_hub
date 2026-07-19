@@ -150,6 +150,7 @@ export type RecipientStudent = {
   name_ar?: string | null;
   guardian_names: string[];
   guardian_details?: Array<{ display_name: string; relationship?: string | null }>;
+  conversation_id?: string | null;
   class_label?: string | null;
   class_label_ar?: string | null;
   grade_label?: string | null;

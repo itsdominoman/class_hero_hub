@@ -11,6 +11,7 @@
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
+  --native-safe-bottom: var(--safe-bottom);
 }
 
 html {
@@ -139,14 +140,26 @@ textarea {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior-y: contain;
-  padding-bottom: var(--safe-bottom);
-  scroll-padding-bottom: var(--safe-bottom);
+  scroll-padding-bottom: calc(var(--native-safe-bottom) + 0.75rem);
+}
+
+/* Keep the system inset as real final scroll content. Android WebView does not
+   consistently include edge padding in scrollable overflow, while this spacer
+   remains measurable and reachable on both gesture and three-button navigation. */
+.native-app .app-main::after {
+  content: '';
+  display: block;
+  height: calc(var(--native-safe-bottom) + 0.75rem);
+  width: 100%;
 }
 
 .native-app .app-main.viewport-managed {
   overflow-y: hidden;
-  padding-bottom: 0;
   scroll-padding-bottom: 0;
+}
+
+.native-app .app-main.viewport-managed::after {
+  display: none;
 }
 
 .native-app *:not(input):not(textarea) {

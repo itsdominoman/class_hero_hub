@@ -291,3 +291,20 @@ student-conversation creation, protected thread/composer, and authorization poli
 The originating assignment/student/mode are carried through a same-origin validated
 return target, so back or a successful send restores Quick Award without altering
 award state. No messaging backend or schema extension was needed.
+
+## S26c physical-device guardian resolution correction
+
+The S25w shortcut treated the staff recipient result as its availability authority,
+but that result included only active CHH `GuardianLink` accounts. The established
+conversation creation path already authorizes active FHH-linked parent identities,
+so a student such as Bob could have an active shared conversation while Quick Award
+incorrectly reported that no guardian was available.
+
+The staff recipient lookup now accepts an exact student ID and returns the combined
+active CHH guardians and active FHH messaging identities using the same revocation
+and activity rules as conversation creation. It also returns the teacher's existing
+active student conversation when present. Quick Award opens that conversation
+directly; otherwise it uses the existing idempotent create endpoint. This preserves
+assignment validation, prevents duplicate threads, and keeps the existing
+assignment/student/mode return target after explicit close or successful send. The
+change adds no schema, migration or new messaging architecture.

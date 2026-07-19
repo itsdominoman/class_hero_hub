@@ -528,6 +528,30 @@ def _student_search_expression(
             ),
         )
     )
+    fhh_guardian_student_ids = (
+        db.query(FhhLink.student_id)
+        .join(
+            FhhMessagingIdentityLink,
+            FhhMessagingIdentityLink.fhh_link_id == FhhLink.id,
+        )
+        .join(
+            FhhMessagingIdentity,
+            FhhMessagingIdentity.id == FhhMessagingIdentityLink.identity_id,
+        )
+        .filter(
+            FhhLink.school_id == school_id,
+            FhhLink.status == "active",
+            FhhLink.revoked_at.is_(None),
+            FhhMessagingIdentityLink.school_id == school_id,
+            FhhMessagingIdentityLink.status == "active",
+            FhhMessagingIdentityLink.revoked_at.is_(None),
+            FhhMessagingIdentity.school_id == school_id,
+            FhhMessagingIdentity.status == "active",
+            func.coalesce(FhhMessagingIdentity.display_name, "").ilike(
+                pattern, escape="\\"
+            ),
+        )
+    )
     class_student_ids = (
         db.query(Enrolment.student_id)
         .join(ClassSection, ClassSection.id == Enrolment.class_section_id)
@@ -560,8 +584,84 @@ def _student_search_expression(
         func.coalesce(Student.name_ar, "").ilike(pattern, escape="\\"),
         display_name.ilike(pattern, escape="\\"),
         Student.id.in_(guardian_student_ids),
+        Student.id.in_(fhh_guardian_student_ids),
         Student.id.in_(class_student_ids),
     )
+
+
+def _authorized_guardian_recipient_details(
+    db: Session,
+    *,
+    school_id: int,
+    student_ids: set[int],
+) -> dict[int, list[dict[str, str | None]]]:
+    """Return the active CHH and FHH guardians used by student conversations."""
+
+    if not student_ids:
+        return {}
+    details: dict[int, list[dict[str, str | None]]] = {}
+    chh_rows = (
+        db.query(GuardianLink, User)
+        .join(User, User.id == GuardianLink.user_id)
+        .filter(
+            GuardianLink.school_id == school_id,
+            GuardianLink.student_id.in_(student_ids),
+            GuardianLink.status == "active",
+            GuardianLink.revoked_at.is_(None),
+            User.status == "active",
+        )
+        .order_by(GuardianLink.student_id, GuardianLink.id)
+        .all()
+    )
+    for link, user in chh_rows:
+        details.setdefault(link.student_id, []).append(
+            {
+                "display_name": link.display_name or user.name or "Guardian",
+                "relationship": link.relationship,
+            }
+        )
+
+    fhh_rows = (
+        db.query(FhhLink, FhhMessagingIdentity)
+        .join(
+            FhhMessagingIdentityLink,
+            FhhMessagingIdentityLink.fhh_link_id == FhhLink.id,
+        )
+        .join(
+            FhhMessagingIdentity,
+            FhhMessagingIdentity.id == FhhMessagingIdentityLink.identity_id,
+        )
+        .filter(
+            FhhLink.school_id == school_id,
+            FhhLink.student_id.in_(student_ids),
+            FhhLink.status == "active",
+            FhhLink.revoked_at.is_(None),
+            FhhMessagingIdentityLink.school_id == school_id,
+            FhhMessagingIdentityLink.status == "active",
+            FhhMessagingIdentityLink.revoked_at.is_(None),
+            FhhMessagingIdentity.school_id == school_id,
+            FhhMessagingIdentity.status == "active",
+        )
+        .order_by(
+            FhhLink.student_id,
+            FhhMessagingIdentity.id,
+            FhhLink.id,
+        )
+        .all()
+    )
+    seen_fhh: dict[int, set[int]] = {}
+    for link, identity in fhh_rows:
+        seen = seen_fhh.setdefault(link.student_id, set())
+        if identity.id in seen:
+            continue
+        details.setdefault(link.student_id, []).append(
+            {
+                "display_name": identity.display_name,
+                "relationship": None,
+            }
+        )
+        seen.add(identity.id)
+    return details
 
 
 def _staff_can_access_student(
@@ -2179,6 +2279,7 @@ def guardian_unread_count(
 def staff_recipients(
     response: Response,
     q: str = Query(default="", max_length=120),
+    student_id: int | None = Query(default=None, ge=1),
     actor: StaffActor = Depends(require_staff_actor),
     db: Session = Depends(get_db),
 ):
@@ -2192,6 +2293,8 @@ def staff_recipients(
                 Student.status == "active",
             )
         )
+        if student_id is not None:
+            students_query = students_query.filter(Student.id == student_id)
         if needle:
             students_query = students_query.filter(
                 _student_search_expression(
@@ -2247,6 +2350,8 @@ def staff_recipients(
             if student_ids
             else None
         )
+        if students_query is not None and student_id is not None:
+            students_query = students_query.filter(Student.id == student_id)
         if students_query is not None and needle:
             students_query = students_query.filter(
                 _student_search_expression(
@@ -2264,30 +2369,24 @@ def staff_recipients(
             if students_query is not None
             else []
         )
-    guardian_rows = (
-        db.query(GuardianLink, User)
-        .join(User, User.id == GuardianLink.user_id)
+    candidate_student_ids = {row.id for row in students}
+    guardian_details = _authorized_guardian_recipient_details(
+        db,
+        school_id=actor.school.id,
+        student_ids=candidate_student_ids,
+    )
+    existing_conversations = {
+        row.student_id: str(row.public_id)
+        for row in db.query(Conversation)
         .filter(
-            GuardianLink.school_id == actor.school.id,
-            GuardianLink.student_id.in_([row.id for row in students]),
-            GuardianLink.status == "active",
-            GuardianLink.revoked_at.is_(None),
+            Conversation.school_id == actor.school.id,
+            Conversation.kind == "student_staff",
+            Conversation.student_id.in_(candidate_student_ids),
+            Conversation.primary_staff_membership_id == actor.membership.id,
+            Conversation.status == "active",
         )
         .all()
-        if students
-        else []
-    )
-    guardian_names: dict[int, list[str]] = {}
-    guardian_details: dict[int, list[dict[str, str | None]]] = {}
-    for link, user in guardian_rows:
-        display_name = link.display_name or user.name or "Guardian"
-        guardian_names.setdefault(link.student_id, []).append(display_name)
-        guardian_details.setdefault(link.student_id, []).append(
-            {
-                "display_name": display_name,
-                "relationship": link.relationship,
-            }
-        )
+    } if candidate_student_ids else {}
     staff_rows = []
     if actor.membership.role == "school_admin":
         staff_query = (
@@ -2325,8 +2424,12 @@ def staff_recipients(
                 "student_id": row.id,
                 "display_name": _student_name(row),
                 "name_ar": row.name_ar,
-                "guardian_names": guardian_names.get(row.id, []),
+                "guardian_names": [
+                    guardian["display_name"]
+                    for guardian in guardian_details.get(row.id, [])
+                ],
                 "guardian_details": guardian_details.get(row.id, []),
+                "conversation_id": existing_conversations.get(row.id),
                 **student_contexts.get(row.id, {}),
             }
             for row in students[:50]

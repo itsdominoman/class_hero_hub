@@ -49,8 +49,12 @@ export const messagingApi = {
     return api.get('/messaging/unread-count', { headers: contextHeaders(membership) });
   },
 
-  recipients(membership: MessagingMembership, q = ''): Promise<RecipientResults> {
-    return api.get(queryPath('/messaging/recipients', { q }), {
+  recipients(
+    membership: MessagingMembership,
+    q = '',
+    studentId?: number
+  ): Promise<RecipientResults> {
+    return api.get(queryPath('/messaging/recipients', { q, student_id: studentId }), {
       headers: contextHeaders(membership)
     });
   },

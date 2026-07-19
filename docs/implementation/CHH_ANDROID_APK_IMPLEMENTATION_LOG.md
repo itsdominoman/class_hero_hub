@@ -198,3 +198,45 @@ Capacitor Camera v7 system camera/photo-picker flow does not need one when
   `e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
 - App-scoped `testDebugUnitTest`, `lintDebug`, and `assembleDebug` passed on
   Temurin 21.0.11 with Android SDK/build tools 35.
+
+## S26c physical-device bottom inset correction
+
+- Android 15 edge-to-edge WebViews do not reliably publish the navigation-bar
+  height through CSS `env(safe-area-inset-bottom)`, and Capacitor's
+  `adjustMarginsForEdgeToEdge` compatibility margin is not enabled in this app.
+  The S25w browser-only test supplied a synthetic CSS value, so it did not exercise
+  the missing native inset delivery seen on a physical device.
+- CHH now registers a small Android `SystemInsets` plugin. It reads navigation-bar
+  and display-cutout insets from `WindowInsetsCompat`, including hidden/gesture
+  system bars, converts physical pixels to CSS pixels, and publishes the bottom
+  value as `--native-safe-bottom`. Web/browser builds retain the CSS safe-area
+  fallback.
+- The authenticated `app-main` scroller owns one real trailing spacer equal to the
+  native bottom inset plus a 12px visual gap. Making the reservation an actual final
+  scroll item avoids overflow implementations clipping edge padding. Teacher class
+  lists, student grids, School setup, Reporting and other inherited routes therefore
+  expose usable final scroll space without per-page padding.
+- Messaging remains the explicit viewport-managed exception: its sticky composer
+  continues to own the bottom inset, and the shared trailing spacer is suppressed.
+  Fixed overlays retain their existing safe-area rules. The fixed header and top
+  status-bar inset were not changed.
+- Focused coverage validates native inset conversion, the shared shell's final
+  scroll geometry across teacher list, student grid, School setup and Reporting,
+  the fixed header, the unchanged messaging composer, English/Arabic key parity,
+  Svelte/type checking and a production frontend build.
+- The paired focused messaging API tests passed, including a Bob-like student with
+  revoked CHH guardian links, active FHH-linked parents, an existing active
+  conversation and an idempotent second create request. The focused Android-sized
+  Playwright matrix passed 4/4, and app-scoped `testDebugUnitTest` plus
+  `assembleDebug` completed successfully.
+- Fresh S26c artifact:
+  `/opt/apps/class_hero_hub/tmp/class-hero-hub-bottom-inset-guardian-fix-dev.apk`;
+  identical Drive copy
+  `G:\My Drive\CHH\Remote\class-hero-hub-bottom-inset-guardian-fix-dev.apk`.
+- Package `com.classherohub.app`, version code `1`, version name `1.0`, compile and
+  target SDK 35, fixed development API `https://class.familyherohub.com/api`;
+  95,918,883 bytes; SHA-256
+  `dec27cff2e71c725f1d223a821dc175e939b6f64cd20ea81695886314626d032`.
+- APK signature verification passed v1 and v2 with the established Android debug
+  certificate SHA-256
+  `e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.

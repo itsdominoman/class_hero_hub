@@ -14,6 +14,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(GoogleAuthPlugin.class);
         registerPlugin(SecureStoragePlugin.class);
         registerPlugin(NativeVoiceRecorderPlugin.class);
+        registerPlugin(SystemInsetsPlugin.class);
         super.onCreate(savedInstanceState);
 
         // Android 15 enforces edge-to-edge for targetSdk 35. CHH's shell is

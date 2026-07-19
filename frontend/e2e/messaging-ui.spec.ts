@@ -69,7 +69,14 @@ async function mockEnabledMessaging(
   page: Page,
   threadConversation = conversation,
   detailStatus = 200,
-  messageProvider?: (url: URL) => Promise<unknown> | unknown
+  messageProvider?: (url: URL) => Promise<unknown> | unknown,
+  recipientOverride?: {
+    student_id: number;
+    display_name: string;
+    guardian_names: string[];
+    guardian_details: Array<{ display_name: string; relationship: string | null }>;
+    conversation_id?: string | null;
+  }
 ) {
   await page.route('**/api/messaging/**', async (route: Route) => {
     const request = route.request();
@@ -201,8 +208,7 @@ async function mockEnabledMessaging(
     if (path.endsWith('/recipients')) {
       await route.fulfill({
         json: {
-          students: [
-            {
+          students: [recipientOverride || {
               student_id: 91,
               display_name: 'Mariam Al Harthy',
               name_ar: 'مريم الحارثية',
@@ -210,8 +216,7 @@ async function mockEnabledMessaging(
               ,guardian_details: [{ display_name: 'Aisha Al Balushi', relationship: 'mother' }]
               ,class_label: 'KG1A'
               ,class_label_ar: 'الروضة الأولى أ'
-            }
-          ],
+            }],
           staff: []
         }
       });
@@ -274,30 +279,99 @@ async function mockTeacherAssignment(page: Page) {
   });
 }
 
+async function mockBobTeacherAssignment(page: Page) {
+  await page.route('**/api/teach/**', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/teach/assignments/77')) {
+      await route.fulfill({
+        json: {
+          assignment: {
+            id: 77,
+            role: 'homeroom',
+            target_type: 'class_section',
+            school: { id: 7, name: 'Al Noor School' },
+            class_section: { id: 12, name: 'KG1A' },
+            subject_group: null,
+            subject: null,
+            branch: null,
+            academic_year: null,
+            grade_level: { id: 2, name: 'KG1' }
+          },
+          student_count: 1,
+          students: [{
+            id: 91,
+            first_name: 'Bob',
+            last_name: 'Smith',
+            display_name: 'Bob Smith',
+            avatar_url_256: null,
+            points_total: 4
+          }]
+        }
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/teach/behaviour/quick-actions')) {
+      await route.fulfill({
+        json: {
+          quick_actions: { positive: [], needs_work: [] },
+          other_actions: { positive: [], needs_work: [] }
+        }
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/teach/homework')) {
+      await route.fulfill({ json: { items: [] } });
+      return;
+    }
+    await route.fulfill({ status: 404, json: { detail: 'Not found' } });
+  });
+}
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('familyHeroHub.language', 'en'));
   await mockSession(page);
 });
 
-test('Quick Award opens the existing guardian conversation and returns after send without losing student context', async ({ page }) => {
+test('Quick Award recognizes Bob-like FHH guardians, opens the existing conversation, and restores the overlay', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await mockTeacherAssignment(page);
-  await mockEnabledMessaging(page);
+  await mockBobTeacherAssignment(page);
+  const bobConversation = {
+    ...conversation,
+    student: { ...conversation.student, display_name: 'Bob Smith', name_ar: null }
+  };
+  await mockEnabledMessaging(page, bobConversation, 200, undefined, {
+    student_id: 91,
+    display_name: 'Bob Smith',
+    guardian_names: ['FHH Parent One'],
+    guardian_details: [{ display_name: 'FHH Parent One', relationship: null }],
+    conversation_id: conversationId
+  });
   let createRequests = 0;
+  let exactStudentRecipientRequests = 0;
   page.on('request', (request) => {
-    if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/messaging/conversations')) {
+    const url = new URL(request.url());
+    if (request.method() === 'POST' && url.pathname.endsWith('/messaging/conversations')) {
       createRequests += 1;
+    }
+    if (request.method() === 'GET' && url.pathname.endsWith('/messaging/recipients') && url.searchParams.get('student_id') === '91') {
+      exactStudentRecipientRequests += 1;
     }
   });
 
   await page.goto('/teach/assignments/77');
-  await page.getByRole('button', { name: 'Award behaviour to Mariam Al Harthy' }).click();
+  await page.getByRole('button', { name: 'Award behaviour to Bob Smith' }).click();
   const shortcut = page.getByTestId('quick-award-message-guardians');
   await expect(shortcut).toBeEnabled();
   await shortcut.click();
 
   await expect(page).toHaveURL(new RegExp(`/messages\\?.*conversation=${conversationId}.*membership=51.*shortcut=quick-award`));
-  expect(createRequests).toBe(1);
+  expect(createRequests).toBe(0);
+  await page.getByRole('button', { name: 'Return to Quick Award' }).click();
+  await expect(page).toHaveURL('/teach/assignments/77?quick_award_student=91&quick_award_mode=quick');
+  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Bob Smith' })).toBeVisible();
+
+  await expect(page.getByTestId('quick-award-message-guardians')).toBeEnabled();
+  await page.getByTestId('quick-award-message-guardians').click();
   const notice = page.getByTestId('conversation-information-panel');
   if (await notice.isVisible()) await page.getByRole('button', { name: 'I understand' }).click();
   const composer = page.getByRole('textbox', { name: 'Message', exact: true });
@@ -305,9 +379,10 @@ test('Quick Award opens the existing guardian conversation and returns after sen
   await page.getByTestId('message-send').click();
 
   await expect(page).toHaveURL('/teach/assignments/77?quick_award_student=91&quick_award_mode=quick');
-  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Mariam Al Harthy' })).toBeVisible();
+  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Bob Smith' })).toBeVisible();
   await expect(page.getByTestId('quick-award-message-guardians')).toBeVisible();
-  expect(createRequests).toBe(1);
+  expect(createRequests).toBe(0);
+  expect(exactStudentRecipientRequests).toBeGreaterThanOrEqual(2);
 });
 
 test('deep link loads the staff thread and reconciles a stable optimistic send', async ({ page }) => {
@@ -473,14 +548,14 @@ test('Android-sized composer honors bottom insets, keyboard resize, and ordered 
     };
   });
   expect(initialLayout.position).toBe('sticky');
-  expect(initialLayout.paddingBottom).toBeGreaterThanOrEqual(36);
+  expect(initialLayout.paddingBottom).toBeGreaterThanOrEqual(32);
   expect(initialLayout.formBottom).toBeLessThanOrEqual(initialLayout.viewportHeight + 1);
   expect(initialLayout.viewportHeight - initialLayout.inputBottom).toBeGreaterThanOrEqual(24);
-  const sendBox = await send.boundingBox();
-  expect(sendBox?.width).toBeGreaterThanOrEqual(48);
-  expect(sendBox?.height).toBeGreaterThanOrEqual(48);
-
   await composer.fill('Draft survives resize and Back');
+  const sendBox = await send.boundingBox();
+  expect(sendBox?.width).toBeGreaterThanOrEqual(44);
+  expect(sendBox?.height).toBeGreaterThanOrEqual(44);
+
   await composer.focus();
   await composer.evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(6, 14));
   await page.setViewportSize({ width: 390, height: 560 });

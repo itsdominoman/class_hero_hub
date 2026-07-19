@@ -151,6 +151,7 @@
   let quickAwardTrigger: HTMLButtonElement | undefined;
   let quickAwardMessagingState = $state<'idle' | 'checking' | 'available' | 'disabled' | 'no_guardians' | 'unauthorized' | 'error'>('idle');
   let quickAwardMessagingMembership = $state<MessagingMembership | null>(null);
+  let quickAwardConversationId = $state<string | null>(null);
   let quickAwardMessagingBusy = $state(false);
   let quickAwardMessagingEpoch = 0;
 
@@ -172,6 +173,7 @@
     const epoch = ++quickAwardMessagingEpoch;
     quickAwardMessagingState = 'checking';
     quickAwardMessagingMembership = null;
+    quickAwardConversationId = null;
     try {
       const user = await api.get('/me') as SessionUser;
       const membership = (user.memberships || []).find(
@@ -185,7 +187,7 @@
         return;
       }
       await messagingApi.unreadCount(membership);
-      const recipients = await messagingApi.recipients(membership, student.display_name);
+      const recipients = await messagingApi.recipients(membership, '', student.id);
       const recipient = recipients.students.find((row) => row.student_id === student.id);
       if (epoch !== quickAwardMessagingEpoch || quickAwardStudent?.id !== student.id) return;
       if (!recipient) {
@@ -197,6 +199,7 @@
         return;
       }
       quickAwardMessagingMembership = membership;
+      quickAwardConversationId = recipient.conversation_id || null;
       quickAwardMessagingState = 'available';
     } catch (cause) {
       if (epoch !== quickAwardMessagingEpoch || quickAwardStudent?.id !== student.id) return;
@@ -216,6 +219,7 @@
     quickAwardError = null;
     quickAwardMessagingState = 'checking';
     quickAwardMessagingMembership = null;
+    quickAwardConversationId = null;
     await tick();
     quickAwardDialog?.focus();
     void checkGuardianMessaging(student);
@@ -229,6 +233,7 @@
     quickAwardMode = 'quick';
     quickAwardMessagingState = 'idle';
     quickAwardMessagingMembership = null;
+    quickAwardConversationId = null;
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       if (url.searchParams.has('quick_award_student')) {
@@ -273,14 +278,16 @@
     quickAwardMessagingBusy = true;
     quickAwardError = null;
     try {
-      const conversation = await messagingApi.createStudentConversation(membership, student.id);
+      const conversationId = quickAwardConversationId || (
+        await messagingApi.createStudentConversation(membership, student.id)
+      ).conversation_id;
       const returnParams = new URLSearchParams({
         quick_award_student: String(student.id),
         quick_award_mode: quickAwardMode
       });
       const returnPath = `${$page.url.pathname}?${returnParams.toString()}`;
       const messageParams = new URLSearchParams({
-        conversation: conversation.conversation_id,
+        conversation: conversationId,
         membership: String(membership.membership_id),
         return: returnPath,
         shortcut: 'quick-award'
@@ -290,12 +297,15 @@
       if (errorStatus(cause) === 409) {
         quickAwardMessagingState = 'no_guardians';
         quickAwardMessagingMembership = null;
+        quickAwardConversationId = null;
       } else if (errorStatus(cause) === 403) {
         quickAwardMessagingState = 'unauthorized';
         quickAwardMessagingMembership = null;
+        quickAwardConversationId = null;
       } else if (errorStatus(cause) === 404) {
         quickAwardMessagingState = 'disabled';
         quickAwardMessagingMembership = null;
+        quickAwardConversationId = null;
       } else {
         quickAwardError = cause instanceof Error ? cause.message : $_('teach.quickAward.messagingUnavailable');
       }

@@ -218,3 +218,30 @@ Google account selection; those rows require a physical device.
       calmly with the clear localized reason and must not create a thread.
 - [ ] Repeat the shell and shortcut checks in Arabic/RTL. Confirm labels, logical
       back direction, mixed-direction names, focus order, and minimum tap targets.
+
+## S26c physical-device acceptance matrix
+
+Use the fresh S26c development APK. Run the navigation checks once with gesture
+navigation and once with three-button navigation; record screenshots at the final
+scroll position.
+
+- [ ] On the teacher class list, scroll to the final class button. Its complete
+      outline and the normal gap below it must be visible above Android navigation.
+- [ ] Open a long class/student grid and scroll to the final student card. The card
+      and its last action must be fully tappable above Android navigation.
+- [ ] In School setup, scroll to the final setup card/control; in Reporting, scroll
+      to the final filter/action. Both must finish above Android navigation without
+      an excessive empty panel.
+- [ ] On every route above, confirm the CHH header remains fixed below the status bar
+      and the first content row is unchanged. Repeat after background/resume.
+- [ ] Open Messages with the keyboard closed and open. Confirm the sticky composer
+      retains exactly one bottom inset and no new blank spacer appears below it.
+- [ ] For Bob (active FHH-linked guardians and an existing active staff/student
+      conversation), open Quick Award and select **Message guardians**. Confirm the
+      existing conversation opens and no second conversation is created.
+- [ ] Explicitly close the conversation and confirm the same class, Bob and the same
+      Quick Award mode return. Reopen, send a message, and confirm the same overlay
+      state returns after the successful send.
+- [ ] Repeat the Bob shortcut in Arabic/RTL. Also verify the calm unavailable state
+      for disabled messaging, an invalid assignment and a student with genuinely no
+      current CHH or FHH guardian.
