@@ -413,11 +413,11 @@
       if (!nativeRecording || nativeFinishing) return;
       nativeFinishing = true;
       updateElapsed();
-      if (mode === 'cancel') {
+      if (mode === 'cancel' || elapsedMs < MIN_RECORDING_MS) {
         await NativeVoiceRecorder.cancel().catch(() => undefined);
         nativeRecording = false;
         nativeFinishing = false;
-        haptic([40, 35, 40]);
+        if (mode === 'cancel') haptic([40, 35, 40]);
         reset();
         return;
       }
@@ -428,6 +428,13 @@
         releaseStream();
         await nativeStopped(result, mode);
       } catch (caught) {
+        if (nativeErrorCode(caught) === 'recording_too_short') {
+          nativeRecording = false;
+          nativeFinishing = false;
+          releaseStream();
+          reset();
+          return;
+        }
         reportNativeFailure('stop', nativeVoiceRuntimeStatus(), 'granted', caught);
         nativeRecording = false;
         nativeFinishing = false;

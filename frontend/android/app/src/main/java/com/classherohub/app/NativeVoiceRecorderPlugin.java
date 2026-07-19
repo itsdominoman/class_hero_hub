@@ -31,6 +31,7 @@ import java.io.File;
 public final class NativeVoiceRecorderPlugin extends Plugin {
     private static final String PERMISSION_PREFERENCES = "native_voice_recorder";
     private static final String ASKED_FOR_MICROPHONE = "asked_for_microphone";
+    static final long MIN_VALID_DURATION_MILLIS = 600L;
     private static final String START_STAGE_CACHE = "cache";
     private static final String START_STAGE_RECORDER = "recorder";
     private static final String START_STAGE_CONFIGURE = "configure";
@@ -262,6 +263,14 @@ public final class NativeVoiceRecorderPlugin extends Plugin {
             }
             File completedFile = recordingFile;
             long calculatedDuration = activeDurationMillis();
+            if (isTooShort(calculatedDuration)) {
+                releaseRecorder(false);
+                completedFile.delete();
+                recordingFile = null;
+                resetTiming();
+                call.reject("Native voice recording is too short", "recording_too_short");
+                return;
+            }
             try {
                 recorder.stop();
                 releaseRecorder(true);
@@ -280,6 +289,10 @@ public final class NativeVoiceRecorderPlugin extends Plugin {
                 call.reject("Native audio recording could not be completed", "recording_stop_failed");
             }
         }
+    }
+
+    static boolean isTooShort(long durationMillis) {
+        return durationMillis < MIN_VALID_DURATION_MILLIS;
     }
 
     private long activeDurationMillis() {

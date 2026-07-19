@@ -7,6 +7,10 @@ const recorder = await readFile(
   'utf8'
 );
 const bridge = await readFile(new URL('../src/lib/nativeVoiceRecorder.ts', import.meta.url), 'utf8');
+const nativePlugin = await readFile(
+  new URL('../android/app/src/main/java/com/classherohub/app/NativeVoiceRecorderPlugin.java', import.meta.url),
+  'utf8'
+);
 const composer = await readFile(
   new URL('../src/lib/components/messaging/MessageComposer.svelte', import.meta.url),
   'utf8'
@@ -79,6 +83,16 @@ test('native startup and file-read failures expose safe physical-device stages',
   assert.match(recorder, /\[native-voice\] recorder failure/);
   assert.match(recorder, /data-testid="voice-diagnostic-code"/);
   assert.doesNotMatch(recorder, /console\.warn\([^\n]*caught/);
+});
+
+test('too-short native stops cancel quietly while genuine stop failures remain technical errors', () => {
+  const finishPath = recorder.slice(recorder.indexOf('async function finish'), recorder.indexOf('function pointerDown'));
+  const nativeStopPath = nativePlugin.slice(nativePlugin.indexOf('private void stopRecorder'), nativePlugin.indexOf('private long activeDurationMillis'));
+  assert.match(finishPath, /mode === 'cancel' \|\| elapsedMs < MIN_RECORDING_MS/);
+  assert.match(finishPath, /nativeErrorCode\(caught\) === 'recording_too_short'[\s\S]*reset\(\);[\s\S]*return;/);
+  assert.ok(finishPath.indexOf("nativeErrorCode(caught) === 'recording_too_short'") < finishPath.indexOf("reportNativeFailure('stop'"));
+  assert.match(nativeStopPath, /if \(isTooShort\(calculatedDuration\)\)[\s\S]*completedFile\.delete\(\)[\s\S]*recording_too_short/);
+  assert.match(nativeStopPath, /catch \(Exception error\)[\s\S]*recording_stop_failed/);
 });
 
 test('locked and preview states expose complete full-width controls', () => {

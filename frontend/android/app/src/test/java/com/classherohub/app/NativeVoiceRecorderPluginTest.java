@@ -36,6 +36,14 @@ public class NativeVoiceRecorderPluginTest {
     }
 
     @Test
+    public void recordingDurationIsTooShortOnlyBelowMinimum() {
+        assertTrue(NativeVoiceRecorderPlugin.isTooShort(0L));
+        assertTrue(NativeVoiceRecorderPlugin.isTooShort(599L));
+        assertFalse(NativeVoiceRecorderPlugin.isTooShort(600L));
+        assertFalse(NativeVoiceRecorderPlugin.isTooShort(601L));
+    }
+
+    @Test
     public void completedNativeRecordingResultRequiresRealBytesAndDuration() throws Exception {
         NativeVoiceRecordingStore store = new NativeVoiceRecordingStore(temporaryFolder.getRoot());
         File recording = store.createRecordingFile();
