@@ -11,9 +11,22 @@ export type NativeVoiceRecording = {
   uri: string;
 };
 
+export type NativeVoiceRuntimeStatus = {
+  platform: string;
+  nativePlatform: boolean;
+  pluginAvailable: boolean;
+};
+
 interface NativeVoiceRecorderPlugin {
   permissionStatus(): Promise<{ state: NativeVoicePermissionState; canPrompt: boolean }>;
-  start(): Promise<{ started: true; mimeType: 'audio/mp4'; container: 'mp4' }>;
+  start(): Promise<{
+    started: true;
+    stage: 'recording';
+    permissionState: 'granted';
+    fileCreated: true;
+    mimeType: 'audio/mp4';
+    container: 'mp4';
+  }>;
   pause(): Promise<void>;
   resume(): Promise<void>;
   stop(): Promise<NativeVoiceRecording>;
@@ -25,8 +38,17 @@ interface NativeVoiceRecorderPlugin {
 
 export const NativeVoiceRecorder = registerPlugin<NativeVoiceRecorderPlugin>('NativeVoiceRecorder');
 
+export function nativeVoiceRuntimeStatus(): NativeVoiceRuntimeStatus {
+  return {
+    platform: Capacitor.getPlatform(),
+    nativePlatform: Capacitor.isNativePlatform(),
+    pluginAvailable: Capacitor.isPluginAvailable('NativeVoiceRecorder')
+  };
+}
+
 export function isNativeAndroidVoiceRecorder(): boolean {
-  return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+  const runtime = nativeVoiceRuntimeStatus();
+  return runtime.nativePlatform && runtime.platform === 'android';
 }
 
 export async function nativeRecordingBlob(recording: NativeVoiceRecording): Promise<Blob> {

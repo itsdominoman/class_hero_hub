@@ -26,6 +26,16 @@ public class NativeVoiceRecorderPluginTest {
     }
 
     @Test
+    public void recorderStartupErrorsExposeOnlySafeNativeStages() {
+        assertEquals("recording_cache_failed", NativeVoiceRecorderPlugin.startFailureCode("cache"));
+        assertEquals("recording_recorder_failed", NativeVoiceRecorderPlugin.startFailureCode("recorder"));
+        assertEquals("recording_configure_failed", NativeVoiceRecorderPlugin.startFailureCode("configure"));
+        assertEquals("recording_prepare_failed", NativeVoiceRecorderPlugin.startFailureCode("prepare"));
+        assertEquals("recording_start_failed", NativeVoiceRecorderPlugin.startFailureCode("start"));
+        assertEquals("recording_start_failed", NativeVoiceRecorderPlugin.startFailureCode("private path or exception"));
+    }
+
+    @Test
     public void completedNativeRecordingResultRequiresRealBytesAndDuration() throws Exception {
         NativeVoiceRecordingStore store = new NativeVoiceRecordingStore(temporaryFolder.getRoot());
         File recording = store.createRecordingFile();

@@ -4,10 +4,11 @@
   import { Lock, Mic, Pause, Play, RotateCcw, SendHorizontal, Square, Trash2 } from 'lucide-svelte';
   import {
     deleteNativeRecording,
-    isNativeAndroidVoiceRecorder,
     nativeRecordingBlob,
+    nativeVoiceRuntimeStatus,
     NativeVoiceRecorder,
-    type NativeVoiceRecording
+    type NativeVoiceRecording,
+    type NativeVoiceRuntimeStatus
   } from '$lib/nativeVoiceRecorder';
 
   let {
@@ -60,15 +61,15 @@
   let previewAudio = $state<HTMLAudioElement | null>(null);
   let previewPlaying = $state(false);
   let previewPositionMs = $state(0);
-
-  const nativeAndroid = typeof window !== 'undefined' && isNativeAndroidVoiceRecorder();
+  let diagnosticCode = $state('');
 
   const formatted = $derived(`${Math.floor(elapsedMs / 60000)}:${String(Math.floor(elapsedMs / 1000) % 60).padStart(2, '0')}`);
   const previewPositionFormatted = $derived(formatDuration(previewPositionMs));
   const previewDurationFormatted = $derived(formatDuration(previewDuration));
+  const recorderActive = $derived(recorderState !== 'idle' && recorderState !== 'error');
 
   $effect(() => {
-    onactivechange(recorderState !== 'idle' && recorderState !== 'error');
+    onactivechange(recorderActive);
   });
 
   function formatDuration(value: number) {
@@ -91,6 +92,40 @@
     if (caught instanceof Error && caught.message === 'unsupported') return 'unsupported';
     if (caught instanceof Error) return caught.name || 'Error';
     return 'unknown';
+  }
+
+  function nativeErrorCode(caught: unknown): string {
+    const code = (caught as { code?: unknown })?.code;
+    if (typeof code === 'string' && /^[a-z0-9_-]{1,64}$/.test(code)) return code;
+    const message = caught instanceof Error ? caught.message : '';
+    if (message === 'native_recording_unreadable' || message === 'native_recording_invalid_size') return message;
+    return 'unknown';
+  }
+
+  function reportNativeFailure(
+    phase: 'runtime' | 'start' | 'stop' | 'read',
+    runtime: NativeVoiceRuntimeStatus,
+    permissionState: string,
+    caught: unknown
+  ) {
+    const code = nativeErrorCode(caught);
+    diagnosticCode = [
+      'native',
+      runtime.platform,
+      runtime.nativePlatform ? 'platform-ready' : 'platform-missing',
+      runtime.pluginAvailable ? 'plugin-ready' : 'plugin-missing',
+      `permission-${permissionState}`,
+      phase,
+      code
+    ].join('/');
+    console.warn('[native-voice] recorder failure', {
+      phase,
+      platform: runtime.platform,
+      nativePlatform: runtime.nativePlatform,
+      pluginAvailable: runtime.pluginAvailable,
+      permissionState,
+      code
+    });
   }
 
   function releaseStream() {
@@ -167,11 +202,19 @@
   async function startRecording(mode: 'holding' | 'locked') {
     if (disabled || sending || recorderState !== 'idle') return;
     error = '';
+    diagnosticCode = '';
     clearPreview();
     const generation = ++startGeneration;
     recorderState = 'starting';
-    if (nativeAndroid) {
-      await startNativeRecording(mode, generation);
+    const runtime = nativeVoiceRuntimeStatus();
+    if (runtime.platform === 'android') {
+      if (!runtime.nativePlatform || !runtime.pluginAvailable) {
+        reportNativeFailure('runtime', runtime, 'unknown', { code: 'native_plugin_unavailable' });
+        recorderState = 'error';
+        error = $_('messaging.microphoneUnavailable');
+        return;
+      }
+      await startNativeRecording(mode, generation, runtime);
       return;
     }
     await startWebRecording(mode, generation);
@@ -196,9 +239,14 @@
     }
   }
 
-  async function startNativeRecording(mode: 'holding' | 'locked', generation: number) {
+  async function startNativeRecording(mode: 'holding' | 'locked', generation: number, runtime: NativeVoiceRuntimeStatus) {
+    let permissionState = 'unknown';
     try {
-      await NativeVoiceRecorder.start();
+      permissionState = (await NativeVoiceRecorder.permissionStatus()).state;
+      const result = await NativeVoiceRecorder.start();
+      if (!result.started || result.stage !== 'recording' || !result.fileCreated) {
+        throw { code: 'invalid_start_result' };
+      }
       if (destroyed || generation !== startGeneration) {
         await NativeVoiceRecorder.cancel().catch(() => undefined);
         return;
@@ -214,7 +262,8 @@
       haptic(35);
     } catch (caught) {
       if (destroyed || generation !== startGeneration) return;
-      const code = (caught as { code?: string })?.code || 'recording_start_failed';
+      const code = nativeErrorCode(caught);
+      reportNativeFailure('start', runtime, permissionState, caught);
       nativeRecording = false;
       recorderState = 'error';
       error = code === 'permission_denied' || code === 'permission_permanently_denied'
@@ -285,8 +334,9 @@
     let blob: Blob;
     try {
       blob = await nativeRecordingBlob(result);
-    } catch {
+    } catch (caught) {
       await deleteNativeRecording(result.fileReference).catch(() => undefined);
+      reportNativeFailure('read', nativeVoiceRuntimeStatus(), 'granted', caught);
       recorderState = 'error';
       error = $_('messaging.voiceRecordingFailed');
       reset();
@@ -359,7 +409,7 @@
   }
 
   async function finish(mode: 'send' | 'preview' | 'cancel') {
-    if (nativeAndroid) {
+    if (nativeVoiceRuntimeStatus().platform === 'android') {
       if (!nativeRecording || nativeFinishing) return;
       nativeFinishing = true;
       updateElapsed();
@@ -377,7 +427,8 @@
         nativeFinishing = false;
         releaseStream();
         await nativeStopped(result, mode);
-      } catch {
+      } catch (caught) {
+        reportNativeFailure('stop', nativeVoiceRuntimeStatus(), 'granted', caught);
         nativeRecording = false;
         nativeFinishing = false;
         releaseStream();
@@ -459,7 +510,7 @@
   }
 
   async function pauseRecording() {
-    if (nativeAndroid) {
+    if (nativeVoiceRuntimeStatus().platform === 'android') {
       if (!nativeRecording || (recorderState !== 'recording' && recorderState !== 'locked')) return;
       try {
         await NativeVoiceRecorder.pause();
@@ -482,7 +533,7 @@
   }
 
   async function resumeRecording() {
-    if (nativeAndroid) {
+    if (nativeVoiceRuntimeStatus().platform === 'android') {
       if (!nativeRecording || recorderState !== 'paused') return;
       try {
         await NativeVoiceRecorder.resume();
@@ -553,7 +604,7 @@
     if (recorderState === 'starting') {
       startGeneration += 1;
       pendingRelease = null;
-      if (nativeAndroid) void NativeVoiceRecorder.cancel().catch(() => undefined);
+      if (nativeVoiceRuntimeStatus().pluginAvailable) void NativeVoiceRecorder.cancel().catch(() => undefined);
       reset();
     } else if (nativeRecording || (mediaRecorder && mediaRecorder.state !== 'inactive')) void finish('cancel');
     else reset();
@@ -596,29 +647,41 @@
   });
 </script>
 
-{#if recorderState === 'idle' || recorderState === 'error'}
-  <div class="relative">
-    <button
-      type="button"
-      data-testid="message-voice-record"
-      class="grid h-11 w-11 shrink-0 touch-none select-none place-items-center rounded-full bg-hero text-white shadow-sm transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-      disabled={disabled || sending}
-      aria-label={$_('messaging.recordVoiceNote')}
-      onpointerdown={pointerDown}
-      onpointermove={pointerMove}
-      onpointerup={pointerUp}
-      onpointercancel={pointerCancel}
-    ><Mic size={19} aria-hidden="true" /></button>
-    {#if error}<p class="absolute bottom-14 end-0 w-64 rounded-xl bg-red-50 p-3 text-xs font-bold text-red-800 shadow-lg" role="alert">{error}<br />{$_('messaging.microphoneSettingsHelp')}</p>{/if}
-  </div>
-{:else if recorderState === 'starting' || recorderState === 'recording'}
+<div class="relative" class:w-full={recorderActive}>
+  <!-- Keep the original pointer-capture target mounted while the composer switches
+       to voice mode. Removing it during pointerdown makes Android WebView emit
+       pointercancel and races NativeVoiceRecorder.start() against cancel(). -->
+  <button
+    type="button"
+    data-testid="message-voice-record"
+    class="grid h-11 w-11 shrink-0 touch-none select-none place-items-center rounded-full bg-hero text-white shadow-sm transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+    class:absolute={recorderActive}
+    class:pointer-events-none={recorderActive}
+    class:opacity-0={recorderActive}
+    disabled={disabled || sending}
+    aria-hidden={recorderActive}
+    aria-label={$_('messaging.recordVoiceNote')}
+    tabindex={recorderActive ? -1 : undefined}
+    onpointerdown={pointerDown}
+    onpointermove={pointerMove}
+    onpointerup={pointerUp}
+    onpointercancel={pointerCancel}
+  ><Mic size={19} aria-hidden="true" /></button>
+  {#if recorderState === 'idle' || recorderState === 'error'}
+    {#if error}
+      <p class="absolute bottom-14 end-0 w-64 rounded-xl bg-red-50 p-3 text-xs font-bold text-red-800 shadow-lg" role="alert">
+        {error}<br />{$_('messaging.microphoneSettingsHelp')}
+        {#if diagnosticCode}<span class="mt-1 block break-all font-mono text-[10px]" data-testid="voice-diagnostic-code">{diagnosticCode}</span>{/if}
+      </p>
+    {/if}
+  {:else if recorderState === 'starting' || recorderState === 'recording'}
   <div class="flex w-full min-w-0 items-center gap-3 rounded-2xl bg-red-50 px-3 py-2 text-red-800" data-testid="voice-recording-hold" aria-live="polite">
     <span class="h-2.5 w-2.5 animate-pulse rounded-full bg-red-600"></span>
     <strong class="tabular-nums">{formatted}</strong>
     <span class="min-w-0 flex-1 truncate text-xs font-bold">{$_('messaging.slideCancel')} / {$_('messaging.swipeLock')}</span>
     <Lock size={17} aria-hidden="true" />
   </div>
-{:else if recorderState === 'locked' || recorderState === 'paused'}
+  {:else if recorderState === 'locked' || recorderState === 'paused'}
   <div class="w-full min-w-0 rounded-2xl border border-red-100 bg-red-50 px-3 py-2" data-testid="voice-recording-locked">
     <div class="flex items-center gap-2">
       <span class="h-2.5 w-2.5 rounded-full bg-red-600" class:animate-pulse={recorderState === 'locked'}></span>
@@ -633,7 +696,7 @@
       <button type="button" class="grid h-9 w-9 place-items-center rounded-full bg-slate-900 text-white" onclick={() => void finish('preview')} aria-label={$_('messaging.stopAndPreview')}><Square size={14} fill="currentColor" /></button>
     </div>
   </div>
-{:else if recorderState === 'preview'}
+  {:else if recorderState === 'preview'}
   <div class="w-full min-w-0 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm" data-testid="voice-recording-preview">
     <audio bind:this={previewAudio} class="hidden" src={previewUrl} preload="metadata" aria-label={$_('messaging.voicePreview')} onplay={() => { previewPlaying = true; }} onpause={() => { previewPlaying = false; }} ontimeupdate={() => { previewPositionMs = Math.round((previewAudio?.currentTime || 0) * 1000); }} onended={() => { previewPlaying = false; previewPositionMs = previewDuration; }}></audio>
     <div class="flex min-w-0 items-center gap-2">
@@ -649,4 +712,5 @@
       <button type="button" class="grid h-9 w-9 place-items-center rounded-full bg-hero text-white disabled:opacity-40" disabled={sending || voiceSubmitting} onclick={() => void sendPreview()} aria-label={$_('messaging.sendVoiceNote')}><SendHorizontal size={16} class="rtl:-scale-x-100" /></button>
     </div>
   </div>
-{/if}
+  {/if}
+</div>

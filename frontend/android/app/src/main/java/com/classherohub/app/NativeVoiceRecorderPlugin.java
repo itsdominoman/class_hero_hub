@@ -31,6 +31,11 @@ import java.io.File;
 public final class NativeVoiceRecorderPlugin extends Plugin {
     private static final String PERMISSION_PREFERENCES = "native_voice_recorder";
     private static final String ASKED_FOR_MICROPHONE = "asked_for_microphone";
+    private static final String START_STAGE_CACHE = "cache";
+    private static final String START_STAGE_RECORDER = "recorder";
+    private static final String START_STAGE_CONFIGURE = "configure";
+    private static final String START_STAGE_PREPARE = "prepare";
+    private static final String START_STAGE_START = "start";
 
     private enum RecorderState { IDLE, RECORDING, PAUSED }
 
@@ -200,19 +205,24 @@ public final class NativeVoiceRecorderPlugin extends Plugin {
                 call.reject("A native voice recording is already active", "already_recording");
                 return;
             }
+            String stage = START_STAGE_CACHE;
             try {
                 store.purgeExpired(System.currentTimeMillis());
                 recordingFile = store.createRecordingFile();
+                stage = START_STAGE_RECORDER;
                 recorder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
                     ? new MediaRecorder(getContext())
                     : new MediaRecorder();
+                stage = START_STAGE_CONFIGURE;
                 recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
                 recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
                 recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
                 recorder.setAudioChannels(1);
                 recorder.setAudioEncodingBitRate(NativeVoiceRecordingResult.AUDIO_BIT_RATE);
                 recorder.setOutputFile(recordingFile.getAbsolutePath());
+                stage = START_STAGE_PREPARE;
                 recorder.prepare();
+                stage = START_STAGE_START;
                 recorder.start();
                 startedAtMillis = SystemClock.elapsedRealtime();
                 pausedAtMillis = 0L;
@@ -220,6 +230,9 @@ public final class NativeVoiceRecorderPlugin extends Plugin {
                 recorderState = RecorderState.RECORDING;
                 JSObject result = new JSObject();
                 result.put("started", true);
+                result.put("stage", "recording");
+                result.put("permissionState", "granted");
+                result.put("fileCreated", true);
                 result.put("mimeType", NativeVoiceRecordingResult.MIME_TYPE);
                 result.put("container", NativeVoiceRecordingResult.CONTAINER);
                 call.resolve(result);
@@ -228,9 +241,17 @@ public final class NativeVoiceRecorderPlugin extends Plugin {
                 if (recordingFile != null) recordingFile.delete();
                 recordingFile = null;
                 resetTiming();
-                call.reject("Native audio recording could not start", "recording_start_failed");
+                call.reject("Native audio recording could not start", startFailureCode(stage));
             }
         }
+    }
+
+    static String startFailureCode(String stage) {
+        if (START_STAGE_CACHE.equals(stage)) return "recording_cache_failed";
+        if (START_STAGE_RECORDER.equals(stage)) return "recording_recorder_failed";
+        if (START_STAGE_CONFIGURE.equals(stage)) return "recording_configure_failed";
+        if (START_STAGE_PREPARE.equals(stage)) return "recording_prepare_failed";
+        return "recording_start_failed";
     }
 
     private void stopRecorder(PluginCall call) {

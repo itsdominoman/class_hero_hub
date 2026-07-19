@@ -13,12 +13,15 @@ const composer = await readFile(
 );
 
 test('Capacitor Android selects the native recorder before the browser fallback', () => {
-  assert.match(recorder, /if \(nativeAndroid\) \{\s*await startNativeRecording\(mode, generation\);\s*return;/);
+  assert.match(recorder, /const runtime = nativeVoiceRuntimeStatus\(\);\s*if \(runtime\.platform === 'android'\)/);
+  assert.match(recorder, /if \(!runtime\.nativePlatform \|\| !runtime\.pluginAvailable\)/);
+  assert.match(recorder, /await startNativeRecording\(mode, generation, runtime\);\s*return;/);
   assert.match(recorder, /NativeVoiceRecorder\.start\(\)/);
   assert.match(recorder, /NativeVoiceRecorder\.stop\(\)/);
   assert.match(recorder, /NativeVoiceRecorder\.pause\(\)/);
   assert.match(recorder, /NativeVoiceRecorder\.resume\(\)/);
-  assert.ok(recorder.indexOf('if (nativeAndroid)') < recorder.indexOf('getUserMedia({ audio: true })'));
+  assert.ok(recorder.indexOf("if (runtime.platform === 'android')") < recorder.indexOf('await startWebRecording(mode, generation)'));
+  assert.ok(recorder.indexOf('await startWebRecording(mode, generation)') < recorder.indexOf('getUserMedia({ audio: true })'));
 });
 
 test('ordinary browsers retain direct MediaRecorder capture without device preflight', () => {
@@ -40,7 +43,11 @@ test('native bridge exposes permission, recording lifecycle, settings and cleanu
   for (const method of ['permissionStatus', 'start', 'pause', 'resume', 'stop', 'cancel', 'openSettings', 'deleteTemporary', 'purgeTemporary']) {
     assert.match(bridge, new RegExp(`\\b${method}\\(`));
   }
-  assert.match(bridge, /Capacitor\.getPlatform\(\) === 'android'/);
+  assert.match(bridge, /platform: Capacitor\.getPlatform\(\)/);
+  assert.match(bridge, /nativePlatform: Capacitor\.isNativePlatform\(\)/);
+  assert.match(bridge, /pluginAvailable: Capacitor\.isPluginAvailable\('NativeVoiceRecorder'\)/);
+  assert.match(bridge, /stage: 'recording'/);
+  assert.match(bridge, /fileCreated: true/);
 });
 
 test('active recorder state owns the full composer width without remounting', () => {
@@ -49,6 +56,10 @@ test('active recorder state owns the full composer width without remounting', ()
   assert.match(composer, /class:w-full=\{voiceActive\}/);
   assert.match(composer, /\{#if !voiceActive\}[\s\S]*id="message-body"/);
   assert.equal((composer.match(/var\(--safe-bottom\)/g) || []).length, 1);
+  assert.equal((recorder.match(/data-testid="message-voice-record"/g) || []).length, 1);
+  assert.ok(recorder.indexOf('data-testid="message-voice-record"') < recorder.indexOf("{#if recorderState === 'idle'"));
+  assert.match(recorder, /class:absolute=\{recorderActive\}/);
+  assert.match(recorder, /class:pointer-events-none=\{recorderActive\}/);
 });
 
 test('tap, hold, slide, back and background transitions are explicit and race guarded', () => {
@@ -59,6 +70,15 @@ test('tap, hold, slide, back and background transitions are explicit and race gu
   assert.match(recorder, /window\.addEventListener\('pointerup', pointerUp, \{ capture: true \}\)/);
   assert.match(recorder, /\['starting', 'recording', 'locked', 'paused'\]\.includes\(recorderState\)\) cancelCurrent\(\)/);
   assert.match(recorder, /window\.addEventListener\('chh:native-back'/);
+});
+
+test('native startup and file-read failures expose safe physical-device stages', () => {
+  assert.match(recorder, /NativeVoiceRecorder\.permissionStatus\(\)/);
+  assert.match(recorder, /result\.stage !== 'recording'/);
+  assert.match(recorder, /result\.fileCreated/);
+  assert.match(recorder, /\[native-voice\] recorder failure/);
+  assert.match(recorder, /data-testid="voice-diagnostic-code"/);
+  assert.doesNotMatch(recorder, /console\.warn\([^\n]*caught/);
 });
 
 test('locked and preview states expose complete full-width controls', () => {
