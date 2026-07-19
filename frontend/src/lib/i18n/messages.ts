@@ -856,6 +856,7 @@ export const en = {
     },
     announcements: {
       title: 'Announcements',
+      utilityLabel: 'Notices',
       manageTitle: 'Announcements you can manage',
       subtitle: 'Send updates to parents',
       noAudience: 'No classes available for announcements yet. Ask your school admin to assign you to a class or subject group.',
@@ -1989,6 +1990,7 @@ export const ar = {
     },
     announcements: {
       title: 'الإعلانات',
+      utilityLabel: 'التنبيهات',
       manageTitle: 'الإعلانات التي يمكنك إدارتها',
       subtitle: 'أرسل التحديثات لأولياء الأمور',
       noAudience: 'لا توجد صفوف متاحة للإعلانات حتى الآن. اطلب من مسؤول المدرسة تكليفك بصف أو مجموعة مادة.',

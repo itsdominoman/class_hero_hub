@@ -63,7 +63,8 @@ test('mobile source fixes the compact controls and gives scroll ownership to the
   assert.match(pageSource, /data-testid="teach-fixed-panel"/);
   assert.match(pageSource, /data-testid="teach-utility-actions"[^>]*grid-cols-3/);
   assert.match(pageSource, /data-testid="teach-class-list"[^>]*overflow-y-auto/);
-  assert.match(pageSource, /data-testid="teach-subject-heading"[^>]*sticky[^>]*top-0/);
+  assert.doesNotMatch(pageSource, /data-testid="teach-subject-heading"[^>]*\bsticky\b/);
+  assert.match(pageSource, /aria-label=\{\$_\('teach\.announcements\.utilityLabel'\)\}/);
   assert.match(pageSource, /data-testid="teach-class-card"/);
   assert.match(pageSource, /href=\{`\/teach\/assignments\/\$\{card\.id\}`\}/);
   assert.match(pageSource, /data-testid="teach-class-list"[^>]*\bpb-4\b[^>]*\bmd:pb-0\b/);

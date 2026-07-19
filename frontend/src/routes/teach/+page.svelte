@@ -599,9 +599,9 @@
           <Search class="text-violet-600" size={18} strokeWidth={2.25} aria-hidden="true" />
           <span class="block w-full truncate text-center">{$_('teach.studentSearch.find')}</span>
         </button>
-        <button type="button" class="flex h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-cyan-200 bg-cyan-50/80 px-1.5 py-2 text-[0.7rem] font-bold leading-tight text-slate-700 shadow-sm transition hover:border-cyan-300 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600" onclick={openManageMode}>
+        <button type="button" class="flex h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-cyan-200 bg-cyan-50/80 px-1.5 py-2 text-[0.7rem] font-bold leading-tight text-slate-700 shadow-sm transition hover:border-cyan-300 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600" aria-label={$_('teach.announcements.utilityLabel')} onclick={openManageMode}>
           <Megaphone class="text-cyan-700" size={18} strokeWidth={2.25} aria-hidden="true" />
-          <span class="block w-full truncate text-center">{$_('teach.announcements.title')}</span>
+          <span class="block w-full truncate text-center">{$_('teach.announcements.utilityLabel')}</span>
         </button>
         <button type="button" class="flex h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-amber-200 bg-amber-50/80 px-1.5 py-2 text-[0.7rem] font-bold leading-tight text-slate-700 shadow-sm transition hover:border-amber-300 hover:bg-amber-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600" onclick={openCalendarModal}>
           <CalendarDays class="text-amber-700" size={18} strokeWidth={2.25} aria-hidden="true" />
@@ -634,7 +634,7 @@
             <section>
               <h2
                 data-testid="teach-subject-heading"
-                class="sticky top-0 z-10 -mx-1 flex items-center gap-2 bg-slate-50/95 px-1 py-2 text-[0.7rem] font-black uppercase tracking-[0.12em] text-slate-600 backdrop-blur md:static md:bg-transparent md:backdrop-blur-none"
+                class="-mx-1 flex items-center gap-2 px-1 py-2 text-[0.7rem] font-black uppercase tracking-[0.12em] text-slate-600"
               >
                 <span class="h-2 w-2 shrink-0 rounded-full" style={`background-color: ${group.palette.accent}`}></span>
                 <span class="truncate" dir="auto">{group.label}</span>
