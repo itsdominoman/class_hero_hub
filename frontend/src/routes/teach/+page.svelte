@@ -1,21 +1,22 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { _ } from 'svelte-i18n';
-  import { CalendarDays, Search, Star } from 'lucide-svelte';
+  import { _, locale } from 'svelte-i18n';
+  import { CalendarDays, ChevronRight, Megaphone, Search, Star } from 'lucide-svelte';
   import { api } from '$lib/api';
   import { initialsFromStudentName } from '$lib/guardianDisplay';
+  import {
+    classLabel,
+    groupTeacherClasses,
+    subjectLabel,
+    type TeacherClassAssignment
+  } from './teachClassPresentation';
 
-  type AssignmentCard = {
-    id: number;
-    role: string;
+  type AssignmentCard = TeacherClassAssignment & {
     target_type?: 'class_section' | 'subject_group';
-    school: { id: number; name: string; name_ar?: string | null };
-    class_section?: { id: number; name?: string | null; code?: string | null } | null;
-    subject_group?: { id: number; name?: string | null; code?: string | null } | null;
-    branch?: { name?: string | null } | null;
+    school: TeacherClassAssignment['school'] & { id: number; name_ar?: string | null };
+    class_section?: (NonNullable<TeacherClassAssignment['class_section']> & { id: number }) | null;
+    subject_group?: (NonNullable<TeacherClassAssignment['subject_group']> & { id: number }) | null;
     academic_year?: { name?: string | null } | null;
-    grade_level?: { name?: string | null } | null;
-    subject?: { name?: string | null } | null;
     valid_from: string;
   };
   type AnnouncementAttachment = {
@@ -106,37 +107,24 @@
   let pointsSaving = $state(false);
   let pointsSuccess = $state<string | null>(null);
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
+  let presentationLocale = $derived($locale || 'en');
+  let groupedAssignments = $derived(
+    groupTeacherClasses(
+      assignments,
+      presentationLocale,
+      $_('teach.roles.homeroom'),
+      $_('teach.subject')
+    )
+  );
 
   function titleFor(card: AssignmentCard) {
     if (card.role === 'homeroom') return card.class_section?.name || card.class_section?.code || $_('teach.homeroom');
     return card.subject_group?.name || card.subject_group?.code || $_('teach.subject');
   }
 
-  function detailsFor(card: AssignmentCard) {
-    return [card.subject?.name, card.grade_level?.name, card.branch?.name, card.academic_year?.name].filter(Boolean).join(' · ');
-  }
-
-  function compactGradeLabel(value?: string | null) {
-    const label = value?.trim().replace(/\s+/g, ' ');
-    if (!label) return '';
-    const kg = label.match(/^kg\s*(\d+)\s*([a-z])?$/i);
-    if (kg) return `KG${kg[1]}${kg[2]?.toUpperCase() || ''}`;
-    const grade = label.match(/^(?:grade|year|g)?\s*(\d+)\s*([a-z])?$/i);
-    if (grade) return `G${grade[1]}${grade[2]?.toUpperCase() || ''}`;
-    return label;
-  }
-
-  function mobileClassLabel(card: AssignmentCard) {
-    const grade = compactGradeLabel(card.grade_level?.name);
-    const section = compactGradeLabel(card.class_section?.name) || card.class_section?.code || '';
-    const className = grade && /^[a-z]$/i.test(section) ? `${grade}${section.toUpperCase()}` : grade || section;
-    const subjectName = card.role === 'homeroom' ? $_('teach.roles.homeroom') : card.subject?.name || titleFor(card);
-    return [className, subjectName, card.branch?.name].filter(Boolean).join(' ');
-  }
-
   function mobileClassAriaLabel(card: AssignmentCard) {
-    const className = card.grade_level?.name || card.class_section?.name || card.class_section?.code || titleFor(card);
-    const subjectName = card.role === 'homeroom' ? $_('teach.roles.homeroom') : card.subject?.name || titleFor(card);
+    const className = classLabel(card) || titleFor(card);
+    const subjectName = subjectLabel(card, $_('teach.roles.homeroom'), $_('teach.subject'));
     return [className, subjectName, card.branch?.name].filter(Boolean).join(' ');
   }
 
@@ -601,65 +589,84 @@
     </div>
   </section>
 {:else}
-  <section class="mx-auto max-w-5xl px-4 py-8 pb-24 md:pb-8">
-    <div class="border-b border-slate-200 pb-5">
+  <section class="mx-auto flex h-full min-h-0 max-w-5xl flex-col overflow-hidden px-3 pt-3 md:block md:h-auto md:overflow-visible md:px-4 md:py-8">
+    <div data-testid="teach-fixed-panel" class="shrink-0 border-b border-slate-200 pb-3">
       <p class="eyebrow">{$_('teach.eyebrow')}</p>
-      <h1 class="mt-2 text-3xl font-black text-slate-900">{$_('teach.heading')}</h1>
-    </div>
+      <h1 class="mt-1 text-2xl font-black leading-tight text-slate-900 md:mt-2 md:text-3xl">{$_('teach.heading')}</h1>
 
-    <div class="mt-4 flex flex-wrap items-center gap-3">
-      <button type="button" class="btn-hero inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm shadow-md" onclick={openStudentModal}><Search size={17} aria-hidden="true" />{$_('teach.studentSearch.find')}</button>
-      <button type="button" class="btn-hero rounded-lg px-4 py-2 text-sm" onclick={openManageMode}>{$_('teach.announcements.title')}</button>
-      <button type="button" class="btn-secondary inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm" onclick={openCalendarModal}><CalendarDays size={17} aria-hidden="true" />{$_('calendar.title')}</button>
-    </div>
-
-    {#if pointsSuccess}
-      <div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{pointsSuccess}</div>
-    {/if}
-
-    {#if announcementSuccess}
-      <div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{$_('teach.announcements.created')}</div>
-    {/if}
-
-    {#if error}
-      <div class="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</div>
-    {/if}
-
-    {#if assignments.length === 0}
-      <div class="mt-6 rounded-lg border border-slate-200 bg-white p-8 text-center">
-        <h2 class="text-xl font-black text-slate-900">{$_('teach.emptyTitle')}</h2>
-        <p class="mt-2 text-slate-600">{$_('teach.emptyText')}</p>
+      <div data-testid="teach-utility-actions" class="mt-3 grid grid-cols-3 gap-2">
+        <button type="button" class="flex h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-violet-200 bg-violet-50/80 px-1.5 py-2 text-[0.7rem] font-bold leading-tight text-slate-700 shadow-sm transition hover:border-violet-300 hover:bg-violet-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500" onclick={openStudentModal}>
+          <Search class="text-violet-600" size={18} strokeWidth={2.25} aria-hidden="true" />
+          <span class="block w-full truncate text-center">{$_('teach.studentSearch.find')}</span>
+        </button>
+        <button type="button" class="flex h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-cyan-200 bg-cyan-50/80 px-1.5 py-2 text-[0.7rem] font-bold leading-tight text-slate-700 shadow-sm transition hover:border-cyan-300 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600" onclick={openManageMode}>
+          <Megaphone class="text-cyan-700" size={18} strokeWidth={2.25} aria-hidden="true" />
+          <span class="block w-full truncate text-center">{$_('teach.announcements.title')}</span>
+        </button>
+        <button type="button" class="flex h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-amber-200 bg-amber-50/80 px-1.5 py-2 text-[0.7rem] font-bold leading-tight text-slate-700 shadow-sm transition hover:border-amber-300 hover:bg-amber-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600" onclick={openCalendarModal}>
+          <CalendarDays class="text-amber-700" size={18} strokeWidth={2.25} aria-hidden="true" />
+          <span class="block w-full truncate text-center">{$_('calendar.title')}</span>
+        </button>
       </div>
-    {:else}
-      <div class="mt-6 grid gap-4 md:grid-cols-2">
-        {#each assignments as card}
-          <a
-            class="btn-hero flex min-h-16 w-full items-center rounded-2xl px-5 py-4 text-left text-base font-black leading-snug shadow-sm transition hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero md:hidden"
-            href={`/teach/assignments/${card.id}`}
-            aria-label={mobileClassAriaLabel(card)}
-          >
-            <span class="break-words">{mobileClassLabel(card)}</span>
-          </a>
-          <article class="hidden rounded-lg border border-slate-200 bg-white p-5 md:block">
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{card.school.name}</p>
-                <h2 class="mt-2 text-xl font-black text-slate-900">{titleFor(card)}</h2>
+    </div>
+
+    <div data-testid="teach-class-list" class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-4 pt-3 md:mt-6 md:overflow-visible md:px-0 md:pb-0 md:pt-0">
+      {#if pointsSuccess}
+        <div class="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{pointsSuccess}</div>
+      {/if}
+
+      {#if announcementSuccess}
+        <div class="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{$_('teach.announcements.created')}</div>
+      {/if}
+
+      {#if error}
+        <div class="mb-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</div>
+      {/if}
+
+      {#if assignments.length === 0}
+        <div class="rounded-lg border border-slate-200 bg-white p-8 text-center">
+          <h2 class="text-xl font-black text-slate-900">{$_('teach.emptyTitle')}</h2>
+          <p class="mt-2 text-slate-600">{$_('teach.emptyText')}</p>
+        </div>
+      {:else}
+        <div class="space-y-3 md:space-y-5">
+          {#each groupedAssignments as group (group.key)}
+            <section>
+              <h2
+                data-testid="teach-subject-heading"
+                class="sticky top-0 z-10 -mx-1 flex items-center gap-2 bg-slate-50/95 px-1 py-2 text-[0.7rem] font-black uppercase tracking-[0.12em] text-slate-600 backdrop-blur md:static md:bg-transparent md:backdrop-blur-none"
+              >
+                <span class="h-2 w-2 shrink-0 rounded-full" style={`background-color: ${group.palette.accent}`}></span>
+                <span class="truncate" dir="auto">{group.label}</span>
+              </h2>
+              <div class="grid gap-2 md:grid-cols-2">
+                {#each group.assignments as card (card.id)}
+                  <a
+                    data-testid="teach-class-card"
+                    class="flex min-h-[4.25rem] w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-start text-slate-900 shadow-sm transition hover:brightness-[0.985] hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero"
+                    style={`background-color: ${group.palette.background}; border-color: ${group.palette.border}`}
+                    href={`/teach/assignments/${card.id}`}
+                    aria-label={mobileClassAriaLabel(card)}
+                  >
+                    <span class="h-8 w-1 shrink-0 rounded-full" style={`background-color: ${group.palette.accent}`} aria-hidden="true"></span>
+                    <span class="min-w-0 flex-1">
+                      <span class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5 leading-snug">
+                        <strong class="text-[0.95rem] font-black text-slate-900" dir="auto">{classLabel(card) || titleFor(card)}</strong>
+                        <span class="text-sm font-bold text-slate-700" dir="auto">{subjectLabel(card, $_('teach.roles.homeroom'), $_('teach.subject'))}</span>
+                      </span>
+                      {#if card.branch?.name || teacherSchools.length > 1}
+                        <span class="mt-1 block truncate text-xs font-semibold text-slate-500" dir="auto">{card.branch?.name || card.school.name}</span>
+                      {/if}
+                    </span>
+                    <ChevronRight class="class-chevron shrink-0" color={group.palette.accent} size={18} strokeWidth={2.25} aria-hidden="true" />
+                  </a>
+                {/each}
               </div>
-              <span class="rounded-lg bg-slate-100 px-3 py-1 text-xs font-bold uppercase text-slate-600">{$_(`teach.roles.${card.role}`)}</span>
-            </div>
-            {#if detailsFor(card)}
-              <p class="mt-3 text-sm font-medium text-slate-600">{detailsFor(card)}</p>
-            {/if}
-            <p class="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('teach.activeFrom')} {card.valid_from}</p>
-            <a class="btn-hero mt-5 inline-flex rounded-lg px-4 py-2 text-sm" href={`/teach/assignments/${card.id}`}>
-              {$_('teach.openClass')}
-            </a>
-          </article>
-        {/each}
-      </div>
-    {/if}
-
+            </section>
+          {/each}
+        </div>
+      {/if}
+    </div>
   </section>
 {/if}
 
@@ -893,3 +900,9 @@
     </div>
   </div>
 {/if}
+
+<style>
+  :global([dir='rtl']) .class-chevron {
+    transform: scaleX(-1);
+  }
+</style>
