@@ -245,3 +245,21 @@ scroll position.
 - [ ] Repeat the Bob shortcut in Arabic/RTL. Also verify the calm unavailable state
       for disabled messaging, an invalid assignment and a student with genuinely no
       current CHH or FHH guardian.
+
+## S26i messaging receipt checks
+
+- [ ] In a narrow text, protected-photo and protected-voice bubble, confirm the tick
+      stays beside the timestamp inside the outgoing bubble in English and Arabic/RTL.
+- [ ] Verify one grey tick immediately after send, two grey after one eligible
+      recipient device renders/acknowledges, and two blue after that recipient views
+      the active conversation. Do not open the photo viewer or play voice for Read.
+- [ ] Repeat with two family grown-ups. The first eligible adult's delivery/read is
+      sufficient; no name, count, partial-read, purple or all-read state may appear.
+- [ ] Keep a draft and voice playback active while the other device acknowledges.
+      Within the normal poll interval, only the tick should change: draft, keyboard,
+      focus, playback and scroll position must remain undisturbed.
+- [ ] Toggle delivery/read visibility through all four combinations and confirm the
+      visible state table without deleting evidence. Confirm an admin safeguarding
+      view does not change ticks.
+- [ ] Repeat foreground/resume, network loss/recovery, gesture navigation,
+      three-button navigation and Android Back with the composer and tick footer.

@@ -227,6 +227,7 @@ def test_shared_guardians_text_send_unread_ack_and_idempotent_retry(db, client):
         json={"client_message_id": client_message_id, "body": "Hello guardians"},
     )
     assert sent.status_code == 200 and sent.json()["sequence"] == 1
+    assert sent.json()["receipt"]["state"] == "sent"
     retried = client.post(
         f"/api/messaging/conversations/{conversation_id}/messages",
         headers=_headers(
@@ -923,8 +924,10 @@ def test_representative_inbox_unread_and_history_are_bounded_and_fast(db, client
     history_select_count = len(selects)
     # Slice 8 adds exactly one set-based attachment metadata query for the whole
     # page. The budget remains fixed as message/photo population grows.
-    # Voice-note metadata adds one fixed set-based select for the page.
-    assert history_select_count <= 27
+    # Voice-note metadata adds one fixed set-based select for the page. Slice 9
+    # adds one more fixed receipt aggregation select for all 50 messages; the
+    # budget remains independent of message and participant counts.
+    assert history_select_count <= 28
 
     durations_ms = []
     for _ in range(12):
@@ -1012,6 +1015,7 @@ def test_protected_photo_upload_attach_serve_scope_and_cleanup(
     )
     assert sent.status_code == 200, sent.text
     assert sent.json()["body"] is None
+    assert sent.json()["receipt"]["state"] == "sent"
     assert [photo["id"] for photo in sent.json()["photos"]] == [staged["id"]]
     assert sent.json()["photos"][0]["thumbnail_available"] is True
 
@@ -1287,6 +1291,7 @@ def test_voice_feature_control_upload_attach_playback_scope_retry_and_cleanup(
     assert sent.status_code == 200, sent.text
     assert sent.json()["message_type"] == "voice_note"
     assert sent.json()["body"] is None
+    assert sent.json()["receipt"]["state"] == "sent"
     assert sent.json()["photos"] == []
     assert sent.json()["voice_note"]["id"] == staged["id"]
     assert sent.json()["voice_note"]["available"] is True

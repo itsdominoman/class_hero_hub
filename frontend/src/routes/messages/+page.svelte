@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { goto } from '$app/navigation';
   import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
@@ -9,7 +9,7 @@
   import InboxList from '$lib/components/messaging/InboxList.svelte';
   import { errorStatus, messagingApi } from '$lib/messaging/api';
   import { filterConversations } from '$lib/messaging/presentation';
-  import { highestServerSequence, mergeIncomingMessages } from '$lib/messaging/state';
+  import { highestServerSequence, mergeIncomingMessages, mergeReceiptUpdates } from '$lib/messaging/state';
   import type {
     ConversationDetail,
     ConversationSummary,
@@ -58,6 +58,10 @@
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let activeEpoch = 0;
   let activeRefreshInFlight = false;
+  let acknowledgedDeliveryThrough = 0;
+  let acknowledgedReadThrough = 0;
+  let pendingReceiptThrough = 0;
+  let receiptAcknowledgementInFlight = false;
 
   let filteredConversations = $derived(filterConversations(conversations, search, filter));
   let totalUnread = $derived(conversations.reduce((sum, row) => sum + row.unread_count, 0));
@@ -111,6 +115,59 @@
       return;
     }
     closeConversation();
+  }
+
+  function applyAcknowledgedRead(conversationId: string, throughSequence: number) {
+    acknowledgedReadThrough = Math.max(acknowledgedReadThrough, throughSequence);
+    conversations = conversations.map((row) =>
+      row.id === conversationId ? { ...row, unread_count: 0 } : row
+    );
+    if (selectedConversation?.id === conversationId) {
+      selectedConversation = { ...selectedConversation, unread_count: 0 };
+    }
+  }
+
+  async function flushVisibleAcknowledgements() {
+    if (
+      receiptAcknowledgementInFlight || !membership || !selectedId ||
+      pendingReceiptThrough <= acknowledgedReadThrough || offline || document.hidden
+    ) return;
+    const id = selectedId;
+    const requestMembership = membership;
+    const requestEpoch = activeEpoch;
+    receiptAcknowledgementInFlight = true;
+    try {
+      while (
+        selectedId === id && membership?.membership_id === requestMembership.membership_id &&
+        activeEpoch === requestEpoch && pendingReceiptThrough > acknowledgedReadThrough
+      ) {
+        const target = pendingReceiptThrough;
+        if (target > acknowledgedDeliveryThrough) {
+          const delivered = await messagingApi.acknowledgeDelivery(requestMembership, id, target);
+          if (selectedId !== id || activeEpoch !== requestEpoch) return;
+          acknowledgedDeliveryThrough = Math.max(
+            acknowledgedDeliveryThrough,
+            Number.isSafeInteger(delivered?.through_sequence) ? delivered.through_sequence : target
+          );
+        }
+        if (target > acknowledgedReadThrough) {
+          const read = await messagingApi.acknowledgeRead(requestMembership, id, target);
+          if (selectedId !== id || activeEpoch !== requestEpoch) return;
+          const confirmed = Number.isSafeInteger(read?.through_sequence) ? read.through_sequence : target;
+          applyAcknowledgedRead(id, confirmed);
+        }
+      }
+    } catch {
+      conversationError = $_('messaging.readUpdateError');
+    } finally {
+      receiptAcknowledgementInFlight = false;
+    }
+  }
+
+  function queueVisibleAcknowledgements(throughSequence: number) {
+    if (!Number.isSafeInteger(throughSequence) || throughSequence <= acknowledgedReadThrough) return;
+    pendingReceiptThrough = Math.max(pendingReceiptThrough, throughSequence);
+    void flushVisibleAcknowledgements();
   }
 
   function draftKey(conversationId: string, membershipId = membership?.membership_id) {
@@ -201,6 +258,10 @@
     selectedPhotos = [];
     noticeOpen = false;
     noticeConversationKey = null;
+    acknowledgedDeliveryThrough = 0;
+    acknowledgedReadThrough = 0;
+    pendingReceiptThrough = 0;
+    receiptAcknowledgementInFlight = false;
     updateConversationQuery(null);
   }
 
@@ -257,6 +318,9 @@
     const requestMembership = membership.membership_id;
     const requestEpoch = ++activeEpoch;
     selectedId = id;
+    acknowledgedDeliveryThrough = 0;
+    acknowledgedReadThrough = 0;
+    pendingReceiptThrough = 0;
     loadingOlder = false;
     mobileThreadOpen = true;
     loadingConversation = true;
@@ -274,20 +338,11 @@
       ) return;
       selectedConversation = detail;
       prepareConversationNotice(detail);
-      messages = page.items;
+      messages = mergeReceiptUpdates(page.items, page.receipt_updates || []);
       messagesCursor = page.next_cursor;
       const highest = page.items.at(-1)?.sequence ?? 0;
-      if (detail.unread_count > 0 && highest > 0) {
-        try {
-          await messagingApi.acknowledgeRead(membership, id, highest);
-          conversations = conversations.map((row) =>
-            row.id === id ? { ...row, unread_count: 0 } : row
-          );
-          selectedConversation = { ...detail, unread_count: 0 };
-        } catch {
-          conversationError = $_('messaging.readUpdateError');
-        }
-      }
+      await tick();
+      queueVisibleAcknowledgements(highest);
     } catch (cause) {
       if (requestEpoch !== activeEpoch || selectedId !== id) return;
       const status = errorStatus(cause);
@@ -328,7 +383,10 @@
         cursor: messagesCursor
       });
       if (requestEpoch !== activeEpoch || selectedId !== id) return;
-      messages = mergeIncomingMessages(messages, page.items);
+      messages = mergeReceiptUpdates(
+        mergeIncomingMessages(messages, page.items),
+        page.receipt_updates || []
+      );
       messagesCursor = page.next_cursor;
     } catch (cause) {
       conversationError = cause instanceof Error ? cause.message : $_('messaging.olderLoadError');
@@ -372,20 +430,13 @@
               unread_count: selectedConversation.unread_count
             }
           : detail;
-      messages = mergeIncomingMessages(messages, page.items);
+      messages = mergeReceiptUpdates(
+        mergeIncomingMessages(messages, page.items),
+        page.receipt_updates || []
+      );
       const highest = highestServerSequence(messages);
-      if (highest > 0 && (page.items.length > 0 || detail.unread_count > 0)) {
-        try {
-          await messagingApi.acknowledgeRead(membership, id, highest);
-          if (requestEpoch !== activeEpoch || selectedId !== id) return;
-          conversations = conversations.map((row) =>
-            row.id === id ? { ...row, unread_count: 0 } : row
-          );
-          if (selectedConversation) selectedConversation = { ...selectedConversation, unread_count: 0 };
-        } catch {
-          conversationError = $_('messaging.readUpdateError');
-        }
-      }
+      await tick();
+      queueVisibleAcknowledgements(highest);
     } catch (cause) {
       if (requestEpoch !== activeEpoch || selectedId !== id) return;
       const status = errorStatus(cause);

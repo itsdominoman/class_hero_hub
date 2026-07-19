@@ -382,3 +382,28 @@ For staff access after an assignment change:
 
 Logs and diagnostics must not include message bodies, service/link credentials, actor
 assertions, FHH family/parent IDs, emails, device tokens, or raw signed cursors.
+
+## Slice 9 receipt hardening
+
+- CHH calculates one safe aggregate for outgoing messages: `sent`, `delivered` or
+  `read`. Read outranks Delivered, and Delivered outranks Sent.
+- One eligible recipient acknowledgement is sufficient. For a linked family, one
+  eligible grown-up reading is enough; there is no visible all-adults or partial-read
+  state. Household coordination is not the school's responsibility.
+- Eligibility is grant- and sequence-bounded. Late joiners cannot affect older
+  messages; valid historical evidence survives later revocation; safeguarding-only
+  administrator evidence is excluded.
+- Individual immutable evidence and monotonic per-participant cursors are retained.
+  Aggregate API payloads expose no recipient names, counts, family IDs, FHH account
+  IDs, device identifiers or tokens.
+- Delivery is acknowledged only after the authenticated CHH/FHH client renders the
+  message in the active conversation. Proxy fetch and provider acceptance do not count.
+  Read does not require playing voice or opening a photo viewer.
+- School delivery/read visibility controls are independent and audited. Turning a
+  control off changes projection only; it never deletes or rewrites evidence.
+- A representative 50-message page increased from 27 to 28 SELECTs: one new bounded,
+  set-based receipt query for the whole page. There is no query per participant or
+  message. Delta receipt refresh is capped at 100 recent outgoing messages.
+- The UI uses compact accessible Lucide tick shapes beside timestamps: one grey,
+  two grey or two blue. It contains no purple state, visible receipt wording, names or
+  counts, and the same shared footer serves text, photo and voice-note bubbles.

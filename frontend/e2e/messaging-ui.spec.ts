@@ -47,8 +47,8 @@ const conversation = {
   capabilities: {
     can_send: true,
     can_close: false,
-    delivery_receipts_visible: false,
-    read_receipts_visible: false
+    delivery_receipts_visible: true,
+    read_receipts_visible: true
   }
 };
 
@@ -148,10 +148,11 @@ async function mockEnabledMessaging(
       return;
     }
     if (path.endsWith(`/conversations/${conversationId}/acknowledgements`)) {
+      const body = request.postDataJSON();
       await route.fulfill({
         json: {
-          event_type: 'read',
-          through_sequence: 1,
+          event_type: body.event_type,
+          through_sequence: body.through_sequence,
           recorded_at: '2026-07-17T08:01:00Z',
           duplicate: false
         }
@@ -330,6 +331,71 @@ async function mockBobTeacherAssignment(page: Page) {
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('familyHeroHub.language', 'en'));
   await mockSession(page);
+});
+
+test('receipt-only polls advance an outgoing tick without remounting the draft', async ({ page }) => {
+  let deltaPoll = 0;
+  const outgoing = {
+    id: existingMessageId,
+    sequence: 1,
+    sender_display_name: 'Teacher One',
+    sender_kind: 'staff',
+    sender_relationship: null,
+    sender_is_self: true,
+    body: 'Receipt-only refresh',
+    photos: [],
+    voice_note: null,
+    state: 'active',
+    urgent: false,
+    created_at: '2026-07-17T08:00:00Z',
+    receipt: {
+      delivery_visible: true,
+      read_visible: true,
+      delivered: false,
+      read: false,
+      state: 'sent',
+      policy_version: 3
+    }
+  };
+  await mockEnabledMessaging(page, conversation, 200, (url) => {
+    if (!url.searchParams.has('after_sequence')) {
+      return { items: [outgoing], receipt_updates: [], next_cursor: null, latest_sequence: 1 };
+    }
+    deltaPoll += 1;
+    const read = deltaPoll > 1;
+    return {
+      items: [],
+      receipt_updates: [{
+        id: existingMessageId,
+        sequence: 1,
+        receipt: {
+          delivery_visible: true,
+          read_visible: true,
+          delivered: true,
+          read,
+          state: read ? 'read' : 'delivered',
+          policy_version: 3
+        }
+      }],
+      next_cursor: null,
+      latest_sequence: 1
+    };
+  });
+
+  await page.goto(`/messages?conversation=${conversationId}`);
+  await expect(page.getByRole('img', { name: 'Sent' })).toBeVisible();
+  const draft = page.getByTestId('message-composer').locator('textarea');
+  await draft.fill('Keep this draft and cursor');
+  await draft.press('ArrowLeft');
+
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(page.getByRole('img', { name: 'Delivered' })).toBeVisible();
+  await expect(draft).toHaveValue('Keep this draft and cursor');
+
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(page.getByRole('img', { name: 'Read' })).toBeVisible();
+  await expect(draft).toHaveValue('Keep this draft and cursor');
+  await expect(page.locator('[data-receipt-state="read"]')).toHaveCount(1);
 });
 
 test('Quick Award recognizes Bob-like FHH guardians, opens the existing conversation, and restores the overlay', async ({ page }) => {

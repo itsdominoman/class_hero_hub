@@ -15,6 +15,8 @@ from app.database import Base
 from app.messaging_service import (
     MessagingAccessDenied,
     MessagingConflict,
+    acknowledge_messages,
+    aggregate_message_receipts,
     participant_sequence_access,
     send_text_message,
 )
@@ -491,3 +493,204 @@ def test_receipt_and_audit_evidence_are_append_only(db):
     db.delete(audit)
     with pytest.raises(ValueError, match="append-only"):
         db.commit()
+
+
+def test_sender_receipt_aggregate_is_sent_delivered_read_and_survives_revocation(db):
+    world = _school_world(db, "receipt-aggregate")
+    conversation, staff, guardian = _student_thread(db, world)
+    message, _ = send_text_message(
+        db,
+        conversation_id=conversation.id,
+        sender_participant_id=staff.id,
+        client_message_id=uuid4(),
+        body="Receipt state",
+    )
+    db.commit()
+
+    aggregate = aggregate_message_receipts(
+        db,
+        conversation=conversation,
+        sender_participant=staff,
+        message_ids=[message.id],
+    )[message.id]
+    assert (aggregate.delivered, aggregate.read) == (False, False)
+
+    acknowledge_messages(
+        db,
+        conversation=conversation,
+        participant=guardian,
+        event_type="delivered",
+        through_sequence=message.sequence,
+        client_ack_id=uuid4(),
+        occurred_at=datetime.now(timezone.utc),
+    )
+    db.commit()
+    aggregate = aggregate_message_receipts(
+        db,
+        conversation=conversation,
+        sender_participant=staff,
+        message_ids=[message.id],
+    )[message.id]
+    assert (aggregate.delivered, aggregate.read) == (True, False)
+
+    acknowledge_messages(
+        db,
+        conversation=conversation,
+        participant=guardian,
+        event_type="read",
+        through_sequence=message.sequence,
+        client_ack_id=uuid4(),
+        occurred_at=datetime.now(timezone.utc),
+    )
+    db.commit()
+    aggregate = aggregate_message_receipts(
+        db,
+        conversation=conversation,
+        sender_participant=staff,
+        message_ids=[message.id],
+    )[message.id]
+    assert (aggregate.delivered, aggregate.read) == (True, True)
+
+    closed_at = datetime.now(timezone.utc) + timedelta(seconds=1)
+    guardian.left_at = closed_at
+    world["guardian_link"].status = "revoked"
+    world["guardian_link"].revoked_at = closed_at
+    grant = db.query(ConversationAccessGrant).filter_by(participant_id=guardian.id).one()
+    grant.valid_to = closed_at
+    grant.revoked_at = closed_at
+    grant.revoke_reason = "receipt_test_revoked"
+    grant.visible_through_sequence = message.sequence
+    db.commit()
+    aggregate = aggregate_message_receipts(
+        db,
+        conversation=conversation,
+        sender_participant=staff,
+        message_ids=[message.id],
+    )[message.id]
+    assert (aggregate.delivered, aggregate.read) == (True, True)
+
+
+def test_participant_joining_after_message_cannot_create_receipt_for_old_history(db):
+    world = _school_world(db, "receipt-join")
+    conversation, staff, _guardian = _student_thread(db, world)
+    first, _ = send_text_message(
+        db,
+        conversation_id=conversation.id,
+        sender_participant_id=staff.id,
+        client_message_id=uuid4(),
+        body="Before join",
+    )
+    late_user = User(
+        email="late-guardian@test",
+        name="Late Guardian",
+        google_sub="late-guardian",
+    )
+    db.add(late_user)
+    db.flush()
+    late_link = GuardianLink(
+        school_id=world["school"].id,
+        student_id=world["student"].id,
+        user_id=late_user.id,
+        relationship="guardian",
+        display_name=late_user.name,
+        status="active",
+    )
+    late_participant = ConversationParticipant(
+        conversation_id=conversation.id,
+        participant_kind="chh_guardian",
+        user_id=late_user.id,
+        side="guardian",
+        display_name_snapshot=late_user.name,
+        last_delivered_sequence=1,
+        last_read_sequence=1,
+    )
+    db.add_all([late_link, late_participant])
+    db.flush()
+    db.add(
+        ConversationAccessGrant(
+            conversation_id=conversation.id,
+            participant_id=late_participant.id,
+            source_type="guardian_link",
+            guardian_link_id=late_link.id,
+            grant_reason="joined_later",
+            visible_from_sequence=2,
+        )
+    )
+    second, _ = send_text_message(
+        db,
+        conversation_id=conversation.id,
+        sender_participant_id=staff.id,
+        client_message_id=uuid4(),
+        body="After join",
+    )
+    db.commit()
+    acknowledge_messages(
+        db,
+        conversation=conversation,
+        participant=late_participant,
+        event_type="read",
+        through_sequence=second.sequence,
+        client_ack_id=uuid4(),
+        occurred_at=datetime.now(timezone.utc),
+    )
+    db.commit()
+
+    aggregates = aggregate_message_receipts(
+        db,
+        conversation=conversation,
+        sender_participant=staff,
+        message_ids=[first.id, second.id],
+    )
+    assert (aggregates[first.id].delivered, aggregates[first.id].read) == (False, False)
+    assert (aggregates[second.id].delivered, aggregates[second.id].read) == (True, True)
+
+
+def test_safeguarding_admin_receipt_evidence_does_not_affect_sender_state(db):
+    world = _school_world(db, "receipt-safeguarding")
+    conversation, staff, _guardian = _student_thread(db, world)
+    message, _ = send_text_message(
+        db,
+        conversation_id=conversation.id,
+        sender_participant_id=staff.id,
+        client_message_id=uuid4(),
+        body="Safeguarding access must stay invisible",
+    )
+    safeguarding_admin = ConversationParticipant(
+        conversation_id=conversation.id,
+        participant_kind="staff",
+        user_id=world["admin_user"].id,
+        membership_id=world["admin"].id,
+        side="staff",
+        display_name_snapshot=world["admin_user"].name,
+    )
+    db.add(safeguarding_admin)
+    db.flush()
+    db.add(
+        ConversationAccessGrant(
+            conversation_id=conversation.id,
+            participant_id=safeguarding_admin.id,
+            source_type="school_admin_membership",
+            membership_id=world["admin"].id,
+            grant_reason="safeguarding_review",
+        )
+    )
+    db.commit()
+
+    acknowledge_messages(
+        db,
+        conversation=conversation,
+        participant=safeguarding_admin,
+        event_type="read",
+        through_sequence=message.sequence,
+        client_ack_id=uuid4(),
+        occurred_at=datetime.now(timezone.utc),
+    )
+    db.commit()
+
+    aggregate = aggregate_message_receipts(
+        db,
+        conversation=conversation,
+        sender_participant=staff,
+        message_ids=[message.id],
+    )[message.id]
+    assert (aggregate.delivered, aggregate.read) == (False, False)

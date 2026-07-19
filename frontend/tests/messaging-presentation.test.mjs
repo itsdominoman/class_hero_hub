@@ -9,7 +9,7 @@ import {
   filterConversations,
   staffContextLabel
 } from '../src/lib/messaging/presentation.ts';
-import { highestServerSequence, mergeIncomingMessages } from '../src/lib/messaging/state.ts';
+import { highestServerSequence, mergeIncomingMessages, mergeMessageReceipt, mergeReceiptUpdates } from '../src/lib/messaging/state.ts';
 import { chooseNativeBackAction } from '../src/lib/native/back-policy.ts';
 
 const composerSource = readFileSync(new URL('../src/lib/components/messaging/MessageComposer.svelte', import.meta.url), 'utf8');
@@ -23,6 +23,8 @@ const shellSource = readFileSync(new URL('../src/routes/+layout.svelte', import.
 const appCssSource = readFileSync(new URL('../src/app.css', import.meta.url), 'utf8');
 const quickAwardSource = readFileSync(new URL('../src/routes/teach/assignments/[id]/+page.svelte', import.meta.url), 'utf8');
 const conversationPaneSource = readFileSync(new URL('../src/lib/components/messaging/ConversationPane.svelte', import.meta.url), 'utf8');
+const receiptSource = readFileSync(new URL('../src/lib/components/messaging/MessageReceiptTicks.svelte', import.meta.url), 'utf8');
+const schoolSettingsSource = readFileSync(new URL('../src/routes/school/+page.svelte', import.meta.url), 'utf8');
 
 const baseConversation = {
   id: '00000000-0000-0000-0000-000000000001',
@@ -132,6 +134,63 @@ test('incremental refresh merges monotonically without dropping optimistic draft
   const stale = mergeIncomingMessages(merged, [current[0]]);
   assert.deepEqual(stale.map((row) => row.id), merged.map((row) => row.id));
   assert.equal(stale.some((row) => row.body === 'New parent reply'), true);
+});
+
+test('receipt polling cannot regress state within one policy version', () => {
+  const read = {
+    delivery_visible: true,
+    read_visible: true,
+    delivered: true,
+    read: true,
+    state: 'read',
+    policy_version: 4
+  };
+  const staleDelivered = {
+    ...read,
+    read: false,
+    state: 'delivered'
+  };
+  assert.equal(mergeMessageReceipt(read, staleDelivered).state, 'read');
+  const policyChanged = {
+    ...staleDelivered,
+    read_visible: false,
+    policy_version: 5
+  };
+  assert.equal(mergeMessageReceipt(read, policyChanged).state, 'delivered');
+
+  const current = [{
+    ...baseConversation.last_message,
+    sender_is_self: true,
+    urgent: false,
+    receipt: read
+  }];
+  const merged = mergeReceiptUpdates(current, [{
+    id: current[0].id,
+    sequence: current[0].sequence,
+    receipt: staleDelivered
+  }]);
+  assert.equal(merged[0].receipt.state, 'read');
+});
+
+test('outgoing receipt ticks are compact, shape-distinct and accessible', () => {
+  assert.match(conversationPaneSource, /message\.sender_is_self && message\.receipt/);
+  assert.match(conversationPaneSource, /<MessageReceiptTicks receipt=\{message\.receipt\}/);
+  assert.match(receiptSource, /role="img"/);
+  assert.match(receiptSource, /aria-label=\{label\}/);
+  assert.match(receiptSource, /receipt\.state === 'sent'/);
+  assert.match(receiptSource, /<Check size=\{13\}/);
+  assert.match(receiptSource, /<CheckCheck size=\{14\}/);
+  assert.match(receiptSource, /receipt\.state === 'read' \? 'text-sky-300' : 'text-slate-200'/);
+  assert.doesNotMatch(receiptSource, /purple|recipient|count/);
+});
+
+test('school compliance settings expose independent audited receipt controls', () => {
+  assert.match(schoolSettingsSource, /api\.get\('\/school\/messaging-policy'/);
+  assert.match(schoolSettingsSource, /api\.put\('\/school\/messaging-policy'/);
+  assert.match(schoolSettingsSource, /'delivery_receipts_visible'/);
+  assert.match(schoolSettingsSource, /'read_receipts_visible'/);
+  assert.match(schoolSettingsSource, /school\.compliance\.showDeliveryReceipts/);
+  assert.match(schoolSettingsSource, /school\.compliance\.showReadReceipts/);
 });
 
 test('inbox filtering supports Arabic mixed-direction content and unread status', () => {

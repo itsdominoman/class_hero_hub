@@ -18,10 +18,12 @@ from .. import auth
 from ..database import get_db, settings
 from ..feature_control_service import voice_notes_enabled
 from ..messaging_service import (
+    MessageReceiptAggregate,
     MessagingAccessDenied,
     MessagingConflict,
     MessagingValidationError,
     acknowledge_messages,
+    aggregate_message_receipts,
     assert_participant_can_send,
     participant_sequence_access,
     participant_sequence_access_map,
@@ -308,6 +310,28 @@ def _utc_now() -> datetime:
 def _private(response: Response) -> None:
     response.headers["Cache-Control"] = "private, no-store, max-age=0"
     response.headers["Pragma"] = "no-cache"
+
+
+def _receipt_payload(
+    aggregate: MessageReceiptAggregate,
+    policy: SchoolMessagingPolicy,
+) -> dict[str, Any]:
+    delivered = bool(aggregate.delivered or aggregate.read)
+    read = bool(aggregate.read)
+    if policy.read_receipts_visible and read:
+        state = "read"
+    elif policy.delivery_receipts_visible and delivered:
+        state = "delivered"
+    else:
+        state = "sent"
+    return {
+        "delivery_visible": bool(policy.delivery_receipts_visible),
+        "read_visible": bool(policy.read_receipts_visible),
+        "delivered": delivered,
+        "read": read,
+        "state": state,
+        "policy_version": int(policy.policy_version),
+    }
 
 
 def _cursor_serializer() -> URLSafeTimedSerializer:
@@ -1549,6 +1573,7 @@ def _message_page(
     *,
     conversation: Conversation,
     participant: ConversationParticipant,
+    policy: SchoolMessagingPolicy,
     actor_ref: str,
     response: Response,
     limit: int,
@@ -1610,6 +1635,16 @@ def _message_page(
                 }
             )
         rows = list(reversed(rows))
+    outgoing_page_ids = [
+        row.id for row in rows if row.sender_participant_id == participant.id
+    ]
+    receipt_aggregates = aggregate_message_receipts(
+        db,
+        conversation=conversation,
+        sender_participant=participant,
+        message_ids=outgoing_page_ids,
+        recent_sender_limit=100 if after_sequence is not None else None,
+    )
     sender_participants = {
         row.id: row
         for row in db.query(ConversationParticipant)
@@ -1651,11 +1686,28 @@ def _message_page(
             "state": row.state,
             "urgent": row.urgent,
             "created_at": row.created_at,
+            **(
+                {
+                    "receipt": _receipt_payload(
+                        receipt_aggregates[row.id], policy
+                    )
+                }
+                if row.id in receipt_aggregates
+                else {}
+            ),
         }
         for row in rows
     ]
     return {
         "items": items,
+        "receipt_updates": [
+            {
+                "id": str(aggregate.public_id),
+                "sequence": aggregate.sequence,
+                "receipt": _receipt_payload(aggregate, policy),
+            }
+            for aggregate in receipt_aggregates.values()
+        ],
         "next_cursor": next_cursor,
         "latest_sequence": int(conversation.last_message_sequence or 0),
     }
@@ -2632,6 +2684,7 @@ def staff_messages(
         db,
         conversation=conversation,
         participant=participant,
+        policy=actor.policy,
         actor_ref=_actor_ref(actor),
         response=response,
         limit=limit,
@@ -2657,6 +2710,7 @@ def guardian_messages(
         db,
         conversation=conversation,
         participant=participant,
+        policy=actor.policy,
         actor_ref=_actor_ref(actor),
         response=response,
         limit=limit,
@@ -2709,6 +2763,12 @@ def _send(
         raise HTTPException(status_code=409, detail=str(exc))
     photos = attached_media_map(db, [message.id]).get(message.id, [])
     voice = attached_voice_map(db, [message.id]).get(message.id)
+    receipt = aggregate_message_receipts(
+        db,
+        conversation=conversation,
+        sender_participant=participant,
+        message_ids=[message.id],
+    )[message.id]
     return {
         "id": str(message.public_id),
         "sequence": message.sequence,
@@ -2724,6 +2784,7 @@ def _send(
         "state": message.state,
         "urgent": message.urgent,
         "created_at": message.created_at,
+        "receipt": _receipt_payload(receipt, actor.policy),
         "duplicate": duplicate,
     }
 

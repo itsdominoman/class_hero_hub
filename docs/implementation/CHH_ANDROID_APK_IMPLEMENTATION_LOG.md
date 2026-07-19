@@ -240,3 +240,25 @@ Capacitor Camera v7 system camera/photo-picker flow does not need one when
 - APK signature verification passed v1 and v2 with the established Android debug
   certificate SHA-256
   `e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
+
+## S26i Messaging receipt presentation
+
+- Outgoing text, photo, and voice bubbles share localized accessible receipt ticks:
+  one gray for sent, two gray for delivered to any eligible ordinary participant,
+  and two blue for read by any eligible ordinary participant. The compact footer is
+  RTL-safe and does not expose text, names, counts, or household-completion state.
+- Receipt-only polling updates the existing message object and does not recreate the
+  row, preserving the composer, keyboard/cursor, scroll position, and voice-player
+  state. Delivery is acknowledged only after render; read is acknowledged only for
+  the visible active conversation.
+- `testDebugUnitTest`, `lintDebug`, and `assembleDebug` passed with the final
+  synchronized web assets on Temurin 21.0.11 and Android SDK 35.
+- Artifact: `/opt/apps/class_hero_hub/tmp/class-hero-hub-message-receipts-dev.apk`;
+  Drive copy `G:\My Drive\CHH\Remote\class-hero-hub-message-receipts-dev.apk`.
+- Package `com.classherohub.app`, version code `1`, version name `1.0`, min SDK 23,
+  compile/target SDK 35, API `https://class.familyherohub.com/api`; 95,807,045 bytes;
+  SHA-256
+  `5dc8fbcab2cff03e0941543d08664afaae2177c6f8381b7f57f37d6b11021124`.
+- APK signature verification passed with the established Android debug signer
+  certificate SHA-256
+  `e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.

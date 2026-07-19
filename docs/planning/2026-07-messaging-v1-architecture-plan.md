@@ -2550,3 +2550,37 @@ FHH:
 - Migrations: school connections, device push tokens, account deletion tombstones, family child privacy acknowledgements, inherited PostgreSQL/ledger revisions.
 - Tests: `backend/tests/test_school_connections.py`, `test_push_notifications.py`, `test_account_deletion.py`, `test_family_grownup_management.py`, auth/family tests; frontend push/media/native tests.
 - Docs: README, current deployment, project status, roadmap, design, push plan, Android/iOS runbooks/plans, linked-school setup/implementation/audit, localization/compliance, dashboard refactor plan, manuals/FAQ.
+
+## Slice 9 implementation decision — user-facing receipts (2026-07-19)
+
+CHH remains the sole receipt authority. Existing monotonic participant delivery/read
+cursors and immutable `message_receipt_events` are aggregated; Slice 9 adds no schema
+or second receipt store. An outgoing message has exactly one visible state:
+
+| Delivery visible | Read visible | Sender-visible progression |
+|---|---|---|
+| on | on | one grey tick → two grey ticks → two blue ticks |
+| on | off | one grey tick → two grey ticks |
+| off | on | one grey tick → two blue ticks |
+| off | off | one grey tick only |
+
+Sent means CHH committed the message. Delivered requires an authenticated eligible
+recipient client to render the active conversation and acknowledge through the
+sequence; provider acceptance and an FHH proxy response are not delivery. Read requires
+an eligible recipient to view the active conversation and acknowledge through the
+sequence. One eligible family adult is sufficient. Household coordination is not the
+school's responsibility, and there is no normal-timeline all-read state.
+
+Eligibility is evaluated against the historical participant access grant that covers
+the message sequence and was valid when the acknowledgement was recorded. The sender,
+late joiners, system-only actors and safeguarding-only school-admin grants are excluded.
+A valid receipt remains valid after later revocation, so a visible Read state does not
+regress. Individual evidence remains internal for audit; identities and counts are not
+projected to either client.
+
+Message pages run one set-based receipt aggregation query. Delta polls also return a
+bounded `receipt_updates` projection for at most the latest 100 outgoing messages, so
+ticks update without row remounts, route navigation, WebSockets or SSE. Clients merge
+states monotonically within a policy version (`read > delivered > sent`); a newer
+policy version may legitimately hide a state. Delivery and read visibility remain
+independent, school-scoped, audited controls with defaults on and off respectively.

@@ -272,3 +272,13 @@ Removing a caregiver removes access without deleting the family data.
 - If a child device will not open, refresh the link or ask for a fresh one.
 - If points or rewards look wrong, check the recent point history and reward requests.
 - If a calendar or School Bag item is missing, check the child and the date.
+
+## School-message ticks
+
+Beside your outgoing school-message timestamp, one grey tick means Sent, two grey
+ticks mean at least one eligible school recipient received/rendered it, and two blue
+ticks mean at least one eligible school recipient read it. Your school may independently
+hide delivery or read visibility. Incoming staff messages do not show staff-side
+receipts. No names, recipient counts, partial-read or all-read status are displayed.
+Text, photos and voice notes use the same rule; media does not need to be opened or
+played for a message to count as read.

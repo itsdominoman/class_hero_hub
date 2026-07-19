@@ -295,6 +295,18 @@
     acknowledgement_items: string[];
     updated_at?: string | null;
   };
+  type MessagingPolicy = {
+    enabled: boolean;
+    guardian_replies_enabled: boolean;
+    delivery_receipts_visible: boolean;
+    read_receipts_visible: boolean;
+    allow_staff_out_of_hours_opt_in: boolean;
+    teachers_may_mark_urgent: boolean;
+    notification_preview_mode: 'generic' | 'sender_only' | 'body';
+    retention_days: number;
+    email_mode: 'off' | 'immediate' | 'digest';
+    policy_version: number;
+  };
 
   const tabs = [
     { key: 'checklist', label: 'school.tabs.checklist' },
@@ -335,6 +347,8 @@
   let complianceDialogOpen = $state(false);
   let complianceAcknowledged = $state(false);
   let complianceSaving = $state(false);
+  let messagingPolicy = $state<MessagingPolicy | null>(null);
+  let receiptPolicySaving = $state(false);
 
   let branches = $state<Row[]>([]);
   let stages = $state<Row[]>([]);
@@ -645,7 +659,7 @@
   async function loadAll() {
     if (!schoolId) return;
     const options = schoolOptions();
-    const [settings, featureControls, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData, templateRows, announcementData] = await Promise.all([
+    const [settings, featureControls, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData, templateRows, announcementData, messagingPolicyData] = await Promise.all([
       api.get('/school/settings', options),
       api.get('/school/feature-controls', options),
       api.get('/school/setup-checklist', options),
@@ -658,7 +672,8 @@
       api.get('/school/subject-groups', options),
       api.get('/school/teachers', options),
       api.get('/school/default-subject-templates', options),
-      api.get('/school/announcements', options)
+      api.get('/school/announcements', options),
+      api.get('/school/messaging-policy', options)
     ]);
     // Students is the heaviest dataset (subject-group roster derivation over every
     // student). Skip it on initial/background loads and only fetch it once the
@@ -669,6 +684,7 @@
     labelChoice = ['Grade', 'Year', 'Form', 'Level'].includes(gradeLevelLabel) ? gradeLevelLabel : 'custom';
     customLabel = labelChoice === 'custom' ? gradeLevelLabel : '';
     voiceNotesControl = featureControls?.voice_notes || null;
+    messagingPolicy = messagingPolicyData;
     checklist = checklistData.items || [];
     setupComplete = Boolean(checklistData.complete);
     branches = branchRows;
@@ -1805,6 +1821,36 @@
     complianceDialogOpen = true;
   }
 
+  async function saveReceiptVisibility(
+    field: 'delivery_receipts_visible' | 'read_receipts_visible',
+    enabled: boolean
+  ) {
+    if (!messagingPolicy || receiptPolicySaving) return;
+    const current = messagingPolicy;
+    receiptPolicySaving = true;
+    error = null;
+    try {
+      messagingPolicy = await api.put('/school/messaging-policy', {
+        expected_policy_version: current.policy_version,
+        enabled: current.enabled,
+        guardian_replies_enabled: current.guardian_replies_enabled,
+        delivery_receipts_visible: current.delivery_receipts_visible,
+        read_receipts_visible: current.read_receipts_visible,
+        allow_staff_out_of_hours_opt_in: current.allow_staff_out_of_hours_opt_in,
+        teachers_may_mark_urgent: current.teachers_may_mark_urgent,
+        notification_preview_mode: current.notification_preview_mode,
+        retention_days: current.retention_days,
+        email_mode: current.email_mode,
+        [field]: enabled
+      }, schoolOptions());
+      notice = $_('school.compliance.receiptUpdated');
+    } catch (err: any) {
+      error = err?.message || $_('school.compliance.receiptSaveError');
+    } finally {
+      receiptPolicySaving = false;
+    }
+  }
+
   function sectionPayload() {
     return {
       ...payloadFrom(sectionForm),
@@ -2438,6 +2484,40 @@
                 >
                   {voiceNotesControl.enabled ? $_('school.compliance.disableVoice') : $_('school.compliance.enableVoice')}
                 </button>
+              </div>
+            {/if}
+            {#if messagingPolicy}
+              <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <h3 class="font-black text-slate-900">{$_('school.compliance.receiptTitle')}</h3>
+                <p class="mt-1 max-w-3xl text-sm text-slate-600">{$_('school.compliance.receiptHelp')}</p>
+                <div class="mt-4 grid gap-3 md:grid-cols-2">
+                  <label class="flex min-h-20 cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
+                    <input
+                      class="mt-1 h-4 w-4 accent-hero"
+                      type="checkbox"
+                      checked={messagingPolicy.delivery_receipts_visible}
+                      disabled={receiptPolicySaving}
+                      onchange={(event) => void saveReceiptVisibility('delivery_receipts_visible', event.currentTarget.checked)}
+                    />
+                    <span>
+                      <span class="block text-sm font-black text-slate-900">{$_('school.compliance.showDeliveryReceipts')}</span>
+                      <span class="mt-1 block text-xs leading-5 text-slate-600">{$_('school.compliance.deliveryReceiptHelp')}</span>
+                    </span>
+                  </label>
+                  <label class="flex min-h-20 cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
+                    <input
+                      class="mt-1 h-4 w-4 accent-hero"
+                      type="checkbox"
+                      checked={messagingPolicy.read_receipts_visible}
+                      disabled={receiptPolicySaving}
+                      onchange={(event) => void saveReceiptVisibility('read_receipts_visible', event.currentTarget.checked)}
+                    />
+                    <span>
+                      <span class="block text-sm font-black text-slate-900">{$_('school.compliance.showReadReceipts')}</span>
+                      <span class="mt-1 block text-xs leading-5 text-slate-600">{$_('school.compliance.readReceiptHelp')}</span>
+                    </span>
+                  </label>
+                </div>
               </div>
             {/if}
           </section>

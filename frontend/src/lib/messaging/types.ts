@@ -84,6 +84,22 @@ export type MessageItem = {
   state: string;
   urgent: boolean;
   created_at: string;
+  receipt?: MessageReceipt;
+};
+
+export type MessageReceipt = {
+  delivery_visible: boolean;
+  read_visible: boolean;
+  delivered: boolean;
+  read: boolean;
+  state: 'sent' | 'delivered' | 'read';
+  policy_version: number;
+};
+
+export type MessageReceiptUpdate = {
+  id: string;
+  sequence: number;
+  receipt: MessageReceipt;
 };
 
 export type MessagePhoto = {
@@ -140,6 +156,7 @@ export type InboxPage = {
 
 export type MessagePage = {
   items: MessageItem[];
+  receipt_updates: MessageReceiptUpdate[];
   next_cursor: string | null;
   latest_sequence: number;
 };

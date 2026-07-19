@@ -10,6 +10,7 @@
   } from '$lib/messaging/presentation';
   import { highestServerSequence } from '$lib/messaging/state';
   import MessageComposer from './MessageComposer.svelte';
+  import MessageReceiptTicks from './MessageReceiptTicks.svelte';
   import ProtectedMessagePhoto from './ProtectedMessagePhoto.svelte';
   import ProtectedPhotoViewer from './ProtectedPhotoViewer.svelte';
   import ProtectedVoiceNote from './ProtectedVoiceNote.svelte';
@@ -162,6 +163,14 @@
       timeStyle: 'short'
     }).format(new Date(value));
   }
+
+  function receiptLabel(state: 'sent' | 'delivered' | 'read') {
+    return $_({
+      sent: 'messaging.receiptSent',
+      delivered: 'messaging.receiptDelivered',
+      read: 'messaging.receiptRead'
+    }[state]);
+  }
 </script>
 
 {#if loading}
@@ -307,6 +316,9 @@
                 {/if}
                 <div class:justify-end={message.sender_is_self} class="mt-1.5 flex flex-wrap items-center gap-2 text-[0.62rem] opacity-70">
                   <time datetime={message.created_at}>{formatDate(message.created_at)}</time>
+                  {#if message.sender_is_self && message.receipt && !message.local_state}
+                    <MessageReceiptTicks receipt={message.receipt} label={receiptLabel(message.receipt.state)} />
+                  {/if}
                   {#if message.local_state === 'sending'}<span>{$_('messaging.sending')}</span>{/if}
                   {#if message.local_state === 'failed'}<span class="font-bold">{$_('messaging.failed')}</span>{/if}
                 </div>

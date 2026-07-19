@@ -447,6 +447,44 @@ def test_two_fhh_parents_have_distinct_attribution_and_read_state(db, client):
     assert by_identity[parent_one.id].last_read_sequence == 1
     assert by_identity[parent_two.id].last_read_sequence == 1
 
+    policy = db.query(SchoolMessagingPolicy).filter_by(school_id=world["school"].id).one()
+    for delivery_visible, read_visible, expected_state in (
+        (True, False, "delivered"),
+        (False, True, "read"),
+        (False, False, "sent"),
+        (True, True, "read"),
+    ):
+        policy.delivery_receipts_visible = delivery_visible
+        policy.read_receipts_visible = read_visible
+        policy.policy_version += 1
+        db.commit()
+        history = _request(
+            client,
+            world,
+            parent_one,
+            "GET",
+            f"/conversations/{conversation_id}/messages",
+        )
+        assert history.status_code == 200, history.text
+        payload = history.json()
+        receipt = payload["items"][0]["receipt"]
+        assert receipt == {
+            "delivery_visible": delivery_visible,
+            "read_visible": read_visible,
+            "delivered": True,
+            "read": True,
+            "state": expected_state,
+            "policy_version": policy.policy_version,
+        }
+        assert payload["receipt_updates"] == [
+            {
+                "id": payload["items"][0]["id"],
+                "sequence": 1,
+                "receipt": receipt,
+            }
+        ]
+        assert "recipient" not in str(receipt).lower()
+
 
 def test_recipients_expose_current_assignment_context_without_raw_membership_ids(db, client):
     world = _world(db)

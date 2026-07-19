@@ -117,17 +117,11 @@ notices remain the broadcast channel; Messaging v1 has no groups.
 
 ## Current limits
 
-This development pilot supports protected message photos. Voice notes, final
-delivery/read indicators, contact-hours scheduling, push notifications/deep links,
+This development pilot supports protected message photos, protected voice notes when
+the school explicitly enables them, and compact delivery/read ticks under independent
+school visibility controls. Contact-hours scheduling, push notifications/deep links,
 safeguarding administration tools, and retention automation are not implemented. A
 feature being present in the development APK does not mean it is enabled in production.
-
-Voice notes are planned as a later messaging feature. A future release must give each
-school an administrator-controlled enable/disable setting that defaults to disabled
-until explicitly enabled. It must also preserve protected storage, safeguarding access,
-retention, moderation, file limits and applicable compliance requirements. The current
-microphone icon is only a disabled layout placeholder; this release adds no setting,
-database field, recording, upload or playback.
 
 ## Message guardians from Quick Award
 
@@ -142,3 +136,23 @@ from. Explicitly close the conversation, or send a message successfully, to retu
 the same student's Quick Award overlay. If school messaging is disabled, your current
 assignment is no longer valid, or the student genuinely has no authorized CHH/FHH
 guardian, CHH shows the existing unavailable state instead of opening a thread.
+
+## Delivery and read ticks
+
+Outgoing messages show a compact indicator beside their timestamp:
+
+- one grey tick: CHH has sent and committed the message;
+- two grey ticks: at least one eligible recipient's app rendered and acknowledged it;
+- two blue ticks: at least one eligible recipient viewed it in the conversation.
+
+One eligible family adult reading is enough. CHH does not show who read, how many
+people read, a partial household state or an all-read state; family coordination is
+not the school's responsibility. Incoming messages do not display your sender-side
+receipt. The same rules apply to text, photo and voice-note messages, and playing or
+opening media is not required for Read.
+
+School administrators can independently switch **Show delivery receipts** and
+**Show read receipts** in School messaging/compliance settings. Delivery defaults on
+and Read defaults off. These audited, school-scoped controls change only what senders
+see; individual delivery/read evidence remains retained internally. Safeguarding-only
+administrator views never change participant receipts.

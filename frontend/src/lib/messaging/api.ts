@@ -26,6 +26,25 @@ function queryPath(path: string, values: Record<string, string | boolean | numbe
   return query ? `${path}?${query}` : path;
 }
 
+function acknowledge(
+  membership: MessagingMembership,
+  conversationId: string,
+  eventType: 'delivered' | 'read',
+  throughSequence: number,
+  clientAckId = crypto.randomUUID()
+) {
+  return api.post(
+    `/messaging/conversations/${conversationId}/acknowledgements`,
+    {
+      event_type: eventType,
+      through_sequence: throughSequence,
+      client_ack_id: clientAckId,
+      occurred_at: new Date().toISOString()
+    },
+    { headers: contextHeaders(membership) }
+  );
+}
+
 export function errorStatus(error: unknown): number | undefined {
   return (error as Error & { status?: number })?.status;
 }
@@ -160,20 +179,19 @@ export const messagingApi = {
     );
   },
 
+  acknowledgeDelivery(
+    membership: MessagingMembership,
+    conversationId: string,
+    throughSequence: number
+  ) {
+    return acknowledge(membership, conversationId, 'delivered', throughSequence);
+  },
+
   acknowledgeRead(
     membership: MessagingMembership,
     conversationId: string,
     throughSequence: number
   ) {
-    return api.post(
-      `/messaging/conversations/${conversationId}/acknowledgements`,
-      {
-        event_type: 'read',
-        through_sequence: throughSequence,
-        client_ack_id: crypto.randomUUID(),
-        occurred_at: new Date().toISOString()
-      },
-      { headers: contextHeaders(membership) }
-    );
+    return acknowledge(membership, conversationId, 'read', throughSequence);
   }
 };

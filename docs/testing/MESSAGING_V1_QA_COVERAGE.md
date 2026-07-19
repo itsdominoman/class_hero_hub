@@ -81,8 +81,22 @@ Record device, Android version, navigation mode, keyboard, APK checksum and test
 `CHH_ANDROID_APK_SMOKE_TEST.md`. Automated browser/host tests cannot close this device
 gate.
 
-## Explicit exclusions
+## Slice 9 receipt coverage
 
-No S25i test claims coverage for messaging photos, final receipt UI, contact-hours
-scheduling, notification delivery/push, safeguarding administration or retention,
-because those Slice 8+ capabilities remain unimplemented.
+Focused backend coverage verifies Sent → Delivered → Read, one-of-several eligible
+FHH adults, late-join exclusion, non-regression after revocation, safeguarding-admin
+exclusion, all four independent policy combinations, safe FHH proxy fields, canonical
+delivery/read acknowledgement bodies, and the fixed 28-SELECT budget for a 50-message
+page (27 before Slice 9). Text, protected-photo and protected-voice send responses use
+the same initial Sent receipt contract.
+
+Focused presentation coverage verifies one/two tick shape distinction, accessible
+Sent/Delivered/Read labels, outgoing-only placement beside timestamps, EN/AR parity,
+narrow bubble containment, monotonic stale-poll merges, and legitimate projection
+changes only when the policy version increases. Polling merges receipt updates into
+existing rows and does not replace conversation state, drafts, media, playback, focus,
+cursor, keyboard or scroll ownership.
+
+Still excluded: all-recipient-read state, receipt identities/counts, message-info UI,
+contact-hours scheduling, notification delivery/push, safeguarding administration
+tools, retention automation, WebSockets and SSE.

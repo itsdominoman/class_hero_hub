@@ -1,5 +1,52 @@
 # CHH current development deployment
 
+## S26i Messaging v1 delivery/read receipts checkpoint
+
+Messaging v1 Slice 9 is deployed to the CHH development stack. Outgoing message
+bubbles now show one gray tick for sent, two gray ticks after at least one eligible
+ordinary participant's client renders and acknowledges the message, and two blue
+ticks after at least one eligible ordinary participant views it. No recipient
+identities, counts, all-read state, or safeguarding-admin activity are exposed.
+
+- CHH remains the authoritative message, access-history, policy, receipt-event, and
+  aggregate source. FHH remains a credential-hiding proxy; no receipt persistence was
+  added there.
+- Delivery and read visibility are independent, versioned school controls. United
+  International School is enabled for both in development at policy version `3`;
+  the existing immutable policy audit records the change. Defaults remain delivery
+  on and read off for other/new policy rows.
+- Receipt aggregation uses one bounded set query for the page/delta candidate set.
+  A representative 50-message history increases from 27 to 28 SELECTs, independent
+  of message and participant count. Historical eligibility is evaluated at receipt
+  event time, so valid evidence survives later revocation and late joiners do not
+  inherit earlier messages.
+- Only the CHH backend/frontend and FHH backend/frontend services were rebuilt and
+  recreated. The CHH and FHH PostgreSQL containers were not restarted or recreated.
+  No migration or database backup was needed because existing receipt events,
+  access grants, policy rows, and polling cursors are reused.
+- Loopback and public API health checks returned HTTP 200 with `status=ok`; CHH
+  `/messages` and FHH `/school-messages` returned HTTP 200 after deployment.
+- Focused validation covers sent/delivered/read transitions, all four policy states,
+  event-time eligibility and revocation, late joiners, safeguarding-admin exclusion,
+  sender exclusion, closed-world FHH proxy sanitization, text/photo/voice parity,
+  receipt-only polling without row remounts, state monotonicity, narrow layout, and
+  EN/AR accessible ticks. Receipt-specific Playwright flows passed in both apps.
+
+### Development receipt APK
+
+- Server: `/opt/apps/class_hero_hub/tmp/class-hero-hub-message-receipts-dev.apk`
+- Google Drive: `G:\My Drive\CHH\Remote\class-hero-hub-message-receipts-dev.apk`
+- Package: `com.classherohub.app`; version code `1`, version name `1.0`; min SDK 23,
+  compile/target SDK 35.
+- Native API: `https://class.familyherohub.com/api`.
+- Size: 95,807,045 bytes.
+- SHA-256: `5dc8fbcab2cff03e0941543d08664afaae2177c6f8381b7f57f37d6b11021124`.
+- Android debug signer certificate SHA-256:
+  `e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
+- Server and Drive copies are byte-for-byte identical. APK package, endpoint, and
+  signature checks passed. App-scoped `testDebugUnitTest`, `lintDebug`, and
+  `assembleDebug` passed after the final web assets were synchronized into Capacitor.
+
 **Status date:** 2026-07-18
 **Environment:** CHH development, `https://class.familyherohub.com`
 **Source checkpoint:** `main`, S25q protected voice-note release tag

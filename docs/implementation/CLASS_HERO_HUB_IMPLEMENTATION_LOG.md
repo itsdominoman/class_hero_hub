@@ -4253,3 +4253,47 @@ CHH now processes update photos server-side. It accepts JPEG/JPG, PNG, WEBP and 
   `37a07656d91d343e8bc27db2b0ae3d22a9af0e339a20be6726237f5bc08eea7b`.
   The identical Drive copy is
   `G:\My Drive\CHH\Remote\class-hero-hub-mobile-shell-dev.apk`.
+
+## 2026-07-19 — S26i Messaging v1 delivery/read receipts
+
+- Added CHH-authoritative, outgoing-only receipt aggregates with exactly three
+  presentation states: sent (one gray tick), delivered to at least one eligible
+  ordinary participant (two gray ticks), and read by at least one eligible ordinary
+  participant (two blue ticks). No identities, counts, household completion, or
+  safeguarding-admin activity are returned.
+- Reused the existing append-only delivery/read events, historical access grants,
+  school policy version, and message polling cursor. No schema or migration was
+  required. One bounded set query covers the explicit page or latest 100 outgoing
+  delta candidates; there is no message- or participant-shaped query loop.
+- Eligibility is evaluated at the event timestamp. Receipt evidence created while a
+  participant was eligible remains valid after revocation; late joiners cannot
+  contribute to messages predating their grant; senders and safeguarding-only school
+  administrators are excluded.
+- Delivery/read visibility are independent versioned controls. The server emits the
+  strongest policy-visible state and the clients accept a lower state only across a
+  newer policy version, preventing same-version receipt regressions.
+- Text, photo, and voice messages share the same aggregate and bubble footer. The
+  CHH client acknowledges delivery only after render and read only while the active
+  conversation is visible. Receipt-only deltas merge into existing rows without
+  remounting them or disturbing draft, selection, cursor, scroll, playback, or
+  recorder state.
+- The FHH integration emits a closed-world receipt aggregate without event detail,
+  participant identity, or counts. Its signed delivery/read acknowledgement body is
+  unchanged.
+- School settings now expose separate delivery and read receipt controls through the
+  existing audited policy route. United International School development policy is
+  version `3`, with delivery and read visibility enabled; no other school or
+  production configuration changed.
+- Focused backend, proxy, frontend-state, presentation, i18n, query-count, and
+  receipt-only Playwright validation passed. Production web builds passed, and the
+  receipt-specific checks are isolated from documented stale assertions elsewhere in
+  the legacy frontend suites.
+- Development deployment rebuilt/recreated only the CHH and FHH backend/frontend
+  services. Database containers were unchanged; no backup was taken because no data
+  migration was performed. Public and loopback health/pages returned HTTP 200.
+- Fresh CHH artifact:
+  `/opt/apps/class_hero_hub/tmp/class-hero-hub-message-receipts-dev.apk`; identical
+  Drive copy `G:\My Drive\CHH\Remote\class-hero-hub-message-receipts-dev.apk`.
+  Package `com.classherohub.app`, API `https://class.familyherohub.com/api`,
+  95,807,045 bytes, SHA-256
+  `5dc8fbcab2cff03e0941543d08664afaae2177c6f8381b7f57f37d6b11021124`.

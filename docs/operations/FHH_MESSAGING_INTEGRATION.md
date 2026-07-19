@@ -115,9 +115,23 @@ The named development pilot is intentionally configured as follows:
 
 This configuration is development-only and must not be copied into production.
 Confirm the global flags and exact school policy before every test session and after
-rollback. Photos, final receipt display, contact-hours worker, notification bridge,
-push/deep links, safeguarding administration UI, and retention worker remain
-unimplemented.
+rollback. Protected photos, protected voice notes and Slice 9 receipt display are
+implemented. Contact-hours, notification bridge, push/deep links, safeguarding
+administration UI, and retention worker remain unimplemented.
+
+## Slice 9 safe receipt projection
+
+CHH adds `receipt` only to outgoing message rows and supplies bounded
+`receipt_updates` during delta polls. The projection contains only visibility flags,
+aggregate delivered/read booleans, `sent|delivered|read`, and a policy version. FHH
+must apply a closed-world sanitizer and never forward unknown fields, identities,
+counts, family/account IDs or tokens. Signed delivery/read acknowledgements retain the
+existing canonical body and actor assertion flow. An FHH proxy fetch never counts as
+delivery; the actual FHH client acknowledges only after rendering the active thread.
+
+One eligible family adult is sufficient for Delivered or Read. Individual evidence
+remains in CHH, late joiners and safeguarding-only administrators do not count, and a
+later revocation cannot regress valid historical Read evidence.
 
 S25i changed no messaging API, schema, credentials, assertion binding or FHH proxy.
 Its deployment used CHH backup `20260717-073438F`, left Alembic at

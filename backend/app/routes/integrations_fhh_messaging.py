@@ -487,6 +487,7 @@ def messages(
         db,
         conversation=conversation,
         participant=participant,
+        policy=actor.policy,
         actor_ref=_actor_ref(actor),
         response=response,
         limit=limit,

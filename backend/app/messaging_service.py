@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, case, func, or_
+from sqlalchemy.orm import Session, aliased
 
 from .models_school import (
     Conversation,
@@ -57,6 +57,15 @@ class SequenceAccess:
         return sequence >= self.visible_from and (
             self.visible_through is None or sequence <= self.visible_through
         )
+
+
+@dataclass(frozen=True)
+class MessageReceiptAggregate:
+    message_id: int
+    public_id: UUID
+    sequence: int
+    delivered: bool
+    read: bool
 
 
 def _utc_now() -> datetime:
@@ -582,6 +591,130 @@ def participant_sequence_access_map(
             visible_through=visible_through,
         )
     return access_by_participant
+
+
+def aggregate_message_receipts(
+    db: Session,
+    *,
+    conversation: Conversation,
+    sender_participant: ConversationParticipant,
+    message_ids: list[int] | None = None,
+    recent_sender_limit: int | None = None,
+) -> dict[int, MessageReceiptAggregate]:
+    """Return sender-facing receipt evidence in one bounded query.
+
+    Receipt events are joined to the access grant that covered the message when the
+    event was recorded. That excludes participants whose visibility began later while
+    retaining valid evidence after a participant is revoked. A read event also counts
+    as delivery, matching the monotonic participant cursor contract.
+    """
+
+    if sender_participant.conversation_id != conversation.id:
+        raise MessagingAccessDenied("Receipt sender is outside the conversation")
+    explicit_ids = sorted({int(value) for value in message_ids or []})
+    if recent_sender_limit is None and not explicit_ids:
+        return {}
+    if recent_sender_limit is not None and not 1 <= recent_sender_limit <= 100:
+        raise MessagingValidationError("Receipt refresh limit is invalid")
+
+    candidates = db.query(Message.id.label("message_id")).filter(
+        Message.conversation_id == conversation.id,
+        Message.sender_participant_id == sender_participant.id,
+    )
+    if recent_sender_limit is not None:
+        candidates = candidates.order_by(Message.sequence.desc()).limit(
+            recent_sender_limit
+        )
+    else:
+        candidates = candidates.filter(Message.id.in_(explicit_ids))
+    candidate_ids = candidates.subquery()
+
+    recipient = aliased(ConversationParticipant)
+    grant = aliased(ConversationAccessGrant)
+    valid_receipt = grant.id.is_not(None)
+    rows = (
+        db.query(
+            Message.id,
+            Message.public_id,
+            Message.sequence,
+            func.max(
+                case(
+                    (
+                        and_(
+                            valid_receipt,
+                            MessageReceiptEvent.event_type.in_(("delivered", "read")),
+                        ),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("delivered"),
+            func.max(
+                case(
+                    (
+                        and_(
+                            valid_receipt,
+                            MessageReceiptEvent.event_type == "read",
+                        ),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("read"),
+        )
+        .join(candidate_ids, candidate_ids.c.message_id == Message.id)
+        .outerjoin(
+            MessageReceiptEvent,
+            and_(
+                MessageReceiptEvent.conversation_id == Message.conversation_id,
+                MessageReceiptEvent.through_sequence >= Message.sequence,
+            ),
+        )
+        .outerjoin(
+            recipient,
+            and_(
+                recipient.id == MessageReceiptEvent.participant_id,
+                recipient.conversation_id == Message.conversation_id,
+                recipient.id != Message.sender_participant_id,
+                recipient.participant_kind.in_(("staff", "chh_guardian", "fhh_parent")),
+            ),
+        )
+        .outerjoin(
+            grant,
+            and_(
+                grant.conversation_id == Message.conversation_id,
+                grant.participant_id == recipient.id,
+                grant.source_type != "school_admin_membership",
+                grant.visible_from_sequence <= Message.sequence,
+                or_(
+                    grant.visible_through_sequence.is_(None),
+                    grant.visible_through_sequence >= Message.sequence,
+                ),
+                grant.valid_from <= MessageReceiptEvent.recorded_at,
+                or_(
+                    grant.valid_to.is_(None),
+                    grant.valid_to >= MessageReceiptEvent.recorded_at,
+                ),
+                or_(
+                    grant.revoked_at.is_(None),
+                    grant.revoked_at >= MessageReceiptEvent.recorded_at,
+                ),
+            ),
+        )
+        .group_by(Message.id, Message.public_id, Message.sequence)
+        .order_by(Message.sequence)
+        .all()
+    )
+    return {
+        int(row.id): MessageReceiptAggregate(
+            message_id=int(row.id),
+            public_id=row.public_id,
+            sequence=int(row.sequence),
+            delivered=bool(row.delivered),
+            read=bool(row.read),
+        )
+        for row in rows
+    }
 
 
 def assert_participant_can_send(
