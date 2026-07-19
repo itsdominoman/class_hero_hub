@@ -1,6 +1,7 @@
 package com.classherohub.app;
 
 import android.os.Bundle;
+import android.os.Build;
 import android.graphics.Color;
 import android.content.pm.ApplicationInfo;
 import android.util.Log;
@@ -19,6 +20,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     private static final String TAG = "CHHSystemBars";
     private static final String DEBUG_EXTRA = "chh_system_bar_debug";
+    private static final int CHH_LIGHT_BACKGROUND = Color.rgb(248, 250, 252);
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -36,6 +38,12 @@ public class MainActivity extends BridgeActivity {
         // Android 15 enforces edge-to-edge for targetSdk 35. CHH's shell is
         // light, so system-bar icons must be dark and legible.
         final View decorView = getWindow().getDecorView();
+        decorView.setBackgroundColor(CHH_LIGHT_BACKGROUND);
+        getWindow().setStatusBarColor(CHH_LIGHT_BACKGROUND);
+        getWindow().setNavigationBarColor(CHH_LIGHT_BACKGROUND);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().setNavigationBarContrastEnforced(false);
+        }
         final WindowInsetsControllerCompat controller =
                 WindowCompat.getInsetsController(getWindow(), decorView);
         controller.setAppearanceLightStatusBars(true);
