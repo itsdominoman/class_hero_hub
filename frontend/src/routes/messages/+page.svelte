@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
   import type { SessionUser } from '$lib/roleRouting';
@@ -52,6 +53,7 @@
   let noticeAccountId = $state<string | null>(null);
   let noticeAcknowledged = $state(false);
   let noticeOpen = $state(false);
+  let shortcutReturnPath = $state<string | null>(null);
   let noticeConversationKey = $state<string | null>(null);
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let activeEpoch = 0;
@@ -69,6 +71,46 @@
 
   function requestedConversationId(): string | null {
     return new URL(window.location.href).searchParams.get('conversation');
+  }
+
+  function requestedMembershipId(): number | null {
+    const value = Number(new URL(window.location.href).searchParams.get('membership'));
+    return Number.isInteger(value) && value > 0 ? value : null;
+  }
+
+  function requestedShortcutReturnPath(): string | null {
+    const current = new URL(window.location.href);
+    if (current.searchParams.get('shortcut') !== 'quick-award') return null;
+    const value = current.searchParams.get('return');
+    if (!value) return null;
+    try {
+      const candidate = new URL(value, window.location.origin);
+      if (
+        candidate.origin !== window.location.origin ||
+        !/^\/teach\/assignments\/\d+$/.test(candidate.pathname) ||
+        !/^\d+$/.test(candidate.searchParams.get('quick_award_student') || '')
+      ) return null;
+      return `${candidate.pathname}${candidate.search}${candidate.hash}`;
+    } catch {
+      return null;
+    }
+  }
+
+  async function returnToQuickAward() {
+    if (!shortcutReturnPath) return;
+    try {
+      await goto(shortcutReturnPath, { replaceState: true, noScroll: true });
+    } catch {
+      window.location.replace(shortcutReturnPath);
+    }
+  }
+
+  function closeOrReturnConversation() {
+    if (shortcutReturnPath) {
+      void returnToQuickAward();
+      return;
+    }
+    closeConversation();
   }
 
   function draftKey(conversationId: string, membershipId = membership?.membership_id) {
@@ -491,6 +533,7 @@
             }
           : row
       );
+      if (shortcutReturnPath) await returnToQuickAward();
       return true;
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : $_('messaging.sendError');
@@ -566,6 +609,7 @@
       };
       selectedConversation = { ...selectedConversation, last_message: summary, last_message_at: saved.created_at };
       conversations = conversations.map((row) => row.id === conversationId ? { ...row, last_message: summary, last_message_at: saved.created_at } : row);
+      if (shortcutReturnPath) await returnToQuickAward();
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : $_('messaging.voiceSendFailed');
       messages = messages.map((row) => row.client_message_id === pending.client_message_id ? { ...row, local_state: 'failed', error: message } : row);
@@ -689,6 +733,7 @@
   }
 
   async function initialize() {
+    shortcutReturnPath = requestedShortcutReturnPath();
     try {
       const user = (await api.get('/me')) as SessionUser & { id?: number | string };
       if (user.id !== undefined && user.id !== null) {
@@ -700,8 +745,10 @@
           (row.role === 'teacher' || row.role === 'school_admin') &&
           Number.isInteger(row.membership_id)
       );
-      membership = memberships[0] || null;
-      for (const candidate of memberships) {
+      const requestedMembership = memberships.find((row) => row.membership_id === requestedMembershipId());
+      membership = requestedMembership || memberships[0] || null;
+      const membershipCandidates = requestedMembership ? [requestedMembership] : memberships;
+      for (const candidate of membershipCandidates) {
         try {
           await messagingApi.unreadCount(candidate);
           membership = candidate;
@@ -754,7 +801,7 @@
         return;
       }
       if (mobileThreadOpen || selectedId) {
-        closeConversation();
+        closeOrReturnConversation();
         event.preventDefault();
         event.stopImmediatePropagation();
       }
@@ -819,6 +866,7 @@
         </select>
       {/if}
       <a href={membership?.role === 'teacher' ? '/teach' : '/school'} class="btn-hero mt-6 inline-flex rounded-2xl px-5 py-3">{$_('messaging.returnDashboard')}</a>
+      {#if shortcutReturnPath}<button type="button" class="btn-secondary ms-2 mt-3 px-4 py-3" onclick={returnToQuickAward}>{$_('messaging.returnToQuickAward')}</button>{/if}
     </section>
   {:else}
     <section data-testid="messaging-workspace" class="flex h-[calc(100dvh-5rem-var(--safe-top))] min-h-0 overflow-hidden border-y border-slate-200 bg-white shadow-xl shadow-slate-200/40 sm:h-[calc(100dvh-8.5rem-var(--safe-top))] sm:min-h-[38rem] sm:rounded-3xl sm:border">
@@ -874,6 +922,7 @@
           <div class="m-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
             <p>{conversationError}</p>
             {#if selectedId}<button type="button" class="mt-2 font-bold underline" onclick={retrySelectedConversation}>{$_('messaging.retry')}</button>{/if}
+            {#if shortcutReturnPath}<button type="button" class="ms-3 mt-2 font-bold underline" onclick={returnToQuickAward}>{$_('messaging.returnToQuickAward')}</button>{/if}
           </div>
         {/if}
         <ConversationPane
@@ -887,8 +936,10 @@
           {offline}
           {noticeOpen}
           {noticeAcknowledged}
+          persistentBack={Boolean(shortcutReturnPath)}
+          backLabel={shortcutReturnPath ? $_('messaging.returnToQuickAward') : undefined}
           {selectedPhotos}
-          onback={closeConversation}
+          onback={closeOrReturnConversation}
           onloadolder={() => void loadOlderMessages()}
           onsend={sendMessage}
           onretry={retryMessage}

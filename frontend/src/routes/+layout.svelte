@@ -1,6 +1,7 @@
 <script lang="ts">
   import '../app.css';
   import { onMount } from 'svelte';
+  import { page } from '$app/stores';
   import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
   import { initI18n } from '$lib/i18n';
@@ -140,10 +141,13 @@
   let hasGuardian = $derived(hasRole(currentUser, 'guardian'));
   let hasAnyRole = $derived(hasSchoolAdmin || hasTeacher || hasGuardian || Boolean(currentUser?.is_platform_admin));
   let dashboardHref = $derived(defaultLandingPath(currentUser));
+  // Messaging already owns a bounded viewport and its single bottom inset at the
+  // sticky composer. Every other native route gets the bottom inset from app-main.
+  let messagingRoute = $derived($page.url.pathname.startsWith('/messages'));
 </script>
 
-<div class="min-h-dvh max-w-full overflow-x-hidden flex flex-col">
-  <header class="bg-white/80 backdrop-blur-xl sticky top-0 z-50 border-b border-slate-200/50 shadow-sm pt-[var(--safe-top)]">
+<div class="app-shell min-h-dvh max-w-full overflow-x-hidden flex flex-col">
+  <header class="app-header bg-white/80 backdrop-blur-xl sticky top-0 z-50 shrink-0 border-b border-slate-200/50 shadow-sm pt-[var(--safe-top)]">
     <div class="max-w-7xl mx-auto px-3 sm:px-4 min-h-20 py-3 flex items-center justify-between gap-3">
       <a href="/" class="flex min-w-0 items-center gap-3 group">
         <img src="/chh-logo-master.png" alt={$_('app.name')} class="h-11 w-11 shrink-0 rounded-2xl object-contain shadow-xl shadow-hero/30 transition-all duration-300 group-hover:rotate-6 sm:h-12 sm:w-12" />
@@ -218,7 +222,7 @@
     </div>
   </header>
 
-  <main class="flex-1 max-w-full overflow-x-hidden">
+  <main class:viewport-managed={nativeApp && messagingRoute} class="app-main flex-1 max-w-full overflow-x-hidden">
     {@render children()}
   </main>
 
@@ -271,7 +275,7 @@
 {#if currentUser && mobileMenuOpen}
   <div class="md:hidden fixed inset-0 z-[100]" role="presentation">
     <button type="button" class="absolute inset-0 h-full w-full bg-slate-950/45" aria-label={$_('nav.closeMenu')} onclick={closeMobileMenu}></button>
-    <div id="mobile-navigation" class="absolute inset-y-0 right-0 flex w-[min(22rem,88vw)] flex-col overflow-y-auto bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-label={$_('nav.menu')}>
+    <div id="mobile-navigation" class="absolute inset-y-0 right-0 flex w-[min(22rem,88vw)] flex-col overflow-y-auto bg-white px-5 pb-[calc(1.25rem+var(--safe-bottom))] pt-[calc(1.25rem+var(--safe-top))] shadow-2xl" role="dialog" aria-modal="true" aria-label={$_('nav.menu')}>
       <div class="flex items-center justify-between border-b border-slate-200 pb-4">
         <span class="text-lg font-bold text-slate-900">{$_('nav.menu')}</span>
         <button type="button" class="rounded-xl p-2 text-slate-700 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero" aria-label={$_('nav.closeMenu')} onclick={closeMobileMenu}><span aria-hidden="true" class="text-2xl leading-none">×</span></button>

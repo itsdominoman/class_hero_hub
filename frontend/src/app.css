@@ -117,6 +117,38 @@ textarea {
   overscroll-behavior-y: none;
 }
 
+/* Android 15 is edge-to-edge. In native CHH, the shell owns the viewport:
+   the safe-area header is fixed as a non-scrolling flex child and app-main is
+   the only route scroller. Normal routes receive the navigation-bar inset once
+   here. Viewport-managed messaging keeps its accepted composer-owned inset. */
+.native-app .app-shell {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.native-app .app-header {
+  position: relative;
+  top: auto;
+  flex: 0 0 auto;
+}
+
+.native-app .app-main {
+  min-height: 0;
+  flex: 1 1 0%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding-bottom: var(--safe-bottom);
+  scroll-padding-bottom: var(--safe-bottom);
+}
+
+.native-app .app-main.viewport-managed {
+  overflow-y: hidden;
+  padding-bottom: 0;
+  scroll-padding-bottom: 0;
+}
+
 .native-app *:not(input):not(textarea) {
   -webkit-user-select: none;
   user-select: none;

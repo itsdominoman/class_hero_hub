@@ -24,6 +24,8 @@
     offline = false,
     noticeOpen = false,
     noticeAcknowledged = false,
+    persistentBack = false,
+    backLabel,
     draft = $bindable(''),
     selectedPhotos = [],
     onback,
@@ -49,6 +51,8 @@
     offline?: boolean;
     noticeOpen?: boolean;
     noticeAcknowledged?: boolean;
+    persistentBack?: boolean;
+    backLabel?: string;
     draft?: string;
     selectedPhotos?: SelectedMessagePhoto[];
     onback: () => void;
@@ -179,7 +183,7 @@
   <section class="flex h-full min-h-0 flex-col bg-slate-50/70" aria-label={$_('messaging.conversationWith', { values: { name: conversationTitle(conversation, arabic) } })}>
     <header class="border-b border-slate-200 bg-white px-3 py-3 sm:px-5 sm:py-4">
       <div class="flex items-start gap-3">
-        <button type="button" class="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200 text-slate-600 md:hidden" onclick={onback} aria-label={$_('messaging.backToInbox')}>←</button>
+        <button type="button" class="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200 text-slate-600 {persistentBack ? '' : 'md:hidden'}" onclick={onback} aria-label={backLabel || $_('messaging.backToInbox')} title={backLabel || $_('messaging.backToInbox')}>←</button>
         <div class="min-w-0 flex-1">
           <div class="flex flex-wrap items-center gap-2">
             <h2 dir="auto" class="truncate text-base font-extrabold text-slate-900 sm:text-lg">{conversationTitle(conversation, arabic)}</h2>

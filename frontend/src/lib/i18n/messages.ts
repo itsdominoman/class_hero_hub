@@ -155,6 +155,7 @@ export const en = {
     selectBody: 'Choose a conversation from the inbox to read or reply.',
     conversationWith: 'Conversation with {name}',
     backToInbox: 'Back to inbox',
+    returnToQuickAward: 'Return to Quick Award',
     readOnly: 'Read only',
     contextAdministration: 'School administration',
     contextHomeroom: 'Homeroom',
@@ -903,7 +904,7 @@ export const en = {
       duty: { break: 'Break duty', lunch: 'Lunch duty', playground: 'Playground', hallway: 'Hallway', assembly: 'Assembly', bus: 'Bus', general_duty: 'General duty' }
     },
     quickAward: {
-      title: 'Quick award', context: 'Context', positive: 'Positive behaviours', needsWork: 'Needs-work behaviours', otherPositive: 'Other positive', otherNeedsWork: 'Other needs work', back: 'Back to quick actions', saving: 'Saving…', success: '{behaviour} awarded ({points} points)', saveError: 'Could not award behaviour. Please try again.', loadError: 'Could not load quick actions.', retry: 'Retry', noQuickActions: 'No quick actions configured yet.', noOther: 'No other behaviours available.', noBehaviours: 'Behaviour categories need to be configured by an admin.', openForStudent: 'Award behaviour to {student}', actionLabel: 'Award {behaviour} to {student}, {points} points'
+      title: 'Quick award', context: 'Context', positive: 'Positive behaviours', needsWork: 'Needs-work behaviours', otherPositive: 'Other positive', otherNeedsWork: 'Other needs work', back: 'Back to quick actions', saving: 'Saving…', success: '{behaviour} awarded ({points} points)', saveError: 'Could not award behaviour. Please try again.', loadError: 'Could not load quick actions.', retry: 'Retry', noQuickActions: 'No quick actions configured yet.', noOther: 'No other behaviours available.', noBehaviours: 'Behaviour categories need to be configured by an admin.', openForStudent: 'Award behaviour to {student}', actionLabel: 'Award {behaviour} to {student}, {points} points', messageGuardians: 'Message guardians', checkingMessages: 'Checking messages…', openingMessages: 'Opening messages…', messagingDisabled: 'Messaging is disabled for this school.', noAuthorizedGuardians: 'No currently authorized guardian is available.', messagingUnauthorized: 'Messaging is not available for this student or assignment.', messagingUnavailable: 'Messaging is temporarily unavailable. Please try again.'
     }
   },
   faq: {
@@ -1287,6 +1288,7 @@ export const ar = {
     selectBody: 'اختر محادثة من صندوق الوارد لقراءتها أو الرد عليها.',
     conversationWith: 'محادثة مع {name}',
     backToInbox: 'العودة إلى صندوق الوارد',
+    returnToQuickAward: 'العودة إلى المنح السريع',
     readOnly: 'للقراءة فقط',
     contextAdministration: 'إدارة المدرسة',
     contextHomeroom: 'الفصل',
@@ -2031,7 +2033,7 @@ export const ar = {
       searching: 'جار البحث…', resultCount: '{count} نتائج', selected: 'تم اختيار {count}', noClass: 'الصف غير متاح', searchError: 'تعذر البحث عن الطلاب'
     },
     points: { title: 'منح النقاط', open: 'فتح', positive: 'إيجابي', needsWork: 'يحتاج إلى تحسين', selectStudents: 'اختر الطلاب', wholeClass: 'الصف بأكمله', clearSelection: 'مسح التحديد', category: 'الفئة / السبب', note: 'ملاحظة اختيارية', dutyContext: 'سياق المناوبة', submit: 'حفظ النقاط', saveForOne: 'حفظ النقاط لطالب واحد', saveForMany: 'حفظ النقاط لـ {count} طلاب', saving: 'جار الحفظ…', close: 'إغلاق', loadError: 'تعذر تحميل الفئات', saveError: 'تعذر حفظ النقاط', successOne: 'تم حفظ النقاط لطالب واحد', successMany: 'تم حفظ النقاط لـ {count} طلاب', pts: 'نقطة', duty: { break: 'مناوبة الفسحة', lunch: 'مناوبة الغداء', playground: 'ساحة اللعب', hallway: 'الممر', assembly: 'الطابور', bus: 'الحافلة', general_duty: 'مناوبة عامة' } },
-    quickAward: { title: 'منح سريع', context: 'السياق', positive: 'سلوكيات إيجابية', needsWork: 'سلوكيات تحتاج إلى تحسين', otherPositive: 'إيجابيات أخرى', otherNeedsWork: 'سلوكيات أخرى تحتاج إلى تحسين', back: 'العودة للإجراءات السريعة', saving: 'جار الحفظ…', success: 'تم منح {behaviour} ({points} نقاط)', saveError: 'تعذر منح السلوك. يرجى المحاولة مرة أخرى.', loadError: 'تعذر تحميل الإجراءات السريعة.', retry: 'إعادة المحاولة', noQuickActions: 'لم يتم إعداد إجراءات سريعة بعد.', noOther: 'لا توجد سلوكيات أخرى متاحة.', noBehaviours: 'يجب على مسؤول المدرسة إعداد فئات السلوك.', openForStudent: 'منح سلوك للطالب {student}', actionLabel: 'منح {behaviour} للطالب {student}، {points} نقاط' }
+    quickAward: { title: 'منح سريع', context: 'السياق', positive: 'سلوكيات إيجابية', needsWork: 'سلوكيات تحتاج إلى تحسين', otherPositive: 'إيجابيات أخرى', otherNeedsWork: 'سلوكيات أخرى تحتاج إلى تحسين', back: 'العودة للإجراءات السريعة', saving: 'جار الحفظ…', success: 'تم منح {behaviour} ({points} نقاط)', saveError: 'تعذر منح السلوك. يرجى المحاولة مرة أخرى.', loadError: 'تعذر تحميل الإجراءات السريعة.', retry: 'إعادة المحاولة', noQuickActions: 'لم يتم إعداد إجراءات سريعة بعد.', noOther: 'لا توجد سلوكيات أخرى متاحة.', noBehaviours: 'يجب على مسؤول المدرسة إعداد فئات السلوك.', openForStudent: 'منح سلوك للطالب {student}', actionLabel: 'منح {behaviour} للطالب {student}، {points} نقاط', messageGuardians: 'مراسلة أولياء الأمور', checkingMessages: 'جارٍ التحقق من الرسائل…', openingMessages: 'جارٍ فتح الرسائل…', messagingDisabled: 'المراسلة معطلة لهذه المدرسة.', noAuthorizedGuardians: 'لا يوجد ولي أمر مصرح له حاليًا.', messagingUnauthorized: 'المراسلة غير متاحة لهذا الطالب أو التكليف.', messagingUnavailable: 'المراسلة غير متاحة مؤقتًا. يرجى المحاولة مرة أخرى.' }
   },
   faq: {
     pageTitle: 'الأسئلة الشائعة | كلاس هيرو هب',

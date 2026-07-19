@@ -19,6 +19,10 @@ const pageSource = readFileSync(new URL('../src/routes/messages/+page.svelte', i
 const apiSource = readFileSync(new URL('../src/lib/messaging/api.ts', import.meta.url), 'utf8');
 const voiceRecorderSource = readFileSync(new URL('../src/lib/components/messaging/VoiceRecorder.svelte', import.meta.url), 'utf8');
 const voicePlayerSource = readFileSync(new URL('../src/lib/components/messaging/ProtectedVoiceNote.svelte', import.meta.url), 'utf8');
+const shellSource = readFileSync(new URL('../src/routes/+layout.svelte', import.meta.url), 'utf8');
+const appCssSource = readFileSync(new URL('../src/app.css', import.meta.url), 'utf8');
+const quickAwardSource = readFileSync(new URL('../src/routes/teach/assignments/[id]/+page.svelte', import.meta.url), 'utf8');
+const conversationPaneSource = readFileSync(new URL('../src/lib/components/messaging/ConversationPane.svelte', import.meta.url), 'utf8');
 
 const baseConversation = {
   id: '00000000-0000-0000-0000-000000000001',
@@ -156,6 +160,33 @@ test('native Back policy avoids accidental exit and preserves non-root fallback'
   assert.equal(chooseNativeBackAction('/messages', roots, false, false), 'fallback');
   assert.equal(chooseNativeBackAction('/teach', roots, false, false), 'arm-exit');
   assert.equal(chooseNativeBackAction('/teach', roots, false, true), 'exit');
+});
+
+test('native authenticated shell fixes the header and owns one bottom inset', () => {
+  assert.match(shellSource, /class="app-shell/);
+  assert.match(shellSource, /class="app-header/);
+  assert.match(shellSource, /class:viewport-managed=\{nativeApp && messagingRoute\}/);
+  assert.match(appCssSource, /\.native-app \.app-shell \{[\s\S]*height: 100dvh;[\s\S]*overflow: hidden;/);
+  assert.match(appCssSource, /\.native-app \.app-main \{[\s\S]*overflow-y: auto;[\s\S]*padding-bottom: var\(--safe-bottom\);/);
+  assert.match(appCssSource, /\.native-app \.app-main\.viewport-managed \{[\s\S]*padding-bottom: 0;/);
+  assert.match(shellSource, /pb-\[calc\(1\.25rem\+var\(--safe-bottom\)\)\]/);
+});
+
+test('Quick Award guardian shortcut reuses authorized idempotent messaging and restores context', () => {
+  assert.match(quickAwardSource, /data-testid="quick-award-message-guardians"/);
+  assert.match(quickAwardSource, /row\.role === 'teacher'/);
+  assert.match(quickAwardSource, /row\.school_id === detail\?\.assignment\.school\.id/);
+  assert.match(quickAwardSource, /messagingApi\.recipients\(membership, student\.display_name\)/);
+  assert.match(quickAwardSource, /recipient\.guardian_details\?\.length \|\| recipient\.guardian_names\.length/);
+  assert.match(quickAwardSource, /messagingApi\.createStudentConversation\(membership, student\.id\)/);
+  assert.match(quickAwardSource, /quick_award_student/);
+  assert.match(quickAwardSource, /quick_award_mode/);
+  assert.match(pageSource, /requestedMembershipId/);
+  assert.match(pageSource, /requestedShortcutReturnPath/);
+  assert.match(pageSource, /\^\\\/teach\\\/assignments\\\/\\d\+\$/);
+  assert.match(pageSource, /if \(shortcutReturnPath\) await returnToQuickAward\(\)/g);
+  assert.match(conversationPaneSource, /persistentBack/);
+  assert.match(pageSource, /onback=\{closeOrReturnConversation\}/);
 });
 
 test('photo composer supports gallery, Android camera, five-photo limit, and independent retry', () => {

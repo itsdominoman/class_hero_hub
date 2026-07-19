@@ -4211,3 +4211,45 @@ CHH now processes update photos server-side. It accepts JPEG/JPG, PNG, WEBP and 
   remain mandatory. No messaging photos, final receipt UI, contact-hours worker,
   notification delivery/push, safeguarding administration UI, retention worker, or
   CHH guardian UI was added.
+
+## 2026-07-19 — S25w native mobile shell and Quick Award guardian shortcut
+
+- Replaced document-level native scrolling with one bounded `100dvh` authenticated
+  shell. The safe-area-aware CHH header is a non-scrolling flex child and
+  `app-main` is the only route scroller. Normal routes receive the Android bottom
+  inset once at that boundary; `/messages` retains its accepted composer-owned
+  bottom inset through the explicit viewport-managed exception.
+- This shared native-only shell repairs the teacher class list, opened class
+  dashboard, school setup/administration, reporting, guardian, and othe
+  authenticated routes without changing their browser/desktop layout. The final
+  control in a long route can scroll fully above gesture or three-button navigation.
+- The prior failure was caused by a sticky header inside document/overflow
+  ancestors plus unbounded route scrolling and no shared bottom-inset owner. Page
+  content could therefore move behind both Android system bars, and page-specific
+  fixes risked applying the inset twice.
+- Quick Award now preflights the existing messaging policy and exact teacher school
+  membership for the selected student. `Message guardians` calls the existing
+  idempotent student-conversation endpoint, opens the existing message thread, and
+  carries the assignment route, student, and Quick Award mode as a validated return
+  target. Closing the thread or successfully sending returns to the same class and
+  restores the same Quick Award overlay.
+- Disabled messaging, changed assignment authorization, and no-authorized-guardian
+  states stay inside the overlay with a clear localized reason. The action neve
+  constructs a second messaging system and never creates a broken conversation.
+- No backend, migration, message/media/voice, protected-media, proxy, retention,
+  receipt, notification, contact-hours, or push change was required. Conversation
+  creation remains duplicate-safe and authorization remains enforced by the
+  existing CHH messaging API.
+- Focused validation passed: Svelte check 0 errors/0 warnings, 1,223-key EN/AR
+  parity, two shell/shortcut contract tests, the Android-sized shell and complete
+  Quick Award messaging Playwright flows, production frontend builds, and app-scoped
+  `testDebugUnitTest`, `lintDebug`, and `assembleDebug`.
+- Only the CHH frontend container was rebuilt/recreated. Backend and PostgreSQL
+  container IDs remained unchanged; loopback/public web checks and `/api/health`
+  passed after deployment.
+- Development APK: `/opt/apps/class_hero_hub/tmp/class-hero-hub-mobile-shell-dev.apk`,
+  package `com.classherohub.app`, fixed endpoint
+  `https://class.familyherohub.com/api`, 95,891,184 bytes, SHA-256
+  `37a07656d91d343e8bc27db2b0ae3d22a9af0e339a20be6726237f5bc08eea7b`.
+  The identical Drive copy is
+  `G:\My Drive\CHH\Remote\class-hero-hub-mobile-shell-dev.apk`.

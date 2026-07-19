@@ -282,3 +282,12 @@ Completed by this document. No application, migration, seed, or runtime changes.
 **APPROVE IMPLEMENTATION PLAN**
 
 The existing category/event architecture supports this feature without changing the reporting category universe or weakening context authorisation. The recommended category-field design is the smallest safe schema change, and reuse of the current award endpoint limits behavioural risk while achieving the required two-tap teacher path.
+
+## S25w implemented extension: Message guardians
+
+The teacher Quick Award context now includes a guarded `Message guardians` shortcut.
+It deliberately reuses the existing messaging recipient lookup, idempotent
+student-conversation creation, protected thread/composer, and authorization policy.
+The originating assignment/student/mode are carried through a same-origin validated
+return target, so back or a successful send restores Quick Award without altering
+award state. No messaging backend or schema extension was needed.

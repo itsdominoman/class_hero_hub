@@ -86,25 +86,25 @@ device model, Android version, APK filename, checksum, date, and tester with the
 
 ## Messaging development pilot
 
-### Slice 8 camera, gallery and protected viewer
+### Slice 8 camera, gallery and protected viewe
 
 1. In an active conversation choose one to five gallery photos, including a real
    HEIC/HEIF image where the device offers it. Confirm each preview reaches Ready.
-2. Remove one selection, force one upload failure, then retry only that photo. Other
+2. Remove one selection, force one upload failure, then retry only that photo. Othe
    ready selections and the text draft must remain unchanged.
 3. Use the camera control, deny permission once, then grant it and take a photo.
    Confirm denial is recoverable and the camera output is not publicly saved by CHH.
 4. Send text-only, photo-only, and text plus five photos. Confirm the timeline uses
-   thumbnails, preserves order, and one unavailable tile does not hide message text or
+   thumbnails, preserves order, and one unavailable tile does not hide message text o
    neighboring photos.
 5. Open each photo. Pinch 1×–4×, pan while zoomed, swipe only while unzoomed, and test
-   double-tap, boundaries, viewer close and hardware Back. Back must close the viewer
+   double-tap, boundaries, viewer close and hardware Back. Back must close the viewe
    before returning to the inbox; keyboard-first behavior remains unchanged.
 6. Background/resume during selection and after send. Confirm drafts/retries survive
    safe refresh and no duplicate message/photo appears.
-7. Revoke the staff assignment/guardian link in a second session. A new thumbnail or
+7. Revoke the staff assignment/guardian link in a second session. A new thumbnail o
    full request must fail without exposing an old object URL after route reset.
-8. Inspect network traffic: thumbnails only in the timeline; full bytes only after
+8. Inspect network traffic: thumbnails only in the timeline; full bytes only afte
    open; no token in a URL; no storage key/path/public CHH URL.
 
 Run this matrix on gesture and three-button navigation in English and Arabic/RTL.
@@ -159,7 +159,7 @@ Record device model, Android version, navigation mode and keyboard.
 - [ ] Switch conversations and return; each unsent draft must remain with its own
       conversation and school membership. A successful send clears only its accepted
       draft; a failed send restores its text.
-- [ ] Repeat the keyboard-open/closed sequence after app background/resume and after
+- [ ] Repeat the keyboard-open/closed sequence after app background/resume and afte
       restoring an authenticated session.
 
 Automated S25i coverage verifies CSS inset/padding, `100dvh` resize, 48×48 send target,
@@ -170,7 +170,7 @@ Google account selection; those rows require a physical device.
 
 ## Browser regression check
 
-- [ ] In a desktop or mobile browser (not the APK), confirm the public homepage/footer
+- [ ] In a desktop or mobile browser (not the APK), confirm the public homepage/foote
       still render.
 - [ ] Confirm browser Google login continues to work with its normal redirect/state
       flow.
@@ -189,3 +189,32 @@ Google account selection; those rows require a physical device.
 4. Upload a detailed artwork, handwriting, or textured student-work image. Confirm
    its visual detail remains clear; output may reasonably be 600 KB–1.2 MB (up to
    the 1.5 MB hard limit) rather than being forced to the smallest possible file.
+
+## S25w mobile shell and Quick Award messaging matrix
+
+- [ ] On gesture navigation, open the teacher class list and scroll to the final
+      class. The CHH logo/menu stay fixed below the status bar and the final button
+      remains completely above the gesture area.
+- [ ] Repeat with three-button navigation, then after background/resume and a
+      status-bar size change. Confirm there is neither overlap nor a second blank
+      inset below the content.
+- [ ] Open a class and scroll its hero/context, roster, cards, and actions. The hero
+      must begin below the fixed header; only the body moves and the final action is
+      tappable above Android navigation.
+- [ ] Repeat on School setup, another school-administration route, Reporting, a
+      guardian route, and Messages. Confirm the shared header behavior and verify
+      Messages has no doubled space below its sticky composer.
+- [ ] With the keyboard open on a normal form and in Messages, confirm `adjustResize`
+      still keeps focused controls/composer above the IME and hardware Back retains
+      its keyboard-first behavior.
+- [ ] From a class roster open Quick Award for a student with authorized guardians.
+      Tap **Message guardians** and confirm the already-active student/guardian thread
+      opens with the correct school/class/assignment context and no duplicate thread.
+- [ ] Send text, one protected photo, and one protected voice note through the reused
+      composer. After each successful send or explicit thread back, confirm the same
+      class, student, and Quick Award overlay return with its prior mode intact.
+- [ ] Test a school with messaging disabled, a student with no authorized guardians,
+      and a teacher whose assignment was revoked. The action must be disabled or fail
+      calmly with the clear localized reason and must not create a thread.
+- [ ] Repeat the shell and shortcut checks in Arabic/RTL. Confirm labels, logical
+      back direction, mixed-direction names, focus order, and minimum tap targets.

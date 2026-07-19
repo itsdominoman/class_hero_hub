@@ -217,6 +217,59 @@ async function mockEnabledMessaging(
       });
       return;
     }
+    if (path.endsWith('/conversations') && request.method() === 'POST') {
+      expect(request.postDataJSON()).toEqual({ kind: 'student_staff', student_id: 91 });
+      await route.fulfill({ json: { conversation_id: conversationId, status: 'active' } });
+      return;
+    }
+    await route.fulfill({ status: 404, json: { detail: 'Not found' } });
+  });
+}
+
+async function mockTeacherAssignment(page: Page) {
+  await page.route('**/api/teach/**', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/teach/assignments/77')) {
+      await route.fulfill({
+        json: {
+          assignment: {
+            id: 77,
+            role: 'homeroom',
+            target_type: 'class_section',
+            school: { id: 7, name: 'Al Noor School' },
+            class_section: { id: 12, name: 'KG1A' },
+            subject_group: null,
+            subject: null,
+            branch: null,
+            academic_year: null,
+            grade_level: { id: 2, name: 'KG1' }
+          },
+          student_count: 1,
+          students: [{
+            id: 91,
+            first_name: 'Mariam',
+            last_name: 'Al Harthy',
+            display_name: 'Mariam Al Harthy',
+            avatar_url_256: null,
+            points_total: 4
+          }]
+        }
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/teach/behaviour/quick-actions')) {
+      await route.fulfill({
+        json: {
+          quick_actions: { positive: [], needs_work: [] },
+          other_actions: { positive: [], needs_work: [] }
+        }
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/teach/homework')) {
+      await route.fulfill({ json: { items: [] } });
+      return;
+    }
     await route.fulfill({ status: 404, json: { detail: 'Not found' } });
   });
 }
@@ -224,6 +277,37 @@ async function mockEnabledMessaging(
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('familyHeroHub.language', 'en'));
   await mockSession(page);
+});
+
+test('Quick Award opens the existing guardian conversation and returns after send without losing student context', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockTeacherAssignment(page);
+  await mockEnabledMessaging(page);
+  let createRequests = 0;
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/messaging/conversations')) {
+      createRequests += 1;
+    }
+  });
+
+  await page.goto('/teach/assignments/77');
+  await page.getByRole('button', { name: 'Award behaviour to Mariam Al Harthy' }).click();
+  const shortcut = page.getByTestId('quick-award-message-guardians');
+  await expect(shortcut).toBeEnabled();
+  await shortcut.click();
+
+  await expect(page).toHaveURL(new RegExp(`/messages\\?.*conversation=${conversationId}.*membership=51.*shortcut=quick-award`));
+  expect(createRequests).toBe(1);
+  const notice = page.getByTestId('conversation-information-panel');
+  if (await notice.isVisible()) await page.getByRole('button', { name: 'I understand' }).click();
+  const composer = page.getByRole('textbox', { name: 'Message', exact: true });
+  await composer.fill('Quick Award follow-up');
+  await page.getByTestId('message-send').click();
+
+  await expect(page).toHaveURL('/teach/assignments/77?quick_award_student=91&quick_award_mode=quick');
+  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Mariam Al Harthy' })).toBeVisible();
+  await expect(page.getByTestId('quick-award-message-guardians')).toBeVisible();
+  expect(createRequests).toBe(1);
 });
 
 test('deep link loads the staff thread and reconciles a stable optimistic send', async ({ page }) => {

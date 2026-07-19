@@ -168,3 +168,33 @@ Capacitor Camera v7 system camera/photo-picker flow does not need one when
   reduces when the normal 1 MB target requires it. Quality 78 is the preferred
   floor; detailed artwork or writing may remain between 1 MB and 1.5 MB at that
   quality rather than being unnecessarily crushed.
+
+## S25w app-wide safe-area shell and teacher messaging handoff
+
+- Native CHH now fixes the branded header/logo/menu as the top flex boundary below
+  `--safe-top`; route content no longer owns the document viewport.
+- The single native `app-main` scroller owns `--safe-bottom` for ordinary
+  authenticated routes. Messaging is explicitly viewport-managed so its accepted
+  sticky composer continues to own that inset exactly once.
+- The behavior applies on teacher lists and class dashboards, school administration,
+  Reporting, guardian routes, and other routes rendered through the shared shell.
+  Browser chrome, desktop page flow, public footer, Android Back, IME resize, session
+  restoration, and existing message drafts are unchanged.
+- Quick Award reuses the current protected messaging route. Its return query is
+  constrained to the originating assignment and exact student, and successful send
+  or explicit back restores that overlay rather than dropping the teacher at an
+  inbox or dashboard.
+- Android-sized Playwright coverage uses 24px/48px synthetic system insets and a long
+  class list to assert fixed header geometry, one internal scroller, zero document
+  scroll, and a fully tappable last class above the navigation inset.
+- Fresh S25w artifact:
+  `/opt/apps/class_hero_hub/tmp/class-hero-hub-mobile-shell-dev.apk`; identical Drive
+  copy `G:\My Drive\CHH\Remote\class-hero-hub-mobile-shell-dev.apk`.
+- Package `com.classherohub.app`, version code `1`, version name `1.0`, compile SDK
+  35, fixed API `https://class.familyherohub.com/api`; 95,891,184 bytes; SHA-256
+  `37a07656d91d343e8bc27db2b0ae3d22a9af0e339a20be6726237f5bc08eea7b`.
+- Android debug signature verified under APK signature schemes v1 and v2; signe
+  certificate SHA-256 remains
+  `e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
+- App-scoped `testDebugUnitTest`, `lintDebug`, and `assembleDebug` passed on
+  Temurin 21.0.11 with Android SDK/build tools 35.

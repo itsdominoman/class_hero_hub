@@ -1,10 +1,14 @@
 <script lang="ts">
   import { onMount, onDestroy, tick } from 'svelte';
+  import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { _ } from 'svelte-i18n';
-  import { ArrowLeft, BookOpen, CalendarDays, Camera, Megaphone, Star, Users } from 'lucide-svelte';
+  import { ArrowLeft, BookOpen, CalendarDays, Camera, Megaphone, MessageCircle, Star, Users } from 'lucide-svelte';
   import { api } from '$lib/api';
   import { initialsFromStudentName } from '$lib/guardianDisplay';
+  import { errorStatus, messagingApi } from '$lib/messaging/api';
+  import type { MessagingMembership } from '$lib/messaging/types';
+  import type { SessionUser } from '$lib/roleRouting';
   import {
     ProtectedUpdatePhotoCache,
     ProtectedUpdatePhotoClearedError,
@@ -145,6 +149,10 @@
   let quickAwardNotice = $state<string | null>(null);
   let quickAwardDialog = $state<HTMLDivElement | undefined>(undefined);
   let quickAwardTrigger: HTMLButtonElement | undefined;
+  let quickAwardMessagingState = $state<'idle' | 'checking' | 'available' | 'disabled' | 'no_guardians' | 'unauthorized' | 'error'>('idle');
+  let quickAwardMessagingMembership = $state<MessagingMembership | null>(null);
+  let quickAwardMessagingBusy = $state(false);
+  let quickAwardMessagingEpoch = 0;
 
   async function loadQuickActions() {
     if (!detail) return;
@@ -159,20 +167,76 @@
     }
   }
 
-  async function openQuickAward(student: Student, trigger: HTMLButtonElement) {
+  async function checkGuardianMessaging(student: Student) {
+    if (!detail) return;
+    const epoch = ++quickAwardMessagingEpoch;
+    quickAwardMessagingState = 'checking';
+    quickAwardMessagingMembership = null;
+    try {
+      const user = await api.get('/me') as SessionUser;
+      const membership = (user.memberships || []).find(
+        (row): row is MessagingMembership =>
+          row.role === 'teacher' &&
+          row.school_id === detail?.assignment.school.id &&
+          Number.isInteger(row.membership_id)
+      );
+      if (!membership) {
+        if (epoch === quickAwardMessagingEpoch) quickAwardMessagingState = 'unauthorized';
+        return;
+      }
+      await messagingApi.unreadCount(membership);
+      const recipients = await messagingApi.recipients(membership, student.display_name);
+      const recipient = recipients.students.find((row) => row.student_id === student.id);
+      if (epoch !== quickAwardMessagingEpoch || quickAwardStudent?.id !== student.id) return;
+      if (!recipient) {
+        quickAwardMessagingState = 'unauthorized';
+        return;
+      }
+      if (!(recipient.guardian_details?.length || recipient.guardian_names.length)) {
+        quickAwardMessagingState = 'no_guardians';
+        return;
+      }
+      quickAwardMessagingMembership = membership;
+      quickAwardMessagingState = 'available';
+    } catch (cause) {
+      if (epoch !== quickAwardMessagingEpoch || quickAwardStudent?.id !== student.id) return;
+      const status = errorStatus(cause);
+      quickAwardMessagingState = status === 404 ? 'disabled' : status === 403 ? 'unauthorized' : 'error';
+    }
+  }
+
+  async function openQuickAward(
+    student: Student,
+    trigger?: HTMLButtonElement,
+    mode: typeof quickAwardMode = 'quick'
+  ) {
     quickAwardTrigger = trigger;
     quickAwardStudent = student;
-    quickAwardMode = 'quick';
+    quickAwardMode = mode;
     quickAwardError = null;
+    quickAwardMessagingState = 'checking';
+    quickAwardMessagingMembership = null;
     await tick();
     quickAwardDialog?.focus();
+    void checkGuardianMessaging(student);
   }
 
   function closeQuickAward() {
-    if (quickAwardSaving) return;
+    if (quickAwardSaving || quickAwardMessagingBusy) return;
+    quickAwardMessagingEpoch += 1;
     quickAwardStudent = null;
     quickAwardError = null;
     quickAwardMode = 'quick';
+    quickAwardMessagingState = 'idle';
+    quickAwardMessagingMembership = null;
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('quick_award_student')) {
+        url.searchParams.delete('quick_award_student');
+        url.searchParams.delete('quick_award_mode');
+        window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+      }
+    }
     void tick().then(() => quickAwardTrigger?.focus());
   }
 
@@ -192,6 +256,52 @@
 
   function actionLabel(action: QuickAction, student: Student) {
     return $_('teach.quickAward.actionLabel', { values: { behaviour: action.label, student: student.display_name, points: action.points_value } });
+  }
+
+  function guardianMessagingReason() {
+    if (quickAwardMessagingState === 'disabled') return $_('teach.quickAward.messagingDisabled');
+    if (quickAwardMessagingState === 'no_guardians') return $_('teach.quickAward.noAuthorizedGuardians');
+    if (quickAwardMessagingState === 'unauthorized') return $_('teach.quickAward.messagingUnauthorized');
+    if (quickAwardMessagingState === 'error') return $_('teach.quickAward.messagingUnavailable');
+    return '';
+  }
+
+  async function messageQuickAwardGuardians() {
+    if (!detail || !quickAwardStudent || !quickAwardMessagingMembership || quickAwardMessagingState !== 'available' || quickAwardMessagingBusy) return;
+    const student = quickAwardStudent;
+    const membership = quickAwardMessagingMembership;
+    quickAwardMessagingBusy = true;
+    quickAwardError = null;
+    try {
+      const conversation = await messagingApi.createStudentConversation(membership, student.id);
+      const returnParams = new URLSearchParams({
+        quick_award_student: String(student.id),
+        quick_award_mode: quickAwardMode
+      });
+      const returnPath = `${$page.url.pathname}?${returnParams.toString()}`;
+      const messageParams = new URLSearchParams({
+        conversation: conversation.conversation_id,
+        membership: String(membership.membership_id),
+        return: returnPath,
+        shortcut: 'quick-award'
+      });
+      await goto(`/messages?${messageParams.toString()}`);
+    } catch (cause) {
+      if (errorStatus(cause) === 409) {
+        quickAwardMessagingState = 'no_guardians';
+        quickAwardMessagingMembership = null;
+      } else if (errorStatus(cause) === 403) {
+        quickAwardMessagingState = 'unauthorized';
+        quickAwardMessagingMembership = null;
+      } else if (errorStatus(cause) === 404) {
+        quickAwardMessagingState = 'disabled';
+        quickAwardMessagingMembership = null;
+      } else {
+        quickAwardError = cause instanceof Error ? cause.message : $_('teach.quickAward.messagingUnavailable');
+      }
+    } finally {
+      quickAwardMessagingBusy = false;
+    }
   }
 
   async function submitQuickAward(action: QuickAction) {
@@ -755,8 +865,19 @@
   onMount(async () => {
     void detectNativeAndroid().catch(() => { isNativeAndroid = false; });
     try {
-      detail = await api.get(`/teach/assignments/${$page.params.id}`);
+      const loadedDetail = await api.get(`/teach/assignments/${$page.params.id}`) as Detail;
+      detail = loadedDetail;
       await Promise.all([loadHomeworkItems(), loadQuickActions()]);
+      const restoredStudentId = Number($page.url.searchParams.get('quick_award_student'));
+      const restoredMode = $page.url.searchParams.get('quick_award_mode');
+      const restoredStudent = loadedDetail.students.find((student) => student.id === restoredStudentId);
+      if (restoredStudent) {
+        await openQuickAward(
+          restoredStudent,
+          undefined,
+          restoredMode === 'other_positive' || restoredMode === 'other_needs_work' ? restoredMode : 'quick'
+        );
+      }
     } catch (err: any) {
       if (err?.status === 401) {
         window.location.href = `/login?returnTo=${encodeURIComponent($page.url.pathname)}`;
@@ -887,8 +1008,8 @@
 </section>
 
 {#if quickAwardStudent && detail}
-  <div class="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/45 p-2 backdrop-blur-[2px] sm:items-center sm:p-5" role="presentation" onclick={(event) => { if (event.target === event.currentTarget) closeQuickAward(); }}>
-    <div bind:this={quickAwardDialog} tabindex="-1" class="max-h-[calc(100vh-1rem)] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-2 shadow-2xl outline-none sm:max-h-[94vh] sm:rounded-3xl sm:p-7" role="dialog" aria-modal="true" aria-labelledby="quick-award-title" onkeydown={quickAwardKeydown}>
+  <div class="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/45 px-2 pb-[calc(0.5rem+var(--safe-bottom))] pt-[calc(0.5rem+var(--safe-top))] backdrop-blur-[2px] sm:items-center sm:p-5" role="presentation" onclick={(event) => { if (event.target === event.currentTarget) closeQuickAward(); }}>
+    <div bind:this={quickAwardDialog} tabindex="-1" class="max-h-[calc(100dvh-var(--safe-top)-var(--safe-bottom)-1rem)] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-2 shadow-2xl outline-none sm:max-h-[94vh] sm:rounded-3xl sm:p-7" role="dialog" aria-modal="true" aria-labelledby="quick-award-title" onkeydown={quickAwardKeydown}>
       <div class="flex items-start justify-between gap-2 sm:gap-4">
         <div class="flex min-w-0 items-center gap-2 sm:gap-3">
           <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-violet-100 to-sky-100 text-sm font-black text-hero ring-2 ring-violet-50 sm:h-14 sm:w-14 sm:rounded-2xl sm:text-lg sm:ring-4">
@@ -896,7 +1017,24 @@
               <img src={quickAwardStudent.avatar_url_256} alt="" class="h-full w-full object-contain p-1" />
             {:else}{initialsFromStudentName(quickAwardStudent)}{/if}
           </div>
-          <div class="min-w-0"><p class="text-[10px] font-black uppercase tracking-[0.08em] text-violet-600 sm:text-xs sm:tracking-[0.16em]">{$_('teach.quickAward.title')}</p><h2 id="quick-award-title" class="truncate text-lg font-black text-slate-900 sm:text-2xl">{quickAwardStudent.display_name}</h2><p class="mt-0.5 truncate text-xs font-semibold text-slate-500 sm:mt-1 sm:text-sm">{$_('teach.quickAward.context')}: {classTitle()} · {quickAwardStudent.points_total > 0 ? '+' : ''}{quickAwardStudent.points_total} {$_('teach.points.pts')}</p></div>
+          <div class="min-w-0 flex-1">
+            <p class="text-[10px] font-black uppercase tracking-[0.08em] text-violet-600 sm:text-xs sm:tracking-[0.16em]">{$_('teach.quickAward.title')}</p>
+            <h2 id="quick-award-title" class="truncate text-lg font-black text-slate-900 sm:text-2xl">{quickAwardStudent.display_name}</h2>
+            <p class="mt-0.5 truncate text-xs font-semibold text-slate-500 sm:mt-1 sm:text-sm">{$_('teach.quickAward.context')}: {classTitle()} · {quickAwardStudent.points_total > 0 ? '+' : ''}{quickAwardStudent.points_total} {$_('teach.points.pts')}</p>
+            <button
+              type="button"
+              data-testid="quick-award-message-guardians"
+              class="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-black text-sky-800 transition hover:border-sky-300 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-200 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              disabled={quickAwardMessagingState !== 'available' || quickAwardMessagingBusy}
+              onclick={messageQuickAwardGuardians}
+            >
+              <MessageCircle size={17} aria-hidden="true" />
+              {quickAwardMessagingBusy ? $_('teach.quickAward.openingMessages') : quickAwardMessagingState === 'checking' ? $_('teach.quickAward.checkingMessages') : $_('teach.quickAward.messageGuardians')}
+            </button>
+            {#if guardianMessagingReason()}
+              <p class="mt-1.5 text-xs font-semibold text-slate-500" role="status">{guardianMessagingReason()}</p>
+            {/if}
+          </div>
         </div>
         <button type="button" class="rounded-xl border border-slate-200 px-3 py-2 text-sm font-black text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-200 disabled:opacity-50" disabled={quickAwardSaving} onclick={closeQuickAward}>{$_('teach.points.close')}</button>
       </div>
