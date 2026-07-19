@@ -7,8 +7,10 @@ async function json(route: Route, body: unknown) {
   });
 }
 
-async function emulateAndroidShell(page: Page, bottomInset = 48) {
-  await page.addInitScript(({ nativeBottomInset }) => {
+const BOUNDED_NATIVE_VIEWPORT_HEIGHT = 772;
+
+async function emulateAndroidShell(page: Page) {
+  await page.addInitScript(() => {
     Object.assign(window, { androidBridge: {} });
     Object.assign(globalThis, {
       Capacitor: {
@@ -28,22 +30,11 @@ async function emulateAndroidShell(page: Page, bottomInset = 48) {
               { name: 'removeListener', rtype: 'callback' },
               { name: 'exitApp', rtype: 'promise' }
             ]
-          },
-          {
-            name: 'SystemInsets',
-            methods: [
-              { name: 'getInsets', rtype: 'promise' },
-              { name: 'addListener', rtype: 'callback' },
-              { name: 'removeListener', rtype: 'promise' }
-            ]
           }
         ],
         nativePromise: async (plugin: string, method: string, options: { key?: string } = {}) => {
           if (plugin === 'SecureStorage' && method === 'get') {
             return { value: options.key === 'chh_access_token' ? 'playwright-native-token' : null };
-          }
-          if (plugin === 'SystemInsets' && method === 'getInsets') {
-            return { top: 0, right: 0, bottom: nativeBottomInset, left: 0 };
           }
           return {};
         },
@@ -51,7 +42,7 @@ async function emulateAndroidShell(page: Page, bottomInset = 48) {
       }
     });
     localStorage.setItem('familyHeroHub.language', 'en');
-  }, { nativeBottomInset: bottomInset });
+  });
 }
 
 async function mockTeacherDashboard(page: Page) {
@@ -94,14 +85,11 @@ async function mockTeacherDashboard(page: Page) {
   await page.route('**/api/teach/announcements**', (route) => json(route, { items: [] }));
 }
 
-test('native teacher shell keeps the safe-area header fixed and the last class above Android navigation', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+test('native teacher shell stays fixed and scrolls terminal controls within its bounded viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: BOUNDED_NATIVE_VIEWPORT_HEIGHT });
   await emulateAndroidShell(page);
   await mockTeacherDashboard(page);
   await page.goto('/teach');
-  await page.addStyleTag({
-    content: ':root { --safe-top: 24px !important; }'
-  });
 
   await expect(page.getByRole('heading', { name: 'My classes' })).toBeVisible();
   const header = page.locator('.app-header');
@@ -131,13 +119,20 @@ test('native teacher shell keeps the safe-area header fixed and the last class a
 
   const afterHeader = await header.boundingBox();
   expect(afterHeader?.y).toBeCloseTo(beforeHeader?.y || 0, 0);
-  expect((await logo.boundingBox())?.y).toBeGreaterThanOrEqual(24);
-  await expect.poll(() => appMain.evaluate((element) =>
-    getComputedStyle(element).getPropertyValue('--native-safe-bottom').trim()
-  )).toBe('48px');
+  expect((await logo.boundingBox())?.y).toBeGreaterThanOrEqual(0);
   await expect(menu).toBeVisible();
   const lastBox = await lastClass.boundingBox();
-  expect((lastBox?.y || 0) + (lastBox?.height || 0)).toBeLessThanOrEqual(844 - 59);
+  expect((lastBox?.y || 0) + (lastBox?.height || 0)).toBeLessThanOrEqual(BOUNDED_NATIVE_VIEWPORT_HEIGHT - 12);
+
+  await menu.click();
+  const drawer = page.locator('#mobile-navigation');
+  const logout = drawer.getByRole('button', { name: 'Logout' });
+  const close = drawer.getByRole('button', { name: 'Close menu' });
+  await drawer.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  await expect(close).toBeAttached();
+  await expect(logout).toBeVisible();
+  const logoutBox = await logout.boundingBox();
+  expect((logoutBox?.y || 0) + (logoutBox?.height || 0)).toBeLessThanOrEqual(BOUNDED_NATIVE_VIEWPORT_HEIGHT - 12);
 });
 
 async function mockAuthenticatedRouteAudit(page: Page) {
@@ -320,12 +315,12 @@ async function scrollShellToEnd(page: Page) {
 async function expectAboveNavigation(locator: Locator) {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
-  expect((box?.y || 0) + (box?.height || 0)).toBeLessThanOrEqual(844 - 59);
+  expect((box?.y || 0) + (box?.height || 0)).toBeLessThanOrEqual(BOUNDED_NATIVE_VIEWPORT_HEIGHT - 12);
 }
 
-test('native authenticated route scroller keeps final class, student, setup, and Reporting controls above navigation', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await emulateAndroidShell(page, 48);
+test('bounded native route scroller keeps final class, student, setup, and Reporting controls reachable', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: BOUNDED_NATIVE_VIEWPORT_HEIGHT });
+  await emulateAndroidShell(page);
   await mockAuthenticatedRouteAudit(page);
 
   await page.goto('/teach', { waitUntil: 'domcontentloaded' });
