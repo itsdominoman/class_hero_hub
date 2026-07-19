@@ -163,7 +163,7 @@ def _validate_staff_audience(db: Session, school_id: int, membership: Membership
 
     if payload.audience_type == "school":
         if payload.class_section_id is not None or payload.subject_group_id is not None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="School announcements cannot include a class or subject target")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="School notices cannot include a class or subject target")
         if membership.role != "school_admin":
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Teacher assignment required")
         return None, None
@@ -173,7 +173,7 @@ def _validate_staff_audience(db: Session, school_id: int, membership: Membership
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Class section target required")
         target = db.query(ClassSection).filter(ClassSection.id == class_section_id, ClassSection.school_id == school_id).first()
         if not target:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Announcement target not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice target not found")
         if membership.role != "school_admin" and not _teacher_has_target(db, membership, class_section_id=class_section_id):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Teacher assignment required")
         return class_section_id, None
@@ -182,7 +182,7 @@ def _validate_staff_audience(db: Session, school_id: int, membership: Membership
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Subject group target required")
     target = db.query(SubjectGroup).filter(SubjectGroup.id == subject_group_id, SubjectGroup.school_id == school_id).first()
     if not target:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Announcement target not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice target not found")
     if membership.role != "school_admin" and not _teacher_has_target(db, membership, subject_group_id=subject_group_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Teacher assignment required")
     return None, subject_group_id
@@ -442,7 +442,7 @@ def _guardian_announcement_or_404(db: Session, current_user: User, announcement_
     query = _guardian_query(db, current_user)
     announcement = query.filter(Announcement.id == announcement_id).first() if query is not None else None
     if not announcement:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Announcement not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found")
     return announcement
 
 
@@ -585,7 +585,7 @@ async def upload_staff_attachment(
     membership = _staff_membership(db, current_user, school_id)
     announcement = db.query(Announcement).filter(Announcement.id == announcement_id, Announcement.school_id == school_id).first()
     if not announcement or not _can_manage_announcement(db, membership, announcement):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Announcement not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found")
     attachment = await _store_upload(db, announcement, current_user, file)
     db.commit()
     db.refresh(attachment)
@@ -604,7 +604,7 @@ async def upload_teacher_attachment(
     membership = _teacher_membership(db, current_user, school_id)
     announcement = db.query(Announcement).filter(Announcement.id == announcement_id, Announcement.school_id == school_id).first()
     if not announcement or not _teacher_can_manage_announcement(db, membership, announcement):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Announcement not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found")
     attachment = await _store_upload(db, announcement, current_user, file)
     db.commit()
     db.refresh(attachment)
@@ -613,7 +613,7 @@ async def upload_teacher_attachment(
 
 def _apply_announcement_update(db: Session, current_user: User, announcement: Announcement, payload: AnnouncementUpdateRequest) -> dict[str, Any]:
     if announcement.status != "published":
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Archived announcements cannot be edited")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Archived notices cannot be edited")
     announcement.title = payload.title
     announcement.body = payload.body
     write_audit(db, current_user.id, "school.announcement.updated", announcement, {"audience_type": announcement.audience_type}, school_id=announcement.school_id)
@@ -643,7 +643,7 @@ def update_staff_announcement(
     membership = _staff_membership(db, current_user, school_id)
     announcement = db.query(Announcement).filter(Announcement.id == announcement_id, Announcement.school_id == school_id).first()
     if not announcement or not _can_manage_announcement(db, membership, announcement):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Announcement not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found")
     return _apply_announcement_update(db, current_user, announcement, payload)
 
 
@@ -659,7 +659,7 @@ def update_teacher_announcement(
     membership = _teacher_membership(db, current_user, school_id)
     announcement = db.query(Announcement).filter(Announcement.id == announcement_id, Announcement.school_id == school_id).first()
     if not announcement or not _teacher_can_manage_announcement(db, membership, announcement):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Announcement not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found")
     return _apply_announcement_update(db, current_user, announcement, payload)
 
 
@@ -674,7 +674,7 @@ def archive_staff_announcement(
     membership = _staff_membership(db, current_user, school_id)
     announcement = db.query(Announcement).filter(Announcement.id == announcement_id, Announcement.school_id == school_id).first()
     if not announcement or not _can_manage_announcement(db, membership, announcement):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Announcement not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found")
     announcement.status = "archived"
     write_audit(db, current_user.id, "school.announcement.archived", announcement, {}, school_id=school_id)
     db.commit()
@@ -692,7 +692,7 @@ def archive_teacher_announcement(
     membership = _teacher_membership(db, current_user, school_id)
     announcement = db.query(Announcement).filter(Announcement.id == announcement_id, Announcement.school_id == school_id).first()
     if not announcement or not _teacher_can_manage_announcement(db, membership, announcement):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Announcement not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found")
     announcement.status = "archived"
     write_audit(db, current_user.id, "school.announcement.archived", announcement, {}, school_id=school_id)
     db.commit()

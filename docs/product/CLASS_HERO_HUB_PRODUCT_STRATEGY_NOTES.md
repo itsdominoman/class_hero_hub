@@ -50,10 +50,10 @@ Teacher↔parent 1:1 messaging is the highest-liability surface in the product. 
 
 ## 7. Notification delivery strategy
 
-**Pull notification delivery forward — it is existential, and the blueprint defers it too casually.** The current plan is in-app + email until "native apps (deferred)". Honest funnel: GCC parents do not live in email, and a mobile web app they visit voluntarily is a dead letterbox. If parents miss the first two announcements, the school reverts to WhatsApp and the pilot dies *while all the software works perfectly*.
+**Pull notification delivery forward — it is existential, and the blueprint defers it too casually.** The current plan is in-app + email until "native apps (deferred)". Honest funnel: GCC parents do not live in email, and a mobile web app they visit voluntarily is a dead letterbox. If parents miss the first two notices, the school reverts to WhatsApp and the pilot dies *while all the software works perfectly*.
 
 - Make the parent app a proper installable **PWA with web push** (Android web push is excellent; iOS supports it since 16.4 but only for home-screen-installed PWAs — design the "add to home screen" moment into guardian onboarding as a first-class step, right after the QR link succeeds; see §9).
-- Seriously evaluate the **WhatsApp Business API as a notification channel** — not for content, just "New announcement from {School} → open app" nudges. It sounds like heresy ("replacing WhatsApp with… WhatsApp?") but it is market-correct: meet parents where they are, own the content and record inside the app. Even if rejected, reject it deliberately.
+- Seriously evaluate the **WhatsApp Business API as a notification channel** — not for content, just "New notice from {School} → open app" nudges. It sounds like heresy ("replacing WhatsApp with… WhatsApp?") but it is market-correct: meet parents where they are, own the content and record inside the app. Even if rejected, reject it deliberately.
 - **Measure delivery:** "% of guardians who saw the post within 24h" should be a dashboard number from day one of the pilot.
 
 ## 8. Teacher 60-second workflow principle
@@ -77,7 +77,7 @@ Add **school branding (logo + accent colour)** on the parent app, invite letters
 
 ## 12. Messaging risk and admin visibility
 
-Messaging (S15) is kept, but it is the **last** thing to ship before the pilot, not the first — it is the highest-moderation surface, and the announcement/diary loop is the actual WhatsApp displacement. Ship it with the admin-visibility + disclosure model from §6 baked in from the first release; retrofitting visibility policy onto an in-use messaging product is far harder than launching with it.
+Messaging (S15) is kept, but it is the **last** thing to ship before the pilot, not the first — it is the highest-moderation surface, and the notice/diary loop is the actual WhatsApp displacement. Ship it with the admin-visibility + disclosure model from §6 baked in from the first release; retrofitting visibility policy onto an in-use messaging product is far harder than launching with it.
 
 ## 13. Pilot-as-experiment design
 

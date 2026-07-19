@@ -52,7 +52,7 @@ Full report: `docs/product/CLASS_HERO_HUB_PRODUCT_STRATEGY_NOTES.md`. Key plan-i
 4. **Teacher flows must be phone-first** (amending §16's tablet-first framing) and optimised for **60-second posting** — budget flows in taps/seconds and treat regressions as P1.
 5. **Safeguarding/admin visibility is a selling point**, especially for messaging (S15): admins can review threads, disclosed in-UI to both sides — decide before S15 ships.
 6. **School branding (logo/accent colour) moves earlier**, around the parent-facing launch (~S10–S11), rather than the §31 deferral pile.
-7. **Behaviour points (S14) must not block the first pilot** if posts/photos/diary/notifications are ready — the announcement/diary loop is the WhatsApp displacement; points can land mid-pilot.
+7. **Behaviour points (S14) must not block the first pilot** if posts/photos/diary/notifications are ready — the notice/diary loop is the WhatsApp displacement; points can land mid-pilot.
 8. **The pilot needs measurable week-4 success metrics** agreed in advance (e.g. ≥70% of classes posting ≥3×/week, ≥60% guardians linked, posts seen within 24h) — pilot as experiment, not deployment.
 9. **Demo school seed data** (fictional bilingual school with full content) should be created after S6 — sales demo, screenshot factory, QA fixture, Playwright target.
 10. **A data/privacy/export one-pager** (hosting location, access, retention, export, deletion, offboarding) should be written before serious school sales conversations.
@@ -72,7 +72,7 @@ What it does **not** have is the school domain. The only tenant is `Family`; the
 - Replace: the entire domain model. New school-rooted schema via a fresh Alembic baseline. Do **not** mutate `families` into `schools` — there is no Class Hero Hub production data to migrate, so a clean schema is free now and priceless later.
 - Build in vertical slices (Section 34): each slice ships a usable capability, is small enough for a single Codex task, and keeps tests green.
 
-MVP = one pilot school running: company admin creates the school → school admin imports classes/teachers/students via CSV → teachers invite parents via QR letters → teachers post announcements/photos, set homework/events, award behaviour points, and message guardians → parents see everything mobile-first in English or Arabic. That is slices S1–S16, in order.
+MVP = one pilot school running: company admin creates the school → school admin imports classes/teachers/students via CSV → teachers invite parents via QR letters → teachers post notices/photos, set homework/events, award behaviour points, and message guardians → parents see everything mobile-first in English or Arabic. That is slices S1–S16, in order.
 
 ---
 
@@ -133,7 +133,7 @@ Verified by direct inspection on 2026-07-07 (full detail in the two audit docs):
 
 ## 5. Product vision
 
-Class Hero Hub is a **multi-school, mobile-first, English/Arabic-native classroom communication platform** for KG–12: schools onboard once, teachers reach every guardian in one place (announcements, photos, homework, behaviour recognition, direct messages), and parents get one login for all their children — across classes and even across schools.
+Class Hero Hub is a **multi-school, mobile-first, English/Arabic-native classroom communication platform** for KG–12: schools onboard once, teachers reach every guardian in one place (notices, photos, homework, behaviour recognition, direct messages), and parents get one login for all their children — across classes and even across schools.
 
 Positioning against ClassDojo and peers: **school-governed, privacy-respecting, Arabic/RTL-native.** No public leaderboards, no student shaming, no parent-to-parent chat, school-controlled data. Gamification is a tool schools can opt into, not the product's identity. (Competitor detail: audit docs §9–§12.)
 
@@ -181,7 +181,7 @@ Deferred roles (post-MVP): teaching assistant, coordinator (grade/department sco
 | Behaviour categories config | — | ✅ | — | — |
 | Award/correct points | — | ✅ (any) | ✅ (own classes) | view own children |
 | Class posts/photos | — | ✅ (any class) | ✅ (own classes) | view (linked classes) |
-| School-wide announcements | — | ✅ | — | view |
+| School-wide notices | — | ✅ | — | view |
 | Diary items (homework/events/items) | — | ✅ (any) | ✅ (own classes) | view own children |
 | Message guardians | — | ✅ (any student) | ✅ (own students) | reply; initiate to own child's teachers |
 | View any student in school | — | ✅ | own classes only | own children only |
@@ -392,8 +392,8 @@ Design decisions, per the brief's questions:
 
 - **Model:** one thread per (student × teacher) — see §9 decision 3. School-admin↔guardian threads reuse the same table with an admin membership as `teacher_membership_id`.
 - **MVP includes:** parent replies (per-school toggle, default on); teacher inbox grouped by class; guardian unified inbox; unread tracking (`message_reads`); plain text (no attachments); i18n UI. New-message email notification (best-effort, deduped by thread+hour).
-- **MVP excludes:** read receipts shown to senders, quiet hours, machine translation, attachments, group-composed messages (announcements cover one-to-many), message search, edit/delete UX beyond soft-delete by admins.
-- **Broadcast** ("message all parents in class/school") is **not messaging — it's an announcement post** (§20), optionally with "notify" flag. This keeps threads personal and prevents reply-storms. School-wide urgent messages: announcement with notification.
+- **MVP excludes:** read receipts shown to senders, quiet hours, machine translation, attachments, group-composed messages (notices cover one-to-many), message search, edit/delete UX beyond soft-delete by admins.
+- **Broadcast** ("message all parents in class/school") is **not messaging — it's a notice post** (§20), optionally with "notify" flag. This keeps threads personal and prevents reply-storms. School-wide urgent messages: notice with notification.
 - Privacy guardrails: teachers can only open threads for students in their active assignments; guardians only for their linked children; no guardian↔guardian path exists in the data model at all; all messages school-scoped and retained (append-only, soft-delete) for safeguarding.
 - Transport: plain REST + polling (parent app polls unread counts on navigation). No WebSockets in MVP.
 
@@ -422,7 +422,7 @@ Design decisions, per the brief's questions:
 
 ## 23. Notification model
 
-- `notifications` table (in-app) + email via existing mailer. Kinds at MVP: new announcement/post, new diary item, new message, points summary (weekly, not per-event — avoid notification fatigue and behaviour-surveillance feel; per-event opt-in later), guardian-invite accepted (to admin).
+- `notifications` table (in-app) + email via existing mailer. Kinds at MVP: new notice/post, new diary item, new message, points summary (weekly, not per-event — avoid notification fatigue and behaviour-surveillance feel; per-event opt-in later), guardian-invite accepted (to admin).
 - Badge counts computed from `notifications.read_at` and `message_reads`.
 - Email: per-user preference `immediate | daily_digest | off` (default: messages immediate, everything else digest). Rendered in the recipient's locale (mailer needs AR templates + RTL email layout — real work, one slice).
 - Dedupe: `dedupe_key` unique index (e.g. `msg:{thread}:{hour}:{user}`); fires best-effort in-request; a durable queue is a scaling concern, not MVP (the FHH background-loop pattern is available if a sweep is needed for digests).
@@ -510,7 +510,7 @@ Google OAuth flow · JWT cookie session + CSRF machinery · token hash/issue/exc
 
 ## 33. Recommended implementation order
 
-S1 identity/tenancy → S2 household removal + rebrand → S3 platform panel → S4 school structure → S5 teachers → S6 students → S7 student CSV → S8 teacher CSV (optional, can trail) → S9 magic-link + guardian QR onboarding → S10 parent home → S11 announcements/posts → S12 photos → S13 diary → S14 points → S15 messaging → S16 notifications → S17 AR/RTL completion pass → S18 guardian-access admin → **pilot** → S19 rollover → S20 hardening/RLS → school #2.
+S1 identity/tenancy → S2 household removal + rebrand → S3 platform panel → S4 school structure → S5 teachers → S6 students → S7 student CSV → S8 teacher CSV (optional, can trail) → S9 magic-link + guardian QR onboarding → S10 parent home → S11 notices/posts → S12 photos → S13 diary → S14 points → S15 messaging → S16 notifications → S17 AR/RTL completion pass → S18 guardian-access admin → **pilot** → S19 rollover → S20 hardening/RLS → school #2.
 
 Dependency notes: S3–S8 are sequential-ish (each builds on the previous); S11–S15 are parallelisable after S10; S13/S14 don't depend on S11/S12. If pilot pressure demands cuts: S8 (teacher CSV — schools have few teachers, manual invite is fine), S16 email delivery (keep in-app only), and S17 can compress.
 
@@ -603,7 +603,7 @@ Global conventions for every slice: work on a feature branch; do not touch `dock
 - **Tests:** guardian sees only linked children; Playwright mobile-viewport smoke; AR/RTL render.
 - **Risk:** LOW. Depends on S9.
 
-### S11 — Announcements & class posts (text)
+### S11 — Notices & class posts (text)
 - **Goal:** `posts` (text, pin, audiences school/section/group); teacher composer in class view; school-admin school-wide composer; guardian feed per child + school.
 - **Tests:** audience correctness (guardian of 1A doesn't see 1B), scope guards, pin ordering.
 - **Risk:** LOW-MEDIUM. Depends on S10 (view) + S5 (author scope).
@@ -728,7 +728,7 @@ Model guidance: prompts 1, 2 and 5 → `gpt-5.5`; prompts 3 and 4 → `gpt-5.5` 
 
 **Where the family code may fight the school model:** the one-user-one-family assumption in any surviving helper (hunt for `family_id` after S2); SQLite-conditional code paths; i18n keys with household semantics reused for speed ("child" vs "student" — don't); the parent-launcher UI patterns tempting a "children-first" teacher UI (teachers think classes-first).
 
-**Features you didn't mention that schools/teachers/parents will expect** (plan explicitly, mostly as §31 deferrals): attendance visibility (most-requested parent feature after messaging) · timetable view · report cards/term reports · message translation EN↔AR · "seen by X parents" acknowledgements · teacher absence/substitute handling (threads and classes need a cover path) · school branding (logo/colours on letters and app) · data export for the school (their data, they'll ask) · parent-teacher conference booking (Bloomz's wedge feature) · fee/payment reminders (common ask in private schools; firmly out of scope until core is solid) · staff-only notes on students (keep separate from parent-visible events — flagged in §22) · WhatsApp-style broadcast expectations (educate schools: announcements + notifications replace the class WhatsApp group — this is actually the core sales pitch in the GCC).
+**Features you didn't mention that schools/teachers/parents will expect** (plan explicitly, mostly as §31 deferrals): attendance visibility (most-requested parent feature after messaging) · timetable view · report cards/term reports · message translation EN↔AR · "seen by X parents" acknowledgements · teacher absence/substitute handling (threads and classes need a cover path) · school branding (logo/colours on letters and app) · data export for the school (their data, they'll ask) · parent-teacher conference booking (Bloomz's wedge feature) · fee/payment reminders (common ask in private schools; firmly out of scope until core is solid) · staff-only notes on students (keep separate from parent-visible events — flagged in §22) · WhatsApp-style broadcast expectations (educate schools: notices + notifications replace the class WhatsApp group — this is actually the core sales pitch in the GCC).
 
 **Overbuilt risk check:** subject groups (mitigated: optional layer); staged imports (worth it — import errors are the #1 onboarding killer); per-student invite letters (worth it — the security model depends on them). **Underbuilt risk check:** messaging (no attachments may bite — parents photograph forms; add image attachments soon after pilot feedback); notifications (digest-only defaults may under-notify — watch pilot engagement).
 

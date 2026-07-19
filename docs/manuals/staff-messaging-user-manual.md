@@ -113,7 +113,7 @@ come from current CHH records; users cannot type or override these labels.
 
 Messaging is a school record. Current assignment and guardian access are checked on
 every request. Do not include unrelated private family information. Existing school
-announcements remain the broadcast channel; Messaging v1 has no groups.
+notices remain the broadcast channel; Messaging v1 has no groups.
 
 ## Current limits
 
