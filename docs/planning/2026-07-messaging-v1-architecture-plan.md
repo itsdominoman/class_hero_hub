@@ -2341,6 +2341,15 @@ remain Slice 11.
 - Rollback: disable channels/workers; in-app continues.
 - Exit: committed messages survive every delivery failure and no FHH token/family data enters CHH.
 
+**Completed and physically accepted 2026-07-20 (S26l).** CHH staff and FHH family
+Android devices receive real privacy-safe push while closed, and notification taps
+open the correct protected School Chat. The final server-side direction rule creates
+staff targets only for family-authored messages and FHH targets only for staff-authored
+messages. Post-acceptance correlation of CHH messages `70`-`73` and the FHH bridge
+event table proves no family self-notification or FHH event for the family-authored
+pair, while both staff-authored events reached provider acceptance. Receipt events
+remain participant-render/view evidence only. No final APK rebuild was required.
+
 ### Slice 12 — safeguarding, moderation, restrictions, export/hold
 
 **Objective:** school-ready governance before general pilot messaging.

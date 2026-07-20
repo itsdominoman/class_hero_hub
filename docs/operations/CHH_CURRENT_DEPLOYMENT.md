@@ -1,5 +1,33 @@
 # CHH current development deployment
 
+## S26l school-message Android push - final physical acceptance
+
+Messaging v1 Slice 11 is complete on CHH development at runtime commit `0c5c643`.
+Dom physically confirmed on 2026-07-20 that CHH receives real push while closed,
+that FHH-to-CHH notifications reach staff only, and that a notification tap opens
+the correct School Chat. The final notification-direction correction was server-side;
+no replacement APK was required for acceptance.
+
+- Post-acceptance database correlation for messages `71` and `73` (FHH parent
+  authored) shows exactly one `chh_user` staff target each, no sender/self target,
+  and no FHH bridge event at either message timestamp.
+- Messages `70` and `72` (staff authored) show exactly one `fhh_link` target each.
+  Their matching FHH events reached `provider_accepted`; authorised family devices
+  received the notification normally.
+- The direction correction therefore prevents family-authored messages from
+  notifying any FHH household member while preserving staff-reply delivery.
+- CHH and FHH loopback/public `/api/health` returned HTTP 200. CHH backend,
+  frontend, scheduler and PostgreSQL services are healthy; the notification evidence
+  is retained in the durable outbox/delivery tables.
+- Final source tag: `chh-s26l-android-push-notifications-2026-07-20`.
+
+**Status date:** 2026-07-20
+
+**Environment:** CHH development, `https://class.familyherohub.com`
+
+**Source checkpoint:** `main`, `0c5c643` plus this completion record. Production was
+not touched.
+
 ## S26k named-administrator receipt mop-up
 
 Messaging v1 Slice 9 administrator receipts are corrected on CHH development. The
