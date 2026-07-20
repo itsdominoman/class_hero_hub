@@ -10,6 +10,8 @@
     sending = false,
     offline = false,
     voiceEnabled = false,
+    canMarkUrgent = false,
+    urgent = $bindable(false),
     photos = [],
     onselectphotos,
     onremovephoto,
@@ -22,12 +24,14 @@
     sending?: boolean;
     offline?: boolean;
     voiceEnabled?: boolean;
+    canMarkUrgent?: boolean;
+    urgent?: boolean;
     photos?: SelectedMessagePhoto[];
     onselectphotos: (files: File[]) => void;
     onremovephoto: (photo: SelectedMessagePhoto) => void;
     onretryphoto: (photo: SelectedMessagePhoto) => void;
     onvoice: (recording: { blob: Blob; duration_ms: number; mime_type: string }) => Promise<boolean>;
-    onsend: (body: string) => Promise<boolean>;
+    onsend: (body: string, urgent: boolean) => Promise<boolean>;
   } = $props();
 
   let voiceActive = $state(false);
@@ -36,8 +40,11 @@
     const value = draft.trim();
     const readyPhotos = photos.filter((photo) => photo.state === 'ready');
     if ((!value && readyPhotos.length === 0) || disabled || sending || offline || photos.some((photo) => photo.state !== 'ready')) return;
-    const accepted = await onsend(value);
-    if (accepted) draft = '';
+    const accepted = await onsend(value, urgent);
+    if (accepted) {
+      draft = '';
+      urgent = false;
+    }
   }
 
   function handleKeydown(event: KeyboardEvent) {
@@ -77,6 +84,12 @@
         </div>
       {/each}
     </div>
+  {/if}
+  {#if canMarkUrgent && !voiceActive}
+    <label class="mb-2 inline-flex min-h-9 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-extrabold text-amber-900">
+      <input class="h-4 w-4 accent-amber-600" type="checkbox" bind:checked={urgent} disabled={disabled || sending || offline} />
+      {$_('messaging.markUrgent')}
+    </label>
   {/if}
   <div class="flex w-full items-end gap-2" class:min-h-11={voiceActive} data-voice-active={voiceActive || undefined}>
     {#if !voiceActive}

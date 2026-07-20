@@ -1,11 +1,25 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..database import get_db, settings
-from ..models_school import Membership, SchoolMessagingPolicy
-from ..schemas import SchoolMessagingPolicyResponse, SchoolMessagingPolicyUpdate
+from ..models_school import (
+    Membership,
+    NotificationOutbox,
+    School,
+    SchoolContactException,
+    SchoolContactWindow,
+    SchoolMessagingPolicy,
+)
+from ..schemas import (
+    NotificationOutboxStatusResponse,
+    SchoolContactHoursResponse,
+    SchoolContactHoursUpdate,
+    SchoolMessagingPolicyResponse,
+    SchoolMessagingPolicyUpdate,
+)
 from ..school_scope import require_school_role, write_audit
 
 
@@ -28,6 +42,8 @@ def _payload(policy: SchoolMessagingPolicy) -> dict:
         "read_receipts_visible": bool(policy.read_receipts_visible),
         "allow_staff_out_of_hours_opt_in": bool(policy.allow_staff_out_of_hours_opt_in),
         "teachers_may_mark_urgent": bool(policy.teachers_may_mark_urgent),
+        "contact_hours_enabled": bool(policy.contact_hours_enabled),
+        "notification_delay_mode": policy.notification_delay_mode,
         "notification_preview_mode": policy.notification_preview_mode,
         "retention_days": policy.retention_days,
         "email_mode": policy.email_mode,
@@ -51,6 +67,192 @@ def get_messaging_policy(
         db.commit()
         db.refresh(policy)
     return _payload(policy)
+
+
+def _contact_hours_payload(
+    db: Session,
+    *,
+    school: School,
+    policy: SchoolMessagingPolicy,
+) -> dict:
+    windows = (
+        db.query(SchoolContactWindow)
+        .filter(SchoolContactWindow.school_id == school.id)
+        .order_by(SchoolContactWindow.weekday)
+        .all()
+    )
+    exceptions = (
+        db.query(SchoolContactException)
+        .filter(SchoolContactException.school_id == school.id)
+        .order_by(SchoolContactException.local_date)
+        .all()
+    )
+    return {
+        "school_id": school.id,
+        "school_timezone": school.timezone,
+        "policy_version": policy.policy_version,
+        "enabled": bool(policy.contact_hours_enabled),
+        "notification_delay_mode": policy.notification_delay_mode,
+        "allow_staff_out_of_hours_opt_in": bool(policy.allow_staff_out_of_hours_opt_in),
+        "teachers_may_mark_urgent": bool(policy.teachers_may_mark_urgent),
+        "weekly_windows": [
+            {
+                "weekday": row.weekday,
+                "start_local": row.start_local.isoformat(timespec="minutes"),
+                "end_local": row.end_local.isoformat(timespec="minutes"),
+            }
+            for row in windows
+        ],
+        "exceptions": [
+            {
+                "local_date": row.local_date.isoformat(),
+                "kind": row.kind,
+                "start_local": (
+                    row.start_local.isoformat(timespec="minutes")
+                    if row.start_local is not None
+                    else None
+                ),
+                "end_local": (
+                    row.end_local.isoformat(timespec="minutes")
+                    if row.end_local is not None
+                    else None
+                ),
+                "label": row.label,
+                "label_ar": row.label_ar,
+            }
+            for row in exceptions
+        ],
+    }
+
+
+@router.get("/messaging-contact-hours", response_model=SchoolContactHoursResponse)
+def get_messaging_contact_hours(
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school = db.query(School).filter(School.id == membership.school_id).first()
+    policy = (
+        db.query(SchoolMessagingPolicy)
+        .filter(SchoolMessagingPolicy.school_id == membership.school_id)
+        .first()
+    )
+    if school is None:
+        raise HTTPException(status_code=404, detail="School not found")
+    if policy is None:
+        policy = _default_policy(membership.school_id)
+        db.add(policy)
+        db.commit()
+        db.refresh(policy)
+    return _contact_hours_payload(db, school=school, policy=policy)
+
+
+@router.put("/messaging-contact-hours", response_model=SchoolContactHoursResponse)
+def update_messaging_contact_hours(
+    payload: SchoolContactHoursUpdate,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school = db.query(School).filter(School.id == membership.school_id).first()
+    policy = (
+        db.query(SchoolMessagingPolicy)
+        .filter(SchoolMessagingPolicy.school_id == membership.school_id)
+        .with_for_update()
+        .first()
+    )
+    if school is None:
+        raise HTTPException(status_code=404, detail="School not found")
+    if policy is None:
+        policy = _default_policy(membership.school_id)
+        db.add(policy)
+        db.flush()
+    if policy.policy_version != payload.expected_policy_version:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "messaging_policy_version_conflict",
+                "current_version": policy.policy_version,
+            },
+        )
+
+    before = _contact_hours_payload(db, school=school, policy=policy)
+    db.query(SchoolContactException).filter(
+        SchoolContactException.school_id == school.id
+    ).delete(synchronize_session=False)
+    db.query(SchoolContactWindow).filter(
+        SchoolContactWindow.school_id == school.id
+    ).delete(synchronize_session=False)
+    for window in payload.weekly_windows:
+        db.add(
+            SchoolContactWindow(
+                school_id=school.id,
+                weekday=window.weekday,
+                start_local=window.start_local,
+                end_local=window.end_local,
+            )
+        )
+    for exception in payload.exceptions:
+        db.add(
+            SchoolContactException(
+                school_id=school.id,
+                local_date=exception.local_date,
+                kind=exception.kind,
+                start_local=exception.start_local,
+                end_local=exception.end_local,
+                label=exception.label,
+                label_ar=exception.label_ar,
+                created_by_membership_id=membership.id,
+            )
+        )
+    policy.contact_hours_enabled = payload.enabled
+    policy.notification_delay_mode = payload.notification_delay_mode
+    policy.allow_staff_out_of_hours_opt_in = payload.allow_staff_out_of_hours_opt_in
+    policy.teachers_may_mark_urgent = payload.teachers_may_mark_urgent
+    policy.policy_version += 1
+    policy.updated_by_membership_id = membership.id
+    db.flush()
+    after = _contact_hours_payload(db, school=school, policy=policy)
+    write_audit(
+        db,
+        membership.user_id,
+        "messaging.contact_hours.updated",
+        ("school_messaging_policies", school.id),
+        {
+            "previous": before,
+            "current": after,
+        },
+        school_id=school.id,
+    )
+    db.commit()
+    return after
+
+
+@router.get("/messaging-notification-outbox", response_model=NotificationOutboxStatusResponse)
+def get_messaging_notification_outbox_status(
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    state_counts = (
+        db.query(NotificationOutbox.state, func.count(NotificationOutbox.id))
+        .filter(NotificationOutbox.school_id == membership.school_id)
+        .group_by(NotificationOutbox.state)
+        .all()
+    )
+    oldest_held_at, next_eligible_at = (
+        db.query(
+            func.min(NotificationOutbox.created_at),
+            func.min(NotificationOutbox.eligible_at),
+        )
+        .filter(
+            NotificationOutbox.school_id == membership.school_id,
+            NotificationOutbox.state == "held",
+        )
+        .one()
+    )
+    return {
+        "counts": {state: count for state, count in state_counts},
+        "oldest_held_at": oldest_held_at,
+        "next_eligible_at": next_eligible_at,
+    }
 
 
 @router.put("/messaging-policy", response_model=SchoolMessagingPolicyResponse)

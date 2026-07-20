@@ -302,10 +302,37 @@
     read_receipts_visible: boolean;
     allow_staff_out_of_hours_opt_in: boolean;
     teachers_may_mark_urgent: boolean;
+    contact_hours_enabled: boolean;
+    notification_delay_mode: 'delay_notifications_only';
     notification_preview_mode: 'generic' | 'sender_only' | 'body';
     retention_days: number;
     email_mode: 'off' | 'immediate' | 'digest';
     policy_version: number;
+  };
+  type ContactWindowDraft = {
+    weekday: number;
+    closed: boolean;
+    start_local: string;
+    end_local: string;
+  };
+  type ContactException = {
+    local_date: string;
+    kind: 'closed' | 'custom';
+    start_local: string | null;
+    end_local: string | null;
+    label: string | null;
+    label_ar: string | null;
+  };
+  type ContactHours = {
+    school_id: number;
+    school_timezone: string;
+    policy_version: number;
+    enabled: boolean;
+    notification_delay_mode: 'delay_notifications_only';
+    allow_staff_out_of_hours_opt_in: boolean;
+    teachers_may_mark_urgent: boolean;
+    weekly_windows: Omit<ContactWindowDraft, 'closed'>[];
+    exceptions: ContactException[];
   };
 
   const tabs = [
@@ -349,6 +376,21 @@
   let complianceSaving = $state(false);
   let messagingPolicy = $state<MessagingPolicy | null>(null);
   let receiptPolicySaving = $state(false);
+  let contactHoursSaving = $state(false);
+  let contactHoursVersion = $state(1);
+  let contactHoursEnabled = $state(false);
+  let contactHoursTimezone = $state('UTC');
+  let contactHoursAllowOptIn = $state(false);
+  let contactHoursTeacherUrgent = $state(false);
+  let contactWindows = $state<ContactWindowDraft[]>(
+    Array.from({ length: 7 }, (_, index) => ({
+      weekday: index + 1,
+      closed: true,
+      start_local: '07:30',
+      end_local: '15:00'
+    }))
+  );
+  let contactExceptions = $state<ContactException[]>([]);
 
   let branches = $state<Row[]>([]);
   let stages = $state<Row[]>([]);
@@ -659,7 +701,7 @@
   async function loadAll() {
     if (!schoolId) return;
     const options = schoolOptions();
-    const [settings, featureControls, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData, templateRows, announcementData, messagingPolicyData] = await Promise.all([
+    const [settings, featureControls, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData, templateRows, announcementData, messagingPolicyData, contactHoursData] = await Promise.all([
       api.get('/school/settings', options),
       api.get('/school/feature-controls', options),
       api.get('/school/setup-checklist', options),
@@ -673,7 +715,8 @@
       api.get('/school/teachers', options),
       api.get('/school/default-subject-templates', options),
       api.get('/school/announcements', options),
-      api.get('/school/messaging-policy', options)
+      api.get('/school/messaging-policy', options),
+      api.get('/school/messaging-contact-hours', options)
     ]);
     // Students is the heaviest dataset (subject-group roster derivation over every
     // student). Skip it on initial/background loads and only fetch it once the
@@ -685,6 +728,7 @@
     customLabel = labelChoice === 'custom' ? gradeLevelLabel : '';
     voiceNotesControl = featureControls?.voice_notes || null;
     messagingPolicy = messagingPolicyData;
+    hydrateContactHours(contactHoursData);
     checklist = checklistData.items || [];
     setupComplete = Boolean(checklistData.complete);
     branches = branchRows;
@@ -1821,6 +1865,88 @@
     complianceDialogOpen = true;
   }
 
+  function hydrateContactHours(value: ContactHours) {
+    contactHoursVersion = value.policy_version;
+    contactHoursEnabled = value.enabled;
+    contactHoursTimezone = value.school_timezone;
+    contactHoursAllowOptIn = value.allow_staff_out_of_hours_opt_in;
+    contactHoursTeacherUrgent = value.teachers_may_mark_urgent;
+    contactWindows = Array.from({ length: 7 }, (_, index) => {
+      const weekday = index + 1;
+      const configured = value.weekly_windows.find((row) => row.weekday === weekday);
+      return {
+        weekday,
+        closed: !configured,
+        start_local: configured?.start_local?.slice(0, 5) || '07:30',
+        end_local: configured?.end_local?.slice(0, 5) || '15:00'
+      };
+    });
+    contactExceptions = value.exceptions.map((row) => ({
+      ...row,
+      start_local: row.start_local?.slice(0, 5) || null,
+      end_local: row.end_local?.slice(0, 5) || null
+    }));
+  }
+
+  function addContactException() {
+    const used = new Set(contactExceptions.map((row) => row.local_date));
+    const candidate = new Date();
+    while (used.has(candidate.toISOString().slice(0, 10))) {
+      candidate.setUTCDate(candidate.getUTCDate() + 1);
+    }
+    contactExceptions = [
+      ...contactExceptions,
+      {
+        local_date: candidate.toISOString().slice(0, 10),
+        kind: 'closed',
+        start_local: null,
+        end_local: null,
+        label: null,
+        label_ar: null
+      }
+    ];
+  }
+
+  function removeContactException(index: number) {
+    contactExceptions = contactExceptions.filter((_, rowIndex) => rowIndex !== index);
+  }
+
+  async function saveContactHours() {
+    if (contactHoursSaving) return;
+    contactHoursSaving = true;
+    error = null;
+    try {
+      const saved = await api.put('/school/messaging-contact-hours', {
+        expected_policy_version: contactHoursVersion,
+        enabled: contactHoursEnabled,
+        notification_delay_mode: 'delay_notifications_only',
+        allow_staff_out_of_hours_opt_in: contactHoursAllowOptIn,
+        teachers_may_mark_urgent: contactHoursTeacherUrgent,
+        weekly_windows: contactWindows
+          .filter((row) => !row.closed)
+          .map(({ weekday, start_local, end_local }) => ({ weekday, start_local, end_local })),
+        exceptions: contactExceptions.map((row) => ({
+          ...row,
+          start_local: row.kind === 'custom' ? row.start_local || '07:30' : null,
+          end_local: row.kind === 'custom' ? row.end_local || '15:00' : null
+        }))
+      }, schoolOptions()) as ContactHours;
+      hydrateContactHours(saved);
+      if (messagingPolicy) {
+        messagingPolicy.policy_version = saved.policy_version;
+        messagingPolicy.contact_hours_enabled = saved.enabled;
+        messagingPolicy.notification_delay_mode = saved.notification_delay_mode;
+        messagingPolicy.allow_staff_out_of_hours_opt_in = saved.allow_staff_out_of_hours_opt_in;
+        messagingPolicy.teachers_may_mark_urgent = saved.teachers_may_mark_urgent;
+      }
+      notice = $_('school.compliance.contactHoursUpdated');
+    } catch (err: any) {
+      error = err?.message || $_('school.compliance.contactHoursSaveError');
+    } finally {
+      contactHoursSaving = false;
+    }
+  }
+
   async function saveReceiptVisibility(
     field: 'delivery_receipts_visible' | 'read_receipts_visible',
     enabled: boolean
@@ -1830,7 +1956,7 @@
     receiptPolicySaving = true;
     error = null;
     try {
-      messagingPolicy = await api.put('/school/messaging-policy', {
+      const updatedPolicy = await api.put('/school/messaging-policy', {
         expected_policy_version: current.policy_version,
         enabled: current.enabled,
         guardian_replies_enabled: current.guardian_replies_enabled,
@@ -1842,7 +1968,9 @@
         retention_days: current.retention_days,
         email_mode: current.email_mode,
         [field]: enabled
-      }, schoolOptions());
+      }, schoolOptions()) as MessagingPolicy;
+      messagingPolicy = updatedPolicy;
+      contactHoursVersion = updatedPolicy.policy_version;
       notice = $_('school.compliance.receiptUpdated');
     } catch (err: any) {
       error = err?.message || $_('school.compliance.receiptSaveError');
@@ -2518,6 +2646,115 @@
                     </span>
                   </label>
                 </div>
+              </div>
+              <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <h3 class="font-black text-slate-900">{$_('school.compliance.contactHoursTitle')}</h3>
+                    <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-600">{$_('school.compliance.contactHoursHelp')}</p>
+                    <p class="mt-2 text-xs font-bold text-slate-500">
+                      {$_('school.compliance.schoolTimezone')}: {contactHoursTimezone}
+                    </p>
+                  </div>
+                  <label class="flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-800">
+                    <input class="h-4 w-4 accent-hero" type="checkbox" bind:checked={contactHoursEnabled} />
+                    {$_('school.compliance.contactHoursEnabled')}
+                  </label>
+                </div>
+
+                <div class="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+                  <p class="text-sm font-black text-slate-900">{$_('school.compliance.notificationDelayMode')}</p>
+                  <p class="mt-1 text-sm text-slate-700">{$_('school.compliance.delayNotificationsOnly')}</p>
+                  <p class="mt-1 text-xs leading-5 text-slate-500">{$_('school.compliance.delayModeHelp')}</p>
+                </div>
+
+                <div class="mt-4 space-y-2">
+                  <h4 class="text-sm font-black text-slate-900">{$_('school.compliance.weeklySchedule')}</h4>
+                  {#each contactWindows as row}
+                    <div class="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-[minmax(8rem,1fr)_auto_minmax(8rem,0.7fr)_minmax(8rem,0.7fr)] sm:items-end">
+                      <p class="pb-2 text-sm font-black text-slate-800">{$_(`school.compliance.weekday${row.weekday}`)}</p>
+                      <label class="flex min-h-10 items-center gap-2 pb-2 text-sm font-semibold text-slate-700">
+                        <input type="checkbox" bind:checked={row.closed} />
+                        {$_('school.compliance.closed')}
+                      </label>
+                      <label class="text-xs font-bold text-slate-600">
+                        {$_('school.compliance.startsAt')}
+                        <input class="mt-1 min-h-10 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" type="time" bind:value={row.start_local} disabled={row.closed} />
+                      </label>
+                      <label class="text-xs font-bold text-slate-600">
+                        {$_('school.compliance.endsAt')}
+                        <input class="mt-1 min-h-10 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" type="time" bind:value={row.end_local} disabled={row.closed} />
+                      </label>
+                    </div>
+                  {/each}
+                  <p class="text-xs leading-5 text-slate-500">{$_('school.compliance.overnightHelp')}</p>
+                </div>
+
+                <div class="mt-5">
+                  <div class="flex items-center justify-between gap-3">
+                    <h4 class="text-sm font-black text-slate-900">{$_('school.compliance.dateExceptions')}</h4>
+                    <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={addContactException}>
+                      {$_('school.compliance.addException')}
+                    </button>
+                  </div>
+                  {#if contactExceptions.length === 0}
+                    <p class="mt-2 text-sm text-slate-500">{$_('school.compliance.noExceptions')}</p>
+                  {:else}
+                    <div class="mt-3 space-y-2">
+                      {#each contactExceptions as exception, index}
+                        <div class="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 lg:grid-cols-[minmax(9rem,0.8fr)_minmax(9rem,0.8fr)_minmax(8rem,0.7fr)_minmax(8rem,0.7fr)_minmax(10rem,1fr)_auto] lg:items-end">
+                          <label class="text-xs font-bold text-slate-600">
+                            {$_('school.compliance.exceptionDate')}
+                            <input class="mt-1 min-h-10 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" type="date" bind:value={exception.local_date} />
+                          </label>
+                          <label class="text-xs font-bold text-slate-600">
+                            {$_('school.compliance.exceptionType')}
+                            <select class="mt-1 min-h-10 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" bind:value={exception.kind}>
+                              <option value="closed">{$_('school.compliance.closed')}</option>
+                              <option value="custom">{$_('school.compliance.customWindow')}</option>
+                            </select>
+                          </label>
+                          <label class="text-xs font-bold text-slate-600">
+                            {$_('school.compliance.startsAt')}
+                            <input class="mt-1 min-h-10 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" type="time" bind:value={exception.start_local} disabled={exception.kind === 'closed'} />
+                          </label>
+                          <label class="text-xs font-bold text-slate-600">
+                            {$_('school.compliance.endsAt')}
+                            <input class="mt-1 min-h-10 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" type="time" bind:value={exception.end_local} disabled={exception.kind === 'closed'} />
+                          </label>
+                          <label class="text-xs font-bold text-slate-600">
+                            {$_('school.compliance.exceptionLabel')}
+                            <input class="mt-1 min-h-10 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" bind:value={exception.label} maxlength="160" />
+                          </label>
+                          <button type="button" class="min-h-10 rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700" onclick={() => removeContactException(index)}>
+                            {$_('school.compliance.removeException')}
+                          </button>
+                        </div>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+
+                <div class="mt-5 grid gap-3 md:grid-cols-2">
+                  <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
+                    <input class="mt-1 h-4 w-4 accent-hero" type="checkbox" bind:checked={contactHoursAllowOptIn} />
+                    <span>
+                      <span class="block text-sm font-black text-slate-900">{$_('school.compliance.allowStaffOptIn')}</span>
+                      <span class="mt-1 block text-xs leading-5 text-slate-600">{$_('school.compliance.allowStaffOptInHelp')}</span>
+                    </span>
+                  </label>
+                  <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
+                    <input class="mt-1 h-4 w-4 accent-hero" type="checkbox" bind:checked={contactHoursTeacherUrgent} />
+                    <span>
+                      <span class="block text-sm font-black text-slate-900">{$_('school.compliance.allowTeacherUrgent')}</span>
+                      <span class="mt-1 block text-xs leading-5 text-slate-600">{$_('school.compliance.allowTeacherUrgentHelp')}</span>
+                    </span>
+                  </label>
+                </div>
+                <p class="mt-3 rounded-xl bg-blue-50 p-3 text-xs font-semibold leading-5 text-blue-900">{$_('school.compliance.parentUrgentHelp')}</p>
+                <button type="button" class="btn-hero mt-4 min-h-11 rounded-xl px-5 py-2 font-black" disabled={contactHoursSaving} onclick={() => void saveContactHours()}>
+                  {contactHoursSaving ? $_('common.loading') : $_('school.compliance.saveContactHours')}
+                </button>
               </div>
             {/if}
           </section>

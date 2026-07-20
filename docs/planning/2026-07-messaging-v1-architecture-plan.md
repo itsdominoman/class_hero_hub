@@ -2320,6 +2320,15 @@ not included.
 - Rollback: stop worker; messages continue; rows retained.
 - Exit: held/pending transitions are durable, idempotent, and observable.
 
+**Implemented 2026-07-20 (S26j).** CHH now commits message and per-target outbox rows
+atomically, calculates school-local weekly/exception/DST windows into UTC
+`eligible_at`, returns safe parent timing metadata, and runs a separate crash-safe
+policy-reconciliation scheduler. School controls and staff preferences are scoped,
+versioned and audited. United International School has the recommended development
+schedule; other schools remain default-safe. This checkpoint deliberately stops at
+scheduling: provider dispatch, device-token registration and the FHH push bridge
+remain Slice 11.
+
 ### Slice 11 — CHH staff push and FHH parent push bridge
 
 **Objective:** background awareness without sharing device tokens.

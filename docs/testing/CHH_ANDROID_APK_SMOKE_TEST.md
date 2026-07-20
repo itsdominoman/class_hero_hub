@@ -1,5 +1,25 @@
 # CHH Android APK smoke test
 
+## Slice 10 contact-hours regression matrix
+
+Use the Slice 10 development APK against `https://class.familyherohub.com/api`.
+
+1. As a school administrator, verify the school timezone, Sunday-Thursday
+   07:30-15:00 schedule, Friday/Saturday closed state, and fixed **Delay
+   notifications only** text. Add/remove a closed and custom date exception.
+2. Confirm administrators see **Mark as urgent**; teachers see it only after the
+   audited school control is enabled; guardians never see it.
+3. Confirm the personal out-of-hours checkbox appears only when the school allows it,
+   survives app restart, and disappears/becomes ineffective when permission is
+   withdrawn.
+4. Outside hours, send from FHH and immediately open the CHH thread. The message must
+   be visible; only background notification delivery is held. Existing text, photos,
+   voice notes, ticks, polling, draft, focus, safe-area and Back behavior must match
+   the Slice 9 APK.
+5. Repeat in English/Arabic, gesture/three-button navigation, keyboard open/closed,
+   background/resume and temporary network loss. Slice 10 contains no push-provider
+   call, so no lock-screen notification is expected from the new outbox.
+
 ## S25q microphone and protected voice matrix
 
 Use `class-hero-hub-voice-notes-dev.apk` (`com.classherohub.app`) against the CHH

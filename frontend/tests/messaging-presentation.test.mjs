@@ -191,6 +191,17 @@ test('school compliance settings expose independent audited receipt controls', (
   assert.match(schoolSettingsSource, /'read_receipts_visible'/);
   assert.match(schoolSettingsSource, /school\.compliance\.showDeliveryReceipts/);
   assert.match(schoolSettingsSource, /school\.compliance\.showReadReceipts/);
+  assert.match(schoolSettingsSource, /api\.get\('\/school\/messaging-contact-hours'/);
+  assert.match(schoolSettingsSource, /api\.put\('\/school\/messaging-contact-hours'/);
+  assert.match(schoolSettingsSource, /delay_notifications_only/);
+  assert.match(schoolSettingsSource, /contactHoursAllowOptIn/);
+  assert.match(schoolSettingsSource, /contactHoursTeacherUrgent/);
+  assert.match(schoolSettingsSource, /dateExceptions/);
+  assert.match(pageSource, /notificationPreference\?\.allowed_by_school/);
+  assert.match(pageSource, /updateNotificationPreference/);
+  assert.match(pageSource, /bind:urgent=\{activeUrgent\}/);
+  assert.match(conversationPaneSource, /canMarkUrgent=\{conversation\.capabilities\.can_mark_urgent\}/);
+  assert.match(composerSource, /messaging\.markUrgent/);
 });
 
 test('inbox filtering supports Arabic mixed-direction content and unread status', () => {

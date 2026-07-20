@@ -28,6 +28,7 @@
     persistentBack = false,
     backLabel,
     draft = $bindable(''),
+    urgent = $bindable(false),
     selectedPhotos = [],
     onback,
     onloadolder,
@@ -55,10 +56,11 @@
     persistentBack?: boolean;
     backLabel?: string;
     draft?: string;
+    urgent?: boolean;
     selectedPhotos?: SelectedMessagePhoto[];
     onback: () => void;
     onloadolder: () => void;
-    onsend: (body: string) => Promise<boolean>;
+    onsend: (body: string, urgent: boolean) => Promise<boolean>;
     onretry: (message: OptimisticMessage) => void;
     onselectphotos: (files: File[]) => void;
     onremovephoto: (photo: SelectedMessagePhoto) => void;
@@ -346,11 +348,13 @@
     {/if}
     <MessageComposer
       bind:draft
+      bind:urgent
       disabled={conversation.read_only || !conversation.capabilities.can_send}
       {sending}
       {offline}
       photos={selectedPhotos}
       voiceEnabled={conversation.capabilities.voice_notes_enabled}
+      canMarkUrgent={conversation.capabilities.can_mark_urgent}
       {onselectphotos}
       {onremovephoto}
       {onretryphoto}

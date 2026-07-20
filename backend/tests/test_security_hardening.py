@@ -42,6 +42,33 @@ def test_validate_runtime_configuration_accepts_canonical_test_environment():
     assert validate_runtime_configuration(config) == "test"
 
 
+def test_notification_scheduler_requires_messaging_and_valid_bounds():
+    with pytest.raises(RuntimeError, match="MESSAGING_NOTIFICATION_SCHEDULER_ENABLED"):
+        validate_runtime_configuration(
+            _base_settings(
+                MESSAGING_ENABLED=False,
+                MESSAGING_NOTIFICATION_SCHEDULER_ENABLED=True,
+            )
+        )
+    with pytest.raises(RuntimeError, match="MESSAGING_NOTIFICATION_SCHEDULER_LEASE_SECONDS"):
+        validate_runtime_configuration(
+            _base_settings(
+                MESSAGING_ENABLED=True,
+                MESSAGING_NOTIFICATION_SCHEDULER_ENABLED=True,
+                MESSAGING_NOTIFICATION_SCHEDULER_LEASE_SECONDS=10,
+            )
+        )
+    assert (
+        validate_runtime_configuration(
+            _base_settings(
+                MESSAGING_ENABLED=True,
+                MESSAGING_NOTIFICATION_SCHEDULER_ENABLED=True,
+            )
+        )
+        == "test"
+    )
+
+
 def test_fhh_integration_requires_strong_non_placeholder_token_when_enabled():
     with pytest.raises(RuntimeError, match="FHH_INTEGRATION_SERVICE_TOKEN"):
         validate_runtime_configuration(_base_settings(FHH_INTEGRATION_ENABLED=True, FHH_INTEGRATION_SERVICE_TOKEN="change_me"))

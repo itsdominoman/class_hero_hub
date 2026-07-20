@@ -4297,3 +4297,25 @@ CHH now processes update photos server-side. It accepts JPEG/JPG, PNG, WEBP and 
   Package `com.classherohub.app`, API `https://class.familyherohub.com/api`,
   95,807,045 bytes, SHA-256
   `5dc8fbcab2cff03e0941543d08664afaae2177c6f8381b7f57f37d6b11021124`.
+
+## 2026-07-20 — S26j Messaging v1 contact hours and durable outbox
+
+- Added school-local weekly contact windows, date-specific closed/custom exceptions,
+  fixed `delay_notifications_only` policy, staff personal opt-in, teacher urgent
+  authorization, policy versioning, and append-only audit through the existing
+  Compliance / Feature Controls area.
+- Message commit and notification scheduling are separate. Every non-duplicate send
+  inserts recipient/channel outbox rows in the same transaction, while parent
+  messages remain immediately visible. Only guardian-to-staff notification timing is
+  held outside hours; the send response returns a safe held/next-time/timezone object.
+- Added a separate scheduler service with PostgreSQL leases, `SKIP LOCKED`, expiry
+  recovery, bounded retry/dead state, recipient/school/message revalidation and
+  policy-version re-evaluation. Slice 10 makes no provider or push call.
+- United International School development setup is explicit and audited:
+  Sunday-Thursday 07:30-15:00 in its existing `Asia/Muscat` timezone, Friday/Saturday
+  closed, personal opt-in and teacher urgent disabled. Other schools retain safe
+  defaults.
+- Full CHH backend regression passed (429 passed, 2 skipped), focused PostgreSQL
+  migration/concurrency proof passed, Svelte check is clean, and the production web
+  build passes. Operational detail is in
+  `docs/operations/MESSAGING_NOTIFICATION_OUTBOX.md`.

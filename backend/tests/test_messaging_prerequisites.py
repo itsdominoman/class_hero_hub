@@ -181,6 +181,95 @@ def test_policy_update_is_school_scoped_versioned_and_audited(db, client):
     assert conflict.status_code == 409
 
 
+def test_contact_hours_are_school_scoped_versioned_validated_and_audited(db, client):
+    world = _school_world(db)
+    one_headers = _admin_headers(world["admin_one"], world["school_one"])
+    two_headers = _admin_headers(world["admin_two"], world["school_two"])
+    initial = client.get("/api/school/messaging-contact-hours", headers=one_headers)
+    assert initial.status_code == 200
+    assert initial.json()["enabled"] is False
+    assert initial.json()["weekly_windows"] == []
+    assert initial.json()["school_timezone"] == "Asia/Muscat"
+
+    payload = {
+        "expected_policy_version": 1,
+        "enabled": True,
+        "notification_delay_mode": "delay_notifications_only",
+        "allow_staff_out_of_hours_opt_in": False,
+        "teachers_may_mark_urgent": False,
+        "weekly_windows": [
+            {"weekday": weekday, "start_local": "07:30", "end_local": "15:00"}
+            for weekday in (1, 2, 3, 4, 7)
+        ],
+        "exceptions": [
+            {
+                "local_date": "2026-07-26",
+                "kind": "closed",
+                "start_local": None,
+                "end_local": None,
+                "label": "School holiday",
+                "label_ar": None,
+            },
+            {
+                "local_date": "2026-07-27",
+                "kind": "custom",
+                "start_local": "09:00",
+                "end_local": "12:30",
+                "label": "Short day",
+                "label_ar": None,
+            },
+        ],
+    }
+    updated = client.put(
+        "/api/school/messaging-contact-hours",
+        headers=one_headers,
+        json=payload,
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["policy_version"] == 2
+    assert updated.json()["enabled"] is True
+    assert [row["weekday"] for row in updated.json()["weekly_windows"]] == [1, 2, 3, 4, 7]
+    assert updated.json()["exceptions"][1]["end_local"] == "12:30:00"
+
+    other = client.get("/api/school/messaging-contact-hours", headers=two_headers)
+    assert other.status_code == 200
+    assert other.json()["enabled"] is False
+    assert other.json()["weekly_windows"] == []
+    audit = (
+        db.query(AuditLog)
+        .filter(AuditLog.action == "messaging.contact_hours.updated")
+        .one()
+    )
+    assert audit.school_id == world["school_one"].id
+    assert audit.detail["previous"]["policy_version"] == 1
+    assert audit.detail["current"]["policy_version"] == 2
+
+    conflict = client.put(
+        "/api/school/messaging-contact-hours",
+        headers=one_headers,
+        json=payload,
+    )
+    assert conflict.status_code == 409
+    invalid_mode = client.put(
+        "/api/school/messaging-contact-hours",
+        headers=one_headers,
+        json={**payload, "expected_policy_version": 2, "notification_delay_mode": "hide_messages"},
+    )
+    assert invalid_mode.status_code == 422
+    offset_window = client.put(
+        "/api/school/messaging-contact-hours",
+        headers=one_headers,
+        json={
+            **payload,
+            "expected_policy_version": 2,
+            "weekly_windows": [
+                {"weekday": 7, "start_local": "07:30+04:00", "end_local": "15:00+04:00"}
+            ],
+        },
+    )
+    assert offset_window.status_code == 422
+
+
 def test_lifecycle_delivery_is_idempotent_private_and_cross_link_safe(db, client):
     world = _school_world(db)
     link_one, link_two = world["links"]

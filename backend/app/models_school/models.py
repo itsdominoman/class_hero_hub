@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, Uuid, event, inspect as sa_inspect, text as sql_text
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, JSON, String, Text, Time, UniqueConstraint, Uuid, event, inspect as sa_inspect, text as sql_text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -562,6 +563,13 @@ class SchoolMessagingPolicy(Base):
     read_receipts_visible = Column(Boolean, nullable=False, default=False, server_default="false")
     allow_staff_out_of_hours_opt_in = Column(Boolean, nullable=False, default=False, server_default="false")
     teachers_may_mark_urgent = Column(Boolean, nullable=False, default=False, server_default="false")
+    contact_hours_enabled = Column(Boolean, nullable=False, default=False, server_default="false")
+    notification_delay_mode = Column(
+        String(40),
+        nullable=False,
+        default="delay_notifications_only",
+        server_default="delay_notifications_only",
+    )
     notification_preview_mode = Column(String(24), nullable=False, default="generic", server_default="generic")
     retention_days = Column(Integer, nullable=False, default=2557, server_default="2557")
     email_mode = Column(String(16), nullable=False, default="off", server_default="off")
@@ -572,9 +580,84 @@ class SchoolMessagingPolicy(Base):
 
     __table_args__ = (
         CheckConstraint("notification_preview_mode IN ('generic', 'sender_only', 'body')", name="ck_school_messaging_policies_preview"),
+        CheckConstraint(
+            "notification_delay_mode = 'delay_notifications_only'",
+            name="ck_school_messaging_policies_delay_mode",
+        ),
         CheckConstraint("email_mode IN ('off', 'immediate', 'digest')", name="ck_school_messaging_policies_email_mode"),
         CheckConstraint("retention_days BETWEEN 30 AND 36500", name="ck_school_messaging_policies_retention"),
         CheckConstraint("policy_version >= 1", name="ck_school_messaging_policies_version"),
+    )
+
+
+class SchoolContactWindow(Base):
+    __tablename__ = "school_contact_windows"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    weekday = Column(Integer, nullable=False)
+    start_local = Column(Time, nullable=False)
+    end_local = Column(Time, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("school_id", "weekday", name="uq_school_contact_windows_school_weekday"),
+        CheckConstraint("weekday BETWEEN 1 AND 7", name="ck_school_contact_windows_weekday"),
+        CheckConstraint("start_local <> end_local", name="ck_school_contact_windows_nonempty"),
+        Index("ix_school_contact_windows_school_weekday", "school_id", "weekday"),
+    )
+
+
+class SchoolContactException(Base):
+    __tablename__ = "school_contact_exceptions"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    local_date = Column(Date, nullable=False)
+    kind = Column(String(16), nullable=False)
+    start_local = Column(Time, nullable=True)
+    end_local = Column(Time, nullable=True)
+    label = Column(String(160), nullable=True)
+    label_ar = Column(String(160), nullable=True)
+    created_by_membership_id = Column(
+        Integer,
+        ForeignKey("memberships.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("school_id", "local_date", name="uq_school_contact_exceptions_school_date"),
+        CheckConstraint("kind IN ('closed', 'custom')", name="ck_school_contact_exceptions_kind"),
+        CheckConstraint(
+            "(kind = 'closed' AND start_local IS NULL AND end_local IS NULL) OR "
+            "(kind = 'custom' AND start_local IS NOT NULL AND end_local IS NOT NULL "
+            "AND start_local <> end_local)",
+            name="ck_school_contact_exceptions_window_shape",
+        ),
+        Index("ix_school_contact_exceptions_school_date", "school_id", "local_date"),
+    )
+
+
+class StaffMessagingPreference(Base):
+    __tablename__ = "staff_messaging_preferences"
+
+    membership_id = Column(
+        Integer,
+        ForeignKey("memberships.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    out_of_hours_notifications_enabled = Column(Boolean, nullable=False, default=False, server_default="false")
+    preference_version = Column(Integer, nullable=False, default=1, server_default="1")
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        CheckConstraint("preference_version >= 1", name="ck_staff_messaging_preferences_version"),
+        Index("ix_staff_messaging_preferences_school_membership", "school_id", "membership_id"),
     )
 
 
@@ -1350,6 +1433,86 @@ class MessagingAuditEvent(Base):
         ),
         Index("ix_messaging_audit_events_school_occurred", "school_id", "occurred_at", "id"),
         Index("ix_messaging_audit_events_type_occurred", "event_type", "occurred_at", "id"),
+    )
+
+
+class NotificationOutbox(Base):
+    __tablename__ = "notification_outbox"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    event_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    message_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("messages.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    recipient_kind = Column(String(20), nullable=False)
+    recipient_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    recipient_fhh_link_id = Column(Integer, ForeignKey("fhh_links.id", ondelete="RESTRICT"), nullable=True)
+    recipient_participant_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("conversation_participants.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    channel = Column(String(16), nullable=False, default="push", server_default="push")
+    template_key = Column(String(96), nullable=False)
+    template_args = Column(JSON().with_variant(JSONB, "postgresql"), nullable=False, default=dict)
+    deep_link = Column(String(300), nullable=False)
+    policy_version = Column(Integer, nullable=False)
+    state = Column(String(24), nullable=False)
+    eligible_at = Column(DateTime(timezone=True), nullable=False)
+    scheduler_check_at = Column(DateTime(timezone=True), nullable=False)
+    lease_owner = Column(String(96), nullable=True)
+    lease_expires_at = Column(DateTime(timezone=True), nullable=True)
+    attempt_count = Column(Integer, nullable=False, default=0, server_default="0")
+    next_attempt_at = Column(DateTime(timezone=True), nullable=False)
+    provider_message_ref = Column(String(200), nullable=True)
+    last_error_code = Column(String(80), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    dispatched_at = Column(DateTime(timezone=True), nullable=True)
+    provider_accepted_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    dedupe_key = Column(String(240), nullable=False, unique=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "(recipient_kind = 'chh_user' AND recipient_user_id IS NOT NULL "
+            "AND recipient_fhh_link_id IS NULL AND recipient_participant_id IS NOT NULL) OR "
+            "(recipient_kind = 'fhh_link' AND recipient_user_id IS NULL "
+            "AND recipient_fhh_link_id IS NOT NULL AND recipient_participant_id IS NULL)",
+            name="ck_notification_outbox_recipient_shape",
+        ),
+        CheckConstraint("channel IN ('push', 'email', 'in_app_event')", name="ck_notification_outbox_channel"),
+        CheckConstraint(
+            "state IN ('held', 'pending', 'leased', 'dispatched', 'provider_accepted', "
+            "'failed', 'dead', 'cancelled')",
+            name="ck_notification_outbox_state",
+        ),
+        CheckConstraint("policy_version >= 1", name="ck_notification_outbox_policy_version"),
+        CheckConstraint("attempt_count >= 0", name="ck_notification_outbox_attempt_count"),
+        CheckConstraint(
+            "(state = 'leased' AND lease_owner IS NOT NULL AND lease_expires_at IS NOT NULL) OR "
+            "(state <> 'leased' AND lease_owner IS NULL AND lease_expires_at IS NULL)",
+            name="ck_notification_outbox_lease_shape",
+        ),
+        Index(
+            "ix_notification_outbox_scheduler",
+            "state",
+            "scheduler_check_at",
+            "lease_expires_at",
+            "id",
+        ),
+        Index(
+            "ix_notification_outbox_dispatch",
+            "state",
+            "next_attempt_at",
+            "eligible_at",
+            "id",
+        ),
+        Index("ix_notification_outbox_school_state", "school_id", "state", "id"),
+        Index("ix_notification_outbox_fhh_link_created", "recipient_fhh_link_id", "created_at"),
     )
 
 

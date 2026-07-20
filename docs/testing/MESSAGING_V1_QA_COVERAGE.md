@@ -1,5 +1,25 @@
 # Messaging v1 QA coverage
 
+## Slice 10 contact-hours and outbox gate — 2026-07-20
+
+CHH's full backend suite passes **429 tests with 2 expected skips**. Focused Slice 10
+coverage proves Muscat boundaries/weekends, date exceptions, overnight windows,
+DST spring/fall resolution, staff opt-in precedence, authorized urgent eligibility,
+message/body separation, safe timing metadata, policy release without recall,
+recipient revocation, suspension/disable cancellation, expired-lease recovery,
+school-scoped version conflicts and append-only audit. A disposable PostgreSQL
+database passed fresh upgrade, downgrade/re-upgrade, JSONB inspection, and a real
+two-worker disjoint `SKIP LOCKED` claim test. The repository's older unrelated
+Alembic autogenerate drift remains documented; no Slice 10 object drift was detected.
+
+CHH `svelte-check` reports **0 errors and 0 warnings** and its production frontend
+build passes. The focused legacy presentation source suite retains three pre-existing
+stale assertions unrelated to Slice 10. FHH's closed proxy test passes **18 tests**;
+the notification-held UI contract passes while its focused parity file retains one
+pre-existing compact-composer source assertion. Both production builds and EN/AR key
+parity pass. Slice 10 adds scheduling only: provider delivery, push registration,
+notification deep links and provider-failure acceptance remain Slice 11.
+
 ## S25q protected-voice gate — 2026-07-18
 
 Focused automated evidence passed without rerunning unrelated project suites:

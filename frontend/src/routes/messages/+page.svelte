@@ -18,7 +18,8 @@
     MessageVoiceNote,
     OptimisticMessage,
     RecipientResults,
-    SelectedMessagePhoto
+    SelectedMessagePhoto,
+    StaffNotificationPreference
   } from '$lib/messaging/types';
 
   const NOTICE_PREFERENCE_PREFIX = 'chh.messaging.conversation-notice.s25j.user';
@@ -47,6 +48,7 @@
   let offline = $state(false);
   let mobileThreadOpen = $state(false);
   let activeDraft = $state('');
+  let activeUrgent = $state(false);
   let conversationDrafts = $state<Record<string, string>>({});
   let selectedPhotos = $state<SelectedMessagePhoto[]>([]);
   let conversationPhotoDrafts = $state<Record<string, SelectedMessagePhoto[]>>({});
@@ -62,6 +64,8 @@
   let acknowledgedReadThrough = 0;
   let pendingReceiptThrough = 0;
   let receiptAcknowledgementInFlight = false;
+  let notificationPreference = $state<StaffNotificationPreference | null>(null);
+  let notificationPreferenceSaving = $state(false);
 
   let filteredConversations = $derived(filterConversations(conversations, search, filter));
   let totalUnread = $derived(conversations.reduce((sum, row) => sum + row.unread_count, 0));
@@ -255,6 +259,7 @@
     mobileThreadOpen = false;
     conversationError = null;
     activeDraft = '';
+    activeUrgent = false;
     selectedPhotos = [];
     noticeOpen = false;
     noticeConversationKey = null;
@@ -307,6 +312,34 @@
     }
   }
 
+  async function loadNotificationPreference() {
+    if (!membership) return;
+    try {
+      notificationPreference = await messagingApi.notificationPreference(membership);
+    } catch {
+      notificationPreference = null;
+    }
+  }
+
+  async function saveNotificationPreference(enabled: boolean) {
+    if (!membership || !notificationPreference || notificationPreferenceSaving) return;
+    notificationPreferenceSaving = true;
+    error = null;
+    try {
+      notificationPreference = await messagingApi.updateNotificationPreference(
+        membership,
+        notificationPreference,
+        enabled
+      );
+    } catch (cause) {
+      error = cause instanceof Error
+        ? cause.message
+        : $_('messaging.notificationPreferenceError');
+    } finally {
+      notificationPreferenceSaving = false;
+    }
+  }
+
   async function openConversation(id: string, updateUrl = true) {
     if (!membership) return;
     if (selectedId !== id) {
@@ -314,6 +347,7 @@
       saveActivePhotos();
       restoreDraft(id);
       restorePhotos(id);
+      activeUrgent = false;
     }
     const requestMembership = membership.membership_id;
     const requestEpoch = ++activeEpoch;
@@ -509,7 +543,8 @@
     clientMessageId: string,
     body: string | null,
     stagedMediaIds: string[] = [],
-    localPhotoUrls: string[] = []
+    localPhotoUrls: string[] = [],
+    urgent = false
   ): Promise<boolean> {
     if (!membership || !selectedId || !selectedConversation) return false;
     const optimistic: OptimisticMessage = {
@@ -523,7 +558,7 @@
       photos: [],
       voice_note: null,
       state: 'active',
-      urgent: false,
+      urgent,
       created_at: new Date().toISOString(),
       local_state: 'sending',
       staged_media_ids: stagedMediaIds,
@@ -539,7 +574,15 @@
     }
     sending = true;
     try {
-      const saved = await messagingApi.send(membership, selectedId, clientMessageId, body, stagedMediaIds, null);
+      const saved = await messagingApi.send(
+        membership,
+        selectedId,
+        clientMessageId,
+        body,
+        stagedMediaIds,
+        null,
+        urgent
+      );
       for (const url of localPhotoUrls) URL.revokeObjectURL(url);
       const reconciled: OptimisticMessage = { ...saved, sender_is_self: true };
       messages = mergeIncomingMessages(
@@ -601,7 +644,7 @@
     }
   }
 
-  async function sendMessage(body: string) {
+  async function sendMessage(body: string, urgent: boolean) {
     const ready = selectedPhotos.filter((photo) => photo.state === 'ready' && photo.staged_id);
     if ((!body.trim() && ready.length === 0) || ready.length !== selectedPhotos.length) return false;
     const photos = selectedPhotos;
@@ -609,7 +652,8 @@
       crypto.randomUUID(),
       body.trim() || null,
       ready.map((photo) => photo.staged_id!),
-      photos.map((photo) => photo.preview_url)
+      photos.map((photo) => photo.preview_url),
+      urgent
     );
     if (accepted) {
       const key = selectedId ? draftKey(selectedId) : null;
@@ -711,7 +755,8 @@
         message.client_message_id,
         message.body,
         message.staged_media_ids || [],
-        message.local_photo_urls || []
+        message.local_photo_urls || [],
+        message.urgent
       );
     }
   }
@@ -773,10 +818,11 @@
     if (!next || next.membership_id === membership?.membership_id) return;
     saveActiveDraft();
     membership = next;
+    notificationPreference = null;
     available = true;
     conversations = [];
     clearConversationSelection();
-    await loadInbox();
+    await Promise.all([loadInbox(), loadNotificationPreference()]);
   }
 
   function handleMembershipChange(event: Event) {
@@ -808,7 +854,12 @@
           if (errorStatus(cause) !== 403 && errorStatus(cause) !== 404) break;
         }
       }
-      if (membership) await loadInbox({ openRequested: true });
+      if (membership) {
+        await Promise.all([
+          loadInbox({ openRequested: true }),
+          loadNotificationPreference()
+        ]);
+      }
     } catch {
       window.location.href = '/login';
     } finally {
@@ -945,6 +996,22 @@
             </select>
           {/if}
 
+          {#if notificationPreference?.allowed_by_school}
+            <label class="mt-3 flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+              <input
+                class="mt-0.5 h-4 w-4 accent-hero"
+                type="checkbox"
+                checked={notificationPreference.effective_out_of_hours_notifications_enabled}
+                disabled={notificationPreferenceSaving}
+                onchange={(event) => void saveNotificationPreference(event.currentTarget.checked)}
+              />
+              <span>
+                <span class="block font-extrabold text-slate-900">{$_('messaging.outOfHoursOptIn')}</span>
+                <span class="mt-1 block leading-5 text-slate-500">{$_('messaging.outOfHoursOptInHelp')}</span>
+              </span>
+            </label>
+          {/if}
+
           <label class="sr-only" for="conversation-search">{$_('messaging.searchConversations')}</label>
           <input id="conversation-search" bind:value={search} type="search" placeholder={$_('messaging.searchConversations')} class="mt-3 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-hero focus:bg-white focus:ring-2 focus:ring-hero/15" />
 
@@ -978,6 +1045,7 @@
         {/if}
         <ConversationPane
           bind:draft={activeDraft}
+          bind:urgent={activeUrgent}
           conversation={selectedConversation}
           {messages}
           loading={loadingConversation}

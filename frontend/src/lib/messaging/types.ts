@@ -4,6 +4,13 @@ export type MessagingMembership = SessionMembership & {
   role: 'teacher' | 'school_admin';
 };
 
+export type StaffNotificationPreference = {
+  allowed_by_school: boolean;
+  stored_out_of_hours_notifications_enabled: boolean;
+  effective_out_of_hours_notifications_enabled: boolean;
+  preference_version: number;
+};
+
 export type MessagingStudent = {
   id: number;
   display_name: string;
@@ -22,6 +29,7 @@ export type StaffContext = {
 export type MessagingCapabilities = {
   can_send: boolean;
   can_close: boolean;
+  can_mark_urgent: boolean;
   delivery_receipts_visible: boolean;
   read_receipts_visible: boolean;
   voice_notes_enabled: boolean;

@@ -2,8 +2,9 @@ import os
 import io
 import subprocess
 from time import perf_counter
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
@@ -20,6 +21,7 @@ from app.database import Base, get_db
 from app.main import app
 from app.models_school import (
     AcademicYear,
+    AuditLog,
     BranchCampus,
     ClassSection,
     Conversation,
@@ -36,9 +38,12 @@ from app.models_school import (
     Message,
     MessageMedia,
     MessageVoiceMedia,
+    NotificationOutbox,
     School,
     SchoolFeatureControlAuditEvent,
+    SchoolContactWindow,
     SchoolMessagingPolicy,
+    StaffMessagingPreference,
     StaffAssignment,
     Student,
     User,
@@ -213,6 +218,148 @@ def test_messaging_feature_flag_and_school_policy_fail_closed(db, client, monkey
     db.commit()
     monkeypatch.setattr(database.settings, "MESSAGING_ENABLED", False)
     assert client.get("/api/messaging/inbox", headers=headers).status_code == 404
+
+
+def test_staff_out_of_hours_preference_requires_school_permission_and_is_versioned(db, client):
+    world = _school_world(db, "notification-preference")
+    headers = _headers(world["users"]["teacher"], world["school"], world["teacher"])
+    initial = client.get("/api/messaging/notification-preferences", headers=headers)
+    assert initial.status_code == 200
+    assert initial.json() == {
+        "allowed_by_school": False,
+        "stored_out_of_hours_notifications_enabled": False,
+        "effective_out_of_hours_notifications_enabled": False,
+        "preference_version": 1,
+    }
+    denied = client.put(
+        "/api/messaging/notification-preferences",
+        headers=headers,
+        json={
+            "expected_preference_version": 1,
+            "out_of_hours_notifications_enabled": True,
+        },
+    )
+    assert denied.status_code == 403
+
+    world["policy"].allow_staff_out_of_hours_opt_in = True
+    world["policy"].policy_version += 1
+    db.commit()
+    enabled = client.put(
+        "/api/messaging/notification-preferences",
+        headers=headers,
+        json={
+            "expected_preference_version": 1,
+            "out_of_hours_notifications_enabled": True,
+        },
+    )
+    assert enabled.status_code == 200, enabled.text
+    assert enabled.json()["effective_out_of_hours_notifications_enabled"] is True
+    assert enabled.json()["preference_version"] == 2
+    assert db.query(StaffMessagingPreference).one().membership_id == world["teacher"].id
+    assert (
+        db.query(AuditLog)
+        .filter(AuditLog.action == "messaging.notification_preference.updated")
+        .one()
+        .school_id
+        == world["school"].id
+    )
+    conflict = client.put(
+        "/api/messaging/notification-preferences",
+        headers=headers,
+        json={
+            "expected_preference_version": 1,
+            "out_of_hours_notifications_enabled": False,
+        },
+    )
+    assert conflict.status_code == 409
+
+
+def test_parent_send_is_visible_immediately_while_staff_notification_is_held(db, client):
+    world = _school_world(db, "contact-hours-send")
+    conversation_id = _create_teacher_thread(client, world)
+    local_now = datetime.now(ZoneInfo("Asia/Muscat"))
+    future_weekday = local_now.isoweekday() % 7 + 1
+    db.add(
+        SchoolContactWindow(
+            school_id=world["school"].id,
+            weekday=future_weekday,
+            start_local=time(0, 1),
+            end_local=time(23, 59),
+        )
+    )
+    world["policy"].contact_hours_enabled = True
+    world["policy"].policy_version += 1
+    db.commit()
+
+    parent_headers = _headers(world["users"]["guardian"], world["school"])
+    sent = client.post(
+        f"/api/guardian/messaging/conversations/{conversation_id}/messages",
+        headers=parent_headers,
+        json={
+            "client_message_id": str(uuid4()),
+            "body": "Visible now, notification later",
+        },
+    )
+    assert sent.status_code == 200, sent.text
+    assert sent.json()["body"] == "Visible now, notification later"
+    assert sent.json()["notification_timing"]["staff_notification_held"] is True
+    assert sent.json()["notification_timing"]["next_eligible_at"] is not None
+    assert sent.json()["notification_timing"]["school_timezone"] == "Asia/Muscat"
+
+    staff_history = client.get(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=_headers(
+            world["users"]["teacher"], world["school"], world["teacher"]
+        ),
+    )
+    assert staff_history.status_code == 200
+    assert staff_history.json()["items"][0]["body"] == "Visible now, notification later"
+    held = db.query(NotificationOutbox).filter(NotificationOutbox.state == "held").one()
+    assert held.recipient_user_id == world["users"]["teacher"].id
+
+
+def test_urgent_authorization_is_staff_only_and_policy_scoped(db, client):
+    world = _school_world(db, "urgent-policy")
+    conversation_id = _create_teacher_thread(client, world)
+    parent = client.post(
+        f"/api/guardian/messaging/conversations/{conversation_id}/messages",
+        headers=_headers(world["users"]["guardian"], world["school"]),
+        json={"client_message_id": str(uuid4()), "body": "Urgent parent", "urgent": True},
+    )
+    assert parent.status_code == 403
+    teacher_headers = _headers(
+        world["users"]["teacher"], world["school"], world["teacher"]
+    )
+    teacher_denied = client.post(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=teacher_headers,
+        json={"client_message_id": str(uuid4()), "body": "Urgent teacher", "urgent": True},
+    )
+    assert teacher_denied.status_code == 403
+    world["policy"].teachers_may_mark_urgent = True
+    world["policy"].policy_version += 1
+    db.commit()
+    teacher_allowed = client.post(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=teacher_headers,
+        json={"client_message_id": str(uuid4()), "body": "Authorised urgent", "urgent": True},
+    )
+    assert teacher_allowed.status_code == 200
+    assert teacher_allowed.json()["urgent"] is True
+
+    admin_thread = client.post(
+        "/api/messaging/conversations",
+        headers=_headers(world["users"]["admin"], world["school"], world["admin"]),
+        json={"kind": "student_staff", "student_id": world["student"].id},
+    )
+    assert admin_thread.status_code == 200, admin_thread.text
+    admin_allowed = client.post(
+        f"/api/messaging/conversations/{admin_thread.json()['conversation_id']}/messages",
+        headers=_headers(world["users"]["admin"], world["school"], world["admin"]),
+        json={"client_message_id": str(uuid4()), "body": "Admin urgent", "urgent": True},
+    )
+    assert admin_allowed.status_code == 200
+    assert admin_allowed.json()["urgent"] is True
 
 
 def test_shared_guardians_text_send_unread_ack_and_idempotent_retry(db, client):

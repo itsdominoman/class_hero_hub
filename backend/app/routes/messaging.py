@@ -30,6 +30,11 @@ from ..messaging_service import (
     record_messaging_audit,
     send_message as commit_message,
 )
+from ..messaging_notifications import (
+    ContactHoursConfigurationError,
+    enqueue_message_notifications,
+    notification_timing_payload,
+)
 from ..message_media_service import (
     MAX_RAW_IMAGE_BYTES,
     MessageMediaConflict,
@@ -65,16 +70,22 @@ from ..models_school import (
     Message,
     MessageMedia,
     MessageVoiceMedia,
+    NotificationOutbox,
     School,
     SchoolMessagingPolicy,
+    StaffMessagingPreference,
     StaffAssignment,
     Student,
     Subject,
     SubjectGroup,
     User,
 )
+from ..schemas import (
+    StaffMessagingPreferenceResponse,
+    StaffMessagingPreferenceUpdate,
+)
 from ..rosters import resolve_rosters_for_students
-from ..school_scope import open_interval_expression
+from ..school_scope import open_interval_expression, write_audit
 
 
 staff_router = APIRouter()
@@ -1343,6 +1354,12 @@ def _conversation_payloads(
                     "can_close": isinstance(actor, StaffActor)
                     and actor.membership.role == "school_admin"
                     and conversation.status == "active",
+                    "can_mark_urgent": isinstance(actor, StaffActor)
+                    and (
+                        actor.membership.role == "school_admin"
+                        or actor.policy.teachers_may_mark_urgent
+                    )
+                    and conversation.status == "active",
                     "delivery_receipts_visible": actor.policy.delivery_receipts_visible,
                     "read_receipts_visible": actor.policy.read_receipts_visible,
                     "voice_notes_enabled": voice_enabled,
@@ -2247,6 +2264,134 @@ def _create_for_external_guardian(
     return conversation
 
 
+def _staff_preference_payload(
+    actor: StaffActor,
+    preference: StaffMessagingPreference | None,
+) -> dict[str, Any]:
+    stored = bool(
+        preference is not None
+        and preference.out_of_hours_notifications_enabled
+    )
+    allowed = bool(actor.policy.allow_staff_out_of_hours_opt_in)
+    return {
+        "allowed_by_school": allowed,
+        "stored_out_of_hours_notifications_enabled": stored,
+        "effective_out_of_hours_notifications_enabled": allowed and stored,
+        "preference_version": preference.preference_version if preference else 1,
+    }
+
+
+@staff_router.get(
+    "/notification-preferences",
+    response_model=StaffMessagingPreferenceResponse,
+)
+def get_notification_preferences(
+    actor: StaffActor = Depends(require_staff_actor),
+    db: Session = Depends(get_db),
+):
+    preference = (
+        db.query(StaffMessagingPreference)
+        .filter(StaffMessagingPreference.membership_id == actor.membership.id)
+        .first()
+    )
+    return _staff_preference_payload(actor, preference)
+
+
+@staff_router.put(
+    "/notification-preferences",
+    response_model=StaffMessagingPreferenceResponse,
+)
+def update_notification_preferences(
+    payload: StaffMessagingPreferenceUpdate,
+    actor: StaffActor = Depends(require_staff_actor),
+    db: Session = Depends(get_db),
+):
+    if (
+        payload.out_of_hours_notifications_enabled
+        and not actor.policy.allow_staff_out_of_hours_opt_in
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The school has not enabled personal out-of-hours notifications",
+        )
+    preference = (
+        db.query(StaffMessagingPreference)
+        .filter(StaffMessagingPreference.membership_id == actor.membership.id)
+        .with_for_update()
+        .first()
+    )
+    current_version = preference.preference_version if preference else 1
+    if current_version != payload.expected_preference_version:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "messaging_preference_version_conflict",
+                "current_version": current_version,
+            },
+        )
+    previous = bool(
+        preference is not None
+        and preference.out_of_hours_notifications_enabled
+    )
+    if preference is None:
+        preference = StaffMessagingPreference(
+            membership_id=actor.membership.id,
+            school_id=actor.school.id,
+            out_of_hours_notifications_enabled=(
+                payload.out_of_hours_notifications_enabled
+            ),
+            preference_version=2,
+        )
+        db.add(preference)
+    else:
+        preference.out_of_hours_notifications_enabled = (
+            payload.out_of_hours_notifications_enabled
+        )
+        preference.preference_version += 1
+    db.flush()
+
+    affected_ids = [
+        row_id
+        for (row_id,) in (
+            db.query(NotificationOutbox.id)
+            .join(
+                ConversationParticipant,
+                ConversationParticipant.id
+                == NotificationOutbox.recipient_participant_id,
+            )
+            .filter(
+                NotificationOutbox.school_id == actor.school.id,
+                NotificationOutbox.state.in_(("held", "pending", "failed")),
+                ConversationParticipant.membership_id == actor.membership.id,
+            )
+            .all()
+        )
+    ]
+    if affected_ids:
+        db.query(NotificationOutbox).filter(
+            NotificationOutbox.id.in_(affected_ids)
+        ).update(
+            {NotificationOutbox.scheduler_check_at: _utc_now()},
+            synchronize_session=False,
+        )
+    write_audit(
+        db,
+        actor.user.id,
+        "messaging.notification_preference.updated",
+        ("staff_messaging_preferences", actor.membership.id),
+        {
+            "previous": previous,
+            "current": bool(payload.out_of_hours_notifications_enabled),
+            "preference_version": preference.preference_version,
+            "rows_marked_for_recheck": len(affected_ids),
+        },
+        school_id=actor.school.id,
+    )
+    db.commit()
+    db.refresh(preference)
+    return _staff_preference_payload(actor, preference)
+
+
 @staff_router.get("/inbox")
 def staff_inbox(
     response: Response,
@@ -2751,6 +2896,13 @@ def _send(
             staged_voice_id=body.staged_voice_id,
             urgent=body.urgent,
         )
+        if not duplicate:
+            enqueue_message_notifications(
+                db,
+                conversation=conversation,
+                message=message,
+                sender=participant,
+            )
         db.commit()
     except MessagingAccessDenied as exc:
         db.rollback()
@@ -2759,6 +2911,9 @@ def _send(
         db.rollback()
         raise HTTPException(status_code=422, detail=str(exc))
     except MessagingConflict as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc))
+    except ContactHoursConfigurationError as exc:
         db.rollback()
         raise HTTPException(status_code=409, detail=str(exc))
     photos = attached_media_map(db, [message.id]).get(message.id, [])
@@ -2786,6 +2941,11 @@ def _send(
         "created_at": message.created_at,
         "receipt": _receipt_payload(receipt, actor.policy),
         "duplicate": duplicate,
+        "notification_timing": notification_timing_payload(
+            db,
+            message=message,
+            school_timezone=actor.school.timezone,
+        ),
     }
 
 

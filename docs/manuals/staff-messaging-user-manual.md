@@ -1,5 +1,22 @@
 # Staff messaging user manual
 
+## Contact hours and notifications
+
+Parent messages are committed immediately at any time. Contact hours delay only the
+staff notification, so opening Messages still shows the new message outside the
+school window. Never tell a parent that their committed message is queued.
+
+School administrators configure the weekly school-local schedule and date exceptions
+under School → Compliance / Feature Controls. They can enable only **Delay
+notifications only**, allow or deny personal staff out-of-hours opt-in, and decide
+whether teachers may mark an outgoing message urgent. Parents can never mark a
+message urgent. Administrators retain the authorized urgent control.
+
+When the school permits personal opt-in, a checkbox appears in the staff Messages
+inbox. Turning it on makes that staff member's notification eligible outside contact
+hours; it does not change message visibility or another staff member's preference.
+If the school withdraws permission, the stored choice stops taking effect.
+
 ## Recording and playing voice notes
 
 When your school has enabled Voice notes, press and hold the microphone to record.

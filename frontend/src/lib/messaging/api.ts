@@ -5,7 +5,8 @@ import type {
   MessageItem,
   MessagePage,
   MessagingMembership,
-  RecipientResults
+  RecipientResults,
+  StaffNotificationPreference
 } from './types';
 
 function contextHeaders(membership: MessagingMembership): Record<string, string> {
@@ -50,6 +51,29 @@ export function errorStatus(error: unknown): number | undefined {
 }
 
 export const messagingApi = {
+  notificationPreference(
+    membership: MessagingMembership
+  ): Promise<StaffNotificationPreference> {
+    return api.get('/messaging/notification-preferences', {
+      headers: contextHeaders(membership)
+    });
+  },
+
+  updateNotificationPreference(
+    membership: MessagingMembership,
+    preference: StaffNotificationPreference,
+    enabled: boolean
+  ): Promise<StaffNotificationPreference> {
+    return api.put(
+      '/messaging/notification-preferences',
+      {
+        expected_preference_version: preference.preference_version,
+        out_of_hours_notifications_enabled: enabled
+      },
+      { headers: contextHeaders(membership) }
+    );
+  },
+
   inbox(
     membership: MessagingMembership,
     options: { cursor?: string | null; unreadOnly?: boolean; limit?: number } = {}
@@ -121,11 +145,12 @@ export const messagingApi = {
     clientMessageId: string,
     body: string | null,
     stagedMediaIds: string[] = [],
-    stagedVoiceId: string | null = null
+    stagedVoiceId: string | null = null,
+    urgent = false
   ): Promise<MessageItem & { duplicate: boolean }> {
     return api.post(
       `/messaging/conversations/${conversationId}/messages`,
-      { client_message_id: clientMessageId, body, staged_media_ids: stagedMediaIds, staged_voice_id: stagedVoiceId, urgent: false },
+      { client_message_id: clientMessageId, body, staged_media_ids: stagedMediaIds, staged_voice_id: stagedVoiceId, urgent },
       { headers: contextHeaders(membership) }
     ) as Promise<MessageItem & { duplicate: boolean }>;
   },
