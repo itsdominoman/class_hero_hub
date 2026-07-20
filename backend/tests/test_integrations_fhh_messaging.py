@@ -13,7 +13,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app import database, invite_tokens
+from app import auth, database, invite_tokens
 from app.database import Base, get_db
 from app.fhh_messaging_assertions import canonical_body_hash
 from app.main import app
@@ -297,6 +297,7 @@ def _world(db):
         "teacher": teacher,
         "subject_teacher": subject_teacher,
         "school_admin": school_admin,
+        "admin_user": admin_user,
         "students": students,
         "links": links,
         "tokens": tokens,
@@ -484,6 +485,120 @@ def test_two_fhh_parents_have_distinct_attribution_and_read_state(db, client):
             }
         ]
         assert "recipient" not in str(receipt).lower()
+
+
+def test_fhh_parent_and_named_admin_receipts_advance_both_directions(db, client):
+    world = _world(db)
+    policy = db.query(SchoolMessagingPolicy).filter_by(
+        school_id=world["school"].id
+    ).one()
+    policy.delivery_receipts_visible = True
+    policy.read_receipts_visible = True
+    db.commit()
+    parent = world["identities"][0]
+    recipients = _request(client, world, parent, "GET", "/recipients")
+    assert recipients.status_code == 200, recipients.text
+    admin_recipient = next(
+        row
+        for row in recipients.json()["staff"]
+        if row["staff_context"]["relationship"] == "school_administration"
+    )
+    created = _request(
+        client,
+        world,
+        parent,
+        "POST",
+        "/conversations",
+        body={"kind": "student_staff", "recipient_ref": admin_recipient["recipient_ref"]},
+    )
+    assert created.status_code == 200, created.text
+    conversation_id = created.json()["conversation_id"]
+    parent_sent = _request(
+        client,
+        world,
+        parent,
+        "POST",
+        f"/conversations/{conversation_id}/messages",
+        body={
+            "client_message_id": str(uuid4()),
+            "body": "Parent to named administrator",
+            "urgent": False,
+        },
+    )
+    assert parent_sent.status_code == 200, parent_sent.text
+    assert parent_sent.json()["receipt"]["state"] == "sent"
+
+    admin_headers = {
+        "Authorization": f"Bearer {auth.create_access_token({'sub': world['admin_user'].email})}",
+        "X-School-Id": str(world["school"].id),
+        "X-Membership-Id": str(world["school_admin"].id),
+    }
+    for event_type, expected_state in (("delivered", "delivered"), ("read", "read")):
+        acknowledged = client.post(
+            f"/api/messaging/conversations/{conversation_id}/acknowledgements",
+            headers=admin_headers,
+            json={
+                "event_type": event_type,
+                "through_sequence": 1,
+                "client_ack_id": str(uuid4()),
+                "occurred_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        assert acknowledged.status_code == 200, acknowledged.text
+        parent_poll = _request(
+            client,
+            world,
+            parent,
+            "GET",
+            f"/conversations/{conversation_id}/messages",
+        )
+        assert parent_poll.status_code == 200, parent_poll.text
+        update = next(
+            row
+            for row in parent_poll.json()["receipt_updates"]
+            if row["sequence"] == 1
+        )
+        assert update["receipt"]["state"] == expected_state
+
+    admin_sent = client.post(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=admin_headers,
+        json={
+            "client_message_id": str(uuid4()),
+            "body": "Named administrator to parent",
+        },
+    )
+    assert admin_sent.status_code == 200, admin_sent.text
+    assert admin_sent.json()["receipt"]["state"] == "sent"
+    for event_type, expected_state in (("delivered", "delivered"), ("read", "read")):
+        acknowledged = _request(
+            client,
+            world,
+            parent,
+            "POST",
+            f"/conversations/{conversation_id}/acknowledgements",
+            body={
+                "event_type": event_type,
+                "through_sequence": 2,
+                "client_ack_id": str(uuid4()),
+                "occurred_at": datetime.now(timezone.utc)
+                .isoformat()
+                .replace("+00:00", "Z"),
+                "device_session_ref": None,
+            },
+        )
+        assert acknowledged.status_code == 200, acknowledged.text
+        admin_poll = client.get(
+            f"/api/messaging/conversations/{conversation_id}/messages?after_sequence=2",
+            headers=admin_headers,
+        )
+        assert admin_poll.status_code == 200
+        update = next(
+            row
+            for row in admin_poll.json()["receipt_updates"]
+            if row["sequence"] == 2
+        )
+        assert update["receipt"]["state"] == expected_state
 
 
 def test_recipients_expose_current_assignment_context_without_raw_membership_ids(db, client):

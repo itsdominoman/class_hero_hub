@@ -74,6 +74,8 @@
     const url = new URL(window.location.href);
     if (id) url.searchParams.set('conversation', id);
     else url.searchParams.delete('conversation');
+    if (membership) url.searchParams.set('membership', String(membership.membership_id));
+    else url.searchParams.delete('membership');
     window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
   }
 
@@ -855,6 +857,7 @@
         }
       }
       if (membership) {
+        updateConversationQuery(requestedConversationId());
         await Promise.all([
           loadInbox({ openRequested: true }),
           loadNotificationPreference()

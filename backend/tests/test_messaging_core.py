@@ -645,6 +645,103 @@ def test_participant_joining_after_message_cannot_create_receipt_for_old_history
     assert (aggregates[second.id].delivered, aggregates[second.id].read) == (True, True)
 
 
+def test_named_admin_and_teacher_receipts_progress_both_directions(db):
+    world = _school_world(db, "receipt-admin-teacher")
+    conversation = Conversation(
+        school_id=world["school"].id,
+        kind="staff_direct",
+        staff_membership_low_id=min(world["admin"].id, world["teacher"].id),
+        staff_membership_high_id=max(world["admin"].id, world["teacher"].id),
+    )
+    db.add(conversation)
+    db.flush()
+    admin = ConversationParticipant(
+        conversation_id=conversation.id,
+        participant_kind="staff",
+        user_id=world["admin_user"].id,
+        membership_id=world["admin"].id,
+        side="staff",
+        display_name_snapshot=world["admin_user"].name,
+    )
+    teacher = ConversationParticipant(
+        conversation_id=conversation.id,
+        participant_kind="staff",
+        user_id=world["teacher_user"].id,
+        membership_id=world["teacher"].id,
+        side="staff",
+        display_name_snapshot=world["teacher_user"].name,
+    )
+    db.add_all([admin, teacher])
+    db.flush()
+    db.add_all(
+        [
+            ConversationAccessGrant(
+                conversation_id=conversation.id,
+                participant_id=participant.id,
+                source_type="school_admin_membership",
+                membership_id=participant.membership_id,
+                grant_reason="conversation_created",
+            )
+            for participant in (admin, teacher)
+        ]
+    )
+    conversation.created_by_participant_id = admin.id
+    db.commit()
+
+    for sender, recipient in ((admin, teacher), (teacher, admin)):
+        message, _ = send_text_message(
+            db,
+            conversation_id=conversation.id,
+            sender_participant_id=sender.id,
+            client_message_id=uuid4(),
+            body="Ordinary participant receipt",
+        )
+        db.commit()
+        initial = aggregate_message_receipts(
+            db,
+            conversation=conversation,
+            sender_participant=sender,
+            message_ids=[message.id],
+        )[message.id]
+        assert (initial.delivered, initial.read) == (False, False)
+
+        acknowledge_messages(
+            db,
+            conversation=conversation,
+            participant=recipient,
+            event_type="delivered",
+            through_sequence=message.sequence,
+            client_ack_id=uuid4(),
+            occurred_at=datetime.now(timezone.utc),
+        )
+        db.commit()
+        delivered = aggregate_message_receipts(
+            db,
+            conversation=conversation,
+            sender_participant=sender,
+            message_ids=[message.id],
+        )[message.id]
+        assert (delivered.delivered, delivered.read) == (True, False)
+
+        acknowledge_messages(
+            db,
+            conversation=conversation,
+            participant=recipient,
+            event_type="read",
+            through_sequence=message.sequence,
+            client_ack_id=uuid4(),
+            occurred_at=datetime.now(timezone.utc),
+        )
+        db.commit()
+        read = aggregate_message_receipts(
+            db,
+            conversation=conversation,
+            sender_participant=sender,
+            message_ids=[message.id],
+        )[message.id]
+        assert (read.delivered, read.read) == (True, True)
+
+
 def test_safeguarding_admin_receipt_evidence_does_not_affect_sender_state(db):
     world = _school_world(db, "receipt-safeguarding")
     conversation, staff, _guardian = _student_thread(db, world)

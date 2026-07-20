@@ -133,6 +133,13 @@ One eligible family adult is sufficient for Delivered or Read. Individual eviden
 remains in CHH, late joiners and safeguarding-only administrators do not count, and a
 later revocation cannot regress valid historical Read evidence.
 
+A CHH administrator who is the conversation's named primary staff participant is not
+a safeguarding-only viewer and counts like any other recipient. Parent-to-admin
+Delivered/Read therefore advances when that administrator opens the normal CHH
+thread. Conversely, the FHH grown-up's signed participant acknowledgements continue
+to advance admin-to-parent messages. FHH never sends a staff role or membership
+context; dual-role selection and safeguarding review remain CHH-only concerns.
+
 S25i changed no messaging API, schema, credentials, assertion binding or FHH proxy.
 Its deployment used CHH backup `20260717-073438F`, left Alembic at
 `e4f5a6b7c8d9`, and rebuilt/restarted only the CHH frontend. Post-deploy verification

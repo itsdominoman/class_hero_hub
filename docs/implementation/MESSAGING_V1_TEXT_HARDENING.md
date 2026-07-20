@@ -407,3 +407,25 @@ assertions, FHH family/parent IDs, emails, device tokens, or raw signed cursors.
 - The UI uses compact accessible Lucide tick shapes beside timestamps: one grey,
   two grey or two blue. It contains no purple state, visible receipt wording, names or
   counts, and the same shared footer serves text, photo and voice-note bubbles.
+
+### S26k named-administrator receipt correction
+
+`school_admin_membership` is an ordinary authorization source, not a safeguarding
+access mode. Slice 9 originally excluded that source wholesale, which hid valid
+teacher/admin staff-direct evidence and acknowledgements by a named primary
+administrator. Receipt aggregation now accepts staff evidence only when the exact
+membership is structurally named by the conversation: one of the two staff-direct
+memberships, or the primary staff membership for a student/guardian thread. Existing
+event-time grant, sequence, sender, late-join and revocation rules still apply.
+
+A safeguarding reviewer who is not a participant remains outside the normal inbox,
+thread and acknowledgement routes. Review creates no participant/access-grant row,
+cursor movement or receipt event; immutable audit evidence is separate and cannot
+change participant-visible ticks. This release does not add a safeguarding review UI
+or access-session workflow.
+
+Teacher and administrator memberships owned by the same user stay separate actor
+contexts. Every CHH messaging request carries the selected membership, each
+conversation resolves the matching participant only, and the URL now persists that
+membership across reloads. Switching roles clears the active thread and cannot
+acknowledge or aggregate the other role's cursor.

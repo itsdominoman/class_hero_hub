@@ -41,6 +41,18 @@ Scope: implementation record for the Class Hero Hub (CHH) Capacitor Android app.
   App-scoped `testDebugUnitTest`, `lintDebug`, and `assembleDebug` passed; manifest,
   packaged endpoint and Android debug signature inspection passed. Device microphone,
   interruption, audio-route and navigation execution remains required.
+- S26k administrator-receipt development artifact:
+  `/opt/apps/class_hero_hub/tmp/class-hero-hub-admin-receipts-dev.apk`, with an
+  identical Google Drive copy at
+  `G:\My Drive\CHH\Remote\class-hero-hub-admin-receipts-dev.apk`. It is the debug
+  variant, package `com.classherohub.app`, version code `1`, version name `1.0`, min
+  SDK 23, target/compile SDK 35, and contains the fixed API
+  `https://class.familyherohub.com/api`. Size is 95,986,665 bytes; SHA-256 is
+  `f4ab4cf8f58f4a3e28aca49a80c57d06571f24435abe5d424803f57596310902`.
+  App-scoped `testDebugUnitTest`, `lintDebug` and `assembleDebug`, ZIP integrity,
+  package/endpoint and v1/v2 debug signature inspection passed. The signer certificate
+  SHA-256 remains
+  `e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
 - The merged Android manifest explicitly removes the transitive biometric and
   fingerprint permissions from the encrypted-preferences dependency. CHH does
   not use biometric authentication and the APK requests no camera or storage

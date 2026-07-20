@@ -632,6 +632,34 @@ def aggregate_message_receipts(
     recipient = aliased(ConversationParticipant)
     grant = aliased(ConversationAccessGrant)
     valid_receipt = grant.id.is_not(None)
+    if conversation.kind == "staff_direct":
+        named_staff_membership_ids = tuple(
+            membership_id
+            for membership_id in (
+                conversation.staff_membership_low_id,
+                conversation.staff_membership_high_id,
+            )
+            if membership_id is not None
+        )
+    else:
+        named_staff_membership_ids = tuple(
+            membership_id
+            for membership_id in (conversation.primary_staff_membership_id,)
+            if membership_id is not None
+        )
+
+    # Safeguarding review never owns or advances an ordinary participant cursor.
+    # Keep that boundary defensive at aggregation time too: staff evidence counts
+    # only for a membership explicitly named by this conversation's v1 shape.
+    # ``school_admin_membership`` is an authorization source, not a review marker;
+    # both genuine admins and the teacher side of staff-direct chats use it.
+    receipt_eligible_recipient = or_(
+        recipient.participant_kind.in_(("chh_guardian", "fhh_parent")),
+        and_(
+            recipient.participant_kind == "staff",
+            recipient.membership_id.in_(named_staff_membership_ids),
+        ),
+    )
     rows = (
         db.query(
             Message.id,
@@ -677,6 +705,7 @@ def aggregate_message_receipts(
                 recipient.conversation_id == Message.conversation_id,
                 recipient.id != Message.sender_participant_id,
                 recipient.participant_kind.in_(("staff", "chh_guardian", "fhh_parent")),
+                receipt_eligible_recipient,
             ),
         )
         .outerjoin(
@@ -684,7 +713,6 @@ def aggregate_message_receipts(
             and_(
                 grant.conversation_id == Message.conversation_id,
                 grant.participant_id == recipient.id,
-                grant.source_type != "school_admin_membership",
                 grant.visible_from_sequence <= Message.sequence,
                 or_(
                     grant.visible_through_sequence.is_(None),

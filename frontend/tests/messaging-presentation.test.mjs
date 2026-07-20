@@ -172,6 +172,16 @@ test('receipt polling cannot regress state within one policy version', () => {
   assert.equal(merged[0].receipt.state, 'read');
 });
 
+test('staff actor context stays explicit across conversation URLs and acknowledgements', () => {
+  assert.match(pageSource, /url\.searchParams\.set\('membership', String\(membership\.membership_id\)\)/);
+  assert.match(pageSource, /url\.searchParams\.delete\('membership'\)/);
+  assert.match(pageSource, /const requestMembership = membership;/);
+  assert.match(pageSource, /messagingApi\.acknowledgeDelivery\(requestMembership/);
+  assert.match(pageSource, /messagingApi\.acknowledgeRead\(requestMembership/);
+  assert.match(pageSource, /membership\?\.membership_id === requestMembership\.membership_id/);
+  assert.match(apiSource, /'X-Membership-Id': String\(membership\.membership_id\)/);
+});
+
 test('outgoing receipt ticks are compact, shape-distinct and accessible', () => {
   assert.match(conversationPaneSource, /message\.sender_is_self && message\.receipt/);
   assert.match(conversationPaneSource, /<MessageReceiptTicks receipt=\{message\.receipt\}/);

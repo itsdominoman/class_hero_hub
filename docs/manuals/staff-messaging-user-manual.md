@@ -69,6 +69,12 @@ the global feature and your school's policy are both enabled and your current ro
 eligible. The inbox identifies each student with current grade/class context, for
 example `Bob Smith · KG1A`.
 
+If your account has both teacher and school-administrator memberships, use **Acting
+as** to choose the role for this inbox. The selected role is kept in the message URL
+and on reload. A teacher thread uses the teacher participant and unread/receipt
+cursor; an administrator thread uses the administrator participant. Switch roles
+before opening a conversation that belongs to the other context.
+
 Use compose/search to find a student, guardian, teacher or administrator. Student
 results include current grade/class. A conversation with parents is shared by the
 currently authorized guardians for that student, but each incoming message identifies
@@ -173,3 +179,9 @@ School administrators can independently switch **Show delivery receipts** and
 and Read defaults off. These audited, school-scoped controls change only what senders
 see; individual delivery/read evidence remains retained internally. Safeguarding-only
 administrator views never change participant receipts.
+
+An administrator who is the named staff participant in a normal conversation is an
+ordinary recipient: rendering and viewing advances Delivered and Read exactly as it
+does for a teacher or parent. This is different from a nonparticipant safeguarding
+review. Review access must use the separate authorized review path and audit evidence;
+it must not add a participant or change sender-visible ticks.

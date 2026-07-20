@@ -37,7 +37,9 @@ from app.models_school import (
     Membership,
     Message,
     MessageMedia,
+    MessageReceiptEvent,
     MessageVoiceMedia,
+    MessagingAuditEvent,
     NotificationOutbox,
     School,
     SchoolFeatureControlAuditEvent,
@@ -208,6 +210,36 @@ def _create_teacher_thread(client, world):
     return response.json()["conversation_id"]
 
 
+def _assert_guardian_receipt_progression(
+    client, *, conversation_id, guardian_headers, sender_headers, sequence
+):
+    for event_type, expected_state in (("delivered", "delivered"), ("read", "read")):
+        acknowledged = client.post(
+            f"/api/guardian/messaging/conversations/{conversation_id}/acknowledgements",
+            headers=guardian_headers,
+            json={
+                "event_type": event_type,
+                "through_sequence": sequence,
+                "client_ack_id": str(uuid4()),
+                "occurred_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        assert acknowledged.status_code == 200, acknowledged.text
+        receipt_only_poll = client.get(
+            f"/api/messaging/conversations/{conversation_id}/messages"
+            f"?after_sequence={sequence}",
+            headers=sender_headers,
+        )
+        assert receipt_only_poll.status_code == 200, receipt_only_poll.text
+        assert receipt_only_poll.json()["items"] == []
+        update = next(
+            row
+            for row in receipt_only_poll.json()["receipt_updates"]
+            if row["sequence"] == sequence
+        )
+        assert update["receipt"]["state"] == expected_state
+
+
 def test_messaging_feature_flag_and_school_policy_fail_closed(db, client, monkeypatch):
     world = _school_world(db, "disabled")
     headers = _headers(world["users"]["teacher"], world["school"], world["teacher"])
@@ -360,6 +392,85 @@ def test_urgent_authorization_is_staff_only_and_policy_scoped(db, client):
     )
     assert admin_allowed.status_code == 200
     assert admin_allowed.json()["urgent"] is True
+
+
+def test_admin_teacher_receipts_advance_on_normal_participant_routes(db, client):
+    world = _school_world(db, "admin-teacher-receipts")
+    world["policy"].delivery_receipts_visible = True
+    world["policy"].read_receipts_visible = True
+    db.commit()
+    admin_headers = _headers(
+        world["users"]["admin"], world["school"], world["admin"]
+    )
+    teacher_headers = _headers(
+        world["users"]["teacher"], world["school"], world["teacher"]
+    )
+    created = client.post(
+        "/api/messaging/conversations",
+        headers=admin_headers,
+        json={
+            "kind": "staff_direct",
+            "other_staff_membership_id": world["teacher"].id,
+        },
+    )
+    assert created.status_code == 200, created.text
+    conversation_id = created.json()["conversation_id"]
+
+    admin_sent = client.post(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=admin_headers,
+        json={"client_message_id": str(uuid4()), "body": "Admin participant"},
+    )
+    assert admin_sent.status_code == 200
+    assert admin_sent.json()["receipt"]["state"] == "sent"
+    for event_type, expected_state in (("delivered", "delivered"), ("read", "read")):
+        acknowledged = client.post(
+            f"/api/messaging/conversations/{conversation_id}/acknowledgements",
+            headers=teacher_headers,
+            json={
+                "event_type": event_type,
+                "through_sequence": 1,
+                "client_ack_id": str(uuid4()),
+                "occurred_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        assert acknowledged.status_code == 200, acknowledged.text
+        receipt_only_poll = client.get(
+            f"/api/messaging/conversations/{conversation_id}/messages"
+            "?after_sequence=1",
+            headers=admin_headers,
+        )
+        assert receipt_only_poll.status_code == 200
+        assert receipt_only_poll.json()["items"] == []
+        assert receipt_only_poll.json()["receipt_updates"][0]["receipt"]["state"] == expected_state
+
+    teacher_sent = client.post(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=teacher_headers,
+        json={"client_message_id": str(uuid4()), "body": "Teacher participant"},
+    )
+    assert teacher_sent.status_code == 200
+    assert teacher_sent.json()["receipt"]["state"] == "sent"
+    for event_type, expected_state in (("delivered", "delivered"), ("read", "read")):
+        acknowledged = client.post(
+            f"/api/messaging/conversations/{conversation_id}/acknowledgements",
+            headers=admin_headers,
+            json={
+                "event_type": event_type,
+                "through_sequence": 2,
+                "client_ack_id": str(uuid4()),
+                "occurred_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        assert acknowledged.status_code == 200, acknowledged.text
+        receipt_only_poll = client.get(
+            f"/api/messaging/conversations/{conversation_id}/messages"
+            "?after_sequence=2",
+            headers=teacher_headers,
+        )
+        assert receipt_only_poll.status_code == 200
+        assert receipt_only_poll.json()["items"] == []
+        assert receipt_only_poll.json()["receipt_updates"][-1]["receipt"]["state"] == expected_state
 
 
 def test_shared_guardians_text_send_unread_ack_and_idempotent_retry(db, client):
@@ -698,6 +809,250 @@ def test_explicit_membership_context_for_overlapping_staff_roles(db, client):
         ),
     )
     assert explicit.status_code == 200
+
+
+def test_dual_role_receipts_use_exact_membership_participant_cursor(db, client):
+    world = _school_world(db, "dual-role-receipts")
+    world["policy"].delivery_receipts_visible = True
+    world["policy"].read_receipts_visible = True
+    dual_teacher = Membership(
+        school_id=world["school"].id,
+        user_id=world["users"]["admin"].id,
+        role="teacher",
+        status="active",
+    )
+    db.add(dual_teacher)
+    db.flush()
+    db.add(
+        StaffAssignment(
+            school_id=world["school"].id,
+            membership_id=dual_teacher.id,
+            class_section_id=world["section"].id,
+            role="homeroom",
+            valid_from=date.today() - timedelta(days=1),
+        )
+    )
+    db.commit()
+    admin_headers = _headers(
+        world["users"]["admin"], world["school"], world["admin"]
+    )
+    teacher_headers = _headers(
+        world["users"]["admin"], world["school"], dual_teacher
+    )
+    guardian_headers = _headers(world["users"]["guardian"], world["school"])
+
+    admin_thread = client.post(
+        "/api/messaging/conversations",
+        headers=admin_headers,
+        json={"kind": "student_staff", "student_id": world["student"].id},
+    )
+    teacher_thread = client.post(
+        "/api/messaging/conversations",
+        headers=teacher_headers,
+        json={"kind": "student_staff", "student_id": world["student"].id},
+    )
+    assert admin_thread.status_code == 200, admin_thread.text
+    assert teacher_thread.status_code == 200, teacher_thread.text
+    assert admin_thread.json()["conversation_id"] != teacher_thread.json()["conversation_id"]
+
+    for thread in (admin_thread, teacher_thread):
+        sent = client.post(
+            f"/api/guardian/messaging/conversations/{thread.json()['conversation_id']}/messages",
+            headers=guardian_headers,
+            json={"client_message_id": str(uuid4()), "body": "Role-isolated cursor"},
+        )
+        assert sent.status_code == 200, sent.text
+        assert sent.json()["receipt"]["state"] == "sent"
+
+    admin_id = UUID(admin_thread.json()["conversation_id"])
+    teacher_id = UUID(teacher_thread.json()["conversation_id"])
+    admin_conversation = db.query(Conversation).filter_by(public_id=admin_id).one()
+    teacher_conversation = db.query(Conversation).filter_by(public_id=teacher_id).one()
+    admin_participant = db.query(ConversationParticipant).filter_by(
+        conversation_id=admin_conversation.id,
+        membership_id=world["admin"].id,
+    ).one()
+    teacher_participant = db.query(ConversationParticipant).filter_by(
+        conversation_id=teacher_conversation.id,
+        membership_id=dual_teacher.id,
+    ).one()
+    assert admin_participant.id != teacher_participant.id
+    assert admin_participant.last_read_sequence == 0
+    assert teacher_participant.last_read_sequence == 0
+
+    wrong_teacher_access = client.post(
+        f"/api/messaging/conversations/{admin_id}/acknowledgements",
+        headers=teacher_headers,
+        json={
+            "event_type": "read",
+            "through_sequence": 1,
+            "client_ack_id": str(uuid4()),
+            "occurred_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    wrong_admin_access = client.post(
+        f"/api/messaging/conversations/{teacher_id}/acknowledgements",
+        headers=admin_headers,
+        json={
+            "event_type": "read",
+            "through_sequence": 1,
+            "client_ack_id": str(uuid4()),
+            "occurred_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    assert wrong_teacher_access.status_code == 404
+    assert wrong_admin_access.status_code == 404
+
+    assert client.post(
+        f"/api/messaging/conversations/{admin_id}/acknowledgements",
+        headers=admin_headers,
+        json={
+            "event_type": "read",
+            "through_sequence": 1,
+            "client_ack_id": str(uuid4()),
+            "occurred_at": datetime.now(timezone.utc).isoformat(),
+        },
+    ).status_code == 200
+    db.expire_all()
+    assert db.get(ConversationParticipant, admin_participant.id).last_read_sequence == 1
+    assert db.get(ConversationParticipant, teacher_participant.id).last_read_sequence == 0
+
+    def guardian_receipt_state(conversation_public_id):
+        polled = client.get(
+            f"/api/guardian/messaging/conversations/{conversation_public_id}/messages"
+            "?after_sequence=1",
+            headers=guardian_headers,
+        )
+        assert polled.status_code == 200, polled.text
+        update = next(
+            row for row in polled.json()["receipt_updates"] if row["sequence"] == 1
+        )
+        return update["receipt"]["state"]
+
+    assert guardian_receipt_state(admin_id) == "read"
+    assert guardian_receipt_state(teacher_id) == "sent"
+
+    assert client.post(
+        f"/api/messaging/conversations/{teacher_id}/acknowledgements",
+        headers=teacher_headers,
+        json={
+            "event_type": "read",
+            "through_sequence": 1,
+            "client_ack_id": str(uuid4()),
+            "occurred_at": datetime.now(timezone.utc).isoformat(),
+        },
+    ).status_code == 200
+    db.expire_all()
+    assert db.get(ConversationParticipant, admin_participant.id).last_read_sequence == 1
+    assert db.get(ConversationParticipant, teacher_participant.id).last_read_sequence == 1
+    assert guardian_receipt_state(admin_id) == "read"
+    assert guardian_receipt_state(teacher_id) == "read"
+    assert db.query(ConversationParticipant).filter_by(
+        conversation_id=admin_conversation.id,
+        membership_id=world["admin"].id,
+    ).count() == 1
+    assert db.query(ConversationParticipant).filter_by(
+        conversation_id=teacher_conversation.id,
+        membership_id=dual_teacher.id,
+    ).count() == 1
+    assert {
+        row.membership_id
+        for row in db.query(ConversationParticipant).filter_by(
+            conversation_id=admin_conversation.id,
+            participant_kind="staff",
+        )
+    } == {world["admin"].id}
+    assert {
+        row.membership_id
+        for row in db.query(ConversationParticipant).filter_by(
+            conversation_id=teacher_conversation.id,
+            participant_kind="staff",
+        )
+    } == {dual_teacher.id}
+
+
+def test_safeguarding_review_audit_does_not_create_or_ack_participant(db, client):
+    world = _school_world(db, "safeguarding-receipts")
+    world["policy"].delivery_receipts_visible = True
+    world["policy"].read_receipts_visible = True
+    db.commit()
+    conversation_id = _create_teacher_thread(client, world)
+    teacher_headers = _headers(
+        world["users"]["teacher"], world["school"], world["teacher"]
+    )
+    sent = client.post(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=teacher_headers,
+        json={"client_message_id": str(uuid4()), "body": "Audit-only review"},
+    )
+    assert sent.status_code == 200
+    conversation = db.query(Conversation).filter_by(public_id=UUID(conversation_id)).one()
+    before_participant_ids = {
+        row.id
+        for row in db.query(ConversationParticipant)
+        .filter_by(conversation_id=conversation.id)
+        .all()
+    }
+    before_cursors = {
+        row.id: (row.last_delivered_sequence, row.last_read_sequence)
+        for row in db.query(ConversationParticipant)
+        .filter_by(conversation_id=conversation.id)
+        .all()
+    }
+    before_receipt_events = db.query(MessageReceiptEvent).filter_by(
+        conversation_id=conversation.id
+    ).count()
+    admin_headers = _headers(
+        world["users"]["admin"], world["school"], world["admin"]
+    )
+    assert client.get(
+        f"/api/messaging/conversations/{conversation_id}", headers=admin_headers
+    ).status_code == 404
+    assert client.post(
+        f"/api/messaging/conversations/{conversation_id}/acknowledgements",
+        headers=admin_headers,
+        json={
+            "event_type": "read",
+            "through_sequence": 1,
+            "client_ack_id": str(uuid4()),
+            "occurred_at": datetime.now(timezone.utc).isoformat(),
+        },
+    ).status_code == 404
+
+    evidence = MessagingAuditEvent(
+        school_id=world["school"].id,
+        actor_kind="safeguarding_admin",
+        actor_user_id=world["users"]["admin"].id,
+        actor_membership_id=world["admin"].id,
+        event_type="safeguarding.conversation_reviewed",
+        conversation_id=conversation.id,
+        participant_id=None,
+        detail={"reason_code": "safeguarding_review"},
+    )
+    db.add(evidence)
+    db.commit()
+    assert evidence.participant_id is None
+    assert {
+        row.id
+        for row in db.query(ConversationParticipant)
+        .filter_by(conversation_id=conversation.id)
+        .all()
+    } == before_participant_ids
+    assert {
+        row.id: (row.last_delivered_sequence, row.last_read_sequence)
+        for row in db.query(ConversationParticipant)
+        .filter_by(conversation_id=conversation.id)
+        .all()
+    } == before_cursors
+    assert db.query(MessageReceiptEvent).filter_by(
+        conversation_id=conversation.id
+    ).count() == before_receipt_events
+    history = client.get(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=teacher_headers,
+    )
+    assert history.status_code == 200
+    assert history.json()["items"][0]["receipt"]["state"] == "sent"
 
 
 def test_cookie_auth_send_requires_csrf_but_native_bearer_does_not(db, client):
@@ -1112,6 +1467,9 @@ def test_protected_photo_upload_attach_serve_scope_and_cleanup(
     monkeypatch.setattr(message_media_service, "MESSAGE_MEDIA_ROOT", tmp_path)
     one = _school_world(db, "media-one")
     two = _school_world(db, "media-two")
+    one["policy"].delivery_receipts_visible = True
+    one["policy"].read_receipts_visible = True
+    db.commit()
     conversation_id = _create_teacher_thread(client, one)
     teacher_headers = _headers(one["users"]["teacher"], one["school"], one["teacher"])
     guardian_headers = _headers(one["users"]["guardian"], one["school"])
@@ -1185,6 +1543,13 @@ def test_protected_photo_upload_attach_serve_scope_and_cleanup(
     assert history.status_code == 200
     assert history.json()["items"][0]["body"] is None
     assert history.json()["items"][0]["photos"][0]["id"] == staged["id"]
+    _assert_guardian_receipt_progression(
+        client,
+        conversation_id=conversation_id,
+        guardian_headers=guardian_headers,
+        sender_headers=teacher_headers,
+        sequence=1,
+    )
 
     for variant in ("thumbnail", "full"):
         media = client.get(
@@ -1288,6 +1653,9 @@ def test_voice_feature_control_upload_attach_playback_scope_retry_and_cleanup(
     monkeypatch.setattr(message_voice_service, "MESSAGE_MEDIA_ROOT", media_root)
     one = _school_world(db, "voice-one")
     two = _school_world(db, "voice-two")
+    one["policy"].delivery_receipts_visible = True
+    one["policy"].read_receipts_visible = True
+    db.commit()
     conversation_id = _create_teacher_thread(client, one)
     admin_headers = _headers(one["users"]["admin"], one["school"], one["admin"])
     teacher_headers = _headers(one["users"]["teacher"], one["school"], one["teacher"])
@@ -1461,6 +1829,13 @@ def test_voice_feature_control_upload_attach_playback_scope_retry_and_cleanup(
     )
     assert history.status_code == 200
     assert history.json()["items"][0]["voice_note"]["id"] == staged["id"]
+    _assert_guardian_receipt_progression(
+        client,
+        conversation_id=conversation_id,
+        guardian_headers=guardian_headers,
+        sender_headers=teacher_headers,
+        sequence=1,
+    )
     played = client.get(
         f"/api/guardian/messaging/conversations/{conversation_id}/voice-media/{staged['id']}",
         headers=guardian_headers,

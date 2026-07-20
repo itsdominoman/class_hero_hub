@@ -1,5 +1,23 @@
 # Messaging v1 QA coverage
 
+## S26k administrator receipt mop-up gate - 2026-07-20
+
+Focused CHH coverage exercises admin-to-teacher and teacher-to-admin Sent to
+Delivered to Read through the ordinary participant endpoint, plus bidirectional
+named-admin/FHH parent progression. Receipt-only polls contain the corrected aggregate
+without new messages. Policy projection remains independent, and existing shared
+text plus real staged/attached protected-photo and protected-voice paths advance
+through the same Sent, Delivered and Read aggregate.
+
+Safeguarding coverage separates audit-only review evidence from participants: a
+nonparticipant admin cannot use normal thread/acknowledgement routes, no participant
+or receipt row is created, no cursor moves, and an injected non-named admin row is
+excluded defensively. Dual-role coverage proves teacher/admin membership headers,
+participants and cursors do not cross-contaminate or duplicate. Frontend coverage
+persists the selected membership in the URL, rejects stale state, and verifies role
+switch acknowledgements use only the selected membership. FHH transport coverage
+binds both acknowledgement types to the canonical body actually sent.
+
 ## Slice 10 contact-hours and outbox gate — 2026-07-20
 
 CHH's full backend suite passes **429 tests with 2 expected skips**. Focused Slice 10

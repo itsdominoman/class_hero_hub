@@ -1,5 +1,65 @@
 # CHH current development deployment
 
+## S26k named-administrator receipt mop-up
+
+Messaging v1 Slice 9 administrator receipts are corrected on CHH development. The
+old aggregate query treated every `school_admin_membership` access grant as though it
+were safeguarding review. That grant is also the ordinary authorization source for
+both named sides of a staff-direct thread and for a named primary administrator in a
+student/guardian thread. Aggregation now accepts staff evidence only for memberships
+structurally named by the conversation; a nonparticipant safeguarding reviewer still
+owns no participant cursor and cannot affect visible receipts.
+
+- Admin-to-teacher, teacher-to-admin, admin-to-FHH-parent and FHH-parent-to-admin
+  Sent/Delivered/Read progression passes through the normal participant routes. Live
+  read-only inspection confirms the existing named admin/teacher and named
+  admin/FHH rows aggregate as Read without exposing message bodies or family data.
+- Dual-role teacher/administrator accounts persist the selected membership in the
+  message URL. Each request and acknowledgement remains bound to that exact
+  membership/participant; switching roles clears the selected thread, and tests prove
+  cursors, aggregates and participant rows do not cross-contaminate or duplicate.
+- Safeguarding-only review remains outside the normal inbox/thread/acknowledgement
+  routes. The focused gate proves denial for a nonparticipant admin, no participant or
+  receipt creation, no cursor movement, immutable audit-only evidence, and defensive
+  aggregate exclusion. This release does not add a safeguarding review UI/session.
+- The focused current-image backend gate passed 50 tests. Current-source browser
+  receipt-only polling and dual-role switching passed 2/2; focused receipt, actor,
+  tick and policy source tests passed; Svelte checking passed with 0 errors/warnings;
+  EN/AR parity remains 1,274/1,274; the production frontend build passed. Real
+  attached photo and voice-note tests advance through Delivered and Read, and the
+  signed FHH integration is covered in both directions.
+- Only CHH backend and frontend were rebuilt/recreated. Public `/`, `/api/health` and
+  `/messages` returned HTTP 200 and affected-service logs were clean. PostgreSQL and
+  the Slice 10 `notification_scheduler` were not recreated: their container IDs stayed
+  `c4bec565ceae` and `e578f39ef6c2`. No schema, migration or production action was
+  required.
+- Slice 10 is unchanged after deployment: messaging and scheduler remain enabled;
+  poll/batch/lease/recheck are 15/50/60/300 seconds; retry is 30-3,600 seconds with 10
+  attempts; the school remains `Asia/Muscat`, policy version 4, receipts/contact hours
+  enabled, `delay_notifications_only`, staff opt-in/teacher urgent disabled, Sunday-
+  Thursday 07:30-15:00, Friday/Saturday closed; the outbox remains empty.
+
+### Development administrator-receipt APK
+
+- Server: `/opt/apps/class_hero_hub/tmp/class-hero-hub-admin-receipts-dev.apk`
+- Google Drive: `G:\My Drive\CHH\Remote\class-hero-hub-admin-receipts-dev.apk`
+- Package `com.classherohub.app`; version code/name `1`/`1.0`; min SDK 23,
+  compile/target SDK 35; API `https://class.familyherohub.com/api`.
+- Size: 95,986,665 bytes; SHA-256:
+  `f4ab4cf8f58f4a3e28aca49a80c57d06571f24435abe5d424803f57596310902`.
+- Android debug signer certificate SHA-256:
+  `e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
+- Server/build/Drive copies are byte-identical. ZIP, endpoint, package, v1/v2
+  signature, `testDebugUnitTest`, `lintDebug` and `assembleDebug` checks passed after
+  the final web assets were synchronized.
+
+**Status date:** 2026-07-20
+
+**Environment:** CHH development, `https://class.familyherohub.com`
+
+**Source checkpoint:** `main`, tag
+`chh-s26k-admin-receipt-mopup-2026-07-20`
+
 ## S26j Messaging v1 contact-hours/outbox checkpoint
 
 Messaging v1 Slice 10 is deployed on CHH development. Parent messages still commit

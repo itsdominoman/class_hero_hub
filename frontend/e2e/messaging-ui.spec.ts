@@ -398,6 +398,154 @@ test('receipt-only polls advance an outgoing tick without remounting the draft',
   await expect(page.locator('[data-receipt-state="read"]')).toHaveCount(1);
 });
 
+test('dual-role switching persists actor context and never acknowledges the other role', async ({ page }) => {
+  const adminMembership = {
+    membership_id: 61,
+    school_id: 7,
+    school_name: 'Al Noor School',
+    role: 'school_admin'
+  };
+  const adminConversationId = '00000000-0000-4000-8000-000000000201';
+  const acknowledgements: Array<{
+    membershipId: string;
+    conversationId: string;
+    eventType: string;
+  }> = [];
+  await page.unroute('**/api/me');
+  await page.route('**/api/me', async (route) => {
+    await route.fulfill({
+      json: {
+        id: 5,
+        name: 'Dual Role One',
+        is_platform_admin: false,
+        memberships: [membership, adminMembership]
+      }
+    });
+  });
+  await page.route('**/api/messaging/**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname;
+    const membershipId = request.headers()['x-membership-id'];
+    const expectedConversationId = membershipId === '61' ? adminConversationId : conversationId;
+    const roleConversation = {
+      ...conversation,
+      id: expectedConversationId,
+      staff_context: membershipId === '61'
+        ? { relationship: 'school_administration', subjects: [] }
+        : conversation.staff_context
+    };
+    if (path.endsWith('/unread-count')) {
+      await route.fulfill({ json: { total: 1, conversations: 1 } });
+      return;
+    }
+    if (path.endsWith('/notification-preferences')) {
+      await route.fulfill({
+        json: {
+          allowed_by_school: false,
+          stored_out_of_hours_notifications_enabled: false,
+          effective_out_of_hours_notifications_enabled: false,
+          preference_version: 1
+        }
+      });
+      return;
+    }
+    if (path.endsWith('/inbox')) {
+      await route.fulfill({ json: { items: [roleConversation], next_cursor: null } });
+      return;
+    }
+    const requestedConversationId = path.match(/\/conversations\/([^/]+)/)?.[1];
+    if (requestedConversationId && requestedConversationId !== expectedConversationId) {
+      await route.fulfill({ status: 404, json: { detail: 'Conversation not found' } });
+      return;
+    }
+    if (path.endsWith(`/conversations/${expectedConversationId}`)) {
+      await route.fulfill({
+        json: {
+          ...roleConversation,
+          participant_details: [
+            { kind: 'staff', side: 'staff', display_name: 'Dual Role One', active: true },
+            { kind: 'chh_guardian', side: 'guardian', display_name: 'Aisha Al Balushi', relationship: 'mother', active: true }
+          ],
+          shared_guardian_visibility: true,
+          safeguarding_disclosure: true
+        }
+      });
+      return;
+    }
+    if (
+      path.endsWith(`/conversations/${expectedConversationId}/messages`) &&
+      request.method() === 'GET'
+    ) {
+      await route.fulfill({
+        json: {
+          items: [{
+            id: membershipId === '61'
+              ? '00000000-0000-4000-8000-000000000202'
+              : existingMessageId,
+            sequence: 1,
+            sender_display_name: 'Aisha Al Balushi',
+            sender_kind: 'chh_guardian',
+            sender_relationship: 'mother',
+            sender_is_self: false,
+            body: 'Role-scoped incoming message',
+            photos: [],
+            voice_note: null,
+            state: 'active',
+            urgent: false,
+            created_at: '2026-07-17T08:00:00Z'
+          }],
+          receipt_updates: [],
+          next_cursor: null,
+          latest_sequence: 1
+        }
+      });
+      return;
+    }
+    if (path.endsWith(`/conversations/${expectedConversationId}/acknowledgements`)) {
+      const body = request.postDataJSON();
+      acknowledgements.push({
+        membershipId,
+        conversationId: expectedConversationId,
+        eventType: body.event_type
+      });
+      await route.fulfill({
+        json: {
+          event_type: body.event_type,
+          through_sequence: body.through_sequence,
+          recorded_at: '2026-07-17T08:01:00Z',
+          duplicate: false
+        }
+      });
+      return;
+    }
+    await route.fulfill({ status: 404, json: { detail: 'Not found' } });
+  });
+
+  await page.goto(`/messages?conversation=${conversationId}&membership=51`);
+  await expect(page).toHaveURL(new RegExp(`conversation=${conversationId}.*membership=51`));
+  await expect.poll(() => acknowledgements.filter((row) => row.membershipId === '51').length).toBe(2);
+
+  await page.getByLabel('Acting as').selectOption('61');
+  await expect(page).toHaveURL(/membership=61/);
+  await expect(page).not.toHaveURL(/conversation=/);
+  await page.getByRole('list', { name: 'Conversation list' }).getByRole('button').first().click();
+  await expect(page).toHaveURL(new RegExp(`conversation=${adminConversationId}`));
+  await expect(page).toHaveURL(/membership=61/);
+  await expect.poll(() => acknowledgements.filter((row) => row.membershipId === '61').length).toBe(2);
+
+  expect(acknowledgements).toEqual(expect.arrayContaining([
+    { membershipId: '51', conversationId, eventType: 'delivered' },
+    { membershipId: '51', conversationId, eventType: 'read' },
+    { membershipId: '61', conversationId: adminConversationId, eventType: 'delivered' },
+    { membershipId: '61', conversationId: adminConversationId, eventType: 'read' }
+  ]));
+  expect(acknowledgements.some((row) =>
+    (row.membershipId === '51' && row.conversationId !== conversationId) ||
+    (row.membershipId === '61' && row.conversationId !== adminConversationId)
+  )).toBe(false);
+});
+
 test('Quick Award recognizes Bob-like FHH guardians, opens the existing conversation, and restores the overlay', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockBobTeacherAssignment(page);
