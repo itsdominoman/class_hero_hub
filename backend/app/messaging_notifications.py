@@ -207,6 +207,43 @@ def _scheduler_check_at(now: datetime, eligible_at: datetime) -> datetime:
     return min(eligible_at, next_safety_check) if eligible_at > now else next_safety_check
 
 
+def message_notification_direction(
+    conversation: Conversation,
+    sender: ConversationParticipant,
+) -> str | None:
+    """Return the only push direction allowed for this committed message."""
+    if conversation.kind == "staff_direct" and sender.side == "staff":
+        return "staff_to_staff"
+    if sender.side == "guardian":
+        return "family_to_staff"
+    if sender.side == "staff":
+        return "staff_to_family"
+    return None
+
+
+def notification_recipient_allowed(
+    conversation: Conversation,
+    sender: ConversationParticipant,
+    recipient: ConversationParticipant,
+) -> bool:
+    direction = message_notification_direction(conversation, sender)
+    if direction is None:
+        return False
+    # Suppress the same authenticated CHH user even when they appear through a
+    # second membership or the opposite guardian/staff participant context.
+    if (
+        sender.user_id is not None
+        and recipient.user_id is not None
+        and sender.user_id == recipient.user_id
+    ):
+        return False
+    if direction == "staff_to_staff":
+        return recipient.side == "staff"
+    if direction == "family_to_staff":
+        return recipient.side == "staff"
+    return recipient.side == "guardian"
+
+
 def enqueue_message_notifications(
     db: Session,
     *,
@@ -227,6 +264,11 @@ def enqueue_message_notifications(
         .order_by(ConversationParticipant.id)
         .all()
     )
+    participants = [
+        participant
+        for participant in participants
+        if notification_recipient_allowed(conversation, sender, participant)
+    ]
     preferences = {
         row.membership_id: row
         for row in db.query(StaffMessagingPreference)
@@ -262,11 +304,16 @@ def enqueue_message_notifications(
     )
     rows: list[NotificationOutbox] = []
     seen_targets: set[tuple[str, int]] = set()
+    direction = message_notification_direction(conversation, sender)
     for participant in participants:
         targets: list[tuple[str, int, int | None]] = []
-        if participant.participant_kind in {"staff", "chh_guardian"} and participant.user_id is not None:
+        if (
+            direction in {"family_to_staff", "staff_to_staff"}
+            and participant.participant_kind == "staff"
+            and participant.user_id is not None
+        ):
             targets.append(("chh_user", participant.user_id, participant.id))
-        elif participant.participant_kind == "fhh_parent":
+        elif direction == "staff_to_family" and participant.participant_kind == "fhh_parent":
             targets.extend(
                 ("fhh_link", link_id, None)
                 for link_id in sorted(fhh_links_by_participant.get(participant.id, set()))
@@ -558,6 +605,9 @@ def reconcile_notification_rows(
         sender = participants_by_id.get(message.sender_participant_id)
         if sender is None:
             _cancel(row, code="sender_missing", now=now)
+            continue
+        if not notification_recipient_allowed(conversation, sender, recipient):
+            _cancel(row, code="invalid_notification_direction", now=now)
             continue
         decision = contact_hours_decision(
             db,

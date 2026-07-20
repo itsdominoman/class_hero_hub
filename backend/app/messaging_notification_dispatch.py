@@ -13,6 +13,10 @@ from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from .database import settings
+from .messaging_notifications import (
+    message_notification_direction,
+    notification_recipient_allowed,
+)
 from .models_school import (
     Conversation,
     ConversationParticipant,
@@ -38,6 +42,12 @@ class ProviderError(Exception):
         self.invalid_token = invalid_token
 
 
+def school_message_collapse_key(conversation_id: str, message_direction: str) -> str:
+    if message_direction not in {"family_to_staff", "staff_to_family", "staff_to_staff"}:
+        raise ProviderError("invalid_notification_direction", terminal=True)
+    return f"school-chat-{message_direction.replace('_', '-')}-{conversation_id}"
+
+
 class PushProvider(Protocol):
     def send(
         self,
@@ -47,6 +57,7 @@ class PushProvider(Protocol):
         event_id: str,
         conversation_id: str,
         urgent: bool,
+        message_direction: str,
     ) -> str: ...
 
 
@@ -59,6 +70,7 @@ class BridgeProvider(Protocol):
         conversation_id: str,
         urgent: bool,
         occurred_at: datetime,
+        message_direction: str,
     ) -> str: ...
 
 
@@ -97,12 +109,14 @@ class FirebasePushProvider:
         event_id: str,
         conversation_id: str,
         urgent: bool,
+        message_direction: str,
     ) -> str:
         try:
             from firebase_admin import messaging
 
             title = "رسالة مدرسية جديدة" if locale == "ar" else "New school message"
             body = "لديك رسالة مدرسية جديدة." if locale == "ar" else "You have a new school message."
+            collapse_key = school_message_collapse_key(conversation_id, message_direction)
             return messaging.send(
                 messaging.Message(
                     notification=messaging.Notification(title=title, body=body),
@@ -111,13 +125,13 @@ class FirebasePushProvider:
                         "notification_event_id": event_id,
                     },
                     android=messaging.AndroidConfig(
-                        collapse_key=f"school-chat-{conversation_id}",
+                        collapse_key=collapse_key,
                         priority="high" if urgent else "normal",
                         ttl=timedelta(days=1),
                         restricted_package_name=settings.CHH_ANDROID_PACKAGE,
                         notification=messaging.AndroidNotification(
                             channel_id="urgent_school_messages" if urgent else "school_messages",
-                            tag=f"school-chat-{conversation_id}",
+                            tag=collapse_key,
                             visibility="private",
                             default_sound=True,
                             default_vibrate_timings=True,
@@ -154,6 +168,7 @@ class SignedFhhBridgeProvider:
         conversation_id: str,
         urgent: bool,
         occurred_at: datetime,
+        message_direction: str,
     ) -> str:
         if not (
             settings.FHH_NOTIFICATION_BRIDGE_URL.strip()
@@ -166,6 +181,7 @@ class SignedFhhBridgeProvider:
             "route_type": "school_chat",
             "remote_link_id": remote_link_id,
             "conversation_id": conversation_id,
+            "message_direction": message_direction,
             "urgent": urgent,
             "occurred_at": occurred_at.astimezone(UTC).isoformat(),
         }
@@ -211,6 +227,7 @@ class DispatchContext:
     row: NotificationOutbox
     message: Message
     conversation: Conversation
+    sender: ConversationParticipant
 
 
 def _aware(value: datetime) -> datetime:
@@ -287,10 +304,29 @@ def _contexts(db: Session, rows: list[NotificationOutbox]) -> dict[int, Dispatch
         .filter(Conversation.id.in_({message.conversation_id for message in messages.values()}))
         .all()
     }
+    senders = {
+        row.id: row
+        for row in db.query(ConversationParticipant)
+        .filter(
+            ConversationParticipant.id.in_(
+                {message.sender_participant_id for message in messages.values()}
+            )
+        )
+        .all()
+    }
     return {
-        row.id: DispatchContext(row, messages[row.message_id], conversations[messages[row.message_id].conversation_id])
+        row.id: DispatchContext(
+            row,
+            messages[row.message_id],
+            conversations[messages[row.message_id].conversation_id],
+            senders[messages[row.message_id].sender_participant_id],
+        )
         for row in rows
-        if row.message_id in messages and messages[row.message_id].conversation_id in conversations
+        if (
+            row.message_id in messages
+            and messages[row.message_id].conversation_id in conversations
+            and messages[row.message_id].sender_participant_id in senders
+        )
     }
 
 
@@ -302,12 +338,19 @@ def _valid_chh_recipient(db: Session, context: DispatchContext) -> bool:
             ConversationParticipant.id == row.recipient_participant_id,
             ConversationParticipant.conversation_id == context.conversation.id,
             ConversationParticipant.user_id == row.recipient_user_id,
-            ConversationParticipant.side == "staff",
             ConversationParticipant.left_at.is_(None),
         )
         .first()
     )
-    if participant is None or participant.membership_id is None:
+    if (
+        participant is None
+        or participant.membership_id is None
+        or not notification_recipient_allowed(
+            context.conversation,
+            context.sender,
+            participant,
+        )
+    ):
         return False
     return (
         db.query(Membership.id)
@@ -443,7 +486,7 @@ def dispatch_claimed_rows(
         .all()
     )
     contexts = _contexts(db, rows)
-    push_groups: dict[tuple[int, int], list[tuple[DispatchContext, NotificationDelivery, DevicePushRegistration]]] = {}
+    push_groups: dict[tuple[int, int, str], list[tuple[DispatchContext, NotificationDelivery, DevicePushRegistration]]] = {}
     bridge_contexts: list[DispatchContext] = []
     for row in rows:
         context = contexts.get(row.id)
@@ -453,6 +496,13 @@ def dispatch_claimed_rows(
             or context.conversation.status != "active"
         ):
             _cancel_outbox(row, "notification_target_missing", now)
+            continue
+        message_direction = message_notification_direction(
+            context.conversation,
+            context.sender,
+        )
+        if message_direction is None:
+            _cancel_outbox(row, "invalid_notification_direction", now)
             continue
         if row.recipient_kind == "chh_user":
             if not _valid_chh_recipient(db, context):
@@ -478,9 +528,12 @@ def dispatch_claimed_rows(
                     continue
                 if delivery.state in {"pending", "failed"} and delivery.next_attempt_at <= now:
                     push_groups.setdefault(
-                        (registration.id, context.conversation.id), []
+                        (registration.id, context.conversation.id, message_direction), []
                     ).append((context, delivery, registration))
         else:
+            if message_direction != "staff_to_family":
+                _cancel_outbox(row, "invalid_notification_direction", now)
+                continue
             link = (
                 db.query(FhhLink)
                 .filter(
@@ -507,6 +560,10 @@ def dispatch_claimed_rows(
                 event_id=str(latest_context.row.event_id),
                 conversation_id=str(latest_context.conversation.public_id),
                 urgent=bool(latest_context.message.urgent),
+                message_direction=message_notification_direction(
+                    latest_context.conversation,
+                    latest_context.sender,
+                ) or "invalid",
             )
             for context, delivery, _registration in grouped:
                 delivery.state = "provider_accepted"
@@ -534,6 +591,7 @@ def dispatch_claimed_rows(
                 conversation_id=str(context.conversation.public_id),
                 urgent=bool(context.message.urgent),
                 occurred_at=_aware(context.message.created_at),
+                message_direction="staff_to_family",
             )
             row.state = "provider_accepted"
             row.provider_message_ref = provider_ref[:200]

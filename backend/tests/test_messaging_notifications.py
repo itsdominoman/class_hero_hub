@@ -32,16 +32,23 @@ from app.messaging_notification_dispatch import (
     SignedFhhBridgeProvider,
     claim_dispatch_rows,
     dispatch_claimed_rows,
+    school_message_collapse_key,
 )
 from app.models_school import (
     Conversation,
     ConversationAccessGrant,
     ConversationParticipant,
     DevicePushRegistration,
+    FhhLink,
+    FhhLinkInvite,
+    FhhMessagingIdentity,
+    FhhMessagingIdentityLink,
     GuardianLink,
     Membership,
     Message,
+    MessageMedia,
     MessageReceiptEvent,
+    MessageVoiceMedia,
     NotificationDelivery,
     NotificationOutbox,
     School,
@@ -341,6 +348,430 @@ def _message(db, world, *, sender, created_at, urgent=False):
     return message
 
 
+def _fhh_direction_world(db):
+    world = _world(db)
+    world.policy.contact_hours_enabled = False
+    teacher_user = User(
+        email=f"direction-teacher-{uuid4()}@test",
+        name="Direction Teacher",
+        google_sub=str(uuid4()),
+    )
+    db.add(teacher_user)
+    db.flush()
+    teacher_membership = Membership(
+        school_id=world.school.id,
+        user_id=teacher_user.id,
+        role="teacher",
+        status="active",
+    )
+    alternate_admin_membership = Membership(
+        school_id=world.school.id,
+        user_id=teacher_user.id,
+        role="school_admin",
+        status="active",
+    )
+    db.add_all([teacher_membership, alternate_admin_membership])
+    db.flush()
+    invite = FhhLinkInvite(
+        school_id=world.school.id,
+        student_id=world.conversation.student_id,
+        token_hash=f"direction-invite-{uuid4()}",
+        display_code_last4="4312",
+        expires_at=datetime.now(UTC) + timedelta(days=1),
+        consumed_at=datetime.now(UTC),
+        consumed_by="opaque-child",
+        created_by_user_id=world.admin_user.id,
+    )
+    db.add(invite)
+    db.flush()
+    link = FhhLink(
+        school_id=world.school.id,
+        student_id=world.conversation.student_id,
+        source_invite_id=invite.id,
+        link_token_hash=f"direction-link-{uuid4()}",
+        fhh_child_ref="opaque-child",
+        status="active",
+    )
+    identities = [
+        FhhMessagingIdentity(
+            school_id=world.school.id,
+            external_subject_ref=uuid4(),
+            display_name=f"Verified Parent {index}",
+            preferred_locale="en",
+            status="active",
+        )
+        for index in (1, 2)
+    ]
+    db.add_all([link, *identities])
+    db.flush()
+    for identity in identities:
+        db.add(
+            FhhMessagingIdentityLink(
+                school_id=world.school.id,
+                fhh_link_id=link.id,
+                identity_id=identity.id,
+                status="active",
+                sync_version=1,
+            )
+        )
+    dual_guardian_link = GuardianLink(
+        school_id=world.school.id,
+        student_id=world.conversation.student_id,
+        user_id=teacher_user.id,
+        relationship="guardian",
+        display_name="Direction Teacher",
+        status="active",
+    )
+    db.add(dual_guardian_link)
+    db.flush()
+    conversation = Conversation(
+        school_id=world.school.id,
+        kind="student_staff",
+        student_id=world.conversation.student_id,
+        primary_staff_membership_id=teacher_membership.id,
+    )
+    db.add(conversation)
+    db.flush()
+    teacher = ConversationParticipant(
+        conversation_id=conversation.id,
+        participant_kind="staff",
+        user_id=teacher_user.id,
+        membership_id=teacher_membership.id,
+        side="staff",
+        display_name_snapshot="Direction Teacher",
+    )
+    alternate_admin = ConversationParticipant(
+        conversation_id=conversation.id,
+        participant_kind="staff",
+        user_id=teacher_user.id,
+        membership_id=alternate_admin_membership.id,
+        side="staff",
+        display_name_snapshot="Direction Teacher",
+    )
+    administrator = ConversationParticipant(
+        conversation_id=conversation.id,
+        participant_kind="staff",
+        user_id=world.admin_user.id,
+        membership_id=world.membership.id,
+        side="staff",
+        display_name_snapshot="School Admin",
+    )
+    parents = [
+        ConversationParticipant(
+            conversation_id=conversation.id,
+            participant_kind="fhh_parent",
+            external_participant_id=identity.id,
+            side="guardian",
+            display_name_snapshot=identity.display_name,
+        )
+        for identity in identities
+    ]
+    dual_guardian = ConversationParticipant(
+        conversation_id=conversation.id,
+        participant_kind="chh_guardian",
+        user_id=teacher_user.id,
+        side="guardian",
+        display_name_snapshot="Direction Teacher",
+    )
+    db.add_all([teacher, alternate_admin, administrator, *parents, dual_guardian])
+    db.flush()
+    for participant, membership in (
+        (teacher, teacher_membership),
+        (alternate_admin, alternate_admin_membership),
+        (administrator, world.membership),
+    ):
+        db.add(
+            ConversationAccessGrant(
+                conversation_id=conversation.id,
+                participant_id=participant.id,
+                source_type="school_admin_membership",
+                membership_id=membership.id,
+                grant_reason="direction_test",
+            )
+        )
+    for parent in parents:
+        db.add(
+            ConversationAccessGrant(
+                conversation_id=conversation.id,
+                participant_id=parent.id,
+                source_type="fhh_link",
+                fhh_link_id=link.id,
+                grant_reason="direction_test",
+            )
+        )
+    db.add(
+        ConversationAccessGrant(
+            conversation_id=conversation.id,
+            participant_id=dual_guardian.id,
+            source_type="guardian_link",
+            guardian_link_id=dual_guardian_link.id,
+            grant_reason="direction_test",
+        )
+    )
+    conversation.created_by_participant_id = parents[0].id
+    db.add_all(
+        [
+            DevicePushRegistration(
+                installation_id=uuid4(),
+                user_id=user_id,
+                platform="android",
+                app_package="com.classherohub.app",
+                locale="en",
+                fcm_token=f"direction-staff-token-{index}-long-enough",
+            )
+            for index, user_id in enumerate(
+                (teacher_user.id, world.admin_user.id),
+                start=1,
+            )
+        ]
+    )
+    db.commit()
+    return SimpleNamespace(
+        school=world.school,
+        policy=world.policy,
+        admin_user=world.admin_user,
+        membership=teacher_membership,
+        conversation=conversation,
+        teacher=teacher,
+        alternate_admin=alternate_admin,
+        administrator=administrator,
+        parents=parents,
+        dual_guardian=dual_guardian,
+        link=link,
+    )
+
+
+def _set_message_shape(db, message, sender, kind):
+    if kind == "text":
+        return
+    message.body = None
+    if kind == "photo":
+        db.add(
+            MessageMedia(
+                client_upload_id=uuid4(),
+                school_id=message.school_id,
+                conversation_id=message.conversation_id,
+                message_id=message.id,
+                uploaded_by_participant_id=sender.id,
+                state="attached",
+                full_storage_key="school-messaging/test/full.jpg",
+                thumbnail_storage_key="school-messaging/test/thumb.jpg",
+                content_type="image/jpeg",
+                full_bytes=100,
+                thumbnail_bytes=50,
+                width=10,
+                height=10,
+                thumbnail_width=5,
+                thumbnail_height=5,
+                source_checksum_sha256="a" * 64,
+                checksum_sha256="b" * 64,
+                metadata_stripped=True,
+                attached_at=message.created_at,
+            )
+        )
+        return
+    message.message_type = "voice_note"
+    db.add(
+        MessageVoiceMedia(
+            client_upload_id=uuid4(),
+            school_id=message.school_id,
+            conversation_id=message.conversation_id,
+            message_id=message.id,
+            uploaded_by_participant_id=sender.id,
+            state="attached",
+            storage_key="school-messaging/test/voice.m4a",
+            content_type="audio/mp4",
+            size_bytes=100,
+            duration_ms=1_000,
+            codec="aac",
+            container="mp4",
+            source_checksum_sha256="c" * 64,
+            checksum_sha256="d" * 64,
+            metadata_stripped=True,
+            attached_at=message.created_at,
+        )
+    )
+
+
+class RecordingBridgeProvider:
+    def __init__(self):
+        self.calls = []
+
+    def send(self, **kwargs):
+        self.calls.append(kwargs)
+        return f"bridge-ref-{len(self.calls)}"
+
+
+@pytest.mark.parametrize("message_kind", ["text", "photo", "voice"])
+def test_fhh_family_message_targets_staff_only_for_every_supported_media_kind(db, message_kind):
+    world = _fhh_direction_world(db)
+    now = datetime(2026, 7, 20, 8, 0, tzinfo=UTC)
+    before_receipts = db.query(MessageReceiptEvent).count()
+    before_access = {
+        participant.id: (participant.last_delivered_sequence, participant.last_read_sequence)
+        for participant in world.parents
+    }
+    message = _message(db, world, sender=world.parents[0], created_at=now)
+    _set_message_shape(db, message, world.parents[0], message_kind)
+
+    rows = enqueue_message_notifications(
+        db,
+        conversation=world.conversation,
+        message=message,
+        sender=world.parents[0],
+        now=now,
+    )
+    db.commit()
+
+    assert len(rows) == 2
+    assert {row.recipient_kind for row in rows} == {"chh_user"}
+    assert {row.recipient_user_id for row in rows} == {
+        world.teacher.user_id,
+        world.administrator.user_id,
+    }
+    assert db.query(NotificationOutbox).filter_by(message_id=message.id, recipient_kind="fhh_link").count() == 0
+    assert len(world.parents) == 2
+    assert all(parent.left_at is None for parent in world.parents)
+
+    claimed = claim_dispatch_rows(
+        db,
+        worker_id=f"family-{message_kind}-dispatch",
+        limit=10,
+        now=now + timedelta(seconds=1),
+    )
+    push_provider = RecordingPushProvider()
+    assert dispatch_claimed_rows(
+        db,
+        row_ids=claimed,
+        worker_id=f"family-{message_kind}-dispatch",
+        push_provider=push_provider,
+        bridge_provider=UnusedBridgeProvider(),
+        now=now + timedelta(seconds=1),
+    ) == 2
+    assert len(push_provider.calls) == 2
+    assert {call["message_direction"] for call in push_provider.calls} == {"family_to_staff"}
+    assert db.query(MessageReceiptEvent).count() == before_receipts
+    assert {
+        participant.id: (participant.last_delivered_sequence, participant.last_read_sequence)
+        for participant in world.parents
+    } == before_access
+
+
+@pytest.mark.parametrize("staff_sender", ["teacher", "administrator"])
+def test_staff_message_targets_one_family_bridge_and_never_staff_or_dual_role_self(db, staff_sender):
+    world = _fhh_direction_world(db)
+    sender = getattr(world, staff_sender)
+    now = datetime(2026, 7, 20, 8, 0, tzinfo=UTC)
+    before_receipts = db.query(MessageReceiptEvent).count()
+    message = _message(db, world, sender=sender, created_at=now)
+
+    rows = enqueue_message_notifications(
+        db,
+        conversation=world.conversation,
+        message=message,
+        sender=sender,
+        now=now,
+    )
+    db.commit()
+
+    assert len(rows) == 1
+    assert rows[0].recipient_kind == "fhh_link"
+    assert rows[0].recipient_fhh_link_id == world.link.id
+    assert db.query(NotificationOutbox).filter_by(message_id=message.id, recipient_kind="chh_user").count() == 0
+
+    claimed = claim_dispatch_rows(
+        db,
+        worker_id=f"staff-{staff_sender}-dispatch",
+        limit=10,
+        now=now + timedelta(seconds=1),
+    )
+    bridge = RecordingBridgeProvider()
+    push_provider = RecordingPushProvider()
+    assert dispatch_claimed_rows(
+        db,
+        row_ids=claimed,
+        worker_id=f"staff-{staff_sender}-dispatch",
+        push_provider=push_provider,
+        bridge_provider=bridge,
+        now=now + timedelta(seconds=1),
+    ) == 1
+    assert push_provider.calls == []
+    assert len(bridge.calls) == 1
+    assert bridge.calls[0]["message_direction"] == "staff_to_family"
+    assert db.query(MessageReceiptEvent).count() == before_receipts
+
+
+def test_preexisting_wrong_direction_family_bridge_rows_are_cancelled_and_not_retried(db):
+    world = _fhh_direction_world(db)
+    now = datetime(2026, 7, 20, 8, 0, tzinfo=UTC)
+    message = _message(db, world, sender=world.parents[0], created_at=now)
+
+    def wrong_row(suffix):
+        return NotificationOutbox(
+            event_id=uuid4(),
+            school_id=world.school.id,
+            message_id=message.id,
+            recipient_kind="fhh_link",
+            recipient_fhh_link_id=world.link.id,
+            channel="push",
+            template_key="school_message.guardian",
+            template_args={"conversation_id": str(world.conversation.public_id)},
+            deep_link="school_chat",
+            policy_version=world.policy.policy_version,
+            state="pending",
+            eligible_at=now,
+            scheduler_check_at=now,
+            next_attempt_at=now,
+            dedupe_key=f"wrong-direction-{message.id}-{suffix}",
+        )
+
+    dispatch_row = wrong_row("dispatch")
+    db.add(dispatch_row)
+    db.commit()
+    claimed = claim_dispatch_rows(
+        db,
+        worker_id="wrong-direction-dispatch",
+        limit=10,
+        now=now,
+    )
+    assert dispatch_claimed_rows(
+        db,
+        row_ids=claimed,
+        worker_id="wrong-direction-dispatch",
+        push_provider=RecordingPushProvider(),
+        bridge_provider=UnusedBridgeProvider(),
+        now=now,
+    ) == 1
+    db.refresh(dispatch_row)
+    assert dispatch_row.state == "cancelled"
+    assert dispatch_row.last_error_code == "invalid_notification_direction"
+
+    scheduler_row = wrong_row("scheduler")
+    db.add(scheduler_row)
+    db.commit()
+    scheduler_claimed = claim_notification_rows(
+        db,
+        worker_id="wrong-direction-scheduler",
+        limit=10,
+        now=now,
+    )
+    reconcile_notification_rows(
+        db,
+        row_ids=scheduler_claimed,
+        worker_id="wrong-direction-scheduler",
+        now=now,
+    )
+    db.refresh(scheduler_row)
+    assert scheduler_row.state == "cancelled"
+    assert scheduler_row.last_error_code == "invalid_notification_direction"
+    assert claim_dispatch_rows(
+        db,
+        worker_id="wrong-direction-retry",
+        limit=10,
+        now=now + timedelta(minutes=1),
+    ) == []
+
+
 class RecordingPushProvider:
     def __init__(self):
         self.calls = []
@@ -353,6 +784,17 @@ class RecordingPushProvider:
 class UnusedBridgeProvider:
     def send(self, **_kwargs):
         raise AssertionError("FHH bridge was not expected")
+
+
+def test_collapse_keys_are_direction_scoped():
+    conversation_id = str(uuid4())
+    assert school_message_collapse_key(conversation_id, "family_to_staff") != school_message_collapse_key(
+        conversation_id,
+        "staff_to_family",
+    )
+    assert "family-to-staff" in school_message_collapse_key(conversation_id, "family_to_staff")
+    with pytest.raises(ProviderError, match="invalid_notification_direction"):
+        school_message_collapse_key(conversation_id, "unknown")
 
 
 def test_chh_device_account_switch_logout_and_opaque_tap_target_are_receipt_neutral(db):
@@ -469,6 +911,7 @@ def test_chh_dispatch_bundles_same_conversation_and_records_provider_acceptance(
     assert len(provider.calls) == 1
     assert provider.calls[0]["event_id"] == str(rows[-1].event_id)
     assert provider.calls[0]["locale"] == "ar"
+    assert provider.calls[0]["message_direction"] == "family_to_staff"
     assert db.query(NotificationDelivery).filter_by(state="provider_accepted").count() == 2
     assert db.query(NotificationOutbox).filter_by(state="provider_accepted").count() == 2
 
@@ -500,6 +943,7 @@ def test_signed_fhh_bridge_payload_is_minimal_replay_resistant_and_privacy_safe(
         conversation_id=str(conversation_id),
         urgent=False,
         occurred_at=datetime(2026, 7, 20, 12, 0, tzinfo=UTC),
+        message_direction="staff_to_family",
     )
     assert result == "accepted"
     payload = json.loads(captured["content"])
@@ -508,12 +952,14 @@ def test_signed_fhh_bridge_payload_is_minimal_replay_resistant_and_privacy_safe(
         "route_type",
         "remote_link_id",
         "conversation_id",
+        "message_direction",
         "urgent",
         "occurred_at",
     }
     assert payload["remote_link_id"] == 917
+    assert payload["message_direction"] == "staff_to_family"
     rendered = captured["content"].decode()
-    for forbidden in ("parent", "family", "fcm", "token", "message_body"):
+    for forbidden in ("parent_id", "family_id", "fcm_token", "message_body"):
         assert forbidden not in rendered.lower()
     timestamp = captured["headers"]["X-CHH-Notification-Timestamp"]
     nonce = captured["headers"]["X-CHH-Notification-Nonce"]
