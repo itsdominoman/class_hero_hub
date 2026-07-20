@@ -1,5 +1,32 @@
 # Messaging v1 QA coverage
 
+## Slice 12 safeguarding gate — 2026-07-20
+
+The focused CHH safeguarding suite passes **8 tests** covering explicit permissions,
+ordinary teacher/admin denial, cross-school and malformed-ID failure, metadata-only
+search, reason/acknowledgement validation, expiry/revocation/conversation scope,
+participant/receipt/unread/outbox snapshots, protected text/photo/voice review,
+side-specific restrictions, closure/reopen, internal notes/flags, tombstone/restore,
+ordinary media denial, retained reviewer evidence, permission administration, export
+permissions/limits/cleanup and ZIP/manifest/media hash verification with UTC and
+Muscat-local timestamps. The separate frontend source contract proves there is no
+composer or acknowledgement call.
+
+Eight focused existing CHH text, ordinary named-admin, dual-role, FHH receipt,
+protected-photo, protected-voice and push-direction tests also pass. CHH
+`svelte-check` reports **0 errors and 0 warnings**. FHH's full school-message proxy
+file passes **21 tests**, including the closed allowlist projection; focused state and
+UI tests cover neutral read-only/closed wording and reply disablement. The production
+Docker builds are the authoritative frontend build gates because FHH's direct host
+Svelte check retains unrelated legacy baseline errors and omits Compose-provided
+public build variables.
+
+The pre-migration dump is readable by `pg_restore`. A disposable restored PostgreSQL
+database passed `d9e… → e0f… → d9e… → e0f…`; both tables and both append-only triggers
+were checked after upgrade, and the database was deleted. Dev-only runtime checks
+verify authenticated route gating and that opening a review changes no participant,
+receipt, unread or notification evidence.
+
 ## S26k administrator receipt mop-up gate - 2026-07-20
 
 Focused CHH coverage exercises admin-to-teacher and teacher-to-admin Sent to

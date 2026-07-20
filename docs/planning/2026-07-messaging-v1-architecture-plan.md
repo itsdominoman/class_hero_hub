@@ -1,5 +1,20 @@
 # CHH/FHH Messaging v1 architecture and implementation plan
 
+**Slice 12 / S26m implementation update (2026-07-20):** safeguarding review,
+moderation, protected internal evidence export and audited permission administration
+are implemented on development. Review is an explicit school-scoped, reason-gated,
+expiring administrative session and is never ordinary participation: it creates no
+participant/access row, receipt change, unread change or notification. A separate CHH
+route and projection review text/photo/voice evidence without a composer. Restrictions,
+closure, append-only internal notes/flags and evidence-preserving tombstones are
+audited. FHH receives only neutral `active|read_only|closed` state through its existing
+allowlist proxy. Internal ZIP exports carry per-file and canonical-manifest SHA-256,
+expire after 30 minutes and have bounded authenticated downloads. See
+`docs/implementation/MESSAGING_V1_SAFEGUARDING.md` and
+`docs/operations/MESSAGING_SAFEGUARDING.md`. Slice 13 retention/legal-hold/archive
+hardening remains pending; production is unchanged. Older slice-status sentences
+below are retained as historical planning context and superseded by dated updates.
+
 **S25q implementation update (2026-07-18):** protected voice notes are implemented
 across CHH and FHH. CHH is the authoritative protected-audio boundary and normalizes
 untrusted recorder input to metadata-free mono AAC-LC/48 kHz/64 kbps in M4A. FHH is

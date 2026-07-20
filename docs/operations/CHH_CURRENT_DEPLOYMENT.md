@@ -1,5 +1,61 @@
 # CHH current development deployment
 
+## S26m Messaging v1 safeguarding administration
+
+Messaging Slice 12 is deployed to CHH development. Explicit school-scoped grants,
+reason-gated 5–60 minute review sessions, a separate no-composer evidence projection,
+protected photo/voice review, audited restriction/closure, flags, append-only notes,
+evidence-preserving tombstones and protected internal ZIP export are active. Review
+does not add a participant, advance Delivered/Read, clear unread counts or enqueue
+push. Dom's one active United International School admin membership has the five
+explicit pilot permissions; school-admin role alone grants nothing.
+
+- Database revision: `e0f1a2b3c4d5` from `d9e0f1a2b3c4`.
+- Pre-migration custom dump:
+  `/opt/apps/class_hero_hub/backups/chh-before-s26m-safeguarding-20260720.dump`,
+  1,001,727 bytes, SHA-256
+  `9ec4dd34374cef925102d4f5980decba76013fcb9ab2ba265acbcf995c8bea33`.
+- pgBackRest full label `20260720-202322F`: source size 52,920,684 bytes,
+  repository size 6,661,292 bytes. `pgbackrest check` and WAL archive passed after
+  correcting repository ownership to the PostgreSQL OS account; PostgreSQL was not
+  restarted.
+- A restored disposable PostgreSQL database passed upgrade, downgrade to
+  `d9e0f1a2b3c4`, re-upgrade, object checks and both append-only trigger checks, then
+  was removed.
+- Internal exports are capped at 5,000 messages, 500 media and 100 MiB, expire in 30
+  minutes, allow three downloads and are removed by the bounded cleanup command.
+- FHH receives only neutral participant state; internal reasons, reviewers, notes,
+  flags and audit evidence remain CHH-only.
+- Focused validation passed: safeguarding backend 8/8; existing named-admin,
+  dual-role, FHH receipt, protected photo/voice and notification-direction nodes;
+  CHH Svelte check 0 errors/0 warnings; and EN/AR parity 1,368/1,368.
+- The authenticated deployed-route check reviewed 25 retained messages, five photos
+  and five voice notes, generated/downloaded and verified one evidence ZIP and every
+  manifest file hash, then removed the expired temporary artifact. Participant rows,
+  Delivered/Read cursors, unread inputs, message/conversation state and notification
+  outbox were byte-for-byte logically unchanged; nine safeguarding audit events were
+  added. Public and loopback health returned 200. Only backend/frontend were
+  recreated; PostgreSQL and the notification scheduler retained their uptime.
+- Source tag: `chh-s26m-messaging-safeguarding-2026-07-20` after final deployment
+  verification. Production was not touched.
+
+### Development safeguarding APK
+
+- Server: `/opt/apps/class_hero_hub/tmp/class-hero-hub-safeguarding-dev.apk`
+- Google Drive: `G:\My Drive\CHH\Remote\class-hero-hub-safeguarding-dev.apk`
+- Package `com.classherohub.app`; version code/name `3`/`1.1-push`; min SDK 23,
+  compile/target SDK 35; API `https://class.familyherohub.com/api`.
+- Size: 96,140,375 bytes; SHA-256:
+  `4bcf3be6b52c569be475b6d51e46a538e1a9014528385026600e2acb481d3183`.
+- Android debug signer certificate SHA-256:
+  `e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
+- Server and Drive copies are byte-identical. The fixed endpoint, package, v1/v2
+  signature, `testDebugUnitTest`, `lintDebug` and `assembleDebug` checks passed after
+  final web assets were synchronized into Capacitor.
+
+Complete message/media retention, legal hold, archival and participant-safe export
+policy remain Slice 13. See `MESSAGING_SAFEGUARDING.md` for operations.
+
 ## S26l school-message Android push - final physical acceptance
 
 Messaging v1 Slice 11 is complete on CHH development at runtime commit `0c5c643`.

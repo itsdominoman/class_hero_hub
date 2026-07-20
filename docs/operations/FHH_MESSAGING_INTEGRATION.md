@@ -1,5 +1,19 @@
 # FHH Messaging Integration Operations
 
+## Slice 12 restricted/closed projection
+
+CHH remains the safeguarding authority. FHH accepts only the closed-world
+`participant_state` values `active`, `read_only` and `closed`; it recomputes
+`read_only` and forces `can_send=false` outside active state. Its allowlist drops
+restriction types, confidential and safe reasons, reviewer/session identity, internal
+notes/flags, moderation and audit history. No safeguarding review call traverses FHH,
+and review creates no FHH notification event or participant receipt.
+
+The parent UI preserves authorised history and shows only “This conversation is
+currently read-only.” or “This conversation has been closed by the school.” It
+disables all text/photo/voice reply paths from the safe state. There is no restriction
+or closure push in Slice 12.
+
 ## S25q protected voice boundary
 
 Voice upload follows the same CHH-authoritative principle as photos with stricter

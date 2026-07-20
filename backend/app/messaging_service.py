@@ -754,6 +754,8 @@ def assert_participant_can_send(
 ) -> SequenceAccess:
     if conversation.status != "active":
         raise MessagingAccessDenied("Conversation is read-only")
+    if participant_reply_restricted(conversation, participant.side):
+        raise MessagingAccessDenied("Conversation is read-only")
     access = participant_sequence_access(
         db,
         conversation=conversation,
@@ -777,6 +779,27 @@ def assert_participant_can_send(
         if policy is None or not policy.guardian_replies_enabled:
             raise MessagingAccessDenied("Guardian replies are disabled")
     return access
+
+
+def participant_reply_restricted(conversation: Conversation, side: str) -> bool:
+    restriction = conversation.restriction_type
+    if restriction is None:
+        return False
+    if restriction in {"both_replies", "read_only"}:
+        return True
+    if restriction == "family_replies" and side == "guardian":
+        return True
+    if restriction == "staff_replies" and side == "staff":
+        return True
+    return False
+
+
+def participant_conversation_state(conversation: Conversation, side: str) -> str:
+    if conversation.status != "active":
+        return "closed"
+    if participant_reply_restricted(conversation, side):
+        return "read_only"
+    return "active"
 
 
 def record_messaging_audit(

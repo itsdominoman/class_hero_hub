@@ -1,5 +1,33 @@
 # Staff messaging user manual
 
+## Safeguarding message reviews
+
+Safeguarding review is separate from the ordinary Messages inbox. It appears under
+**School → Safeguarding → Message reviews** only when your active school membership
+has the explicit safeguarding review permission. Being a teacher or school
+administrator does not provide access by itself.
+
+Search results use metadata only and do not preview message content. Select the exact
+conversation, choose the real reason category, write a case-specific justification
+and acknowledge that access is audited. The review banner shows your account, school,
+reason and expiry. The protected timeline has no reply composer. Opening it does not
+make you a participant, mark a message Delivered/Read, clear anyone's unread count or
+notify the family or staff.
+
+Only use moderation controls when your membership also has that permission. A
+restriction can block family replies, staff replies or both; closing blocks all new
+messages while keeping retained history. Use neutral participant wording and keep
+confidential details in the protected reason. Internal notes and flags never appear in
+ordinary CHH/FHH messages. Removing a message from participant view preserves the
+original evidence and must have a recorded reason.
+
+Internal evidence exports require another explicit permission and justification.
+Including internal notes requires the additional internal-note export permission.
+Packages are temporary, integrity-hashed and download-limited. Store and share them
+only through the school's authorised evidence procedure; they are not emailed
+automatically. End the review when finished. Contact a safeguarding permission
+manager to revoke an incorrect or no-longer-needed grant/session.
+
 ## Contact hours and notifications
 
 Parent messages are committed immediately at any time. Contact hours delay only the

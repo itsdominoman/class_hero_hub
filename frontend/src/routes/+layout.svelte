@@ -7,6 +7,8 @@
   import { initI18n } from '$lib/i18n';
   import { errorStatus, messagingApi } from '$lib/messaging/api';
   import type { MessagingMembership } from '$lib/messaging/types';
+  import { safeguardingApi } from '$lib/safeguarding/api';
+  import type { SafeguardingMembership } from '$lib/safeguarding/types';
   import { clearNativeAccessToken, isNativePlatform } from '$lib/nativeAuth';
   import { defaultLandingPath, hasRole, type SessionUser } from '$lib/roleRouting';
 
@@ -16,6 +18,7 @@
   let messagingMemberships = $state<MessagingMembership[]>([]);
   let messagingAvailable = $state(false);
   let messagingUnread = $state(0);
+  let safeguardingMemberships = $state<SafeguardingMembership[]>([]);
   // Capacitor exposes this synchronously before the app shell is hydrated.
   // Keep public website chrome out of the native shell while preserving it on web.
   let nativeApp = $state(isNativePlatform());
@@ -35,6 +38,19 @@
           (row.role === 'teacher' || row.role === 'school_admin') &&
           Number.isInteger(row.membership_id)
       );
+      const safeguardingChecks = await Promise.all(
+        (currentUser?.memberships || []).map(async (row) => {
+          try {
+            const availability = await safeguardingApi.availability(row);
+            return availability.available ? row : null;
+          } catch {
+            return null;
+          }
+        })
+      );
+      safeguardingMemberships = safeguardingChecks.filter(
+        (row): row is SafeguardingMembership => row !== null
+      );
       await refreshMessagingBadge();
       if (nativeApp && messagingMemberships.length > 0) {
         void prepareNativePush();
@@ -46,6 +62,7 @@
     } catch {
       currentUser = null;
       messagingMemberships = [];
+      safeguardingMemberships = [];
       messagingAvailable = false;
       messagingUnread = 0;
     }
@@ -117,6 +134,7 @@
       if (nativeApp) await clearNativeAccessToken();
       currentUser = null;
       messagingMemberships = [];
+      safeguardingMemberships = [];
       messagingAvailable = false;
       messagingUnread = 0;
       window.location.href = '/';
@@ -189,6 +207,11 @@
   let hasGuardian = $derived(hasRole(currentUser, 'guardian'));
   let hasAnyRole = $derived(hasSchoolAdmin || hasTeacher || hasGuardian || Boolean(currentUser?.is_platform_admin));
   let dashboardHref = $derived(defaultLandingPath(currentUser));
+  let safeguardingHref = $derived(
+    safeguardingMemberships.length
+      ? `/school/safeguarding/message-reviews?membership=${safeguardingMemberships[0].membership_id}`
+      : '/school/safeguarding/message-reviews'
+  );
   // Messaging already owns a bounded viewport and its single bottom inset at the
   // sticky composer. Every other native route gets the bottom inset from app-main.
   let messagingRoute = $derived($page.url.pathname.startsWith('/messages'));
@@ -240,6 +263,11 @@
               {#if messagingUnread > 0}
                 <span class="absolute -right-3 -top-3 grid min-w-5 place-items-center rounded-full bg-hero px-1 text-[0.6rem] leading-5 text-white" aria-label={$_('messaging.unreadCount', { values: { count: messagingUnread } })}>{messagingUnread > 99 ? '99+' : messagingUnread}</span>
               {/if}
+            </a>
+          {/if}
+          {#if safeguardingMemberships.length > 0}
+            <a href={safeguardingHref} class="text-sm font-bold text-slate-500 hover:text-amber-700 uppercase tracking-wide transition-colors">
+              {$_('nav.safeguarding')}
             </a>
           {/if}
           {#if !hasAnyRole}
@@ -353,6 +381,7 @@
             {#if messagingUnread > 0}<span class="rounded-full bg-hero px-2 py-0.5 text-xs text-white" aria-label={$_('messaging.unreadCount', { values: { count: messagingUnread } })}>{messagingUnread > 99 ? '99+' : messagingUnread}</span>{/if}
           </a>
         {/if}
+        {#if safeguardingMemberships.length > 0}<a href={safeguardingHref} onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.safeguarding')}</a>{/if}
         {#if !hasAnyRole}<a href={dashboardHref} onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.dashboard')}</a>{/if}
       </nav>
       {#if nativePushStatus}

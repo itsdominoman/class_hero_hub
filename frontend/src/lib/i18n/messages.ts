@@ -24,6 +24,7 @@ export const en = {
     closeMenu: 'Close menu',
     teach: 'Teach',
     messages: 'Messages',
+    safeguarding: 'Safeguarding',
     product: 'Product',
     support: 'Support',
     legal: 'Legal',
@@ -136,6 +137,42 @@ export const en = {
     statusHeading: 'School shell in progress',
     statusText: 'Copy and feature details are TODO while the previous frontend surface is removed.'
   },
+  safeguarding: {
+    title: 'Safeguarding message reviews',
+    mode: 'Safeguarding review mode',
+    subtitle: 'Reason-gated, time-limited access for authorised reviewers. Review access is not conversation participation.',
+    school: 'School', reviewer: 'Reviewer', access: 'Access', permissions: 'permissions', audit: 'Audit', audited: 'Every action is audited',
+    noAccessTitle: 'Safeguarding access is not assigned',
+    noAccessBody: 'This account has no active school-scoped safeguarding review permission.',
+    flags: 'flags', reasonCategory: 'Reason category', justification: 'Justification', expires: 'Expires', refresh: 'Refresh', endReview: 'End review',
+    reviewAuditNotice: 'You are reviewing protected evidence. This does not add you as a participant or change receipts, unread counts, or notifications.',
+    participants: 'Participant and receipt context', timeline: 'Protected evidence timeline', photoNumber: 'Protected photo {number}', closePhoto: 'Close photo',
+    moderation: 'Moderation controls', confidentialReason: 'Confidential reason', safeReason: 'Optional neutral participant wording', approval: 'Approval required to reopen',
+    applyRestriction: 'Apply restriction', removeRestriction: 'Remove restriction', close: 'Close conversation', reopen: 'Reopen conversation',
+    flagCategory: 'Flag category', flagConversation: 'Flag conversation', flagMessage: 'Flag message', tombstone: 'Remove from participants', restore: 'Restore for participants',
+    internalNotes: 'Internal safeguarding notes', internalOnly: 'Stored separately and never shown to ordinary participants or FHH.', addNote: 'Add append-only note',
+    auditHistory: 'Immutable access and export audit', moderationHistory: 'Moderation history', permissionAdmin: 'Safeguarding permission administration',
+    permissionAdminBody: 'Grants are explicit, school-scoped, and revocable. A role alone does not confer access.', selectStaff: 'Select staff membership',
+    permissionReason: 'Grant or revocation reason', grant: 'Grant permission', revoke: 'Revoke',
+    search: {
+      title: 'Find a conversation', metadataOnly: 'Search is metadata-only; no message body is shown before a reason-gated review.', action: 'Search',
+      reference: 'Conversation reference', student: 'Student', participant: 'Participant name', role: 'Participant role', grade: 'Class or grade', branch: 'Branch ID',
+      from: 'From date', to: 'To date', anyStatus: 'Any status', anyType: 'Any message type', anyDirection: 'Any direction',
+      flagged: 'Flagged', restricted: 'Restricted', closed: 'Closed', noStudent: 'No linked student', empty: 'No conversations match these filters.'
+    },
+    start: {
+      title: 'Start an audited review', body: 'Select a valid reason, provide a meaningful justification, and acknowledge the protected access.',
+      acknowledgement: 'I understand that this time-limited access is audited and must be used only for the stated purpose.', action: 'Start review'
+    },
+    reasons: {
+      reported_concern: 'Reported concern', safeguarding_investigation: 'Safeguarding investigation', complaint: 'Complaint',
+      staff_conduct_review: 'Staff conduct review', parent_communication_review: 'Parent communication review',
+      legal_regulatory_request: 'Legal or regulatory request', authorised_technical_support: 'Technical support with authorised approval', other: 'Other authorised reason'
+    },
+    export: { title: 'Internal evidence export', includeNotes: 'Include internal notes (separately permissioned)', create: 'Generate protected ZIP' },
+    notices: { reviewEnded: 'The safeguarding review session was ended.', moderationSaved: 'The audited moderation action was saved.' },
+    errors: { failed: 'The safeguarding action could not be completed.', revocationReason: 'Enter a revocation reason before revoking a grant.' }
+  },
   messaging: {
     pageTitle: 'Messages | Class Hero Hub',
     pageDescription: 'Private school messaging for authorized teachers and school administrators.',
@@ -195,7 +232,8 @@ export const en = {
     receiptSent: 'Sent',
     receiptDelivered: 'Delivered',
     receiptRead: 'Read',
-    readOnlyNotice: 'This conversation is read only because current access or assignment has ended.',
+    readOnlyNotice: 'This conversation is currently read-only.',
+    closedNotice: 'This conversation has been closed by the school.',
     offlineComposer: 'You are offline. Reconnect before sending.',
     messageLabel: 'Message',
     messagePlaceholder: 'Write a message…',
@@ -1218,6 +1256,7 @@ export const ar = {
     closeMenu: 'إغلاق القائمة',
     teach: 'التدريس',
     messages: 'الرسائل',
+    safeguarding: 'الحماية',
     product: 'المنتج',
     support: 'الدعم',
     legal: 'قانوني',
@@ -1330,6 +1369,41 @@ export const ar = {
     statusHeading: 'واجهة المدرسة قيد العمل',
     statusText: 'تفاصيل النسخة والميزات TODO أثناء إزالة الواجهة السابقة.'
   },
+  safeguarding: {
+    title: 'مراجعات حماية الرسائل',
+    mode: 'وضع مراجعة الحماية',
+    subtitle: 'وصول محدد بالسبب والوقت للمراجعين المصرح لهم. لا تجعل المراجعة المراجع مشاركا في المحادثة.',
+    school: 'المدرسة', reviewer: 'المراجع', access: 'الوصول', permissions: 'صلاحيات', audit: 'التدقيق', audited: 'تخضع كل عملية للتدقيق',
+    noAccessTitle: 'لم تُمنح صلاحية مراجعة الحماية', noAccessBody: 'لا يملك هذا الحساب صلاحية نشطة لمراجعة الحماية ضمن المدرسة.',
+    flags: 'علامات', reasonCategory: 'فئة السبب', justification: 'التبرير', expires: 'تنتهي', refresh: 'تحديث', endReview: 'إنهاء المراجعة',
+    reviewAuditNotice: 'أنت تراجع أدلة محمية. لا يضيفك ذلك كمشارك ولا يغير إيصالات التسليم أو القراءة أو غير المقروء أو الإشعارات.',
+    participants: 'سياق المشاركين والإيصالات', timeline: 'التسلسل الزمني للأدلة المحمية', photoNumber: 'الصورة المحمية {number}', closePhoto: 'إغلاق الصورة',
+    moderation: 'ضوابط الإشراف', confidentialReason: 'السبب السري', safeReason: 'صياغة محايدة اختيارية للمشارك', approval: 'تلزم الموافقة لإعادة الفتح',
+    applyRestriction: 'تطبيق القيد', removeRestriction: 'إزالة القيد', close: 'إغلاق المحادثة', reopen: 'إعادة فتح المحادثة',
+    flagCategory: 'فئة العلامة', flagConversation: 'وضع علامة على المحادثة', flagMessage: 'وضع علامة على الرسالة', tombstone: 'إزالة من عرض المشاركين', restore: 'استعادة للمشاركين',
+    internalNotes: 'ملاحظات الحماية الداخلية', internalOnly: 'تُخزن منفصلة ولا تظهر للمشاركين العاديين أو منصة الأسرة.', addNote: 'إضافة ملاحظة غير قابلة للاستبدال',
+    auditHistory: 'سجل تدقيق الوصول والتصدير', moderationHistory: 'سجل الإشراف', permissionAdmin: 'إدارة صلاحيات الحماية',
+    permissionAdminBody: 'المنح صريحة ومقيدة بالمدرسة وقابلة للإلغاء. لا يمنح الدور وحده الوصول.', selectStaff: 'اختر عضوية موظف',
+    permissionReason: 'سبب المنح أو الإلغاء', grant: 'منح الصلاحية', revoke: 'إلغاء',
+    search: {
+      title: 'العثور على محادثة', metadataOnly: 'البحث في البيانات الوصفية فقط؛ لا يظهر نص الرسائل قبل مراجعة مرتبطة بسبب.', action: 'بحث',
+      reference: 'مرجع المحادثة', student: 'الطالب', participant: 'اسم المشارك', role: 'دور المشارك', grade: 'الفصل أو الصف', branch: 'معرف الفرع',
+      from: 'من تاريخ', to: 'إلى تاريخ', anyStatus: 'أي حالة', anyType: 'أي نوع رسالة', anyDirection: 'أي اتجاه',
+      flagged: 'بعلامة', restricted: 'مقيدة', closed: 'مغلقة', noStudent: 'لا يوجد طالب مرتبط', empty: 'لا توجد محادثات تطابق عوامل التصفية.'
+    },
+    start: {
+      title: 'بدء مراجعة مدققة', body: 'اختر سببا صالحا، واكتب تبريرا ذا معنى، وأقر بالوصول المحمي.',
+      acknowledgement: 'أفهم أن هذا الوصول محدود الوقت ومدقق ويجب استخدامه للغرض المذكور فقط.', action: 'بدء المراجعة'
+    },
+    reasons: {
+      reported_concern: 'بلاغ عن قلق', safeguarding_investigation: 'تحقيق حماية', complaint: 'شكوى', staff_conduct_review: 'مراجعة سلوك موظف',
+      parent_communication_review: 'مراجعة تواصل ولي الأمر', legal_regulatory_request: 'طلب قانوني أو تنظيمي',
+      authorised_technical_support: 'دعم تقني بموافقة مصرح بها', other: 'سبب آخر مصرح به'
+    },
+    export: { title: 'تصدير الأدلة الداخلية', includeNotes: 'تضمين الملاحظات الداخلية (بصلاحية منفصلة)', create: 'إنشاء ملف ZIP محمي' },
+    notices: { reviewEnded: 'تم إنهاء جلسة مراجعة الحماية.', moderationSaved: 'تم حفظ إجراء الإشراف المدقق.' },
+    errors: { failed: 'تعذر إكمال إجراء الحماية.', revocationReason: 'أدخل سبب الإلغاء قبل إلغاء المنح.' }
+  },
   messaging: {
     pageTitle: 'الرسائل | كلاس هيرو هب',
     pageDescription: 'مراسلات مدرسية خاصة للمعلمين ومسؤولي المدرسة المصرح لهم.',
@@ -1389,7 +1463,8 @@ export const ar = {
     receiptSent: 'تم الإرسال',
     receiptDelivered: 'تم التسليم',
     receiptRead: 'تمت القراءة',
-    readOnlyNotice: 'هذه المحادثة للقراءة فقط لأن صلاحية الوصول أو التكليف الحالي قد انتهت.',
+    readOnlyNotice: 'هذه المحادثة متاحة للقراءة فقط حاليًا.',
+    closedNotice: 'أغلقت المدرسة هذه المحادثة.',
     offlineComposer: 'أنت غير متصل. أعد الاتصال قبل الإرسال.',
     messageLabel: 'الرسالة',
     messagePlaceholder: 'اكتب رسالة…',

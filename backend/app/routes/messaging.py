@@ -27,6 +27,8 @@ from ..messaging_service import (
     assert_participant_can_send,
     participant_sequence_access,
     participant_sequence_access_map,
+    participant_conversation_state,
+    participant_reply_restricted,
     record_messaging_audit,
     send_message as commit_message,
 )
@@ -1296,7 +1298,12 @@ def _conversation_payloads(
                 "id": str(conversation.public_id),
                 "kind": conversation.kind,
                 "status": conversation.status,
-                "read_only": conversation.status != "active",
+                "participant_state": participant_conversation_state(
+                    conversation, current.side
+                ),
+                "read_only": participant_conversation_state(
+                    conversation, current.side
+                ) != "active",
                 "student": (
                     {
                         "id": student.id,
@@ -1329,7 +1336,9 @@ def _conversation_payloads(
                         ),
                         "message_type": latest.message_type,
                         "body": latest.body if latest.state == "active" else None,
-                        "photo_count": len(latest_media.get(latest.id, [])),
+                        "photo_count": len(latest_media.get(latest.id, []))
+                        if latest.state == "active"
+                        else 0,
                         "voice_note": voice_payload(latest_voice[latest.id])
                         if latest.id in latest_voice and latest.state == "active"
                         else None,
@@ -1347,6 +1356,7 @@ def _conversation_payloads(
                 ),
                 "capabilities": {
                     "can_send": conversation.status == "active"
+                    and not participant_reply_restricted(conversation, current.side)
                     and (
                         current.side == "staff"
                         or actor.policy.guardian_replies_enabled
@@ -1696,7 +1706,11 @@ def _message_page(
             "sender_is_self": row.sender_participant_id == participant.id,
             "message_type": row.message_type,
             "body": row.body if row.state == "active" else None,
-            "photos": [media_payload(media) for media in media_by_message.get(row.id, [])],
+            "photos": (
+                [media_payload(media) for media in media_by_message.get(row.id, [])]
+                if row.state == "active"
+                else []
+            ),
             "voice_note": voice_payload(voice_by_message[row.id])
             if row.id in voice_by_message and row.state == "active"
             else None,
@@ -3031,7 +3045,11 @@ def _media_for_participant(
     access = participant_sequence_access(
         db, conversation=conversation, participant=participant
     )
-    if message is None or not access.includes(int(message.sequence)):
+    if (
+        message is None
+        or message.state != "active"
+        or not access.includes(int(message.sequence))
+    ):
         raise HTTPException(status_code=404, detail="Photo not found")
     return row
 
@@ -3140,7 +3158,11 @@ def _voice_for_participant(
     access = participant_sequence_access(
         db, conversation=conversation, participant=participant
     )
-    if message is None or not access.includes(int(message.sequence)):
+    if (
+        message is None
+        or message.state != "active"
+        or not access.includes(int(message.sequence))
+    ):
         raise HTTPException(status_code=404, detail="Voice note not found")
     return row
 

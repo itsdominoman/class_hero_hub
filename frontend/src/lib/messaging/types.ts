@@ -53,6 +53,7 @@ export type ConversationSummary = {
   id: string;
   kind: 'student_staff' | 'staff_direct' | 'guardian_direct';
   status: string;
+  participant_state: 'active' | 'read_only' | 'closed';
   read_only: boolean;
   student: MessagingStudent | null;
   context: { label?: string | null; label_ar?: string | null };

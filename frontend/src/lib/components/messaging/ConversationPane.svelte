@@ -199,7 +199,7 @@
           <div class="flex flex-wrap items-center gap-2">
             <h2 dir="auto" class="truncate text-base font-extrabold text-slate-900 sm:text-lg">{conversationTitle(conversation, arabic)}</h2>
             {#if conversation.read_only}
-              <span class="rounded-full bg-slate-100 px-2 py-1 text-[0.65rem] font-bold uppercase tracking-wide text-slate-600">{$_('messaging.readOnly')}</span>
+              <span class="rounded-full bg-slate-100 px-2 py-1 text-[0.65rem] font-bold uppercase tracking-wide text-slate-600">{conversation.participant_state === 'closed' ? $_('messaging.closed') : $_('messaging.readOnly')}</span>
             {/if}
           </div>
           {#if headerSubtitle}<p dir="auto" class="mt-0.5 truncate text-xs font-semibold text-slate-500">{headerSubtitle}</p>{/if}
@@ -344,7 +344,7 @@
     </div>
 
     {#if conversation.read_only || !conversation.capabilities.can_send}
-      <div class="border-t border-slate-200 bg-slate-100 px-4 py-3 text-center text-xs font-semibold text-slate-600">{$_('messaging.readOnlyNotice')}</div>
+      <div class="border-t border-slate-200 bg-slate-100 px-4 py-3 text-center text-xs font-semibold text-slate-600">{conversation.participant_state === 'closed' ? $_('messaging.closedNotice') : $_('messaging.readOnlyNotice')}</div>
     {/if}
     <MessageComposer
       bind:draft

@@ -329,7 +329,7 @@ def _world(db):
     )
 
 
-def _message(db, world, *, sender, created_at, urgent=False):
+def _message(db, world, *, sender, created_at, urgent=False, message_kind="text"):
     message = Message(
         school_id=world.school.id,
         conversation_id=world.conversation.id,
@@ -337,7 +337,8 @@ def _message(db, world, *, sender, created_at, urgent=False):
         sender_participant_id=sender.id,
         sender_display_name_snapshot=sender.display_name_snapshot,
         client_message_id=uuid4(),
-        body="Committed message",
+        body="Committed message" if message_kind == "text" else None,
+        message_type="voice_note" if message_kind == "voice" else "standard",
         urgent=urgent,
         created_at=created_at,
     )
@@ -544,7 +545,6 @@ def _fhh_direction_world(db):
 def _set_message_shape(db, message, sender, kind):
     if kind == "text":
         return
-    message.body = None
     if kind == "photo":
         db.add(
             MessageMedia(
@@ -570,7 +570,6 @@ def _set_message_shape(db, message, sender, kind):
             )
         )
         return
-    message.message_type = "voice_note"
     db.add(
         MessageVoiceMedia(
             client_upload_id=uuid4(),
@@ -611,7 +610,13 @@ def test_fhh_family_message_targets_staff_only_for_every_supported_media_kind(db
         participant.id: (participant.last_delivered_sequence, participant.last_read_sequence)
         for participant in world.parents
     }
-    message = _message(db, world, sender=world.parents[0], created_at=now)
+    message = _message(
+        db,
+        world,
+        sender=world.parents[0],
+        created_at=now,
+        message_kind=message_kind,
+    )
     _set_message_shape(db, message, world.parents[0], message_kind)
 
     rows = enqueue_message_notifications(

@@ -862,6 +862,17 @@ class Conversation(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     closed_at = Column(DateTime(timezone=True), nullable=True)
     closed_reason = Column(String(64), nullable=True)
+    restriction_type = Column(String(32), nullable=True)
+    restricted_at = Column(DateTime(timezone=True), nullable=True)
+    restricted_by_membership_id = Column(
+        Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True
+    )
+    reopening_requires_approval = Column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    safeguarding_closed_by_membership_id = Column(
+        Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True
+    )
 
     __table_args__ = (
         CheckConstraint(
@@ -882,6 +893,18 @@ class Conversation(Base):
             "status IN ('active', 'closed_assignment_ended', 'closed_student_archived', "
             "'closed_restricted', 'archived')",
             name="ck_conversations_status",
+        ),
+        CheckConstraint(
+            "restriction_type IS NULL OR restriction_type IN "
+            "('family_replies', 'staff_replies', 'both_replies', 'read_only')",
+            name="ck_conversations_restriction_type",
+        ),
+        CheckConstraint(
+            "(restriction_type IS NULL AND restricted_at IS NULL "
+            "AND restricted_by_membership_id IS NULL) OR "
+            "(restriction_type IS NOT NULL AND restricted_at IS NOT NULL "
+            "AND restricted_by_membership_id IS NOT NULL)",
+            name="ck_conversations_restriction_shape",
         ),
         CheckConstraint("last_message_sequence >= 0", name="ck_conversations_last_sequence"),
         CheckConstraint(
@@ -1436,6 +1459,239 @@ class MessagingAuditEvent(Base):
     )
 
 
+class MessagingPermissionGrant(Base):
+    __tablename__ = "messaging_permission_grants"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    public_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False, index=True)
+    permission = Column(String(80), nullable=False)
+    granted_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False)
+    grant_reason = Column(Text, nullable=False)
+    granted_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
+    revoke_reason = Column(Text, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "permission IN ('messaging.safeguarding_review', 'messaging.moderate', "
+            "'messaging.export_evidence', 'messaging.export_internal_notes', "
+            "'messaging.manage_safeguarding_permissions')",
+            name="ck_messaging_permission_grants_permission",
+        ),
+        CheckConstraint(
+            "length(grant_reason) BETWEEN 3 AND 1000",
+            name="ck_messaging_permission_grants_reason",
+        ),
+        CheckConstraint(
+            "(revoked_at IS NULL AND revoked_by_membership_id IS NULL AND revoke_reason IS NULL) OR "
+            "(revoked_at IS NOT NULL AND revoked_by_membership_id IS NOT NULL "
+            "AND length(revoke_reason) BETWEEN 3 AND 1000)",
+            name="ck_messaging_permission_grants_revoke_shape",
+        ),
+        Index(
+            "uq_messaging_permission_grants_active",
+            "school_id",
+            "membership_id",
+            "permission",
+            unique=True,
+            postgresql_where=sql_text("revoked_at IS NULL"),
+            sqlite_where=sql_text("revoked_at IS NULL"),
+        ),
+        Index(
+            "ix_messaging_permission_grants_school_permission",
+            "school_id",
+            "permission",
+            "revoked_at",
+        ),
+    )
+
+
+class SafeguardingReviewSession(Base):
+    __tablename__ = "safeguarding_review_sessions"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    public_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    conversation_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("conversations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    reviewer_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False, index=True)
+    reason_category = Column(String(48), nullable=False)
+    justification = Column(Text, nullable=False)
+    acknowledgement = Column(Boolean, nullable=False)
+    started_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    ended_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
+    end_reason = Column(String(48), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "reason_category IN ('reported_concern', 'safeguarding_investigation', "
+            "'complaint', 'staff_conduct_review', 'parent_communication_review', "
+            "'legal_regulatory_request', 'authorised_technical_support', 'other')",
+            name="ck_safeguarding_review_sessions_reason",
+        ),
+        CheckConstraint(
+            "length(justification) BETWEEN 8 AND 2000",
+            name="ck_safeguarding_review_sessions_justification",
+        ),
+        CheckConstraint("acknowledgement = true", name="ck_safeguarding_review_sessions_acknowledged"),
+        CheckConstraint("expires_at > started_at", name="ck_safeguarding_review_sessions_expiry"),
+        CheckConstraint(
+            "revoked_at IS NULL OR revoked_by_membership_id IS NOT NULL",
+            name="ck_safeguarding_review_sessions_revoke_shape",
+        ),
+        Index(
+            "ix_safeguarding_review_sessions_actor_expiry",
+            "school_id",
+            "reviewer_membership_id",
+            "expires_at",
+            "ended_at",
+        ),
+        Index(
+            "ix_safeguarding_review_sessions_conversation",
+            "school_id",
+            "conversation_id",
+            "started_at",
+        ),
+    )
+
+
+class SafeguardingInternalNote(Base):
+    __tablename__ = "safeguarding_internal_notes"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    public_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    conversation_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("conversations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    review_session_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("safeguarding_review_sessions.id", ondelete="RESTRICT"), nullable=False)
+    author_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False)
+    body = Column(Text, nullable=False)
+    correction_of_note_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("safeguarding_internal_notes.id", ondelete="RESTRICT"), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint("length(body) BETWEEN 3 AND 10000", name="ck_safeguarding_internal_notes_body"),
+        Index("ix_safeguarding_internal_notes_conversation_created", "conversation_id", "created_at", "id"),
+    )
+
+
+class SafeguardingFlag(Base):
+    __tablename__ = "safeguarding_flags"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    public_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    conversation_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("conversations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    message_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("messages.id", ondelete="RESTRICT"), nullable=True, index=True)
+    category = Column(String(48), nullable=False)
+    severity = Column(String(16), nullable=False)
+    status = Column(String(24), nullable=False, default="open", server_default="open")
+    internal_note = Column(Text, nullable=True)
+    assigned_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
+    created_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    resolved_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
+    resolution_note = Column(Text, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("severity IN ('low', 'medium', 'high', 'critical')", name="ck_safeguarding_flags_severity"),
+        CheckConstraint("status IN ('open', 'follow_up', 'resolved')", name="ck_safeguarding_flags_status"),
+        CheckConstraint(
+            "(status <> 'resolved' AND resolved_at IS NULL AND resolved_by_membership_id IS NULL) OR "
+            "(status = 'resolved' AND resolved_at IS NOT NULL AND resolved_by_membership_id IS NOT NULL)",
+            name="ck_safeguarding_flags_resolution_shape",
+        ),
+        Index("ix_safeguarding_flags_school_status", "school_id", "status", "severity", "created_at"),
+        Index("ix_safeguarding_flags_conversation_status", "conversation_id", "status", "created_at"),
+    )
+
+
+class MessagingModerationAction(Base):
+    __tablename__ = "messaging_moderation_actions"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    event_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    conversation_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("conversations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    message_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("messages.id", ondelete="RESTRICT"), nullable=True, index=True)
+    review_session_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("safeguarding_review_sessions.id", ondelete="RESTRICT"), nullable=False)
+    actor_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False)
+    action = Column(String(32), nullable=False)
+    restriction_type = Column(String(32), nullable=True)
+    reason_category = Column(String(48), nullable=False)
+    confidential_reason = Column(Text, nullable=False)
+    participant_safe_reason = Column(String(240), nullable=True)
+    prior_state_hash = Column(String(64), nullable=False)
+    new_state_hash = Column(String(64), nullable=False)
+    occurred_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('restrict', 'remove_restriction', 'close', 'reopen', "
+            "'tombstone', 'restore')",
+            name="ck_messaging_moderation_actions_action",
+        ),
+        CheckConstraint(
+            "restriction_type IS NULL OR restriction_type IN "
+            "('family_replies', 'staff_replies', 'both_replies', 'read_only')",
+            name="ck_messaging_moderation_actions_restriction_type",
+        ),
+        CheckConstraint("length(confidential_reason) BETWEEN 8 AND 4000", name="ck_messaging_moderation_actions_reason"),
+        CheckConstraint("length(prior_state_hash) = 64 AND length(new_state_hash) = 64", name="ck_messaging_moderation_actions_hashes"),
+        Index("ix_messaging_moderation_actions_conversation", "conversation_id", "occurred_at", "id"),
+    )
+
+
+class MessagingEvidenceExport(Base):
+    __tablename__ = "messaging_evidence_exports"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    public_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    conversation_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("conversations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    review_session_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("safeguarding_review_sessions.id", ondelete="RESTRICT"), nullable=False)
+    created_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False, index=True)
+    export_mode = Column(String(24), nullable=False, default="internal", server_default="internal")
+    reason_category = Column(String(48), nullable=False)
+    justification = Column(Text, nullable=False)
+    include_internal_notes = Column(Boolean, nullable=False, default=False, server_default="false")
+    state = Column(String(24), nullable=False, default="requested", server_default="requested")
+    artifact_storage_key = Column(String(200), nullable=True)
+    artifact_sha256 = Column(String(64), nullable=True)
+    manifest_sha256 = Column(String(64), nullable=True)
+    size_bytes = Column(BigInteger, nullable=True)
+    counts = Column(JSON().with_variant(JSONB, "postgresql"), nullable=False, default=dict)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    max_downloads = Column(Integer, nullable=False, default=3, server_default="3")
+    download_count = Column(Integer, nullable=False, default=0, server_default="0")
+    last_downloaded_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    generated_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    failure_code = Column(String(80), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("export_mode IN ('internal', 'participant_safe')", name="ck_messaging_evidence_exports_mode"),
+        CheckConstraint("state IN ('requested', 'ready', 'failed', 'expired', 'deleted')", name="ck_messaging_evidence_exports_state"),
+        CheckConstraint("length(justification) BETWEEN 8 AND 2000", name="ck_messaging_evidence_exports_reason"),
+        CheckConstraint("max_downloads BETWEEN 1 AND 10", name="ck_messaging_evidence_exports_max_downloads"),
+        CheckConstraint("download_count >= 0 AND download_count <= max_downloads", name="ck_messaging_evidence_exports_download_count"),
+        CheckConstraint(
+            "(state = 'ready' AND artifact_storage_key IS NOT NULL AND artifact_sha256 IS NOT NULL "
+            "AND manifest_sha256 IS NOT NULL AND size_bytes > 0 AND generated_at IS NOT NULL) OR "
+            "state <> 'ready'",
+            name="ck_messaging_evidence_exports_ready_shape",
+        ),
+        Index("ix_messaging_evidence_exports_expiry", "state", "expires_at", "id"),
+        Index("ix_messaging_evidence_exports_school_created", "school_id", "created_at", "id"),
+    )
+
+
 class DevicePushRegistration(Base):
     __tablename__ = "device_push_registrations"
 
@@ -1624,12 +1880,16 @@ def _prevent_message_immutable_update(mapper, connection, target):
 
 @event.listens_for(MessageReceiptEvent, "before_update", propagate=True)
 @event.listens_for(MessagingAuditEvent, "before_update", propagate=True)
+@event.listens_for(SafeguardingInternalNote, "before_update", propagate=True)
+@event.listens_for(MessagingModerationAction, "before_update", propagate=True)
 def _prevent_messaging_append_only_update(mapper, connection, target):
     raise ValueError("Messaging evidence rows are append-only")
 
 
 @event.listens_for(MessageReceiptEvent, "before_delete", propagate=True)
 @event.listens_for(MessagingAuditEvent, "before_delete", propagate=True)
+@event.listens_for(SafeguardingInternalNote, "before_delete", propagate=True)
+@event.listens_for(MessagingModerationAction, "before_delete", propagate=True)
 @event.listens_for(Message, "before_delete", propagate=True)
 def _prevent_messaging_append_only_delete(mapper, connection, target):
     raise ValueError("Messaging evidence rows are append-only")

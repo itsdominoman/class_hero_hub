@@ -1,5 +1,27 @@
 # CHH Android APK smoke test
 
+## Slice 12 safeguarding administration
+
+1. Install the S26m development APK and verify package `com.classherohub.app`, the
+   fixed development endpoint and signer checksum recorded in current deployment.
+2. Sign in as Dom's United International School administrator. **Safeguarding** must
+   appear; an ungranted teacher/admin account must not see it and direct loading must
+   fail safely.
+3. Search by student and conversation reference. Confirm results contain metadata but
+   no message body. Start a review with a real reason and acknowledgement.
+4. Confirm the review banner, EN/AR RTL layout, no composer, protected photo viewer,
+   protected voice playback, native Back ordering and session expiry/end behavior.
+5. With a paired FHH device, apply family read-only then close/reopen. FHH must retain
+   history, disable every reply path and show only neutral wording. Remove all test
+   moderation before finishing.
+6. Compare participant/receipt/unread/outbox rows before and after merely opening a
+   review. They must not change and neither device may receive a review push.
+7. Generate/download one authorised test export, verify hashes privately, end the
+   session and let/remove the temporary package through the approved cleanup path.
+
+Record device, Android version/navigation mode, locale, APK SHA-256 and review/audit
+event UUIDs. Do not use real sensitive message content for the pilot check.
+
 ## Slice 10 contact-hours regression matrix
 
 Use the Slice 10 development APK against `https://class.familyherohub.com/api`.
