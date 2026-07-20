@@ -2,7 +2,6 @@ package com.classherohub.app;
 
 import android.os.Bundle;
 import android.os.Build;
-import android.graphics.Color;
 import android.content.pm.ApplicationInfo;
 import android.util.Log;
 import android.view.View;
@@ -20,7 +19,9 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     private static final String TAG = "CHHSystemBars";
     private static final String DEBUG_EXTRA = "chh_system_bar_debug";
-    private static final int CHH_LIGHT_BACKGROUND = Color.rgb(248, 250, 252);
+    // Keep this as the exact ARGB value instead of calling android.graphics.Color
+    // during class initialization so host-side JVM tests can load this class.
+    private static final int CHH_LIGHT_BACKGROUND = 0xFFF8FAFC;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
