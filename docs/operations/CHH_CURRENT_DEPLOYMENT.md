@@ -1,5 +1,54 @@
 # CHH current development deployment
 
+## S26j Messaging v1 contact-hours/outbox checkpoint
+
+Messaging v1 Slice 10 is deployed on CHH development. Parent messages still commit
+and appear to staff immediately; only the new per-recipient notification foundation
+is held outside configured school contact hours. No push, email, or other provider
+delivery is implemented in this slice.
+
+- United International School uses `Asia/Muscat`, Sunday-Thursday 07:30-15:00,
+  Friday/Saturday closed, and policy version `4`. Contact hours are enabled in the
+  fixed `delay_notifications_only` mode. Teacher urgent marking and personal staff
+  out-of-hours opt-in are disabled. The initialization is append-only audited.
+- Alembic head is `c8d9e0f1a2b3`. Pre-migration pgBackRest full backup
+  `20260720-062615F` completed successfully. The repository's existing pgBackRest
+  stanza requires the explicit `--pg1-user=classhero` override for backup commands.
+- The separate `notification_scheduler` service is enabled and running. It performs
+  policy re-evaluation and crash-safe leasing only; Slice 11 will own provider
+  dispatch. The outbox contained zero rows immediately after rollout, as expected
+  before a new post-deployment message.
+- CHH backend, frontend, and notification scheduler were built/recreated without
+  restarting or recreating PostgreSQL. Public `/api/health`, `/messages`, and `/`
+  returned HTTP 200; startup and scheduler logs contained no application error.
+- Validation passed 429 backend tests with 2 skips, a fresh PostgreSQL upgrade,
+  downgrade/re-upgrade, JSONB and concurrent `SKIP LOCKED` checks, a production web
+  build, Svelte checking with 0 errors/0 warnings, and EN/AR parity at 1,274 keys.
+  Focused source/UI assertions for Slice 10 pass; three documented legacy regex or
+  safe-bottom assertions remain stale and unrelated to this slice.
+
+### Development contact-hours APK
+
+- Server: `/opt/apps/class_hero_hub/tmp/class-hero-hub-contact-hours-dev.apk`
+- Google Drive: `G:\My Drive\CHH\Remote\class-hero-hub-contact-hours-dev.apk`
+- Package: `com.classherohub.app`; version code `1`, version name `1.0`; min SDK 23,
+  compile/target SDK 35; native API `https://class.familyherohub.com/api`.
+- Size: 95,954,195 bytes; SHA-256:
+  `6dee024626863e0bef33e761f6c7a378a97d6bccfaa22c588bdc0085ba6f01ba`.
+- Android debug signer certificate SHA-256:
+  `e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
+- Server and Drive copies are byte-identical. Endpoint, package, v1/v2 signature,
+  `testDebugUnitTest`, `lintDebug`, and `assembleDebug` checks passed after the final
+  web assets were synchronized. Physical-device execution of the Slice 10 smoke
+  matrix remains required.
+
+**Status date:** 2026-07-20
+
+**Environment:** CHH development, `https://class.familyherohub.com`
+
+**Source checkpoint:** `main`, tag
+`chh-s26j-messaging-contact-hours-2026-07-20`
+
 ## S26i Messaging v1 delivery/read receipts checkpoint
 
 Messaging v1 Slice 9 is deployed to the CHH development stack. Outgoing message

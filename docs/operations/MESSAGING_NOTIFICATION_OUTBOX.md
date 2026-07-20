@@ -62,7 +62,7 @@ The initial United International School development policy is applied explicitly
 idempotently after migration:
 
 ```bash
-docker compose run -T --rm backend python scripts/configure_messaging_contact_hours.py \
+docker compose run -T --rm backend python -m scripts.configure_messaging_contact_hours \
   --school-slug united-international-school \
   --confirm united-international-school
 ```

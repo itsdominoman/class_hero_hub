@@ -262,3 +262,24 @@ Capacitor Camera v7 system camera/photo-picker flow does not need one when
 - APK signature verification passed with the established Android debug signer
   certificate SHA-256
   `e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
+
+## S26j Messaging contact hours and notification timing
+
+- The administrator contact-hours editor and urgent-policy capability, plus the
+  unchanged staff messaging surface, were synchronized into the Android shell.
+  Contact hours delay only background notification eligibility; they do not hide a
+  committed parent message from staff who open CHH. Slice 10 makes no provider call.
+- Host-side system-inset tests now use the exact literal ARGB values previously
+  produced by Android `Color` helpers. This removes Android-framework class
+  initialization from JVM tests without changing runtime pixels, inset ownership,
+  safe-area behavior, or native Back behavior.
+- Fresh app-scoped `testDebugUnitTest`, `lintDebug`, and `assembleDebug` passed on
+  Temurin 21.0.11 with Android SDK/build tools 35 after final Capacitor sync.
+- Artifact: `/opt/apps/class_hero_hub/tmp/class-hero-hub-contact-hours-dev.apk`;
+  identical Drive copy
+  `G:\My Drive\CHH\Remote\class-hero-hub-contact-hours-dev.apk`.
+- Package `com.classherohub.app`, version code `1`, version name `1.0`, min SDK 23,
+  compile/target SDK 35, API `https://class.familyherohub.com/api`; 95,954,195 bytes;
+  SHA-256 `6dee024626863e0bef33e761f6c7a378a97d6bccfaa22c588bdc0085ba6f01ba`.
+- APK signature verification passed under v1/v2 with debug signer certificate
+  SHA-256 `e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
