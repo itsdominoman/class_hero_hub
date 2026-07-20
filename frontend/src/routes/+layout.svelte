@@ -7,7 +7,7 @@
   import { initI18n } from '$lib/i18n';
   import { errorStatus, messagingApi } from '$lib/messaging/api';
   import type { MessagingMembership } from '$lib/messaging/types';
-  import { isNativePlatform } from '$lib/nativeAuth';
+  import { clearNativeAccessToken, isNativePlatform } from '$lib/nativeAuth';
   import { defaultLandingPath, hasRole, type SessionUser } from '$lib/roleRouting';
 
   let { children } = $props();
@@ -19,6 +19,9 @@
   // Capacitor exposes this synchronously before the app shell is hydrated.
   // Keep public website chrome out of the native shell while preserving it on web.
   let nativeApp = $state(isNativePlatform());
+  let nativePushStatus = $state<'enabled' | 'disabled' | 'denied' | null>(null);
+  let showPushExplanation = $state(false);
+  let changingPush = $state(false);
 
   if (nativeApp && typeof document !== 'undefined') {
     document.documentElement.classList.add('native-app');
@@ -33,12 +36,52 @@
           Number.isInteger(row.membership_id)
       );
       await refreshMessagingBadge();
+      if (nativeApp && messagingMemberships.length > 0) {
+        void prepareNativePush();
+      } else if (nativeApp) {
+        // Account switches into an ineligible role must revoke any token left
+        // by the prior staff account on this physical installation.
+        void import('$lib/nativePushNotifications').then(({ unregisterNativePush }) => unregisterNativePush());
+      }
     } catch {
       currentUser = null;
       messagingMemberships = [];
       messagingAvailable = false;
       messagingUnread = 0;
     }
+  }
+
+  async function prepareNativePush() {
+    const push = await import('$lib/nativePushNotifications');
+    await push.initializeNativePushRuntime();
+    const status = await push.loadNativePushStatus();
+    nativePushStatus = status.kind === 'unsupported' ? null : status.kind;
+    if (
+      nativePushStatus === 'disabled' &&
+      localStorage.getItem('chh.push.explanation.dismissed') !== 'true'
+    ) showPushExplanation = true;
+  }
+
+  async function enableNativePush() {
+    changingPush = true;
+    const push = await import('$lib/nativePushNotifications');
+    const outcome = await push.registerForNativePush();
+    nativePushStatus = outcome === 'registered' ? 'enabled' : outcome === 'denied' ? 'denied' : 'disabled';
+    showPushExplanation = false;
+    localStorage.setItem('chh.push.explanation.dismissed', 'true');
+    changingPush = false;
+  }
+
+  function dismissPushExplanation() {
+    showPushExplanation = false;
+    localStorage.setItem('chh.push.explanation.dismissed', 'true');
+  }
+
+  async function disableNativePush() {
+    changingPush = true;
+    const { unregisterNativePush } = await import('$lib/nativePushNotifications');
+    if (await unregisterNativePush()) nativePushStatus = 'disabled';
+    changingPush = false;
   }
 
   async function refreshMessagingBadge() {
@@ -64,9 +107,14 @@
   }
 
   async function handleLogout() {
+    if (nativeApp) {
+      const { unregisterNativePush } = await import('$lib/nativePushNotifications');
+      if (!(await unregisterNativePush())) return;
+    }
     try {
       await api.post('/auth/logout', {});
     } finally {
+      if (nativeApp) await clearNativeAccessToken();
       currentUser = null;
       messagingMemberships = [];
       messagingAvailable = false;
@@ -220,7 +268,18 @@
         </a>
       {/if}
     </div>
-  </header>
+</header>
+
+  {#if nativeApp && currentUser && showPushExplanation}
+    <section class="mx-3 mt-3 rounded-2xl border border-hero/20 bg-white p-4 shadow-lg" aria-labelledby="push-explanation-title">
+      <p id="push-explanation-title" class="font-black text-slate-900">{$_('pushNotifications.title')}</p>
+      <p class="mt-1 text-sm leading-5 text-slate-600">{$_('pushNotifications.explanation')}</p>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button type="button" class="btn-hero rounded-xl px-4 py-2 text-sm" disabled={changingPush} onclick={enableNativePush}>{$_('pushNotifications.enable')}</button>
+        <button type="button" class="btn-secondary rounded-xl px-4 py-2 text-sm" onclick={dismissPushExplanation}>{$_('pushNotifications.later')}</button>
+      </div>
+    </section>
+  {/if}
 
   <main class:viewport-managed={nativeApp && messagingRoute} class="app-main flex-1 max-w-full overflow-x-hidden">
     {@render children()}
@@ -296,6 +355,19 @@
         {/if}
         {#if !hasAnyRole}<a href={dashboardHref} onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.dashboard')}</a>{/if}
       </nav>
+      {#if nativePushStatus}
+        <section class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <p class="text-sm font-black text-slate-900">{$_('pushNotifications.title')}</p>
+          <p class="mt-1 text-xs text-slate-600">
+            {nativePushStatus === 'enabled' ? $_('pushNotifications.enabled') : nativePushStatus === 'denied' ? $_('pushNotifications.denied') : $_('pushNotifications.disabled')}
+          </p>
+          {#if nativePushStatus === 'disabled'}
+            <button type="button" class="btn-secondary mt-3 rounded-xl px-3 py-2 text-xs" disabled={changingPush} onclick={enableNativePush}>{$_('pushNotifications.enable')}</button>
+          {:else if nativePushStatus === 'enabled'}
+            <button type="button" class="btn-secondary mt-3 rounded-xl px-3 py-2 text-xs" disabled={changingPush} onclick={disableNativePush}>{$_('pushNotifications.disable')}</button>
+          {/if}
+        </section>
+      {/if}
       <button onclick={handleLogout} class="btn-hero mt-auto rounded-2xl px-5 py-3 text-sm uppercase tracking-wide">{$_('nav.logout')}</button>
     </div>
   </div>

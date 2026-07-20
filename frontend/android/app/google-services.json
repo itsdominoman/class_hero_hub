@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "322517855095",
+    "project_id": "gen-lang-client-0809449799",
+    "storage_bucket": "gen-lang-client-0809449799.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:322517855095:android:f39ce3a00feb0bc4afcf72",
+        "android_client_info": {
+          "package_name": "com.classherohub.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDb13pUNHseY82_4ewCImjyAC_XoqEshIY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:322517855095:android:1651dbe01bacaf44afcf72",
+        "android_client_info": {
+          "package_name": "com.familyherohub.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDb13pUNHseY82_4ewCImjyAC_XoqEshIY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:322517855095:android:2b96323934426ad3afcf72",
+        "android_client_info": {
+          "package_name": "com.familyherohub.app.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDb13pUNHseY82_4ewCImjyAC_XoqEshIY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

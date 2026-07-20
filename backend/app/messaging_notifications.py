@@ -310,12 +310,12 @@ def enqueue_message_notifications(
                 template_args={
                     "conversation_id": str(conversation.public_id),
                     "message_id": str(message.public_id),
+                    "membership_id": participant.membership_id,
                 },
-                deep_link=(
-                    f"/messages?conversation={conversation.public_id}"
-                    if recipient_kind == "chh_user"
-                    else "/school-messages"
-                ),
+                # This is an allowlisted route type, not a client-controlled URL.
+                # Native clients resolve the opaque event_id through an authenticated
+                # target endpoint before navigating.
+                deep_link="school_chat",
                 policy_version=configuration.policy.policy_version,
                 state=state,
                 eligible_at=eligible_at,
@@ -381,6 +381,7 @@ def claim_notification_rows(
                 ),
                 and_(
                     NotificationOutbox.state == "leased",
+                    NotificationOutbox.lease_owner.like("notification-scheduler-%"),
                     NotificationOutbox.lease_expires_at < now,
                 ),
             )
@@ -625,6 +626,7 @@ def fail_notification_rows(
             )
             row.state = "failed"
             row.scheduler_check_at = now + timedelta(seconds=delay)
+            row.next_attempt_at = row.scheduler_check_at
     db.commit()
 
 

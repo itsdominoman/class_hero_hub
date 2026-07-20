@@ -18,6 +18,7 @@ services:
       - ./data:/app/data
     env_file:
       - .env
+      - .env.push
     command: ["python", "-m", "app.messaging_notification_worker"]
     restart: unless-stopped
 

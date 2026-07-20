@@ -2,6 +2,9 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 
 const CHH_NATIVE_API_BASE = 'https://class.familyherohub.com/api';
 const ACCESS_TOKEN_KEY = 'chh_access_token';
+const INSTALLATION_ID_KEY = 'chh_installation_id';
+const PUSH_TOKEN_KEY = 'chh_push_token';
+const PENDING_NOTIFICATION_EVENT_KEY = 'chh_pending_notification_event';
 
 interface GoogleAuthPlugin {
   getGoogleIdToken(options: { filterByAuthorizedAccounts: boolean }): Promise<{ idToken: string }>;
@@ -65,6 +68,43 @@ export async function getNativeAccessToken(): Promise<string | null> {
 export async function clearNativeAccessToken(): Promise<void> {
   accessToken = null;
   if (isNativePlatform()) await SecureStorage.remove({ key: ACCESS_TOKEN_KEY });
+}
+
+async function readSecureValue(key: string): Promise<string | null> {
+  if (!isNativePlatform()) return null;
+  return (await SecureStorage.get({ key })).value;
+}
+
+async function writeSecureValue(key: string, value: string | null): Promise<void> {
+  if (!isNativePlatform()) return;
+  if (value) await SecureStorage.set({ key, value });
+  else await SecureStorage.remove({ key });
+}
+
+export async function getOrCreateNativeInstallationId(): Promise<string> {
+  const existing = await readSecureValue(INSTALLATION_ID_KEY);
+  if (existing && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(existing)) {
+    return existing;
+  }
+  const created = crypto.randomUUID();
+  await writeSecureValue(INSTALLATION_ID_KEY, created);
+  return created;
+}
+
+export function getNativePushToken(): Promise<string | null> {
+  return readSecureValue(PUSH_TOKEN_KEY);
+}
+
+export function setNativePushToken(token: string | null): Promise<void> {
+  return writeSecureValue(PUSH_TOKEN_KEY, token);
+}
+
+export function getNativePendingNotificationEvent(): Promise<string | null> {
+  return readSecureValue(PENDING_NOTIFICATION_EVENT_KEY);
+}
+
+export function setNativePendingNotificationEvent(eventId: string | null): Promise<void> {
+  return writeSecureValue(PENDING_NOTIFICATION_EVENT_KEY, eventId);
 }
 
 export async function signInWithNativeGoogle(): Promise<boolean> {

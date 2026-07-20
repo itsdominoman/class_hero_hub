@@ -1436,6 +1436,39 @@ class MessagingAuditEvent(Base):
     )
 
 
+class DevicePushRegistration(Base):
+    __tablename__ = "device_push_registrations"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    installation_id = Column(Uuid(as_uuid=True), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    platform = Column(String(16), nullable=False, default="android", server_default="android")
+    app_package = Column(String(100), nullable=False)
+    locale = Column(String(8), nullable=False, default="en", server_default="en")
+    fcm_token = Column(String(512), nullable=False, unique=True)
+    state = Column(String(16), nullable=False, default="active", server_default="active")
+    disabled_reason = Column(String(80), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    last_seen_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "app_package",
+            "installation_id",
+            name="uq_device_push_registrations_package_installation",
+        ),
+        CheckConstraint("platform = 'android'", name="ck_device_push_registrations_platform"),
+        CheckConstraint("locale IN ('en', 'ar')", name="ck_device_push_registrations_locale"),
+        CheckConstraint(
+            "state IN ('active', 'revoked', 'invalid')",
+            name="ck_device_push_registrations_state",
+        ),
+        Index("ix_device_push_registrations_user_state", "user_id", "state", "id"),
+    )
+
+
 class NotificationOutbox(Base):
     __tablename__ = "notification_outbox"
 
@@ -1513,6 +1546,60 @@ class NotificationOutbox(Base):
         ),
         Index("ix_notification_outbox_school_state", "school_id", "state", "id"),
         Index("ix_notification_outbox_fhh_link_created", "recipient_fhh_link_id", "created_at"),
+    )
+
+
+class NotificationDelivery(Base):
+    __tablename__ = "notification_deliveries"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    outbox_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("notification_outbox.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    device_registration_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("device_push_registrations.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    state = Column(String(24), nullable=False, default="pending", server_default="pending")
+    attempt_count = Column(Integer, nullable=False, default=0, server_default="0")
+    next_attempt_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    lease_owner = Column(String(96), nullable=True)
+    lease_expires_at = Column(DateTime(timezone=True), nullable=True)
+    provider_message_ref = Column(String(200), nullable=True)
+    last_error_code = Column(String(80), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    dispatched_at = Column(DateTime(timezone=True), nullable=True)
+    provider_accepted_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "outbox_id",
+            "device_registration_id",
+            name="uq_notification_deliveries_outbox_device",
+        ),
+        CheckConstraint(
+            "state IN ('pending', 'leased', 'provider_accepted', 'failed', 'dead', 'cancelled')",
+            name="ck_notification_deliveries_state",
+        ),
+        CheckConstraint("attempt_count >= 0", name="ck_notification_deliveries_attempt_count"),
+        CheckConstraint(
+            "(state = 'leased' AND lease_owner IS NOT NULL AND lease_expires_at IS NOT NULL) OR "
+            "(state <> 'leased' AND lease_owner IS NULL AND lease_expires_at IS NULL)",
+            name="ck_notification_deliveries_lease_shape",
+        ),
+        Index(
+            "ix_notification_deliveries_dispatch",
+            "state",
+            "next_attempt_at",
+            "lease_expires_at",
+            "id",
+        ),
     )
 
 

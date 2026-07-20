@@ -98,3 +98,26 @@ Rollback order is: stop `notification_scheduler`, disable contact hours if neces
 and forward-fix application code while retaining rows. The additive migration may be
 downgraded only before real outbox/contact configuration is relied upon; do not drop
 durable rows as a routine application rollback.
+
+## Slice 11 Android provider dispatch
+
+Slice 11 extends the same scheduler service; it does not add a second CHH queue.
+Eligible CHH-device rows are fanned out to durable per-installation deliveries and
+sent with Firebase Admin. FHH-link rows are posted as signed, timestamped, nonce-bound
+events to the private FHH bridge. CHH stores neither parent/family identifiers nor
+FHH tokens. Delivery leases, retry limits, invalid-token revocation, terminal provider
+errors and crash recovery are persisted independently from the source outbox row.
+
+Notifications use generic English/Arabic copy and opaque allowlisted route targets.
+They contain no message body, media details, private URL or safeguarding context.
+Normal held messages are bundled per conversation and installation when contact hours
+reopen; an authorized urgent exception may bypass that bundle. Provider acceptance,
+display and tap never write Delivered or Read receipts.
+
+The sender service reads Firebase and bridge settings only from the ignored
+`.env.push` file. Keep it mode `0600`. Backend and frontend services must not receive
+those settings. Safe rollout is: back up PostgreSQL, validate upgrade/downgrade/
+re-upgrade on a restored copy, apply the additive migration, recreate backend and
+`notification_scheduler`, then inspect aggregate outbox and delivery states. Stop the
+scheduler to pause provider calls without interrupting message commitment or in-app
+visibility.

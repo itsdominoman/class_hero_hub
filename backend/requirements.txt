@@ -14,5 +14,6 @@ aiosqlite
 authlib
 itsdangerous
 google-auth[requests]
+firebase-admin
 Pillow>=10.3.0
 pillow-heif>=0.18.0

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import os
+import hashlib
+import hmac
+import json
 from datetime import date, datetime, time, timedelta, timezone
 from types import SimpleNamespace
 from uuid import uuid4
@@ -24,13 +27,22 @@ from app.messaging_notifications import (
     notification_timing_payload,
     reconcile_notification_rows,
 )
+from app.messaging_notification_dispatch import (
+    ProviderError,
+    SignedFhhBridgeProvider,
+    claim_dispatch_rows,
+    dispatch_claimed_rows,
+)
 from app.models_school import (
     Conversation,
     ConversationAccessGrant,
     ConversationParticipant,
+    DevicePushRegistration,
     GuardianLink,
     Membership,
     Message,
+    MessageReceiptEvent,
+    NotificationDelivery,
     NotificationOutbox,
     School,
     SchoolContactException,
@@ -39,6 +51,13 @@ from app.models_school import (
     StaffMessagingPreference,
     Student,
     User,
+)
+from app.routes.notifications import (
+    RegisterDeviceRequest,
+    UnregisterDeviceRequest,
+    notification_target,
+    register_device,
+    unregister_device,
 )
 
 
@@ -294,6 +313,7 @@ def _world(db):
     return SimpleNamespace(
         school=school,
         policy=policy,
+        admin_user=admin_user,
         membership=membership,
         guardian_link=guardian_link,
         conversation=conversation,
@@ -319,6 +339,192 @@ def _message(db, world, *, sender, created_at, urgent=False):
     world.conversation.last_message_sequence = message.sequence
     world.conversation.last_message_at = created_at
     return message
+
+
+class RecordingPushProvider:
+    def __init__(self):
+        self.calls = []
+
+    def send(self, **kwargs):
+        self.calls.append(kwargs)
+        return f"provider-ref-{len(self.calls)}"
+
+
+class UnusedBridgeProvider:
+    def send(self, **_kwargs):
+        raise AssertionError("FHH bridge was not expected")
+
+
+def test_chh_device_account_switch_logout_and_opaque_tap_target_are_receipt_neutral(db):
+    world = _world(db)
+    installation_id = uuid4()
+    request = RegisterDeviceRequest(
+        installation_id=installation_id,
+        platform="android",
+        app_package="com.classherohub.app",
+        locale="en",
+        fcm_token="token-value-long-enough-for-registration-one",
+    )
+    assert register_device(request, current_user=world.admin_user, db=db) == {
+        "status": "registered"
+    }
+
+    second_user = User(
+        email=f"teacher-{uuid4()}@test",
+        name="Second Teacher",
+        google_sub=str(uuid4()),
+    )
+    db.add(second_user)
+    db.flush()
+    second_membership = Membership(
+        school_id=world.school.id,
+        user_id=second_user.id,
+        role="teacher",
+        status="active",
+    )
+    db.add(second_membership)
+    db.commit()
+    request.fcm_token = "token-value-long-enough-for-registration-two"
+    register_device(request, current_user=second_user, db=db)
+    row = db.query(DevicePushRegistration).filter_by(installation_id=installation_id).one()
+    assert row.user_id == second_user.id
+    assert row.state == "active"
+
+    unregister_device(
+        UnregisterDeviceRequest(
+            installation_id=installation_id,
+            app_package="com.classherohub.app",
+            fcm_token="token-value-long-enough-for-registration-two",
+        ),
+        current_user=second_user,
+        db=db,
+    )
+    db.refresh(row)
+    assert row.state == "revoked"
+    assert row.disabled_reason == "logout"
+
+    sunday = datetime(2026, 7, 19, 4, 0, tzinfo=UTC)
+    message = _message(db, world, sender=world.guardian, created_at=sunday)
+    outbox = enqueue_message_notifications(
+        db,
+        conversation=world.conversation,
+        message=message,
+        sender=world.guardian,
+        now=sunday,
+    )[0]
+    db.commit()
+    before_receipts = db.query(MessageReceiptEvent).count()
+    target = notification_target(outbox.event_id, current_user=world.admin_user, db=db)
+    assert target == {
+        "route_type": "school_chat",
+        "conversation_id": str(world.conversation.public_id),
+        "membership_id": world.membership.id,
+    }
+    assert db.query(MessageReceiptEvent).count() == before_receipts
+
+
+def test_chh_dispatch_bundles_same_conversation_and_records_provider_acceptance(db):
+    world = _world(db)
+    world.policy.contact_hours_enabled = False
+    registration = DevicePushRegistration(
+        installation_id=uuid4(),
+        user_id=world.membership.user_id,
+        platform="android",
+        app_package="com.classherohub.app",
+        locale="ar",
+        fcm_token="staff-device-token-long-enough-for-fcm",
+    )
+    db.add(registration)
+    now = datetime(2026, 7, 19, 4, 0, tzinfo=UTC)
+    rows = []
+    for offset in (0, 1):
+        message = _message(
+            db,
+            world,
+            sender=world.guardian,
+            created_at=now + timedelta(seconds=offset),
+            urgent=bool(offset),
+        )
+        rows.extend(
+            enqueue_message_notifications(
+                db,
+                conversation=world.conversation,
+                message=message,
+                sender=world.guardian,
+                now=now + timedelta(seconds=offset),
+            )
+        )
+    db.commit()
+    claimed = claim_dispatch_rows(db, worker_id="notification-dispatch-test", limit=10, now=now + timedelta(seconds=2))
+    assert set(claimed) == {row.id for row in rows}
+    provider = RecordingPushProvider()
+    assert dispatch_claimed_rows(
+        db,
+        row_ids=claimed,
+        worker_id="notification-dispatch-test",
+        push_provider=provider,
+        bridge_provider=UnusedBridgeProvider(),
+        now=now + timedelta(seconds=2),
+    ) == 2
+    assert len(provider.calls) == 1
+    assert provider.calls[0]["event_id"] == str(rows[-1].event_id)
+    assert provider.calls[0]["locale"] == "ar"
+    assert db.query(NotificationDelivery).filter_by(state="provider_accepted").count() == 2
+    assert db.query(NotificationOutbox).filter_by(state="provider_accepted").count() == 2
+
+
+def test_signed_fhh_bridge_payload_is_minimal_replay_resistant_and_privacy_safe(monkeypatch):
+    monkeypatch.setattr(database.settings, "FHH_NOTIFICATION_BRIDGE_URL", "https://dev.familyherohub.com/api/integrations/chh/school-message-notifications")
+    monkeypatch.setattr(database.settings, "FHH_NOTIFICATION_SERVICE_TOKEN", "service-" + "t" * 56)
+    monkeypatch.setattr(database.settings, "FHH_NOTIFICATION_HMAC_SECRET", "hmac-" + "h" * 59)
+    captured = {}
+
+    class Response:
+        status_code = 200
+
+        def json(self):
+            return {"status": "accepted"}
+
+    def fake_post(url, *, content, headers, timeout):
+        captured.update(url=url, content=content, headers=headers, timeout=timeout)
+        return Response()
+
+    from app import messaging_notification_dispatch
+
+    monkeypatch.setattr(messaging_notification_dispatch.httpx, "post", fake_post)
+    event_id = uuid4()
+    conversation_id = uuid4()
+    result = SignedFhhBridgeProvider().send(
+        event_id=str(event_id),
+        remote_link_id=917,
+        conversation_id=str(conversation_id),
+        urgent=False,
+        occurred_at=datetime(2026, 7, 20, 12, 0, tzinfo=UTC),
+    )
+    assert result == "accepted"
+    payload = json.loads(captured["content"])
+    assert set(payload) == {
+        "event_id",
+        "route_type",
+        "remote_link_id",
+        "conversation_id",
+        "urgent",
+        "occurred_at",
+    }
+    assert payload["remote_link_id"] == 917
+    rendered = captured["content"].decode()
+    for forbidden in ("parent", "family", "fcm", "token", "message_body"):
+        assert forbidden not in rendered.lower()
+    timestamp = captured["headers"]["X-CHH-Notification-Timestamp"]
+    nonce = captured["headers"]["X-CHH-Notification-Nonce"]
+    digest = hashlib.sha256(captured["content"]).hexdigest()
+    expected = hmac.new(
+        database.settings.FHH_NOTIFICATION_HMAC_SECRET.encode(),
+        f"{timestamp}\n{nonce}\n{digest}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    assert nonce == str(event_id)
+    assert hmac.compare_digest(captured["headers"]["X-CHH-Notification-Signature"], expected)
 
 
 def test_parent_message_is_committed_while_only_staff_notification_is_held(db):
@@ -469,20 +675,20 @@ def test_revoked_recipient_is_cancelled_and_expired_lease_is_recovered(db):
 
     first_claim = claim_notification_rows(
         db,
-        worker_id="crashed-worker",
+        worker_id="notification-scheduler-crashed-worker",
         limit=10,
         now=friday,
     )
     assert first_claim == [row.id]
     assert claim_notification_rows(
         db,
-        worker_id="second-worker",
+        worker_id="notification-scheduler-second-worker",
         limit=10,
         now=friday + timedelta(seconds=30),
     ) == []
     recovered = claim_notification_rows(
         db,
-        worker_id="recovery-worker",
+        worker_id="notification-scheduler-recovery-worker",
         limit=10,
         now=friday + timedelta(seconds=61),
     )
@@ -494,7 +700,7 @@ def test_revoked_recipient_is_cancelled_and_expired_lease_is_recovered(db):
     reconcile_notification_rows(
         db,
         row_ids=recovered,
-        worker_id="recovery-worker",
+        worker_id="notification-scheduler-recovery-worker",
         now=friday + timedelta(seconds=61),
     )
     db.refresh(row)

@@ -258,6 +258,49 @@ def validate_runtime_configuration(settings: "Settings" | None = None) -> str:
             "MESSAGING_NOTIFICATION_SCHEDULER_ENABLED",
             "requires MESSAGING_ENABLED",
         )
+    if config.MESSAGING_NOTIFICATION_DISPATCH_ENABLED and not config.MESSAGING_ENABLED:
+        _fail(
+            "MESSAGING_NOTIFICATION_DISPATCH_ENABLED",
+            "requires MESSAGING_ENABLED",
+        )
+    if config.MESSAGING_NOTIFICATION_DISPATCH_ENABLED:
+        if not config.FIREBASE_SERVICE_ACCOUNT_JSON.strip():
+            _fail(
+                "FIREBASE_SERVICE_ACCOUNT_JSON",
+                "is required when messaging notification dispatch is enabled",
+            )
+        if config.CHH_ANDROID_PACKAGE != "com.classherohub.app":
+            _fail("CHH_ANDROID_PACKAGE", "must be com.classherohub.app")
+        _validate_url_setting(
+            "FHH_NOTIFICATION_BRIDGE_URL",
+            config.FHH_NOTIFICATION_BRIDGE_URL,
+            production=production,
+            require_path=True,
+        )
+        _validate_secret(
+            "FHH_NOTIFICATION_SERVICE_TOKEN",
+            config.FHH_NOTIFICATION_SERVICE_TOKEN,
+            min_length=32,
+            required=True,
+        )
+        _validate_secret(
+            "FHH_NOTIFICATION_HMAC_SECRET",
+            config.FHH_NOTIFICATION_HMAC_SECRET,
+            min_length=32,
+            required=True,
+        )
+        if config.FHH_NOTIFICATION_SERVICE_TOKEN == config.FHH_NOTIFICATION_HMAC_SECRET:
+            _fail(
+                "FHH_NOTIFICATION_HMAC_SECRET",
+                "must be separate from FHH_NOTIFICATION_SERVICE_TOKEN",
+            )
+    else:
+        _validate_optional_secret(
+            "FHH_NOTIFICATION_SERVICE_TOKEN", config.FHH_NOTIFICATION_SERVICE_TOKEN
+        )
+        _validate_optional_secret(
+            "FHH_NOTIFICATION_HMAC_SECRET", config.FHH_NOTIFICATION_HMAC_SECRET
+        )
     for name, value, minimum, maximum in (
         ("MESSAGING_NOTIFICATION_SCHEDULER_POLL_SECONDS", config.MESSAGING_NOTIFICATION_SCHEDULER_POLL_SECONDS, 1, 3600),
         ("MESSAGING_NOTIFICATION_SCHEDULER_BATCH_SIZE", config.MESSAGING_NOTIFICATION_SCHEDULER_BATCH_SIZE, 1, 500),
@@ -266,6 +309,7 @@ def validate_runtime_configuration(settings: "Settings" | None = None) -> str:
         ("MESSAGING_NOTIFICATION_RETRY_BASE_SECONDS", config.MESSAGING_NOTIFICATION_RETRY_BASE_SECONDS, 1, 3600),
         ("MESSAGING_NOTIFICATION_RETRY_MAX_SECONDS", config.MESSAGING_NOTIFICATION_RETRY_MAX_SECONDS, 1, 86400),
         ("MESSAGING_NOTIFICATION_MAX_ATTEMPTS", config.MESSAGING_NOTIFICATION_MAX_ATTEMPTS, 1, 100),
+        ("FHH_NOTIFICATION_TIMEOUT_SECONDS", config.FHH_NOTIFICATION_TIMEOUT_SECONDS, 1, 30),
     ):
         if value < minimum or value > maximum:
             _fail(name, f"must be between {minimum} and {maximum}")
@@ -307,6 +351,7 @@ class Settings(BaseSettings):
     FHH_MESSAGING_ASSERTION_AUDIENCE: str = "chh-school-messaging"
     MESSAGING_ENABLED: bool = False
     MESSAGING_NOTIFICATION_SCHEDULER_ENABLED: bool = False
+    MESSAGING_NOTIFICATION_DISPATCH_ENABLED: bool = False
     MESSAGING_NOTIFICATION_SCHEDULER_POLL_SECONDS: int = 15
     MESSAGING_NOTIFICATION_SCHEDULER_BATCH_SIZE: int = 50
     MESSAGING_NOTIFICATION_SCHEDULER_LEASE_SECONDS: int = 60
@@ -314,6 +359,12 @@ class Settings(BaseSettings):
     MESSAGING_NOTIFICATION_RETRY_BASE_SECONDS: int = 30
     MESSAGING_NOTIFICATION_RETRY_MAX_SECONDS: int = 3600
     MESSAGING_NOTIFICATION_MAX_ATTEMPTS: int = 10
+    FIREBASE_SERVICE_ACCOUNT_JSON: str = ""
+    CHH_ANDROID_PACKAGE: str = "com.classherohub.app"
+    FHH_NOTIFICATION_BRIDGE_URL: str = ""
+    FHH_NOTIFICATION_SERVICE_TOKEN: str = ""
+    FHH_NOTIFICATION_HMAC_SECRET: str = ""
+    FHH_NOTIFICATION_TIMEOUT_SECONDS: int = 5
     CORS_ORIGINS: str = "https://families.loginto.me,http://localhost:5173,http://localhost:8000"
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587

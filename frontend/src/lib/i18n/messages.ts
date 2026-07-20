@@ -34,6 +34,16 @@ export const en = {
     privacyPolicy: 'Privacy Policy',
     terms: 'Terms of Service'
   },
+  pushNotifications: {
+    title: 'School message notifications',
+    explanation: 'Allow notifications so new school chats can appear when this app is not open. Message content is never shown in the notification.',
+    enable: 'Allow notifications',
+    later: 'Not now',
+    enabled: 'Notifications are on',
+    disabled: 'Notifications are off',
+    denied: 'Notifications are blocked in Android settings',
+    disable: 'Turn off on this device'
+  },
   footer: {
     description: 'Class Hero Hub is a school communication hub for notices, updates, and role-based access between schools and families.',
     tagline: 'Built for school communication. Prepared for role-based access.'
@@ -1217,6 +1227,16 @@ export const ar = {
     safetyPrivacy: 'السلامة والخصوصية',
     privacyPolicy: 'سياسة الخصوصية',
     terms: 'شروط الخدمة'
+  },
+  pushNotifications: {
+    title: 'إشعارات الرسائل المدرسية',
+    explanation: 'اسمح بالإشعارات لتظهر رسائل الدردشة المدرسية الجديدة عند إغلاق التطبيق. لن يظهر محتوى الرسالة في الإشعار.',
+    enable: 'السماح بالإشعارات',
+    later: 'ليس الآن',
+    enabled: 'الإشعارات مفعلة',
+    disabled: 'الإشعارات متوقفة',
+    denied: 'الإشعارات محظورة في إعدادات أندرويد',
+    disable: 'إيقافها على هذا الجهاز'
   },
   footer: {
     description: 'كلاس هيرو هب مركز تواصل مدرسي للإشعارات والتحديثات والوصول حسب الدور بين المدارس والعائلات.',

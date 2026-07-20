@@ -185,3 +185,18 @@ ordinary recipient: rendering and viewing advances Delivered and Read exactly as
 does for a teacher or parent. This is different from a nonparticipant safeguarding
 review. Review access must use the separate authorized review path and audit evidence;
 it must not add a participant or change sender-visible ticks.
+
+## Android school-message notifications
+
+After an eligible staff login, the Android app explains why notifications are useful
+before asking for system permission. You can allow or decline; after a decline, use
+the notification status control to open Android settings rather than expecting the
+app to keep prompting. Normal and urgent School messages use separate channels, and
+Android/device settings decide whether a heads-up pop-up is shown.
+
+Notification text is intentionally generic. Tapping opens the related conversation
+only after CHH verifies the current account and the exact school membership/Acting-as
+context. If the session or access is no longer valid, sign in again and open the
+conversation normally. Logging out or changing accounts revokes the previous device
+registration. A notification being accepted, shown or tapped does not change message
+ticks; the existing in-conversation Delivered and Read rules still apply.

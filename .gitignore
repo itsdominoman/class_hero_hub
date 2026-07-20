@@ -4,6 +4,7 @@ build/
 .svelte-kit/
 .vite/
 .env
+.env.push
 .env.*
 *.log
 coverage/

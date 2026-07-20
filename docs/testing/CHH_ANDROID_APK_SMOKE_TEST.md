@@ -283,3 +283,26 @@ scroll position.
       view does not change ticks.
 - [ ] Repeat foreground/resume, network loss/recovery, gesture navigation,
       three-button navigation and Android Back with the composer and tick footer.
+
+## S26l Android school-message push checkpoint
+
+- [ ] Install the checkpoint APK, sign in as an eligible staff member, read the
+      explanation, grant Android notification permission, and confirm the normal and
+      urgent School messages channels exist. Denying once must not cause repeated
+      prompts; Settings must offer a recovery path.
+- [ ] From FHH, send text, photo and voice school messages while CHH is foregrounded
+      elsewhere, backgrounded and terminated. Confirm generic notification copy only,
+      a shade entry/pop-up subject to device channel settings, and no content preview.
+- [ ] Tap each state and confirm the correct conversation and explicit staff
+      membership/Acting-as context, including a dual-role administrator/teacher.
+      Expired or revoked access must return to safe login/inbox handling.
+- [ ] Outside contact hours, confirm the message commits and appears when CHH is
+      opened manually, while push remains held. At reopening, several held messages
+      in one conversation must produce one bundled notification.
+- [ ] Confirm provider acceptance, foreground display and tap do not advance receipt
+      ticks. Only the existing participant render/view acknowledgements may do so.
+- [ ] Log out before another send, then switch between eligible and ineligible
+      accounts on one installation. The old account must receive no push; re-login and
+      token refresh must restore only the authorized registration.
+- [ ] Repeat in English and Arabic/RTL and record package, endpoint, version code,
+      signer, byte size, SHA-256, device/Android version and result.
