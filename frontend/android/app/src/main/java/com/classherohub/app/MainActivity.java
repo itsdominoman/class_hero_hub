@@ -106,7 +106,7 @@ public class MainActivity extends BridgeActivity {
         }
 
         final TextView debugView = new TextView(this);
-        debugView.setTextColor(Color.WHITE);
+        debugView.setTextColor(0xFFFFFFFF);
         debugView.setBackgroundColor(0xCC111827);
         debugView.setTextSize(12);
         final int padding = Math.round(8 * getResources().getDisplayMetrics().density);
