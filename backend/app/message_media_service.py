@@ -23,6 +23,9 @@ from .update_image_service import (
 
 logger = logging.getLogger(__name__)
 MESSAGE_MEDIA_ROOT = Path(os.environ.get("MESSAGE_MEDIA_DIR", "/app/data/message_media"))
+MESSAGE_MEDIA_ARCHIVE_ROOT = Path(
+    os.environ.get("MESSAGE_MEDIA_ARCHIVE_DIR", "/app/data/message_media_archive")
+)
 MAX_MESSAGE_PHOTOS = 5
 STAGED_MEDIA_TTL = timedelta(hours=24)
 
@@ -51,6 +54,14 @@ def safe_photo_filename(filename: str | None) -> str:
 
 def media_path(storage_key: str) -> Path:
     root = MESSAGE_MEDIA_ROOT.resolve()
+    path = (root / storage_key).resolve()
+    if root != path and root not in path.parents:
+        raise MessageMediaValidationError("Photo is unavailable")
+    return path
+
+
+def archive_media_path(storage_key: str) -> Path:
+    root = MESSAGE_MEDIA_ARCHIVE_ROOT.resolve()
     path = (root / storage_key).resolve()
     if root != path and root not in path.parents:
         raise MessageMediaValidationError("Photo is unavailable")
@@ -326,13 +337,20 @@ def attached_media_map(db: Session, message_ids: Iterable[int]) -> dict[int, lis
     return result
 
 
-def protected_media_file(row: MessageMedia, variant: str) -> tuple[Path, str]:
-    if row.state != "attached" or row.message_id is None:
+def protected_media_file(
+    row: MessageMedia, variant: str, *, allow_archive: bool = False
+) -> tuple[Path, str]:
+    if row.message_id is None or row.state not in ({"attached", "archived"} if allow_archive else {"attached"}):
         raise MessageMediaValidationError("Photo is unavailable")
-    storage_key = row.thumbnail_storage_key if variant == "thumbnail" else row.full_storage_key
+    archived = row.state == "archived"
+    storage_key = (
+        row.archive_thumbnail_storage_key if variant == "thumbnail" else row.archive_full_storage_key
+    ) if archived else (
+        row.thumbnail_storage_key if variant == "thumbnail" else row.full_storage_key
+    )
     if not storage_key:
         raise MessageMediaValidationError("Photo is unavailable")
-    path = media_path(storage_key)
+    path = archive_media_path(storage_key) if archived else media_path(storage_key)
     if not path.is_file():
         raise MessageMediaValidationError("Photo is unavailable")
     return path, row.content_type or "image/jpeg"

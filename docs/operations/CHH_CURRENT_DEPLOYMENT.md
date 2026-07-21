@@ -1,5 +1,60 @@
 # CHH current development deployment
 
+## S26o Messaging v1 production hardening
+
+Messaging Slice 13 is deployed to CHH development. United International School has
+an explicit versioned System Owner record for Dominique Brown; first-admin bootstrap,
+owner-only transfer and platform recovery are audited. School-scoped versioned
+retention, legal holds, verified archive custody, asynchronous verified evidence
+exports, durable leased operations jobs, reason-audited replay/cancel, low-cardinality
+metrics and a protected school/platform operations projection are active.
+
+- Database revision: `f0a1b2c3d4e6`. The migration round-tripped on fresh and
+  restored disposable PostgreSQL databases and both restored apps returned healthy.
+- Pre-change custom dump:
+  `backups/slice13/chh-pre-slice13-20260721.dump`, 1,059,687 bytes, SHA-256
+  `b6d357a943c941c80d8d76a8447ada00eb0fb8a0795793ea33f3bae3f85efe1e`.
+  Full pgBackRest label: `20260721-062749F`.
+- Protected media/archive/export snapshot:
+  `backups/slice13/chh-protected-media-slice13-20260721.tar`, 2,068,480 bytes,
+  SHA-256 `b9cdddee2284e8dc2f3b41ed965ace02e6c78c146c2689a633e05cd7147fcd98`.
+  A disposable restore verified 20 files / 2,032,388 bytes by size and SHA-256.
+- Default pilot policy retains messages, photo/voice and receipts for 2,557 days;
+  safeguard/export audit metadata for 3,650 days; notifications for 365 days; and
+  temporary export artifacts for 30 minutes. Media becomes archive-eligible at 365
+  days and hot deletion occurs only after verified copy. These are technical
+  defaults pending school policy/legal approval.
+- The live-development retention preview completed successfully with zero eligible
+  recent records. The operations projection reported no dead jobs/notifications,
+  fresh worker heartbeat, 2.5% database-pool use, current backup marker and 76.09%
+  archive-volume use (below the 80% alert threshold).
+- Representative scale: 1,000 students, 2,000 guardians, 75 staff, 6,000
+  conversations, 120,000 messages, 48,000 receipts, 12,000 media rows and 6,000
+  notification jobs. All bounded query p95s were below 41 ms. See
+  `docs/testing/MESSAGING_SCALE_RESULTS_2026-07-21.md`.
+- Deployed-image validation passed 459 backend tests with 2 skips; Svelte check and
+  production web build passed. Public/loopback health, ordinary messaging,
+  governance, operations and safeguarding routes passed their live boundaries. The
+  dedicated production worker and notification scheduler are running; PostgreSQL
+  was not restarted or recreated.
+- Source tag after final verification:
+  `chh-s26o-messaging-production-hardening-2026-07-21`.
+
+### Development production-hardening APK
+
+- Server: `/opt/apps/class_hero_hub/tmp/class-hero-hub-production-hardening-dev.apk`
+- Google Drive: `G:\My Drive\CHH\Remote\class-hero-hub-production-hardening-dev.apk`
+- Package `com.classherohub.app`; version code/name
+  `5`/`1.3-production-hardening`; min SDK 23; compile/target SDK 35; API
+  `https://class.familyherohub.com/api`.
+- Size: 96,179,832 bytes; SHA-256:
+  `dce28027349e64d06b9c2cb6933e5319e2ad0a6e5a28ab1a8a6c1d94b73f3768`.
+- Android debug signer certificate SHA-256:
+  `e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
+- Server and Drive copies are byte-identical. Endpoint/package, v1/v2 signature,
+  `testDebugUnitTest`, `lintDebug` and `assembleDebug` checks passed after Capacitor
+  synchronized the final web assets.
+
 ## S26n safeguarding UI mop-up
 
 The focused safeguarding administrator UI is deployed to CHH development. The former

@@ -34,6 +34,7 @@ from .models_school import (
     MessageVoiceMedia,
     MessagingAuditEvent,
     MessagingEvidenceExport,
+    MessagingOperationsJob,
     MessagingModerationAction,
     MessagingPermissionGrant,
     SafeguardingFlag,
@@ -49,6 +50,7 @@ PERMISSION_MODERATE = "messaging.moderate"
 PERMISSION_EXPORT = "messaging.export_evidence"
 PERMISSION_EXPORT_NOTES = "messaging.export_internal_notes"
 PERMISSION_MANAGE = "messaging.manage_safeguarding_permissions"
+PERMISSION_LEGAL_HOLD = "messaging.manage_legal_holds"
 SAFEGUARDING_PERMISSIONS = frozenset(
     {
         PERMISSION_REVIEW,
@@ -56,6 +58,7 @@ SAFEGUARDING_PERMISSIONS = frozenset(
         PERMISSION_EXPORT,
         PERMISSION_EXPORT_NOTES,
         PERMISSION_MANAGE,
+        PERMISSION_LEGAL_HOLD,
     }
 )
 REASON_CATEGORIES = frozenset(
@@ -984,6 +987,76 @@ article{{border-top:1px solid #ccd3df;padding:1rem 0}}pre{{white-space:pre-wrap;
     return document.encode("utf-8")
 
 
+def verify_evidence_archive(
+    path: Path,
+    *,
+    expected_artifact_sha256: str | None = None,
+    expected_manifest_sha256: str | None = None,
+) -> dict[str, Any]:
+    """Verify an evidence ZIP without extracting it or trusting member paths."""
+    if not path.is_file():
+        raise SafeguardingConflict("Evidence export artifact is missing")
+    artifact_hash = file_sha256(path)
+    if expected_artifact_sha256 and artifact_hash != expected_artifact_sha256:
+        raise SafeguardingConflict("Evidence export artifact hash mismatch")
+    try:
+        with zipfile.ZipFile(path, "r", allowZip64=False) as archive:
+            infos = archive.infolist()
+            if not infos or len(infos) > MAX_EXPORT_MEDIA + 10:
+                raise SafeguardingConflict("Evidence export entry count is invalid")
+            names: set[str] = set()
+            total_uncompressed = 0
+            for info in infos:
+                if info.filename != _safe_zip_name(info.filename) or info.filename in names:
+                    raise SafeguardingConflict("Evidence export contains an unsafe or duplicate path")
+                if info.flag_bits & 0x1:
+                    raise SafeguardingConflict("Encrypted evidence entries are not supported")
+                if (info.external_attr >> 16) & 0o170000 == 0o120000:
+                    raise SafeguardingConflict("Evidence export contains a symbolic link")
+                total_uncompressed += info.file_size
+                if total_uncompressed > MAX_EXPORT_BYTES:
+                    raise SafeguardingConflict("Evidence export exceeds the verification limit")
+                names.add(info.filename)
+            if "manifest.json" not in names:
+                raise SafeguardingConflict("Evidence export manifest is missing")
+            raw_manifest = archive.read("manifest.json")
+            if len(raw_manifest) > 10 * 1024 * 1024:
+                raise SafeguardingConflict("Evidence export manifest is too large")
+            manifest = json.loads(raw_manifest)
+            integrity = manifest.pop("integrity", None)
+            if not isinstance(integrity, dict):
+                raise SafeguardingConflict("Evidence export integrity declaration is missing")
+            manifest_hash = hashlib.sha256(_canonical_json(manifest)).hexdigest()
+            if integrity.get("canonical_payload_sha256") != manifest_hash:
+                raise SafeguardingConflict("Evidence export manifest hash mismatch")
+            if expected_manifest_sha256 and manifest_hash != expected_manifest_sha256:
+                raise SafeguardingConflict("Evidence export expected manifest hash mismatch")
+            declared = manifest.get("files")
+            if not isinstance(declared, list):
+                raise SafeguardingConflict("Evidence export file inventory is invalid")
+            declared_names: set[str] = set()
+            for item in declared:
+                if not isinstance(item, dict) or not isinstance(item.get("file"), str):
+                    raise SafeguardingConflict("Evidence export file declaration is invalid")
+                name = item["file"]
+                if name in declared_names or name not in names or name == "manifest.json":
+                    raise SafeguardingConflict("Evidence export file inventory does not match the archive")
+                content = archive.read(name)
+                if len(content) != item.get("size_bytes") or hashlib.sha256(content).hexdigest() != item.get("sha256"):
+                    raise SafeguardingConflict("Evidence export file hash mismatch")
+                declared_names.add(name)
+            if declared_names != names - {"manifest.json"}:
+                raise SafeguardingConflict("Evidence export contains undeclared files")
+    except (zipfile.BadZipFile, json.JSONDecodeError) as exc:
+        raise SafeguardingConflict("Evidence export archive is invalid") from exc
+    return {
+        "artifact_sha256": artifact_hash,
+        "manifest_sha256": manifest_hash,
+        "entries": len(names),
+        "uncompressed_bytes": total_uncompressed,
+    }
+
+
 def create_evidence_export(
     db: Session,
     *,
@@ -994,6 +1067,7 @@ def create_evidence_export(
     reason_category: str,
     justification: str,
     include_internal_notes: bool,
+    requested_export: MessagingEvidenceExport | None = None,
 ) -> MessagingEvidenceExport:
     require_permission(actor, PERMISSION_EXPORT)
     # Slice 12 intentionally exposes only the internal evidence package.  The
@@ -1005,42 +1079,42 @@ def create_evidence_export(
         if export_mode != "internal":
             raise SafeguardingValidationError("Participant-safe exports cannot include internal notes")
         require_permission(actor, PERMISSION_EXPORT_NOTES)
-    enforce_rate_limit(
-        db,
-        actor=actor,
-        event_types=("safeguarding.export_requested",),
-        window=timedelta(hours=1),
-        maximum=5,
-    )
-    now = utc_now()
-    row = MessagingEvidenceExport(
-        school_id=actor.school.id,
-        conversation_id=conversation.id,
-        review_session_id=session.id,
-        created_by_membership_id=actor.membership.id,
-        export_mode=export_mode,
-        reason_category=validate_reason_category(reason_category),
-        justification=normalized_reason(justification),
-        include_internal_notes=include_internal_notes,
-        state="requested",
-        expires_at=now + EXPORT_TTL,
-        counts={},
-    )
-    db.add(row)
-    db.flush()
-    audit_event(
-        db,
-        actor=actor,
-        school_id=actor.school.id,
-        event_type="safeguarding.export_requested",
-        conversation_id=conversation.id,
-        detail={
-            "export": str(row.public_id),
-            "mode": export_mode,
-            "reason_category": row.reason_category,
-            "include_internal_notes": include_internal_notes,
-        },
-    )
+    if requested_export is None:
+        enforce_rate_limit(
+            db,
+            actor=actor,
+            event_types=("safeguarding.export_requested",),
+            window=timedelta(hours=1),
+            maximum=5,
+        )
+        now = utc_now()
+        row = MessagingEvidenceExport(
+            school_id=actor.school.id,
+            conversation_id=conversation.id,
+            review_session_id=session.id,
+            created_by_membership_id=actor.membership.id,
+            export_mode=export_mode,
+            reason_category=validate_reason_category(reason_category),
+            justification=normalized_reason(justification),
+            include_internal_notes=include_internal_notes,
+            state="generating",
+            expires_at=now + EXPORT_TTL,
+            counts={},
+        )
+        db.add(row)
+        db.flush()
+    else:
+        row = requested_export
+        if (
+            row.school_id != actor.school.id
+            or row.conversation_id != conversation.id
+            or row.review_session_id != session.id
+            or row.created_by_membership_id != actor.membership.id
+            or row.state not in ("requested", "generating")
+        ):
+            raise SafeguardingConflict("Evidence export request is no longer valid")
+        row.state = "generating"
+        row.failure_code = None
     db.commit()
 
     messages = (
@@ -1079,7 +1153,7 @@ def create_evidence_export(
             MessageMedia.school_id == actor.school.id,
             MessageMedia.conversation_id == conversation.id,
             MessageMedia.message_id.in_(message_ids),
-            MessageMedia.state == "attached",
+            MessageMedia.state.in_(("attached", "archived")),
         )
         .order_by(MessageMedia.message_id, MessageMedia.sort_order, MessageMedia.id)
         .all()
@@ -1092,7 +1166,7 @@ def create_evidence_export(
             MessageVoiceMedia.school_id == actor.school.id,
             MessageVoiceMedia.conversation_id == conversation.id,
             MessageVoiceMedia.message_id.in_(message_ids),
-            MessageVoiceMedia.state == "attached",
+            MessageVoiceMedia.state.in_(("attached", "archived")),
         )
         .order_by(MessageVoiceMedia.message_id, MessageVoiceMedia.id)
         .all()
@@ -1169,7 +1243,7 @@ def create_evidence_export(
             transcript_sha = hashlib.sha256(transcript).hexdigest()
             for message in messages:
                 for photo in photos_by_message.get(message.id, []):
-                    path, content_type = protected_media_file(photo, "full")
+                    path, content_type = protected_media_file(photo, "full", allow_archive=True)
                     size = path.stat().st_size
                     checksum = file_sha256(path)
                     if checksum != photo.checksum_sha256:
@@ -1196,7 +1270,7 @@ def create_evidence_export(
                     )
                 voice = voices_by_message.get(message.id)
                 if voice:
-                    path, content_type = protected_voice_file(voice)
+                    path, content_type = protected_voice_file(voice, allow_archive=True)
                     size = path.stat().st_size
                     checksum = file_sha256(path)
                     if checksum != voice.checksum_sha256:
@@ -1376,6 +1450,14 @@ def create_evidence_export(
             "internal_notes": len(notes),
         }
         row.generated_at = generated_at
+        verification = verify_evidence_archive(
+            target,
+            expected_artifact_sha256=row.artifact_sha256,
+            expected_manifest_sha256=row.manifest_sha256,
+        )
+        row.verified_at = utc_now()
+        row.verification_state = "verified"
+        row.verification_detail = verification
         audit_event(
             db,
             actor=actor,
@@ -1413,6 +1495,110 @@ def create_evidence_export(
             )
             db.commit()
         raise
+
+
+def request_evidence_export(
+    db: Session,
+    *,
+    actor: SafeguardingActor,
+    session: SafeguardingReviewSession,
+    conversation: Conversation,
+    export_mode: str,
+    reason_category: str,
+    justification: str,
+    include_internal_notes: bool,
+) -> MessagingEvidenceExport:
+    """Persist a request and durable job; no protected content is generated inline."""
+    require_permission(actor, PERMISSION_EXPORT)
+    if export_mode != "internal":
+        raise SafeguardingValidationError("Only internal evidence export is currently available")
+    if include_internal_notes:
+        require_permission(actor, PERMISSION_EXPORT_NOTES)
+    enforce_rate_limit(
+        db,
+        actor=actor,
+        event_types=("safeguarding.export_requested",),
+        window=timedelta(hours=1),
+        maximum=5,
+    )
+    row = MessagingEvidenceExport(
+        school_id=actor.school.id,
+        conversation_id=conversation.id,
+        review_session_id=session.id,
+        created_by_membership_id=actor.membership.id,
+        export_mode=export_mode,
+        reason_category=validate_reason_category(reason_category),
+        justification=normalized_reason(justification),
+        include_internal_notes=include_internal_notes,
+        state="requested",
+        expires_at=utc_now() + EXPORT_TTL,
+        counts={},
+    )
+    db.add(row)
+    db.flush()
+    job = MessagingOperationsJob(
+        school_id=actor.school.id,
+        job_type="evidence_export",
+        export_id=row.id,
+        requested_by_membership_id=actor.membership.id,
+        operator_reason=row.justification,
+        payload={"custody_version": row.custody_version},
+        progress={},
+    )
+    db.add(job)
+    audit_event(
+        db,
+        actor=actor,
+        school_id=actor.school.id,
+        event_type="safeguarding.export_requested",
+        conversation_id=conversation.id,
+        detail={
+            "export": str(row.public_id),
+            "job": str(job.public_id),
+            "mode": export_mode,
+            "reason_category": row.reason_category,
+            "include_internal_notes": include_internal_notes,
+        },
+    )
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def generate_requested_evidence_export(db: Session, *, export_id: int) -> MessagingEvidenceExport:
+    """Worker entry point that revalidates the exact actor, grant and review scope."""
+    row = db.query(MessagingEvidenceExport).filter(MessagingEvidenceExport.id == export_id).first()
+    if row is None:
+        raise SafeguardingNotFound("Evidence export not found")
+    membership = db.query(Membership).filter(Membership.id == row.created_by_membership_id).first()
+    if membership is None:
+        raise SafeguardingAccessDenied("Evidence export requester is unavailable")
+    user = db.query(User).filter(User.id == membership.user_id).first()
+    if user is None:
+        raise SafeguardingAccessDenied("Evidence export requester is unavailable")
+    actor = resolve_actor(
+        db,
+        user=user,
+        school_id=row.school_id,
+        membership_id=membership.id,
+    )
+    review = db.query(SafeguardingReviewSession).filter(
+        SafeguardingReviewSession.id == row.review_session_id
+    ).first()
+    if review is None:
+        raise SafeguardingNotFound("Review session not found")
+    session, conversation = active_review_session(db, actor=actor, public_id=review.public_id)
+    return create_evidence_export(
+        db,
+        actor=actor,
+        session=session,
+        conversation=conversation,
+        export_mode=row.export_mode,
+        reason_category=row.reason_category,
+        justification=row.justification,
+        include_internal_notes=row.include_internal_notes,
+        requested_export=row,
+    )
 
 
 def evidence_export_file(

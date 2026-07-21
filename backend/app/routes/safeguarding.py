@@ -29,6 +29,8 @@ from ..models_school import (
     MessageVoiceMedia,
     MessagingAuditEvent,
     MessagingEvidenceExport,
+    MessagingLegalHold,
+    MessagingLegalHoldEvent,
     MessagingModerationAction,
     MessagingPermissionGrant,
     SafeguardingFlag,
@@ -41,6 +43,7 @@ from ..models_school import (
 from ..safeguarding_service import (
     PERMISSION_EXPORT,
     PERMISSION_MANAGE,
+    PERMISSION_LEGAL_HOLD,
     PERMISSION_MODERATE,
     PERMISSION_REVIEW,
     SAFEGUARDING_PERMISSIONS,
@@ -58,7 +61,7 @@ from ..safeguarding_service import (
     audit_event,
     cleanup_expired_safeguarding_state,
     close_conversation,
-    create_evidence_export,
+    request_evidence_export,
     create_flag,
     end_review_session,
     enforce_rate_limit,
@@ -75,6 +78,7 @@ from ..safeguarding_service import (
     update_flag_status,
     utc_now,
 )
+from ..legal_hold_service import place_hold, release_hold
 from ..school_scope import write_audit
 
 
@@ -258,6 +262,94 @@ class ExportRequest(BaseModel):
     reason_category: str = Field(min_length=3, max_length=48)
     justification: str = Field(min_length=8, max_length=2000)
     include_internal_notes: bool = False
+
+
+class LegalHoldRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    scope_type: Literal["conversation", "message", "student"]
+    target_ref: str = Field(min_length=1, max_length=80)
+    reason: str = Field(min_length=8, max_length=4000)
+    case_reference: str | None = Field(default=None, max_length=160)
+    review_at: datetime | None = None
+
+
+class LegalHoldReleaseRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: str = Field(min_length=8, max_length=4000)
+
+
+def _hold_payload(row: MessagingLegalHold) -> dict:
+    return {
+        "id": str(row.public_id),
+        "scope_type": row.scope_type,
+        "conversation_id": row.conversation_id,
+        "message_id": row.message_id,
+        "student_id": row.student_id,
+        "reason": row.reason,
+        "case_reference": row.case_reference,
+        "starts_at": row.starts_at,
+        "review_at": row.review_at,
+        "created_by_membership_id": row.created_by_membership_id,
+        "released_at": row.released_at,
+        "released_by_membership_id": row.released_by_membership_id,
+        "release_reason": row.release_reason,
+    }
+
+
+@router.get("/legal-holds")
+def list_legal_holds(
+    response: Response,
+    include_released: bool = Query(default=False),
+    actor: SafeguardingActor = Depends(require_safeguarding_actor),
+    db: Session = Depends(get_db),
+):
+    _private(response)
+    _require(db, actor=actor, permission=PERMISSION_LEGAL_HOLD)
+    query = db.query(MessagingLegalHold).filter(MessagingLegalHold.school_id == actor.school.id)
+    if not include_released:
+        query = query.filter(MessagingLegalHold.released_at.is_(None))
+    rows = query.order_by(MessagingLegalHold.starts_at.desc(), MessagingLegalHold.id.desc()).limit(250).all()
+    return {"holds": [_hold_payload(row) for row in rows]}
+
+
+@router.post("/legal-holds", status_code=status.HTTP_201_CREATED)
+def create_legal_hold(
+    body: LegalHoldRequest,
+    response: Response,
+    actor: SafeguardingActor = Depends(require_safeguarding_actor),
+    db: Session = Depends(get_db),
+):
+    _private(response)
+    try:
+        row = place_hold(
+            db,
+            actor=actor,
+            scope_type=body.scope_type,
+            target_ref=body.target_ref,
+            reason=body.reason,
+            case_reference=body.case_reference,
+            review_at=body.review_at,
+        )
+        return _hold_payload(row)
+    except SafeguardingError as exc:
+        db.rollback()
+        _raise_http(exc)
+
+
+@router.post("/legal-holds/{hold_id}/release")
+def release_legal_hold(
+    hold_id: UUID,
+    body: LegalHoldReleaseRequest,
+    response: Response,
+    actor: SafeguardingActor = Depends(require_safeguarding_actor),
+    db: Session = Depends(get_db),
+):
+    _private(response)
+    try:
+        return _hold_payload(release_hold(db, actor=actor, public_id=hold_id, reason=body.reason))
+    except SafeguardingError as exc:
+        db.rollback()
+        _raise_http(exc)
 
 
 @router.get("/availability")
@@ -725,7 +817,7 @@ def search_conversations(
                 exists().where(
                     and_(
                         MessageMedia.message_id == Message.id,
-                        MessageMedia.state == "attached",
+                        MessageMedia.state.in_(("attached", "archived")),
                     )
                 )
             )
@@ -996,7 +1088,7 @@ def review_detail(
         db.query(MessageMedia)
         .filter(
             MessageMedia.message_id.in_(message_ids),
-            MessageMedia.state == "attached",
+            MessageMedia.state.in_(("attached", "archived")),
         )
         .order_by(MessageMedia.message_id, MessageMedia.sort_order, MessageMedia.id)
         .all()
@@ -1006,7 +1098,7 @@ def review_detail(
         db.query(MessageVoiceMedia)
         .filter(
             MessageVoiceMedia.message_id.in_(message_ids),
-            MessageVoiceMedia.state == "attached",
+            MessageVoiceMedia.state.in_(("attached", "archived")),
         )
         .all()
         if message_ids else []
@@ -1283,14 +1375,14 @@ def review_photo(
             MessageMedia.school_id == actor.school.id,
             MessageMedia.conversation_id == conversation.id,
             MessageMedia.message_id.is_not(None),
-            MessageMedia.state == "attached",
+            MessageMedia.state.in_(("attached", "archived")),
         )
         .first()
     )
     if row is None:
         raise HTTPException(status_code=404, detail="Photo not found")
     try:
-        path, content_type = protected_media_file(row, variant)
+        path, content_type = protected_media_file(row, variant, allow_archive=True)
     except Exception:
         raise HTTPException(status_code=404, detail="Photo not found")
     audit_event(
@@ -1321,14 +1413,14 @@ def review_voice(
             MessageVoiceMedia.school_id == actor.school.id,
             MessageVoiceMedia.conversation_id == conversation.id,
             MessageVoiceMedia.message_id.is_not(None),
-            MessageVoiceMedia.state == "attached",
+            MessageVoiceMedia.state.in_(("attached", "archived")),
         )
         .first()
     )
     if row is None:
         raise HTTPException(status_code=404, detail="Voice note not found")
     try:
-        path, content_type = protected_voice_file(row)
+        path, content_type = protected_voice_file(row, allow_archive=True)
     except Exception:
         raise HTTPException(status_code=404, detail="Voice note not found")
     audit_event(
@@ -1675,7 +1767,7 @@ def generate_export(
     session, conversation = _review(db, actor=actor, session_id=session_id)
     cleanup_expired_safeguarding_state(db, limit=25)
     try:
-        export = create_evidence_export(
+        export = request_evidence_export(
             db,
             actor=actor,
             session=session,
@@ -1685,6 +1777,7 @@ def generate_export(
             justification=body.justification,
             include_internal_notes=body.include_internal_notes,
         )
+        response.status_code = status.HTTP_202_ACCEPTED
         return {
             "id": str(export.public_id),
             "state": export.state,
@@ -1719,3 +1812,33 @@ def download_export(
         )
     except SafeguardingError as exc:
         _raise_http(exc)
+
+
+@router.get("/exports/{export_id}")
+def export_status(
+    export_id: UUID,
+    response: Response,
+    actor: SafeguardingActor = Depends(require_safeguarding_actor),
+    db: Session = Depends(get_db),
+):
+    _private(response)
+    _require(db, actor=actor, permission=PERMISSION_EXPORT)
+    row = db.query(MessagingEvidenceExport).filter(
+        MessagingEvidenceExport.public_id == export_id,
+        MessagingEvidenceExport.school_id == actor.school.id,
+        MessagingEvidenceExport.created_by_membership_id == actor.membership.id,
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Evidence export not found")
+    return {
+        "id": str(row.public_id),
+        "state": row.state,
+        "size_bytes": row.size_bytes,
+        "artifact_sha256": row.artifact_sha256,
+        "manifest_sha256": row.manifest_sha256,
+        "verification_state": row.verification_state,
+        "expires_at": row.expires_at,
+        "download_count": row.download_count,
+        "max_downloads": row.max_downloads,
+        "failure_code": row.failure_code,
+    }

@@ -33,24 +33,33 @@ def _load_dotenv_value(name: str) -> str | None:
     return None
 
 
-def _database_url() -> str:
-    url = (
-        os.getenv("MIGRATION_DATABASE_URL")
-        or _load_dotenv_value("MIGRATION_DATABASE_URL")
-        or os.getenv("DATABASE_URL")
-        or _load_dotenv_value("DATABASE_URL")
+def _database_url() -> tuple[str, str]:
+    candidates = (
+        ("environment:MIGRATION_DATABASE_URL", os.getenv("MIGRATION_DATABASE_URL")),
+        ("dotenv:MIGRATION_DATABASE_URL", _load_dotenv_value("MIGRATION_DATABASE_URL")),
+        ("environment:DATABASE_URL", os.getenv("DATABASE_URL")),
+        ("dotenv:DATABASE_URL", _load_dotenv_value("DATABASE_URL")),
     )
+    source, url = next(((source, value) for source, value in candidates if value), ("", None))
     if not url:
         raise RuntimeError("MIGRATION_DATABASE_URL or DATABASE_URL is required")
-    return url
+    return url, source
 
 
 from app.database import Base  # noqa: E402
 from app import models  # noqa: F401,E402
 from app import models_school  # noqa: F401,E402
+from app.migration_guard import is_downgrade, parse_target, validate_migration_target  # noqa: E402
 
 target_metadata = Base.metadata
-config.set_main_option("sqlalchemy.url", _database_url())
+database_url, database_url_source = _database_url()
+migration_target = parse_target(database_url, source=database_url_source)
+validate_migration_target(
+    migration_target,
+    downgrade=is_downgrade(),
+    explicit_migration_url=bool(os.getenv("MIGRATION_DATABASE_URL")),
+)
+config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 
 def run_migrations_offline() -> None:

@@ -9,10 +9,11 @@ from starlette.middleware.sessions import SessionMiddleware
 from . import auth, database, schemas
 from .database import Base, close_request_db, engine, ensure_runtime_schema, get_db, settings, validate_runtime_configuration
 from .models_school import Membership, PlatformAdmin, School, User
-from .message_media_service import MESSAGE_MEDIA_ROOT
+from .message_media_service import MESSAGE_MEDIA_ARCHIVE_ROOT, MESSAGE_MEDIA_ROOT
 from .safeguarding_service import EXPORT_ROOT
-from .routes import announcements, authentication, behaviour, calendar, dev, feature_controls, guardian, homework, integrations_fhh, integrations_fhh_messaging, join, messaging, messaging_policy, notifications, platform, safeguarding, school, school_reports, teach, updates
+from .routes import announcements, authentication, behaviour, calendar, dev, feature_controls, governance, guardian, homework, integrations_fhh, integrations_fhh_messaging, join, messaging, messaging_operations, messaging_policy, notifications, platform, safeguarding, school, school_reports, teach, updates
 from .security import TrustedProxyHeadersMiddleware, parse_csv_values
+from .messaging_metrics import MessagingMetricsMiddleware
 
 if settings.DATABASE_URL.startswith("sqlite"):
     Base.metadata.create_all(bind=engine)
@@ -25,6 +26,7 @@ announcements.UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 homework.UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 updates.UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 MESSAGE_MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+MESSAGE_MEDIA_ARCHIVE_ROOT.mkdir(parents=True, exist_ok=True)
 EXPORT_ROOT.mkdir(parents=True, exist_ok=True)
 
 
@@ -121,6 +123,7 @@ def create_app() -> FastAPI:
             access_logger.addFilter(protected_media_access_log_filter)
 
     app.add_middleware(TrustedProxyHeadersMiddleware, trusted_proxy_ips=settings.TRUSTED_PROXY_IPS)
+    app.add_middleware(MessagingMetricsMiddleware)
 
     origins = parse_csv_values(settings.CORS_ORIGINS)
     app.add_middleware(
@@ -168,6 +171,9 @@ def create_app() -> FastAPI:
     app.include_router(announcements.staff_router, prefix="/api/school", tags=["announcements"])
     app.include_router(calendar.staff_router, prefix="/api/school", tags=["calendar"])
     app.include_router(school.router, prefix="/api/school", tags=["school"])
+    app.include_router(governance.router, prefix="/api/school", tags=["school-governance"])
+    app.include_router(messaging_operations.router, prefix="/api/school", tags=["messaging-operations"])
+    app.include_router(messaging_operations.platform_router, prefix="/api/platform", tags=["messaging-operations"])
     app.include_router(messaging_policy.router, prefix="/api/school", tags=["messaging-policy"])
     app.include_router(feature_controls.router, prefix="/api/school", tags=["feature-controls"])
     app.include_router(messaging.staff_router, prefix="/api/messaging", tags=["messaging"])

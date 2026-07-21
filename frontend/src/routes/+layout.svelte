@@ -251,6 +251,8 @@
             <a href="/school/reports" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
               {$_('nav.reports')}
             </a>
+            <a href="/school/governance" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">{$_('nav.governance')}</a>
+            <a href="/school/operations" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">{$_('nav.operations')}</a>
           {/if}
           {#if hasTeacher}
             <a href="/teach" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
@@ -373,6 +375,8 @@
         {#if hasSchoolAdmin}
           <a href="/school" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.school')}</a>
           <a href="/school/reports" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.reports')}</a>
+          <a href="/school/governance" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.governance')}</a>
+          <a href="/school/operations" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.operations')}</a>
         {/if}
         {#if hasTeacher}<a href="/teach" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.teach')}</a>{/if}
         {#if messagingAvailable}

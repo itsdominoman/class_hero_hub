@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import re
-import logging
-from datetime import timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -12,16 +10,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import auth, invite_tokens
-from ..database import get_db, settings
-from ..mailer import StaffInviteEmail, send_staff_invite
+from ..database import get_db
+from ..mailer import send_staff_invite
 from ..models_school import Membership, School, SchoolMessagingPolicy, StaffInvite, Student, User
 from ..school_scope import require_platform_admin, write_audit
+from ..school_governance import GovernanceConflict, bootstrap_system_owner, platform_recover_owner
+from ..staff_invite_service import issue_staff_invite
 
 router = APIRouter(dependencies=[Depends(require_platform_admin)])
 invite_router = APIRouter()
-logger = logging.getLogger(__name__)
-
-STAFF_INVITE_TTL = timedelta(days=7)
 SCHOOL_ADMIN_ROLE = "school_admin"
 TEACHER_ROLE = "teacher"
 
@@ -40,6 +37,11 @@ class InviteRequest(BaseModel):
 
 class ReasonRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=500)
+
+
+class OwnerRecoveryRequest(BaseModel):
+    target_membership_id: int
+    reason: str = Field(min_length=8, max_length=2000)
 
 
 class ExchangeInviteRequest(BaseModel):
@@ -72,63 +74,8 @@ def _unique_school_slug(db: Session, name: str) -> str:
     return slug
 
 
-def _accept_url(raw_token: str) -> str:
-    return f"{settings.PUBLIC_APP_URL.rstrip('/')}/invite/{raw_token}"
-
-
 def _issue_staff_invite(db: Session, school: School, email: str, actor: User, role: str = SCHOOL_ADMIN_ROLE) -> tuple[StaffInvite, str, str | None]:
-    if role not in {SCHOOL_ADMIN_ROLE, TEACHER_ROLE}:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported staff invite role")
-    normalized_email = _normalize_email(email)
-    current = invite_tokens.now_utc()
-    pending_invites = (
-        db.query(StaffInvite)
-        .filter(
-            StaffInvite.school_id == school.id,
-            StaffInvite.email == normalized_email,
-            StaffInvite.role == role,
-            StaffInvite.revoked_at.is_(None),
-            StaffInvite.accepted_at.is_(None),
-        )
-        .all()
-    )
-    for pending in pending_invites:
-        expires_at = invite_tokens.as_utc_aware(pending.expires_at)
-        if expires_at is None or expires_at > current:
-            pending.revoked_at = current
-
-    raw_token = invite_tokens.generate_token()
-    staff_invite = StaffInvite(
-        school_id=school.id,
-        email=normalized_email,
-        role=role,
-        token_hash=invite_tokens.hash_token(raw_token),
-        invited_by_user_id=actor.id,
-        expires_at=current + STAFF_INVITE_TTL,
-        send_status="pending",
-    )
-    db.add(staff_invite)
-    db.commit()
-    db.refresh(staff_invite)
-    warning = None
-    try:
-        send_staff_invite(
-            StaffInviteEmail(
-                to_email=staff_invite.email,
-                school_name=school.name,
-                accept_url=_accept_url(raw_token),
-            )
-        )
-        staff_invite.send_status = "sent"
-        staff_invite.last_send_error = None
-    except Exception as exc:
-        logger.exception("Failed to send staff invite %s for school %s", staff_invite.id, school.id)
-        warning = "Invite was created, but the email could not be sent. Use resend after SMTP is available."
-        staff_invite.send_status = "failed"
-        staff_invite.last_send_error = str(exc)[:500]
-    db.commit()
-    db.refresh(staff_invite)
-    return staff_invite, raw_token, warning
+    return issue_staff_invite(db, school=school, email=email, actor=actor, role=role, send=send_staff_invite)
 
 
 def _role_counts(db: Session, school_id: int) -> dict[str, int]:
@@ -437,6 +384,16 @@ def exchange_staff_invite(
 
     db.refresh(membership)
     db.refresh(staff_invite)
+    if staff_invite.role == SCHOOL_ADMIN_ROLE:
+        try:
+            bootstrap_system_owner(
+                db,
+                school=school,
+                membership=membership,
+                actor_user_id=current_user.id,
+            )
+        except GovernanceConflict as exc:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     write_audit(
         db,
         current_user,
@@ -452,3 +409,37 @@ def exchange_staff_invite(
         "membership": {"id": membership.id, "role": membership.role},
         "landing_path": "/teach" if membership.role == TEACHER_ROLE else "/school",
     }
+
+
+@router.post("/schools/{school_id}/system-owner/recover")
+def recover_system_owner(
+    school_id: int,
+    payload: OwnerRecoveryRequest,
+    current_user: User = Depends(require_platform_admin),
+    db: Session = Depends(get_db),
+):
+    _get_school_or_404(db, school_id)
+    try:
+        row = platform_recover_owner(
+            db,
+            school_id=school_id,
+            target_membership_id=payload.target_membership_id,
+            actor_user_id=current_user.id,
+            reason=payload.reason,
+        )
+    except GovernanceConflict as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    write_audit(
+        db,
+        current_user,
+        "platform.system_owner.recovered",
+        row,
+        {
+            "new_membership_id": row.membership_id,
+            "owner_version": row.owner_version,
+            "reason": payload.reason.strip(),
+        },
+        school_id=school_id,
+    )
+    db.commit()
+    return {"status": "recovered", "membership_id": row.membership_id, "owner_version": row.owner_version}

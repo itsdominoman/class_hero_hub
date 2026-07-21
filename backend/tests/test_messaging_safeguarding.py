@@ -23,6 +23,7 @@ from app.models_school import (
     SafeguardingReviewSession,
 )
 from app.safeguarding_service import cleanup_expired_safeguarding_state
+from app.messaging_production import process_one_job
 from test_messaging_api import (
     _create_teacher_thread,
     _headers,
@@ -31,6 +32,7 @@ from test_messaging_api import (
     _voice_tone_bytes,
     client,
     db,
+    Session,
 )
 
 
@@ -500,7 +502,7 @@ def test_internal_evidence_export_hashes_timestamps_media_note_permission_downlo
     without_notes = client.post(
         f"/api/safeguarding/reviews/{session_id}/exports", headers=headers, json=export_body
     )
-    assert without_notes.status_code == 200, without_notes.text
+    assert without_notes.status_code == 202, without_notes.text
     assert client.post(
         f"/api/safeguarding/reviews/{session_id}/exports", headers=headers,
         json={**export_body, "include_internal_notes": True},
@@ -510,17 +512,22 @@ def test_internal_evidence_export_hashes_timestamps_media_note_permission_downlo
         f"/api/safeguarding/reviews/{session_id}/exports", headers=headers,
         json={**export_body, "include_internal_notes": True},
     )
-    assert created.status_code == 200, created.text
+    assert created.status_code == 202, created.text
     export_id = created.json()["id"]
+    while process_one_job(Session, worker_id="test-export-worker"):
+        pass
+    created_payload = client.get(f"/api/safeguarding/exports/{export_id}", headers=headers)
+    assert created_payload.status_code == 200, created_payload.text
+    assert created_payload.json()["state"] == "ready"
     artifact = export_root / f"{export_id}.zip"
     assert artifact.is_file()
-    assert hashlib.sha256(artifact.read_bytes()).hexdigest() == created.json()["artifact_sha256"]
+    assert hashlib.sha256(artifact.read_bytes()).hexdigest() == created_payload.json()["artifact_sha256"]
     with zipfile.ZipFile(artifact) as package:
         assert set(package.namelist()) >= {"manifest.json", "transcript.html"}
         manifest = json.loads(package.read("manifest.json"))
         integrity = manifest.pop("integrity")
         canonical = json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
-        assert hashlib.sha256(canonical).hexdigest() == integrity["canonical_payload_sha256"] == created.json()["manifest_sha256"]
+        assert hashlib.sha256(canonical).hexdigest() == integrity["canonical_payload_sha256"] == created_payload.json()["manifest_sha256"]
         assert manifest["privacy_mode"] == "internal"
         assert manifest["internal_notes"][0]["body"] == "Highly restricted internal export note"
         assert manifest["messages"][0]["created_at_utc"].endswith("+00:00")
@@ -577,7 +584,8 @@ def test_search_and_export_rate_and_size_limits_fail_closed(db, client, monkeypa
             "include_internal_notes": False,
         },
     )
-    assert too_large.status_code == 422
+    assert too_large.status_code == 202
+    process_one_job(Session, worker_id="test-export-worker")
     assert db.query(MessagingEvidenceExport).filter_by(state="failed").count() == 1
 
 

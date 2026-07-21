@@ -598,16 +598,17 @@ def reconcile_notification_rows(
                 (participants_by_id.get(participant_id) for participant_id in candidate_ids),
                 None,
             )
-        if not recipient_valid or recipient is None:
-            _cancel(row, code="recipient_ineligible", now=now)
-            continue
-
         sender = participants_by_id.get(message.sender_participant_id)
         if sender is None:
             _cancel(row, code="sender_missing", now=now)
             continue
-        if not notification_recipient_allowed(conversation, sender, recipient):
+        # Classify an impossible direction before access validity so malformed
+        # legacy rows receive the stable, actionable reason and are never retried.
+        if recipient is not None and not notification_recipient_allowed(conversation, sender, recipient):
             _cancel(row, code="invalid_notification_direction", now=now)
+            continue
+        if not recipient_valid or recipient is None:
+            _cancel(row, code="recipient_ineligible", now=now)
             continue
         decision = contact_hours_decision(
             db,

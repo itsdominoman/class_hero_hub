@@ -4,6 +4,7 @@ export const SAFEGUARDING_PERMISSIONS = [
   "messaging.export_evidence",
   "messaging.export_internal_notes",
   "messaging.manage_safeguarding_permissions",
+  "messaging.manage_legal_holds",
 ] as const;
 
 export type SafeguardingPermission = (typeof SAFEGUARDING_PERMISSIONS)[number];
@@ -14,6 +15,7 @@ const permissionKeys: Record<string, string> = {
   "messaging.export_evidence": "exportEvidence",
   "messaging.export_internal_notes": "exportNotes",
   "messaging.manage_safeguarding_permissions": "manage",
+  "messaging.manage_legal_holds": "legalHolds",
 };
 
 const roleKeys: Record<string, string> = {

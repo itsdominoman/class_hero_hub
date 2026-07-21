@@ -2541,6 +2541,8 @@
         >
           {$_('nav.reports')} →
         </a>
+        <a href="/school/governance" class="whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 py-2 text-left text-sm font-bold text-slate-700 transition hover:bg-slate-100 lg:mt-2 lg:block lg:w-full">{$_('nav.governance')} →</a>
+        <a href="/school/operations" class="whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 py-2 text-left text-sm font-bold text-slate-700 transition hover:bg-slate-100 lg:mt-2 lg:block lg:w-full">{$_('nav.operations')} →</a>
       </nav>
 
       <div class="min-w-0">

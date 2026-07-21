@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from .message_media_service import (
     MESSAGE_MEDIA_ROOT,
     MessageMediaValidationError,
+    archive_media_path,
     media_path,
 )
 from .models_school import (
@@ -407,10 +408,15 @@ def attached_voice_map(db: Session, message_ids: Iterable[int]) -> dict[int, Mes
     return {row.message_id: row for row in rows}
 
 
-def protected_voice_file(row: MessageVoiceMedia) -> tuple[Path, str]:
-    if row.state != "attached" or row.message_id is None or not row.storage_key:
+def protected_voice_file(
+    row: MessageVoiceMedia, *, allow_archive: bool = False
+) -> tuple[Path, str]:
+    if row.message_id is None or row.state not in ({"attached", "archived"} if allow_archive else {"attached"}):
         raise MessageVoiceValidationError("Voice note is unavailable")
-    path = media_path(row.storage_key)
+    storage_key = row.archive_storage_key if row.state == "archived" else row.storage_key
+    if not storage_key:
+        raise MessageVoiceValidationError("Voice note is unavailable")
+    path = archive_media_path(storage_key) if row.state == "archived" else media_path(storage_key)
     if not path.is_file():
         raise MessageVoiceValidationError("Voice note is unavailable")
     return path, "audio/mp4"

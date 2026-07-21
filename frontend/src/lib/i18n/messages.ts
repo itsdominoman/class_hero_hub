@@ -25,6 +25,8 @@ export const en = {
     teach: 'Teach',
     messages: 'Messages',
     safeguarding: 'Safeguarding',
+    governance: 'Governance',
+    operations: 'Operations',
     product: 'Product',
     support: 'Support',
     legal: 'Legal',
@@ -258,6 +260,7 @@ export const en = {
       exportEvidence: 'Export safeguarding evidence',
       exportNotes: 'Include internal notes in evidence exports',
       manage: 'Manage safeguarding access',
+      legalHolds: 'Manage legal holds',
       unknown: 'Safeguarding access'
     },
     permissionDescriptions: {
@@ -266,6 +269,7 @@ export const en = {
       exportEvidence: 'Create and download protected evidence packages for an authorised purpose.',
       exportNotes: 'Add separately protected internal notes to an evidence package when permitted.',
       manage: 'Grant or remove safeguarding permissions for other staff in this school.',
+      legalHolds: 'Place and release confidential preservation holds for authorised legal or regulatory work.',
       unknown: 'A school-scoped safeguarding permission.'
     },
     permissionsPage: {
@@ -1726,6 +1730,8 @@ export const ar = {
     admin: 'الإدارة',
     school: 'المدرسة',
     reports: 'التقارير',
+    governance: 'الحوكمة',
+    operations: 'العمليات',
     menu: 'القائمة',
     openMenu: 'فتح القائمة',
     closeMenu: 'إغلاق القائمة',
@@ -1961,6 +1967,7 @@ export const ar = {
       exportEvidence: 'تصدير أدلة الحماية',
       exportNotes: 'تضمين الملاحظات الداخلية في تصدير الأدلة',
       manage: 'إدارة وصول الحماية',
+      legalHolds: 'إدارة أوامر الحفظ القانوني',
       unknown: 'وصول الحماية'
     },
     permissionDescriptions: {
@@ -1969,6 +1976,7 @@ export const ar = {
       exportEvidence: 'إنشاء حزم أدلة محمية وتنزيلها لغرض مصرح به.',
       exportNotes: 'إضافة الملاحظات الداخلية المحمية بشكل منفصل إلى حزمة الأدلة عند السماح.',
       manage: 'منح صلاحيات الحماية لموظفي هذه المدرسة أو إزالتها.',
+      legalHolds: 'وضع أوامر حفظ سرية وإلغاؤها للأعمال القانونية أو التنظيمية المصرح بها.',
       unknown: 'صلاحية حماية مقيدة بالمدرسة.'
     },
     permissionsPage: {

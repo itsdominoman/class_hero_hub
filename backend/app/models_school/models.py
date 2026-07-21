@@ -61,6 +61,56 @@ class Membership(Base):
     )
 
 
+class SchoolSystemOwner(Base):
+    """Explicit, school-scoped System Owner state; never inferred from row age."""
+
+    __tablename__ = "school_system_owners"
+
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), primary_key=True)
+    membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False, unique=True)
+    owner_version = Column(Integer, nullable=False, default=1, server_default="1")
+    owner_since = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        CheckConstraint("owner_version >= 1", name="ck_school_system_owners_version"),
+        Index("ix_school_system_owners_membership", "membership_id", "school_id"),
+    )
+
+
+class SchoolSystemOwnerEvent(Base):
+    """Append-only bootstrap, transfer, and emergency-recovery evidence."""
+
+    __tablename__ = "school_system_owner_events"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    event_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    action = Column(String(32), nullable=False)
+    previous_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
+    new_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
+    actor_kind = Column(String(24), nullable=False)
+    actor_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    actor_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
+    reason = Column(Text, nullable=False)
+    owner_version = Column(Integer, nullable=False)
+    occurred_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('bootstrap', 'transfer', 'recovery_required', 'platform_recovery')",
+            name="ck_school_system_owner_events_action",
+        ),
+        CheckConstraint(
+            "actor_kind IN ('system', 'school_owner', 'platform_admin')",
+            name="ck_school_system_owner_events_actor_kind",
+        ),
+        CheckConstraint("length(reason) BETWEEN 8 AND 2000", name="ck_school_system_owner_events_reason"),
+        CheckConstraint("owner_version >= 1", name="ck_school_system_owner_events_version"),
+        Index("ix_school_system_owner_events_school_time", "school_id", "occurred_at", "id"),
+    )
+
+
 class BranchCampus(Base):
     __tablename__ = "branch_campuses"
 
@@ -1170,6 +1220,9 @@ class Message(Base):
     tombstoned_at = Column(DateTime(timezone=True), nullable=True)
     tombstoned_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
     tombstone_reason = Column(String(160), nullable=True)
+    retention_disposed_at = Column(DateTime(timezone=True), nullable=True)
+    retention_policy_version = Column(Integer, nullable=True)
+    retention_content_sha256 = Column(String(64), nullable=True)
 
     __table_args__ = (
         UniqueConstraint("conversation_id", "sequence", name="uq_messages_conversation_sequence"),
@@ -1191,6 +1244,13 @@ class Message(Base):
             "AND tombstone_reason IS NULL) OR "
             "(state = 'tombstoned' AND tombstoned_at IS NOT NULL AND tombstone_reason IS NOT NULL)",
             name="ck_messages_tombstone_shape",
+        ),
+        CheckConstraint(
+            "(retention_disposed_at IS NULL AND retention_policy_version IS NULL "
+            "AND retention_content_sha256 IS NULL) OR "
+            "(retention_disposed_at IS NOT NULL AND retention_policy_version >= 1 "
+            "AND length(retention_content_sha256) = 64 AND body IS NULL)",
+            name="ck_messages_retention_disposition",
         ),
         Index("ix_messages_conversation_page", "conversation_id", "sequence"),
         Index("ix_messages_school_created", "school_id", "created_at", "id"),
@@ -1246,6 +1306,14 @@ class MessageMedia(Base):
         default=lambda: datetime.now(timezone.utc) + timedelta(hours=24),
     )
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+    archive_full_storage_key = Column(String(500), nullable=True)
+    archive_thumbnail_storage_key = Column(String(500), nullable=True)
+    archive_full_sha256 = Column(String(64), nullable=True)
+    archive_thumbnail_sha256 = Column(String(64), nullable=True)
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+    archive_verified_at = Column(DateTime(timezone=True), nullable=True)
+    hot_deleted_at = Column(DateTime(timezone=True), nullable=True)
+    retention_deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
         UniqueConstraint(
@@ -1257,7 +1325,8 @@ class MessageMedia(Base):
         UniqueConstraint("message_id", "sort_order", name="uq_message_media_message_order"),
         CheckConstraint("sort_order BETWEEN 0 AND 4", name="ck_message_media_sort_order"),
         CheckConstraint(
-            "state IN ('processing', 'ready', 'attached', 'failed', 'expired', 'deleted')",
+            "state IN ('processing', 'ready', 'attached', 'archived', 'retention_deleted', "
+            "'failed', 'expired', 'deleted')",
             name="ck_message_media_state",
         ),
         CheckConstraint("storage_backend = 'local'", name="ck_message_media_storage_backend"),
@@ -1270,8 +1339,10 @@ class MessageMedia(Base):
             name="ck_message_media_ready_shape",
         ),
         CheckConstraint(
-            "(state = 'attached' AND message_id IS NOT NULL AND attached_at IS NOT NULL) "
-            "OR (state <> 'attached' AND message_id IS NULL AND attached_at IS NULL)",
+            "(state IN ('attached', 'archived', 'retention_deleted') AND message_id IS NOT NULL "
+            "AND attached_at IS NOT NULL) OR "
+            "(state NOT IN ('attached', 'archived', 'retention_deleted') AND message_id IS NULL "
+            "AND attached_at IS NULL)",
             name="ck_message_media_attachment_shape",
         ),
         CheckConstraint(
@@ -1279,8 +1350,23 @@ class MessageMedia(Base):
             "OR (state NOT IN ('expired', 'deleted') AND deleted_at IS NULL)",
             name="ck_message_media_deleted_shape",
         ),
+        CheckConstraint(
+            "(state = 'archived' AND archive_full_storage_key IS NOT NULL "
+            "AND archive_thumbnail_storage_key IS NOT NULL AND length(archive_full_sha256) = 64 "
+            "AND length(archive_thumbnail_sha256) = 64 AND archived_at IS NOT NULL "
+            "AND archive_verified_at IS NOT NULL) OR state <> 'archived'",
+            name="ck_message_media_archive_shape",
+        ),
+        CheckConstraint(
+            "(state = 'retention_deleted' AND retention_deleted_at IS NOT NULL "
+            "AND full_storage_key IS NULL AND thumbnail_storage_key IS NULL "
+            "AND archive_full_storage_key IS NULL AND archive_thumbnail_storage_key IS NULL) "
+            "OR state <> 'retention_deleted'",
+            name="ck_message_media_retention_deleted",
+        ),
         Index("ix_message_media_conversation_message", "conversation_id", "message_id", "sort_order"),
         Index("ix_message_media_state_expiry", "state", "expires_at", "id"),
+        Index("ix_message_media_archive_selection", "school_id", "state", "created_at", "id"),
     )
 
 
@@ -1330,6 +1416,12 @@ class MessageVoiceMedia(Base):
         default=lambda: datetime.now(timezone.utc) + timedelta(hours=24),
     )
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+    archive_storage_key = Column(String(500), nullable=True)
+    archive_sha256 = Column(String(64), nullable=True)
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+    archive_verified_at = Column(DateTime(timezone=True), nullable=True)
+    hot_deleted_at = Column(DateTime(timezone=True), nullable=True)
+    retention_deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
         UniqueConstraint(
@@ -1339,7 +1431,8 @@ class MessageVoiceMedia(Base):
             name="uq_message_voice_media_participant_upload",
         ),
         CheckConstraint(
-            "state IN ('processing', 'ready', 'attached', 'failed', 'expired', 'deleted')",
+            "state IN ('processing', 'ready', 'attached', 'archived', 'retention_deleted', "
+            "'failed', 'expired', 'deleted')",
             name="ck_message_voice_media_state",
         ),
         CheckConstraint("storage_backend = 'local'", name="ck_message_voice_media_storage_backend"),
@@ -1352,8 +1445,10 @@ class MessageVoiceMedia(Base):
             name="ck_message_voice_media_ready_shape",
         ),
         CheckConstraint(
-            "(state = 'attached' AND message_id IS NOT NULL AND attached_at IS NOT NULL) "
-            "OR (state <> 'attached' AND message_id IS NULL AND attached_at IS NULL)",
+            "(state IN ('attached', 'archived', 'retention_deleted') AND message_id IS NOT NULL "
+            "AND attached_at IS NOT NULL) OR "
+            "(state NOT IN ('attached', 'archived', 'retention_deleted') AND message_id IS NULL "
+            "AND attached_at IS NULL)",
             name="ck_message_voice_media_attachment_shape",
         ),
         CheckConstraint(
@@ -1362,11 +1457,24 @@ class MessageVoiceMedia(Base):
             name="ck_message_voice_media_deleted_shape",
         ),
         CheckConstraint(
+            "(state = 'archived' AND archive_storage_key IS NOT NULL "
+            "AND length(archive_sha256) = 64 AND archived_at IS NOT NULL "
+            "AND archive_verified_at IS NOT NULL) OR state <> 'archived'",
+            name="ck_message_voice_media_archive_shape",
+        ),
+        CheckConstraint(
+            "(state = 'retention_deleted' AND retention_deleted_at IS NOT NULL "
+            "AND storage_key IS NULL AND archive_storage_key IS NULL) "
+            "OR state <> 'retention_deleted'",
+            name="ck_message_voice_media_retention_deleted",
+        ),
+        CheckConstraint(
             "transcription_state IN ('not_requested')",
             name="ck_message_voice_media_transcription_state",
         ),
         Index("ix_message_voice_media_conversation_message", "conversation_id", "message_id"),
         Index("ix_message_voice_media_state_expiry", "state", "expires_at", "id"),
+        Index("ix_message_voice_media_archive_selection", "school_id", "state", "created_at", "id"),
     )
 
 
@@ -1478,7 +1586,7 @@ class MessagingPermissionGrant(Base):
         CheckConstraint(
             "permission IN ('messaging.safeguarding_review', 'messaging.moderate', "
             "'messaging.export_evidence', 'messaging.export_internal_notes', "
-            "'messaging.manage_safeguarding_permissions')",
+            "'messaging.manage_safeguarding_permissions', 'messaging.manage_legal_holds')",
             name="ck_messaging_permission_grants_permission",
         ),
         CheckConstraint(
@@ -1506,6 +1614,177 @@ class MessagingPermissionGrant(Base):
             "permission",
             "revoked_at",
         ),
+    )
+
+
+class MessagingRetentionPolicy(Base):
+    """Append-only, effective-date-aware school retention policy version."""
+
+    __tablename__ = "messaging_retention_policies"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    public_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    policy_version = Column(Integer, nullable=False)
+    effective_at = Column(DateTime(timezone=True), nullable=False)
+    rules = Column(JSON().with_variant(JSONB, "postgresql"), nullable=False, default=dict)
+    reason = Column(Text, nullable=False)
+    acknowledged_school_policy = Column(Boolean, nullable=False, default=False, server_default="false")
+    created_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    cancelled_at = Column(DateTime(timezone=True), nullable=True)
+    cancelled_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
+    cancellation_reason = Column(Text, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("school_id", "policy_version", name="uq_messaging_retention_policy_version"),
+        CheckConstraint("policy_version >= 1", name="ck_messaging_retention_policy_version"),
+        CheckConstraint("length(reason) BETWEEN 8 AND 2000", name="ck_messaging_retention_policy_reason"),
+        CheckConstraint("acknowledged_school_policy = true", name="ck_messaging_retention_policy_acknowledged"),
+        CheckConstraint(
+            "(cancelled_at IS NULL AND cancelled_by_membership_id IS NULL AND cancellation_reason IS NULL) OR "
+            "(cancelled_at IS NOT NULL AND cancelled_by_membership_id IS NOT NULL "
+            "AND length(cancellation_reason) BETWEEN 8 AND 2000)",
+            name="ck_messaging_retention_policy_cancellation",
+        ),
+        Index("ix_messaging_retention_policy_effective", "school_id", "effective_at", "policy_version"),
+    )
+
+
+class MessagingLegalHold(Base):
+    """Confidential legal-hold state. Reasons never enter participant/FHH projections."""
+
+    __tablename__ = "messaging_legal_holds"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    public_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    scope_type = Column(String(24), nullable=False)
+    conversation_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("conversations.id", ondelete="RESTRICT"), nullable=True, index=True)
+    message_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("messages.id", ondelete="RESTRICT"), nullable=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="RESTRICT"), nullable=True, index=True)
+    reason = Column(Text, nullable=False)
+    case_reference = Column(String(160), nullable=True)
+    starts_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    review_at = Column(DateTime(timezone=True), nullable=True)
+    created_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False)
+    released_at = Column(DateTime(timezone=True), nullable=True)
+    released_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True)
+    release_reason = Column(Text, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("scope_type IN ('conversation', 'message', 'student')", name="ck_messaging_legal_holds_scope"),
+        CheckConstraint(
+            "(scope_type = 'conversation' AND conversation_id IS NOT NULL AND message_id IS NULL AND student_id IS NULL) OR "
+            "(scope_type = 'message' AND conversation_id IS NULL AND message_id IS NOT NULL AND student_id IS NULL) OR "
+            "(scope_type = 'student' AND conversation_id IS NULL AND message_id IS NULL AND student_id IS NOT NULL)",
+            name="ck_messaging_legal_holds_target",
+        ),
+        CheckConstraint("length(reason) BETWEEN 8 AND 4000", name="ck_messaging_legal_holds_reason"),
+        CheckConstraint("review_at IS NULL OR review_at > starts_at", name="ck_messaging_legal_holds_review"),
+        CheckConstraint(
+            "(released_at IS NULL AND released_by_membership_id IS NULL AND release_reason IS NULL) OR "
+            "(released_at IS NOT NULL AND released_by_membership_id IS NOT NULL "
+            "AND length(release_reason) BETWEEN 8 AND 4000)",
+            name="ck_messaging_legal_holds_release",
+        ),
+        Index("ix_messaging_legal_holds_school_active", "school_id", "released_at", "scope_type", "id"),
+    )
+
+
+class MessagingLegalHoldEvent(Base):
+    __tablename__ = "messaging_legal_hold_events"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    event_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    hold_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("messaging_legal_holds.id", ondelete="RESTRICT"), nullable=False, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    action = Column(String(16), nullable=False)
+    actor_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False)
+    reason = Column(Text, nullable=False)
+    occurred_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint("action IN ('placed', 'released')", name="ck_messaging_legal_hold_events_action"),
+        CheckConstraint("length(reason) BETWEEN 8 AND 4000", name="ck_messaging_legal_hold_events_reason"),
+        Index("ix_messaging_legal_hold_events_school_time", "school_id", "occurred_at", "id"),
+    )
+
+
+class MessagingOperationsJob(Base):
+    """Durable, leased jobs for retention, archival, and evidence export custody."""
+
+    __tablename__ = "messaging_operations_jobs"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    public_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    job_type = Column(String(32), nullable=False)
+    state = Column(String(24), nullable=False, default="pending", server_default="pending")
+    dry_run = Column(Boolean, nullable=False, default=False, server_default="false")
+    policy_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("messaging_retention_policies.id", ondelete="RESTRICT"), nullable=True)
+    export_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("messaging_evidence_exports.id", ondelete="RESTRICT"), nullable=True)
+    requested_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False)
+    operator_reason = Column(Text, nullable=False)
+    payload = Column(JSON().with_variant(JSONB, "postgresql"), nullable=False, default=dict)
+    progress = Column(JSON().with_variant(JSONB, "postgresql"), nullable=False, default=dict)
+    last_cursor = Column(String(200), nullable=True)
+    lease_owner = Column(String(96), nullable=True)
+    lease_expires_at = Column(DateTime(timezone=True), nullable=True)
+    attempt_count = Column(Integer, nullable=False, default=0, server_default="0")
+    next_attempt_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    cancellation_requested_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    last_error_code = Column(String(80), nullable=True)
+    last_error_detail = Column(String(500), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        CheckConstraint("job_type IN ('retention_preview', 'retention_execute', 'archive_media', 'evidence_export')", name="ck_messaging_operations_jobs_type"),
+        CheckConstraint("state IN ('pending', 'leased', 'succeeded', 'failed', 'dead', 'cancelled')", name="ck_messaging_operations_jobs_state"),
+        CheckConstraint("length(operator_reason) BETWEEN 8 AND 2000", name="ck_messaging_operations_jobs_reason"),
+        CheckConstraint("attempt_count >= 0", name="ck_messaging_operations_jobs_attempts"),
+        CheckConstraint(
+            "(state = 'leased' AND lease_owner IS NOT NULL AND lease_expires_at IS NOT NULL) OR "
+            "(state <> 'leased' AND lease_owner IS NULL AND lease_expires_at IS NULL)",
+            name="ck_messaging_operations_jobs_lease",
+        ),
+        Index("ix_messaging_operations_jobs_claim", "state", "next_attempt_at", "lease_expires_at", "id"),
+        Index("ix_messaging_operations_jobs_school_type", "school_id", "job_type", "created_at", "id"),
+    )
+
+
+class MessagingWorkerHeartbeat(Base):
+    __tablename__ = "messaging_worker_heartbeats"
+
+    worker_name = Column(String(48), primary_key=True)
+    instance_id = Column(String(96), nullable=False)
+    last_seen_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    last_success_at = Column(DateTime(timezone=True), nullable=True)
+    last_error_code = Column(String(80), nullable=True)
+    processed_total = Column(BigInteger, nullable=False, default=0, server_default="0")
+    recovered_leases_total = Column(BigInteger, nullable=False, default=0, server_default="0")
+
+
+class MessagingOperatorAction(Base):
+    __tablename__ = "messaging_operator_actions"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    event_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    actor_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False)
+    queue_kind = Column(String(32), nullable=False)
+    action = Column(String(16), nullable=False)
+    target_ref = Column(String(120), nullable=False)
+    reason = Column(Text, nullable=False)
+    occurred_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint("queue_kind IN ('notification', 'retention', 'archive', 'export')", name="ck_messaging_operator_actions_queue"),
+        CheckConstraint("action IN ('retry', 'cancel')", name="ck_messaging_operator_actions_action"),
+        CheckConstraint("length(reason) BETWEEN 8 AND 2000", name="ck_messaging_operator_actions_reason"),
+        Index("ix_messaging_operator_actions_school_time", "school_id", "occurred_at", "id"),
     )
 
 
@@ -1674,10 +1953,17 @@ class MessagingEvidenceExport(Base):
     generated_at = Column(DateTime(timezone=True), nullable=True)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     failure_code = Column(String(80), nullable=True)
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+    verification_state = Column(String(24), nullable=True)
+    verification_detail = Column(JSON().with_variant(JSONB, "postgresql"), nullable=False, default=dict)
+    custody_version = Column(Integer, nullable=False, default=1, server_default="1")
 
     __table_args__ = (
         CheckConstraint("export_mode IN ('internal', 'participant_safe')", name="ck_messaging_evidence_exports_mode"),
-        CheckConstraint("state IN ('requested', 'ready', 'failed', 'expired', 'deleted')", name="ck_messaging_evidence_exports_state"),
+        CheckConstraint(
+            "state IN ('requested', 'generating', 'ready', 'failed', 'expired', 'deleted', 'cancelled')",
+            name="ck_messaging_evidence_exports_state",
+        ),
         CheckConstraint("length(justification) BETWEEN 8 AND 2000", name="ck_messaging_evidence_exports_reason"),
         CheckConstraint("max_downloads BETWEEN 1 AND 10", name="ck_messaging_evidence_exports_max_downloads"),
         CheckConstraint("download_count >= 0 AND download_count <= max_downloads", name="ck_messaging_evidence_exports_download_count"),
@@ -1687,6 +1973,11 @@ class MessagingEvidenceExport(Base):
             "state <> 'ready'",
             name="ck_messaging_evidence_exports_ready_shape",
         ),
+        CheckConstraint(
+            "verification_state IS NULL OR verification_state IN ('verified', 'mismatch', 'missing')",
+            name="ck_messaging_evidence_exports_verification_state",
+        ),
+        CheckConstraint("custody_version >= 1", name="ck_messaging_evidence_exports_custody_version"),
         Index("ix_messaging_evidence_exports_expiry", "state", "expires_at", "id"),
         Index("ix_messaging_evidence_exports_school_created", "school_id", "created_at", "id"),
     )
@@ -1874,7 +2165,15 @@ def _prevent_message_immutable_update(mapper, connection, target):
         "urgent",
         "created_at",
     )
-    if any(state.attrs[field].history.has_changes() for field in immutable_fields):
+    changed = {field for field in immutable_fields if state.attrs[field].history.has_changes()}
+    retention_disposal = bool(
+        changed == {"body"}
+        and target.body is None
+        and target.retention_disposed_at is not None
+        and target.retention_policy_version is not None
+        and target.retention_content_sha256 is not None
+    )
+    if changed and not retention_disposal:
         raise ValueError("Message attribution and content are immutable")
 
 
@@ -1882,6 +2181,9 @@ def _prevent_message_immutable_update(mapper, connection, target):
 @event.listens_for(MessagingAuditEvent, "before_update", propagate=True)
 @event.listens_for(SafeguardingInternalNote, "before_update", propagate=True)
 @event.listens_for(MessagingModerationAction, "before_update", propagate=True)
+@event.listens_for(SchoolSystemOwnerEvent, "before_update", propagate=True)
+@event.listens_for(MessagingLegalHoldEvent, "before_update", propagate=True)
+@event.listens_for(MessagingOperatorAction, "before_update", propagate=True)
 def _prevent_messaging_append_only_update(mapper, connection, target):
     raise ValueError("Messaging evidence rows are append-only")
 
@@ -1890,6 +2192,9 @@ def _prevent_messaging_append_only_update(mapper, connection, target):
 @event.listens_for(MessagingAuditEvent, "before_delete", propagate=True)
 @event.listens_for(SafeguardingInternalNote, "before_delete", propagate=True)
 @event.listens_for(MessagingModerationAction, "before_delete", propagate=True)
+@event.listens_for(SchoolSystemOwnerEvent, "before_delete", propagate=True)
+@event.listens_for(MessagingLegalHoldEvent, "before_delete", propagate=True)
+@event.listens_for(MessagingOperatorAction, "before_delete", propagate=True)
 @event.listens_for(Message, "before_delete", propagate=True)
 def _prevent_messaging_append_only_delete(mapper, connection, target):
     raise ValueError("Messaging evidence rows are append-only")

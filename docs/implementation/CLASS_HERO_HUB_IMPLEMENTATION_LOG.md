@@ -2310,7 +2310,7 @@ Reason: the configured live Postgres database has existing tables but no Alembic
 Temporary Postgres migration validation:
 
 ```bash
-tmpdb="class_hero_hub_migration_check_$(date +%s)"; echo "$tmpdb"; docker compose exec postgres createdb -U classhero "$tmpdb" && docker compose run --rm -e MIGRATION_DATABASE_URL="postgresql+psycopg://classhero:499337c5a3f9754b2eab74ab99c3a4bf93c6a6608c374c13380881a159fb30e8@postgres:5432/$tmpdb" -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic upgrade head; status=$?; docker compose exec postgres dropdb -U classhero --if-exists "$tmpdb"; exit $status
+Historical command redacted: a development database credential had been committed inline. Rotate the credential, then use `MIGRATION_VALIDATION_DATABASE_URL` through `backend/scripts/validate_migrations.py`; never record a credential-bearing URL in documentation.
 ```
 
 Exact output:
@@ -2655,7 +2655,7 @@ d4e5f6a7b8c9 (head)
 Temporary Postgres migration validation:
 
 ```bash
-tmpdb="class_hero_hub_household_drop_check_$(date +%s)"; echo "$tmpdb"; docker compose exec postgres createdb -U classhero "$tmpdb" && docker compose run --rm -e MIGRATION_DATABASE_URL="postgresql+psycopg://classhero:499337c5a3f9754b2eab74ab99c3a4bf93c6a6608c374c13380881a159fb30e8@postgres:5432/$tmpdb" -v /opt/apps/class_hero_hub:/workspace -w /workspace backend alembic upgrade head; status=$?; docker compose exec postgres dropdb -U classhero --if-exists "$tmpdb"; exit $status
+Historical command redacted: a development database credential had been committed inline. Use the guarded disposable-database validation script and keep secrets out of logs and documentation.
 ```
 
 Relevant output:
