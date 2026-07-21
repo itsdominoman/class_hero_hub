@@ -23,6 +23,7 @@ from .rosters import roster_payload
 
 UTC = timezone.utc
 CATEGORIES = {"homework", "notice", "points", "calendar", "update"}
+ELIGIBLE_SCHOOL_STATUSES = {"pending_setup", "active"}
 SOURCE_MODELS = {
     "homework": HomeworkItem,
     "notice": Announcement,
@@ -116,7 +117,10 @@ def enqueue_family_notifications(
         return []
     if category == "homework" and source.item_type != "homework":
         return []
-    school_active = db.query(School.id).filter(School.id == source.school_id, School.status == "active").first()
+    school_active = db.query(School.id).filter(
+        School.id == source.school_id,
+        School.status.in_(ELIGIBLE_SCHOOL_STATUSES),
+    ).first()
     if school_active is None:
         return []
     if category == "homework" and action == "cancelled" and source.due_at is not None:
@@ -191,7 +195,10 @@ def enqueue_family_notifications(
 def revalidate_family_notification(db: Session, row: NotificationOutbox) -> bool:
     if row.event_category not in CATEGORIES or row.recipient_kind != "fhh_link":
         return False
-    school = db.query(School).filter(School.id == row.school_id, School.status == "active").first()
+    school = db.query(School).filter(
+        School.id == row.school_id,
+        School.status.in_(ELIGIBLE_SCHOOL_STATUSES),
+    ).first()
     link = db.query(FhhLink).filter(
         FhhLink.id == row.recipient_fhh_link_id,
         FhhLink.school_id == row.school_id,

@@ -20,9 +20,13 @@ from app.models_school import (
     CalendarEvent,
     ClassSection,
     Enrolment,
+    BehaviourCategory,
+    FhhLink,
+    FhhLinkInvite,
     GradeLevel,
     GuardianLink,
     Membership,
+    NotificationOutbox,
     School,
     StaffAssignment,
     Student,
@@ -205,6 +209,73 @@ def test_teacher_create_scope_and_validation(db, client, world):
     assert create_event(client, world, payload={"ends_at": f"{TOMORROW}T07:00:00Z"}).status_code == 422
     assert create_event(client, world, payload={"event_type": "civvies"}).status_code == 403
     assert db.query(CalendarEvent).count() == 3
+
+
+def test_pending_setup_real_publish_routes_create_all_family_notification_categories(db, client, world):
+    school = world["alpha"]
+    school.status = "pending_setup"
+    invite = FhhLinkInvite(
+        school_id=school.id,
+        student_id=world["student"].id,
+        token_hash="route-notification-invite",
+        display_code_last4="2711",
+        created_by_user_id=world["admin"].id,
+    )
+    db.add(invite)
+    db.flush()
+    link = FhhLink(
+        school_id=school.id,
+        student_id=world["student"].id,
+        source_invite_id=invite.id,
+        link_token_hash="route-notification-link",
+        fhh_child_ref="route-notification-child",
+        status="active",
+    )
+    category = BehaviourCategory(
+        school_id=school.id,
+        type="positive",
+        label="Focused notification route",
+        points_value=1,
+        active=True,
+    )
+    db.add_all([link, category])
+    db.commit()
+
+    homework = create_homework(client, world)
+    notice = client.post(
+        "/api/school/announcements",
+        headers=bearer(world["admin"].email, school.id),
+        json={"title": "Focused notice", "body": "Route evidence", "audience_type": "school"},
+    )
+    points = client.post(
+        "/api/teach/behaviour/events",
+        headers=bearer(world["teacher"].email),
+        json={
+            "school_id": school.id,
+            "student_ids": [world["student"].id],
+            "category_id": category.id,
+        },
+    )
+    calendar = create_event(client, world)
+    update = client.post(
+        "/api/teach/updates",
+        headers=bearer(world["teacher"].email, school.id),
+        json={
+            "body": "Focused update",
+            "audience_type": "class_section",
+            "class_section_id": world["section"].id,
+        },
+    )
+
+    assert [response.status_code for response in (homework, notice, points, calendar, update)] == [
+        201, 201, 201, 201, 201
+    ]
+    rows = db.query(NotificationOutbox).filter(NotificationOutbox.event_category != "chat").all()
+    assert {row.event_category for row in rows} == {
+        "homework", "notice", "points", "calendar", "update"
+    }
+    assert len(rows) == 5
+    assert {row.recipient_fhh_link_id for row in rows} == {link.id}
 
 
 def test_admin_creates_school_wide_event(client, world):

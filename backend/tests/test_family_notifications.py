@@ -31,7 +31,9 @@ def db():
 
 def _world(db):
     user = User(email="teacher@push.test", name="Teacher", google_sub="push-teacher", status="active")
-    school = School(name="Push School", slug="push-school", status="active")
+    # Operational CHH schools may remain in pending_setup; the established
+    # school-chat path treats both pending_setup and active as eligible.
+    school = School(name="Push School", slug="push-school", status="pending_setup")
     db.add_all([user, school]); db.flush()
     branch = BranchCampus(school_id=school.id, code="MAIN", name="Main", status="active")
     year = AcademicYear(school_id=school.id, code="2026", name="2026", status="active", is_current=True)
