@@ -16,6 +16,7 @@ from ..message_media_service import media_payload, protected_media_file
 from ..message_voice_service import protected_voice_file, voice_payload
 from ..models_school import (
     AuditLog,
+    BranchCampus,
     ClassSection,
     Conversation,
     ConversationParticipant,
@@ -205,7 +206,7 @@ class ReviewStartRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     conversation_id: UUID
     reason_category: str = Field(min_length=3, max_length=48)
-    justification: str = Field(min_length=8, max_length=2000)
+    justification: str = Field(min_length=15, max_length=2000)
     acknowledgement: bool
     ttl_minutes: int = Field(default=30, ge=5, le=60)
 
@@ -301,8 +302,27 @@ def availability(
 def context(
     response: Response,
     actor: SafeguardingActor = Depends(require_safeguarding_actor),
+    db: Session = Depends(get_db),
 ):
     _private(response)
+    branches = (
+        db.query(BranchCampus)
+        .filter(BranchCampus.school_id == actor.school.id, BranchCampus.status == "active")
+        .order_by(BranchCampus.sort_order, func.lower(BranchCampus.name), BranchCampus.id)
+        .all()
+    )
+    grade_levels = (
+        db.query(GradeLevel)
+        .filter(GradeLevel.school_id == actor.school.id, GradeLevel.status == "active")
+        .order_by(GradeLevel.sort_order, func.lower(GradeLevel.name), GradeLevel.id)
+        .all()
+    )
+    class_sections = (
+        db.query(ClassSection)
+        .filter(ClassSection.school_id == actor.school.id, ClassSection.status == "active")
+        .order_by(ClassSection.sort_order, func.lower(ClassSection.name), ClassSection.id)
+        .all()
+    )
     return {
         "school": {
             "id": actor.school.id,
@@ -318,6 +338,26 @@ def context(
         "permissions": sorted(actor.permissions),
         "review_ttl_minutes": 30,
         "audit_notice": True,
+        "filters": {
+            "branches": [
+                {"id": row.id, "name": row.name, "name_ar": row.name_ar}
+                for row in branches
+            ],
+            "grade_levels": [
+                {"id": row.id, "name": row.name, "name_ar": row.name_ar}
+                for row in grade_levels
+            ],
+            "class_sections": [
+                {
+                    "id": row.id,
+                    "name": row.name,
+                    "name_ar": row.name_ar,
+                    "branch_id": row.branch_campus_id,
+                    "grade_level_id": row.grade_level_id,
+                }
+                for row in class_sections
+            ],
+        },
     }
 
 
@@ -330,8 +370,15 @@ def permissions(
     _private(response)
     _require(db, actor=actor, permission=PERMISSION_MANAGE)
     rows = (
-        db.query(Membership, User)
+        db.query(Membership, User, BranchCampus)
         .join(User, User.id == Membership.user_id)
+        .outerjoin(
+            BranchCampus,
+            and_(
+                BranchCampus.id == Membership.branch_campus_id,
+                BranchCampus.school_id == actor.school.id,
+            ),
+        )
         .filter(
             Membership.school_id == actor.school.id,
             Membership.status == "active",
@@ -360,12 +407,18 @@ def permissions(
                 "membership_id": membership.id,
                 "name": user.name,
                 "role": membership.role,
+                "active": membership.status == "active" and user.status == "active" and membership.revoked_at is None,
+                "branch": (
+                    {"id": branch.id, "name": branch.name, "name_ar": branch.name_ar}
+                    if branch is not None
+                    else None
+                ),
                 "permissions": [
                     {"id": str(grant.public_id), "permission": grant.permission, "granted_at": grant.granted_at}
                     for grant in sorted(by_membership.get(membership.id, []), key=lambda item: item.permission)
                 ],
             }
-            for membership, user in rows
+            for membership, user, branch in rows
         ],
     }
 
@@ -437,6 +490,72 @@ def _safe_like(value: str) -> str:
     return "%" + escaped + "%"
 
 
+def _student_display_payload(student: Student | None) -> dict[str, Any] | None:
+    if student is None:
+        return None
+    return {
+        "id": student.id,
+        "display_name": " ".join(
+            part
+            for part in (student.preferred_name or student.first_name, student.last_name)
+            if part
+        ),
+        "name_ar": student.name_ar,
+    }
+
+
+def _branch_payload(branch: BranchCampus | None) -> dict[str, Any] | None:
+    if branch is None:
+        return None
+    return {"id": branch.id, "name": branch.name, "name_ar": branch.name_ar}
+
+
+def _current_student_contexts(
+    db: Session,
+    *,
+    school_id: int,
+    student_ids: set[int],
+) -> dict[int, dict[str, Any]]:
+    if not student_ids:
+        return {}
+    rows = (
+        db.query(Enrolment, ClassSection, GradeLevel, BranchCampus)
+        .join(ClassSection, ClassSection.id == Enrolment.class_section_id)
+        .join(GradeLevel, GradeLevel.id == ClassSection.grade_level_id)
+        .join(BranchCampus, BranchCampus.id == ClassSection.branch_campus_id)
+        .filter(
+            Enrolment.school_id == school_id,
+            Enrolment.student_id.in_(student_ids),
+            Enrolment.kind == "member",
+            Enrolment.valid_to.is_(None),
+            ClassSection.school_id == school_id,
+            GradeLevel.school_id == school_id,
+            BranchCampus.school_id == school_id,
+        )
+        .order_by(Enrolment.valid_from.desc(), Enrolment.id.desc())
+        .all()
+    )
+    result: dict[int, dict[str, Any]] = {}
+    for enrolment, section, grade_level, branch in rows:
+        result.setdefault(
+            enrolment.student_id,
+            {
+                "class_section": {
+                    "id": section.id,
+                    "name": section.name,
+                    "name_ar": section.name_ar,
+                },
+                "grade_level": {
+                    "id": grade_level.id,
+                    "name": grade_level.name,
+                    "name_ar": grade_level.name_ar,
+                },
+                "branch": _branch_payload(branch),
+            },
+        )
+    return result
+
+
 @router.get("/conversations")
 def search_conversations(
     request: Request,
@@ -446,7 +565,9 @@ def search_conversations(
     class_section_id: int | None = Query(default=None, gt=0),
     grade_level_id: int | None = Query(default=None, gt=0),
     participant: str | None = Query(default=None, min_length=1, max_length=120),
-    participant_role: Literal["staff", "chh_guardian", "fhh_parent"] | None = None,
+    participant_role: Literal[
+        "staff", "teacher", "school_admin", "guardian", "chh_guardian", "fhh_parent"
+    ] | None = None,
     conversation_ref: UUID | None = None,
     reference: str | None = Query(default=None, min_length=4, max_length=64),
     class_grade: str | None = Query(default=None, min_length=1, max_length=120),
@@ -575,7 +696,24 @@ def search_conversations(
                 ConversationParticipant.display_name_snapshot.ilike(_safe_like(participant.strip()), escape="\\")
             )
         if participant_role:
-            participant_filters.append(ConversationParticipant.participant_kind == participant_role)
+            if participant_role in ("staff", "teacher", "school_admin"):
+                participant_filters.append(ConversationParticipant.participant_kind == "staff")
+                if participant_role != "staff":
+                    participant_filters.append(
+                        exists().where(
+                            and_(
+                                Membership.id == ConversationParticipant.membership_id,
+                                Membership.school_id == actor.school.id,
+                                Membership.role == participant_role,
+                            )
+                        )
+                    )
+            elif participant_role == "guardian":
+                participant_filters.append(
+                    ConversationParticipant.participant_kind.in_(("chh_guardian", "fhh_parent"))
+                )
+            else:
+                participant_filters.append(ConversationParticipant.participant_kind == participant_role)
         query = query.filter(exists().where(and_(*participant_filters)))
     if flagged is not None:
         flag_exists = exists().where(SafeguardingFlag.conversation_id == Conversation.id)
@@ -610,6 +748,19 @@ def search_conversations(
         row.id: row
         for row in db.query(Student).filter(Student.id.in_(student_ids)).all()
     } if student_ids else {}
+    student_contexts = _current_student_contexts(
+        db,
+        school_id=actor.school.id,
+        student_ids=student_ids,
+    )
+    branch_ids = {row.branch_campus_id for row in rows if row.branch_campus_id is not None}
+    branches = {
+        row.id: row
+        for row in db.query(BranchCampus).filter(
+            BranchCampus.school_id == actor.school.id,
+            BranchCampus.id.in_(branch_ids),
+        ).all()
+    } if branch_ids else {}
     participants = (
         db.query(ConversationParticipant)
         .filter(ConversationParticipant.conversation_id.in_([row.id for row in rows]))
@@ -620,6 +771,16 @@ def search_conversations(
     by_conversation: dict[int, list[ConversationParticipant]] = {}
     for row in participants:
         by_conversation.setdefault(row.conversation_id, []).append(row)
+    participant_membership_ids = {
+        row.membership_id for row in participants if row.membership_id is not None
+    }
+    participant_roles = {
+        row.id: row.role
+        for row in db.query(Membership).filter(
+            Membership.school_id == actor.school.id,
+            Membership.id.in_(participant_membership_ids),
+        ).all()
+    } if participant_membership_ids else {}
     flag_counts = dict(
         db.query(SafeguardingFlag.conversation_id, func.count(SafeguardingFlag.id))
         .filter(SafeguardingFlag.conversation_id.in_([row.id for row in rows]))
@@ -670,29 +831,21 @@ def search_conversations(
                 "participant_state": "closed" if row.status != "active" else "read_only" if row.restriction_type else "active",
                 "restricted": row.restriction_type is not None,
                 "flag_count": int(flag_counts.get(row.id, 0)),
-                "student": (
-                    {
-                        "id": students[row.student_id].id,
-                        "display_name": " ".join(
-                            part for part in (
-                                students[row.student_id].preferred_name or students[row.student_id].first_name,
-                                students[row.student_id].last_name,
-                            ) if part
-                        ),
-                        "name_ar": students[row.student_id].name_ar,
-                    }
-                    if row.student_id in students else None
-                ),
+                "student": _student_display_payload(students.get(row.student_id)),
+                "school_context": student_contexts.get(row.student_id),
                 "participants": [
                     {
                         "display_name": item.display_name_snapshot,
                         "kind": item.participant_kind,
+                        "role": participant_roles.get(item.membership_id),
                         "side": item.side,
                     }
                     for item in by_conversation.get(row.id, [])
                     if item.left_at is None
                 ],
                 "branch_id": row.branch_campus_id,
+                "branch": _branch_payload(branches.get(row.branch_campus_id))
+                or (student_contexts.get(row.student_id) or {}).get("branch"),
                 "last_activity_at": row.last_message_at or row.created_at,
             }
             for row in rows
@@ -777,6 +930,28 @@ def review_detail(
 ):
     _private(response)
     session, conversation = _review(db, actor=actor, session_id=session_id)
+    student = (
+        db.query(Student)
+        .filter(Student.id == conversation.student_id, Student.school_id == actor.school.id)
+        .first()
+        if conversation.student_id is not None
+        else None
+    )
+    student_context = _current_student_contexts(
+        db,
+        school_id=actor.school.id,
+        student_ids={conversation.student_id} if conversation.student_id is not None else set(),
+    ).get(conversation.student_id)
+    conversation_branch = (
+        db.query(BranchCampus)
+        .filter(
+            BranchCampus.id == conversation.branch_campus_id,
+            BranchCampus.school_id == actor.school.id,
+        )
+        .first()
+        if conversation.branch_campus_id is not None
+        else None
+    )
     try:
         enforce_rate_limit(
             db,
@@ -794,6 +969,16 @@ def review_detail(
         .all()
     )
     participants_by_id = {row.id: row for row in participants}
+    participant_membership_ids = {
+        row.membership_id for row in participants if row.membership_id is not None
+    }
+    participant_roles = {
+        row.id: row.role
+        for row in db.query(Membership).filter(
+            Membership.school_id == actor.school.id,
+            Membership.id.in_(participant_membership_ids),
+        ).all()
+    } if participant_membership_ids else {}
     messages = (
         db.query(Message)
         .filter(
@@ -927,11 +1112,16 @@ def review_detail(
             "reopening_requires_approval": bool(conversation.reopening_requires_approval),
             "created_at": conversation.created_at,
             "last_message_sequence": int(conversation.last_message_sequence or 0),
+            "student": _student_display_payload(student),
+            "school_context": student_context,
+            "branch": _branch_payload(conversation_branch)
+            or (student_context or {}).get("branch"),
             "participants": [
                 {
                     "reference": f"participant-{participant.id}",
                     "display_name": participant.display_name_snapshot,
                     "kind": participant.participant_kind,
+                    "role": participant_roles.get(participant.membership_id),
                     "side": participant.side,
                     "joined_at": participant.joined_at,
                     "left_at": participant.left_at,
@@ -950,6 +1140,9 @@ def review_detail(
                 "sender_display_name": message.sender_display_name_snapshot,
                 "sender_kind": participants_by_id.get(message.sender_participant_id).participant_kind
                 if participants_by_id.get(message.sender_participant_id) else None,
+                "sender_role": participant_roles.get(
+                    participants_by_id.get(message.sender_participant_id).membership_id
+                ) if participants_by_id.get(message.sender_participant_id) else None,
                 "sender_side": participants_by_id.get(message.sender_participant_id).side
                 if participants_by_id.get(message.sender_participant_id) else None,
                 "message_type": message.message_type,

@@ -120,12 +120,20 @@ def test_authorisation_metadata_search_and_review_have_no_participant_receipt_un
 
     _grant(db, world, world["admin"], REVIEW)
     assert client.get("/api/safeguarding/availability", headers=admin_headers).json() == {"available": True}
+    context = client.get("/api/safeguarding/context", headers=admin_headers)
+    assert context.status_code == 200, context.text
+    assert context.json()["filters"]["branches"][0]["name"] == "Main"
+    assert context.json()["filters"]["class_sections"][0]["name"] == "KG1A"
+    assert context.json()["filters"]["grade_levels"][0]["name_ar"] == "الروضة الأولى"
     search = client.get(
-        "/api/safeguarding/conversations?student=Student&participant_role=staff&class_grade=KG1",
+        "/api/safeguarding/conversations?student=Student&participant_role=teacher&class_grade=KG1",
         headers=admin_headers,
     )
     assert search.status_code == 200, search.text
     assert search.json()["items"][0]["conversation_id"] == conversation_id
+    assert search.json()["items"][0]["branch"]["name"] == "Main"
+    assert search.json()["items"][0]["school_context"]["class_section"]["name"] == "KG1A"
+    assert any(person["role"] == "teacher" for person in search.json()["items"][0]["participants"])
     assert "Sensitive evidence phrase" not in search.text
     reference = search.json()["items"][0]["reference"]
     by_reference = client.get(
@@ -163,6 +171,18 @@ def test_authorisation_metadata_search_and_review_have_no_participant_receipt_un
         },
     )
     assert invalid.status_code == 422
+    for trivial in ("blah", "!!!!!!!!!!!!!!!!!!!!", "                "):
+        response = client.post(
+            "/api/safeguarding/reviews",
+            headers=admin_headers,
+            json={
+                "conversation_id": conversation_id,
+                "reason_category": "reported_concern",
+                "justification": trivial,
+                "acknowledgement": True,
+            },
+        )
+        assert response.status_code == 422
     missing_ack = client.post(
         "/api/safeguarding/reviews",
         headers=admin_headers,
@@ -564,8 +584,8 @@ def test_search_and_export_rate_and_size_limits_fail_closed(db, client, monkeypa
 def test_safeguarding_frontend_is_a_separate_projection_without_composer():
     Path = __import__("pathlib").Path
     candidates = [
-        Path("/frontend/src/routes/school/safeguarding/message-reviews/+page.svelte"),
-        Path(__file__).parents[2] / "frontend/src/routes/school/safeguarding/message-reviews/+page.svelte",
+        Path("/frontend/src/routes/school/safeguarding/message-reviews/[sessionId]/+page.svelte"),
+        Path(__file__).parents[2] / "frontend/src/routes/school/safeguarding/message-reviews/[sessionId]/+page.svelte",
     ]
     route_path = next((path for path in candidates if path.is_file()), None)
     assert route_path is not None, "Safeguarding frontend route was not mounted for verification"
@@ -576,4 +596,5 @@ def test_safeguarding_frontend_is_a_separate_projection_without_composer():
     assert "sendMessage" not in route
     assert "acknowledgeDelivery" not in route
     assert "acknowledgeRead" not in route
+    assert "/acknowledgements" not in route
     assert 'data-testid="safeguarding-review-workspace"' in route

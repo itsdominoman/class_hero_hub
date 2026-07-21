@@ -362,7 +362,7 @@ def start_review_session(
         conversation_id=conversation.id,
         reviewer_membership_id=actor.membership.id,
         reason_category=validate_reason_category(reason_category),
-        justification=normalized_reason(justification),
+        justification=normalized_reason(justification, minimum=15),
         acknowledgement=True,
         started_at=now,
         expires_at=now + timedelta(minutes=ttl_minutes),

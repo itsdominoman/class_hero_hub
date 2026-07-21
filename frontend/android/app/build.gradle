@@ -23,8 +23,8 @@ android {
         applicationId "com.classherohub.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "1.1-push"
+        versionCode 4
+        versionName "1.2-safeguarding"
         resValue "string", "google_web_client_id", googleClientId
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

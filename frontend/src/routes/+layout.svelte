@@ -209,8 +209,8 @@
   let dashboardHref = $derived(defaultLandingPath(currentUser));
   let safeguardingHref = $derived(
     safeguardingMemberships.length
-      ? `/school/safeguarding/message-reviews?membership=${safeguardingMemberships[0].membership_id}`
-      : '/school/safeguarding/message-reviews'
+      ? `/school/safeguarding?membership=${safeguardingMemberships[0].membership_id}`
+      : '/school/safeguarding'
   );
   // Messaging already owns a bounded viewport and its single bottom inset at the
   // sticky composer. Every other native route gets the bottom inset from app-main.
