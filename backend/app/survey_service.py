@@ -19,7 +19,7 @@ def aware_utc(value: datetime) -> datetime:
 
 def refresh_survey_state(survey: Survey, *, now: datetime | None = None) -> bool:
     now = aware_utc(now or datetime.now(UTC))
-    if survey.status in {"draft", "archived"}:
+    if survey.status in {"draft", "closed", "archived"}:
         return False
     before = survey.status
     if now >= aware_utc(survey.closes_at):

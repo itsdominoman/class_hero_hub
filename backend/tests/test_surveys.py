@@ -169,6 +169,11 @@ def test_window_validation_lifecycle_and_duplicate_response_unit(db):
     assert refresh_survey_state(survey, now=now) is True
     assert survey.status == "closed"
 
+    survey.closes_at = now + timedelta(hours=1)
+    survey.closed_at = now
+    assert refresh_survey_state(survey, now=now) is False
+    assert survey.status == "closed"
+
     school = School(id=1, name="Unique School", slug="unique-school", status="active")
     user = User(id=1, email="unique@test.local", name="Admin", google_sub="unique-admin")
     membership = Membership(id=1, school_id=1, user_id=1, role="school_admin", status="active")
