@@ -167,6 +167,14 @@ class SignedFhhBridgeProvider:
         action: str | None = None,
         source_version: int = 1,
         template_variant: str | None = None,
+        summary_type: str | None = None,
+        period_key: str | None = None,
+        period_start: str | None = None,
+        period_end: str | None = None,
+        positive_total: int | None = None,
+        needs_work_total: int | None = None,
+        net_total: int | None = None,
+        event_count: int | None = None,
     ) -> str:
         if not (
             settings.FHH_NOTIFICATION_BRIDGE_URL.strip()
@@ -191,6 +199,17 @@ class SignedFhhBridgeProvider:
             body["action"] = action
             if template_variant:
                 body["template_variant"] = template_variant
+            if action == "summarized":
+                body.update({
+                    "summary_type": summary_type,
+                    "period_key": period_key,
+                    "period_start": period_start,
+                    "period_end": period_end,
+                    "positive_total": positive_total,
+                    "needs_work_total": needs_work_total,
+                    "net_total": net_total,
+                    "event_count": event_count,
+                })
         raw = json.dumps(body, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
         timestamp = str(int(datetime.now(UTC).timestamp()))
         nonce = event_id
@@ -629,6 +648,7 @@ def dispatch_claimed_rows(
 
     for row in family_bridge_rows:
         link = db.query(FhhLink).filter(FhhLink.id == row.recipient_fhh_link_id).one()
+        template_args = row.template_args or {}
         try:
             provider_ref = bridge_provider.send(
                 event_id=str(row.event_id),
@@ -638,7 +658,15 @@ def dispatch_claimed_rows(
                 source_ref=row.route_ref,
                 action=row.source_action,
                 source_version=row.source_version,
-                template_variant=(row.template_args or {}).get("variant"),
+                template_variant=template_args.get("variant"),
+                summary_type=template_args.get("summary_type"),
+                period_key=template_args.get("period_key"),
+                period_start=template_args.get("period_start"),
+                period_end=template_args.get("period_end"),
+                positive_total=template_args.get("positive_total"),
+                needs_work_total=template_args.get("needs_work_total"),
+                net_total=template_args.get("net_total"),
+                event_count=template_args.get("event_count"),
                 urgent=bool(row.urgent),
                 occurred_at=_aware(row.created_at),
             )

@@ -309,6 +309,21 @@
     email_mode: 'off' | 'immediate' | 'digest';
     policy_version: number;
   };
+  type PointsNotificationPolicy = {
+    school_id: number;
+    school_timezone: string;
+    mode: 'summaries' | 'immediate' | 'off';
+    daily_enabled: boolean;
+    weekly_enabled: boolean;
+    monthly_enabled: boolean;
+    week_starts_on: number;
+    week_ends_on: number;
+    weekly_summary_day: number;
+    daily_summary_time: string;
+    weekly_summary_time: string;
+    monthly_summary_time: string;
+    policy_version: number;
+  };
   type ContactWindowDraft = {
     weekday: number;
     closed: boolean;
@@ -353,6 +368,7 @@
     { key: 'defaults', label: 'school.tabs.defaults' },
     { key: 'groups', label: 'school.tabs.groups' }
   ];
+  const pointsNotificationModes: PointsNotificationPolicy['mode'][] = ['summaries', 'immediate', 'off'];
 
   let loading = $state(true);
   let saving = $state(false);
@@ -375,6 +391,8 @@
   let complianceAcknowledged = $state(false);
   let complianceSaving = $state(false);
   let messagingPolicy = $state<MessagingPolicy | null>(null);
+  let pointsNotificationPolicy = $state<PointsNotificationPolicy | null>(null);
+  let pointsNotificationSaving = $state(false);
   let receiptPolicySaving = $state(false);
   let contactHoursSaving = $state(false);
   let contactHoursVersion = $state(1);
@@ -701,7 +719,7 @@
   async function loadAll() {
     if (!schoolId) return;
     const options = schoolOptions();
-    const [settings, featureControls, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData, templateRows, announcementData, messagingPolicyData, contactHoursData] = await Promise.all([
+    const [settings, featureControls, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData, templateRows, announcementData, messagingPolicyData, contactHoursData, pointsNotificationPolicyData] = await Promise.all([
       api.get('/school/settings', options),
       api.get('/school/feature-controls', options),
       api.get('/school/setup-checklist', options),
@@ -716,7 +734,8 @@
       api.get('/school/default-subject-templates', options),
       api.get('/school/announcements', options),
       api.get('/school/messaging-policy', options),
-      api.get('/school/messaging-contact-hours', options)
+      api.get('/school/messaging-contact-hours', options),
+      api.get('/school/points-notification-policy', options)
     ]);
     // Students is the heaviest dataset (subject-group roster derivation over every
     // student). Skip it on initial/background loads and only fetch it once the
@@ -728,6 +747,12 @@
     customLabel = labelChoice === 'custom' ? gradeLevelLabel : '';
     voiceNotesControl = featureControls?.voice_notes || null;
     messagingPolicy = messagingPolicyData;
+    pointsNotificationPolicy = {
+      ...pointsNotificationPolicyData,
+      daily_summary_time: pointsNotificationPolicyData.daily_summary_time.slice(0, 5),
+      weekly_summary_time: pointsNotificationPolicyData.weekly_summary_time.slice(0, 5),
+      monthly_summary_time: pointsNotificationPolicyData.monthly_summary_time.slice(0, 5)
+    };
     hydrateContactHours(contactHoursData);
     checklist = checklistData.items || [];
     setupComplete = Boolean(checklistData.complete);
@@ -1981,6 +2006,39 @@
     }
   }
 
+  async function savePointsNotificationPolicy() {
+    if (!pointsNotificationPolicy || pointsNotificationSaving) return;
+    pointsNotificationSaving = true;
+    error = null;
+    try {
+      const saved = await api.put('/school/points-notification-policy', {
+        expected_policy_version: pointsNotificationPolicy.policy_version,
+        mode: pointsNotificationPolicy.mode,
+        daily_enabled: pointsNotificationPolicy.daily_enabled,
+        weekly_enabled: pointsNotificationPolicy.weekly_enabled,
+        monthly_enabled: pointsNotificationPolicy.monthly_enabled,
+        week_starts_on: pointsNotificationPolicy.week_starts_on,
+        week_ends_on: pointsNotificationPolicy.week_ends_on,
+        weekly_summary_day: pointsNotificationPolicy.weekly_summary_day,
+        daily_summary_time: pointsNotificationPolicy.daily_summary_time,
+        weekly_summary_time: pointsNotificationPolicy.weekly_summary_time,
+        monthly_summary_time: pointsNotificationPolicy.monthly_summary_time,
+        school_timezone: pointsNotificationPolicy.school_timezone
+      }, schoolOptions()) as PointsNotificationPolicy;
+      pointsNotificationPolicy = {
+        ...saved,
+        daily_summary_time: saved.daily_summary_time.slice(0, 5),
+        weekly_summary_time: saved.weekly_summary_time.slice(0, 5),
+        monthly_summary_time: saved.monthly_summary_time.slice(0, 5)
+      };
+      notice = $_('school.compliance.pointsNotificationsUpdated');
+    } catch (err: any) {
+      error = err?.message || $_('school.compliance.pointsNotificationsSaveError');
+    } finally {
+      pointsNotificationSaving = false;
+    }
+  }
+
   function sectionPayload() {
     return {
       ...payloadFrom(sectionForm),
@@ -2656,6 +2714,71 @@
                   </label>
                 </div>
               </div>
+              {#if pointsNotificationPolicy}
+                <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <h3 class="font-black text-slate-900">{$_('school.compliance.pointsNotificationsTitle')}</h3>
+                  <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-600">{$_('school.compliance.pointsNotificationsHelp')}</p>
+
+                  <fieldset class="mt-4 grid gap-3 md:grid-cols-3">
+                    <legend class="mb-2 text-sm font-black text-slate-900">{$_('school.compliance.notificationMode')}</legend>
+                    {#each pointsNotificationModes as mode}
+                      <label class="flex min-h-16 cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
+                        <input class="mt-1 h-4 w-4 accent-hero" type="radio" bind:group={pointsNotificationPolicy.mode} value={mode} />
+                        <span>
+                          <span class="block text-sm font-black text-slate-900">{$_(`school.compliance.pointsMode${mode}`)}</span>
+                          <span class="mt-1 block text-xs leading-5 text-slate-600">{$_(`school.compliance.pointsMode${mode}Help`)}</span>
+                        </span>
+                      </label>
+                    {/each}
+                  </fieldset>
+
+                  {#if pointsNotificationPolicy.mode === 'summaries'}
+                    <div class="mt-4 grid gap-3 md:grid-cols-3">
+                      <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm font-black text-slate-900"><input class="h-4 w-4 accent-hero" type="checkbox" bind:checked={pointsNotificationPolicy.daily_enabled} />{$_('school.compliance.dailySummary')}</label>
+                      <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm font-black text-slate-900"><input class="h-4 w-4 accent-hero" type="checkbox" bind:checked={pointsNotificationPolicy.weekly_enabled} />{$_('school.compliance.weeklySummary')}</label>
+                      <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm font-black text-slate-900"><input class="h-4 w-4 accent-hero" type="checkbox" bind:checked={pointsNotificationPolicy.monthly_enabled} />{$_('school.compliance.monthlySummary')}</label>
+                    </div>
+                  {/if}
+
+                  <div class="mt-5 grid gap-4 lg:grid-cols-2">
+                    <div class="rounded-xl border border-slate-200 bg-white p-4">
+                      <h4 class="text-sm font-black text-slate-900">{$_('school.compliance.schoolWeek')}</h4>
+                      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                        <label class="text-xs font-bold text-slate-600">
+                          {$_('school.compliance.weekStarts')}
+                          <select class="mt-1 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" bind:value={pointsNotificationPolicy.week_starts_on}>
+                            {#each [1, 2, 3, 4, 5, 6, 7] as weekday}<option value={weekday}>{$_(`school.compliance.weekday${weekday}`)}</option>{/each}
+                          </select>
+                        </label>
+                        <label class="text-xs font-bold text-slate-600">
+                          {$_('school.compliance.weekEnds')}
+                          <select class="mt-1 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" bind:value={pointsNotificationPolicy.week_ends_on}>
+                            {#each [1, 2, 3, 4, 5, 6, 7] as weekday}<option value={weekday}>{$_(`school.compliance.weekday${weekday}`)}</option>{/each}
+                          </select>
+                        </label>
+                      </div>
+                      <label class="mt-3 block text-xs font-bold text-slate-600">
+                        {$_('school.compliance.schoolTimezone')}
+                        <input class="mt-1 min-h-11 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" bind:value={pointsNotificationPolicy.school_timezone} autocomplete="off" />
+                      </label>
+                    </div>
+
+                    <div class="rounded-xl border border-slate-200 bg-white p-4">
+                      <h4 class="text-sm font-black text-slate-900">{$_('school.compliance.summaryTiming')}</h4>
+                      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                        <label class="text-xs font-bold text-slate-600">{$_('school.compliance.dailySummaryTime')}<input class="mt-1 min-h-11 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" type="time" bind:value={pointsNotificationPolicy.daily_summary_time} /></label>
+                        <label class="text-xs font-bold text-slate-600">{$_('school.compliance.weeklySummaryDay')}<select class="mt-1 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" bind:value={pointsNotificationPolicy.weekly_summary_day}>{#each [1, 2, 3, 4, 5, 6, 7] as weekday}<option value={weekday}>{$_(`school.compliance.weekday${weekday}`)}</option>{/each}</select></label>
+                        <label class="text-xs font-bold text-slate-600">{$_('school.compliance.weeklySummaryTime')}<input class="mt-1 min-h-11 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" type="time" bind:value={pointsNotificationPolicy.weekly_summary_time} /></label>
+                        <label class="text-xs font-bold text-slate-600">{$_('school.compliance.monthlySummaryTime')}<input class="mt-1 min-h-11 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" type="time" bind:value={pointsNotificationPolicy.monthly_summary_time} /></label>
+                      </div>
+                      <p class="mt-3 rounded-lg bg-blue-50 p-3 text-xs font-semibold leading-5 text-blue-900">{$_('school.compliance.monthlyCalendarEnd')}</p>
+                    </div>
+                  </div>
+                  <button type="button" class="btn-hero mt-4 min-h-11 rounded-xl px-5 py-2 font-black" disabled={pointsNotificationSaving} onclick={() => void savePointsNotificationPolicy()}>
+                    {pointsNotificationSaving ? $_('common.loading') : $_('school.compliance.savePointsNotifications')}
+                  </button>
+                </div>
+              {/if}
               <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>

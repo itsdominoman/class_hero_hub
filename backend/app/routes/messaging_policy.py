@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -12,6 +15,7 @@ from ..models_school import (
     SchoolContactException,
     SchoolContactWindow,
     SchoolMessagingPolicy,
+    SchoolPointsNotificationPolicy,
 )
 from ..schemas import (
     NotificationOutboxStatusResponse,
@@ -19,15 +23,123 @@ from ..schemas import (
     SchoolContactHoursUpdate,
     SchoolMessagingPolicyResponse,
     SchoolMessagingPolicyUpdate,
+    SchoolPointsNotificationPolicyResponse,
+    SchoolPointsNotificationPolicyUpdate,
 )
 from ..school_scope import require_school_role, write_audit
+from ..family_notifications import cancel_undispatched_immediate_points
 
 
 router = APIRouter(dependencies=[Depends(require_school_role("school_admin"))])
+UTC = timezone.utc
 
 
 def _default_policy(school_id: int) -> SchoolMessagingPolicy:
     return SchoolMessagingPolicy(school_id=school_id)
+
+
+def _default_points_policy(school_id: int) -> SchoolPointsNotificationPolicy:
+    return SchoolPointsNotificationPolicy(school_id=school_id)
+
+
+def _points_payload(school: School, policy: SchoolPointsNotificationPolicy) -> dict:
+    return {
+        "school_id": school.id,
+        "school_timezone": school.timezone,
+        "mode": policy.mode,
+        "daily_enabled": bool(policy.daily_enabled),
+        "weekly_enabled": bool(policy.weekly_enabled),
+        "monthly_enabled": bool(policy.monthly_enabled),
+        "week_starts_on": policy.week_starts_on,
+        "week_ends_on": policy.week_ends_on,
+        "weekly_summary_day": policy.weekly_summary_day,
+        "daily_summary_time": policy.daily_summary_time,
+        "weekly_summary_time": policy.weekly_summary_time,
+        "monthly_summary_time": policy.monthly_summary_time,
+        "policy_version": policy.policy_version,
+        "created_at": policy.created_at,
+        "updated_at": policy.updated_at,
+    }
+
+
+def _points_audit_payload(payload: dict) -> dict:
+    return {
+        key: (value.isoformat() if hasattr(value, "isoformat") else value)
+        for key, value in payload.items()
+        if key not in {"created_at", "updated_at"}
+    }
+
+
+@router.get("/points-notification-policy", response_model=SchoolPointsNotificationPolicyResponse)
+def get_points_notification_policy(
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school = db.query(School).filter(School.id == membership.school_id).first()
+    if school is None:
+        raise HTTPException(status_code=404, detail="School not found")
+    policy = db.query(SchoolPointsNotificationPolicy).filter(
+        SchoolPointsNotificationPolicy.school_id == membership.school_id
+    ).first()
+    if policy is None:
+        policy = _default_points_policy(membership.school_id)
+        db.add(policy)
+        db.commit()
+        db.refresh(policy)
+    return _points_payload(school, policy)
+
+
+@router.put("/points-notification-policy", response_model=SchoolPointsNotificationPolicyResponse)
+def update_points_notification_policy(
+    payload: SchoolPointsNotificationPolicyUpdate,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school = db.query(School).filter(School.id == membership.school_id).with_for_update().first()
+    if school is None:
+        raise HTTPException(status_code=404, detail="School not found")
+    try:
+        ZoneInfo(payload.school_timezone)
+    except ZoneInfoNotFoundError:
+        raise HTTPException(status_code=422, detail="School timezone must be a valid IANA timezone")
+    policy = db.query(SchoolPointsNotificationPolicy).filter(
+        SchoolPointsNotificationPolicy.school_id == membership.school_id
+    ).with_for_update().first()
+    if policy is None:
+        policy = _default_points_policy(membership.school_id)
+        db.add(policy)
+        db.flush()
+    if policy.policy_version != payload.expected_policy_version:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "points_notification_policy_version_conflict", "current_version": policy.policy_version},
+        )
+    before = _points_payload(school, policy)
+    for field in (
+        "mode", "daily_enabled", "weekly_enabled", "monthly_enabled",
+        "week_starts_on", "week_ends_on", "weekly_summary_day",
+        "daily_summary_time", "weekly_summary_time", "monthly_summary_time",
+    ):
+        setattr(policy, field, getattr(payload, field))
+    school.timezone = payload.school_timezone
+    policy.policy_version += 1
+    policy.updated_by_membership_id = membership.id
+    now = datetime.now(UTC)
+    if policy.mode != "immediate":
+        cancel_undispatched_immediate_points(db, school_id=school.id, now=now)
+    db.flush()
+    after = _points_payload(school, policy)
+    write_audit(
+        db,
+        membership.user_id,
+        "behaviour.points_notification_policy.updated",
+        ("school_points_notification_policies", school.id),
+        {"previous": _points_audit_payload(before), "current": _points_audit_payload(after)},
+        school_id=school.id,
+    )
+    db.commit()
+    db.refresh(policy)
+    return _points_payload(school, policy)
 
 
 def _payload(policy: SchoolMessagingPolicy) -> dict:

@@ -86,6 +86,48 @@ class SchoolMessagingPolicyResponse(BaseModel):
     updated_at: datetime | None
 
 
+class SchoolPointsNotificationPolicyUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_policy_version: int = Field(ge=1)
+    mode: Literal["summaries", "immediate", "off"]
+    daily_enabled: bool
+    weekly_enabled: bool
+    monthly_enabled: bool
+    week_starts_on: int = Field(ge=1, le=7)
+    week_ends_on: int = Field(ge=1, le=7)
+    weekly_summary_day: int = Field(ge=1, le=7)
+    daily_summary_time: time
+    weekly_summary_time: time
+    monthly_summary_time: time
+    school_timezone: str = Field(min_length=1, max_length=80)
+
+    @model_validator(mode="after")
+    def local_times_only(self):
+        for value in (self.daily_summary_time, self.weekly_summary_time, self.monthly_summary_time):
+            if value.tzinfo is not None:
+                raise ValueError("Summary times must use school-local wall-clock times")
+        return self
+
+
+class SchoolPointsNotificationPolicyResponse(BaseModel):
+    school_id: int
+    school_timezone: str
+    mode: str
+    daily_enabled: bool
+    weekly_enabled: bool
+    monthly_enabled: bool
+    week_starts_on: int
+    week_ends_on: int
+    weekly_summary_day: int
+    daily_summary_time: time
+    weekly_summary_time: time
+    monthly_summary_time: time
+    policy_version: int
+    created_at: datetime | None
+    updated_at: datetime | None
+
+
 class SchoolContactWindowInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from .. import auth, invite_tokens
 from ..database import get_db
 from ..mailer import send_staff_invite
-from ..models_school import Membership, School, SchoolMessagingPolicy, StaffInvite, Student, User
+from ..models_school import Membership, School, SchoolMessagingPolicy, SchoolPointsNotificationPolicy, StaffInvite, Student, User
 from ..school_scope import require_platform_admin, write_audit
 from ..school_governance import GovernanceConflict, bootstrap_system_owner, platform_recover_owner
 from ..staff_invite_service import issue_staff_invite
@@ -184,6 +184,7 @@ def create_school(
     db.add(school)
     db.flush()
     db.add(SchoolMessagingPolicy(school_id=school.id))
+    db.add(SchoolPointsNotificationPolicy(school_id=school.id))
     db.commit()
     db.refresh(school)
     staff_invite, _raw_token, warning = _issue_staff_invite(db, school, str(payload.admin_email), current_user)

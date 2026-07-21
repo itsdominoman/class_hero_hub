@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 
 from sqlalchemy import BigInteger, Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, JSON, String, Text, Time, UniqueConstraint, Uuid, event, inspect as sa_inspect, text as sql_text
 from sqlalchemy.dialects.postgresql import JSONB
@@ -637,6 +637,34 @@ class SchoolMessagingPolicy(Base):
         CheckConstraint("email_mode IN ('off', 'immediate', 'digest')", name="ck_school_messaging_policies_email_mode"),
         CheckConstraint("retention_days BETWEEN 30 AND 36500", name="ck_school_messaging_policies_retention"),
         CheckConstraint("policy_version >= 1", name="ck_school_messaging_policies_version"),
+    )
+
+
+class SchoolPointsNotificationPolicy(Base):
+    __tablename__ = "school_points_notification_policies"
+
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), primary_key=True)
+    mode = Column(String(16), nullable=False, default="immediate", server_default="immediate")
+    daily_enabled = Column(Boolean, nullable=False, default=True, server_default="true")
+    weekly_enabled = Column(Boolean, nullable=False, default=True, server_default="true")
+    monthly_enabled = Column(Boolean, nullable=False, default=True, server_default="true")
+    week_starts_on = Column(Integer, nullable=False, default=1, server_default="1")
+    week_ends_on = Column(Integer, nullable=False, default=5, server_default="5")
+    weekly_summary_day = Column(Integer, nullable=False, default=5, server_default="5")
+    daily_summary_time = Column(Time, nullable=False, default=time(15, 15), server_default="15:15")
+    weekly_summary_time = Column(Time, nullable=False, default=time(15, 30), server_default="15:30")
+    monthly_summary_time = Column(Time, nullable=False, default=time(15, 30), server_default="15:30")
+    policy_version = Column(Integer, nullable=False, default=1, server_default="1")
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    updated_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="SET NULL"), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("mode IN ('summaries', 'immediate', 'off')", name="ck_school_points_notification_policies_mode"),
+        CheckConstraint("week_starts_on BETWEEN 1 AND 7", name="ck_school_points_notification_policies_week_start"),
+        CheckConstraint("week_ends_on BETWEEN 1 AND 7", name="ck_school_points_notification_policies_week_end"),
+        CheckConstraint("weekly_summary_day BETWEEN 1 AND 7", name="ck_school_points_notification_policies_weekly_day"),
+        CheckConstraint("policy_version >= 1", name="ck_school_points_notification_policies_version"),
     )
 
 
@@ -2299,6 +2327,40 @@ class BehaviourEvent(Base):
         Index("ix_behaviour_events_school_subject_group_created", "school_id", "subject_group_id", "created_at"),
         Index("ix_behaviour_events_school_actor_created", "school_id", "actor_user_id", "created_at"),
         Index("ix_behaviour_events_school_category_created", "school_id", "category_id", "created_at"),
+    )
+
+
+class PointNotificationSummary(Base):
+    __tablename__ = "point_notification_summaries"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="RESTRICT"), nullable=False, index=True)
+    summary_type = Column(String(16), nullable=False)
+    period_key = Column(String(40), nullable=False)
+    period_start = Column(DateTime(timezone=True), nullable=False)
+    period_end = Column(DateTime(timezone=True), nullable=False)
+    eligible_at = Column(DateTime(timezone=True), nullable=False)
+    positive_total = Column(Integer, nullable=False)
+    needs_work_total = Column(Integer, nullable=False)
+    net_total = Column(Integer, nullable=False)
+    event_count = Column(Integer, nullable=False)
+    policy_version = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint(
+            "school_id", "student_id", "summary_type", "period_key",
+            name="uq_point_notification_summaries_period",
+        ),
+        CheckConstraint("summary_type IN ('daily', 'weekly', 'monthly')", name="ck_point_notification_summaries_type"),
+        CheckConstraint("period_end > period_start", name="ck_point_notification_summaries_period"),
+        CheckConstraint("positive_total >= 0 AND needs_work_total >= 0", name="ck_point_notification_summaries_totals"),
+        CheckConstraint("net_total = positive_total - needs_work_total", name="ck_point_notification_summaries_net"),
+        CheckConstraint("event_count > 0", name="ck_point_notification_summaries_event_count"),
+        CheckConstraint("policy_version >= 1", name="ck_point_notification_summaries_version"),
+        Index("ix_point_notification_summaries_school_period", "school_id", "summary_type", "period_key"),
+        Index("ix_point_notification_summaries_student_created", "student_id", "created_at"),
     )
 
 

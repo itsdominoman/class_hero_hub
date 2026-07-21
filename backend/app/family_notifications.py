@@ -14,7 +14,9 @@ from .models_school import (
     FhhLink,
     HomeworkItem,
     NotificationOutbox,
+    PointNotificationSummary,
     School,
+    SchoolPointsNotificationPolicy,
     Student,
     UpdatePost,
 )
@@ -115,6 +117,17 @@ def enqueue_family_notifications(
     """
     if category not in CATEGORIES or not _source_visible(category, source, action):
         return []
+    points_policy = None
+    if category == "points":
+        points_policy = db.query(SchoolPointsNotificationPolicy).filter(
+            SchoolPointsNotificationPolicy.school_id == source.school_id
+        ).first()
+        if points_policy is None:
+            points_policy = SchoolPointsNotificationPolicy(school_id=source.school_id)
+            db.add(points_policy)
+            db.flush()
+        if points_policy.mode != "immediate":
+            return []
     if category == "homework" and source.item_type != "homework":
         return []
     school_active = db.query(School.id).filter(
@@ -178,7 +191,7 @@ def enqueue_family_notifications(
             template_key=f"family.{category}.{action}",
             template_args={"variant": variant} if variant else {},
             deep_link=f"fhh:{category}",
-            policy_version=1,
+            policy_version=points_policy.policy_version if points_policy is not None else 1,
             state="pending",
             eligible_at=now,
             scheduler_check_at=now,
@@ -205,9 +218,34 @@ def revalidate_family_notification(db: Session, row: NotificationOutbox) -> bool
         FhhLink.status == "active",
         FhhLink.revoked_at.is_(None),
     ).first()
+    if school is None or link is None:
+        return False
+    if row.event_category == "points":
+        policy = db.query(SchoolPointsNotificationPolicy).filter(
+            SchoolPointsNotificationPolicy.school_id == row.school_id
+        ).first()
+        if policy is None or row.policy_version != policy.policy_version:
+            return False
+        if row.source_type == "point_summary":
+            summary = db.query(PointNotificationSummary).filter(
+                PointNotificationSummary.id == row.source_id,
+                PointNotificationSummary.school_id == row.school_id,
+            ).first()
+            enabled = bool(summary and getattr(policy, f"{summary.summary_type}_enabled", False))
+            return bool(
+                policy.mode == "summaries"
+                and enabled
+                and summary.policy_version == policy.policy_version
+                and summary.student_id == link.student_id
+                and db.query(Student.id).filter(
+                    Student.id == link.student_id, Student.status == "active"
+                ).first() is not None
+            )
+        if policy.mode != "immediate" or row.source_type != "behaviour_event":
+            return False
     model = SOURCE_MODELS[row.event_category]
     source = db.query(model).filter(model.id == row.source_id, model.school_id == row.school_id).first()
-    if school is None or link is None or source is None:
+    if source is None:
         return False
     if not _source_visible(row.event_category, source, row.source_action):
         return False
@@ -215,3 +253,24 @@ def revalidate_family_notification(db: Session, row: NotificationOutbox) -> bool
         return False
     student = db.query(Student.id).filter(Student.id == link.student_id, Student.status == "active").first()
     return student is not None
+
+
+def cancel_undispatched_immediate_points(
+    db: Session,
+    *,
+    school_id: int,
+    now: datetime | None = None,
+) -> int:
+    now = now or datetime.now(UTC)
+    return db.query(NotificationOutbox).filter(
+        NotificationOutbox.school_id == school_id,
+        NotificationOutbox.event_category == "points",
+        NotificationOutbox.source_type == "behaviour_event",
+        NotificationOutbox.state.in_(("held", "pending", "leased", "failed")),
+    ).update({
+        NotificationOutbox.state: "cancelled",
+        NotificationOutbox.last_error_code: "points_policy_changed",
+        NotificationOutbox.completed_at: now,
+        NotificationOutbox.lease_owner: None,
+        NotificationOutbox.lease_expires_at: None,
+    }, synchronize_session=False)
