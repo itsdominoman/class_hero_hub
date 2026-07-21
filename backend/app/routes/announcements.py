@@ -29,6 +29,7 @@ from ..models_school import (
 )
 from ..rosters import resolve_rosters_for_students
 from ..school_scope import open_interval_expression, write_audit
+from ..family_notifications import enqueue_family_notifications, material_snapshot
 
 staff_router = APIRouter()
 teacher_router = APIRouter()
@@ -60,6 +61,7 @@ class AnnouncementCreateRequest(BaseModel):
     audience_type: str = Field(max_length=40)
     class_section_id: int | None = None
     subject_group_id: int | None = None
+    urgent: bool = False
 
     @field_validator("title", "body")
     @classmethod
@@ -273,6 +275,7 @@ def _announcement_payload(
         "subject_group_id": row.subject_group_id,
         "subject_group_name": group.name if group else None,
         "status": row.status,
+        "urgent": bool(row.urgent),
         "created_at": row.created_at,
         "updated_at": row.updated_at,
         "attachment_count": len(items),
@@ -539,6 +542,8 @@ def create_staff_announcement(
 ) -> dict[str, Any]:
     school_id = _school_id_from_header(request.headers)
     membership = _staff_membership(db, current_user, school_id)
+    if payload.urgent and membership.role != "school_admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only a school administrator may authorise an urgent notice")
     class_section_id, subject_group_id = _validate_staff_audience(db, school_id, membership, payload)
     announcement = Announcement(
         school_id=school_id,
@@ -549,9 +554,11 @@ def create_staff_announcement(
         class_section_id=class_section_id,
         subject_group_id=subject_group_id,
         status="published",
+        urgent=payload.urgent,
     )
     db.add(announcement)
     db.flush()
+    enqueue_family_notifications(db, category="notice", source=announcement, action="published")
     write_audit(
         db,
         current_user.id,
@@ -614,8 +621,11 @@ async def upload_teacher_attachment(
 def _apply_announcement_update(db: Session, current_user: User, announcement: Announcement, payload: AnnouncementUpdateRequest) -> dict[str, Any]:
     if announcement.status != "published":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Archived notices cannot be edited")
+    before = material_snapshot("notice", announcement)
     announcement.title = payload.title
     announcement.body = payload.body
+    if material_snapshot("notice", announcement) != before:
+        enqueue_family_notifications(db, category="notice", source=announcement, action="updated")
     write_audit(db, current_user.id, "school.announcement.updated", announcement, {"audience_type": announcement.audience_type}, school_id=announcement.school_id)
     db.commit()
     db.refresh(announcement)
@@ -676,6 +686,7 @@ def archive_staff_announcement(
     if not announcement or not _can_manage_announcement(db, membership, announcement):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found")
     announcement.status = "archived"
+    enqueue_family_notifications(db, category="notice", source=announcement, action="cancelled")
     write_audit(db, current_user.id, "school.announcement.archived", announcement, {}, school_id=school_id)
     db.commit()
     return {"status": "archived"}
@@ -694,6 +705,7 @@ def archive_teacher_announcement(
     if not announcement or not _teacher_can_manage_announcement(db, membership, announcement):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found")
     announcement.status = "archived"
+    enqueue_family_notifications(db, category="notice", source=announcement, action="cancelled")
     write_audit(db, current_user.id, "school.announcement.archived", announcement, {}, school_id=school_id)
     db.commit()
     return {"status": "archived"}

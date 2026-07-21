@@ -8,6 +8,7 @@ from ..behaviour_service import category_payload, create_events, guardian_points
 from ..database import get_db
 from ..models_school import BehaviourCategory, Membership, User
 from ..school_scope import require_school_role, write_audit
+from ..family_notifications import enqueue_family_notifications
 
 school_router = APIRouter(dependencies=[Depends(require_school_role("school_admin"))])
 teacher_router = APIRouter()
@@ -235,6 +236,8 @@ def award_points(body: EventRequest, user: User = Depends(auth.get_current_user)
         subject_group_id=body.subject_group_id,
         duty_context=body.duty_context,
     )
+    for row in rows:
+        enqueue_family_notifications(db, category="points", source=row, action="awarded")
     write_audit(db, user, "behaviour.events.created", ("behaviour_events", None), {"event_ids": [r.id for r in rows], "student_ids": body.student_ids, "category_id": body.category_id}, body.school_id); db.commit()
     return {"created": len(rows), "events": [{"id": r.id, "student_id": r.student_id, "category_id": r.category_id, "points_delta": r.points_delta} for r in rows]}
 

@@ -18,6 +18,7 @@ from .. import auth
 from ..database import get_db
 from ..models_school import ClassSection, HomeworkAttachment, HomeworkItem, HomeworkItemCompletion, StaffAssignment, SubjectGroup, User
 from ..school_scope import open_interval_expression, write_audit
+from ..family_notifications import enqueue_family_notifications, material_snapshot
 from .announcements import (
     MAX_ATTACHMENTS_PER_POST,
     MAX_ATTACHMENT_BYTES,
@@ -266,6 +267,7 @@ def create_homework(payload: HomeworkCreateRequest, request: Request, current_us
     section_id, group_id = _validate_target(db, school_id, membership, payload)
     item = HomeworkItem(school_id=school_id, author_user_id=current_user.id, item_type=payload.item_type, title=payload.title, body=payload.body, audience_type=payload.audience_type, class_section_id=section_id, subject_group_id=group_id, due_at=payload.due_at, resource_links=[link.model_dump() for link in payload.resource_links])
     db.add(item); db.flush()
+    enqueue_family_notifications(db, category="homework", source=item, action="published")
     write_audit(db, current_user.id, "school.homework.created", item, {"item_type": item.item_type, "audience_type": item.audience_type}, school_id=school_id)
     db.commit(); db.refresh(item)
     sections, groups, attachments = _context(db, [item])
@@ -304,6 +306,7 @@ def archive_homework(item_id: int, request: Request, current_user: User = Depend
     if not item or not _can_manage(db, membership, item):
         raise HTTPException(status_code=404, detail="Homework item not found")
     item.status = "archived"; item.archived_at = datetime.now(timezone.utc)
+    enqueue_family_notifications(db, category="homework", source=item, action="cancelled")
     write_audit(db, current_user.id, "school.homework.archived", item, {}, school_id=school_id); db.commit()
     return {"status": "archived"}
 
@@ -317,8 +320,11 @@ def update_homework(item_id: int, payload: HomeworkUpdateRequest, request: Reque
         raise HTTPException(status_code=404, detail="Homework item not found")
     if item.status != "active":
         raise HTTPException(status_code=409, detail="Archived items cannot be edited")
+    before = material_snapshot("homework", item)
     item.item_type = payload.item_type; item.title = payload.title; item.body = payload.body
     item.due_at = payload.due_at; item.resource_links = [link.model_dump() for link in payload.resource_links]
+    if material_snapshot("homework", item) != before:
+        enqueue_family_notifications(db, category="homework", source=item, action="updated")
     write_audit(db, current_user.id, "school.homework.updated", item, {"item_type": item.item_type}, school_id=school_id)
     db.commit(); db.refresh(item)
     sections, groups, attachments = _context(db, [item])

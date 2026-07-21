@@ -2025,9 +2025,17 @@ class NotificationOutbox(Base):
     message_id = Column(
         BigInteger().with_variant(Integer, "sqlite"),
         ForeignKey("messages.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
+    event_category = Column(String(24), nullable=False, default="chat", server_default="chat")
+    source_type = Column(String(40), nullable=True)
+    source_id = Column(Integer, nullable=True)
+    source_action = Column(String(24), nullable=True)
+    source_version = Column(Integer, nullable=False, default=1, server_default="1")
+    route_type = Column(String(24), nullable=False, default="school_chat", server_default="school_chat")
+    route_ref = Column(String(120), nullable=True)
+    urgent = Column(Boolean, nullable=False, default=False, server_default="false")
     recipient_kind = Column(String(20), nullable=False)
     recipient_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
     recipient_fhh_link_id = Column(Integer, ForeignKey("fhh_links.id", ondelete="RESTRICT"), nullable=True)
@@ -2066,6 +2074,23 @@ class NotificationOutbox(Base):
         ),
         CheckConstraint("channel IN ('push', 'email', 'in_app_event')", name="ck_notification_outbox_channel"),
         CheckConstraint(
+            "event_category IN ('chat', 'homework', 'notice', 'points', 'calendar', 'update')",
+            name="ck_notification_outbox_category",
+        ),
+        CheckConstraint(
+            "route_type IN ('school_chat', 'homework', 'notice', 'points', 'calendar', 'update')",
+            name="ck_notification_outbox_route_type",
+        ),
+        CheckConstraint("source_version >= 1", name="ck_notification_outbox_source_version"),
+        CheckConstraint(
+            "(event_category = 'chat' AND message_id IS NOT NULL AND source_type IS NULL "
+            "AND source_id IS NULL AND source_action IS NULL) OR "
+            "(event_category <> 'chat' AND message_id IS NULL AND recipient_kind = 'fhh_link' "
+            "AND source_type IS NOT NULL AND source_id IS NOT NULL AND source_action IS NOT NULL "
+            "AND route_ref IS NOT NULL)",
+            name="ck_notification_outbox_source_shape",
+        ),
+        CheckConstraint(
             "state IN ('held', 'pending', 'leased', 'dispatched', 'provider_accepted', "
             "'failed', 'dead', 'cancelled')",
             name="ck_notification_outbox_state",
@@ -2092,6 +2117,8 @@ class NotificationOutbox(Base):
             "id",
         ),
         Index("ix_notification_outbox_school_state", "school_id", "state", "id"),
+        Index("ix_notification_outbox_school_category_state", "school_id", "event_category", "state", "id"),
+        Index("ix_notification_outbox_source", "school_id", "source_type", "source_id", "source_version"),
         Index("ix_notification_outbox_fhh_link_created", "recipient_fhh_link_id", "created_at"),
     )
 
@@ -2287,6 +2314,7 @@ class Announcement(Base):
     class_section_id = Column(Integer, ForeignKey("class_sections.id"), nullable=True, index=True)
     subject_group_id = Column(Integer, ForeignKey("subject_groups.id"), nullable=True, index=True)
     status = Column(String, nullable=False, default="published", server_default="published")
+    urgent = Column(Boolean, nullable=False, default=False, server_default="false")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

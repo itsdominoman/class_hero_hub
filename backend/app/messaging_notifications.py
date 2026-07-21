@@ -418,6 +418,7 @@ def claim_notification_rows(
             SchoolMessagingPolicy.school_id == NotificationOutbox.school_id,
         )
         .filter(
+            NotificationOutbox.event_category == "chat",
             or_(
                 and_(
                     NotificationOutbox.state.in_(("held", "pending", "failed")),

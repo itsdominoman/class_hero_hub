@@ -136,6 +136,7 @@ def advanced_summary(
         "jobs": [_job_payload(row) for row in jobs],
         "failed_notifications": [{
             "event_id": str(row.event_id),
+            "category": row.event_category,
             "state": row.state,
             "recipient_kind": row.recipient_kind,
             "attempt_count": row.attempt_count,

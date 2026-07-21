@@ -17,6 +17,7 @@ from .messaging_notifications import (
     message_notification_direction,
     notification_recipient_allowed,
 )
+from .family_notifications import revalidate_family_notification
 from .models_school import (
     Conversation,
     ConversationParticipant,
@@ -62,16 +63,7 @@ class PushProvider(Protocol):
 
 
 class BridgeProvider(Protocol):
-    def send(
-        self,
-        *,
-        event_id: str,
-        remote_link_id: int,
-        conversation_id: str,
-        urgent: bool,
-        occurred_at: datetime,
-        message_direction: str,
-    ) -> str: ...
+    def send(self, **kwargs) -> str: ...
 
 
 class FirebasePushProvider:
@@ -165,10 +157,16 @@ class SignedFhhBridgeProvider:
         *,
         event_id: str,
         remote_link_id: int,
-        conversation_id: str,
+        conversation_id: str | None = None,
         urgent: bool,
         occurred_at: datetime,
-        message_direction: str,
+        message_direction: str | None = None,
+        route_type: str = "school_chat",
+        category: str = "chat",
+        source_ref: str | None = None,
+        action: str | None = None,
+        source_version: int = 1,
+        template_variant: str | None = None,
     ) -> str:
         if not (
             settings.FHH_NOTIFICATION_BRIDGE_URL.strip()
@@ -178,13 +176,21 @@ class SignedFhhBridgeProvider:
             raise ProviderError("fhh_bridge_configuration_missing", terminal=True)
         body = {
             "event_id": event_id,
-            "route_type": "school_chat",
+            "route_type": route_type,
             "remote_link_id": remote_link_id,
-            "conversation_id": conversation_id,
-            "message_direction": message_direction,
             "urgent": urgent,
             "occurred_at": occurred_at.astimezone(UTC).isoformat(),
         }
+        if route_type == "school_chat":
+            body["conversation_id"] = conversation_id
+            body["message_direction"] = message_direction
+        else:
+            body["category"] = category
+            body["source_version"] = source_version
+            body["source_ref"] = source_ref
+            body["action"] = action
+            if template_variant:
+                body["template_variant"] = template_variant
         raw = json.dumps(body, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
         timestamp = str(int(datetime.now(UTC).timestamp()))
         nonce = event_id
@@ -485,10 +491,18 @@ def dispatch_claimed_rows(
         .order_by(NotificationOutbox.id)
         .all()
     )
-    contexts = _contexts(db, rows)
+    chat_rows = [row for row in rows if row.event_category == "chat"]
+    contexts = _contexts(db, chat_rows)
     push_groups: dict[tuple[int, int, str], list[tuple[DispatchContext, NotificationDelivery, DevicePushRegistration]]] = {}
     bridge_contexts: list[DispatchContext] = []
+    family_bridge_rows: list[NotificationOutbox] = []
     for row in rows:
+        if row.event_category != "chat":
+            if not revalidate_family_notification(db, row):
+                _cancel_outbox(row, "recipient_ineligible", now)
+            else:
+                family_bridge_rows.append(row)
+            continue
         context = contexts.get(row.id)
         if (
             context is None
@@ -592,6 +606,41 @@ def dispatch_claimed_rows(
                 urgent=bool(context.message.urgent),
                 occurred_at=_aware(context.message.created_at),
                 message_direction="staff_to_family",
+            )
+            row.state = "provider_accepted"
+            row.provider_message_ref = provider_ref[:200]
+            row.dispatched_at = now
+            row.provider_accepted_at = now
+            row.completed_at = now
+            row.last_error_code = None
+            row.lease_owner = None
+            row.lease_expires_at = None
+        except ProviderError as error:
+            row.attempt_count += 1
+            row.last_error_code = error.code
+            row.lease_owner = None
+            row.lease_expires_at = None
+            if error.terminal or row.attempt_count >= settings.MESSAGING_NOTIFICATION_MAX_ATTEMPTS:
+                row.state = "dead"
+                row.completed_at = now
+            else:
+                row.state = "failed"
+                row.next_attempt_at = _retry_at(row.attempt_count, now)
+
+    for row in family_bridge_rows:
+        link = db.query(FhhLink).filter(FhhLink.id == row.recipient_fhh_link_id).one()
+        try:
+            provider_ref = bridge_provider.send(
+                event_id=str(row.event_id),
+                remote_link_id=link.id,
+                route_type=row.route_type,
+                category=row.event_category,
+                source_ref=row.route_ref,
+                action=row.source_action,
+                source_version=row.source_version,
+                template_variant=(row.template_args or {}).get("variant"),
+                urgent=bool(row.urgent),
+                occurred_at=_aware(row.created_at),
             )
             row.state = "provider_accepted"
             row.provider_message_ref = provider_ref[:200]

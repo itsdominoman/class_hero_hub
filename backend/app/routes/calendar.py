@@ -12,6 +12,7 @@ from .. import auth
 from ..database import get_db
 from ..models_school import CalendarEvent, ClassSection, HomeworkItem, Membership, StaffAssignment, SubjectGroup, User
 from ..school_scope import open_interval_expression, write_audit
+from ..family_notifications import enqueue_family_notifications, material_snapshot
 from .announcements import (
     _guardian_audience,
     _school_id_from_header,
@@ -247,6 +248,7 @@ def create_calendar_event(
     )
     db.add(event)
     db.flush()
+    enqueue_family_notifications(db, category="calendar", source=event, action="published")
     write_audit(db, current_user.id, "school.calendar_event.created", event, {"event_type": event.event_type, "audience_type": event.audience_type}, school_id=school_id)
     db.commit()
     db.refresh(event)
@@ -275,6 +277,7 @@ def update_calendar_event(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Archived events cannot be edited")
     if membership.role != "school_admin" and payload.event_type is not None and payload.event_type not in TEACHER_EVENT_TYPES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Teachers can only create event, test, or reminder calendar events")
+    before = material_snapshot("calendar", event)
     event.title = payload.title
     event.body = payload.body
     if payload.event_type is not None:
@@ -282,6 +285,8 @@ def update_calendar_event(
     event.starts_at = payload.starts_at
     event.ends_at = payload.ends_at
     event.all_day = payload.all_day
+    if material_snapshot("calendar", event) != before:
+        enqueue_family_notifications(db, category="calendar", source=event, action="updated")
     write_audit(db, current_user.id, "school.calendar_event.updated", event, {"event_type": event.event_type}, school_id=school_id)
     db.commit()
     db.refresh(event)
@@ -334,6 +339,7 @@ def archive_calendar_event(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Calendar event not found")
     event.status = "archived"
     event.archived_at = datetime.now(timezone.utc)
+    enqueue_family_notifications(db, category="calendar", source=event, action="cancelled")
     write_audit(db, current_user.id, "school.calendar_event.archived", event, {}, school_id=school_id)
     db.commit()
     return {"status": "archived"}

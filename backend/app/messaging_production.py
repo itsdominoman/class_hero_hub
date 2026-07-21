@@ -498,6 +498,9 @@ def operations_summary(db: Session, *, school_id: int) -> dict[str, Any]:
     outbox_counts = dict(db.query(NotificationOutbox.state, func.count(NotificationOutbox.id)).filter(
         NotificationOutbox.school_id == school_id
     ).group_by(NotificationOutbox.state).all())
+    category_counts = dict(db.query(NotificationOutbox.event_category, func.count(NotificationOutbox.id)).filter(
+        NotificationOutbox.school_id == school_id
+    ).group_by(NotificationOutbox.event_category).all())
     oldest = db.query(func.min(NotificationOutbox.created_at)).filter(
         NotificationOutbox.school_id == school_id,
         NotificationOutbox.state.in_(("held", "pending", "leased", "failed")),
@@ -521,6 +524,7 @@ def operations_summary(db: Session, *, school_id: int) -> dict[str, Any]:
         "generated_at": now,
         "jobs": {str(key): int(value) for key, value in job_counts.items()},
         "notification_outbox": {str(key): int(value) for key, value in outbox_counts.items()},
+        "notification_categories": {str(key): int(value) for key, value in category_counts.items()},
         "oldest_notification_age_seconds": int((now - aware(oldest)).total_seconds()) if oldest else 0,
         "worker_heartbeats": [{
             "worker": row.worker_name,

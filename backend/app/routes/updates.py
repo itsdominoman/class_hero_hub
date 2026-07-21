@@ -17,6 +17,7 @@ from .. import auth
 from ..database import get_db
 from ..models_school import ClassSection, StaffAssignment, SubjectGroup, UpdatePhoto, UpdatePost, User
 from ..school_scope import open_interval_expression, write_audit
+from ..family_notifications import enqueue_family_notifications
 from .announcements import (
     _guardian_audience,
     _safe_filename,
@@ -265,6 +266,7 @@ def create_update(payload: UpdateCreateRequest, request: Request, current_user: 
     section_id, group_id = _validate_target(db, school_id, membership, payload)
     post = UpdatePost(school_id=school_id, author_user_id=current_user.id, body=payload.body, audience_type=payload.audience_type, class_section_id=section_id, subject_group_id=group_id)
     db.add(post); db.flush()
+    enqueue_family_notifications(db, category="update", source=post, action="published")
     write_audit(db, current_user.id, "school.update.created", post, {"audience_type": post.audience_type}, school_id=school_id)
     db.commit(); db.refresh(post)
     sections, groups, authors, photos = _context(db, [post])
