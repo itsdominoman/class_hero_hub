@@ -789,6 +789,8 @@
     loading = true;
     error = null;
     try {
+      const requestedTab = new URL(window.location.href).searchParams.get('tab');
+      if (requestedTab && tabs.some((tab) => tab.key === requestedTab)) activeTab = requestedTab;
       await loadMe();
       if (allowed) await loadAll();
     } catch (err: any) {
@@ -2483,7 +2485,13 @@
     }
   });
 
-  onMount(init);
+  onMount(() => {
+    void (async () => {
+      await init();
+      await tick();
+      if (window.location.hash) document.querySelector(window.location.hash)?.scrollIntoView({ block: 'start' });
+    })();
+  });
 </script>
 
 <svelte:head>
@@ -2541,8 +2549,7 @@
         >
           {$_('nav.reports')} →
         </a>
-        <a href="/school/governance" class="whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 py-2 text-left text-sm font-bold text-slate-700 transition hover:bg-slate-100 lg:mt-2 lg:block lg:w-full">{$_('nav.governance')} →</a>
-        <a href="/school/operations" class="whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 py-2 text-left text-sm font-bold text-slate-700 transition hover:bg-slate-100 lg:mt-2 lg:block lg:w-full">{$_('nav.operations')} →</a>
+        <a href="/school/administration" class="whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 py-2 text-left text-sm font-bold text-slate-700 transition hover:bg-slate-100 lg:mt-2 lg:block lg:w-full">{$_('nav.administration')} →</a>
       </nav>
 
       <div class="min-w-0">

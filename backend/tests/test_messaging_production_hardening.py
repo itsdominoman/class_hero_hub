@@ -75,6 +75,8 @@ def test_system_owner_is_explicit_transfer_is_confirmed_and_non_owner_is_denied(
         json={"reason": "Former owner should not retain authority"},
     )
     assert denied.status_code == 403
+    advanced_denied = client.get("/api/school/operations/advanced", headers=_owner_headers(world))
+    assert advanced_denied.status_code == 403
 
 
 def test_legal_hold_excludes_retention_preview_then_release_is_append_only(db, client):
@@ -173,5 +175,10 @@ def test_expired_lease_is_recovered_and_operations_health_contains_no_payload_co
     summary = client.get("/api/school/operations", headers=_owner_headers(world))
     assert summary.status_code == 200
     assert "Preserved legal evidence" not in summary.text
+    assert set(summary.json()) == {"health"}
     heartbeat = summary.json()["health"]["worker_heartbeats"][0]
     assert heartbeat["recovered_leases_total"] >= 1
+    advanced = client.get("/api/school/operations/advanced", headers=_owner_headers(world))
+    assert advanced.status_code == 200
+    assert advanced.json()["jobs"][0]["id"] == str(job.public_id)
+    assert advanced.json()["active_retention_policy"]["version"] == policy.policy_version

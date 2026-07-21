@@ -113,6 +113,15 @@ def summary(
     membership: Membership = Depends(require_school_role("school_admin")),
     db: Session = Depends(get_db),
 ):
+    return {"health": operations_summary(db, school_id=membership.school_id)}
+
+
+@router.get("/operations/advanced")
+def advanced_summary(
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    _require_owner(db, membership)
     policy = current_policy(db, school_id=membership.school_id)
     jobs = db.query(MessagingOperationsJob).filter(
         MessagingOperationsJob.school_id == membership.school_id
