@@ -19,6 +19,13 @@ protected media, moderation and export security. The existing focused FHH projec
 test remains the gate for neutral read-only/closed state and the internal-field
 allowlist. Production is outside this gate.
 
+The rebuilt CHH backend image passed safeguarding **8/8** plus **9/9** focused ordinary
+text, named-administrator receipt, review receipt-neutrality and push-direction cases.
+The unchanged FHH current image passed its neutral safeguarding projection **1/1**.
+The rebuilt CHH web image and APK passed; only backend/frontend were recreated, while
+PostgreSQL and the notification scheduler retained their container identities and
+start times.
+
 ## Slice 12 safeguarding gate — 2026-07-20
 
 The focused CHH safeguarding suite passes **8 tests** covering explicit permissions,

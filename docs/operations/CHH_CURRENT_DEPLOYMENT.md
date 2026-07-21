@@ -1,5 +1,50 @@
 # CHH current development deployment
 
+## S26n safeguarding UI mop-up
+
+The focused safeguarding administrator UI is deployed to CHH development. The former
+combined page is now a compact landing page, a metadata-only conversation search, a
+dedicated no-composer active review route and a separately gated permission page.
+Mobile cards and controls are bounded at 320, 360, 390 and 430 CSS pixels; advanced
+filters collapse without hiding active state; Android Back closes focused overlays;
+and the same workflow is localized in English and Arabic RTL.
+
+- Routes: `/school/safeguarding`, `/school/safeguarding/message-reviews`,
+  `/school/safeguarding/message-reviews/{session}` and
+  `/school/safeguarding/permissions`.
+- The backend change is additive only: the already-authorized school context exposes
+  active branch/class/grade display metadata, result/staff projections expose safe
+  display roles and branch names, and review justification now requires at least 15
+  meaningful characters. Permissions, review expiry, audit, protected media,
+  moderation, tombstones, internal-note privacy and export controls are unchanged.
+- Current-image validation passed: safeguarding backend **8/8**; ordinary text,
+  administrator receipts, review receipt neutrality and push-direction coverage
+  **9/9**; CHH presentation contracts **3/3**; focused Chromium UI **9/9**;
+  `svelte-check` 0 errors/0 warnings; EN/AR parity **1,502/1,502**; production web
+  build passed. The unchanged FHH neutral safeguarding projection passed **1/1**.
+- Public and loopback CHH health returned 200; all three safeguarding frontend routes
+  and ordinary `/messages` returned 200; unauthenticated safeguarding API access
+  returned 401. FHH health and `/school-messages` returned 200.
+- Only CHH backend and frontend were rebuilt/recreated. PostgreSQL retained container
+  `c4bec565ceae` and its 2026-06-16 start time. The notification scheduler retained
+  container `ffb8c9436a65` and its 2026-07-20 start time. Production and FHH source were
+  not changed.
+- Source tag: `chh-s26n-safeguarding-ui-mopup-2026-07-21` after final verification.
+
+### Development safeguarding UI APK
+
+- Server: `/opt/apps/class_hero_hub/tmp/class-hero-hub-safeguarding-ui-dev.apk`
+- Google Drive: `G:\My Drive\CHH\Remote\class-hero-hub-safeguarding-ui-dev.apk`
+- Package `com.classherohub.app`; version code/name `4`/`1.2-safeguarding`; min SDK
+  23; compile/target SDK 35; API `https://class.familyherohub.com/api`.
+- Size: 96,172,284 bytes; SHA-256:
+  `490ec6b7a4f48feddb8c150a4c819b7fa21ee887a81a78ff6cf4bd2a36f17eb7`.
+- Android debug signer certificate SHA-256:
+  `e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
+- Server and Drive copies are byte-identical. Endpoint/package inspection, v1/v2
+  signature verification, `testDebugUnitTest`, `lintDebug` and `assembleDebug` passed
+  after the final web assets were synchronized into Capacitor.
+
 ## S26m Messaging v1 safeguarding administration
 
 Messaging Slice 12 is deployed to CHH development. Explicit school-scoped grants,
