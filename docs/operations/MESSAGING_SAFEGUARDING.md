@@ -5,10 +5,17 @@ enablement.
 
 ## Access administration
 
-Use **School → Safeguarding → Message reviews**. The navigation item is returned only
-after `GET /api/safeguarding/context` proves an active explicit grant. A permission
-manager can grant or revoke one school-scoped permission at a time with a meaningful
-reason. Never grant all school administrators by role or copy grants between schools.
+Use **School → Safeguarding**. The navigation item is returned only after
+`GET /api/safeguarding/context` proves an active explicit grant. **Message reviews**
+opens metadata search. **Permission management** is a separate page and is shown only
+to a user with `messaging.manage_safeguarding_permissions`.
+
+On the permission page, select one staff member, compare the current access checklist,
+enter the case-specific reason, then choose **Save access**. The page submits only the
+required grant/revoke differences through the existing per-permission endpoints. The
+**Manage safeguarding access** choice has an additional warning because it lets that
+person change access for others. Never grant all school administrators by role, copy
+grants between schools, or approve a change without its reason.
 
 For a suspected compromise, suspend the user or membership, revoke its grants, and
 revoke any active review session. Any of those actions makes subsequent review calls
@@ -16,14 +23,23 @@ fail closed. Preserve the audit/event UUIDs and do not edit protected evidence r
 
 ## Review and moderation procedure
 
-1. Search metadata only and identify the exact opaque conversation reference.
-2. Select **Start review**, choose the real reason category, write a case-specific
-   justification and acknowledge auditing.
-3. Confirm the banner shows the intended reviewer, school, conversation and expiry.
-4. Review evidence without opening the ordinary participant inbox.
+1. Open **Safeguarding → Message reviews**. Filter by student, participant, date and
+   status; open **More filters** only when branch, class, direction or state is useful.
+   Branches and classes are selected by school-facing names, not database IDs.
+2. Choose **Review** on the correct conversation card. The internal conversation ID is
+   secondary information under **Details**, not the main identity.
+3. In the focused review sheet, choose the real reason category, write at least 15
+   meaningful characters, acknowledge audited access and choose the supported duration.
+4. Confirm the sticky review banner shows the intended school and expiry, then review
+   evidence without opening the ordinary participant inbox.
 5. For moderation, enter a confidential reason. Add participant-safe wording only if
    a neutral explanation is intended; it must not disclose safeguarding details.
 6. End the session when finished. Do not share the review URL or downloaded package.
+
+Android Back and Escape close the focused review sheet, protected photo view or
+confirmation before leaving the page. The active review has no composer. Internal
+notes, moderation history and audit evidence stay in their own tool sections rather
+than appearing as ordinary messages.
 
 Restrictions and closure do not send a push notification in Slice 12. Check both CHH
 and FHH participant projections after a change. Internal notes and flags must never be

@@ -1,5 +1,34 @@
 # CHH Android APK smoke test
 
+## S26n safeguarding UI mop-up
+
+Use `class-hero-hub-safeguarding-ui-dev.apk` against the fixed CHH development API.
+
+1. Open **Safeguarding** at 320–430 CSS-pixel-equivalent widths. Confirm the compact
+   home shows separate **Message reviews** and, when authorized, **Permission
+   management** actions without a combined search/permission screen.
+2. In **Message reviews**, confirm every field has a visible label; branch/class options
+   show school names; no select is blank; and participant, role and status text is
+   friendly in English and Arabic.
+3. Expand/collapse **More filters**, search, and inspect long participant names. Cards
+   must remain inside the viewport with no sideways scroll. The chosen card must say
+   **Selected** explicitly and keep the conversation ID secondary.
+4. Open **Review**, try `blah`, whitespace and punctuation-only justifications, then a
+   valid case-specific justification. Confirm acknowledgement is required. Hardware
+   Back must close the sheet before navigating away.
+5. In an active review, test the sticky expiry banner, protected photo and voice media,
+   grouped moderation/notes/export/audit tools, dangerous-action confirmations and
+   hardware Back. Confirm there is no composer and no ordinary Delivered/Read change.
+6. In **Permission management**, select one staff member, edit the single checklist,
+   confirm the manager-access warning and save with a real reason. A non-manager must
+   not see or directly open this page.
+7. Repeat the complete flow in Arabic RTL with gesture and three-button navigation,
+   the keyboard open/closed, background/resume and an expired review URL. Confirm the
+   interface mirrors safely and authorization still fails closed.
+8. Pair FHH and confirm review-only access sends no push and changes no receipt or
+   unread state. Exercise a temporary restriction/close/reopen and confirm FHH retains
+   its neutral read-only/closed projection, then remove the test moderation.
+
 ## Slice 12 safeguarding administration
 
 1. Install the S26m development APK and verify package `com.classherohub.app`, the

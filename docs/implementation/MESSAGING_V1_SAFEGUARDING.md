@@ -50,7 +50,7 @@ branch, message type and direction. It does not accept full-body search and neve
 returns message body previews.
 
 Starting a review requires one conversation, an allowlisted reason category, a
-meaningful 8–2,000 character justification, explicit audit acknowledgement and a
+meaningful 15–2,000 character justification, explicit audit acknowledgement and a
 5–60 minute lifetime (30 minutes by default). The public session UUID is bound to one
 school, conversation and reviewer membership. End, expiry or manager revocation makes
 it unusable. Expiry is recorded lazily on access and by the cleanup command.
@@ -127,6 +127,26 @@ the export lifecycle. Events include school, actor user/membership context, targ
 references, safe correlation metadata and prior/new state hashes where relevant.
 Generic audit metadata excludes message bodies, note bodies, credentials, tokens and
 storage paths; protected authoritative rows hold the detailed evidence.
+
+## S26n administrator interface boundary
+
+The S26n usability mop-up changes presentation and safe school-scoped filter metadata,
+not the safeguarding data or authorization model. The CHH interface is divided into
+four focused views:
+
+- `/school/safeguarding` is the compact entry point;
+- `/school/safeguarding/message-reviews` contains metadata-only search and selection;
+- `/school/safeguarding/message-reviews/{session}` contains the time-limited,
+  no-composer review projection;
+- `/school/safeguarding/permissions` contains permission management and still requires
+  `messaging.manage_safeguarding_permissions`.
+
+The context response now includes active branches, grades and class sections that are
+already scoped to the selected school. Search and permission responses may include
+safe display names, roles and branch labels so administrators do not need to enter
+database IDs or interpret enum codes. These additions do not return message bodies,
+permission grants for another school, internal notes, audit detail or protected media.
+Every request still validates the exact school and membership headers.
 
 `backend/scripts/cleanup_safeguarding_state.py` expires review sessions, removes
 expired export files by validated storage key, marks artifacts expired and writes

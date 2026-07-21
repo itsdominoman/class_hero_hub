@@ -1,5 +1,24 @@
 # Messaging v1 QA coverage
 
+## S26n safeguarding UI mop-up gate — 2026-07-21
+
+Focused CHH frontend validation passes with `svelte-check` at **0 errors and 0
+warnings**, EN/AR parity at **1,502/1,502 keys**, three safeguarding presentation
+contract tests and nine Chromium workflow tests. The browser gate covers the landing
+page split, labelled/non-empty filters, readable branch/role values, filter order,
+expandable advanced filters, explicit selection, focused start-review flow,
+meaningful-justification and acknowledgement validation, Android Back, permission
+route gating/checklist/warning, Arabic RTL, no composer and no acknowledgement/push
+request. Exact 320, 360, 390 and 430 CSS-pixel viewports have no document, body or
+conversation-card horizontal overflow.
+
+Backend additions are limited to school-scoped display metadata and stronger
+justification validation. The existing focused safeguarding suite remains the
+authoritative gate for permission, audit, expiry, receipt/unread/outbox neutrality,
+protected media, moderation and export security. The existing focused FHH projection
+test remains the gate for neutral read-only/closed state and the internal-field
+allowlist. Production is outside this gate.
+
 ## Slice 12 safeguarding gate — 2026-07-20
 
 The focused CHH safeguarding suite passes **8 tests** covering explicit permissions,
