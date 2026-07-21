@@ -2640,25 +2640,6 @@
             {/each}
           </div>
         {:else if activeTab === 'settings'}
-          <div class="rounded-lg border border-slate-200 bg-white p-5">
-            <h2 class="text-lg font-black text-slate-900">{$_('school.settings.levelLabel')}</h2>
-            <div class="mt-4 grid gap-3 sm:grid-cols-5">
-              {#each ['Grade', 'Year', 'Form', 'Level'] as option}
-                <label class="flex items-center gap-2 rounded-lg border border-slate-200 p-3 text-sm font-semibold">
-                  <input type="radio" bind:group={labelChoice} value={option} />
-                  {option}
-                </label>
-              {/each}
-              <label class="flex items-center gap-2 rounded-lg border border-slate-200 p-3 text-sm font-semibold">
-                <input type="radio" bind:group={labelChoice} value="custom" />
-                {$_('school.custom')}
-              </label>
-            </div>
-            {#if labelChoice === 'custom'}
-              <input class="mt-4 w-full rounded-lg border border-slate-200 px-3 py-2" bind:value={customLabel} placeholder={$_('school.settings.customLabel')} />
-            {/if}
-            <button class="btn-hero mt-5 rounded-lg px-5 py-2" disabled={saving} onclick={saveSettings}>{$_('school.save')}</button>
-          </div>
           <section class="mt-5 rounded-lg border border-slate-200 bg-white p-5" aria-labelledby="compliance-feature-controls-title">
             <p class="text-xs font-black uppercase tracking-wide text-hero">{$_('school.compliance.eyebrow')}</p>
             <h2 id="compliance-feature-controls-title" class="mt-1 text-lg font-black text-slate-900">{$_('school.compliance.title')}</h2>
@@ -2905,7 +2886,28 @@
         {:else if activeTab === 'branches'}
           <CrudBlock title={$_('school.branches.title')} rows={branches} path="branches" bind:form={branchForm} {saving} editing={editingPath === 'branches'} errors={{ code: fieldError('branches', 'code'), name: fieldError('branches', 'name') }} onsubmit={() => saveRow('branches', branchForm)} onedit={(row) => editRow('branches', branchForm, row)} oncancel={cancelEdit} onarchive={archiveRow} />
         {:else if activeTab === 'stages'}
-          <CrudBlock title={$_('school.stages.title')} rows={stages} path="education-stages" bind:form={stageForm} {saving} editing={editingPath === 'education-stages'} errors={{ code: fieldError('education-stages', 'code'), name: fieldError('education-stages', 'name') }} onsubmit={() => saveRow('education-stages', stageForm)} onedit={(row) => editRow('education-stages', stageForm, row)} oncancel={cancelEdit} onarchive={archiveRow} />
+          <div class="rounded-lg border border-slate-200 bg-white p-5">
+            <h2 class="text-lg font-black text-slate-900">{$_('school.settings.levelLabel')}</h2>
+            <div class="mt-4 grid gap-3 sm:grid-cols-5">
+              {#each ['Grade', 'Year', 'Form', 'Level'] as option}
+                <label class="flex items-center gap-2 rounded-lg border border-slate-200 p-3 text-sm font-semibold">
+                  <input type="radio" bind:group={labelChoice} value={option} />
+                  {option}
+                </label>
+              {/each}
+              <label class="flex items-center gap-2 rounded-lg border border-slate-200 p-3 text-sm font-semibold">
+                <input type="radio" bind:group={labelChoice} value="custom" />
+                {$_('school.custom')}
+              </label>
+            </div>
+            {#if labelChoice === 'custom'}
+              <input class="mt-4 w-full rounded-lg border border-slate-200 px-3 py-2" bind:value={customLabel} placeholder={$_('school.settings.customLabel')} />
+            {/if}
+            <button class="btn-hero mt-5 rounded-lg px-5 py-2" disabled={saving} onclick={saveSettings}>{$_('school.save')}</button>
+          </div>
+          <div class="mt-5">
+            <CrudBlock title={$_('school.stages.title')} rows={stages} path="education-stages" bind:form={stageForm} {saving} editing={editingPath === 'education-stages'} errors={{ code: fieldError('education-stages', 'code'), name: fieldError('education-stages', 'name') }} onsubmit={() => saveRow('education-stages', stageForm)} onedit={(row) => editRow('education-stages', stageForm, row)} oncancel={cancelEdit} onarchive={archiveRow} />
+          </div>
         {:else if activeTab === 'years'}
           <div class="rounded-lg border border-slate-200 bg-white p-5">
             <h2 class="text-lg font-black text-slate-900">{$_('school.years.title')}</h2>
