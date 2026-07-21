@@ -241,15 +241,16 @@
     error = "";
     try {
       const zone = context.school.timezone;
+      const { reminder_enabled, reminder_at, ...surveyForm } = form;
       const payload = {
-        ...form,
+        ...surveyForm,
         target_ids:
           form.audience_type === "whole_school" ? [] : form.target_ids,
         opens_at: schoolLocalToIso(form.opens_at, zone),
         closes_at: schoolLocalToIso(form.closes_at, zone),
         reminder_at:
-          form.reminder_enabled && form.reminder_at
-            ? schoolLocalToIso(form.reminder_at, zone)
+          reminder_enabled && reminder_at
+            ? schoolLocalToIso(reminder_at, zone)
             : null,
         instructions: form.instructions || null,
         questions: form.questions.map((q) => ({

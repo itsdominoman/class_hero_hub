@@ -14,6 +14,8 @@ test('survey editor presents audience, privacy, response-unit, timezone and prev
   assert.match(source, /Push notification/);
   assert.match(source, /Notices-feed link/);
   assert.match(source, /previewOpen/);
+  assert.match(source, /const \{ reminder_enabled, reminder_at, \.\.\.surveyForm \} = form/);
+  assert.match(source, /\.\.\.surveyForm/);
   assert.match(source, /dir=\{ar \?/);
   assert.match(source, /rtl/);
   assert.match(source, /ltr/);
