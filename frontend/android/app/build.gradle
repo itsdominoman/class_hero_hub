@@ -23,8 +23,8 @@ android {
         applicationId "com.classherohub.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 9
-        versionName "1.7-timezone-selector"
+        versionCode 10
+        versionName "1.8-surveys-polls"
         resValue "string", "google_web_client_id", googleClientId
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

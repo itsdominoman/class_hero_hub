@@ -592,6 +592,7 @@ class FhhLink(Base):
     source_invite_id = Column(Integer, ForeignKey("fhh_link_invites.id"), nullable=False, unique=True)
     link_token_hash = Column(String, unique=True, nullable=False, index=True)
     fhh_child_ref = Column(String, nullable=False)
+    fhh_household_ref = Column(String(64), nullable=True, index=True)
     status = Column(String, nullable=False, default="active", server_default="active")
     revoked_at = Column(DateTime(timezone=True), nullable=True)
     revoked_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -1614,7 +1615,8 @@ class MessagingPermissionGrant(Base):
         CheckConstraint(
             "permission IN ('messaging.safeguarding_review', 'messaging.moderate', "
             "'messaging.export_evidence', 'messaging.export_internal_notes', "
-            "'messaging.manage_safeguarding_permissions', 'messaging.manage_legal_holds')",
+            "'messaging.manage_safeguarding_permissions', 'messaging.manage_legal_holds', "
+            "'surveys.manage')",
             name="ck_messaging_permission_grants_permission",
         ),
         CheckConstraint(
@@ -1642,6 +1644,139 @@ class MessagingPermissionGrant(Base):
             "permission",
             "revoked_at",
         ),
+    )
+
+
+class Survey(Base):
+    __tablename__ = "surveys"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    public_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    title = Column(String(200), nullable=False)
+    introduction = Column(String(1000), nullable=False)
+    instructions = Column(Text, nullable=True)
+    audience_type = Column(String(32), nullable=False)
+    anonymous = Column(Boolean, nullable=False, default=True, server_default="true")
+    response_mode = Column(String(16), nullable=False, default="guardian", server_default="guardian")
+    opens_at = Column(DateTime(timezone=True), nullable=False)
+    closes_at = Column(DateTime(timezone=True), nullable=False)
+    reminder_at = Column(DateTime(timezone=True), nullable=True)
+    parent_results_visible = Column(Boolean, nullable=False, default=False, server_default="false")
+    push_enabled = Column(Boolean, nullable=False, default=True, server_default="true")
+    dashboard_card_enabled = Column(Boolean, nullable=False, default=True, server_default="true")
+    notices_feed_enabled = Column(Boolean, nullable=False, default=True, server_default="true")
+    status = Column(String(16), nullable=False, default="draft", server_default="draft")
+    version = Column(Integer, nullable=False, default=1, server_default="1")
+    created_by_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    published_at = Column(DateTime(timezone=True), nullable=True)
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("audience_type IN ('whole_school', 'branch', 'grade', 'class', 'selected_families')", name="ck_surveys_audience"),
+        CheckConstraint("response_mode IN ('guardian', 'household')", name="ck_surveys_response_mode"),
+        CheckConstraint("status IN ('draft', 'scheduled', 'open', 'closed', 'archived')", name="ck_surveys_status"),
+        CheckConstraint("closes_at > opens_at", name="ck_surveys_window"),
+        CheckConstraint("reminder_at IS NULL OR (reminder_at > opens_at AND reminder_at < closes_at)", name="ck_surveys_reminder_window"),
+        CheckConstraint("version >= 1", name="ck_surveys_version"),
+        Index("ix_surveys_school_status_window", "school_id", "status", "opens_at", "closes_at"),
+    )
+
+
+class SurveyTarget(Base):
+    __tablename__ = "survey_targets"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    survey_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("surveys.id", ondelete="CASCADE"), nullable=False, index=True)
+    target_type = Column(String(20), nullable=False)
+    target_id = Column(Integer, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("target_type IN ('branch', 'grade', 'class', 'student')", name="ck_survey_targets_type"),
+        UniqueConstraint("survey_id", "target_type", "target_id", name="uq_survey_targets_scope"),
+    )
+
+
+class SurveyQuestion(Base):
+    __tablename__ = "survey_questions"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    public_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    survey_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("surveys.id", ondelete="CASCADE"), nullable=False, index=True)
+    question_type = Column(String(24), nullable=False)
+    prompt = Column(String(1000), nullable=False)
+    required = Column(Boolean, nullable=False, default=False, server_default="false")
+    sort_order = Column(Integer, nullable=False, default=0, server_default="0")
+    scale_min = Column(Integer, nullable=True)
+    scale_max = Column(Integer, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("question_type IN ('single_choice', 'multiple_choice', 'yes_no', 'rating', 'short_text', 'long_text')", name="ck_survey_questions_type"),
+        CheckConstraint("(question_type = 'rating' AND scale_min IS NOT NULL AND scale_max IS NOT NULL AND scale_min < scale_max) OR (question_type <> 'rating' AND scale_min IS NULL AND scale_max IS NULL)", name="ck_survey_questions_scale"),
+        UniqueConstraint("survey_id", "sort_order", name="uq_survey_questions_order"),
+    )
+
+
+class SurveyOption(Base):
+    __tablename__ = "survey_options"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    public_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    question_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("survey_questions.id", ondelete="CASCADE"), nullable=False, index=True)
+    label = Column(String(500), nullable=False)
+    sort_order = Column(Integer, nullable=False, default=0, server_default="0")
+
+    __table_args__ = (UniqueConstraint("question_id", "sort_order", name="uq_survey_options_order"),)
+
+
+class SurveyResponse(Base):
+    __tablename__ = "survey_responses"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    public_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    survey_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("surveys.id", ondelete="RESTRICT"), nullable=False, index=True)
+    response_key_hash = Column(String(64), nullable=False)
+    respondent_label = Column(String(240), nullable=True)
+    submitted_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("survey_id", "response_key_hash", name="uq_survey_responses_unit"),
+        Index("ix_survey_responses_survey_time", "survey_id", "submitted_at", "id"),
+    )
+
+
+class SurveyAnswer(Base):
+    __tablename__ = "survey_answers"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    response_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("survey_responses.id", ondelete="CASCADE"), nullable=False, index=True)
+    question_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("survey_questions.id", ondelete="RESTRICT"), nullable=False, index=True)
+    answer_text = Column(Text, nullable=True)
+    answer_number = Column(Integer, nullable=True)
+    answer_boolean = Column(Boolean, nullable=True)
+    selected_option_ids = Column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
+
+    __table_args__ = (UniqueConstraint("response_id", "question_id", name="uq_survey_answers_response_question"),)
+
+
+class SurveyEvent(Base):
+    __tablename__ = "survey_events"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    event_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    survey_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("surveys.id", ondelete="RESTRICT"), nullable=False, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    action = Column(String(24), nullable=False)
+    actor_membership_id = Column(Integer, ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False)
+    detail = Column(JSON().with_variant(JSONB, "postgresql"), nullable=False, default=dict)
+    occurred_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint("action IN ('published', 'closed', 'reopened', 'reminder_sent', 'exported', 'archived')", name="ck_survey_events_action"),
+        Index("ix_survey_events_school_time", "school_id", "occurred_at", "id"),
     )
 
 
@@ -2102,11 +2237,11 @@ class NotificationOutbox(Base):
         ),
         CheckConstraint("channel IN ('push', 'email', 'in_app_event')", name="ck_notification_outbox_channel"),
         CheckConstraint(
-            "event_category IN ('chat', 'homework', 'notice', 'points', 'calendar', 'update')",
+            "event_category IN ('chat', 'homework', 'notice', 'points', 'calendar', 'update', 'survey')",
             name="ck_notification_outbox_category",
         ),
         CheckConstraint(
-            "route_type IN ('school_chat', 'homework', 'notice', 'points', 'calendar', 'update')",
+            "route_type IN ('school_chat', 'homework', 'notice', 'points', 'calendar', 'update', 'survey')",
             name="ck_notification_outbox_route_type",
         ),
         CheckConstraint("source_version >= 1", name="ck_notification_outbox_source_version"),

@@ -175,6 +175,7 @@ class SignedFhhBridgeProvider:
         needs_work_total: int | None = None,
         net_total: int | None = None,
         event_count: int | None = None,
+        response_mode: str | None = None,
     ) -> str:
         if not (
             settings.FHH_NOTIFICATION_BRIDGE_URL.strip()
@@ -199,6 +200,8 @@ class SignedFhhBridgeProvider:
             body["action"] = action
             if template_variant:
                 body["template_variant"] = template_variant
+            if response_mode:
+                body["response_mode"] = response_mode
             if action == "summarized":
                 body.update({
                     "summary_type": summary_type,
@@ -667,6 +670,7 @@ def dispatch_claimed_rows(
                 needs_work_total=template_args.get("needs_work_total"),
                 net_total=template_args.get("net_total"),
                 event_count=template_args.get("event_count"),
+                response_mode=template_args.get("response_mode"),
                 urgent=bool(row.urgent),
                 occurred_at=_aware(row.created_at),
             )

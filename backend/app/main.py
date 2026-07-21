@@ -11,7 +11,7 @@ from .database import Base, close_request_db, engine, ensure_runtime_schema, get
 from .models_school import Membership, PlatformAdmin, School, User
 from .message_media_service import MESSAGE_MEDIA_ARCHIVE_ROOT, MESSAGE_MEDIA_ROOT
 from .safeguarding_service import EXPORT_ROOT
-from .routes import announcements, authentication, behaviour, calendar, dev, feature_controls, governance, guardian, homework, integrations_fhh, integrations_fhh_messaging, join, messaging, messaging_operations, messaging_policy, notifications, platform, safeguarding, school, school_reports, teach, updates
+from .routes import announcements, authentication, behaviour, calendar, dev, feature_controls, governance, guardian, homework, integrations_fhh, integrations_fhh_messaging, join, messaging, messaging_operations, messaging_policy, notifications, platform, safeguarding, school, school_reports, surveys, teach, updates
 from .security import TrustedProxyHeadersMiddleware, parse_csv_values
 from .messaging_metrics import MessagingMetricsMiddleware
 
@@ -181,6 +181,7 @@ def create_app() -> FastAPI:
     app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
     app.include_router(behaviour.school_router, prefix="/api/school", tags=["behaviour"])
     app.include_router(school_reports.router, prefix="/api/school", tags=["reports"])
+    app.include_router(surveys.router, prefix="/api/school", tags=["surveys"])
     app.include_router(teach.router, prefix="/api/teach", tags=["teach"])
     app.include_router(behaviour.teacher_router, prefix="/api/teach", tags=["behaviour"])
     app.include_router(announcements.teacher_router, prefix="/api/teach", tags=["announcements"])
@@ -203,6 +204,11 @@ def create_app() -> FastAPI:
         integrations_fhh_messaging.router,
         prefix="/api/integrations/fhh",
         tags=["fhh-messaging-integration"],
+    )
+    app.include_router(
+        surveys.integration_router,
+        prefix="/api/integrations/fhh",
+        tags=["fhh-surveys-integration"],
     )
 
     if settings.runtime_environment != "production":

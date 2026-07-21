@@ -19,6 +19,7 @@ from .models_school import (
 OWNER_BOOTSTRAP_PERMISSIONS = (
     "messaging.manage_safeguarding_permissions",
     "messaging.manage_legal_holds",
+    "surveys.manage",
 )
 
 

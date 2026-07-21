@@ -18,13 +18,14 @@ from .models_school import (
     School,
     SchoolPointsNotificationPolicy,
     Student,
+    Survey,
     UpdatePost,
 )
 from .rosters import roster_payload
 
 
 UTC = timezone.utc
-CATEGORIES = {"homework", "notice", "points", "calendar", "update"}
+CATEGORIES = {"homework", "notice", "points", "calendar", "update", "survey"}
 ELIGIBLE_SCHOOL_STATUSES = {"pending_setup", "active"}
 SOURCE_MODELS = {
     "homework": HomeworkItem,
@@ -32,6 +33,7 @@ SOURCE_MODELS = {
     "points": BehaviourEvent,
     "calendar": CalendarEvent,
     "update": UpdatePost,
+    "survey": Survey,
 }
 SOURCE_TYPES = {
     "homework": "homework_item",
@@ -39,6 +41,7 @@ SOURCE_TYPES = {
     "points": "behaviour_event",
     "calendar": "calendar_event",
     "update": "update_post",
+    "survey": "survey",
 }
 ROUTE_TYPES = dict.fromkeys(CATEGORIES)
 
@@ -62,6 +65,9 @@ def material_snapshot(category: str, source: Any) -> tuple:
 
 
 def _student_ids_for_source(db: Session, category: str, source: Any) -> set[int]:
+    if category == "survey":
+        from .survey_service import survey_student_ids
+        return survey_student_ids(db, source)
     if category == "points":
         return {int(source.student_id)}
     if source.audience_type == "school":
@@ -83,6 +89,10 @@ def _student_ids_for_source(db: Session, category: str, source: Any) -> set[int]
 
 
 def _source_visible(category: str, source: Any, action: str) -> bool:
+    if category == "survey":
+        from .survey_service import refresh_survey_state
+        refresh_survey_state(source)
+        return action in {"published", "reminder", "reopened"} and source.status in {"scheduled", "open"}
     if category == "points":
         return action == "awarded" and source.reversed_at is None
     expected = "published" if category == "notice" else "active"
@@ -109,6 +119,8 @@ def enqueue_family_notifications(
     source: Any,
     action: str,
     version: int | None = None,
+    eligible_at: datetime | None = None,
+    event_marker: str | None = None,
 ) -> list[NotificationOutbox]:
     """Append CHH→FHH rows to the existing durable outbox.
 
@@ -157,11 +169,17 @@ def enqueue_family_notifications(
         .order_by(FhhLink.id)
         .all()
     )
+    if category == "survey":
+        deduped: dict[str, FhhLink] = {}
+        for link in links:
+            deduped.setdefault(link.fhh_household_ref or f"link:{link.id}", link)
+        links = list(deduped.values())
     source_type = SOURCE_TYPES[category]
     source_version = version or _next_version(
         db, school_id=source.school_id, source_type=source_type, source_id=source.id
     )
     now = datetime.now(UTC)
+    deliver_at = eligible_at or now
     variant = None
     if category == "points":
         row = db.query(BehaviourCategory.type).filter(BehaviourCategory.id == source.category_id).first()
@@ -169,9 +187,9 @@ def enqueue_family_notifications(
     urgent = bool(category == "notice" and getattr(source, "urgent", False))
     created: list[NotificationOutbox] = []
     for link in links:
-        dedupe_key = (
-            f"family:{category}:{source_type}:{source.id}:{action}:v{source_version}:link:{link.id}"
-        )
+        dedupe_key = f"family:{category}:{source_type}:{source.id}:{action}:v{source_version}:link:{link.id}"
+        if event_marker:
+            dedupe_key = f"{dedupe_key}:event:{event_marker}"
         if db.query(NotificationOutbox.id).filter(NotificationOutbox.dedupe_key == dedupe_key).first():
             continue
         row = NotificationOutbox(
@@ -189,13 +207,13 @@ def enqueue_family_notifications(
             recipient_fhh_link_id=link.id,
             channel="push",
             template_key=f"family.{category}.{action}",
-            template_args={"variant": variant} if variant else {},
+            template_args=({"variant": variant} if variant else ({"response_mode": source.response_mode} if category == "survey" else {})),
             deep_link=f"fhh:{category}",
             policy_version=points_policy.policy_version if points_policy is not None else 1,
             state="pending",
-            eligible_at=now,
-            scheduler_check_at=now,
-            next_attempt_at=now,
+            eligible_at=deliver_at,
+            scheduler_check_at=deliver_at,
+            next_attempt_at=deliver_at,
             dedupe_key=dedupe_key,
         )
         db.add(row)

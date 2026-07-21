@@ -18,8 +18,9 @@ from ..models_school import (
     Announcement, AnnouncementAttachment, BehaviourCategory, BehaviourEvent, CalendarEvent,
     ClassSection, Enrolment, FhhLink, FhhLinkInvite, GradeLevel, HomeworkAttachment,
     FhhMessagingIdentity, FhhMessagingIdentityLink, FhhMessagingLifecycleEvent,
-    HomeworkItem, School, Student, UpdatePhoto, UpdatePost, User,
+    HomeworkItem, School, Student, Survey, UpdatePhoto, UpdatePost, User,
 )
+from ..survey_service import link_is_eligible, refresh_survey_state
 from ..behaviour_service import event_context_payloads
 from ..rosters import resolve_rosters_for_students
 from ..school_scope import open_interval_expression, write_audit
@@ -43,6 +44,7 @@ class CodeRequest(BaseModel):
 
 class ConsumeRequest(CodeRequest):
     fhh_child_ref: str = Field(min_length=1, max_length=200)
+    fhh_household_ref: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
     @field_validator("fhh_child_ref")
     @classmethod
@@ -227,7 +229,7 @@ def consume(body: ConsumeRequest, request: Request, db: Session = Depends(get_db
     try:
         row = _invite(db, body.code, lock=True)
         raw_token = secrets.token_urlsafe(32)
-        link = FhhLink(school_id=row.school_id, student_id=row.student_id, source_invite_id=row.id, link_token_hash=invite_tokens.hash_token(raw_token), fhh_child_ref=body.fhh_child_ref)
+        link = FhhLink(school_id=row.school_id, student_id=row.student_id, source_invite_id=row.id, link_token_hash=invite_tokens.hash_token(raw_token), fhh_child_ref=body.fhh_child_ref, fhh_household_ref=body.fhh_household_ref)
         db.add(link); db.flush()
         row.consumed_at = invite_tokens.now_utc(); row.consumed_by = body.fhh_child_ref
         write_audit(db, None, "integration.fhh_link.created", link, {"student_id": row.student_id, "source_invite_id": row.id}, school_id=row.school_id)
@@ -476,6 +478,10 @@ def dashboard(link_id: int, x_fhh_link_token: str | None = Header(default=None),
     uids = [x.id for x in updates]; photos = db.query(UpdatePhoto).filter(UpdatePhoto.post_id.in_(uids)).all() if uids else []
     now = datetime.now(timezone.utc); end = now + timedelta(days=30)
     calendar = db.query(CalendarEvent).filter(*_audience(CalendarEvent, link.school_id, sections, groups, school_wide=True), CalendarEvent.status == "active", CalendarEvent.starts_at >= now, CalendarEvent.starts_at <= end).order_by(CalendarEvent.starts_at).limit(100).all()
+    surveys = db.query(Survey).filter(Survey.school_id == link.school_id, Survey.notices_feed_enabled.is_(True), Survey.status.in_(("scheduled", "open"))).order_by(Survey.closes_at).limit(50).all()
+    for survey in surveys:
+        refresh_survey_state(survey)
+    surveys = [survey for survey in surveys if survey.status == "open" and link_is_eligible(db, survey, link)]
     meta = lambda a: {"id": a.id, "original_filename": a.original_filename, "content_type": a.content_type, "size_bytes": a.size_bytes}
     return {
         **snap,
@@ -484,6 +490,7 @@ def dashboard(link_id: int, x_fhh_link_token: str | None = Header(default=None),
         "points": {"total": int(total or 0), "recent_events": [{"id": e.id, "category_label": c.label, "category_type": c.type, "points_delta": e.points_delta, "note": e.note, "created_at": e.created_at, "staff_display_name": actor.name if actor else None, **point_contexts[e.id]} for e,c,actor in events]},
         "homework": {"active": [{"id": x.id, "item_type": x.item_type, "title": x.title, "body": x.body, "due_at": x.due_at, "resource_links": x.resource_links, "attachments": [meta(a) for a in hats_by[x.id]], "done": False} for x in homework], "completed": []},
         "announcements": [{"id": x.id, "title": x.title, "body": x.body, "audience_type": x.audience_type, "created_at": x.created_at, "attachments": [meta(a) for a in aatts if a.post_id == x.id]} for x in announcements],
+        "surveys": [{"id": str(x.public_id), "title": x.title, "introduction": x.introduction, "status": x.status, "closes_at": x.closes_at} for x in surveys],
         "updates": [{"id": x.id, "body": x.body, "created_at": x.created_at, "photos": [{"id": p.id, "content_type": p.content_type, "size_bytes": p.size_bytes} for p in photos if p.post_id == x.id]} for x in updates],
         "calendar_upcoming": [{"id": x.id, "kind": "event", "title": x.title, "event_type": x.event_type, "starts_at": x.starts_at, "ends_at": x.ends_at, "all_day": x.all_day} for x in calendar],
         "permissions": {"can_mark_homework_done": False}, "link": {"link_id": link.id, "status": link.status}, "server_time": now,

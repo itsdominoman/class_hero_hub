@@ -11,6 +11,7 @@
   import type { SafeguardingMembership } from '$lib/safeguarding/types';
   import { clearNativeAccessToken, isNativePlatform } from '$lib/nativeAuth';
   import { defaultLandingPath, hasRole, type SessionUser } from '$lib/roleRouting';
+  import { surveyApi, type SurveyMembership } from '$lib/surveys/api';
 
   let { children } = $props();
   let currentUser = $state<SessionUser | null>(null);
@@ -19,6 +20,7 @@
   let messagingAvailable = $state(false);
   let messagingUnread = $state(0);
   let safeguardingMemberships = $state<SafeguardingMembership[]>([]);
+  let surveyMemberships = $state<SurveyMembership[]>([]);
   // Capacitor exposes this synchronously before the app shell is hydrated.
   // Keep public website chrome out of the native shell while preserving it on web.
   let nativeApp = $state(isNativePlatform());
@@ -51,6 +53,18 @@
       safeguardingMemberships = safeguardingChecks.filter(
         (row): row is SafeguardingMembership => row !== null
       );
+      const surveyChecks = await Promise.all(
+        (currentUser?.memberships || [])
+          .filter((row) => row.role === 'school_admin')
+          .map(async (row) => {
+            try {
+              return (await surveyApi.availability(row)).available ? row : null;
+            } catch {
+              return null;
+            }
+          })
+      );
+      surveyMemberships = surveyChecks.filter((row): row is SurveyMembership => row !== null);
       await refreshMessagingBadge();
       if (nativeApp && messagingMemberships.length > 0) {
         void prepareNativePush();
@@ -63,6 +77,7 @@
       currentUser = null;
       messagingMemberships = [];
       safeguardingMemberships = [];
+      surveyMemberships = [];
       messagingAvailable = false;
       messagingUnread = 0;
     }
@@ -135,6 +150,7 @@
       currentUser = null;
       messagingMemberships = [];
       safeguardingMemberships = [];
+      surveyMemberships = [];
       messagingAvailable = false;
       messagingUnread = 0;
       window.location.href = '/';
@@ -212,6 +228,9 @@
       ? `/school/safeguarding?membership=${safeguardingMemberships[0].membership_id}`
       : '/school/safeguarding'
   );
+  let surveysHref = $derived(
+    surveyMemberships.length ? `/school/surveys?membership=${surveyMemberships[0].membership_id}` : '/school/surveys'
+  );
   // Messaging already owns a bounded viewport and its single bottom inset at the
   // sticky composer. Every other native route gets the bottom inset from app-main.
   let messagingRoute = $derived($page.url.pathname.startsWith('/messages'));
@@ -252,6 +271,11 @@
               {$_('nav.reports')}
             </a>
             <a href="/school/administration" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">{$_('nav.administration')}</a>
+          {/if}
+          {#if surveyMemberships.length > 0}
+            <a href={surveysHref} class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
+              {$_('nav.surveys')}
+            </a>
           {/if}
           {#if hasTeacher}
             <a href="/teach" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
@@ -377,6 +401,7 @@
           <a href="/school/administration" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.administration')}</a>
         {/if}
         {#if hasTeacher}<a href="/teach" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.teach')}</a>{/if}
+        {#if surveyMemberships.length > 0}<a href={surveysHref} onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.surveys')}</a>{/if}
         {#if messagingAvailable}
           <a href="/messages" onclick={closeMobileMenu} class="mobile-nav-link flex items-center justify-between gap-3">
             <span>{$_('nav.messages')}</span>
