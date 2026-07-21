@@ -209,6 +209,12 @@ export const en = {
     close: 'Close',
     cancel: 'Cancel'
   },
+  timezoneSelector: {
+    searchPlaceholder: 'Search by city, country or region',
+    help: 'Choose a city or country. The timezone ID and current UTC offset are shown for reference.',
+    noResults: 'No matching timezone found.',
+    invalid: 'Select a timezone from the list.'
+  },
   calendar: {
     title: 'Calendar',
     schoolCalendar: 'School calendar',
@@ -2095,6 +2101,12 @@ export const ar = {
     copyTodo: 'نسخة TODO',
     close: 'إغلاق',
     cancel: 'إلغاء'
+  },
+  timezoneSelector: {
+    searchPlaceholder: 'ابحث بالمدينة أو الدولة أو المنطقة',
+    help: 'اختر مدينة أو دولة. يظهر معرّف المنطقة الزمنية وفرق التوقيت الحالي عن UTC للرجوع إليهما.',
+    noResults: 'لم يتم العثور على منطقة زمنية مطابقة.',
+    invalid: 'اختر منطقة زمنية من القائمة.'
   },
   calendar: {
     title: 'التقويم',

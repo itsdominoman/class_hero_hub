@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { _ } from 'svelte-i18n';
+  import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
   import CrudBlock from '$lib/components/school/CrudBlock.svelte';
   import NumberInput from '$lib/components/school/NumberInput.svelte';
@@ -8,6 +8,7 @@
   import SelectInput from '$lib/components/school/SelectInput.svelte';
   import StatusInput from '$lib/components/school/StatusInput.svelte';
   import TextInput from '$lib/components/school/TextInput.svelte';
+  import TimeZoneSelector from '$lib/components/TimeZoneSelector.svelte';
   import { guardianDisplayName } from '$lib/guardianDisplay';
   import { CheckCircle2, Circle, Pencil, Plus, Trash2 } from 'lucide-svelte';
   import QRCode from 'qrcode';
@@ -393,6 +394,7 @@
   let messagingPolicy = $state<MessagingPolicy | null>(null);
   let pointsNotificationPolicy = $state<PointsNotificationPolicy | null>(null);
   let pointsNotificationSaving = $state(false);
+  let pointsTimezoneValid = $state(true);
   let receiptPolicySaving = $state(false);
   let contactHoursSaving = $state(false);
   let contactHoursVersion = $state(1);
@@ -2007,7 +2009,7 @@
   }
 
   async function savePointsNotificationPolicy() {
-    if (!pointsNotificationPolicy || pointsNotificationSaving) return;
+    if (!pointsNotificationPolicy || pointsNotificationSaving || !pointsTimezoneValid) return;
     pointsNotificationSaving = true;
     error = null;
     try {
@@ -2031,6 +2033,7 @@
         weekly_summary_time: saved.weekly_summary_time.slice(0, 5),
         monthly_summary_time: saved.monthly_summary_time.slice(0, 5)
       };
+      pointsTimezoneValid = true;
       notice = $_('school.compliance.pointsNotificationsUpdated');
     } catch (err: any) {
       error = err?.message || $_('school.compliance.pointsNotificationsSaveError');
@@ -2757,10 +2760,19 @@
                           </select>
                         </label>
                       </div>
-                      <label class="mt-3 block text-xs font-bold text-slate-600">
-                        {$_('school.compliance.schoolTimezone')}
-                        <input class="mt-1 min-h-11 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" bind:value={pointsNotificationPolicy.school_timezone} autocomplete="off" />
-                      </label>
+                      <div class="mt-3 min-w-0">
+                        <TimeZoneSelector
+                          id="points-school-timezone"
+                          label={$_('school.compliance.schoolTimezone')}
+                          locale={$locale || 'en'}
+                          placeholder={$_('timezoneSelector.searchPlaceholder')}
+                          help={$_('timezoneSelector.help')}
+                          noResults={$_('timezoneSelector.noResults')}
+                          invalid={$_('timezoneSelector.invalid')}
+                          bind:value={pointsNotificationPolicy.school_timezone}
+                          bind:valid={pointsTimezoneValid}
+                        />
+                      </div>
                     </div>
 
                     <div class="rounded-xl border border-slate-200 bg-white p-4">
@@ -2774,7 +2786,7 @@
                       <p class="mt-3 rounded-lg bg-blue-50 p-3 text-xs font-semibold leading-5 text-blue-900">{$_('school.compliance.monthlyCalendarEnd')}</p>
                     </div>
                   </div>
-                  <button type="button" class="btn-hero mt-4 min-h-11 rounded-xl px-5 py-2 font-black" disabled={pointsNotificationSaving} onclick={() => void savePointsNotificationPolicy()}>
+                  <button type="button" class="btn-hero mt-4 min-h-11 rounded-xl px-5 py-2 font-black" disabled={pointsNotificationSaving || !pointsTimezoneValid} onclick={() => void savePointsNotificationPolicy()}>
                     {pointsNotificationSaving ? $_('common.loading') : $_('school.compliance.savePointsNotifications')}
                   </button>
                 </div>

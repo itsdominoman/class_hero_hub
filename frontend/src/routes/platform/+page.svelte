@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { _ } from 'svelte-i18n';
+  import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
+  import TimeZoneSelector from '$lib/components/TimeZoneSelector.svelte';
 
   type SchoolRow = {
     id: number;
@@ -17,6 +18,7 @@
   let error = $state<string | null>(null);
   let showCreate = $state(false);
   let saving = $state(false);
+  let formTimezoneValid = $state(true);
   let form = $state({
     name: '',
     name_ar: '',
@@ -41,6 +43,7 @@
   }
 
   async function createSchool() {
+    if (!formTimezoneValid) return;
     saving = true;
     error = null;
     try {
@@ -54,6 +57,7 @@
       schools = [created, ...schools];
       showCreate = false;
       form = { name: '', name_ar: '', timezone: 'Asia/Muscat', locale_default: 'en', admin_email: '' };
+      formTimezoneValid = true;
     } catch (err: any) {
       error = err?.message || $_('platform.createError');
     } finally {
@@ -139,10 +143,17 @@
           <input bind:value={form.name_ar} class="rounded-lg border border-slate-300 px-3 py-3 font-medium" />
         </label>
         <div class="grid gap-4 sm:grid-cols-2">
-          <label class="grid gap-2 text-sm font-bold text-slate-700">
-            {$_('platform.timezone')}
-            <input required bind:value={form.timezone} class="rounded-lg border border-slate-300 px-3 py-3 font-medium" />
-          </label>
+          <TimeZoneSelector
+            id="new-school-timezone"
+            label={$_('platform.timezone')}
+            locale={$locale || 'en'}
+            placeholder={$_('timezoneSelector.searchPlaceholder')}
+            help={$_('timezoneSelector.help')}
+            noResults={$_('timezoneSelector.noResults')}
+            invalid={$_('timezoneSelector.invalid')}
+            bind:value={form.timezone}
+            bind:valid={formTimezoneValid}
+          />
           <label class="grid gap-2 text-sm font-bold text-slate-700">
             {$_('platform.localeDefault')}
             <select bind:value={form.locale_default} class="rounded-lg border border-slate-300 px-3 py-3 font-medium">
@@ -159,7 +170,7 @@
 
       <div class="mt-6 flex justify-end gap-3">
         <button type="button" class="btn-secondary rounded-lg px-4 py-3" onclick={() => (showCreate = false)}>{$_('platform.cancel')}</button>
-        <button disabled={saving} class="btn-hero rounded-lg px-4 py-3 disabled:opacity-60">{saving ? $_('platform.saving') : $_('platform.createSchool')}</button>
+        <button disabled={saving || !formTimezoneValid} class="btn-hero rounded-lg px-4 py-3 disabled:opacity-60">{saving ? $_('platform.saving') : $_('platform.createSchool')}</button>
       </div>
     </form>
   </div>
