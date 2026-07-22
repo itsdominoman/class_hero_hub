@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { page } from "$app/stores";
   import { locale } from "svelte-i18n";
   import { api } from "$lib/api";
@@ -16,12 +16,18 @@
   } from "lucide-svelte";
 
   let membership = $state<SurveyMembership | null>(null);
+  let context = $state<any>(null);
   let survey = $state<any>(null);
   let results = $state<any>(null);
   let loading = $state(true);
   let busy = $state("");
   let error = $state("");
   let search = $state("");
+  let reopenOpen = $state(false);
+  let reopenClosesAt = $state("");
+  let reopenError = $state("");
+  let reopenInput = $state<HTMLInputElement | null>(null);
+  let reopenButton = $state<HTMLButtonElement | null>(null);
   let ar = $derived($locale === "ar");
   const label: Record<string, Record<string, string>> = {
     en: {
@@ -40,6 +46,11 @@
       identified: "Identified",
       guardian: "One per guardian",
       household: "One per household",
+      reopenTitle: "Reopen survey",
+      reopenHelp: "Choose a new closing time. Existing responses and results will be kept.",
+      newClosingTime: "New closing time",
+      cancel: "Cancel",
+      reopening: "Reopening...",
     },
     ar: {
       back: "الاستبيانات",
@@ -57,6 +68,11 @@
       identified: "محدد الهوية",
       guardian: "إجابة لكل ولي أمر",
       household: "إجابة لكل أسرة",
+      reopenTitle: "إعادة فتح الاستبيان",
+      reopenHelp: "اختر وقت إغلاق جديداً. ستبقى الردود والنتائج الحالية محفوظة.",
+      newClosingTime: "وقت الإغلاق الجديد",
+      cancel: "إلغاء",
+      reopening: "جارٍ إعادة الفتح...",
     },
   };
   let t = $derived(ar ? label.ar : label.en);
@@ -87,9 +103,10 @@
       const surveyId = $page.params.id;
       if (!surveyId) throw new Error("Survey not found");
       membership = selected;
-      [survey, results] = await Promise.all([
+      [survey, results, context] = await Promise.all([
         surveyApi.detail(selected, surveyId),
         surveyApi.results(selected, surveyId, search),
+        surveyApi.context(selected),
       ]);
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
@@ -108,6 +125,101 @@
       error = cause instanceof Error ? cause.message : String(cause);
     } finally {
       busy = "";
+    }
+  }
+  function inputInZone(value: Date, zone: string) {
+    const parts = Object.fromEntries(
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: zone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      })
+        .formatToParts(value)
+        .filter((part) => part.type !== "literal")
+        .map((part) => [part.type, part.value]),
+    );
+    return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+  }
+  function schoolLocalToIso(value: string, zone: string) {
+    const [date, time] = value.split("T");
+    const [year, month, day] = date.split("-").map(Number);
+    const [hour, minute] = time.split(":").map(Number);
+    const wanted = Date.UTC(year, month - 1, day, hour, minute);
+    let guess = wanted;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const shownParts = Object.fromEntries(
+        new Intl.DateTimeFormat("en-CA", {
+          timeZone: zone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        })
+          .formatToParts(new Date(guess))
+          .filter((part) => part.type !== "literal")
+          .map((part) => [part.type, Number(part.value)]),
+      );
+      const shown = Date.UTC(
+        shownParts.year,
+        shownParts.month - 1,
+        shownParts.day,
+        shownParts.hour,
+        shownParts.minute,
+      );
+      guess += wanted - shown;
+    }
+    return new Date(guess).toISOString();
+  }
+  async function openReopen() {
+    if (!context || busy) return;
+    const oldClose = new Date(survey.closes_at);
+    const suggested = oldClose.getTime() > Date.now() + 5 * 60 * 1000
+      ? oldClose
+      : new Date(Date.now() + 24 * 60 * 60 * 1000);
+    reopenClosesAt = inputInZone(suggested, context.school.timezone);
+    reopenError = "";
+    reopenOpen = true;
+    await tick();
+    reopenInput?.focus();
+  }
+  async function closeReopen() {
+    if (busy === "reopen") return;
+    reopenOpen = false;
+    reopenError = "";
+    await tick();
+    reopenButton?.focus();
+  }
+  async function confirmReopen() {
+    if (!membership || !context || busy || !reopenClosesAt) return;
+    reopenError = "";
+    const closesAt = schoolLocalToIso(reopenClosesAt, context.school.timezone);
+    if (new Date(closesAt).getTime() <= Date.now()) {
+      reopenError = "Choose a future closing time before reopening.";
+      return;
+    }
+    busy = "reopen";
+    try {
+      await surveyApi.action(membership, survey.id, "reopen", {
+        closes_at: closesAt,
+      });
+      reopenOpen = false;
+      await load();
+    } catch (cause) {
+      reopenError = cause instanceof Error ? cause.message : String(cause);
+    } finally {
+      busy = "";
+    }
+  }
+  function handleKeydown(event: KeyboardEvent) {
+    if (reopenOpen && event.key === "Escape" && busy !== "reopen") {
+      event.preventDefault();
+      void closeReopen();
     }
   }
   async function exportCsv() {
@@ -139,6 +251,8 @@
   }
   onMount(load);
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <svelte:head
   ><title>{survey?.title || t.results} · Class Hero Hub</title></svelte:head
@@ -196,7 +310,8 @@
             >{/if}{#if survey.status === "closed"}<button
               class="action bg-white/10"
               disabled={busy !== ""}
-              onclick={() => action("reopen")}
+              bind:this={reopenButton}
+              onclick={openReopen}
               ><RotateCcw size={16} />{t.reopen}</button
             ><button
               class="action bg-white/10"
@@ -341,6 +456,47 @@
     </section>
   {/if}
 </div>
+
+{#if reopenOpen}
+  <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 p-0 sm:items-center sm:p-4">
+    <button
+      class="absolute inset-0 h-full w-full"
+      type="button"
+      aria-label={t.cancel}
+      disabled={busy === "reopen"}
+      onclick={closeReopen}
+    ></button>
+    <div
+      class="relative w-full max-w-lg rounded-t-[2rem] bg-white p-6 shadow-2xl sm:rounded-[2rem]"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reopen-survey-title"
+    >
+      <h2 id="reopen-survey-title" class="text-2xl font-black text-slate-950">{t.reopenTitle}</h2>
+      <p class="mt-2 text-sm font-semibold leading-6 text-slate-600">{t.reopenHelp}</p>
+      <label class="mt-5 block text-sm font-black text-slate-800" for="reopen-closes-at">
+        {t.newClosingTime}
+        <input
+          id="reopen-closes-at"
+          class="mt-2 block w-full rounded-xl border border-slate-300 px-3 py-3 font-semibold"
+          type="datetime-local"
+          bind:this={reopenInput}
+          bind:value={reopenClosesAt}
+          disabled={busy === "reopen"}
+          required
+        />
+      </label>
+      <p class="mt-2 text-xs font-bold text-slate-500">{context?.school?.timezone}</p>
+      {#if reopenError}<p class="mt-4 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700" role="alert">{reopenError}</p>{/if}
+      <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button class="action justify-center bg-slate-100 text-slate-800" type="button" disabled={busy === "reopen"} onclick={closeReopen}>{t.cancel}</button>
+        <button class="action justify-center bg-hero text-white" type="button" disabled={busy === "reopen" || !reopenClosesAt} onclick={confirmReopen}>
+          <RotateCcw size={16} />{busy === "reopen" ? t.reopening : t.reopen}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
   .pill {

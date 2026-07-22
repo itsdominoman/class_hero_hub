@@ -130,6 +130,18 @@ class PermissionInput(BaseModel):
     reason: str = Field(min_length=3, max_length=1000)
 
 
+class ReopenSurveyInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    closes_at: datetime | None = None
+
+    @field_validator("closes_at")
+    @classmethod
+    def require_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is not None and value.tzinfo is None:
+            raise ValueError("Survey closing time must include a timezone")
+        return value
+
+
 class HouseholdEvidence(BaseModel):
     model_config = ConfigDict(extra="forbid")
     household_ref: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -443,13 +455,24 @@ def close_survey(survey_id: UUID, membership: Membership = Depends(require_surve
 
 
 @router.post("/surveys/{survey_id}/reopen")
-def reopen_survey(survey_id: UUID, membership: Membership = Depends(require_survey_admin), db: Session = Depends(get_db)):
+def reopen_survey(
+    survey_id: UUID,
+    body: ReopenSurveyInput,
+    membership: Membership = Depends(require_survey_admin),
+    db: Session = Depends(get_db),
+):
     survey = _survey_or_404(db, membership, survey_id, lock=True)
-    if survey.status != "closed" or aware_utc(survey.closes_at) <= datetime.now(UTC):
-        raise HTTPException(status_code=409, detail="Extend the closing time in a draft before reopening")
+    if survey.status != "closed":
+        raise HTTPException(status_code=409, detail="Only closed surveys can be reopened")
+    previous_closes_at = aware_utc(survey.closes_at)
+    next_closes_at = aware_utc(body.closes_at) if body.closes_at is not None else previous_closes_at
+    if next_closes_at <= datetime.now(UTC):
+        raise HTTPException(status_code=409, detail="Choose a future closing time before reopening")
+    survey.closes_at = next_closes_at
     survey.status = "open"; survey.closed_at = None
-    _event(db, survey, membership, "reopened")
-    write_audit(db, membership.user_id, "school.survey.reopened", survey, {}, school_id=membership.school_id)
+    detail = {"previous_closes_at": previous_closes_at.isoformat(), "closes_at": next_closes_at.isoformat()}
+    _event(db, survey, membership, "reopened", detail)
+    write_audit(db, membership.user_id, "school.survey.reopened", survey, detail, school_id=membership.school_id)
     db.commit(); return _detail_payload(db, survey)
 
 

@@ -28,10 +28,15 @@ export const surveyApi = {
       `/school/surveys/${id}/results?q=${encodeURIComponent(q)}&page=${page}`,
       { headers: headers(membership) },
     ),
-  action: (membership: SurveyMembership, id: string, action: string) =>
+  action: (
+    membership: SurveyMembership,
+    id: string,
+    action: string,
+    body: Record<string, unknown> = {},
+  ) =>
     api.post(
       `/school/surveys/${id}/${action}`,
-      {},
+      body,
       { headers: headers(membership) },
     ),
   exportCsv: (membership: SurveyMembership, id: string) =>

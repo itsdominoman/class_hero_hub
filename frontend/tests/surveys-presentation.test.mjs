@@ -33,3 +33,14 @@ test('survey results expose lifecycle, response metrics, reminder and safe CSV a
   assert.match(source, /rtl/);
   assert.match(source, /ltr/);
 });
+
+test('closed survey reopen collects a future closing time in an accessible modal', () => {
+  const source = read('src/routes/school/surveys/[id]/+page.svelte');
+  assert.match(source, /onclick=\{openReopen\}/);
+  assert.match(source, /type="datetime-local"/);
+  assert.match(source, /role="dialog"/);
+  assert.match(source, /aria-modal="true"/);
+  assert.match(source, /closes_at: closesAt/);
+  assert.match(source, /Choose a future closing time before reopening/);
+  assert.match(source, /event\.key === "Escape"/);
+});

@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timedelta, timezone
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
@@ -22,6 +22,7 @@ from app.models_school import (
     FhhLink,
     School,
     Survey,
+    SurveyEvent,
     SurveyResponse,
     User,
 )
@@ -186,6 +187,45 @@ def test_window_validation_lifecycle_and_duplicate_response_unit(db):
     ])
     with pytest.raises(IntegrityError):
         db.commit()
+
+
+def test_closed_survey_can_extend_closing_time_and_reopen(db, client):
+    school, allowed_user, _ = _world(db)
+    headers = _headers(allowed_user.email, school.id)
+    created = client.post("/api/school/surveys", headers=headers, json=_payload()).json()
+    survey_id = created["id"]
+
+    assert client.post(f"/api/school/surveys/{survey_id}/publish", headers=headers).status_code == 200
+    assert client.post(f"/api/school/surveys/{survey_id}/close", headers=headers).status_code == 200
+
+    survey_public_id = UUID(survey_id)
+    survey = db.query(Survey).filter(Survey.public_id == survey_public_id).one()
+    previous_close = datetime.now(timezone.utc) - timedelta(minutes=5)
+    survey.closes_at = previous_close
+    db.commit()
+
+    expired = client.post(f"/api/school/surveys/{survey_id}/reopen", headers=headers, json={})
+    assert expired.status_code == 409
+    assert expired.json()["detail"] == "Choose a future closing time before reopening"
+
+    next_close = datetime.now(timezone.utc) + timedelta(days=1)
+    reopened = client.post(
+        f"/api/school/surveys/{survey_id}/reopen",
+        headers=headers,
+        json={"closes_at": next_close.isoformat()},
+    )
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.json()["status"] == "open"
+    returned_close = datetime.fromisoformat(reopened.json()["closes_at"]).replace(tzinfo=timezone.utc)
+    assert returned_close == next_close
+
+    db.expire_all()
+    survey = db.query(Survey).filter(Survey.public_id == survey_public_id).one()
+    assert survey.status == "open"
+    assert survey.closed_at is None
+    event = db.query(SurveyEvent).filter_by(survey_id=survey.id, action="reopened").one()
+    assert event.detail["previous_closes_at"] == previous_close.isoformat()
+    assert event.detail["closes_at"] == next_close.isoformat()
 
 
 def test_household_evidence_is_bound_once_and_cannot_be_changed():
