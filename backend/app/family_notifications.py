@@ -201,7 +201,7 @@ def enqueue_family_notifications(
             source_action=action,
             source_version=source_version,
             route_type=category,
-            route_ref=str(source.id),
+            route_ref=str(source.public_id) if category == "survey" else str(source.id),
             urgent=urgent,
             recipient_kind="fhh_link",
             recipient_fhh_link_id=link.id,

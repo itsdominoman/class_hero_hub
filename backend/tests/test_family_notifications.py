@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import create_engine
@@ -10,7 +11,7 @@ from app.family_notifications import enqueue_family_notifications, revalidate_fa
 from app.models_school import (
     AcademicYear, Announcement, BehaviourCategory, BehaviourEvent, BranchCampus,
     CalendarEvent, ClassSection, Enrolment, FhhLink, FhhLinkInvite, GradeLevel,
-    HomeworkItem, NotificationOutbox, School, Student, UpdatePost, User,
+    HomeworkItem, NotificationOutbox, School, Student, Survey, UpdatePost, User,
 )
 
 
@@ -119,3 +120,35 @@ def test_school_notice_update_calendar_and_points_create_category_evidence(db):
     assert len(point_rows) == 1 and point_rows[0].template_args == {"variant": "positive"}
     assert "Private teacher note" not in str(point_rows[0].template_args)
     assert {row.event_category for row in db.query(NotificationOutbox).all()} == {"notice", "update", "calendar", "points"}
+
+
+def test_survey_reminder_uses_opaque_public_reference(db):
+    school, _user, _section, _sara, _bob, _links = _world(db)
+    now = datetime.now(UTC)
+    survey = Survey(
+        public_id=uuid4(),
+        school_id=school.id,
+        title="Reminder reference",
+        introduction="Focused reminder test",
+        audience_type="whole_school",
+        anonymous=True,
+        response_mode="household",
+        opens_at=now - timedelta(minutes=5),
+        closes_at=now + timedelta(hours=1),
+        status="open",
+        created_by_membership_id=1,
+    )
+    db.add(survey)
+    db.flush()
+
+    rows = enqueue_family_notifications(
+        db,
+        category="survey",
+        source=survey,
+        action="reminder",
+        event_marker=str(uuid4()),
+    )
+
+    assert len(rows) == 2
+    assert {row.route_ref for row in rows} == {str(survey.public_id)}
+    assert all(row.template_args == {"response_mode": "household"} for row in rows)

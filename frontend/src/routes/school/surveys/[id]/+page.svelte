@@ -300,18 +300,18 @@
           </p>
         </div>
         <form
-          class="flex gap-2"
+          class="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row"
           onsubmit={(event) => {
             event.preventDefault();
             void load();
           }}
         >
           <input
-            class="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+            class="min-w-0 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm sm:w-56"
             bind:value={search}
             placeholder="Search"
           /><button
-            class="rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white"
+            class="w-full shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white sm:w-auto"
             >Search</button
           >
         </form>
