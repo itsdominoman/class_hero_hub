@@ -134,7 +134,12 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET)
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.SESSION_SECRET,
+        same_site="lax",
+        https_only=settings.COOKIE_SECURE,
+    )
 
     @app.middleware("http")
     async def db_session_cleanup_middleware(request: Request, call_next):

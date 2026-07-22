@@ -11,6 +11,7 @@ from starlette.requests import Request
 from .security import parse_csv_values, parse_ip_networks
 
 VALID_APP_ENVIRONMENTS = {"development", "test", "production"}
+CAPACITOR_ANDROID_ORIGIN = "https://localhost"
 MIN_JWT_SECRET_LENGTH = 32
 MIN_SESSION_SECRET_LENGTH = 32
 MIN_QA_TOKEN_LENGTH = 24
@@ -87,8 +88,30 @@ def _validate_origin_list(setting_name: str, value: str, *, production: bool) ->
             _fail(setting_name, f"contains an invalid origin: {origin}")
         if parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
             _fail(setting_name, f"contains a malformed origin: {origin}")
-        if production and parsed.hostname in {"localhost", "127.0.0.1", "::1"}:
+        if (
+            production
+            and parsed.hostname in {"localhost", "127.0.0.1", "::1"}
+            and origin != CAPACITOR_ANDROID_ORIGIN
+        ):
             _fail(setting_name, "must not include localhost origins in production")
+
+
+def _origin_from_url(value: str) -> str:
+    parsed = urlparse(_normalize_value(value))
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _validate_production_cors(settings: "Settings") -> None:
+    configured = set(parse_csv_values(settings.CORS_ORIGINS))
+    required = {
+        _origin_from_url(settings.PUBLIC_APP_URL),
+        CAPACITOR_ANDROID_ORIGIN,
+    }
+    if configured != required:
+        _fail(
+            "CORS_ORIGINS",
+            "production must contain only the public CHH origin and https://localhost for the Capacitor Android shell",
+        )
 
 
 def _validate_hostname_list(setting_name: str, value: str, *, required: bool) -> None:
@@ -162,6 +185,8 @@ def validate_runtime_configuration(settings: "Settings" | None = None) -> str:
         require_path=True,
     )
     _validate_origin_list("CORS_ORIGINS", config.CORS_ORIGINS, production=production)
+    if production:
+        _validate_production_cors(config)
     _validate_trusted_proxy_ips("TRUSTED_PROXY_IPS", config.TRUSTED_PROXY_IPS, production=production)
 
     _validate_secret(
@@ -190,6 +215,10 @@ def validate_runtime_configuration(settings: "Settings" | None = None) -> str:
         _validate_optional_secret("GOOGLE_CLIENT_SECRET", config.GOOGLE_CLIENT_SECRET)
 
     qa_enabled = bool(config.QA_LOGIN_ENABLED or config.QA_CHILD_LOGIN_ENABLED)
+    if production and config.DEV_AUTH_ENABLED:
+        _fail("DEV_AUTH_ENABLED", "must be false in production")
+    if production and qa_enabled:
+        _fail("QA_LOGIN_ENABLED", "QA authentication must be disabled in production")
     _validate_hostname_list("QA_BLOCKED_HOSTNAMES", config.QA_BLOCKED_HOSTNAMES, required=qa_enabled)
     if qa_enabled:
         _validate_secret(
@@ -337,6 +366,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = ""
     PLATFORM_ADMIN_EMAILS: str = ""
     SESSION_SECRET: str = ""
+    DEV_AUTH_ENABLED: bool = False
     QA_LOGIN_ENABLED: bool = False
     QA_LOGIN_TOKEN: str = ""
     QA_LOGIN_EMAIL: str = "qa-parent@dev.familyherohub.com"

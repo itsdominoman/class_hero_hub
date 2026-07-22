@@ -3,6 +3,7 @@ import asyncio
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
@@ -13,6 +14,7 @@ from fastapi.testclient import TestClient
 from app import database
 from app.database import Settings, validate_runtime_configuration
 from app.main import create_app
+from app.routes import authentication
 from app.security import BoundedInMemoryRateLimiter, TrustedProxyHeadersMiddleware, get_client_ip_from_scope
 
 
@@ -29,6 +31,7 @@ def _base_settings(**overrides) -> Settings:
         "CORS_ORIGINS": "http://localhost:5173,http://localhost:8000",
         "TRUSTED_PROXY_IPS": "127.0.0.1,::1",
         "QA_BLOCKED_HOSTNAMES": "familyherohub.com,www.familyherohub.com",
+        "DEV_AUTH_ENABLED": False,
         "QA_LOGIN_ENABLED": False,
         "QA_CHILD_LOGIN_ENABLED": False,
     }
@@ -108,7 +111,7 @@ def test_validate_runtime_configuration_rejects_bad_production_secrets(setting_n
         PUBLIC_APP_URL="https://familyherohub.com",
         API_BASE_URL="https://familyherohub.com",
         GOOGLE_REDIRECT_URI="https://familyherohub.com/api/auth/google/callback",
-        CORS_ORIGINS="https://familyherohub.com",
+        CORS_ORIGINS="https://familyherohub.com,https://localhost",
     )
     setattr(config, setting_name, value)
 
@@ -126,7 +129,7 @@ def test_validate_runtime_configuration_accepts_valid_production_configuration()
         PUBLIC_APP_URL="https://familyherohub.com",
         API_BASE_URL="https://familyherohub.com",
         GOOGLE_REDIRECT_URI="https://familyherohub.com/api/auth/google/callback",
-        CORS_ORIGINS="https://familyherohub.com",
+        CORS_ORIGINS="https://familyherohub.com,https://localhost",
     )
 
     assert validate_runtime_configuration(config) == "production"
@@ -146,6 +149,63 @@ def test_validate_runtime_configuration_rejects_localhost_cors_in_production():
     )
 
     with pytest.raises(RuntimeError, match="localhost origins"):
+        validate_runtime_configuration(config)
+
+
+def test_validate_runtime_configuration_accepts_only_exact_capacitor_origin_in_production():
+    common = {
+        "APP_ENV": "production",
+        "JWT_SECRET": "a" * 32,
+        "SESSION_SECRET": "b" * 32,
+        "GOOGLE_CLIENT_ID": "client-id",
+        "GOOGLE_CLIENT_SECRET": "c" * 16,
+        "PUBLIC_APP_URL": "https://class.familyherohub.com",
+        "API_BASE_URL": "https://class.familyherohub.com",
+        "GOOGLE_REDIRECT_URI": "https://class.familyherohub.com/api/auth/google/callback",
+    }
+
+    assert validate_runtime_configuration(
+        _base_settings(
+            **common,
+            CORS_ORIGINS="https://class.familyherohub.com,https://localhost",
+        )
+    ) == "production"
+
+    for unsafe_origins in (
+        "https://class.familyherohub.com",
+        "https://class.familyherohub.com,https://localhost:443",
+        "https://class.familyherohub.com,capacitor://localhost",
+        "https://class.familyherohub.com,https://localhost,https://unexpected.example",
+    ):
+        with pytest.raises(RuntimeError, match="CORS_ORIGINS"):
+            validate_runtime_configuration(
+                _base_settings(**common, CORS_ORIGINS=unsafe_origins)
+            )
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"DEV_AUTH_ENABLED": True},
+        {"QA_LOGIN_ENABLED": True, "QA_LOGIN_TOKEN": "q" * 24},
+        {"QA_CHILD_LOGIN_ENABLED": True, "QA_LOGIN_TOKEN": "q" * 24},
+    ],
+)
+def test_validate_runtime_configuration_rejects_development_auth_in_production(override):
+    config = _base_settings(
+        APP_ENV="production",
+        JWT_SECRET="a" * 32,
+        SESSION_SECRET="b" * 32,
+        GOOGLE_CLIENT_ID="client-id",
+        GOOGLE_CLIENT_SECRET="c" * 16,
+        PUBLIC_APP_URL="https://class.familyherohub.com",
+        API_BASE_URL="https://class.familyherohub.com",
+        GOOGLE_REDIRECT_URI="https://class.familyherohub.com/api/auth/google/callback",
+        CORS_ORIGINS="https://class.familyherohub.com,https://localhost",
+        **override,
+    )
+
+    with pytest.raises(RuntimeError, match="production"):
         validate_runtime_configuration(config)
 
 
@@ -176,7 +236,7 @@ def test_validate_runtime_configuration_rejects_wildcard_proxy_trust_in_producti
         PUBLIC_APP_URL="https://familyherohub.com",
         API_BASE_URL="https://familyherohub.com",
         GOOGLE_REDIRECT_URI="https://familyherohub.com/api/auth/google/callback",
-        CORS_ORIGINS="https://familyherohub.com",
+        CORS_ORIGINS="https://familyherohub.com,https://localhost",
         TRUSTED_PROXY_IPS="*",
     )
 
@@ -204,16 +264,44 @@ def test_production_app_does_not_mount_dev_routes(monkeypatch):
     monkeypatch.setattr(database.settings, "PUBLIC_APP_URL", "https://familyherohub.com")
     monkeypatch.setattr(database.settings, "API_BASE_URL", "https://familyherohub.com")
     monkeypatch.setattr(database.settings, "GOOGLE_REDIRECT_URI", "https://familyherohub.com/api/auth/google/callback")
-    monkeypatch.setattr(database.settings, "CORS_ORIGINS", "https://familyherohub.com")
+    monkeypatch.setattr(database.settings, "CORS_ORIGINS", "https://familyherohub.com,https://localhost")
     monkeypatch.setattr(database.settings, "TRUSTED_PROXY_IPS", "127.0.0.1,::1")
     monkeypatch.setattr(database.settings, "QA_BLOCKED_HOSTNAMES", "familyherohub.com,www.familyherohub.com")
 
     production_app = create_app()
     client = TestClient(production_app)
 
+    session_middleware = next(
+        middleware
+        for middleware in production_app.user_middleware
+        if middleware.cls.__name__ == "SessionMiddleware"
+    )
+    assert session_middleware.kwargs["https_only"] is True
+    assert session_middleware.kwargs["same_site"] == "lax"
+
     response = client.post("/api/dev/qa-login", json={"token": "qa-token"})
 
     assert response.status_code == 404
+
+
+def test_production_authentication_cookie_is_secure_http_only_and_lax(monkeypatch):
+    monkeypatch.setattr(database.settings, "APP_ENV", "production")
+    monkeypatch.setattr(database.settings, "JWT_SECRET", "a" * 32)
+
+    response = authentication._issue_session_response(
+        SimpleNamespace(email="pilot@example.com"),
+        return_to=None,
+        redirect=False,
+    )
+    access_cookie = next(
+        header
+        for header in response.headers.getlist("set-cookie")
+        if header.startswith("access_token=")
+    )
+
+    assert "; Secure" in access_cookie
+    assert "; HttpOnly" in access_cookie
+    assert "; SameSite=lax" in access_cookie
 
 
 async def _call_proxy_middleware(trusted_proxy_ips: str, client_ip: str, headers: dict[str, str]):

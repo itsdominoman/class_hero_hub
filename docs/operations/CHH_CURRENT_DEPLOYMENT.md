@@ -1,4 +1,39 @@
-# CHH current development deployment
+# CHH current pilot deployment
+
+## CHH-DEPLOY-001 production security profile
+
+The public pilot at `https://class.familyherohub.com` runs with the production
+runtime security profile even though it remains the current pilot host. The required
+non-secret environment settings are:
+
+```dotenv
+APP_ENV=production
+DEV_AUTH_ENABLED=false
+QA_LOGIN_ENABLED=false
+QA_CHILD_LOGIN_ENABLED=false
+CORS_ORIGINS=https://class.familyherohub.com,https://localhost
+FHH_NOTIFICATION_BRIDGE_URL=https://dev.familyherohub.com/api/integrations/chh/school-message-notifications
+```
+
+`https://localhost` is the exact origin of the bundled Capacitor Android WebView.
+The shell calls the public CHH API with a bearer token and therefore requires CORS;
+HTTP localhost, development ports, wildcards and other origins are not permitted in
+production. Production startup also requires non-placeholder JWT, session and Google
+OAuth secrets, HTTPS public/API/callback URLs, and a bounded trusted-proxy allowlist.
+It fails closed if development/QA authentication is enabled or the CORS set differs.
+The notification scheduler loads `.env.push` after `.env`; any bridge URL override in
+that file must use the same HTTPS endpoint. Private plain-HTTP bridge URLs are rejected.
+
+The tracked `Caddyfile.example` is the CHH baseline for the live CHH site block. It
+adds HSTS, MIME-sniffing protection, frame denial, strict-origin referrer handling and
+a conservative permissions policy while preserving automatic HTTP-to-HTTPS redirect.
+A strict Content-Security-Policy is intentionally deferred until the current Svelte
+build, Google authentication, protected images/downloads and Capacitor shell have been
+tested against a candidate policy.
+
+For deployment, back up the live `.env` and `/etc/caddy/Caddyfile`, validate the
+candidate Caddy configuration, recreate only CHH services that consume `.env`, and
+reload Caddy only after validation succeeds. Live secrets remain outside Git.
 
 ## S26o Messaging v1 production hardening
 
