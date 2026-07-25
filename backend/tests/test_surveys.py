@@ -1,3 +1,5 @@
+import csv
+import io
 import os
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
@@ -17,16 +19,20 @@ from app import auth, database
 from app.database import Base, get_db
 from app.main import app
 from app.models_school import (
+    AuditLog,
     Membership,
     MessagingPermissionGrant,
     FhhLink,
     School,
     Survey,
+    SurveyAnswer,
     SurveyEvent,
+    SurveyOption,
+    SurveyQuestion,
     SurveyResponse,
     User,
 )
-from app.routes.surveys import QuestionInput, SurveyInput, _bind_household_ref
+from app.routes.surveys import QuestionInput, SurveyInput, _bind_household_ref, _sanitise_csv_cell
 from app.survey_service import refresh_survey_state
 
 
@@ -226,6 +232,173 @@ def test_closed_survey_can_extend_closing_time_and_reopen(db, client):
     event = db.query(SurveyEvent).filter_by(survey_id=survey.id, action="reopened").one()
     assert event.detail["previous_closes_at"] == previous_close.isoformat()
     assert event.detail["closes_at"] == next_close.isoformat()
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("=1+1", "'=1+1"),
+        ("+SUM(A1:A2)", "'+SUM(A1:A2)"),
+        ("-2+3", "'-2+3"),
+        ("@SUM(A1:A2)", "'@SUM(A1:A2)"),
+        ("  =Survey description", "'  =Survey description"),
+        ("\t@Respondent", "'\t@Respondent"),
+        ('He said "yes", then added\nسطر جديد', 'He said "yes", then added\nسطر جديد'),
+        ("نص عربي آمن", "نص عربي آمن"),
+        ("Ordinary safe text", "Ordinary safe text"),
+        (42, 42),
+    ],
+)
+def test_survey_csv_cell_sanitiser(value, expected):
+    assert _sanitise_csv_cell(value) == expected
+
+
+@pytest.mark.parametrize("anonymous", [True, False], ids=["anonymous", "identified"])
+def test_survey_csv_export_sanitises_untrusted_cells_without_changing_privacy_or_structure(
+    db, client, anonymous
+):
+    school, allowed_user, _ = _world(db)
+    membership = db.query(Membership).filter_by(school_id=school.id, user_id=allowed_user.id).one()
+    opens_at = datetime(2026, 7, 24, 8, 0, tzinfo=timezone.utc)
+    closes_at = datetime(2026, 7, 25, 8, 0, tzinfo=timezone.utc)
+    submitted_at = datetime(2026, 7, 24, 10, 30, tzinfo=timezone.utc)
+    survey = Survey(
+        public_id=uuid4(),
+        school_id=school.id,
+        title="=Survey title",
+        introduction="  =Survey description",
+        audience_type="whole_school",
+        anonymous=anonymous,
+        response_mode="guardian",
+        opens_at=opens_at,
+        closes_at=closes_at,
+        status="closed",
+        created_by_membership_id=membership.id,
+    )
+    db.add(survey)
+    db.flush()
+    choice = SurveyQuestion(
+        public_id=uuid4(),
+        survey_id=survey.id,
+        question_type="single_choice",
+        prompt="+Choice question",
+        required=True,
+        sort_order=0,
+    )
+    formula_text = SurveyQuestion(
+        public_id=uuid4(),
+        survey_id=survey.id,
+        question_type="short_text",
+        prompt=" \t-Free-text question",
+        required=True,
+        sort_order=1,
+    )
+    safe_text = SurveyQuestion(
+        public_id=uuid4(),
+        survey_id=survey.id,
+        question_type="long_text",
+        prompt="سؤال عربي آمن",
+        required=True,
+        sort_order=2,
+    )
+    rating = SurveyQuestion(
+        public_id=uuid4(),
+        survey_id=survey.id,
+        question_type="rating",
+        prompt="@Rating question",
+        required=True,
+        sort_order=3,
+        scale_min=1,
+        scale_max=5,
+    )
+    db.add_all([choice, formula_text, safe_text, rating])
+    db.flush()
+    selected = SurveyOption(
+        public_id=uuid4(),
+        question_id=choice.id,
+        label="+Selected option",
+        sort_order=0,
+    )
+    db.add(selected)
+    db.flush()
+    survey_response = SurveyResponse(
+        public_id=uuid4(),
+        survey_id=survey.id,
+        response_key_hash=("a" if anonymous else "b") * 64,
+        respondent_label=None if anonymous else "@Permitted respondent",
+        submitted_at=submitted_at,
+    )
+    db.add(survey_response)
+    db.flush()
+    safe_multiline = 'He said "yes", then added a comma,\nثم كتب سطراً عربياً'
+    db.add_all(
+        [
+            SurveyAnswer(
+                response_id=survey_response.id,
+                question_id=choice.id,
+                selected_option_ids=[selected.id],
+            ),
+            SurveyAnswer(
+                response_id=survey_response.id,
+                question_id=formula_text.id,
+                answer_text="-Free-text answer",
+            ),
+            SurveyAnswer(
+                response_id=survey_response.id,
+                question_id=safe_text.id,
+                answer_text=safe_multiline,
+            ),
+            SurveyAnswer(
+                response_id=survey_response.id,
+                question_id=rating.id,
+                answer_number=4,
+            ),
+        ]
+    )
+    db.commit()
+
+    response = client.get(
+        f"/api/school/surveys/{survey.public_id}/export.csv",
+        headers=_headers(allowed_user.email, school.id),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"].startswith("text/csv")
+    rows = list(csv.reader(io.StringIO(response.content.decode("utf-8-sig"))))
+    expected_header = [
+        "response_timestamp",
+        *([] if anonymous else ["respondent"]),
+        "'+Choice question",
+        "' \t-Free-text question",
+        "سؤال عربي آمن",
+        "'@Rating question",
+    ]
+    expected_values = [
+        *([] if anonymous else ["'@Permitted respondent"]),
+        "'+Selected option",
+        "'-Free-text answer",
+        safe_multiline,
+        "4",
+    ]
+    assert rows[:9] == [
+        ["survey_title", "'=Survey title"],
+        ["status", "closed"],
+        ["audience", "whole_school"],
+        ["anonymous", str(anonymous).lower()],
+        ["response_mode", "guardian"],
+        ["opens_at", survey.opens_at.isoformat()],
+        ["closes_at", survey.closes_at.isoformat()],
+        [],
+        expected_header,
+    ]
+    assert datetime.fromisoformat(rows[5][1]) == survey.opens_at
+    assert datetime.fromisoformat(rows[6][1]) == survey.closes_at
+    assert datetime.fromisoformat(rows[9][0]) == survey_response.submitted_at
+    assert rows[9][1:] == expected_values
+    assert ("@Permitted respondent" not in response.text) if anonymous else True
+    assert db.query(SurveyEvent).filter_by(survey_id=survey.id, action="exported").count() == 1
+    audit = db.query(AuditLog).filter_by(action="school.survey.exported", entity_id=survey.id).one()
+    assert audit.detail == {"format": "csv", "anonymous": anonymous}
 
 
 def test_household_evidence_is_bound_once_and_cannot_be_changed():

@@ -1,5 +1,32 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-25 — CHH-SURVEY-001: Survey CSV formula-injection hardening
+
+Survey result CSV exports now pass every string cell through one shared
+sanitiser before `csv.writer` serialisation. If a cell begins with `=`, `+`, `-`
+or `@`, including after leading spaces or tabs, the sanitiser prefixes the
+original value with a single apostrophe. Spreadsheet applications therefore
+treat the value as text, while CSV quoting continues to preserve ordinary
+English and Arabic/UTF-8 text, RTL content, quotes, commas and line breaks.
+Non-string values are returned unchanged, and safe ISO timestamps remain
+unchanged and parseable.
+
+The common final row pass covers the untrusted strings present in the existing
+export: survey title, question prompt, choice-option label, identified
+respondent label and free-text answer. Survey introduction/instructions
+descriptions are not fields in the existing CSV and were not added, preserving
+the established column/row structure.
+
+Anonymous exports still omit the respondent column and label. Identified
+exports retain only the existing `respondent_label`; no additional family,
+guardian, household or device identity is exposed. The export endpoint,
+UTF-8 BOM, filename handling, cache/security headers, `SurveyEvent` record and
+`school.survey.exported` audit entry are unchanged.
+
+Focused regression coverage exercises all four formula prefixes, leading spaces
+and tabs, CSV punctuation and multiline values, Arabic/UTF-8, ordinary safe
+text, numeric ratings, timestamps, both privacy modes and export audit records.
+
 ## 2026-07-12 — S22b: Guarded Realistic Demo Activity Seeder
 
 Implemented the S22b demo activity seeder surface for United International School

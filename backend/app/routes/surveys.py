@@ -36,6 +36,7 @@ UTC = timezone.utc
 SURVEY_PERMISSION = "surveys.manage"
 QUESTION_TYPES = {"single_choice", "multiple_choice", "yes_no", "rating", "short_text", "long_text"}
 HOUSEHOLD_REF_RE = re.compile(r"^[0-9a-f]{64}$")
+CSV_FORMULA_PREFIX_RE = re.compile(r"^[ \t]*[=+\-@]")
 
 
 class OptionInput(BaseModel):
@@ -561,6 +562,12 @@ def results(
     }
 
 
+def _sanitise_csv_cell(value: Any) -> Any:
+    if isinstance(value, str) and CSV_FORMULA_PREFIX_RE.match(value):
+        return f"'{value}"
+    return value
+
+
 def _csv_rows(db: Session, survey: Survey) -> list[list[Any]]:
     questions = db.query(SurveyQuestion).filter(SurveyQuestion.survey_id == survey.id).order_by(SurveyQuestion.sort_order).all()
     options = db.query(SurveyOption).filter(SurveyOption.question_id.in_([row.id for row in questions])).all() if questions else []
@@ -578,7 +585,7 @@ def _csv_rows(db: Session, survey: Survey) -> list[list[Any]]:
             elif question.question_type == "rating": values.append(answer.answer_number)
             else: values.append(answer.answer_text or "")
         rows.append([response.submitted_at.isoformat(), *([] if survey.anonymous else [response.respondent_label or ""]), *values])
-    return rows
+    return [[_sanitise_csv_cell(value) for value in row] for row in rows]
 
 
 @router.get("/surveys/{survey_id}/export.csv")
