@@ -464,3 +464,30 @@ The focused contract suite now checks those current behaviours and the visual
 viewport/scroll-anchor contract. No backend, database, Capacitor configuration or
 native Android source changed. Real-device portrait testing remains required for
 IME animation, OEM keyboard behaviour and gesture/three-button Back ordering.
+
+### Physical-device correction
+
+The first CHH APK from this change still left the composer behind the Android
+keyboard. The web flex and scroll chain was bounded correctly, but the visible
+viewport never became smaller on the device. CHH differs from the working FHH
+shell because `MainActivity` deliberately enables edge-to-edge, places the WebView
+inside a native system-bar boundary and consumes the window insets. That boundary
+applied only status/navigation/display-cutout insets and discarded the IME inset.
+With decor fitting disabled, `adjustResize` could not resize the WebView on its own,
+so `visualViewport` continued to report the full WebView and the composer remained
+under the keyboard. FHH does not replace and consume the platform resize boundary,
+so its otherwise equivalent visible-viewport and flex layout received the IME
+reduction and worked.
+
+CHH now measures `WindowInsetsCompat.Type.ime()` at the existing native boundary
+and pads the WebView parent by the larger of the system-bar or IME inset on each
+edge. Opening the keyboard therefore reduces the WebView and
+`--native-viewport-height`; the app shell, viewport-managed messages workspace and
+conversation flex column shrink in order, leaving the timeline as the only scroll
+area and the sticky composer visible. Closing the keyboard restores the normal
+system-bar padding, without a persistent spacer or body-scroll lock. The composer,
+draft bindings, focus, polling, optimistic rows and existing Back policy are not
+remounted or otherwise changed.
+
+The app-scoped native unit tests cover both IME-open and IME-closed padding, and the
+focused messaging contract requires the native IME inset at the consumed boundary.

@@ -785,6 +785,9 @@ test('Android-sized composer honors bottom insets, keyboard resize, and ordered 
     end: element.selectionEnd
   }))).toEqual({ focused: true, start: 6, end: 14 });
 
+  // Chromium has no Android IME; mirror the state set by the native viewport tracker.
+  await page.evaluate(() => document.documentElement.classList.add('native-keyboard-open'));
+
   const keyboardBackHandled = await page.evaluate(() =>
     !window.dispatchEvent(new CustomEvent('chh:native-back', { cancelable: true }))
   );

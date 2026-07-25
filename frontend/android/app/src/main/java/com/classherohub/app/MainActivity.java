@@ -64,25 +64,28 @@ public class MainActivity extends BridgeActivity {
                     WindowInsetsCompat.Type.systemBars()
                             | WindowInsetsCompat.Type.displayCutout()
             );
+            final Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
+            final Insets appliedInsets = contentInsets(systemBars, ime);
 
             if (needsPaddingUpdate(
                     view.getPaddingLeft(),
                     view.getPaddingTop(),
                     view.getPaddingRight(),
                     view.getPaddingBottom(),
-                    systemBars
+                    appliedInsets
             )) {
                 view.setPadding(
-                        systemBars.left,
-                        systemBars.top,
-                        systemBars.right,
-                        systemBars.bottom
+                        appliedInsets.left,
+                        appliedInsets.top,
+                        appliedInsets.right,
+                        appliedInsets.bottom
                 );
             }
 
             if (isDebuggable()) {
                 final String diagnostic = insetDiagnostic(
                         systemBars,
+                        ime,
                         view.getPaddingTop(),
                         view.getPaddingBottom(),
                         getResources().getDisplayMetrics().density
@@ -93,8 +96,9 @@ public class MainActivity extends BridgeActivity {
                 }
             }
 
-            // The WebView is measured inside this physical-pixel boundary. Consuming
-            // the insets prevents Chromium/CSS from compensating for the same bars.
+            // The WebView is measured above the larger of the navigation bar or IME.
+            // Consuming the insets prevents Chromium/CSS from compensating for the
+            // same physical boundary a second time.
             return WindowInsetsCompat.CONSUMED;
         });
         ViewCompat.requestApplyInsets(container);
@@ -123,6 +127,15 @@ public class MainActivity extends BridgeActivity {
         return (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
     }
 
+    static Insets contentInsets(Insets systemBars, Insets ime) {
+        return Insets.of(
+                Math.max(systemBars.left, ime.left),
+                Math.max(systemBars.top, ime.top),
+                Math.max(systemBars.right, ime.right),
+                Math.max(systemBars.bottom, ime.bottom)
+        );
+    }
+
     static boolean needsPaddingUpdate(
             int left,
             int top,
@@ -138,12 +151,14 @@ public class MainActivity extends BridgeActivity {
 
     static String insetDiagnostic(
             Insets systemBars,
+            Insets ime,
             int shellTop,
             int shellBottom,
             float density
     ) {
         return "topInset=" + systemBars.top + "px"
                 + " bottomInset=" + systemBars.bottom + "px"
+                + " imeBottom=" + ime.bottom + "px"
                 + " shellTop=" + shellTop + "px"
                 + " shellBottom=" + shellBottom + "px"
                 + " density=" + density;

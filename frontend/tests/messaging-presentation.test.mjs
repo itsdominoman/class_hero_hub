@@ -25,6 +25,7 @@ const quickAwardSource = readFileSync(new URL('../src/routes/teach/assignments/[
 const conversationPaneSource = readFileSync(new URL('../src/lib/components/messaging/ConversationPane.svelte', import.meta.url), 'utf8');
 const receiptSource = readFileSync(new URL('../src/lib/components/messaging/MessageReceiptTicks.svelte', import.meta.url), 'utf8');
 const schoolSettingsSource = readFileSync(new URL('../src/routes/school/+page.svelte', import.meta.url), 'utf8');
+const mainActivitySource = readFileSync(new URL('../android/app/src/main/java/com/classherohub/app/MainActivity.java', import.meta.url), 'utf8');
 
 const baseConversation = {
   id: '00000000-0000-0000-0000-000000000001',
@@ -254,6 +255,9 @@ test('native authenticated shell follows the visual viewport and owns one bottom
   assert.match(appCssSource, /\.native-app \.app-main \{[\s\S]*overflow-y: auto;[\s\S]*padding-bottom: 0\.75rem;/);
   assert.match(appCssSource, /\.native-app \.app-main\.viewport-managed \{[\s\S]*padding-bottom: 0;/);
   assert.match(appCssSource, /\.native-app \[data-testid='messaging-workspace'\] \{[\s\S]*height: 100%;/);
+  assert.match(mainActivitySource, /WindowInsetsCompat\.Type\.ime\(\)/);
+  assert.match(mainActivitySource, /contentInsets\(systemBars, ime\)/);
+  assert.match(mainActivitySource, /Math\.max\(systemBars\.bottom, ime\.bottom\)/);
   assert.match(pageSource, /mx-auto h-full min-h-0 max-w-7xl/);
   assert.match(pageSource, /native-keyboard-open/);
   assert.match(conversationPaneSource, /new ResizeObserver/);
