@@ -30,7 +30,7 @@ services:
     command: ["python", "-m", "app.messaging_notification_worker"]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "scripts/check_worker_heartbeat.py", "notification"]
+      test: ["CMD", "python", "-m", "scripts.check_worker_heartbeat", "notification"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -46,7 +46,7 @@ services:
     command: ["python", "-m", "app.messaging_production_worker"]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "scripts/check_worker_heartbeat.py", "production"]
+      test: ["CMD", "python", "-m", "scripts.check_worker_heartbeat", "production"]
       interval: 30s
       timeout: 5s
       retries: 3
