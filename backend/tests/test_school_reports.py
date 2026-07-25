@@ -72,7 +72,18 @@ def report_world(db):
     db.add_all([
         BehaviourEvent(school_id=school.id, student_id=student.id, category_id=positive.id, actor_user_id=teacher.id, points_delta=2, context_type="general", source="teacher"),
         BehaviourEvent(school_id=school.id, student_id=student.id, category_id=needs_work.id, actor_user_id=teacher.id, points_delta=-1, context_type="general", source="teacher", note="private note"),
-        BehaviourEvent(school_id=school.id, student_id=student.id, category_id=positive.id, actor_user_id=teacher.id, points_delta=2, context_type="general", source="teacher", reversed_at=datetime.now()),
+        BehaviourEvent(
+            school_id=school.id,
+            student_id=student.id,
+            category_id=positive.id,
+            actor_user_id=teacher.id,
+            points_delta=2,
+            context_type="general",
+            source="teacher",
+            reversed_at=datetime.now(),
+            reversed_by_user_id=admin.id,
+            reversal_reason="Test correction",
+        ),
     ])
     db.commit()
     return {"school": school, "other_school": other_school, "admin": admin, "teacher": teacher, "guardian": guardian, "student": student, "other_student": other_student}

@@ -2421,6 +2421,32 @@ class BehaviourCategory(Base):
     )
 
 
+class BehaviourAwardRequest(Base):
+    __tablename__ = "behaviour_award_requests"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False)
+    actor_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    idempotency_key = Column(Uuid(as_uuid=True), nullable=False)
+    request_hash = Column(String(64), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint(
+            "school_id",
+            "actor_user_id",
+            "idempotency_key",
+            name="uq_behaviour_award_requests_scope",
+        ),
+        Index(
+            "ix_behaviour_award_requests_school_actor_created",
+            "school_id",
+            "actor_user_id",
+            "created_at",
+        ),
+    )
+
+
 class BehaviourEvent(Base):
     __tablename__ = "behaviour_events"
 
@@ -2429,6 +2455,12 @@ class BehaviourEvent(Base):
     student_id = Column(Integer, ForeignKey("students.id"), nullable=False, index=True)
     category_id = Column(Integer, ForeignKey("behaviour_categories.id"), nullable=False, index=True)
     actor_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    award_request_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("behaviour_award_requests.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     class_section_id = Column(Integer, ForeignKey("class_sections.id"), nullable=True, index=True)
     subject_group_id = Column(Integer, ForeignKey("subject_groups.id"), nullable=True, index=True)
     points_delta = Column(Integer, nullable=False)
@@ -2454,6 +2486,17 @@ class BehaviourEvent(Base):
             "(context_type = 'duty' AND duty_context IS NOT NULL AND class_section_id IS NULL AND subject_group_id IS NULL) OR "
             "(context_type = 'general' AND class_section_id IS NULL AND subject_group_id IS NULL AND duty_context IS NULL)",
             name="ck_behaviour_events_context_combination",
+        ),
+        CheckConstraint(
+            "(reversed_at IS NULL AND reversed_by_user_id IS NULL AND reversal_reason IS NULL) OR "
+            "(reversed_at IS NOT NULL AND reversed_by_user_id IS NOT NULL "
+            "AND reversal_reason IS NOT NULL AND length(trim(reversal_reason)) > 0)",
+            name="ck_behaviour_events_reversal_complete",
+        ),
+        UniqueConstraint(
+            "award_request_id",
+            "student_id",
+            name="uq_behaviour_events_award_request_student",
         ),
         Index("ix_behaviour_events_school_student_created", "school_id", "student_id", "created_at"),
         Index("ix_behaviour_events_school_context_created", "school_id", "context_type", "duty_context", "created_at"),

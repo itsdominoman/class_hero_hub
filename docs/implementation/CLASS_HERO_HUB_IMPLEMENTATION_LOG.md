@@ -4319,3 +4319,44 @@ CHH now processes update photos server-side. It accepts JPEG/JPG, PNG, WEBP and 
   migration/concurrency proof passed, Svelte check is clean, and the production web
   build passes. Operational detail is in
   `docs/operations/MESSAGING_NOTIFICATION_OUTBOX.md`.
+
+## 2026-07-25 — CHH-POINTS-001 award idempotency and corrections
+
+- `POST /api/teach/behaviour/events` now requires a client-generated UUID in the
+  `Idempotency-Key` header. Quick awards, assignment batch awards and duty awards
+  retain the same UUID while retrying the same payload.
+- A durable `behaviour_award_requests` row owns each batch. PostgreSQL enforces one
+  request per `(school_id, actor_user_id, idempotency_key)`, and each linked batch
+  permits at most one event per student. A SHA-256 hash of the normalised request
+  rejects reuse of a key for a different payload.
+- A committed retry returns the original event IDs and point deltas. A concurrent
+  duplicate waits on the same unique key and then resolves to that original batch.
+  Notifications and the award audit entry are created only by the first transaction.
+- `POST /api/teach/behaviour/events/{event_id}/reverse` requires a non-blank reason.
+  The awarding teacher may reverse their own event; an active school administrator
+  may reverse any event in their school. The event row is locked, marked once with
+  `reversed_at`, `reversed_by_user_id` and `reversal_reason`, and audited. Repeating
+  the correction returns the original reversal without changing its reason or
+  creating a second audit entry.
+- Reversal preserves the behaviour event. Existing totals, guardian/FHH history,
+  school reports and notification-summary aggregation all use
+  `reversed_at IS NULL`; no history is deleted. Pending immediate point outbox rows
+  for the reversed event are cancelled so an incorrect award cannot be dispatched
+  after correction. No new FHH payload or parent notification template was added.
+- Alembic revision `d6e7f8a9b0c1` adds the request ledger, nullable legacy-safe event
+  link, scoped uniqueness, and a database constraint requiring complete reversal
+  metadata. Legacy events remain unchanged and valid.
+- Focused validation passed: 41 SQLite/API behaviour, report, summary, outbox and
+  compatibility tests; one real PostgreSQL concurrent-duplicate test; a disposable
+  PostgreSQL upgrade/downgrade/re-upgrade round-trip; `svelte-check` with 0 errors
+  and 0 warnings; and the production frontend build. The rebuilt backend image
+  repeated the focused behaviour/report/summary/notification set with 39 passing.
+- Before the live pilot migration, encrypted differential backups completed in both
+  repositories: local `20260722-191347F_20260725-152249D` and off-host
+  `20260722-191359F_20260725-152255D`. The live database upgraded from
+  `c49d8e7f6a5b` to `d6e7f8a9b0c1`; all 10,303 legacy behaviour events remained,
+  with their new nullable request link unset.
+- Only the CHH backend and frontend were rebuilt/recreated. PostgreSQL, the
+  notification scheduler and the messaging production worker retained their
+  containers. Loopback and public health checks returned HTTP 200. FHH, Android
+  native code/configuration, APKs and unrelated CHH services were unchanged.

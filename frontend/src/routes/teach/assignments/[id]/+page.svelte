@@ -47,6 +47,7 @@
   type Category = { id: number; type: 'positive' | 'needs_work'; label: string; points_value: number };
   type QuickAction = { id: number; label: string; points_value: number };
   type QuickActions = { quick_actions: Record<'positive' | 'needs_work', QuickAction[]>; other_actions: Record<'positive' | 'needs_work', QuickAction[]> };
+  type PendingAwardRequest = { fingerprint: string; key: string };
   type ResourceLink = { url: string; label?: string | null };
   type HomeworkItem = { id: number; item_type: 'homework' | 'diary'; title: string; body?: string; due_at?: string | null; status: 'active' | 'archived'; attachment_count: number; attachments?: { id: number; original_filename: string; size_bytes: number }[]; resource_links: ResourceLink[] };
   type CalendarItem = {
@@ -139,6 +140,7 @@
   let pointsSaving = $state(false);
   let pointsError = $state<string | null>(null);
   let pointsSuccess = $state<string | null>(null);
+  let pointsRequest = $state<PendingAwardRequest | null>(null);
   let quickActions = $state<QuickActions | null>(null);
   let quickActionsLoading = $state(true);
   let quickActionsError = $state<string | null>(null);
@@ -147,6 +149,7 @@
   let quickAwardSaving = $state(false);
   let quickAwardError = $state<string | null>(null);
   let quickAwardNotice = $state<string | null>(null);
+  let quickAwardRequest = $state<PendingAwardRequest | null>(null);
   let quickAwardDialog = $state<HTMLDivElement | undefined>(undefined);
   let quickAwardTrigger: HTMLButtonElement | undefined;
   let quickAwardMessagingState = $state<'idle' | 'checking' | 'available' | 'disabled' | 'no_guardians' | 'unauthorized' | 'error'>('idle');
@@ -154,6 +157,13 @@
   let quickAwardConversationId = $state<string | null>(null);
   let quickAwardMessagingBusy = $state(false);
   let quickAwardMessagingEpoch = 0;
+
+  function awardRequest(payload: object, previous: PendingAwardRequest | null): PendingAwardRequest {
+    const fingerprint = JSON.stringify(payload);
+    return previous?.fingerprint === fingerprint
+      ? previous
+      : { fingerprint, key: crypto.randomUUID() };
+  }
 
   async function loadQuickActions() {
     if (!detail) return;
@@ -322,9 +332,16 @@
     quickAwardSaving = true;
     quickAwardError = null;
     try {
-      const result = await api.post('/teach/behaviour/events', {
+      const payload = {
         school_id: detail.assignment.school.id, student_ids: [student.id], category_id: action.id, note: null, ...context
-      });
+      };
+      quickAwardRequest = awardRequest(payload, quickAwardRequest);
+      const result = await api.post(
+        '/teach/behaviour/events',
+        payload,
+        { headers: { 'Idempotency-Key': quickAwardRequest.key } }
+      );
+      quickAwardRequest = null;
       const delta = result?.events?.[0]?.points_delta;
       if (typeof delta === 'number') {
         detail = { ...detail, students: detail.students.map((row) => row.id === student.id ? { ...row, points_total: row.points_total + delta } : row) };
@@ -398,7 +415,14 @@
       const target = detail.assignment.target_type === 'subject_group'
         ? { context_type: 'subject', subject_group_id: detail.assignment.subject_group?.id }
         : { context_type: 'class', class_section_id: detail.assignment.class_section?.id };
-      const result = await api.post('/teach/behaviour/events', { school_id: detail.assignment.school.id, student_ids: selectedStudents, category_id: Number(categoryId), note: pointNote || null, ...target });
+      const payload = { school_id: detail.assignment.school.id, student_ids: selectedStudents, category_id: Number(categoryId), note: pointNote || null, ...target };
+      pointsRequest = awardRequest(payload, pointsRequest);
+      const result = await api.post(
+        '/teach/behaviour/events',
+        payload,
+        { headers: { 'Idempotency-Key': pointsRequest.key } }
+      );
+      pointsRequest = null;
       const savedCount = result.created;
       detail = await api.get(`/teach/assignments/${$page.params.id}`);
       pointsSuccess = savedCount === 1

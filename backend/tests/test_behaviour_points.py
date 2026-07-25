@@ -1,4 +1,5 @@
 import os
+from uuid import uuid4
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
 os.environ["DEV_AUTH_ENABLED"] = "false"
@@ -14,9 +15,10 @@ from app import auth, database
 from app.database import Base, get_db
 from app.main import app
 from app.models_school import (
-    AcademicYear, BehaviourCategory, BehaviourEvent, BranchCampus, ClassSection,
-    Enrolment, GradeLevel, GuardianLink, Membership, School, StaffAssignment,
-    Student, Subject, SubjectGroup, User,
+    AcademicYear, AuditLog, BehaviourAwardRequest, BehaviourCategory, BehaviourEvent,
+    BranchCampus, ClassSection, Enrolment, FhhLink, FhhLinkInvite, GradeLevel,
+    GuardianLink, Membership, NotificationOutbox, School, StaffAssignment, Student,
+    Subject, SubjectGroup, User,
 )
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -39,9 +41,10 @@ def client():
     yield TestClient(app)
     app.dependency_overrides.clear()
 
-def headers(user, school=None):
+def headers(user, school=None, idempotency_key=None):
     result = {"Authorization": f"Bearer {auth.create_access_token({'sub': user.email})}"}
     if school: result["X-School-Id"] = str(school.id)
+    result["Idempotency-Key"] = str(idempotency_key or uuid4())
     return result
 
 @pytest.fixture
@@ -71,6 +74,27 @@ def add_assignment_context(db, w):
         StaffAssignment(school_id=w["a"].id, membership_id=membership.id, subject_group_id=group.id, role="subject"),
     ]); db.commit()
     return section, subject, group
+
+
+def add_fhh_link(db, w):
+    invite = FhhLinkInvite(
+        school_id=w["a"].id,
+        student_id=w["s1"].id,
+        token_hash=f"award-invite-{uuid4()}",
+        display_code_last4="1001",
+        created_by_user_id=w["admin"].id,
+    )
+    db.add(invite); db.flush()
+    link = FhhLink(
+        school_id=w["a"].id,
+        student_id=w["s1"].id,
+        source_invite_id=invite.id,
+        link_token_hash=f"award-link-{uuid4()}",
+        fhh_child_ref=f"child-{uuid4()}",
+        status="active",
+    )
+    db.add(link); db.commit()
+    return link
 
 def test_defaults_admin_crud_and_teacher_active_visibility(db, client, world):
     w=world
@@ -189,3 +213,171 @@ def test_database_rejects_invalid_context_combinations(db, world):
     db.add(BehaviourEvent(school_id=w["a"].id,student_id=w["s1"].id,category_id=category.id,actor_user_id=w["teacher"].id,points_delta=1,source="teacher",context_type="duty",duty_context="invalid"))
     with pytest.raises(IntegrityError): db.commit()
     db.rollback()
+
+
+def test_duplicate_retry_returns_original_award_and_outbox(db, client, world):
+    w = world
+    add_fhh_link(db, w)
+    category = BehaviourCategory(
+        school_id=w["a"].id,
+        type="positive",
+        label="Idempotent praise",
+        points_value=2,
+        active=True,
+    )
+    db.add(category); db.commit()
+    key = uuid4()
+    payload = {
+        "school_id": w["a"].id,
+        "student_ids": [w["s1"].id],
+        "category_id": category.id,
+    }
+    missing_key = client.post(
+        "/api/teach/behaviour/events",
+        headers={"Authorization": f"Bearer {auth.create_access_token({'sub': w['teacher'].email})}"},
+        json=payload,
+    )
+    assert missing_key.status_code == 422
+
+    first = client.post(
+        "/api/teach/behaviour/events",
+        headers=headers(w["teacher"], idempotency_key=key),
+        json=payload,
+    )
+    retry = client.post(
+        "/api/teach/behaviour/events",
+        headers=headers(w["teacher"], idempotency_key=key),
+        json=payload,
+    )
+
+    assert first.status_code == retry.status_code == 201
+    assert retry.json() == first.json()
+    changed_payload = client.post(
+        "/api/teach/behaviour/events",
+        headers=headers(w["teacher"], idempotency_key=key),
+        json={**payload, "note": "Different award"},
+    )
+    assert changed_payload.status_code == 409
+    assert db.query(BehaviourAwardRequest).count() == 1
+    assert db.query(BehaviourEvent).count() == 1
+    assert db.query(AuditLog).filter_by(action="behaviour.events.created").count() == 1
+    outbox = db.query(NotificationOutbox).filter_by(
+        event_category="points",
+        source_type="behaviour_event",
+    ).all()
+    assert len(outbox) == 1
+    assert len({row.dedupe_key for row in outbox}) == 1
+
+
+def test_multi_student_batch_retry_returns_the_original_batch(db, client, world):
+    w = world
+    category = BehaviourCategory(
+        school_id=w["a"].id,
+        type="positive",
+        label="Batch praise",
+        points_value=1,
+        active=True,
+    )
+    db.add(category); db.commit()
+    key = uuid4()
+    payload = {
+        "school_id": w["a"].id,
+        "student_ids": [w["s2"].id, w["s1"].id],
+        "category_id": category.id,
+    }
+
+    first = client.post(
+        "/api/teach/behaviour/events",
+        headers=headers(w["teacher"], idempotency_key=key),
+        json=payload,
+    )
+    retry = client.post(
+        "/api/teach/behaviour/events",
+        headers=headers(w["teacher"], idempotency_key=key),
+        json={**payload, "student_ids": list(reversed(payload["student_ids"]))},
+    )
+
+    assert first.status_code == retry.status_code == 201
+    assert retry.json() == first.json()
+    assert first.json()["created"] == 2
+    assert db.query(BehaviourAwardRequest).count() == 1
+    assert db.query(BehaviourEvent).count() == 2
+
+
+def test_reversal_is_authorised_idempotent_audited_and_excluded(db, client, world):
+    w = world
+    add_fhh_link(db, w)
+    other_teacher = User(email="other-teacher@a.test", name="Other Teacher")
+    db.add(other_teacher); db.flush()
+    db.add(Membership(school_id=w["a"].id, user_id=other_teacher.id, role="teacher"))
+    category = BehaviourCategory(
+        school_id=w["a"].id,
+        type="positive",
+        label="Correction target",
+        points_value=3,
+        active=True,
+    )
+    db.add(category); db.commit()
+    award = client.post(
+        "/api/teach/behaviour/events",
+        headers=headers(w["teacher"]),
+        json={
+            "school_id": w["a"].id,
+            "student_ids": [w["s1"].id],
+            "category_id": category.id,
+        },
+    )
+    assert award.status_code == 201
+    event_id = award.json()["events"][0]["id"]
+    assert client.get("/api/guardian/points", headers=headers(w["guardian"])).json()["children"][0]["total"] == 3
+
+    unauthorised = client.post(
+        f"/api/teach/behaviour/events/{event_id}/reverse",
+        headers=headers(other_teacher),
+        json={"school_id": w["a"].id, "reason": "Not my award"},
+    )
+    assert unauthorised.status_code == 403
+
+    first = client.post(
+        f"/api/teach/behaviour/events/{event_id}/reverse",
+        headers=headers(w["admin"]),
+        json={"school_id": w["a"].id, "reason": "Awarded to the wrong learner"},
+    )
+    duplicate = client.post(
+        f"/api/teach/behaviour/events/{event_id}/reverse",
+        headers=headers(w["admin"]),
+        json={"school_id": w["a"].id, "reason": "Duplicate correction attempt"},
+    )
+
+    assert first.status_code == duplicate.status_code == 200
+    assert duplicate.json() == first.json()
+    assert first.json()["event"]["reversal_reason"] == "Awarded to the wrong learner"
+    db.expire_all()
+    event = db.query(BehaviourEvent).filter_by(id=event_id).one()
+    assert event.reversed_at is not None
+    assert event.reversed_by_user_id == w["admin"].id
+    assert event.reversal_reason == "Awarded to the wrong learner"
+    assert db.query(AuditLog).filter_by(action="behaviour.event.reversed").count() == 1
+    outbox = db.query(NotificationOutbox).filter_by(
+        event_category="points",
+        source_type="behaviour_event",
+        source_id=event_id,
+    ).one()
+    assert outbox.state == "cancelled"
+    assert outbox.last_error_code == "behaviour_event_reversed"
+    guardian = client.get("/api/guardian/points", headers=headers(w["guardian"])).json()
+    assert guardian["children"][0]["total"] == 0
+    assert guardian["children"][0]["recent_events"] == []
+    overview = client.get(
+        "/api/school/reports/behaviour/overview",
+        headers=headers(w["admin"], w["a"]),
+    )
+    assert overview.status_code == 200
+    assert overview.json()["metrics"]["total_events"] == 0
+    assert overview.json()["metrics"]["signed_points_total"] == 0
+    report_events = client.get(
+        "/api/school/reports/behaviour/events",
+        headers=headers(w["admin"], w["a"]),
+    ).json()
+    assert report_events["events"] == []
+    assert report_events["pagination"]["total"] == 0

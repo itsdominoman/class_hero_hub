@@ -1,14 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import auth
-from ..behaviour_service import category_payload, create_events, guardian_points_payload, quick_actions_payload, seed_default_categories, visible_categories
+from ..behaviour_service import category_payload, create_events, guardian_points_payload, quick_actions_payload, reverse_event, seed_default_categories, visible_categories
 from ..database import get_db
 from ..models_school import BehaviourCategory, Membership, User
 from ..school_scope import require_school_role, write_audit
-from ..family_notifications import enqueue_family_notifications
+from ..family_notifications import cancel_reversed_behaviour_event_notifications, enqueue_family_notifications
 from ..point_notification_summaries import late_summary_periods
 
 school_router = APIRouter(dependencies=[Depends(require_school_role("school_admin"))])
@@ -121,6 +123,26 @@ class EventRequest(BaseModel):
         return self
 
 
+class ReversalRequest(BaseModel):
+    school_id: int
+    reason: str = Field(min_length=1, max_length=500)
+
+
+def event_result(rows) -> dict:
+    return {
+        "created": len(rows),
+        "events": [
+            {
+                "id": row.id,
+                "student_id": row.student_id,
+                "category_id": row.category_id,
+                "points_delta": row.points_delta,
+            }
+            for row in rows
+        ],
+    }
+
+
 @school_router.get("/behaviour/categories")
 def admin_categories(membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     seed_default_categories(db, membership.school_id); db.commit()
@@ -224,19 +246,27 @@ def teacher_quick_actions(school_id: int, user: User = Depends(auth.get_current_
 
 
 @teacher_router.post("/behaviour/events", status_code=201)
-def award_points(body: EventRequest, user: User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
-    rows = create_events(
+def award_points(
+    body: EventRequest,
+    idempotency_key: UUID = Header(alias="Idempotency-Key"),
+    user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    rows, replay = create_events(
         db,
         school_id=body.school_id,
         student_ids=body.student_ids,
         category_id=body.category_id,
         actor=user,
+        idempotency_key=idempotency_key,
         note=body.note,
         context_type=body.context_type,
         class_section_id=body.class_section_id,
         subject_group_id=body.subject_group_id,
         duty_context=body.duty_context,
     )
+    if replay:
+        return event_result(rows)
     for row in rows:
         enqueue_family_notifications(db, category="points", source=row, action="awarded")
     late_events = [
@@ -253,12 +283,57 @@ def award_points(body: EventRequest, user: User = Depends(auth.get_current_user)
             "event_ids": [r.id for r in rows],
             "student_ids": body.student_ids,
             "category_id": body.category_id,
+            "idempotency_key": str(idempotency_key),
             "late_after_summary": late_events,
         },
         body.school_id,
     )
     db.commit()
-    return {"created": len(rows), "events": [{"id": r.id, "student_id": r.student_id, "category_id": r.category_id, "points_delta": r.points_delta} for r in rows]}
+    return event_result(rows)
+
+
+@teacher_router.post("/behaviour/events/{event_id}/reverse")
+def reverse_points_event(
+    event_id: int,
+    body: ReversalRequest,
+    user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    row, replay = reverse_event(
+        db,
+        school_id=body.school_id,
+        event_id=event_id,
+        actor=user,
+        reason=body.reason,
+    )
+    if not replay:
+        cancelled_notifications = cancel_reversed_behaviour_event_notifications(db, event=row)
+        write_audit(
+            db,
+            user,
+            "behaviour.event.reversed",
+            row,
+            {
+                "student_id": row.student_id,
+                "category_id": row.category_id,
+                "points_delta": row.points_delta,
+                "reason": row.reversal_reason,
+                "cancelled_notification_count": cancelled_notifications,
+            },
+            body.school_id,
+        )
+        db.commit()
+    return {
+        "event": {
+            "id": row.id,
+            "student_id": row.student_id,
+            "category_id": row.category_id,
+            "points_delta": row.points_delta,
+            "reversed_at": row.reversed_at,
+            "reversed_by_user_id": row.reversed_by_user_id,
+            "reversal_reason": row.reversal_reason,
+        }
+    }
 
 
 @guardian_router.get("/points")

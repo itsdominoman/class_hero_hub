@@ -57,6 +57,7 @@
   };
   type SchoolRef = { id: number; name: string; name_ar?: string | null };
   type Category = { id: number; type: 'positive' | 'needs_work'; label: string; points_value: number };
+  type PendingAwardRequest = { fingerprint: string; key: string };
   type SearchStudent = {
     id: number; display_name: string; first_name: string; last_name: string; preferred_name?: string | null;
     name_ar?: string | null; avatar_url_256?: string | null; points_total: number;
@@ -106,6 +107,7 @@
   let dutyContext = $state('general_duty');
   let pointsSaving = $state(false);
   let pointsSuccess = $state<string | null>(null);
+  let pointsRequest = $state<PendingAwardRequest | null>(null);
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
   let presentationLocale = $derived($locale || 'en');
   let groupedAssignments = $derived(
@@ -116,6 +118,13 @@
       $_('teach.subject')
     )
   );
+
+  function awardRequest(payload: object): PendingAwardRequest {
+    const fingerprint = JSON.stringify(payload);
+    return pointsRequest?.fingerprint === fingerprint
+      ? pointsRequest
+      : { fingerprint, key: crypto.randomUUID() };
+  }
 
   function titleFor(card: AssignmentCard) {
     if (card.role === 'homeroom') return card.class_section?.name || card.class_section?.code || $_('teach.homeroom');
@@ -227,11 +236,18 @@
     pointsSaving = true;
     searchError = null;
     try {
-      const result = await api.post('/teach/behaviour/events', {
+      const payload = {
         school_id: Number(searchSchoolId), student_ids: selectedStudents.map((row) => row.id),
         category_id: Number(categoryId), note: pointNote || null,
         context_type: 'duty', duty_context: dutyContext
-      });
+      };
+      pointsRequest = awardRequest(payload);
+      const result = await api.post(
+        '/teach/behaviour/events',
+        payload,
+        { headers: { 'Idempotency-Key': pointsRequest.key } }
+      );
+      pointsRequest = null;
       pointsSuccess = result.created === 1 ? $_('teach.points.successOne') : $_('teach.points.successMany', { values: { count: result.created } });
       selectedStudents = [];
       searchResults = [];

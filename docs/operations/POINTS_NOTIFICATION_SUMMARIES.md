@@ -1,7 +1,8 @@
 # Points notification summaries
 
-Point events are always stored immediately and continue to feed the normal points history,
-totals, reports and charts. The school-scoped points notification policy changes push timing
+Point events are always stored immediately. Unreversed events feed the normal points
+history, totals, reports, charts and newly generated summaries; reversed events remain in
+the audit history only. The school-scoped points notification policy changes push timing
 only.
 
 - `summaries` can independently enable daily, weekly and monthly summaries.
@@ -24,3 +25,8 @@ One immutable aggregate exists per school, child, summary type and period key. D
 each active FHH link reuses the notification outbox and signed bridge. A later point event is
 retained and diagnosed against any already-generated matching daily, weekly or monthly key;
 it never causes a correction or second summary.
+
+Reversed behaviour events remain in the audit history but are excluded from immediate
+totals and from any summary generated after the reversal. Reversing an event cancels its
+undispatched immediate outbox rows. An already-generated immutable summary is not rewritten
+or re-sent; the reversal audit and the corrected live total remain the source of truth.

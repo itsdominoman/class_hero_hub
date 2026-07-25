@@ -851,7 +851,17 @@ def test_teacher_class_detail_batches_persisted_point_totals_and_excludes_revers
     db.add_all([
         BehaviourEvent(school_id=world["alpha"].id, student_id=students[0].id, category_id=positive.id, actor_user_id=world["alpha_teacher"].id, points_delta=2, source="teacher"),
         BehaviourEvent(school_id=world["alpha"].id, student_id=students[0].id, category_id=needs_work.id, actor_user_id=world["alpha_teacher"].id, points_delta=-1, source="teacher"),
-        BehaviourEvent(school_id=world["alpha"].id, student_id=students[1].id, category_id=positive.id, actor_user_id=world["alpha_teacher"].id, points_delta=2, source="teacher", reversed_at=datetime.now(timezone.utc)),
+        BehaviourEvent(
+            school_id=world["alpha"].id,
+            student_id=students[1].id,
+            category_id=positive.id,
+            actor_user_id=world["alpha_teacher"].id,
+            points_delta=2,
+            source="teacher",
+            reversed_at=datetime.now(timezone.utc),
+            reversed_by_user_id=world["alpha_teacher"].id,
+            reversal_reason="Test correction",
+        ),
     ])
     db.commit()
 

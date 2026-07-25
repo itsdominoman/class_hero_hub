@@ -114,6 +114,31 @@ def test_daily_mixed_totals_children_no_activity_idempotency_and_late_event(db):
     assert db.query(PointNotificationSummary).count() == 2
 
 
+def test_reversed_events_are_excluded_from_new_summaries(db):
+    school, _policy, user, positive, _needs_work, alice, _bob, _links = _world(db)
+    reversed_event = _event(
+        db,
+        school,
+        alice,
+        positive,
+        user,
+        5,
+        datetime(2026, 7, 21, 7, 0, tzinfo=UTC),
+    )
+    reversed_event.reversed_at = datetime(2026, 7, 21, 8, 0, tzinfo=UTC)
+    reversed_event.reversed_by_user_id = user.id
+    reversed_event.reversal_reason = "Incorrect award"
+    _event(db, school, alice, positive, user, 2, datetime(2026, 7, 21, 9, 0, tzinfo=UTC))
+
+    generate_due_point_summaries(db, now=datetime(2026, 7, 21, 11, 16, tzinfo=UTC))
+
+    summary = db.query(PointNotificationSummary).filter_by(summary_type="daily").one()
+    assert (summary.positive_total, summary.needs_work_total, summary.net_total, summary.event_count) == (2, 0, 2, 1)
+    outbox = db.query(NotificationOutbox).one()
+    assert outbox.template_args["positive_total"] == 2
+    assert outbox.template_args["event_count"] == 1
+
+
 def test_no_activity_creates_no_summary(db):
     _world(db)
     result = generate_due_point_summaries(db, now=datetime(2026, 7, 21, 11, 16, tzinfo=UTC))

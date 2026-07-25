@@ -1,4 +1,5 @@
 import os
+from uuid import uuid4
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
@@ -49,6 +50,7 @@ def headers(user, school=None):
     result = {"Authorization": f"Bearer {auth.create_access_token({'sub': user.email})}"}
     if school:
         result["X-School-Id"] = str(school.id)
+    result["Idempotency-Key"] = str(uuid4())
     return result
 
 

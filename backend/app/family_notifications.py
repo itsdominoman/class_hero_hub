@@ -292,3 +292,26 @@ def cancel_undispatched_immediate_points(
         NotificationOutbox.lease_owner: None,
         NotificationOutbox.lease_expires_at: None,
     }, synchronize_session=False)
+
+
+def cancel_reversed_behaviour_event_notifications(
+    db: Session,
+    *,
+    event: BehaviourEvent,
+    now: datetime | None = None,
+) -> int:
+    now = now or datetime.now(UTC)
+    return db.query(NotificationOutbox).filter(
+        NotificationOutbox.school_id == event.school_id,
+        NotificationOutbox.event_category == "points",
+        NotificationOutbox.source_type == "behaviour_event",
+        NotificationOutbox.source_id == event.id,
+        NotificationOutbox.source_action == "awarded",
+        NotificationOutbox.state.in_(("held", "pending", "leased", "failed")),
+    ).update({
+        NotificationOutbox.state: "cancelled",
+        NotificationOutbox.last_error_code: "behaviour_event_reversed",
+        NotificationOutbox.completed_at: now,
+        NotificationOutbox.lease_owner: None,
+        NotificationOutbox.lease_expires_at: None,
+    }, synchronize_session=False)

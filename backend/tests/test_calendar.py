@@ -1,5 +1,6 @@
 import os
 from datetime import date, timedelta
+from uuid import uuid4
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
@@ -249,7 +250,10 @@ def test_pending_setup_real_publish_routes_create_all_family_notification_catego
     )
     points = client.post(
         "/api/teach/behaviour/events",
-        headers=bearer(world["teacher"].email),
+        headers={
+            **bearer(world["teacher"].email),
+            "Idempotency-Key": str(uuid4()),
+        },
         json={
             "school_id": school.id,
             "student_ids": [world["student"].id],

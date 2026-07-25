@@ -2,13 +2,17 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timezone
+from hashlib import sha256
+import json
 from typing import Iterable
+from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from .models_school import BehaviourCategory, BehaviourEvent, ClassSection, GuardianLink, Membership, School, StaffAssignment, Student, Subject, SubjectGroup, User
+from .models_school import BehaviourAwardRequest, BehaviourCategory, BehaviourEvent, ClassSection, GuardianLink, Membership, School, StaffAssignment, Student, Subject, SubjectGroup, User
 from .rosters import roster_payload
 from .school_scope import open_interval_expression
 
@@ -100,6 +104,70 @@ def active_teacher_membership(db: Session, user_id: int, school_id: int) -> Memb
     return row
 
 
+def active_behaviour_staff_membership(db: Session, user_id: int, school_id: int) -> Membership:
+    rows = (db.query(Membership).join(School, School.id == Membership.school_id).filter(
+        Membership.user_id == user_id,
+        Membership.school_id == school_id,
+        Membership.role.in_(("teacher", "school_admin")),
+        Membership.status == "active",
+        Membership.revoked_at.is_(None),
+        School.status != "suspended",
+    ).all())
+    if not rows:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Active staff access required")
+    return next((row for row in rows if row.role == "school_admin"), rows[0])
+
+
+def _award_request_hash(
+    *,
+    school_id: int,
+    student_ids: list[int],
+    category_id: int,
+    note: str | None,
+    context_type: str,
+    class_section_id: int | None,
+    subject_group_id: int | None,
+    duty_context: str | None,
+) -> str:
+    payload = {
+        "school_id": school_id,
+        "student_ids": sorted(student_ids),
+        "category_id": category_id,
+        "note": note,
+        "context_type": context_type,
+        "class_section_id": class_section_id,
+        "subject_group_id": subject_group_id,
+        "duty_context": duty_context,
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return sha256(encoded).hexdigest()
+
+
+def _existing_award(
+    db: Session,
+    *,
+    school_id: int,
+    actor_user_id: int,
+    idempotency_key: UUID,
+    request_hash: str,
+) -> list[BehaviourEvent] | None:
+    request = db.query(BehaviourAwardRequest).filter(
+        BehaviourAwardRequest.school_id == school_id,
+        BehaviourAwardRequest.actor_user_id == actor_user_id,
+        BehaviourAwardRequest.idempotency_key == idempotency_key,
+    ).first()
+    if request is None:
+        return None
+    if request.request_hash != request_hash:
+        raise HTTPException(status_code=409, detail="Idempotency key was already used for a different award batch")
+    rows = db.query(BehaviourEvent).filter(
+        BehaviourEvent.award_request_id == request.id,
+    ).order_by(BehaviourEvent.id).all()
+    if not rows:
+        raise HTTPException(status_code=409, detail="The original award batch is not available")
+    return rows
+
+
 def create_events(
     db: Session,
     *,
@@ -107,12 +175,13 @@ def create_events(
     student_ids: Iterable[int],
     category_id: int,
     actor: User,
+    idempotency_key: UUID,
     note: str | None,
     context_type: str = "general",
     class_section_id: int | None = None,
     subject_group_id: int | None = None,
     duty_context: str | None = None,
-) -> list[BehaviourEvent]:
+) -> tuple[list[BehaviourEvent], bool]:
     membership = active_teacher_membership(db, actor.id, school_id)
     valid_context = (
         context_type in CONTEXT_TYPES
@@ -128,6 +197,27 @@ def create_events(
     ids = list(dict.fromkeys(student_ids))
     if not ids or len(ids) > 40:
         raise HTTPException(status_code=422, detail="Select between 1 and 40 students")
+    safe_note = note.strip() if note and note.strip() else None
+    request_hash = _award_request_hash(
+        school_id=school_id,
+        student_ids=ids,
+        category_id=category_id,
+        note=safe_note,
+        context_type=context_type,
+        class_section_id=class_section_id,
+        subject_group_id=subject_group_id,
+        duty_context=duty_context,
+    )
+    actor_user_id = actor.id
+    existing = _existing_award(
+        db,
+        school_id=school_id,
+        actor_user_id=actor_user_id,
+        idempotency_key=idempotency_key,
+        request_hash=request_hash,
+    )
+    if existing is not None:
+        return existing, True
     category = db.query(BehaviourCategory).filter(BehaviourCategory.id == category_id, BehaviourCategory.school_id == school_id, BehaviourCategory.active.is_(True)).first()
     if not category:
         raise HTTPException(status_code=400, detail="Active behaviour category not found")
@@ -159,12 +249,33 @@ def create_events(
         roster_ids = {row["id"] for row in roster["students"]}
         if not set(ids).issubset(roster_ids):
             raise HTTPException(status_code=400, detail="Every student must belong to the selected behaviour target")
-    safe_note = note.strip() if note and note.strip() else None
+    award_request = BehaviourAwardRequest(
+        school_id=school_id,
+        actor_user_id=actor_user_id,
+        idempotency_key=idempotency_key,
+        request_hash=request_hash,
+    )
+    db.add(award_request)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        existing = _existing_award(
+            db,
+            school_id=school_id,
+            actor_user_id=actor_user_id,
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
+        )
+        if existing is None:
+            raise
+        return existing, True
     rows = [BehaviourEvent(
         school_id=school_id,
         student_id=student.id,
         category_id=category.id,
-        actor_user_id=actor.id,
+        actor_user_id=actor_user_id,
+        award_request_id=award_request.id,
         class_section_id=class_section_id,
         subject_group_id=subject_group_id,
         points_delta=category.points_value,
@@ -175,7 +286,36 @@ def create_events(
     ) for student in students]
     db.add_all(rows)
     db.flush()
-    return rows
+    return sorted(rows, key=lambda row: row.id), False
+
+
+def reverse_event(
+    db: Session,
+    *,
+    school_id: int,
+    event_id: int,
+    actor: User,
+    reason: str,
+) -> tuple[BehaviourEvent, bool]:
+    membership = active_behaviour_staff_membership(db, actor.id, school_id)
+    event = db.query(BehaviourEvent).filter(
+        BehaviourEvent.id == event_id,
+        BehaviourEvent.school_id == school_id,
+    ).with_for_update().first()
+    if event is None:
+        raise HTTPException(status_code=404, detail="Behaviour event not found")
+    if membership.role != "school_admin" and event.actor_user_id != actor.id:
+        raise HTTPException(status_code=403, detail="Only the awarding teacher or a school administrator can reverse this event")
+    if event.reversed_at is not None:
+        return event, True
+    safe_reason = reason.strip()
+    if not safe_reason:
+        raise HTTPException(status_code=422, detail="A reversal reason is required")
+    event.reversed_at = datetime.now(timezone.utc)
+    event.reversed_by_user_id = actor.id
+    event.reversal_reason = safe_reason
+    db.flush()
+    return event, False
 
 
 def event_context_payloads(db: Session, events: Iterable[BehaviourEvent]) -> dict[int, dict]:
