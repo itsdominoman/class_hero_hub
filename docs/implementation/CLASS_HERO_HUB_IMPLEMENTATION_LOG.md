@@ -4419,3 +4419,26 @@ CHH now processes update photos server-side. It accepts JPEG/JPG, PNG, WEBP and 
 - Focused PostgreSQL coverage verifies normal INSERT/SELECT, ORM bulk UPDATE/DELETE
   rejection, raw SQL UPDATE/DELETE rejection, preservation of the targeted row
   after each rejected statement, and the existing `write_audit(...)` workflow.
+
+## 2026-07-25 — Privileged access and device-unregistration hardening
+
+- `CHH-AUTHZ-001`: configured platform-admin emails no longer reactivate a
+  revoked `platform_admins` row during authentication. Initial creation now
+  additionally requires the explicit, temporary
+  `PLATFORM_ADMIN_BOOTSTRAP_ENABLED=true` first-run flag and an entirely empty
+  `platform_admins` table. The bootstrap audit identifies that first-run
+  condition.
+- A separate, two-operator break-glass process reactivates only an existing
+  platform administrator and writes
+  `platform_admin.break_glass_recovery` evidence in the same transaction. See
+  `docs/operations/PLATFORM_ADMIN_RECOVERY.md`.
+- `CHH-PUSH-001`: `/api/devices/unregister` now includes the authenticated
+  user's ID in the registration lookup. A matching registration owned by
+  another user and a missing registration both return the same idempotent
+  `{"status":"unregistered"}` response without changing data or revealing
+  ownership.
+- Focused authentication and messaging-notification tests cover first-run
+  creation, the disabled first-run flag, persistence of configured-admin
+  revocation, normal owner logout, foreign-owner no-op, and
+  missing-registration no-op. All six focused tests passed in the rebuilt
+  backend image.

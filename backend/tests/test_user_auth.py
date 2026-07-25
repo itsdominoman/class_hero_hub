@@ -1,5 +1,5 @@
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse
 
 os.environ["DATABASE_URL"] = "sqlite://"
@@ -267,6 +267,7 @@ def test_bootstrap_platform_admin_created_once(db, client, seeded_schools, monke
     db.query(PlatformAdmin).delete()
     db.commit()
     monkeypatch.setattr(database.settings, "PLATFORM_ADMIN_EMAILS", platform_user.email)
+    monkeypatch.setattr(database.settings, "PLATFORM_ADMIN_BOOTSTRAP_ENABLED", True)
     authenticate(client, platform_user.email)
 
     first_response = client.get("/api/me/v2")
@@ -278,6 +279,47 @@ def test_bootstrap_platform_admin_created_once(db, client, seeded_schools, monke
     assert second_response.json()["is_platform_admin"] is True
     assert db.query(PlatformAdmin).filter_by(user_id=platform_user.id).count() == 1
     assert db.query(AuditLog).filter_by(action="platform_admin.bootstrap").count() == 1
+
+
+def test_bootstrap_platform_admin_requires_explicit_first_run_flag(
+    db, client, seeded_schools, monkeypatch
+):
+    platform_user = seeded_schools["platform_user"]
+    db.query(PlatformAdmin).delete()
+    db.commit()
+    monkeypatch.setattr(database.settings, "PLATFORM_ADMIN_EMAILS", platform_user.email)
+    monkeypatch.setattr(database.settings, "PLATFORM_ADMIN_BOOTSTRAP_ENABLED", False)
+    authenticate(client, platform_user.email)
+
+    response = client.get("/api/me/v2")
+
+    assert response.status_code == 200
+    assert response.json()["is_platform_admin"] is False
+    assert db.query(PlatformAdmin).count() == 0
+    assert db.query(AuditLog).filter_by(action="platform_admin.bootstrap").count() == 0
+
+
+def test_revoked_configured_bootstrap_platform_admin_remains_revoked(
+    db, client, seeded_schools, monkeypatch
+):
+    platform_user = seeded_schools["platform_user"]
+    platform_admin = db.query(PlatformAdmin).filter_by(user_id=platform_user.id).one()
+    revoked_at = datetime.now(timezone.utc)
+    platform_admin.revoked_at = revoked_at
+    db.commit()
+    db.refresh(platform_admin)
+    revoked_at = platform_admin.revoked_at
+    monkeypatch.setattr(database.settings, "PLATFORM_ADMIN_EMAILS", platform_user.email)
+    monkeypatch.setattr(database.settings, "PLATFORM_ADMIN_BOOTSTRAP_ENABLED", True)
+    authenticate(client, platform_user.email)
+
+    response = client.get("/api/me/v2")
+
+    assert response.status_code == 200
+    assert response.json()["is_platform_admin"] is False
+    db.refresh(platform_admin)
+    assert platform_admin.revoked_at == revoked_at
+    assert db.query(AuditLog).filter_by(action="platform_admin.bootstrap").count() == 0
 
 
 def test_require_platform_admin_rejects_normal_user(db, dependency_client, seeded_schools):

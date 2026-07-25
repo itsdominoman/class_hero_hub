@@ -870,6 +870,45 @@ def test_chh_device_account_switch_logout_and_opaque_tap_target_are_receipt_neut
     assert db.query(MessageReceiptEvent).count() == before_receipts
 
 
+def test_chh_device_unregister_is_owner_scoped_and_foreign_or_missing_is_idempotent(db):
+    world = _world(db)
+    registration = DevicePushRegistration(
+        installation_id=uuid4(),
+        user_id=world.admin_user.id,
+        platform="android",
+        app_package="com.classherohub.app",
+        locale="en",
+        fcm_token="token-value-long-enough-for-owner-scope",
+    )
+    foreign_user = User(
+        email=f"foreign-{uuid4()}@test",
+        name="Foreign Teacher",
+        google_sub=str(uuid4()),
+    )
+    db.add_all([registration, foreign_user])
+    db.commit()
+    request = UnregisterDeviceRequest(
+        installation_id=registration.installation_id,
+        app_package=registration.app_package,
+        fcm_token=registration.fcm_token,
+    )
+
+    assert unregister_device(request, current_user=foreign_user, db=db) == {
+        "status": "unregistered"
+    }
+    db.refresh(registration)
+    assert registration.state == "active"
+    assert registration.revoked_at is None
+
+    request.installation_id = uuid4()
+    assert unregister_device(request, current_user=foreign_user, db=db) == {
+        "status": "unregistered"
+    }
+    db.refresh(registration)
+    assert registration.state == "active"
+    assert registration.revoked_at is None
+
+
 def test_chh_dispatch_bundles_same_conversation_and_records_provider_acceptance(db):
     world = _world(db)
     world.policy.contact_hours_enabled = False

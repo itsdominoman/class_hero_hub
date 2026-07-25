@@ -365,6 +365,7 @@ class Settings(BaseSettings):
     APP_ENV: str = ""
     ENVIRONMENT: str = ""
     PLATFORM_ADMIN_EMAILS: str = ""
+    PLATFORM_ADMIN_BOOTSTRAP_ENABLED: bool = False
     SESSION_SECRET: str = ""
     DEV_AUTH_ENABLED: bool = False
     QA_LOGIN_ENABLED: bool = False

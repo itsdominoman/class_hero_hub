@@ -54,16 +54,17 @@ def _get_request_token(request: Request) -> str | None:
 
 
 def _ensure_bootstrap_platform_admin(db: Session, user: User) -> None:
-    if not is_platform_admin_bootstrap_email(user.email):
+    if (
+        not settings.PLATFORM_ADMIN_BOOTSTRAP_ENABLED
+        or not is_platform_admin_bootstrap_email(user.email)
+    ):
         return
 
     platform_admin = db.query(PlatformAdmin).filter(PlatformAdmin.user_id == user.id).first()
-    if platform_admin and platform_admin.revoked_at is None:
+    if platform_admin is not None:
         return
 
-    if platform_admin:
-        platform_admin.revoked_at = None
-        db.commit()
+    if db.query(PlatformAdmin.id).first() is not None:
         return
 
     platform_admin = PlatformAdmin(user_id=user.id, granted_by_user_id=None)
@@ -78,7 +79,7 @@ def _ensure_bootstrap_platform_admin(db: Session, user: User) -> None:
         user,
         "platform_admin.bootstrap",
         platform_admin,
-        {"source": "bootstrap"},
+        {"source": "bootstrap", "condition": "explicit_first_run"},
     )
     db.commit()
 

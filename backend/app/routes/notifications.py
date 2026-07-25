@@ -125,6 +125,7 @@ def unregister_device(
     row = (
         db.query(DevicePushRegistration)
         .filter(
+            DevicePushRegistration.user_id == current_user.id,
             DevicePushRegistration.app_package == body.app_package,
             DevicePushRegistration.installation_id == body.installation_id,
             DevicePushRegistration.fcm_token == body.fcm_token,
