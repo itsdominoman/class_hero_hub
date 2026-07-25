@@ -1,5 +1,31 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-25 — CHH-SURVEY-002/003: Survey scale and close ordering
+
+Survey close and parent response submission now use the same PostgreSQL
+`SELECT ... FOR UPDATE` lock on the survey row. The transaction that obtains the
+lock first defines the ordering: a committed response remains part of the
+auditable response record if submission wins, while a close that wins prevents
+the waiting submission from committing.
+
+Survey results now use grouped answer counts and fixed batched queries rather
+than loading every response and issuing one answer query per question.
+Identified respondent output remains capped at the existing 500 rows; anonymous
+results still expose none. Choice, yes/no and rating distributions and averages
+retain their existing response shape.
+
+CSV exports retain the existing UTF-8 BOM, metadata/header rows, anonymous or
+identified column shape, formula-injection sanitisation, filename/security
+headers, `SurveyEvent`, and `school.survey.exported` audit entry. Response rows
+and their answers are now read and emitted in fixed batches through a streaming
+response, so export memory does not grow as one unbounded response-by-question
+matrix.
+
+Focused SQLite tests cover fixed aggregate query count and bounded export
+batches with representative data. A disposable real-PostgreSQL concurrency test
+forces both lock orderings and verifies the losing late response is rejected and
+the winning response remains persisted and auditable.
+
 ## 2026-07-25 — CHH-SURVEY-001: Survey CSV formula-injection hardening
 
 Survey result CSV exports now pass every string cell through one shared

@@ -10,7 +10,7 @@ os.environ["APP_ENV"] = "test"
 import pytest
 from fastapi.testclient import TestClient
 from fastapi import HTTPException
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -32,7 +32,14 @@ from app.models_school import (
     SurveyResponse,
     User,
 )
-from app.routes.surveys import QuestionInput, SurveyInput, _bind_household_ref, _sanitise_csv_cell
+from app.routes import surveys as survey_routes
+from app.routes.surveys import (
+    QuestionInput,
+    SurveyInput,
+    _answer_results,
+    _bind_household_ref,
+    _sanitise_csv_cell,
+)
 from app.survey_service import refresh_survey_state
 
 
@@ -399,6 +406,216 @@ def test_survey_csv_export_sanitises_untrusted_cells_without_changing_privacy_or
     assert db.query(SurveyEvent).filter_by(survey_id=survey.id, action="exported").count() == 1
     audit = db.query(AuditLog).filter_by(action="school.survey.exported", entity_id=survey.id).one()
     assert audit.detail == {"format": "csv", "anonymous": anonymous}
+
+
+def test_survey_results_use_fixed_batched_query_count_with_representative_answers(db):
+    school, allowed_user, _ = _world(db)
+    membership = db.query(Membership).filter_by(
+        school_id=school.id, user_id=allowed_user.id
+    ).one()
+    now = datetime.now(timezone.utc)
+    survey = Survey(
+        school_id=school.id,
+        title="Representative results",
+        introduction="Aggregation coverage",
+        audience_type="whole_school",
+        anonymous=True,
+        response_mode="guardian",
+        opens_at=now - timedelta(days=1),
+        closes_at=now + timedelta(days=1),
+        status="open",
+        created_by_membership_id=membership.id,
+    )
+    db.add(survey)
+    db.flush()
+    question_types = [
+        ("single_choice", None, None),
+        ("multiple_choice", None, None),
+        ("yes_no", None, None),
+        ("rating", 1, 5),
+        ("short_text", None, None),
+        ("long_text", None, None),
+    ]
+    questions = [
+        SurveyQuestion(
+            survey_id=survey.id,
+            question_type=question_type,
+            prompt=f"Question {index}",
+            required=False,
+            sort_order=index,
+            scale_min=scale_min,
+            scale_max=scale_max,
+        )
+        for index, (question_type, scale_min, scale_max) in enumerate(question_types)
+    ]
+    db.add_all(questions)
+    db.flush()
+    options = [
+        SurveyOption(question_id=question.id, label=label, sort_order=sort_order)
+        for question in questions[:2]
+        for sort_order, label in enumerate(("First", "Second"))
+    ]
+    db.add_all(options)
+    db.flush()
+    options_by_question = {
+        question.id: [row for row in options if row.question_id == question.id]
+        for question in questions[:2]
+    }
+    for index in range(4):
+        response = SurveyResponse(
+            survey_id=survey.id,
+            response_key_hash=f"{index:064x}",
+            submitted_at=now + timedelta(minutes=index),
+        )
+        db.add(response)
+        db.flush()
+        db.add_all(
+            [
+                SurveyAnswer(
+                    response_id=response.id,
+                    question_id=questions[0].id,
+                    selected_option_ids=[options_by_question[questions[0].id][index % 2].id],
+                ),
+                SurveyAnswer(
+                    response_id=response.id,
+                    question_id=questions[1].id,
+                    selected_option_ids=[
+                        row.id for row in options_by_question[questions[1].id]
+                    ],
+                ),
+                SurveyAnswer(
+                    response_id=response.id,
+                    question_id=questions[2].id,
+                    answer_boolean=index % 2 == 0,
+                ),
+                SurveyAnswer(
+                    response_id=response.id,
+                    question_id=questions[3].id,
+                    answer_number=index + 1,
+                ),
+                SurveyAnswer(
+                    response_id=response.id,
+                    question_id=questions[4].id,
+                    answer_text=f"Short {index}",
+                ),
+                SurveyAnswer(
+                    response_id=response.id,
+                    question_id=questions[5].id,
+                    answer_text=f"Long {index}",
+                ),
+            ]
+        )
+    db.commit()
+    questions = (
+        db.query(SurveyQuestion)
+        .filter(SurveyQuestion.survey_id == survey.id)
+        .order_by(SurveyQuestion.sort_order)
+        .all()
+    )
+
+    selects = []
+
+    def count_selects(_connection, _cursor, statement, _parameters, _context, _many):
+        if statement.lstrip().upper().startswith("SELECT"):
+            selects.append(statement)
+
+    event.listen(engine, "before_cursor_execute", count_selects)
+    try:
+        results = _answer_results(db, questions)
+    finally:
+        event.remove(engine, "before_cursor_execute", count_selects)
+
+    assert len(selects) == 5
+    assert [row["answer_count"] for row in results] == [4] * 6
+    assert results[0]["distribution"][0]["count"] == 2
+    assert results[1]["distribution"] == [
+        {
+            "option_id": str(row.public_id),
+            "label": row.label,
+            "count": 4,
+        }
+        for row in options_by_question[questions[1].id]
+    ]
+    assert results[2]["distribution"] == [
+        {"label": "Yes", "count": 2},
+        {"label": "No", "count": 2},
+    ]
+    assert results[3]["average"] == 2.5
+
+
+def test_survey_csv_export_batches_responses_and_answers(db, client, monkeypatch):
+    school, allowed_user, _ = _world(db)
+    membership = db.query(Membership).filter_by(
+        school_id=school.id, user_id=allowed_user.id
+    ).one()
+    now = datetime.now(timezone.utc)
+    survey = Survey(
+        school_id=school.id,
+        title="Bounded export",
+        introduction="Representative export",
+        audience_type="whole_school",
+        anonymous=False,
+        response_mode="guardian",
+        opens_at=now - timedelta(days=2),
+        closes_at=now - timedelta(days=1),
+        status="closed",
+        created_by_membership_id=membership.id,
+    )
+    db.add(survey)
+    db.flush()
+    question = SurveyQuestion(
+        survey_id=survey.id,
+        question_type="short_text",
+        prompt="Comment",
+        required=True,
+        sort_order=0,
+    )
+    db.add(question)
+    db.flush()
+    for index in range(5):
+        response = SurveyResponse(
+            survey_id=survey.id,
+            response_key_hash=f"{index + 10:064x}",
+            respondent_label=f"Parent {index}",
+            submitted_at=now + timedelta(minutes=index),
+        )
+        db.add(response)
+        db.flush()
+        db.add(
+            SurveyAnswer(
+                response_id=response.id,
+                question_id=question.id,
+                answer_text=f"Comment {index}",
+            )
+        )
+    db.commit()
+    monkeypatch.setattr(survey_routes, "CSV_EXPORT_BATCH_SIZE", 2)
+    response_selects = []
+    answer_selects = []
+
+    def capture_batches(_connection, _cursor, statement, _parameters, _context, _many):
+        normalised = " ".join(statement.lower().split())
+        if "from survey_responses" in normalised:
+            response_selects.append(statement)
+        if "from survey_answers" in normalised:
+            answer_selects.append(statement)
+
+    event.listen(engine, "before_cursor_execute", capture_batches)
+    try:
+        response = client.get(
+            f"/api/school/surveys/{survey.public_id}/export.csv",
+            headers=_headers(allowed_user.email, school.id),
+        )
+    finally:
+        event.remove(engine, "before_cursor_execute", capture_batches)
+
+    assert response.status_code == 200
+    rows = list(csv.reader(io.StringIO(response.content.decode("utf-8-sig"))))
+    assert len(rows) == 14
+    assert rows[9][1:] == ["Parent 0", "Comment 0"]
+    assert rows[13][1:] == ["Parent 4", "Comment 4"]
+    assert len(response_selects) == 3
+    assert len(answer_selects) == 3
 
 
 def test_household_evidence_is_bound_once_and_cannot_be_changed():

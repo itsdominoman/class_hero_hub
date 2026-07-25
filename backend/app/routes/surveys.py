@@ -9,9 +9,10 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from sqlalchemy import func
+from sqlalchemy import and_, bindparam, func, or_, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -37,6 +38,7 @@ SURVEY_PERMISSION = "surveys.manage"
 QUESTION_TYPES = {"single_choice", "multiple_choice", "yes_no", "rating", "short_text", "long_text"}
 HOUSEHOLD_REF_RE = re.compile(r"^[0-9a-f]{64}$")
 CSV_FORMULA_PREFIX_RE = re.compile(r"^[ \t]*[=+\-@]")
+CSV_EXPORT_BATCH_SIZE = 200
 
 
 class OptionInput(BaseModel):
@@ -509,23 +511,141 @@ def remind(survey_id: UUID, membership: Membership = Depends(require_survey_admi
     db.commit(); return {"status": "sent", "event_id": str(event.event_id)}
 
 
-def _answer_result(db: Session, question: SurveyQuestion, responses: int) -> dict[str, Any]:
-    answers = db.query(SurveyAnswer).filter(SurveyAnswer.question_id == question.id).all()
-    base = {"question_id": str(question.public_id), "question_type": question.question_type, "prompt": question.prompt, "answer_count": len(answers)}
-    if question.question_type in {"single_choice", "multiple_choice"}:
-        options = db.query(SurveyOption).filter(SurveyOption.question_id == question.id).order_by(SurveyOption.sort_order).all()
-        counts = {row.id: 0 for row in options}
-        for answer in answers:
-            for option_id in answer.selected_option_ids or []:
-                if option_id in counts: counts[option_id] += 1
-        base["distribution"] = [{"option_id": str(row.public_id), "label": row.label, "count": counts[row.id]} for row in options]
-    elif question.question_type == "yes_no":
-        base["distribution"] = [{"label": "Yes", "count": sum(1 for row in answers if row.answer_boolean is True)}, {"label": "No", "count": sum(1 for row in answers if row.answer_boolean is False)}]
-    elif question.question_type == "rating":
-        values = [row.answer_number for row in answers if row.answer_number is not None]
-        base["average"] = round(sum(values) / len(values), 2) if values else None
-        base["distribution"] = [{"label": str(value), "count": values.count(value)} for value in range(question.scale_min, question.scale_max + 1)]
-    return base
+def _answer_results(db: Session, questions: list[SurveyQuestion]) -> list[dict[str, Any]]:
+    question_ids = [row.id for row in questions]
+    if not question_ids:
+        return []
+
+    answer_counts = {
+        question_id: int(count)
+        for question_id, count in (
+            db.query(SurveyAnswer.question_id, func.count(SurveyAnswer.id))
+            .filter(SurveyAnswer.question_id.in_(question_ids))
+            .group_by(SurveyAnswer.question_id)
+            .all()
+        )
+    }
+    choice_question_ids = [
+        row.id for row in questions if row.question_type in {"single_choice", "multiple_choice"}
+    ]
+    option_rows = (
+        db.query(SurveyOption)
+        .filter(SurveyOption.question_id.in_(choice_question_ids))
+        .order_by(SurveyOption.question_id, SurveyOption.sort_order)
+        .all()
+        if choice_question_ids
+        else []
+    )
+    choice_counts: dict[tuple[int, int], int] = {}
+    if choice_question_ids:
+        if db.get_bind().dialect.name == "postgresql":
+            statement = text(
+                """
+                SELECT sa.question_id,
+                       CAST(selected.option_id AS BIGINT) AS option_id,
+                       count(*) AS answer_count
+                  FROM survey_answers AS sa
+                  CROSS JOIN LATERAL
+                       jsonb_array_elements_text(sa.selected_option_ids::jsonb)
+                       AS selected(option_id)
+                 WHERE sa.question_id IN :question_ids
+                   AND sa.selected_option_ids IS NOT NULL
+                 GROUP BY sa.question_id, CAST(selected.option_id AS BIGINT)
+                """
+            ).bindparams(bindparam("question_ids", expanding=True))
+            choice_counts = {
+                (int(question_id), int(option_id)): int(count)
+                for question_id, option_id, count in db.execute(
+                    statement, {"question_ids": choice_question_ids}
+                ).all()
+            }
+        else:
+            for question_id, selected_option_ids in (
+                db.query(SurveyAnswer.question_id, SurveyAnswer.selected_option_ids)
+                .filter(
+                    SurveyAnswer.question_id.in_(choice_question_ids),
+                    SurveyAnswer.selected_option_ids.is_not(None),
+                )
+                .all()
+            ):
+                for option_id in selected_option_ids or []:
+                    key = (int(question_id), int(option_id))
+                    choice_counts[key] = choice_counts.get(key, 0) + 1
+
+    yes_no_counts = {
+        (int(question_id), bool(value)): int(count)
+        for question_id, value, count in (
+            db.query(
+                SurveyAnswer.question_id,
+                SurveyAnswer.answer_boolean,
+                func.count(SurveyAnswer.id),
+            )
+            .filter(
+                SurveyAnswer.question_id.in_(question_ids),
+                SurveyAnswer.answer_boolean.is_not(None),
+            )
+            .group_by(SurveyAnswer.question_id, SurveyAnswer.answer_boolean)
+            .all()
+        )
+    }
+    rating_counts = {
+        (int(question_id), int(value)): int(count)
+        for question_id, value, count in (
+            db.query(
+                SurveyAnswer.question_id,
+                SurveyAnswer.answer_number,
+                func.count(SurveyAnswer.id),
+            )
+            .filter(
+                SurveyAnswer.question_id.in_(question_ids),
+                SurveyAnswer.answer_number.is_not(None),
+            )
+            .group_by(SurveyAnswer.question_id, SurveyAnswer.answer_number)
+            .all()
+        )
+    }
+    options_by_question: dict[int, list[SurveyOption]] = {}
+    for option in option_rows:
+        options_by_question.setdefault(option.question_id, []).append(option)
+
+    results: list[dict[str, Any]] = []
+    for question in questions:
+        base = {
+            "question_id": str(question.public_id),
+            "question_type": question.question_type,
+            "prompt": question.prompt,
+            "answer_count": answer_counts.get(question.id, 0),
+        }
+        if question.question_type in {"single_choice", "multiple_choice"}:
+            base["distribution"] = [
+                {
+                    "option_id": str(option.public_id),
+                    "label": option.label,
+                    "count": choice_counts.get((question.id, option.id), 0),
+                }
+                for option in options_by_question.get(question.id, [])
+            ]
+        elif question.question_type == "yes_no":
+            base["distribution"] = [
+                {"label": "Yes", "count": yes_no_counts.get((question.id, True), 0)},
+                {"label": "No", "count": yes_no_counts.get((question.id, False), 0)},
+            ]
+        elif question.question_type == "rating":
+            counts = {
+                value: rating_counts.get((question.id, value), 0)
+                for value in range(question.scale_min, question.scale_max + 1)
+            }
+            answered = sum(counts.values())
+            base["average"] = (
+                round(sum(value * count for value, count in counts.items()) / answered, 2)
+                if answered
+                else None
+            )
+            base["distribution"] = [
+                {"label": str(value), "count": count} for value, count in counts.items()
+            ]
+        results.append(base)
+    return results
 
 
 @router.get("/surveys/{survey_id}/results")
@@ -534,7 +654,12 @@ def results(
     membership: Membership = Depends(require_survey_admin), db: Session = Depends(get_db),
 ):
     survey = _survey_or_404(db, membership, survey_id)
-    responses = db.query(SurveyResponse).filter(SurveyResponse.survey_id == survey.id).order_by(SurveyResponse.submitted_at.desc(), SurveyResponse.id.desc()).all()
+    response_count = int(
+        db.query(func.count(SurveyResponse.id))
+        .filter(SurveyResponse.survey_id == survey.id)
+        .scalar()
+        or 0
+    )
     questions = db.query(SurveyQuestion).filter(SurveyQuestion.survey_id == survey.id).order_by(SurveyQuestion.sort_order).all()
     text_question_ids = [row.id for row in questions if row.question_type in {"short_text", "long_text"}]
     text_query = db.query(SurveyAnswer, SurveyQuestion, SurveyResponse).join(SurveyQuestion, SurveyQuestion.id == SurveyAnswer.question_id).join(SurveyResponse, SurveyResponse.id == SurveyAnswer.response_id).filter(
@@ -546,10 +671,19 @@ def results(
     text_rows = text_query.order_by(SurveyResponse.submitted_at.desc(), SurveyAnswer.id.desc()).offset((page - 1) * page_size).limit(page_size).all() if text_query is not None else []
     eligible_count = _eligible_count(db, survey)
     timeline = db.query(func.date(SurveyResponse.submitted_at), func.count(SurveyResponse.id)).filter(SurveyResponse.survey_id == survey.id).group_by(func.date(SurveyResponse.submitted_at)).order_by(func.date(SurveyResponse.submitted_at)).all()
+    respondents = (
+        db.query(SurveyResponse.respondent_label, SurveyResponse.submitted_at)
+        .filter(SurveyResponse.survey_id == survey.id)
+        .order_by(SurveyResponse.submitted_at.desc(), SurveyResponse.id.desc())
+        .limit(500)
+        .all()
+        if not survey.anonymous
+        else []
+    )
     return {
         "survey": _detail_payload(db, survey),
-        "response_rate": {"completed": len(responses), "outstanding": max(eligible_count - len(responses), 0)},
-        "questions": [_answer_result(db, question, len(responses)) for question in questions],
+        "response_rate": {"completed": response_count, "outstanding": max(eligible_count - response_count, 0)},
+        "questions": _answer_results(db, questions),
         "responses_over_time": [{"date": str(day), "count": count} for day, count in timeline],
         "free_text": {
             "items": [
@@ -558,7 +692,7 @@ def results(
             ],
             "page": page, "page_size": page_size, "total": text_total,
         },
-        "respondents": [] if survey.anonymous else [{"label": row.respondent_label, "submitted_at": row.submitted_at} for row in responses[:500]],
+        "respondents": [{"label": label, "submitted_at": submitted_at} for label, submitted_at in respondents],
     }
 
 
@@ -568,35 +702,139 @@ def _sanitise_csv_cell(value: Any) -> Any:
     return value
 
 
-def _csv_rows(db: Session, survey: Survey) -> list[list[Any]]:
-    questions = db.query(SurveyQuestion).filter(SurveyQuestion.survey_id == survey.id).order_by(SurveyQuestion.sort_order).all()
-    options = db.query(SurveyOption).filter(SurveyOption.question_id.in_([row.id for row in questions])).all() if questions else []
-    option_label = {row.id: row.label for row in options}
-    responses = db.query(SurveyResponse).filter(SurveyResponse.survey_id == survey.id).order_by(SurveyResponse.submitted_at, SurveyResponse.id).all()
-    rows: list[list[Any]] = [["survey_title", survey.title], ["status", survey.status], ["audience", survey.audience_type], ["anonymous", str(bool(survey.anonymous)).lower()], ["response_mode", survey.response_mode], ["opens_at", survey.opens_at.isoformat()], ["closes_at", survey.closes_at.isoformat()], [], ["response_timestamp", *([] if survey.anonymous else ["respondent"]), *[row.prompt for row in questions]]]
-    for response in responses:
-        answers = {row.question_id: row for row in db.query(SurveyAnswer).filter(SurveyAnswer.response_id == response.id).all()}
-        values: list[Any] = []
-        for question in questions:
-            answer = answers.get(question.id)
-            if answer is None: values.append("")
-            elif question.question_type in {"single_choice", "multiple_choice"}: values.append(" | ".join(option_label.get(value, "") for value in answer.selected_option_ids or []))
-            elif question.question_type == "yes_no": values.append("Yes" if answer.answer_boolean else "No")
-            elif question.question_type == "rating": values.append(answer.answer_number)
-            else: values.append(answer.answer_text or "")
-        rows.append([response.submitted_at.isoformat(), *([] if survey.anonymous else [response.respondent_label or ""]), *values])
-    return [[_sanitise_csv_cell(value) for value in row] for row in rows]
+def _csv_line(row: list[Any]) -> str:
+    output = io.StringIO(newline="")
+    csv.writer(output).writerow([_sanitise_csv_cell(value) for value in row])
+    return output.getvalue()
+
+
+def _csv_chunks(
+    db: Session,
+    *,
+    survey_id: int,
+    anonymous: bool,
+    question_specs: list[tuple[int, str]],
+    option_label: dict[int, str],
+    leading_rows: list[list[Any]],
+):
+    yield "\ufeff"
+    for row in leading_rows:
+        yield _csv_line(row)
+
+    last_submitted_at = None
+    last_response_id = None
+    while True:
+        query = (
+            db.query(SurveyResponse)
+            .filter(SurveyResponse.survey_id == survey_id)
+            .order_by(SurveyResponse.submitted_at, SurveyResponse.id)
+        )
+        if last_submitted_at is not None and last_response_id is not None:
+            query = query.filter(
+                or_(
+                    SurveyResponse.submitted_at > last_submitted_at,
+                    and_(
+                        SurveyResponse.submitted_at == last_submitted_at,
+                        SurveyResponse.id > last_response_id,
+                    ),
+                )
+            )
+        responses = query.limit(CSV_EXPORT_BATCH_SIZE).all()
+        if not responses:
+            break
+        response_ids = [row.id for row in responses]
+        answers_by_response: dict[int, dict[int, SurveyAnswer]] = {}
+        for answer in (
+            db.query(SurveyAnswer)
+            .filter(SurveyAnswer.response_id.in_(response_ids))
+            .order_by(SurveyAnswer.response_id, SurveyAnswer.question_id)
+            .all()
+        ):
+            answers_by_response.setdefault(answer.response_id, {})[answer.question_id] = answer
+        for response in responses:
+            answers = answers_by_response.get(response.id, {})
+            values: list[Any] = []
+            for question_id, question_type in question_specs:
+                answer = answers.get(question_id)
+                if answer is None:
+                    values.append("")
+                elif question_type in {"single_choice", "multiple_choice"}:
+                    values.append(
+                        " | ".join(
+                            option_label.get(value, "")
+                            for value in answer.selected_option_ids or []
+                        )
+                    )
+                elif question_type == "yes_no":
+                    values.append("Yes" if answer.answer_boolean else "No")
+                elif question_type == "rating":
+                    values.append(answer.answer_number)
+                else:
+                    values.append(answer.answer_text or "")
+            yield _csv_line(
+                [
+                    response.submitted_at.isoformat(),
+                    *([] if anonymous else [response.respondent_label or ""]),
+                    *values,
+                ]
+            )
+        if len(responses) < CSV_EXPORT_BATCH_SIZE:
+            break
+        last_submitted_at = responses[-1].submitted_at
+        last_response_id = responses[-1].id
 
 
 @router.get("/surveys/{survey_id}/export.csv")
 def export_csv(survey_id: UUID, membership: Membership = Depends(require_survey_admin), db: Session = Depends(get_db)):
     survey = _survey_or_404(db, membership, survey_id)
-    output = io.StringIO(newline=""); writer = csv.writer(output); writer.writerows(_csv_rows(db, survey))
-    _event(db, survey, membership, "exported", {"format": "csv"})
-    write_audit(db, membership.user_id, "school.survey.exported", survey, {"format": "csv", "anonymous": bool(survey.anonymous)}, school_id=membership.school_id)
-    db.commit()
+    questions = (
+        db.query(SurveyQuestion)
+        .filter(SurveyQuestion.survey_id == survey.id)
+        .order_by(SurveyQuestion.sort_order)
+        .all()
+    )
+    options = (
+        db.query(SurveyOption)
+        .filter(SurveyOption.question_id.in_([row.id for row in questions]))
+        .all()
+        if questions
+        else []
+    )
+    option_label = {row.id: row.label for row in options}
+    question_specs = [(row.id, row.question_type) for row in questions]
+    leading_rows = [
+        ["survey_title", survey.title],
+        ["status", survey.status],
+        ["audience", survey.audience_type],
+        ["anonymous", str(bool(survey.anonymous)).lower()],
+        ["response_mode", survey.response_mode],
+        ["opens_at", survey.opens_at.isoformat()],
+        ["closes_at", survey.closes_at.isoformat()],
+        [],
+        [
+            "response_timestamp",
+            *([] if survey.anonymous else ["respondent"]),
+            *[row.prompt for row in questions],
+        ],
+    ]
+    database_survey_id = survey.id
+    anonymous = bool(survey.anonymous)
     safe_title = re.sub(r"[^A-Za-z0-9_-]+", "-", survey.title).strip("-")[:60] or "survey"
-    return Response(content="\ufeff" + output.getvalue(), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="{safe_title}-results.csv"', "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
+    _event(db, survey, membership, "exported", {"format": "csv"})
+    write_audit(db, membership.user_id, "school.survey.exported", survey, {"format": "csv", "anonymous": anonymous}, school_id=membership.school_id)
+    db.commit()
+    return StreamingResponse(
+        _csv_chunks(
+            db,
+            survey_id=database_survey_id,
+            anonymous=anonymous,
+            question_specs=question_specs,
+            option_label=option_label,
+            leading_rows=leading_rows,
+        ),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{safe_title}-results.csv"', "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 def _response_key(survey: Survey, identity: FhhMessagingIdentity, household_ref: str) -> str:
@@ -604,8 +842,13 @@ def _response_key(survey: Survey, identity: FhhMessagingIdentity, household_ref:
     return hmac.new(settings.SESSION_SECRET.encode("utf-8"), f"survey:{survey.public_id}:{unit}".encode("utf-8"), hashlib.sha256).hexdigest()
 
 
-def _parent_survey(db: Session, public_id: UUID, link: FhhLink) -> Survey:
-    survey = db.query(Survey).filter(Survey.public_id == public_id, Survey.school_id == link.school_id).first()
+def _parent_survey(db: Session, public_id: UUID, link: FhhLink, *, lock: bool = False) -> Survey:
+    query = db.query(Survey).filter(
+        Survey.public_id == public_id, Survey.school_id == link.school_id
+    )
+    if lock:
+        query = query.with_for_update()
+    survey = query.first()
     if survey is None or not link_is_eligible(db, survey, link):
         raise HTTPException(status_code=404, detail="Survey is unavailable")
     refresh_survey_state(survey)
@@ -621,7 +864,7 @@ def _parent_payload(db: Session, survey: Survey, identity: FhhMessagingIdentity,
         questions = db.query(SurveyQuestion).filter(SurveyQuestion.survey_id == survey.id).order_by(SurveyQuestion.sort_order).all()
         parent_results = {
             "response_count": response_count,
-            "questions": [_answer_result(db, question, response_count) for question in questions],
+            "questions": _answer_results(db, questions),
         }
     return {
         "id": str(survey.public_id), "school": school.name, "school_ar": school.name_ar,
@@ -719,7 +962,7 @@ def submit_parent_response(
     payload = body.model_dump(mode="json")
     link, identity, _ = _integration_actor(request, db, link_id, x_fhh_link_token, x_fhh_messaging_actor, payload)
     _bind_household_ref(link, body.household_ref)
-    survey = _parent_survey(db, survey_id, link)
+    survey = _parent_survey(db, survey_id, link, lock=True)
     if survey.status != "open": raise HTTPException(status_code=409, detail="Survey is closed")
     questions = db.query(SurveyQuestion).filter(SurveyQuestion.survey_id == survey.id).order_by(SurveyQuestion.sort_order).all()
     by_public = {row.public_id: row for row in questions}
