@@ -242,13 +242,22 @@ test('native Back policy avoids accidental exit and preserves non-root fallback'
   assert.equal(chooseNativeBackAction('/teach', roots, false, true), 'exit');
 });
 
-test('native authenticated shell fixes the header and owns one bottom inset', () => {
+test('native authenticated shell follows the visual viewport and owns one bottom inset', () => {
   assert.match(shellSource, /class="app-shell/);
   assert.match(shellSource, /class="app-header/);
   assert.match(shellSource, /class:viewport-managed=\{nativeApp && messagingRoute\}/);
-  assert.match(appCssSource, /\.native-app \.app-shell \{[\s\S]*height: 100dvh;[\s\S]*overflow: hidden;/);
-  assert.match(appCssSource, /\.native-app \.app-main \{[\s\S]*overflow-y: auto;[\s\S]*padding-bottom: var\(--safe-bottom\);/);
+  assert.match(shellSource, /window\.visualViewport/);
+  assert.match(shellSource, /--native-viewport-height/);
+  assert.match(shellSource, /native-keyboard-open/);
+  assert.match(appCssSource, /\.native-app \.app-shell \{[\s\S]*height: var\(--native-viewport-height, 100dvh\);[\s\S]*overflow: hidden;/);
+  assert.match(appCssSource, /\.native-app \{[\s\S]*--safe-bottom: 0px;/);
+  assert.match(appCssSource, /\.native-app \.app-main \{[\s\S]*overflow-y: auto;[\s\S]*padding-bottom: 0\.75rem;/);
   assert.match(appCssSource, /\.native-app \.app-main\.viewport-managed \{[\s\S]*padding-bottom: 0;/);
+  assert.match(appCssSource, /\.native-app \[data-testid='messaging-workspace'\] \{[\s\S]*height: 100%;/);
+  assert.match(pageSource, /mx-auto h-full min-h-0 max-w-7xl/);
+  assert.match(pageSource, /native-keyboard-open/);
+  assert.match(conversationPaneSource, /new ResizeObserver/);
+  assert.match(conversationPaneSource, /use:keepTimelineAtBottom/);
   assert.match(shellSource, /pb-\[calc\(1\.25rem\+var\(--safe-bottom\)\)\]/);
 });
 
@@ -256,7 +265,7 @@ test('Quick Award guardian shortcut reuses authorized idempotent messaging and r
   assert.match(quickAwardSource, /data-testid="quick-award-message-guardians"/);
   assert.match(quickAwardSource, /row\.role === 'teacher'/);
   assert.match(quickAwardSource, /row\.school_id === detail\?\.assignment\.school\.id/);
-  assert.match(quickAwardSource, /messagingApi\.recipients\(membership, student\.display_name\)/);
+  assert.match(quickAwardSource, /messagingApi\.recipients\(membership, '', student\.id\)/);
   assert.match(quickAwardSource, /recipient\.guardian_details\?\.length \|\| recipient\.guardian_names\.length/);
   assert.match(quickAwardSource, /messagingApi\.createStudentConversation\(membership, student\.id\)/);
   assert.match(quickAwardSource, /quick_award_student/);
@@ -285,8 +294,9 @@ test('compact composer integrates media controls and capability-gated voice note
   assert.match(composerSource, /min-h-11 max-h-32/);
   assert.match(composerSource, /grid h-10 w-10/g);
   assert.match(composerSource, /pb-\[calc\(0\.5rem\+var\(--safe-bottom\)\)\]/);
-  assert.match(composerSource, /\{#if draft\.trim\(\) \|\| photos\.length\}/);
-  assert.match(composerSource, /\{:else if voiceEnabled\}/);
+  assert.match(composerSource, /\{#if !voiceActive && \(draft\.trim\(\) \|\| photos\.length\)\}/);
+  assert.match(composerSource, /\{#if voiceEnabled\}/);
+  assert.match(composerSource, /class:hidden=\{!voiceActive && Boolean\(draft\.trim\(\) \|\| photos\.length\)\}/);
   assert.match(composerSource, /<VoiceRecorder disabled=\{disabled \|\| offline\}/);
   assert.doesNotMatch(composerSource, /message-voice-placeholder/);
   assert.match(composerSource, /data-testid="message-send"/);

@@ -429,3 +429,38 @@ contexts. Every CHH messaging request carries the selected membership, each
 conversation resolves the matching participant only, and the URL now persists that
 membership across reloads. Switching roles clears the active thread and cannot
 acknowledge or aggregate the other role's cursor.
+
+## 2026-07-25 Android composer viewport regression and CHH-TEST-001
+
+The native messaging shell now measures the visible Android WebView through
+`window.visualViewport` and publishes that height as `--native-viewport-height`.
+The bounded messaging workspace fills the resulting flex viewport instead of
+declaring a second fixed `100dvh` height. This keeps the sticky composer and draft
+above the IME while the timeline alone resizes. A `ResizeObserver` follows the
+latest message only when the reader was already near the bottom; readers scrolled
+up retain their position.
+
+`windowSoftInputMode="adjustResize"` remains required and unchanged, but it is not
+the sole sizing signal under the Android 15 edge-to-edge/system-bar boundary. The
+visual-viewport tracker also records whether the IME is visibly reducing the
+viewport. Native Back consumes and blurs an editable field only in that state; once
+the keyboard is closed, the existing conversation/route Back policy runs normally.
+Closing the keyboard restores the full measured height and removes the temporary
+keyboard state, so no body lock or permanent spacer is introduced.
+
+The three CHH-TEST-001 presentation failures were stale source-shape assertions:
+
+- the native container, not CSS `env(safe-area-inset-bottom)`, owns Android system
+  bars; normal routes retain their terminal gap and messaging retains one
+  composer-owned inset;
+- Quick Award deliberately performs the authorised recipient lookup by exact
+  `student.id`, which is stronger than the former display-name search, while its
+  membership and return-path contracts remain unchanged;
+- the compact composer deliberately keeps the capability-gated voice recorder
+  mounted and hides it while text/photos expose Send, preserving recorder and
+  composer state rather than using the former `if/else` source structure.
+
+The focused contract suite now checks those current behaviours and the visual
+viewport/scroll-anchor contract. No backend, database, Capacitor configuration or
+native Android source changed. Real-device portrait testing remains required for
+IME animation, OEM keyboard behaviour and gesture/three-button Back ordering.

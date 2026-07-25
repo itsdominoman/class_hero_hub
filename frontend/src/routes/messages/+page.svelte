@@ -893,7 +893,10 @@
       // The shell owns its drawer; let its listener consume Back before this route.
       if (document.body.classList.contains('mobile-menu-open')) return;
       const active = document.activeElement;
-      if (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement) {
+      if (
+        (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement) &&
+        document.documentElement.classList.contains('native-keyboard-open')
+      ) {
         active.blur();
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -946,7 +949,7 @@
   <meta name="description" content={$_('messaging.pageDescription')} />
 </svelte:head>
 
-<div class="mx-auto max-w-7xl px-0 py-0 sm:px-4 sm:py-6 lg:px-6">
+<div class="mx-auto h-full min-h-0 max-w-7xl px-0 py-0 sm:px-4 sm:py-6 lg:px-6">
   {#if loadingSession}
     <div class="grid min-h-[36rem] place-items-center">
       <p class="font-semibold text-slate-500">{$_('messaging.loading')}</p>

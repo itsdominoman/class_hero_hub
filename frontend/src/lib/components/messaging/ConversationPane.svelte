@@ -120,6 +120,18 @@
     unseenMessages = 0;
   }
 
+  function keepTimelineAtBottom(node: HTMLDivElement) {
+    const observer = new ResizeObserver(() => {
+      if (nearBottom) node.scrollTop = node.scrollHeight;
+    });
+    observer.observe(node);
+    return {
+      destroy() {
+        observer.disconnect();
+      }
+    };
+  }
+
   $effect(() => {
     const nextConversationId = conversation?.id ?? null;
     if (nextConversationId === trackedConversationId) return;
@@ -261,7 +273,7 @@
       </aside>
     {/if}
 
-    <div bind:this={timeline} onscroll={updateScrollPosition} class="relative min-h-0 flex-1 overflow-y-auto px-3 py-5 sm:px-6" aria-live="polite" data-testid="message-timeline">
+    <div bind:this={timeline} use:keepTimelineAtBottom onscroll={updateScrollPosition} class="relative min-h-0 flex-1 overflow-y-auto px-3 py-5 sm:px-6" aria-live="polite" data-testid="message-timeline">
       {#if hasOlder}
         <div class="mb-5 text-center">
           <button type="button" class="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 shadow-sm hover:border-hero hover:text-hero disabled:opacity-50" disabled={loadingOlder} onclick={onloadolder}>

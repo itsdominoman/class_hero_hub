@@ -169,10 +169,34 @@
 
   initI18n();
 
+  function trackNativeViewport() {
+    const root = document.documentElement;
+    const viewport = window.visualViewport;
+    let expandedHeight = Math.max(window.innerHeight, viewport?.height || 0);
+
+    const update = () => {
+      const height = Math.round(viewport?.height || window.innerHeight);
+      expandedHeight = Math.max(expandedHeight, height);
+      root.style.setProperty('--native-viewport-height', `${height}px`);
+      root.classList.toggle('native-keyboard-open', expandedHeight - height > 120);
+    };
+
+    update();
+    viewport?.addEventListener('resize', update);
+    window.addEventListener('resize', update);
+    return () => {
+      viewport?.removeEventListener('resize', update);
+      window.removeEventListener('resize', update);
+      root.style.removeProperty('--native-viewport-height');
+      root.classList.remove('native-keyboard-open');
+    };
+  }
+
   onMount(() => {
     void loadSession();
     let disposed = false;
     let removeNativeBackHandler: (() => Promise<void>) | null = null;
+    const removeNativeViewportTracking = nativeApp ? trackNativeViewport() : null;
     const onKeydown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') closeMobileMenu();
     };
@@ -182,7 +206,7 @@
         active instanceof HTMLInputElement ||
         active instanceof HTMLTextAreaElement ||
         (active instanceof HTMLElement && active.isContentEditable);
-      if (editable) {
+      if (editable && document.documentElement.classList.contains('native-keyboard-open')) {
         (active as HTMLElement).blur();
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -214,6 +238,7 @@
       clearInterval(badgeTimer);
       document.body.classList.remove('mobile-menu-open');
       document.documentElement.classList.remove('native-app');
+      removeNativeViewportTracking?.();
       if (removeNativeBackHandler) void removeNativeBackHandler();
     };
   });
