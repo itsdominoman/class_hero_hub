@@ -21,6 +21,7 @@ from .models_school import (
     Survey,
     UpdatePost,
 )
+from .point_notification_summaries import point_summary_totals
 from .rosters import roster_payload
 
 
@@ -250,11 +251,28 @@ def revalidate_family_notification(db: Session, row: NotificationOutbox) -> bool
                 PointNotificationSummary.school_id == row.school_id,
             ).first()
             enabled = bool(summary and getattr(policy, f"{summary.summary_type}_enabled", False))
+            totals = point_summary_totals(db, summary) if summary is not None else None
+            stored_totals = (
+                summary.positive_total,
+                summary.needs_work_total,
+                summary.net_total,
+                summary.event_count,
+            ) if summary is not None else None
+            template_args = row.template_args or {}
+            payload_totals = (
+                template_args.get("positive_total"),
+                template_args.get("needs_work_total"),
+                template_args.get("net_total"),
+                template_args.get("event_count"),
+            )
             return bool(
                 policy.mode == "summaries"
                 and enabled
                 and summary.policy_version == policy.policy_version
                 and summary.student_id == link.student_id
+                and totals is not None
+                and stored_totals == totals
+                and payload_totals == totals
                 and db.query(Student.id).filter(
                     Student.id == link.student_id, Student.status == "active"
                 ).first() is not None

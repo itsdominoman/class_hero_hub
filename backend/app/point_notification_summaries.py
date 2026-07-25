@@ -155,6 +155,100 @@ def _insert_summaries(db: Session, values: list[dict]) -> None:
     db.flush()
 
 
+def point_summary_totals(
+    db: Session,
+    summary: PointNotificationSummary,
+) -> tuple[int, int, int, int] | None:
+    row = (
+        db.query(
+            func.sum(case((BehaviourEvent.points_delta > 0, BehaviourEvent.points_delta), else_=0)),
+            func.sum(case((BehaviourEvent.points_delta < 0, -BehaviourEvent.points_delta), else_=0)),
+            func.count(BehaviourEvent.id),
+        )
+        .filter(
+            BehaviourEvent.school_id == summary.school_id,
+            BehaviourEvent.student_id == summary.student_id,
+            BehaviourEvent.created_at >= summary.period_start,
+            BehaviourEvent.created_at <= summary.period_end,
+            BehaviourEvent.reversed_at.is_(None),
+        )
+        .one()
+    )
+    event_count = int(row[2] or 0)
+    if event_count == 0:
+        return None
+    positive_total = int(row[0] or 0)
+    needs_work_total = int(row[1] or 0)
+    return positive_total, needs_work_total, positive_total - needs_work_total, event_count
+
+
+def refresh_undelivered_point_summaries(
+    db: Session,
+    *,
+    event: BehaviourEvent,
+    now: datetime | None = None,
+) -> tuple[int, int]:
+    """Refresh or cancel summary rows that can still reach the provider."""
+    now = _aware(now or datetime.now(UTC)).astimezone(UTC)
+    summaries = (
+        db.query(PointNotificationSummary)
+        .filter(
+            PointNotificationSummary.school_id == event.school_id,
+            PointNotificationSummary.student_id == event.student_id,
+            PointNotificationSummary.period_start <= event.created_at,
+            PointNotificationSummary.period_end >= event.created_at,
+        )
+        .order_by(PointNotificationSummary.id)
+        .with_for_update()
+        .all()
+    )
+    recalculated = 0
+    cancelled = 0
+    for summary in summaries:
+        rows = (
+            db.query(NotificationOutbox)
+            .filter(
+                NotificationOutbox.school_id == event.school_id,
+                NotificationOutbox.event_category == "points",
+                NotificationOutbox.source_type == "point_summary",
+                NotificationOutbox.source_id == summary.id,
+                NotificationOutbox.source_action == "summarized",
+                NotificationOutbox.state.in_(("held", "pending", "leased", "failed")),
+            )
+            .order_by(NotificationOutbox.id)
+            .with_for_update()
+            .all()
+        )
+        if not rows:
+            continue
+        totals = point_summary_totals(db, summary)
+        if totals is None:
+            for row in rows:
+                row.state = "cancelled"
+                row.last_error_code = "point_summary_empty_after_reversal"
+                row.completed_at = now
+                row.lease_owner = None
+                row.lease_expires_at = None
+                cancelled += 1
+            continue
+        positive_total, needs_work_total, net_total, event_count = totals
+        summary.positive_total = positive_total
+        summary.needs_work_total = needs_work_total
+        summary.net_total = net_total
+        summary.event_count = event_count
+        for row in rows:
+            row.template_args = {
+                **(row.template_args or {}),
+                "positive_total": positive_total,
+                "needs_work_total": needs_work_total,
+                "net_total": net_total,
+                "event_count": event_count,
+            }
+        recalculated += 1
+    db.flush()
+    return recalculated, cancelled
+
+
 def _aggregate_period(
     db: Session,
     *,

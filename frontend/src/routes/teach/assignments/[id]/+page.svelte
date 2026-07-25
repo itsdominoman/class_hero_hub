@@ -5,6 +5,10 @@
   import { _ } from 'svelte-i18n';
   import { ArrowLeft, BookOpen, CalendarDays, Camera, Megaphone, MessageCircle, Star, Users } from 'lucide-svelte';
   import { api } from '$lib/api';
+  import {
+    awardRequest,
+    type PendingAwardRequest
+  } from '$lib/behaviourAwardIdempotency';
   import { initialsFromStudentName } from '$lib/guardianDisplay';
   import { errorStatus, messagingApi } from '$lib/messaging/api';
   import type { MessagingMembership } from '$lib/messaging/types';
@@ -47,7 +51,6 @@
   type Category = { id: number; type: 'positive' | 'needs_work'; label: string; points_value: number };
   type QuickAction = { id: number; label: string; points_value: number };
   type QuickActions = { quick_actions: Record<'positive' | 'needs_work', QuickAction[]>; other_actions: Record<'positive' | 'needs_work', QuickAction[]> };
-  type PendingAwardRequest = { fingerprint: string; key: string };
   type ResourceLink = { url: string; label?: string | null };
   type HomeworkItem = { id: number; item_type: 'homework' | 'diary'; title: string; body?: string; due_at?: string | null; status: 'active' | 'archived'; attachment_count: number; attachments?: { id: number; original_filename: string; size_bytes: number }[]; resource_links: ResourceLink[] };
   type CalendarItem = {
@@ -157,13 +160,6 @@
   let quickAwardConversationId = $state<string | null>(null);
   let quickAwardMessagingBusy = $state(false);
   let quickAwardMessagingEpoch = 0;
-
-  function awardRequest(payload: object, previous: PendingAwardRequest | null): PendingAwardRequest {
-    const fingerprint = JSON.stringify(payload);
-    return previous?.fingerprint === fingerprint
-      ? previous
-      : { fingerprint, key: crypto.randomUUID() };
-  }
 
   async function loadQuickActions() {
     if (!detail) return;

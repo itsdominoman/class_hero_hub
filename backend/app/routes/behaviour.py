@@ -11,7 +11,7 @@ from ..database import get_db
 from ..models_school import BehaviourCategory, Membership, User
 from ..school_scope import require_school_role, write_audit
 from ..family_notifications import cancel_reversed_behaviour_event_notifications, enqueue_family_notifications
-from ..point_notification_summaries import late_summary_periods
+from ..point_notification_summaries import late_summary_periods, refresh_undelivered_point_summaries
 
 school_router = APIRouter(dependencies=[Depends(require_school_role("school_admin"))])
 teacher_router = APIRouter()
@@ -308,6 +308,11 @@ def reverse_points_event(
     )
     if not replay:
         cancelled_notifications = cancel_reversed_behaviour_event_notifications(db, event=row)
+        recalculated_summaries, cancelled_summaries = refresh_undelivered_point_summaries(
+            db,
+            event=row,
+            now=row.reversed_at,
+        )
         write_audit(
             db,
             user,
@@ -319,6 +324,8 @@ def reverse_points_event(
                 "points_delta": row.points_delta,
                 "reason": row.reversal_reason,
                 "cancelled_notification_count": cancelled_notifications,
+                "recalculated_summary_count": recalculated_summaries,
+                "cancelled_summary_notification_count": cancelled_summaries,
             },
             body.school_id,
         )

@@ -45,6 +45,30 @@ a bounded interval and immediately detects a `policy_version` mismatch. It store
 message body in `template_args`; only opaque conversation/message identifiers and an
 internal deep link are persisted.
 
+### Point reversal and delivery ordering
+
+Immediate point notifications and point summaries have an additional final delivery
+gate. The dispatcher locks the contributing behaviour event rows, in event-ID order
+for summaries, before locking and checking that the outbox row is still leased to the
+same worker. It then revalidates the current points policy, active link/student and
+source state. A summary is eligible only when a fresh aggregate of current
+non-reversed events exactly matches both its stored totals and its outbox payload.
+The source and outbox locks are held through the provider call and acceptance commit.
+
+Reversal uses the same source-first order. It locks and marks the behaviour event,
+cancels any eligible immediate row, then recalculates each affected undelivered
+summary from current non-reversed events. A summary with remaining events receives
+fresh totals in the summary and eligible outbox payloads; one with no remaining
+events has its eligible outbox rows cancelled. `held`, `pending`, `leased` and
+`failed` rows are eligible for this correction. Terminal `provider_accepted`,
+`cancelled`, `dead` and other completed rows, including their payload history, are
+not rewritten.
+
+This produces one PostgreSQL transaction order. If reversal commits first, the final
+lease/state check prevents the provider call. If provider acceptance commits first,
+the later reversal does not recall or overwrite that delivered history. A dispatcher
+that loaded a lease before reversal cannot overwrite a cancellation after waiting.
+
 ## Configuration and rollout
 
 The scheduler is a separate Compose service:

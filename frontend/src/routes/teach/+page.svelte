@@ -3,6 +3,10 @@
   import { _, locale } from 'svelte-i18n';
   import { CalendarDays, ChevronRight, Megaphone, Search, Star } from 'lucide-svelte';
   import { api } from '$lib/api';
+  import {
+    awardRequest,
+    type PendingAwardRequest
+  } from '$lib/behaviourAwardIdempotency';
   import { initialsFromStudentName } from '$lib/guardianDisplay';
   import {
     classLabel,
@@ -57,7 +61,6 @@
   };
   type SchoolRef = { id: number; name: string; name_ar?: string | null };
   type Category = { id: number; type: 'positive' | 'needs_work'; label: string; points_value: number };
-  type PendingAwardRequest = { fingerprint: string; key: string };
   type SearchStudent = {
     id: number; display_name: string; first_name: string; last_name: string; preferred_name?: string | null;
     name_ar?: string | null; avatar_url_256?: string | null; points_total: number;
@@ -118,13 +121,6 @@
       $_('teach.subject')
     )
   );
-
-  function awardRequest(payload: object): PendingAwardRequest {
-    const fingerprint = JSON.stringify(payload);
-    return pointsRequest?.fingerprint === fingerprint
-      ? pointsRequest
-      : { fingerprint, key: crypto.randomUUID() };
-  }
 
   function titleFor(card: AssignmentCard) {
     if (card.role === 'homeroom') return card.class_section?.name || card.class_section?.code || $_('teach.homeroom');
@@ -241,7 +237,7 @@
         category_id: Number(categoryId), note: pointNote || null,
         context_type: 'duty', duty_context: dutyContext
       };
-      pointsRequest = awardRequest(payload);
+      pointsRequest = awardRequest(payload, pointsRequest);
       const result = await api.post(
         '/teach/behaviour/events',
         payload,

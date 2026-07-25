@@ -4343,6 +4343,22 @@ CHH now processes update photos server-side. It accepts JPEG/JPG, PNG, WEBP and 
   `reversed_at IS NULL`; no history is deleted. Pending immediate point outbox rows
   for the reversed event are cancelled so an incorrect award cannot be dispatched
   after correction. No new FHH payload or parent notification template was added.
+- Reversal now also recalculates affected `point_summary` rows and all still-eligible
+  summary payloads from current non-reversed events, or cancels them when no events
+  remain. Final dispatch re-aggregates the period and requires the summary row and
+  payload totals to match, so stale reversed-event totals cannot reach the provider.
+  Already delivered rows and their original payload history remain unchanged.
+- Immediate and summary delivery now lock their behaviour-event source before an
+  atomic final outbox lease/owner/state check and hold those locks through provider
+  acceptance. Reversal follows the same source-first order. Reversal-first therefore
+  prevents the provider call; provider-acceptance-first preserves the terminal
+  delivery instead of allowing either transaction to overwrite the other.
+- All Quick Award entry points use one semantic request fingerprint: student IDs are
+  deduplicated and numerically sorted, notes are trimmed with blank notes normalised
+  to `null`, omitted context fields receive the backend defaults, and fields are
+  serialized in a fixed order. Ambiguous retries of the same award keep the original
+  UUID, while a material category, learner, note or context change receives a new
+  key.
 - Alembic revision `d6e7f8a9b0c1` adds the request ledger, nullable legacy-safe event
   link, scoped uniqueness, and a database constraint requiring complete reversal
   metadata. Legacy events remain unchanged and valid.

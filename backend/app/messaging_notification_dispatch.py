@@ -19,6 +19,7 @@ from .messaging_notifications import (
 )
 from .family_notifications import revalidate_family_notification
 from .models_school import (
+    BehaviourEvent,
     Conversation,
     ConversationParticipant,
     DevicePushRegistration,
@@ -27,6 +28,7 @@ from .models_school import (
     Message,
     NotificationDelivery,
     NotificationOutbox,
+    PointNotificationSummary,
     User,
 )
 
@@ -493,6 +495,75 @@ def _finalize_outbox(db: Session, row: NotificationOutbox, now: datetime) -> Non
     )
 
 
+def _lock_family_delivery_eligibility(
+    db: Session,
+    *,
+    row: NotificationOutbox,
+    worker_id: str,
+    now: datetime,
+) -> NotificationOutbox | None:
+    """Serialize point reversal with the final provider eligibility decision."""
+    if row.event_category == "points" and row.source_type == "behaviour_event":
+        (
+            db.query(BehaviourEvent)
+            .filter(
+                BehaviourEvent.id == row.source_id,
+                BehaviourEvent.school_id == row.school_id,
+            )
+            .with_for_update()
+            .populate_existing()
+            .first()
+        )
+    elif row.event_category == "points" and row.source_type == "point_summary":
+        summary = (
+            db.query(PointNotificationSummary)
+            .filter(
+                PointNotificationSummary.id == row.source_id,
+                PointNotificationSummary.school_id == row.school_id,
+            )
+            .first()
+        )
+        if summary is not None:
+            (
+                db.query(BehaviourEvent)
+                .filter(
+                    BehaviourEvent.school_id == summary.school_id,
+                    BehaviourEvent.student_id == summary.student_id,
+                    BehaviourEvent.created_at >= summary.period_start,
+                    BehaviourEvent.created_at <= summary.period_end,
+                )
+                .order_by(BehaviourEvent.id)
+                .with_for_update()
+                .populate_existing()
+                .all()
+            )
+            (
+                db.query(PointNotificationSummary)
+                .filter(PointNotificationSummary.id == summary.id)
+                .with_for_update()
+                .populate_existing()
+                .first()
+            )
+    locked = (
+        db.query(NotificationOutbox)
+        .filter(
+            NotificationOutbox.id == row.id,
+            NotificationOutbox.state == "leased",
+            NotificationOutbox.lease_owner == worker_id,
+        )
+        .with_for_update()
+        .populate_existing()
+        .first()
+    )
+    if locked is None:
+        return None
+    if not revalidate_family_notification(db, locked):
+        _cancel_outbox(locked, "recipient_ineligible", now)
+        db.flush()
+        return None
+    return locked
+
+
 def dispatch_claimed_rows(
     db: Session,
     *,
@@ -649,7 +720,15 @@ def dispatch_claimed_rows(
                 row.state = "failed"
                 row.next_attempt_at = _retry_at(row.attempt_count, now)
 
-    for row in family_bridge_rows:
+    for claimed_row in family_bridge_rows:
+        row = _lock_family_delivery_eligibility(
+            db,
+            row=claimed_row,
+            worker_id=worker_id,
+            now=now,
+        )
+        if row is None:
+            continue
         link = db.query(FhhLink).filter(FhhLink.id == row.recipient_fhh_link_id).one()
         template_args = row.template_args or {}
         try:

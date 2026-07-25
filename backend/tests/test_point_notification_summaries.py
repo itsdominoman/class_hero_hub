@@ -7,6 +7,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base
 from app.family_notifications import cancel_undispatched_immediate_points, enqueue_family_notifications
+from app.messaging_notification_dispatch import dispatch_claimed_rows
 from app.models_school import (
     BehaviourCategory,
     BehaviourEvent,
@@ -19,7 +20,12 @@ from app.models_school import (
     Student,
     User,
 )
-from app.point_notification_summaries import due_periods, generate_due_point_summaries, late_summary_periods
+from app.point_notification_summaries import (
+    due_periods,
+    generate_due_point_summaries,
+    late_summary_periods,
+    refresh_undelivered_point_summaries,
+)
 
 
 UTC = timezone.utc
@@ -137,6 +143,126 @@ def test_reversed_events_are_excluded_from_new_summaries(db):
     outbox = db.query(NotificationOutbox).one()
     assert outbox.template_args["positive_total"] == 2
     assert outbox.template_args["event_count"] == 1
+
+
+class _UnusedPushProvider:
+    def send(self, **_kwargs):
+        raise AssertionError("CHH-device push must not be used for FHH point summaries")
+
+
+class _RecordingBridgeProvider:
+    def __init__(self):
+        self.calls = []
+
+    def send(self, **kwargs):
+        self.calls.append(kwargs)
+        return "accepted"
+
+
+def test_generated_summary_is_revalidated_after_reversal_before_delivery(db):
+    school, _policy, user, positive, _needs_work, alice, _bob, _links = _world(db)
+    user_id = user.id
+    event = _event(db, school, alice, positive, user, 5, datetime(2026, 7, 21, 7, 0, tzinfo=UTC))
+    generate_due_point_summaries(db, now=datetime(2026, 7, 21, 11, 16, tzinfo=UTC))
+    row = db.query(NotificationOutbox).one()
+    row.state = "leased"
+    row.lease_owner = "notification-dispatch-test"
+    row.lease_expires_at = datetime(2026, 7, 21, 11, 20, tzinfo=UTC)
+    event.reversed_at = datetime(2026, 7, 21, 11, 17, tzinfo=UTC)
+    event.reversed_by_user_id = user_id
+    event.reversal_reason = "Incorrect award"
+    db.flush()
+    bridge = _RecordingBridgeProvider()
+
+    assert dispatch_claimed_rows(
+        db,
+        row_ids=[row.id],
+        worker_id="notification-dispatch-test",
+        push_provider=_UnusedPushProvider(),
+        bridge_provider=bridge,
+        now=datetime(2026, 7, 21, 11, 18, tzinfo=UTC),
+    ) == 1
+
+    db.refresh(row)
+    assert bridge.calls == []
+    assert row.state == "cancelled"
+    assert row.provider_accepted_at is None
+
+
+def test_reversal_recalculates_undelivered_summary_and_preserves_delivered_row(db):
+    school, _policy, user, positive, _needs_work, alice, _bob, _links = _world(db)
+    user_id = user.id
+    reversed_event = _event(db, school, alice, positive, user, 5, datetime(2026, 7, 21, 7, 0, tzinfo=UTC))
+    _event(db, school, alice, positive, user, 2, datetime(2026, 7, 21, 8, 0, tzinfo=UTC))
+    generate_due_point_summaries(db, now=datetime(2026, 7, 21, 11, 16, tzinfo=UTC))
+    delivered = db.query(NotificationOutbox).one()
+    delivered.state = "provider_accepted"
+    delivered.provider_accepted_at = datetime(2026, 7, 21, 11, 16, tzinfo=UTC)
+    delivered.completed_at = delivered.provider_accepted_at
+    pending = NotificationOutbox(
+        school_id=delivered.school_id,
+        message_id=None,
+        event_category=delivered.event_category,
+        source_type=delivered.source_type,
+        source_id=delivered.source_id,
+        source_action=delivered.source_action,
+        source_version=delivered.source_version,
+        route_type=delivered.route_type,
+        route_ref=delivered.route_ref,
+        urgent=delivered.urgent,
+        recipient_kind=delivered.recipient_kind,
+        recipient_fhh_link_id=delivered.recipient_fhh_link_id,
+        channel=delivered.channel,
+        template_key=delivered.template_key,
+        template_args=dict(delivered.template_args),
+        deep_link=delivered.deep_link,
+        policy_version=delivered.policy_version,
+        state="pending",
+        eligible_at=delivered.eligible_at,
+        scheduler_check_at=delivered.scheduler_check_at,
+        next_attempt_at=delivered.next_attempt_at,
+        dedupe_key=f"{delivered.dedupe_key}:second-link",
+    )
+    db.add(pending)
+    reversed_event.reversed_at = datetime(2026, 7, 21, 11, 17, tzinfo=UTC)
+    reversed_event.reversed_by_user_id = user_id
+    reversed_event.reversal_reason = "Incorrect award"
+    db.flush()
+
+    assert refresh_undelivered_point_summaries(
+        db,
+        event=reversed_event,
+        now=reversed_event.reversed_at,
+    ) == (1, 0)
+
+    summary = db.query(PointNotificationSummary).one()
+    assert (summary.positive_total, summary.net_total, summary.event_count) == (2, 2, 1)
+    assert pending.template_args["positive_total"] == 2
+    assert pending.template_args["event_count"] == 1
+    assert delivered.state == "provider_accepted"
+    assert delivered.template_args["positive_total"] == 7
+    assert delivered.provider_accepted_at == datetime(2026, 7, 21, 11, 16, tzinfo=UTC)
+
+
+def test_reversal_cancels_summary_when_no_current_events_remain(db):
+    school, _policy, user, positive, _needs_work, alice, _bob, _links = _world(db)
+    user_id = user.id
+    event = _event(db, school, alice, positive, user, 5, datetime(2026, 7, 21, 7, 0, tzinfo=UTC))
+    generate_due_point_summaries(db, now=datetime(2026, 7, 21, 11, 16, tzinfo=UTC))
+    event.reversed_at = datetime(2026, 7, 21, 11, 17, tzinfo=UTC)
+    event.reversed_by_user_id = user_id
+    event.reversal_reason = "Incorrect award"
+    db.flush()
+
+    assert refresh_undelivered_point_summaries(
+        db,
+        event=event,
+        now=event.reversed_at,
+    ) == (0, 1)
+
+    row = db.query(NotificationOutbox).one()
+    assert row.state == "cancelled"
+    assert row.last_error_code == "point_summary_empty_after_reversal"
 
 
 def test_no_activity_creates_no_summary(db):
