@@ -4403,3 +4403,19 @@ CHH now processes update photos server-side. It accepts JPEG/JPG, PNG, WEBP and 
   notification scheduler and the messaging production worker retained their
   containers. Loopback and public health checks returned HTTP 200. FHH, Android
   native code/configuration, APKs and unrelated CHH services were unchanged.
+
+## 2026-07-25 — CHH-AUDIT-001 general audit immutability
+
+- Root cause: `AuditLog` had a SQLAlchemy `before_update` listener, but
+  `audit_logs` had no database trigger. ORM bulk operations and raw SQL could
+  therefore bypass the model listener, and deletes had no equivalent protection.
+- Alembic revision `e7f8a9b0c1d2` applies the established messaging/safeguarding
+  evidence pattern to the general audit table: a PostgreSQL
+  `BEFORE UPDATE OR DELETE` trigger calls `audit_logs_append_only_guard()` and
+  rejects both operations. INSERT and SELECT are unaffected.
+- The migration is data-preserving DDL only. Upgrade creates the function and
+  trigger; downgrade removes only those two objects and does not rewrite or delete
+  audit rows.
+- Focused PostgreSQL coverage verifies normal INSERT/SELECT, ORM bulk UPDATE/DELETE
+  rejection, raw SQL UPDATE/DELETE rejection, preservation of the targeted row
+  after each rejected statement, and the existing `write_audit(...)` workflow.
