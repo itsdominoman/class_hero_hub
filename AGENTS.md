@@ -1,0 +1,11 @@
+# Class Hero Hub repository guidance
+
+CHH is the school-facing authority. Protect school tenancy and membership permissions across teacher, administrator, and System Owner roles; student and guardian-link privacy; behaviour-point idempotency and correction safety; safeguarding evidence integrity; and CHH-to-FHH outboxes and opaque integration events. FHH clients never call CHH directly, and CHH must not store FHH device tokens or unnecessary family identifiers. Preserve English/Arabic parity, RTL, and school-facing Android behaviour.
+
+YAGNI is mandatory: implement only the current task. Do not add speculative features, abstractions, layers, unrelated redesigns, tests, documentation, or infrastructure. Reuse established patterns and choose the smallest clear, maintainable solution. Record future ideas separately for approval.
+
+Before editing, verify `main`, HEAD, and a clean worktree; stop rather than overwrite unexpected work. Work on the development/pilot deployment only unless production is explicitly authorised. Never expose secrets, user data, messages, surveys, or safeguarding content. Use transactions and safe migrations; back up before risky database/infrastructure work. Run focused checks for the changed risk and deploy/restart only affected services. Build an APK only for native changes or when explicitly requested; report untested physical Android behaviour for device verification.
+
+Documentation is mandatory for every material code, configuration, database, deployment, integration, security, operational, or user-flow change. Review and update the existing directly relevant implementation or operations document in the same task; create one only if none fits. Do not duplicate docs or sweep unrelated files. Only a genuinely cosmetic/wording-only change with no meaningful behaviour may skip this. Before completion, name the documentation reviewed, updated, and what changed, or explain the cosmetic exemption.
+
+Keep completion reports concise: outcome/root cause, changed components, focused validation, deployment/restarts, database/migration and APK impact, documentation, commit/tag, and remaining physical retests. Use British/South African English unless localisation requires otherwise.
