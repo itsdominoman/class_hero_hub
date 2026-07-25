@@ -4,12 +4,20 @@ services:
     container_name: family-hero-hub-backend
     volumes:
       - ./data:/app/data
+      - ./tmp/backup-status:/app/host-status/backup-status:ro
+      - ./tmp/scheduled-status:/app/host-status/scheduled-status:ro
     env_file:
       - .env
     ports:
       - "10.250.50.5:8000:8000"
       - "127.0.0.1:8000:8000"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent --show-error --max-time 4 http://127.0.0.1:8000/api/ready >/dev/null"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   notification_scheduler:
     build: ./backend
@@ -21,6 +29,12 @@ services:
       - .env.push
     command: ["python", "-m", "app.messaging_notification_worker"]
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "scripts/check_worker_heartbeat.py", "notification"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   messaging_production_worker:
     build: ./backend
@@ -31,6 +45,12 @@ services:
       - .env
     command: ["python", "-m", "app.messaging_production_worker"]
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "scripts/check_worker_heartbeat.py", "production"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   frontend:
     build: ./frontend
@@ -42,6 +62,11 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5173/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   postgres:
     build:

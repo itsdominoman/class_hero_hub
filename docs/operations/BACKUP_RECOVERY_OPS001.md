@@ -23,7 +23,8 @@ off-host file backup before complete host-loss recovery can be claimed.
 The `administrator` crontab is the single CHH scheduler:
 
 - 02:15 Asia/Muscat daily: differential backup to both repositories; Sunday is full.
-- 06:15 daily: cipher, integrity, freshness (30 hours), and `/api/health` check.
+- 06:15 daily: cipher, integrity, freshness (30 hours), and dependency-aware
+  `/api/ready` check.
 - 07:15 on day 1 monthly: isolated restore from off-host repository 2.
 
 Both repositories retain four full backups and seven differential backups. WAL
@@ -59,7 +60,10 @@ journal under tags `chh-backup`, `chh-backup-health`, and
 `chh-restore-rehearsal`. On failure, inspect those records and the status JSON,
 correct storage/network/host-key/key/passphrase issues, then run a fresh backup and
 health check. Do not suppress a changed host key. External paging is not configured
-on this pilot host, so operators must monitor the stale/failed status file.
+on this pilot host, so operators must monitor the stale/failed status file or the
+platform-admin `/api/platform/operations/status` projection. The backend receives
+the backup and scheduled status directories as read-only mounts; it never runs a
+backup or other state-changing operation from a health endpoint.
 
 The restore rehearsal creates a unique Docker volume and network-isolated
 PostgreSQL container, restores an off-host backup with pgBackRest checksum

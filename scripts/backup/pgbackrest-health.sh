@@ -56,7 +56,7 @@ main() {
   (( now - repo2_stop <= MAX_AGE_SECONDS ))
 
   run_pgbackrest check
-  curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8000/api/health >/dev/null
+  curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8000/api/ready >/dev/null
 
   temp_file="$(mktemp "${STATUS_DIR}/health.json.XXXXXX")"
   jq -n \
@@ -68,7 +68,7 @@ main() {
     '{state:"ok", timestamp:$timestamp,
       local:{label:$repo1_label, age_seconds:$repo1_age, cipher:"aes-256-cbc"},
       off_host:{label:$repo2_label, age_seconds:$repo2_age, cipher:"aes-256-cbc"},
-      application_health:"ok"}' >"$temp_file"
+      application_readiness:"ok"}' >"$temp_file"
   mv -f "$temp_file" "$STATUS_FILE"
   chmod 0644 "$STATUS_FILE"
   cat "$STATUS_FILE"

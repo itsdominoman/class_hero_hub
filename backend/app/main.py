@@ -14,6 +14,7 @@ from .safeguarding_service import EXPORT_ROOT
 from .routes import announcements, authentication, behaviour, calendar, dev, feature_controls, governance, guardian, homework, integrations_fhh, integrations_fhh_messaging, join, messaging, messaging_operations, messaging_policy, notifications, platform, safeguarding, school, school_reports, surveys, teach, updates
 from .security import TrustedProxyHeadersMiddleware, parse_csv_values
 from .messaging_metrics import MessagingMetricsMiddleware
+from .operational_health import readiness_payload
 
 if settings.DATABASE_URL.startswith("sqlite"):
     Base.metadata.create_all(bind=engine)
@@ -168,6 +169,11 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     def health_check():
         return {"status": "ok"}
+
+    @app.get("/api/ready")
+    def readiness_check():
+        payload, status_code = readiness_payload()
+        return JSONResponse(status_code=status_code, content=payload)
 
     app.include_router(authentication.router, prefix="/api/auth", tags=["auth"])
     app.include_router(platform.router, prefix="/api/platform", tags=["platform"])

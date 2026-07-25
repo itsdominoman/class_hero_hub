@@ -1,5 +1,38 @@
 # CHH current pilot deployment
 
+## OPS-HEALTH-001 operational readiness
+
+`GET /api/health` is the lightweight process-liveness contract and remains
+compatible with existing consumers: HTTP 200 and `{"status":"ok"}` without a
+database query. `GET /api/ready` is the dependency-aware readiness contract. It
+uses a separate one-connection pool with two-second connection, pool and statement
+limits, checks `SELECT 1`, and requires the database Alembic revision to equal the
+shipped head (`e7f8a9b0c1d2`). Database failure returns HTTP 503 `unavailable`;
+revision drift returns HTTP 503 `degraded`. Responses contain no exception,
+connection or credential details. Update `EXPECTED_MIGRATION_REVISION` in
+`backend/app/operational_health.py` whenever a later migration becomes head.
+
+The platform-admin-only `GET /api/platform/operations/status` projection exposes
+aggregate operational state:
+
+- production and notification worker heartbeat ages, stale after 120 seconds;
+- operations-job and notification queue state counts, dead-letter presence and
+  ready backlog age, stale after 300 seconds;
+- the existing pgBackRest health-marker backup age (30-hour limit) and marker age
+  (26-hour limit);
+- existing scheduled-job marker failures and staleness (30 hours for normal jobs,
+  eight days for weekly jobs and 35 days for restore rehearsals);
+- data-volume disk use, warning at 80% and critical at 90%; and
+- current/expected migration revisions and low-cardinality alert codes.
+
+Only `tmp/backup-status` and `tmp/scheduled-status` are mounted read-only into the
+backend. Queue payloads, messages, school/family identifiers, backup labels and
+secrets are not returned. Docker health checks use readiness for the backend,
+heartbeat freshness for enabled workers, and the static root for the frontend.
+The pgBackRest health job now verifies `/api/ready`; `/api/health` must not be
+changed into a dependency check. This pilot has status surfacing but no external
+paging or alert delivery.
+
 ## CHH-DEPLOY-001 production security profile
 
 The public pilot at `https://class.familyherohub.com` runs with the production

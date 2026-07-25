@@ -451,6 +451,29 @@ def _heartbeat(db: Session, *, worker_id: str, success: bool, recovered: int, er
     db.commit()
 
 
+def record_worker_heartbeat(
+    db: Session,
+    *,
+    worker_name: str,
+    instance_id: str,
+    processed: int,
+    error_code: str | None = None,
+) -> None:
+    row = db.query(MessagingWorkerHeartbeat).filter(MessagingWorkerHeartbeat.worker_name == worker_name).first()
+    if row is None:
+        row = MessagingWorkerHeartbeat(worker_name=worker_name, instance_id=instance_id)
+        db.add(row)
+    row.instance_id = instance_id
+    row.last_seen_at = now_utc()
+    row.processed_total = int(row.processed_total or 0) + processed
+    if error_code:
+        row.last_error_code = error_code[:80]
+    else:
+        row.last_success_at = now_utc()
+        row.last_error_code = None
+    db.commit()
+
+
 def process_one_job(SessionFactory: sessionmaker, *, worker_id: str, lease_seconds: int = 300) -> int:
     with SessionFactory() as db:
         job, recovered = _claim_job(db, worker_id=worker_id, lease_seconds=lease_seconds)

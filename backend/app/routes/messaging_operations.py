@@ -20,6 +20,7 @@ from ..messaging_production import (
     operations_summary,
     validate_rules,
 )
+from ..operational_health import operations_status
 from ..models_school import (
     Membership,
     MessagingEvidenceExport,
@@ -407,3 +408,8 @@ def platform_operations(db: Session = Depends(get_db)):
         "school_name": school.name,
         "health": operations_summary(db, school_id=school.id),
     } for school in schools]}
+
+
+@platform_router.get("/operations/status")
+def platform_operational_status(db: Session = Depends(get_db)):
+    return operations_status(db)
