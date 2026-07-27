@@ -318,6 +318,23 @@ def validate_runtime_configuration(settings: "Settings" | None = None) -> str:
         )
     else:
         _validate_optional_secret("FHH_INTEGRATION_SERVICE_TOKEN", config.FHH_INTEGRATION_SERVICE_TOKEN)
+    if config.FHH_PRODUCTION_INTEGRATION_ENABLED:
+        if not config.FHH_INTEGRATION_ENABLED:
+            _fail(
+                "FHH_PRODUCTION_INTEGRATION_ENABLED",
+                "requires FHH_INTEGRATION_ENABLED",
+            )
+        _validate_secret(
+            "FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN",
+            config.FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN,
+            min_length=MIN_FHH_SERVICE_TOKEN_LENGTH,
+            required=True,
+        )
+    else:
+        _validate_optional_secret(
+            "FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN",
+            config.FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN,
+        )
     if config.MESSAGING_ENABLED and config.FHH_INTEGRATION_ENABLED:
         _validate_secret(
             "FHH_MESSAGING_ASSERTION_SECRET",
@@ -344,10 +361,42 @@ def validate_runtime_configuration(settings: "Settings" | None = None) -> str:
             "FHH_MESSAGING_ASSERTION_SECRET",
             "must be separate from FHH_INTEGRATION_SERVICE_TOKEN",
         )
+    if (
+        config.FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN
+        and config.FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN
+        == config.FHH_INTEGRATION_SERVICE_TOKEN
+    ):
+        _fail(
+            "FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN",
+            "must be separate from FHH_INTEGRATION_SERVICE_TOKEN",
+        )
+    if (
+        config.FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN
+        and config.FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN
+        == config.FHH_MESSAGING_ASSERTION_SECRET
+    ):
+        _fail(
+            "FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN",
+            "must be separate from FHH_MESSAGING_ASSERTION_SECRET",
+        )
     try:
         parse_ip_networks(config.FHH_INTEGRATION_ALLOWED_IPS)
     except ValueError as exc:
         _fail("FHH_INTEGRATION_ALLOWED_IPS", str(exc))
+    try:
+        production_integration_networks = parse_ip_networks(
+            config.FHH_PRODUCTION_INTEGRATION_ALLOWED_IPS
+        )
+    except ValueError as exc:
+        _fail("FHH_PRODUCTION_INTEGRATION_ALLOWED_IPS", str(exc))
+    if (
+        config.FHH_PRODUCTION_INTEGRATION_ENABLED
+        and not production_integration_networks
+    ):
+        _fail(
+            "FHH_PRODUCTION_INTEGRATION_ALLOWED_IPS",
+            "must contain at least one network when production integration is enabled",
+        )
 
     if config.MESSAGING_NOTIFICATION_SCHEDULER_ENABLED and not config.MESSAGING_ENABLED:
         _fail(
@@ -444,6 +493,9 @@ class Settings(BaseSettings):
     FHH_INTEGRATION_ENABLED: bool = False
     FHH_INTEGRATION_SERVICE_TOKEN: str = ""
     FHH_INTEGRATION_ALLOWED_IPS: str = ""
+    FHH_PRODUCTION_INTEGRATION_ENABLED: bool = False
+    FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN: str = ""
+    FHH_PRODUCTION_INTEGRATION_ALLOWED_IPS: str = ""
     FHH_MESSAGING_ASSERTION_SECRET: str = ""
     FHH_MESSAGING_ASSERTION_ISSUER: str = "fhh-school-messaging"
     FHH_MESSAGING_ASSERTION_AUDIENCE: str = "chh-school-messaging"

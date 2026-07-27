@@ -5,7 +5,11 @@
 The CHH pilot now accepts the FHH production server on the exact private source
 `10.250.50.2/32`. The backend loads the untracked, mode-600
 `.env.integration.production` after `.env`; its dedicated production service bearer
-and messaging assertion secret are separate from one another and from development.
+is separate from the existing development bearer and messaging assertion secret.
+CHH binds the development pair to `10.250.50.1/32` and the production bearer to
+`10.250.50.2/32`, so enabling production does not replace or authorize reuse of the
+development credential. Production FHH has no messaging assertion secret because
+production School Chats remain disabled.
 FHH production calls `https://class.familyherohub.com` with that hostname mapped to
 `10.250.50.5` inside only its backend and lifecycle-worker containers. TLS hostname
 and certificate verification therefore remain intact while school-link and protected
@@ -42,10 +46,20 @@ or delivery, and CHH link/outbox aggregates were unchanged. The CHH backend and
 notification scheduler alone were recreated and are healthy; PostgreSQL, frontend,
 Caddy and the production worker retained their uptime.
 
-Focused CHH integration/security validation passed 40 tests. A wider unchanged
+Focused CHH integration/security validation passed 52 tests. A wider unchanged
 notification file passed 60 tests and retained one unrelated policy-reconciliation
 failure (`cancelled` versus the test's expected `pending`); no code in that path
 changed and the live queue aggregate remained unchanged.
+
+An initial single-slot configuration briefly replaced the development service bearer
+and caused FHH development requests from `10.250.50.1` to return 401. The final
+source-bound dual-credential implementation corrected that regression. Live
+non-ingesting probes from both FHH environments now reach the same CHH route using
+different bearers and exact `/32` allowlists; neither bearer is accepted from the
+other environment's source. The affected development FHH connection was verified
+against CHH with its retained link credential, returned the complete dashboard
+contract, and was restored to active/synchronised state without changing its three
+active guardian identities or completed lifecycle events.
 
 Server-side production enablement is complete, but end-to-end acceptance is still
 pending. CHH currently has no valid unused `fhh_link_invites` row: the recent UI

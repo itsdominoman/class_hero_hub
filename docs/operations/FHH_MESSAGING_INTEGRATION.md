@@ -3,8 +3,10 @@
 ## Production school-link and notification boundary (2026-07-27)
 
 Production FHH school linking and protected linked-school access are enabled with a
-dedicated production service bearer. CHH accepts that bearer only from
-`10.250.50.2/32`. FHH retains the HTTPS base URL
+dedicated production service bearer. CHH retains the separate development bearer
+bound to `10.250.50.1/32` and accepts the production bearer only from
+`10.250.50.2/32`; a bearer from one environment is not valid from the other
+environment's source. FHH retains the HTTPS base URL
 `https://class.familyherohub.com`, while Compose maps that hostname to
 `10.250.50.5` inside only the backend and lifecycle worker. This preserves private
 mesh routing, normal TLS hostname/certificate validation, bounded client pooling and
@@ -30,6 +32,12 @@ flow and is not accepted by `/api/integrations/fhh/link/verify`. After linking,
 confirm one active CHH `fhh_links` row and one active FHH `school_connections` row,
 then use only a fresh controlled notification. Never reset or retry old dead outbox
 rows for this acceptance.
+
+CHH service-bearer failures return 401 and are transport/authentication failures, not
+proof that an individual family link was revoked. FHH must retain the active local
+connection for that response. Only CHH's explicit missing/gone link responses (404
+or 410) mark the local connection remotely revoked. This distinction prevents a
+server credential deployment error from destroying a valid family-to-school link.
 
 Rollback restores the timestamped mode-600 environment copies recorded in
 `CHH_CURRENT_DEPLOYMENT.md`, reverts the associated Compose change, and recreates

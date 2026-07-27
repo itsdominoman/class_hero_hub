@@ -29,6 +29,9 @@ def db(tmp_path, monkeypatch):
     monkeypatch.setattr(database.settings, "FHH_INTEGRATION_ENABLED", True)
     monkeypatch.setattr(database.settings, "FHH_INTEGRATION_SERVICE_TOKEN", "s" * 40)
     monkeypatch.setattr(database.settings, "FHH_INTEGRATION_ALLOWED_IPS", "")
+    monkeypatch.setattr(database.settings, "FHH_PRODUCTION_INTEGRATION_ENABLED", False)
+    monkeypatch.setattr(database.settings, "FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN", "")
+    monkeypatch.setattr(database.settings, "FHH_PRODUCTION_INTEGRATION_ALLOWED_IPS", "")
     monkeypatch.setattr(updates, "UPLOAD_ROOT", tmp_path / "update_uploads")
     integrations_fhh.AUTH_LIMITER._attempts.clear(); integrations_fhh.LINK_LIMITER._attempts.clear()
     Base.metadata.create_all(engine); session = Session()
@@ -95,6 +98,35 @@ def test_service_auth_disabled_missing_wrong_allowed_and_ip_allowlist(db, client
     assert client.post("/api/integrations/fhh/link/verify", headers=service(), json={"code": "CHH-AAAA-BBBB"}).status_code == 403
     monkeypatch.setattr(database.settings, "FHH_INTEGRATION_ALLOWED_IPS", "127.0.0.1/8")
     assert client.post("/api/integrations/fhh/link/verify", headers=service(), json={"code": "CHH-AAAA-BBBB"}).status_code == 404
+
+
+def test_service_auth_binds_distinct_production_token_to_production_source(
+    db, client, monkeypatch
+):
+    monkeypatch.setattr(database.settings, "FHH_INTEGRATION_ALLOWED_IPS", "10.250.50.1/32")
+    monkeypatch.setattr(database.settings, "FHH_PRODUCTION_INTEGRATION_ENABLED", True)
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN",
+        "p" * 40,
+    )
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_PRODUCTION_INTEGRATION_ALLOWED_IPS",
+        "127.0.0.1/8",
+    )
+
+    payload = {"code": "CHH-AAAA-BBBB"}
+    url = "/api/integrations/fhh/link/verify"
+    assert client.post(url, headers=service(), json=payload).status_code == 403
+    assert client.post(url, headers=service("p" * 40), json=payload).status_code == 404
+
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_PRODUCTION_INTEGRATION_ALLOWED_IPS",
+        "10.250.50.2/32",
+    )
+    assert client.post(url, headers=service("p" * 40), json=payload).status_code == 403
 
 
 def test_admin_issue_list_and_same_school_active_rules(db, client, world):

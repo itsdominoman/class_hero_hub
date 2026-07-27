@@ -113,11 +113,30 @@ def require_fhh_service(request: Request) -> None:
         raise HTTPException(status_code=429, detail=GENERIC_ACCESS_ERROR)
     authorization = request.headers.get("authorization", "")
     scheme, _, token = authorization.partition(" ")
-    expected = settings.FHH_INTEGRATION_SERVICE_TOKEN
-    if scheme.lower() != "bearer" or not token or not expected or not hmac.compare_digest(token, expected):
+    if scheme.lower() != "bearer" or not token:
         raise HTTPException(status_code=401, detail=GENERIC_ACCESS_ERROR, headers={"WWW-Authenticate": "Bearer"})
-    networks = parse_ip_networks(settings.FHH_INTEGRATION_ALLOWED_IPS)
-    if networks and not is_ip_trusted(client_ip, networks):
+
+    credential_scopes = [
+        (
+            settings.FHH_INTEGRATION_SERVICE_TOKEN,
+            parse_ip_networks(settings.FHH_INTEGRATION_ALLOWED_IPS),
+        )
+    ]
+    if settings.FHH_PRODUCTION_INTEGRATION_ENABLED:
+        credential_scopes.append(
+            (
+                settings.FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN,
+                parse_ip_networks(settings.FHH_PRODUCTION_INTEGRATION_ALLOWED_IPS),
+            )
+        )
+
+    matched_networks = None
+    for expected, networks in credential_scopes:
+        if expected and hmac.compare_digest(token, expected):
+            matched_networks = networks
+    if matched_networks is None:
+        raise HTTPException(status_code=401, detail=GENERIC_ACCESS_ERROR, headers={"WWW-Authenticate": "Bearer"})
+    if matched_networks and not is_ip_trusted(client_ip, matched_networks):
         raise HTTPException(status_code=403, detail=GENERIC_ACCESS_ERROR)
 
 

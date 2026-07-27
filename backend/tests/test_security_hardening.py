@@ -179,6 +179,56 @@ def test_fhh_integration_requires_strong_non_placeholder_token_when_enabled():
     assert validate_runtime_configuration(_base_settings(FHH_INTEGRATION_ENABLED=True, FHH_INTEGRATION_SERVICE_TOKEN="f" * 32)) == "test"
 
 
+def test_production_fhh_integration_requires_distinct_source_bound_credentials():
+    primary = {
+        "FHH_INTEGRATION_ENABLED": True,
+        "FHH_INTEGRATION_SERVICE_TOKEN": "d" * 32,
+        "FHH_INTEGRATION_ALLOWED_IPS": "10.250.50.1/32",
+        "FHH_PRODUCTION_INTEGRATION_ENABLED": True,
+        "FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN": "",
+        "FHH_PRODUCTION_INTEGRATION_ALLOWED_IPS": "",
+    }
+    with pytest.raises(
+        RuntimeError,
+        match="FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN",
+    ):
+        validate_runtime_configuration(_base_settings(**primary))
+    with pytest.raises(
+        RuntimeError,
+        match="FHH_PRODUCTION_INTEGRATION_ALLOWED_IPS",
+    ):
+        validate_runtime_configuration(
+            _base_settings(
+                **{
+                    **primary,
+                    "FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN": "p" * 32,
+                },
+            )
+        )
+    with pytest.raises(RuntimeError, match="must be separate"):
+        validate_runtime_configuration(
+            _base_settings(
+                **{
+                    **primary,
+                    "FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN": "d" * 32,
+                    "FHH_PRODUCTION_INTEGRATION_ALLOWED_IPS": "10.250.50.2/32",
+                },
+            )
+        )
+    assert (
+        validate_runtime_configuration(
+            _base_settings(
+                **{
+                    **primary,
+                    "FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN": "p" * 32,
+                    "FHH_PRODUCTION_INTEGRATION_ALLOWED_IPS": "10.250.50.2/32",
+                },
+            )
+        )
+        == "test"
+    )
+
+
 def test_validate_runtime_configuration_rejects_missing_or_invalid_app_env():
     config = _base_settings(APP_ENV="")
 
