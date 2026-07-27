@@ -39,6 +39,18 @@ def _base_settings(**overrides) -> Settings:
     return Settings(**values)
 
 
+def _bridge_settings(**overrides) -> Settings:
+    values = {
+        "MESSAGING_ENABLED": True,
+        "MESSAGING_NOTIFICATION_DISPATCH_ENABLED": True,
+        "FIREBASE_SERVICE_ACCOUNT_JSON": "{}",
+        "FHH_NOTIFICATION_SERVICE_TOKEN": "t" * 32,
+        "FHH_NOTIFICATION_HMAC_SECRET": "h" * 32,
+    }
+    values.update(overrides)
+    return _base_settings(**values)
+
+
 def test_validate_runtime_configuration_accepts_canonical_test_environment():
     config = _base_settings()
 
@@ -70,6 +82,95 @@ def test_notification_scheduler_requires_messaging_and_valid_bounds():
         )
         == "test"
     )
+
+
+def test_notification_bridge_accepts_exact_private_http_target_in_production():
+    target = "http://10.250.50.1:8000/api/integrations/chh/school-message-notifications"
+    config = _bridge_settings(
+        APP_ENV="production",
+        JWT_SECRET="a" * 32,
+        SESSION_SECRET="b" * 32,
+        GOOGLE_CLIENT_ID="client-id",
+        GOOGLE_CLIENT_SECRET="c" * 16,
+        PUBLIC_APP_URL="https://class.familyherohub.com",
+        API_BASE_URL="https://class.familyherohub.com",
+        GOOGLE_REDIRECT_URI="https://class.familyherohub.com/api/auth/google/callback",
+        CORS_ORIGINS="https://class.familyherohub.com,https://localhost",
+        FHH_NOTIFICATION_BRIDGE_URL=target,
+        FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS=target,
+    )
+
+    assert validate_runtime_configuration(config) == "production"
+
+
+def test_notification_bridge_keeps_https_without_private_http_approval():
+    config = _bridge_settings(
+        FHH_NOTIFICATION_BRIDGE_URL=(
+            "https://dev.familyherohub.com"
+            "/api/integrations/chh/school-message-notifications"
+        ),
+    )
+
+    assert validate_runtime_configuration(config) == "test"
+
+
+@pytest.mark.parametrize(
+    ("target", "approved", "expected_message"),
+    [
+        (
+            "http://10.250.50.1:8000/api/integrations/chh/school-message-notifications",
+            "",
+            "exact match",
+        ),
+        (
+            "http://10.250.50.2:8000/api/integrations/chh/school-message-notifications",
+            "http://10.250.50.1:8000/api/integrations/chh/school-message-notifications",
+            "exact match",
+        ),
+        (
+            "http://8.8.8.8:8000/api/integrations/chh/school-message-notifications",
+            "http://8.8.8.8:8000/api/integrations/chh/school-message-notifications",
+            "eligible private mesh",
+        ),
+        (
+            "http://fhh.internal:8000/api/integrations/chh/school-message-notifications",
+            "http://fhh.internal:8000/api/integrations/chh/school-message-notifications",
+            "literal private IP",
+        ),
+        (
+            "http://user@10.250.50.1:8000/api/integrations/chh/school-message-notifications",
+            "http://user@10.250.50.1:8000/api/integrations/chh/school-message-notifications",
+            "credentials",
+        ),
+        (
+            "http://10.250.50.1:8000/api/integrations/chh/school-message-notifications?x=1",
+            "http://10.250.50.1:8000/api/integrations/chh/school-message-notifications?x=1",
+            "query or fragment",
+        ),
+        (
+            "http://10.250.50.1:8000/api/integrations/chh/school-message-notifications#fragment",
+            "http://10.250.50.1:8000/api/integrations/chh/school-message-notifications#fragment",
+            "query or fragment",
+        ),
+        (
+            "http://10.250.50.1:8000/api/integrations/chh/wrong-route",
+            "http://10.250.50.1:8000/api/integrations/chh/wrong-route",
+            "exact path",
+        ),
+    ],
+)
+def test_notification_bridge_rejects_unsafe_http_targets(
+    target,
+    approved,
+    expected_message,
+):
+    config = _bridge_settings(
+        FHH_NOTIFICATION_BRIDGE_URL=target,
+        FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS=approved,
+    )
+
+    with pytest.raises(RuntimeError, match=expected_message):
+        validate_runtime_configuration(config)
 
 
 def test_fhh_integration_requires_strong_non_placeholder_token_when_enabled():

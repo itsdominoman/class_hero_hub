@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ipaddress import ip_address
 from urllib.parse import urlparse
 
 from pydantic_settings import BaseSettings
@@ -12,6 +13,7 @@ from .security import parse_csv_values, parse_ip_networks
 
 VALID_APP_ENVIRONMENTS = {"development", "test", "production"}
 CAPACITOR_ANDROID_ORIGIN = "https://localhost"
+FHH_NOTIFICATION_BRIDGE_PATH = "/api/integrations/chh/school-message-notifications"
 MIN_JWT_SECRET_LENGTH = 32
 MIN_SESSION_SECRET_LENGTH = 32
 MIN_QA_TOKEN_LENGTH = 24
@@ -72,6 +74,71 @@ def _validate_url_setting(
             _fail(setting_name, "must use https in production")
         if parsed.hostname in {"localhost", "127.0.0.1", "::1"}:
             _fail(setting_name, "must not use localhost in production")
+
+
+def _parse_fhh_notification_bridge_url(setting_name: str, value: str):
+    normalized = _normalize_value(value)
+    parsed = urlparse(normalized)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        _fail(setting_name, "must be an absolute http(s) URL with a hostname")
+    try:
+        parsed.port
+    except ValueError as exc:
+        _fail(setting_name, "contains an invalid port")
+    if parsed.username is not None or parsed.password is not None:
+        _fail(setting_name, "must not include credentials")
+    if parsed.params or parsed.query or parsed.fragment:
+        _fail(setting_name, "must not include parameters, query or fragment components")
+    if parsed.path != FHH_NOTIFICATION_BRIDGE_PATH:
+        _fail(setting_name, f"must use the exact path {FHH_NOTIFICATION_BRIDGE_PATH}")
+    return normalized, parsed
+
+
+def _validate_fhh_notification_bridge_url(
+    value: str,
+    approved_private_http_endpoints: str,
+) -> None:
+    setting_name = "FHH_NOTIFICATION_BRIDGE_URL"
+    normalized, parsed = _parse_fhh_notification_bridge_url(setting_name, value)
+    approved = set(parse_csv_values(approved_private_http_endpoints))
+
+    for endpoint in approved:
+        approved_normalized, approved_parsed = _parse_fhh_notification_bridge_url(
+            "FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS",
+            endpoint,
+        )
+        if approved_parsed.scheme != "http":
+            _fail(
+                "FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS",
+                f"must contain only plain-HTTP endpoints: {approved_normalized}",
+            )
+        try:
+            approved_address = ip_address(approved_parsed.hostname)
+        except ValueError:
+            _fail(
+                "FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS",
+                f"must use a literal private IP address: {approved_normalized}",
+            )
+        if (
+            not approved_address.is_private
+            or approved_address.is_loopback
+            or approved_address.is_link_local
+            or approved_address.is_multicast
+            or approved_address.is_unspecified
+            or approved_address.is_reserved
+        ):
+            _fail(
+                "FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS",
+                f"must use an eligible private mesh address: {approved_normalized}",
+            )
+
+    if parsed.scheme == "https":
+        return
+    if normalized not in approved:
+        _fail(
+            setting_name,
+            "plain HTTP requires an exact match in FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS",
+        )
 
 
 def _validate_origin_list(setting_name: str, value: str, *, production: bool) -> None:
@@ -300,11 +367,9 @@ def validate_runtime_configuration(settings: "Settings" | None = None) -> str:
             )
         if config.CHH_ANDROID_PACKAGE != "com.classherohub.app":
             _fail("CHH_ANDROID_PACKAGE", "must be com.classherohub.app")
-        _validate_url_setting(
-            "FHH_NOTIFICATION_BRIDGE_URL",
+        _validate_fhh_notification_bridge_url(
             config.FHH_NOTIFICATION_BRIDGE_URL,
-            production=production,
-            require_path=True,
+            config.FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS,
         )
         _validate_secret(
             "FHH_NOTIFICATION_SERVICE_TOKEN",
@@ -398,6 +463,7 @@ class Settings(BaseSettings):
     FIREBASE_SERVICE_ACCOUNT_JSON: str = ""
     CHH_ANDROID_PACKAGE: str = "com.classherohub.app"
     FHH_NOTIFICATION_BRIDGE_URL: str = ""
+    FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS: str = ""
     FHH_NOTIFICATION_SERVICE_TOKEN: str = ""
     FHH_NOTIFICATION_HMAC_SECRET: str = ""
     FHH_NOTIFICATION_TIMEOUT_SECONDS: int = 5

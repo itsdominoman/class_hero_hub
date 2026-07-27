@@ -972,8 +972,14 @@ def test_signed_fhh_bridge_payload_is_minimal_replay_resistant_and_privacy_safe(
         def json(self):
             return {"status": "accepted"}
 
-    def fake_post(url, *, content, headers, timeout):
-        captured.update(url=url, content=content, headers=headers, timeout=timeout)
+    def fake_post(url, *, content, headers, timeout, follow_redirects):
+        captured.update(
+            url=url,
+            content=content,
+            headers=headers,
+            timeout=timeout,
+            follow_redirects=follow_redirects,
+        )
         return Response()
 
     from app import messaging_notification_dispatch
@@ -1015,6 +1021,48 @@ def test_signed_fhh_bridge_payload_is_minimal_replay_resistant_and_privacy_safe(
     ).hexdigest()
     assert nonce == str(event_id)
     assert hmac.compare_digest(captured["headers"]["X-CHH-Notification-Signature"], expected)
+    assert captured["follow_redirects"] is False
+
+
+def test_signed_fhh_bridge_rejects_redirect_as_terminal(monkeypatch):
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_NOTIFICATION_BRIDGE_URL",
+        "https://dev.familyherohub.com/api/integrations/chh/school-message-notifications",
+    )
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_NOTIFICATION_SERVICE_TOKEN",
+        "service-" + "t" * 56,
+    )
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_NOTIFICATION_HMAC_SECRET",
+        "hmac-" + "h" * 59,
+    )
+
+    class RedirectResponse:
+        status_code = 307
+
+    def fake_post(url, *, content, headers, timeout, follow_redirects):
+        assert follow_redirects is False
+        return RedirectResponse()
+
+    from app import messaging_notification_dispatch
+
+    monkeypatch.setattr(messaging_notification_dispatch.httpx, "post", fake_post)
+    with pytest.raises(ProviderError) as exc_info:
+        SignedFhhBridgeProvider().send(
+            event_id=str(uuid4()),
+            remote_link_id=917,
+            conversation_id=str(uuid4()),
+            urgent=False,
+            occurred_at=datetime(2026, 7, 20, 12, 0, tzinfo=UTC),
+            message_direction="staff_to_family",
+        )
+
+    assert exc_info.value.code == "fhh_bridge_redirect"
+    assert exc_info.value.terminal is True
 
 
 def test_parent_message_is_committed_while_only_staff_notification_is_held(db):

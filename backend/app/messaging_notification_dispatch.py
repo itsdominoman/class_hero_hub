@@ -236,9 +236,12 @@ class SignedFhhBridgeProvider:
                     "X-CHH-Notification-Signature": signature,
                 },
                 timeout=httpx.Timeout(settings.FHH_NOTIFICATION_TIMEOUT_SECONDS),
+                follow_redirects=False,
             )
         except (httpx.HTTPError, TimeoutError) as exc:
             raise ProviderError("fhh_bridge_unavailable") from exc
+        if 300 <= response.status_code < 400:
+            raise ProviderError("fhh_bridge_redirect", terminal=True)
         if response.status_code in {408, 425, 429} or response.status_code >= 500:
             raise ProviderError(f"fhh_bridge_http_{response.status_code}")
         if response.status_code >= 400:

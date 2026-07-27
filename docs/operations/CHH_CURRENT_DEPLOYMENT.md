@@ -45,7 +45,8 @@ DEV_AUTH_ENABLED=false
 QA_LOGIN_ENABLED=false
 QA_CHILD_LOGIN_ENABLED=false
 CORS_ORIGINS=https://class.familyherohub.com,https://localhost
-FHH_NOTIFICATION_BRIDGE_URL=https://dev.familyherohub.com/api/integrations/chh/school-message-notifications
+FHH_NOTIFICATION_BRIDGE_URL=http://10.250.50.1:8000/api/integrations/chh/school-message-notifications
+FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS=http://10.250.50.1:8000/api/integrations/chh/school-message-notifications
 ```
 
 `https://localhost` is the exact origin of the bundled Capacitor Android WebView.
@@ -55,7 +56,31 @@ production. Production startup also requires non-placeholder JWT, session and Go
 OAuth secrets, HTTPS public/API/callback URLs, and a bounded trusted-proxy allowlist.
 It fails closed if development/QA authentication is enabled or the CORS set differs.
 The notification scheduler loads `.env.push` after `.env`; any bridge URL override in
-that file must use the same HTTPS endpoint. Private plain-HTTP bridge URLs are rejected.
+that file is environment-specific. The development/pilot target is the exact
+WireGuard endpoint shown above; the production counterpart is
+`http://10.250.50.2:8000/api/integrations/chh/school-message-notifications` and must
+appear only in production configuration.
+
+Plain HTTP is accepted only when the complete URL is also present in
+`FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS`, uses an eligible literal private
+IP address and has the exact notification ingestion path. Public HTTP, hostnames,
+credentials, parameters, query strings, fragments and alternate routes fail startup
+validation. Redirects are never followed and every 3xx response is terminal. HTTPS
+targets remain valid, but the CHH-to-FHH notification bridge intentionally uses the
+private mesh so FHH sees the strictly allowlisted CHH source `10.250.50.5`.
+
+The public development HTTPS target caused the July 2026 regression: FHH observed
+CHH's public egress address instead of `10.250.50.5` and rejected ten outbox rows with
+`fhh_bridge_http_403`. The verified read-only evidence and exact candidate row
+identifiers are in
+`tmp/chh-fhh-push-notification-readonly-investigation-2026-07-27.md`. Recovery must
+use the audited operator retry, revalidate eligibility immediately, start with one
+homework row and one update row, and expand only after end-to-end provider and device
+confirmation. Never bulk-retry unrelated dead rows.
+
+This routing correction is server-side only. It requires rebuilding/recreating the
+notification scheduler that consumes `.env.push`; it does not require an Android
+change or APK rebuild.
 
 The tracked `Caddyfile.example` is the CHH baseline for the live CHH site block. It
 adds HSTS, MIME-sniffing protection, frame denial, strict-origin referrer handling and

@@ -145,3 +145,18 @@ re-upgrade on a restored copy, apply the additive migration, recreate backend an
 `notification_scheduler`, then inspect aggregate outbox and delivery states. Stop the
 scheduler to pause provider calls without interrupting message commitment or in-app
 visibility.
+
+The FHH bridge target is selected per environment in `.env.push`. Development/pilot
+uses the exact WireGuard endpoint on `10.250.50.1`; production uses the corresponding
+endpoint on `10.250.50.2`. A plain-HTTP target must be repeated exactly in
+`FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS`, use a literal eligible private
+address and retain the fixed ingestion route. Redirects are disabled and 3xx responses
+are terminal. Bearer/HMAC authentication, timestamp and UUID nonce validation, replay
+protection, strict FHH source allowlisting and the bounded HTTP timeout remain
+mandatory.
+
+After a routing incident, use the existing audited operator action only for rows whose
+recorded error and bridge evidence identify that incident. Revalidate eligibility
+immediately before retry, begin with the smallest approved category sample and confirm
+FHH ingestion, provider acceptance and device receipt before expanding. Never reset or
+bulk-retry unrelated dead rows directly in PostgreSQL.
