@@ -1,5 +1,20 @@
 # Messaging contact hours and notification outbox
 
+## Protected-destination availability gate
+
+`school_chat` and `survey` are protected destinations, so bridge availability alone
+is insufficient. Immediately before dispatch, the scheduler checks the assertion
+configuration for the row's stored link environment. An unavailable chat
+destination is terminally cancelled with
+`school_chat_destination_unavailable`; an unavailable survey destination is
+terminally cancelled with `survey_destination_unavailable`. No HTTP provider call
+is made. `SignedFhhBridgeProvider` repeats the same fail-closed check.
+
+This gate is deliberately category-aware. It does not alter points, homework,
+notice, calendar or update eligibility, deep links or bridge selection. Never
+manually release or retry the cancelled protected rows after configuration is
+restored; validate with a fresh controlled event.
+
 ## Scope
 
 Messaging v1 Slice 10 separates message acceptance from notification scheduling.

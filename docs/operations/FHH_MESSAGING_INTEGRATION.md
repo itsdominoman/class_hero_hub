@@ -1,5 +1,29 @@
 # FHH Messaging Integration Operations
 
+## Production assertion boundary and protected-destination gate (2026-07-27)
+
+Production School Chats and surveys are enabled. CHH must select the assertion
+secret from the active link's stored `integration_environment`; production links
+never fall back to the development `FHH_MESSAGING_ASSERTION_SECRET`. Production
+requires both `FHH_PRODUCTION_MESSAGING_ENABLED=true` and a non-empty
+`FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET`. Startup validation also rejects a
+production assertion value that matches the development assertion secret or either
+integration service bearer.
+
+FHH production's reciprocal `CHH_MESSAGING_ASSERTION_SECRET` is stored only in its
+backend-scoped, mode-600 bridge environment file. Compare presence and a
+non-reversible fingerprint only. Never print or copy the value between
+environments.
+
+Before emitting `school_chat` or `survey`, the CHH scheduler evaluates whether the
+destination can authenticate the protected route for that row's environment. An
+unavailable chat destination is cancelled with
+`school_chat_destination_unavailable`; unavailable survey assertion configuration
+is cancelled with `survey_destination_unavailable`. This guard does not suppress
+points, homework, notice, calendar or update notifications. The provider repeats
+the same check defensively so a direct invocation cannot emit an unusable protected
+deep link.
+
 ## Environment-bound bridge selection (2026-07-27)
 
 Every CHH `fhh_links` row records `development` or `production` from the service
@@ -37,10 +61,10 @@ are dedicated production values, distinct from school-link and development
 credentials. Timestamp skew, UUID nonce/replay protection, exact-byte hashing,
 five-second timeout and redirect rejection remain mandatory.
 
-FHH production school messaging remains disabled. Enabling school links and the
-notification worker does not enable parent School Chats or copy the development
-assertion configuration. The installed production package remains
-`com.familyherohub.app`.
+FHH production School Chats and surveys are enabled only with the dedicated
+production assertion relationship described above. Enabling school links or the
+notification worker alone does not enable either protected destination. The
+installed production package remains `com.familyherohub.app`.
 
 Before the first real link, create a CHH **FHH invite** through
 `POST /api/school/students/{student}/fhh-invites`; a guardian invite is a separate
@@ -129,12 +153,15 @@ a URL or retained by CHH. CHH stores only one-time replay evidence in
 
 Required configuration:
 
-- CHH: `FHH_MESSAGING_ASSERTION_SECRET`
+- CHH development: `FHH_MESSAGING_ASSERTION_SECRET`
+- CHH production: `FHH_PRODUCTION_MESSAGING_ENABLED=true` and
+  `FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET`
 - FHH: `CHH_MESSAGING_ASSERTION_SECRET`
 
-The values must match one another and must not match the service bearer or a link
-credential. Issuer defaults to `fhh-school-messaging`; audience defaults to
-`chh-school-messaging`. Never print either secret during comparison or recovery.
+Each environment's reciprocal pair must match, while development and production
+must differ. Neither may match a service bearer or link credential. Issuer defaults
+to `fhh-school-messaging`; audience defaults to `chh-school-messaging`. Never print
+either secret during comparison or recovery.
 
 ## Endpoint families
 

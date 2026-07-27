@@ -1,5 +1,49 @@
 # CHH current pilot deployment
 
+## 2026-07-27 production School Chats, surveys and destination gating
+
+Production School Chats and linked-parent surveys are enabled with a dedicated
+production messaging-assertion secret. CHH selects the assertion verifier from each
+link's stored `integration_environment`: development uses
+`FHH_MESSAGING_ASSERTION_SECRET`, while production additionally requires
+`FHH_PRODUCTION_MESSAGING_ENABLED=true` and
+`FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET`. The production value matches only FHH
+production's `CHH_MESSAGING_ASSERTION_SECRET`; it is distinct from the development
+assertion secret and both integration service bearers. Values remain untracked and
+service-scoped. The validated SHA-256 prefixes were `b3f93946a13c` for production
+and `032a0a6e7b01` for development.
+
+The notification scheduler now refuses only protected `school_chat` and `survey`
+destinations when their matching runtime assertion configuration is unavailable.
+It cancels undispatched rows with
+`school_chat_destination_unavailable` or `survey_destination_unavailable` before
+any bridge call. Points, homework, notice, calendar and update categories retain
+their existing eligibility and dispatch paths.
+
+Pre-change encrypted pgBackRest differentials are
+`20260725-221505F_20260727-174315D` locally and
+`20260725-221530F_20260727-174320D` off-host. Both repositories, WAL and readiness
+passed the documented check. Mode-600 rollback copies are
+`.env.pre-runtime-parity-20260727-2147`,
+`.env.push.pre-runtime-parity-20260727-2147`, and
+`.env.integration.production.pre-runtime-parity-20260727-2147`. The pre-change
+application image tags are `class_hero_hub-backend:rollback-0708fa8` and
+`class_hero_hub-notification_scheduler:rollback-0708fa8`. Rollback restores those
+files, reverts the two source commits and recreates only `backend` and
+`notification_scheduler`; it must not replay historical dead or cancelled rows.
+
+Focused candidate and deployed-image validation passed 79 tests with the one
+previously documented, unrelated policy-reconciliation test deselected. A fresh
+staff-to-family chat row was accepted by the production bridge, ingested once by
+FHH, produced one delivery and received one Firebase provider reference. A fresh
+survey reminder produced one accepted production delivery for the eligible
+installation; an already-ineligible linked recipient was safely cancelled by FHH.
+Production inbox, conversation/history, send, delivery/read acknowledgement,
+photo upload/thumbnail/full retrieval, voice upload/playback, survey list/open and
+survey submission all passed through FHH. Queue and worker health remained normal.
+Only CHH `backend` and `notification_scheduler` were rebuilt/recreated. There was no
+schema, frontend, native or APK change.
+
 ## 2026-07-27 environment-bound production notification validation
 
 The first real production FHH invite was consumed successfully. FHH production has
