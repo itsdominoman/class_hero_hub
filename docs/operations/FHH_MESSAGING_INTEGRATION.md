@@ -1,5 +1,21 @@
 # FHH Messaging Integration Operations
 
+## Environment-bound bridge selection (2026-07-27)
+
+Every CHH `fhh_links` row records `development` or `production` from the service
+credential that redeemed its invite. Notification dispatch must select the bridge
+configuration from that stored environment; it must never infer the target from a
+student, household, link age or current global overlay. The development bridge uses
+the generic `FHH_NOTIFICATION_*` settings. Production is separately enabled with
+`FHH_PRODUCTION_NOTIFICATION_ENABLED` and uses only
+`FHH_PRODUCTION_NOTIFICATION_*`. URLs and all four bearer/HMAC secrets are distinct.
+
+The normal family notification outbox remains one durable row per active opaque CHH
+link. A student linked in both environments therefore produces two rows, but each
+row is signed and sent only to its matching private FHH server. FHH independently
+requires the corresponding connection and resolves eligible household adults and
+production-package installations locally.
+
 ## Production school-link and notification boundary (2026-07-27)
 
 Production FHH school linking and protected linked-school access are enabled with a

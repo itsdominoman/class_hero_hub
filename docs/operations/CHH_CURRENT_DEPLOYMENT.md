@@ -1,5 +1,53 @@
 # CHH current pilot deployment
 
+## 2026-07-27 environment-bound production notification validation
+
+The first real production FHH invite was consumed successfully. FHH production has
+exactly one active school connection for the linked child, CHH has exactly one link
+created from that production invite, and the production APK loaded the protected
+dashboard through FHH with CHH HTTP 200. CHH also retains the older development link
+for the same school student; those two authority rows are now explicitly labelled
+`development` and `production`.
+
+Alembic revision `f8a9b0c1d2e3` adds the required `integration_environment` to
+`fhh_links`. Redemption records the environment selected by the matched,
+source-bound service credential. Notification dispatch uses that field to select
+the matching development or production URL, bearer, HMAC secret and timeout from
+one worker without copying credentials between environments. Both bridge URLs are
+literal private-mesh endpoints with their existing exact path, allowlist, timestamp,
+nonce/replay and redirect protections.
+
+The pre-migration CHH recovery points are encrypted local differential
+`20260725-221505F_20260727-105713D` and off-host differential
+`20260725-221530F_20260727-105717D`; pgBackRest verified both repositories, WAL and
+application readiness. The production bridge overlay rollback copy is
+`.env.push.production.pre-environment-routing-20260727-1502` (SHA-256
+`87b570aba3d8e8575c0291516d653702df93558fa71c9a8c164dc0a3834922f4`).
+Rollback restores that file, downgrades one Alembic revision, reverts the matching
+source commit, and recreates only `backend` and `notification_scheduler`.
+
+A controlled update produced one row per environment and both reached the correct
+bridge. Production FHH ingested its update once but cancelled it with
+`no_active_devices`: the new connection's guardian messaging identity roster was
+missing, so the event had zero eligible recipients. That event was not retried.
+After a fresh verified FHH production backup and normal one-row roster
+reconciliation, the connection has one active identity link and one completed
+lifecycle event.
+
+A fresh controlled Immediate `+1` positive points event then created exactly one CHH
+row for each environment. Both were bridge-accepted. Production FHH has exactly one
+matching points event, one recipient, one installation and one delivery; its worker
+recorded Firebase provider acceptance and one opaque provider reference with no
+error. Recent CHH/FHH actionable notification backlog is zero and all relevant
+worker heartbeats are healthy. Physical Android display and notification-tap
+destination remain the final acceptance checks.
+
+The additive migration passed upgrade/downgrade/re-upgrade on disposable PostgreSQL.
+Focused integration, security and dispatch validation passed 77 relevant tests; the
+unchanged policy-reconciliation assertion remains the one previously documented
+failure. Only CHH `backend` and `notification_scheduler` were rebuilt/recreated.
+There was no frontend/native change or APK rebuild.
+
 ## 2026-07-27 production FHH school-link and notification enablement
 
 The CHH pilot now accepts the FHH production server on the exact private source
@@ -61,23 +109,19 @@ against CHH with its retained link credential, returned the complete dashboard
 contract, and was restored to active/synchronised state without changing its three
 active guardian identities or completed lifecycle events.
 
-Server-side production enablement is complete, but end-to-end acceptance is still
-pending. CHH currently has no valid unused `fhh_link_invites` row: the recent UI
-action created a separate guardian invite. Generate a fresh FHH invite for the
-intended student, link it through the production APK, and then create one fresh
-controlled homework/update notification. Do not claim production notification
-validation until the resulting CHH outbox row, single FHH ingestion/delivery,
-Firebase acceptance, physical Android receipt and protected deep-link tap are all
-correlated without duplicates. There was no schema, migration, frontend/native or
-APK change.
+The earlier blocker was resolved by creating an FHH invite rather than the separate
+guardian invite. The production APK consumed it, loaded protected school data and
+the controlled points notification reached Firebase once. Physical Android receipt
+and the protected notification-tap destination remain the only unconfirmed
+acceptance checks. There was no frontend/native or APK change.
 
 ## 2026-07-27 CHH-to-FHH private bridge routing restoration
 
 CHH development/pilot now sends school-notification events to the exact FHH
 development mesh endpoint:
 `http://10.250.50.1:8000/api/integrations/chh/school-message-notifications`.
-The scheduler consumes this target from `.env.push`; the separate, inactive
-production reciprocal configuration uses the corresponding `10.250.50.2` endpoint.
+The scheduler consumes this target from `.env.push`; the separate production
+reciprocal configuration uses the corresponding `10.250.50.2` endpoint.
 Each HTTP endpoint must also appear exactly in
 `FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS`. Public HTTP, unapproved private
 HTTP, hostnames, credentials, query strings, fragments, alternate routes and

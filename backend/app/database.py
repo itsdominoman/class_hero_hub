@@ -97,26 +97,28 @@ def _parse_fhh_notification_bridge_url(setting_name: str, value: str):
 def _validate_fhh_notification_bridge_url(
     value: str,
     approved_private_http_endpoints: str,
+    *,
+    setting_name: str = "FHH_NOTIFICATION_BRIDGE_URL",
+    approved_setting_name: str = "FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS",
 ) -> None:
-    setting_name = "FHH_NOTIFICATION_BRIDGE_URL"
     normalized, parsed = _parse_fhh_notification_bridge_url(setting_name, value)
     approved = set(parse_csv_values(approved_private_http_endpoints))
 
     for endpoint in approved:
         approved_normalized, approved_parsed = _parse_fhh_notification_bridge_url(
-            "FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS",
+            approved_setting_name,
             endpoint,
         )
         if approved_parsed.scheme != "http":
             _fail(
-                "FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS",
+                approved_setting_name,
                 f"must contain only plain-HTTP endpoints: {approved_normalized}",
             )
         try:
             approved_address = ip_address(approved_parsed.hostname)
         except ValueError:
             _fail(
-                "FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS",
+                approved_setting_name,
                 f"must use a literal private IP address: {approved_normalized}",
             )
         if (
@@ -128,7 +130,7 @@ def _validate_fhh_notification_bridge_url(
             or approved_address.is_reserved
         ):
             _fail(
-                "FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS",
+                approved_setting_name,
                 f"must use an eligible private mesh address: {approved_normalized}",
             )
 
@@ -137,7 +139,7 @@ def _validate_fhh_notification_bridge_url(
     if normalized not in approved:
         _fail(
             setting_name,
-            "plain HTTP requires an exact match in FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS",
+            f"plain HTTP requires an exact match in {approved_setting_name}",
         )
 
 
@@ -437,12 +439,80 @@ def validate_runtime_configuration(settings: "Settings" | None = None) -> str:
                 "FHH_NOTIFICATION_HMAC_SECRET",
                 "must be separate from FHH_NOTIFICATION_SERVICE_TOKEN",
             )
+        if config.FHH_PRODUCTION_NOTIFICATION_ENABLED:
+            if (
+                config.FHH_PRODUCTION_NOTIFICATION_BRIDGE_URL.strip()
+                == config.FHH_NOTIFICATION_BRIDGE_URL.strip()
+            ):
+                _fail(
+                    "FHH_PRODUCTION_NOTIFICATION_BRIDGE_URL",
+                    "must be separate from FHH_NOTIFICATION_BRIDGE_URL",
+                )
+            _validate_fhh_notification_bridge_url(
+                config.FHH_PRODUCTION_NOTIFICATION_BRIDGE_URL,
+                config.FHH_PRODUCTION_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS,
+                setting_name="FHH_PRODUCTION_NOTIFICATION_BRIDGE_URL",
+                approved_setting_name=(
+                    "FHH_PRODUCTION_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS"
+                ),
+            )
+            _validate_secret(
+                "FHH_PRODUCTION_NOTIFICATION_SERVICE_TOKEN",
+                config.FHH_PRODUCTION_NOTIFICATION_SERVICE_TOKEN,
+                min_length=32,
+                required=True,
+            )
+            _validate_secret(
+                "FHH_PRODUCTION_NOTIFICATION_HMAC_SECRET",
+                config.FHH_PRODUCTION_NOTIFICATION_HMAC_SECRET,
+                min_length=32,
+                required=True,
+            )
+            production_secrets = {
+                config.FHH_PRODUCTION_NOTIFICATION_SERVICE_TOKEN,
+                config.FHH_PRODUCTION_NOTIFICATION_HMAC_SECRET,
+            }
+            if len(production_secrets) != 2:
+                _fail(
+                    "FHH_PRODUCTION_NOTIFICATION_HMAC_SECRET",
+                    "must be separate from FHH_PRODUCTION_NOTIFICATION_SERVICE_TOKEN",
+                )
+            if production_secrets & {
+                config.FHH_NOTIFICATION_SERVICE_TOKEN,
+                config.FHH_NOTIFICATION_HMAC_SECRET,
+            }:
+                _fail(
+                    "FHH_PRODUCTION_NOTIFICATION_SERVICE_TOKEN",
+                    "production notification secrets must be separate from development",
+                )
+        else:
+            _validate_optional_secret(
+                "FHH_PRODUCTION_NOTIFICATION_SERVICE_TOKEN",
+                config.FHH_PRODUCTION_NOTIFICATION_SERVICE_TOKEN,
+            )
+            _validate_optional_secret(
+                "FHH_PRODUCTION_NOTIFICATION_HMAC_SECRET",
+                config.FHH_PRODUCTION_NOTIFICATION_HMAC_SECRET,
+            )
     else:
+        if config.FHH_PRODUCTION_NOTIFICATION_ENABLED:
+            _fail(
+                "FHH_PRODUCTION_NOTIFICATION_ENABLED",
+                "requires MESSAGING_NOTIFICATION_DISPATCH_ENABLED",
+            )
         _validate_optional_secret(
             "FHH_NOTIFICATION_SERVICE_TOKEN", config.FHH_NOTIFICATION_SERVICE_TOKEN
         )
         _validate_optional_secret(
             "FHH_NOTIFICATION_HMAC_SECRET", config.FHH_NOTIFICATION_HMAC_SECRET
+        )
+        _validate_optional_secret(
+            "FHH_PRODUCTION_NOTIFICATION_SERVICE_TOKEN",
+            config.FHH_PRODUCTION_NOTIFICATION_SERVICE_TOKEN,
+        )
+        _validate_optional_secret(
+            "FHH_PRODUCTION_NOTIFICATION_HMAC_SECRET",
+            config.FHH_PRODUCTION_NOTIFICATION_HMAC_SECRET,
         )
     for name, value, minimum, maximum in (
         ("MESSAGING_NOTIFICATION_SCHEDULER_POLL_SECONDS", config.MESSAGING_NOTIFICATION_SCHEDULER_POLL_SECONDS, 1, 3600),
@@ -455,6 +525,12 @@ def validate_runtime_configuration(settings: "Settings" | None = None) -> str:
         ("MESSAGING_PRODUCTION_WORKER_POLL_SECONDS", config.MESSAGING_PRODUCTION_WORKER_POLL_SECONDS, 1, 300),
         ("MESSAGING_PRODUCTION_JOB_LEASE_SECONDS", config.MESSAGING_PRODUCTION_JOB_LEASE_SECONDS, 30, 3600),
         ("FHH_NOTIFICATION_TIMEOUT_SECONDS", config.FHH_NOTIFICATION_TIMEOUT_SECONDS, 1, 30),
+        (
+            "FHH_PRODUCTION_NOTIFICATION_TIMEOUT_SECONDS",
+            config.FHH_PRODUCTION_NOTIFICATION_TIMEOUT_SECONDS,
+            1,
+            30,
+        ),
     ):
         if value < minimum or value > maximum:
             _fail(name, f"must be between {minimum} and {maximum}")
@@ -519,6 +595,12 @@ class Settings(BaseSettings):
     FHH_NOTIFICATION_SERVICE_TOKEN: str = ""
     FHH_NOTIFICATION_HMAC_SECRET: str = ""
     FHH_NOTIFICATION_TIMEOUT_SECONDS: int = 5
+    FHH_PRODUCTION_NOTIFICATION_ENABLED: bool = False
+    FHH_PRODUCTION_NOTIFICATION_BRIDGE_URL: str = ""
+    FHH_PRODUCTION_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS: str = ""
+    FHH_PRODUCTION_NOTIFICATION_SERVICE_TOKEN: str = ""
+    FHH_PRODUCTION_NOTIFICATION_HMAC_SECRET: str = ""
+    FHH_PRODUCTION_NOTIFICATION_TIMEOUT_SECONDS: int = 5
     CORS_ORIGINS: str = "https://families.loginto.me,http://localhost:5173,http://localhost:8000"
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587

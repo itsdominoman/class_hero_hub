@@ -83,8 +83,12 @@ def issue(client, world, student=None):
     return client.post(f"/api/school/students/{(student or world['one']).id}/fhh-invites", headers=admin(world))
 
 
-def consume(client, code, ref="child-1"):
-    return client.post("/api/integrations/fhh/link/consume", headers=service(), json={"code": code, "fhh_child_ref": ref})
+def consume(client, code, ref="child-1", service_token="s" * 40):
+    return client.post(
+        "/api/integrations/fhh/link/consume",
+        headers=service(service_token),
+        json={"code": code, "fhh_child_ref": ref},
+    )
 
 
 def test_service_auth_disabled_missing_wrong_allowed_and_ip_allowlist(db, client, monkeypatch):
@@ -129,6 +133,28 @@ def test_service_auth_binds_distinct_production_token_to_production_source(
     assert client.post(url, headers=service("p" * 40), json=payload).status_code == 403
 
 
+def test_consume_records_environment_from_matched_service_credential(
+    db, client, world, monkeypatch
+):
+    monkeypatch.setattr(database.settings, "FHH_PRODUCTION_INTEGRATION_ENABLED", True)
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN",
+        "p" * 40,
+    )
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_PRODUCTION_INTEGRATION_ALLOWED_IPS",
+        "127.0.0.1/8",
+    )
+    code = issue(client, world).json()["code"]
+
+    response = consume(client, code, service_token="p" * 40)
+
+    assert response.status_code == 200
+    assert db.query(FhhLink).one().integration_environment == "production"
+
+
 def test_admin_issue_list_and_same_school_active_rules(db, client, world):
     created = issue(client, world); assert created.status_code == 201
     assert created.json()["code"].startswith("CHH-")
@@ -151,7 +177,9 @@ def test_verify_expired_revoked_and_consume_single_use(db, client, world):
     row.revoked_at = None; db.commit()
     first = consume(client, code); assert first.status_code == 200 and first.json()["link_token"]
     assert consume(client, code).status_code == 404
-    link = db.query(FhhLink).one(); assert link.status == "active" and link.link_token_hash != first.json()["link_token"]
+    link = db.query(FhhLink).one()
+    assert link.status == "active" and link.link_token_hash != first.json()["link_token"]
+    assert link.integration_environment == "development"
 
 
 def test_dashboard_link_token_scope_and_revocation(db, client, world):

@@ -593,6 +593,9 @@ class FhhLink(Base):
     link_token_hash = Column(String, unique=True, nullable=False, index=True)
     fhh_child_ref = Column(String, nullable=False)
     fhh_household_ref = Column(String(64), nullable=True, index=True)
+    integration_environment = Column(
+        String(16), nullable=False, default="development", server_default="development"
+    )
     status = Column(String, nullable=False, default="active", server_default="active")
     revoked_at = Column(DateTime(timezone=True), nullable=True)
     revoked_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -600,6 +603,10 @@ class FhhLink(Base):
 
     __table_args__ = (
         CheckConstraint("status IN ('active', 'revoked')", name="ck_fhh_links_status"),
+        CheckConstraint(
+            "integration_environment IN ('development', 'production')",
+            name="ck_fhh_links_integration_environment",
+        ),
         Index("ix_fhh_links_school_student_status", "school_id", "student_id", "status"),
     )
 

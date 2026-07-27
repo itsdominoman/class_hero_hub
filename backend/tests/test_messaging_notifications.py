@@ -703,6 +703,7 @@ def test_staff_message_targets_one_family_bridge_and_never_staff_or_dual_role_se
     assert push_provider.calls == []
     assert len(bridge.calls) == 1
     assert bridge.calls[0]["message_direction"] == "staff_to_family"
+    assert bridge.calls[0]["integration_environment"] == "development"
     assert db.query(MessageReceiptEvent).count() == before_receipts
 
 
@@ -1022,6 +1023,97 @@ def test_signed_fhh_bridge_payload_is_minimal_replay_resistant_and_privacy_safe(
     assert nonce == str(event_id)
     assert hmac.compare_digest(captured["headers"]["X-CHH-Notification-Signature"], expected)
     assert captured["follow_redirects"] is False
+
+
+def test_signed_fhh_bridge_uses_source_bound_production_configuration(monkeypatch):
+    production_url = (
+        "https://familyherohub.com"
+        "/api/integrations/chh/school-message-notifications"
+    )
+    production_token = "production-service-" + "p" * 48
+    production_hmac = "production-hmac-" + "h" * 51
+    monkeypatch.setattr(
+        database.settings, "FHH_PRODUCTION_NOTIFICATION_ENABLED", True
+    )
+    monkeypatch.setattr(
+        database.settings, "FHH_PRODUCTION_NOTIFICATION_BRIDGE_URL", production_url
+    )
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_PRODUCTION_NOTIFICATION_SERVICE_TOKEN",
+        production_token,
+    )
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_PRODUCTION_NOTIFICATION_HMAC_SECRET",
+        production_hmac,
+    )
+    captured = {}
+
+    class Response:
+        status_code = 200
+
+        def json(self):
+            return {"status": "accepted"}
+
+    def fake_post(url, *, content, headers, timeout, follow_redirects):
+        captured.update(url=url, content=content, headers=headers)
+        return Response()
+
+    from app import messaging_notification_dispatch
+
+    monkeypatch.setattr(messaging_notification_dispatch.httpx, "post", fake_post)
+    event_id = uuid4()
+
+    assert (
+        SignedFhhBridgeProvider().send(
+            event_id=str(event_id),
+            remote_link_id=918,
+            urgent=False,
+            occurred_at=datetime(2026, 7, 27, 12, 0, tzinfo=UTC),
+            route_type="update",
+            category="update",
+            source_ref="101",
+            action="published",
+            integration_environment="production",
+        )
+        == "accepted"
+    )
+    assert captured["url"] == production_url
+    assert captured["headers"]["Authorization"] == f"Bearer {production_token}"
+    timestamp = captured["headers"]["X-CHH-Notification-Timestamp"]
+    digest = hashlib.sha256(captured["content"]).hexdigest()
+    expected = hmac.new(
+        production_hmac.encode(),
+        f"{timestamp}\n{event_id}\n{digest}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    assert hmac.compare_digest(
+        captured["headers"]["X-CHH-Notification-Signature"], expected
+    )
+
+
+def test_signed_fhh_bridge_rejects_unknown_environment_without_network(monkeypatch):
+    def unexpected_post(*_args, **_kwargs):
+        raise AssertionError("network call was not expected")
+
+    from app import messaging_notification_dispatch
+
+    monkeypatch.setattr(messaging_notification_dispatch.httpx, "post", unexpected_post)
+    with pytest.raises(ProviderError) as exc_info:
+        SignedFhhBridgeProvider().send(
+            event_id=str(uuid4()),
+            remote_link_id=919,
+            urgent=False,
+            occurred_at=datetime(2026, 7, 27, 12, 0, tzinfo=UTC),
+            route_type="update",
+            category="update",
+            source_ref="102",
+            action="published",
+            integration_environment="invalid",
+        )
+    assert exc_info.value.code == "fhh_bridge_environment_invalid"
+    assert exc_info.value.terminal is True
 
 
 def test_signed_fhh_bridge_rejects_redirect_as_terminal(monkeypatch):

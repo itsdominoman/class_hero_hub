@@ -178,11 +178,28 @@ class SignedFhhBridgeProvider:
         net_total: int | None = None,
         event_count: int | None = None,
         response_mode: str | None = None,
+        integration_environment: str = "development",
     ) -> str:
+        if integration_environment == "production":
+            if not settings.FHH_PRODUCTION_NOTIFICATION_ENABLED:
+                raise ProviderError(
+                    "fhh_production_bridge_configuration_missing", terminal=True
+                )
+            bridge_url = settings.FHH_PRODUCTION_NOTIFICATION_BRIDGE_URL
+            service_token = settings.FHH_PRODUCTION_NOTIFICATION_SERVICE_TOKEN
+            hmac_secret = settings.FHH_PRODUCTION_NOTIFICATION_HMAC_SECRET
+            timeout_seconds = settings.FHH_PRODUCTION_NOTIFICATION_TIMEOUT_SECONDS
+        elif integration_environment == "development":
+            bridge_url = settings.FHH_NOTIFICATION_BRIDGE_URL
+            service_token = settings.FHH_NOTIFICATION_SERVICE_TOKEN
+            hmac_secret = settings.FHH_NOTIFICATION_HMAC_SECRET
+            timeout_seconds = settings.FHH_NOTIFICATION_TIMEOUT_SECONDS
+        else:
+            raise ProviderError("fhh_bridge_environment_invalid", terminal=True)
         if not (
-            settings.FHH_NOTIFICATION_BRIDGE_URL.strip()
-            and settings.FHH_NOTIFICATION_SERVICE_TOKEN.strip()
-            and settings.FHH_NOTIFICATION_HMAC_SECRET.strip()
+            bridge_url.strip()
+            and service_token.strip()
+            and hmac_secret.strip()
         ):
             raise ProviderError("fhh_bridge_configuration_missing", terminal=True)
         body = {
@@ -220,22 +237,22 @@ class SignedFhhBridgeProvider:
         nonce = event_id
         digest = hashlib.sha256(raw).hexdigest()
         signature = hmac.new(
-            settings.FHH_NOTIFICATION_HMAC_SECRET.encode("utf-8"),
+            hmac_secret.encode("utf-8"),
             f"{timestamp}\n{nonce}\n{digest}".encode("utf-8"),
             hashlib.sha256,
         ).hexdigest()
         try:
             response = httpx.post(
-                settings.FHH_NOTIFICATION_BRIDGE_URL,
+                bridge_url,
                 content=raw,
                 headers={
-                    "Authorization": f"Bearer {settings.FHH_NOTIFICATION_SERVICE_TOKEN}",
+                    "Authorization": f"Bearer {service_token}",
                     "Content-Type": "application/json",
                     "X-CHH-Notification-Timestamp": timestamp,
                     "X-CHH-Notification-Nonce": nonce,
                     "X-CHH-Notification-Signature": signature,
                 },
-                timeout=httpx.Timeout(settings.FHH_NOTIFICATION_TIMEOUT_SECONDS),
+                timeout=httpx.Timeout(timeout_seconds),
                 follow_redirects=False,
             )
         except (httpx.HTTPError, TimeoutError) as exc:
@@ -702,6 +719,7 @@ def dispatch_claimed_rows(
                 urgent=bool(context.message.urgent),
                 occurred_at=_aware(context.message.created_at),
                 message_direction="staff_to_family",
+                integration_environment=link.integration_environment,
             )
             row.state = "provider_accepted"
             row.provider_message_ref = provider_ref[:200]
@@ -755,6 +773,7 @@ def dispatch_claimed_rows(
                 response_mode=template_args.get("response_mode"),
                 urgent=bool(row.urgent),
                 occurred_at=_aware(row.created_at),
+                integration_environment=link.integration_environment,
             )
             row.state = "provider_accepted"
             row.provider_message_ref = provider_ref[:200]

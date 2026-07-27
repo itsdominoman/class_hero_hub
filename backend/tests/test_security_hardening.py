@@ -103,6 +103,48 @@ def test_notification_bridge_accepts_exact_private_http_target_in_production():
     assert validate_runtime_configuration(config) == "production"
 
 
+def test_notification_bridge_validates_distinct_production_route_and_secrets():
+    development_target = (
+        "http://10.250.50.1:8000"
+        "/api/integrations/chh/school-message-notifications"
+    )
+    production_target = (
+        "http://10.250.50.2:8000"
+        "/api/integrations/chh/school-message-notifications"
+    )
+    values = {
+        "FHH_NOTIFICATION_BRIDGE_URL": development_target,
+        "FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS": development_target,
+        "FHH_PRODUCTION_NOTIFICATION_ENABLED": True,
+        "FHH_PRODUCTION_NOTIFICATION_BRIDGE_URL": production_target,
+        "FHH_PRODUCTION_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS": (
+            production_target
+        ),
+        "FHH_PRODUCTION_NOTIFICATION_SERVICE_TOKEN": "p" * 32,
+        "FHH_PRODUCTION_NOTIFICATION_HMAC_SECRET": "s" * 32,
+    }
+
+    assert validate_runtime_configuration(_bridge_settings(**values)) == "test"
+    with pytest.raises(RuntimeError, match="separate from development"):
+        validate_runtime_configuration(
+            _bridge_settings(
+                **{
+                    **values,
+                    "FHH_PRODUCTION_NOTIFICATION_SERVICE_TOKEN": "t" * 32,
+                }
+            )
+        )
+    with pytest.raises(RuntimeError, match="FHH_PRODUCTION_NOTIFICATION_BRIDGE_URL"):
+        validate_runtime_configuration(
+            _bridge_settings(
+                **{
+                    **values,
+                    "FHH_PRODUCTION_NOTIFICATION_BRIDGE_URL": "",
+                }
+            )
+        )
+
+
 def test_notification_bridge_keeps_https_without_private_http_approval():
     config = _bridge_settings(
         FHH_NOTIFICATION_BRIDGE_URL=(

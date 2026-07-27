@@ -105,7 +105,7 @@ class MessagingLifecycleRequest(BaseModel):
         return self
 
 
-def require_fhh_service(request: Request) -> None:
+def require_fhh_service(request: Request) -> str:
     if not settings.FHH_INTEGRATION_ENABLED:
         raise HTTPException(status_code=404, detail="Not found")
     client_ip = get_client_ip_from_scope(request.scope)
@@ -118,6 +118,7 @@ def require_fhh_service(request: Request) -> None:
 
     credential_scopes = [
         (
+            "development",
             settings.FHH_INTEGRATION_SERVICE_TOKEN,
             parse_ip_networks(settings.FHH_INTEGRATION_ALLOWED_IPS),
         )
@@ -125,19 +126,23 @@ def require_fhh_service(request: Request) -> None:
     if settings.FHH_PRODUCTION_INTEGRATION_ENABLED:
         credential_scopes.append(
             (
+                "production",
                 settings.FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN,
                 parse_ip_networks(settings.FHH_PRODUCTION_INTEGRATION_ALLOWED_IPS),
             )
         )
 
+    matched_environment = None
     matched_networks = None
-    for expected, networks in credential_scopes:
+    for environment, expected, networks in credential_scopes:
         if expected and hmac.compare_digest(token, expected):
+            matched_environment = environment
             matched_networks = networks
-    if matched_networks is None:
+    if matched_environment is None or matched_networks is None:
         raise HTTPException(status_code=401, detail=GENERIC_ACCESS_ERROR, headers={"WWW-Authenticate": "Bearer"})
     if matched_networks and not is_ip_trusted(client_ip, matched_networks):
         raise HTTPException(status_code=403, detail=GENERIC_ACCESS_ERROR)
+    return matched_environment
 
 
 def _rate_link(request: Request) -> None:
@@ -242,13 +247,26 @@ def verify(body: CodeRequest, request: Request, db: Session = Depends(get_db)):
     return {**_snapshot(db, row.school_id, row.student_id), "expires_at": row.expires_at}
 
 
-@router.post("/link/consume", dependencies=[Depends(require_fhh_service)])
-def consume(body: ConsumeRequest, request: Request, db: Session = Depends(get_db)):
+@router.post("/link/consume")
+def consume(
+    body: ConsumeRequest,
+    request: Request,
+    integration_environment: str = Depends(require_fhh_service),
+    db: Session = Depends(get_db),
+):
     _rate_link(request)
     try:
         row = _invite(db, body.code, lock=True)
         raw_token = secrets.token_urlsafe(32)
-        link = FhhLink(school_id=row.school_id, student_id=row.student_id, source_invite_id=row.id, link_token_hash=invite_tokens.hash_token(raw_token), fhh_child_ref=body.fhh_child_ref, fhh_household_ref=body.fhh_household_ref)
+        link = FhhLink(
+            school_id=row.school_id,
+            student_id=row.student_id,
+            source_invite_id=row.id,
+            link_token_hash=invite_tokens.hash_token(raw_token),
+            fhh_child_ref=body.fhh_child_ref,
+            fhh_household_ref=body.fhh_household_ref,
+            integration_environment=integration_environment,
+        )
         db.add(link); db.flush()
         row.consumed_at = invite_tokens.now_utc(); row.consumed_by = body.fhh_child_ref
         write_audit(db, None, "integration.fhh_link.created", link, {"student_id": row.student_id, "source_invite_id": row.id}, school_id=row.school_id)
