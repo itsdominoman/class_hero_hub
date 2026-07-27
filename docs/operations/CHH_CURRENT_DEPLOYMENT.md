@@ -38,6 +38,8 @@ staff-to-family chat row was accepted by the production bridge, ingested once by
 FHH, produced one delivery and received one Firebase provider reference. A fresh
 survey reminder produced one accepted production delivery for the eligible
 installation; an already-ineligible linked recipient was safely cancelled by FHH.
+Dom physically confirmed receipt of the production chat and survey notifications
+and that each tap opened its correct protected School Chat or survey destination.
 Production inbox, conversation/history, send, delivery/read acknowledgement,
 photo upload/thumbnail/full retrieval, voice upload/playback, survey list/open and
 survey submission all passed through FHH. Queue and worker health remained normal.
