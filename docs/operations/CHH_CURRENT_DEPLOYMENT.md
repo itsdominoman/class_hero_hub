@@ -39,8 +39,9 @@ row for each environment. Both were bridge-accepted. Production FHH has exactly 
 matching points event, one recipient, one installation and one delivery; its worker
 recorded Firebase provider acceptance and one opaque provider reference with no
 error. Recent CHH/FHH actionable notification backlog is zero and all relevant
-worker heartbeats are healthy. Physical Android display and notification-tap
-destination remain the final acceptance checks.
+worker heartbeats are healthy. The notification appeared exactly once on the
+registered production Android installation. Tapping it opened the linked child's
+protected school Points destination, completing physical end-to-end acceptance.
 
 The additive migration passed upgrade/downgrade/re-upgrade on disposable PostgreSQL.
 Focused integration, security and dispatch validation passed 77 relevant tests; the
@@ -111,9 +112,9 @@ active guardian identities or completed lifecycle events.
 
 The earlier blocker was resolved by creating an FHH invite rather than the separate
 guardian invite. The production APK consumed it, loaded protected school data and
-the controlled points notification reached Firebase once. Physical Android receipt
-and the protected notification-tap destination remain the only unconfirmed
-acceptance checks. There was no frontend/native or APK change.
+the controlled points notification reached Firebase once. It then appeared once on
+the registered production Android installation and its tap opened the protected
+school Points destination. There was no frontend/native or APK change.
 
 ## 2026-07-27 CHH-to-FHH private bridge routing restoration
 
