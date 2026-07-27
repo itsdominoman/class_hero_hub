@@ -1,5 +1,42 @@
 # FHH Messaging Integration Operations
 
+## Production school-link and notification boundary (2026-07-27)
+
+Production FHH school linking and protected linked-school access are enabled with a
+dedicated production service bearer. CHH accepts that bearer only from
+`10.250.50.2/32`. FHH retains the HTTPS base URL
+`https://class.familyherohub.com`, while Compose maps that hostname to
+`10.250.50.5` inside only the backend and lifecycle worker. This preserves private
+mesh routing, normal TLS hostname/certificate validation, bounded client pooling and
+timeouts. Browser and APK clients continue to call only FHH and receive no CHH
+credential or direct CHH URL.
+
+The reciprocal notification path is the literal private endpoint on
+`10.250.50.2:8000`. The CHH scheduler permits that plain-HTTP target only because
+the complete URL and exact ingestion path are also present in its approved private
+endpoint allowlist. FHH accepts only source `10.250.50.5/32`; bearer/HMAC secrets
+are dedicated production values, distinct from school-link and development
+credentials. Timestamp skew, UUID nonce/replay protection, exact-byte hashing,
+five-second timeout and redirect rejection remain mandatory.
+
+FHH production school messaging remains disabled. Enabling school links and the
+notification worker does not enable parent School Chats or copy the development
+assertion configuration. The installed production package remains
+`com.familyherohub.app`.
+
+Before the first real link, create a CHH **FHH invite** through
+`POST /api/school/students/{student}/fhh-invites`; a guardian invite is a separate
+flow and is not accepted by `/api/integrations/fhh/link/verify`. After linking,
+confirm one active CHH `fhh_links` row and one active FHH `school_connections` row,
+then use only a fresh controlled notification. Never reset or retry old dead outbox
+rows for this acceptance.
+
+Rollback restores the timestamped mode-600 environment copies recorded in
+`CHH_CURRENT_DEPLOYMENT.md`, reverts the associated Compose change, and recreates
+only CHH `backend` and `notification_scheduler` plus FHH `backend`,
+`lifecycle_worker` and `notification_worker`. No database downgrade or APK rebuild
+is involved.
+
 ## Slice 12 restricted/closed projection
 
 CHH remains the safeguarding authority. FHH accepts only the closed-world

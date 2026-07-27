@@ -1,5 +1,62 @@
 # CHH current pilot deployment
 
+## 2026-07-27 production FHH school-link and notification enablement
+
+The CHH pilot now accepts the FHH production server on the exact private source
+`10.250.50.2/32`. The backend loads the untracked, mode-600
+`.env.integration.production` after `.env`; its dedicated production service bearer
+and messaging assertion secret are separate from one another and from development.
+FHH production calls `https://class.familyherohub.com` with that hostname mapped to
+`10.250.50.5` inside only its backend and lifecycle-worker containers. TLS hostname
+and certificate verification therefore remain intact while school-link and protected
+school-data traffic stays on the private mesh. FHH production school messaging
+remains disabled.
+
+The notification scheduler continues to load CHH's existing `.env.push`, then the
+untracked production bridge overlay `.env.push.production`. The overlay selects only
+`http://10.250.50.2:8000/api/integrations/chh/school-message-notifications`, which
+also appears exactly in `FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS`, and uses
+the dedicated production bearer/HMAC pair and five-second timeout. The former
+inactive overlay key names `FHH_NOTIFICATION_API_URL` and
+`FHH_NOTIFICATION_HTTP_TIMEOUT_SECONDS` were corrected to the actual runtime names
+`FHH_NOTIFICATION_BRIDGE_URL` and `FHH_NOTIFICATION_TIMEOUT_SECONDS`. Redirects,
+timestamp skew, nonce replay protection, canonical body signing and FHH's exact
+`10.250.50.5/32` source allowlist remain enforced.
+
+Pre-change recovery evidence is the fresh encrypted local/off-host CHH differential
+backup pair `20260725-221505F_20260727-100853D` and
+`20260725-221530F_20260727-100857D`; the subsequent pgBackRest health check verified
+both repositories, WAL archiving and application readiness. Runtime configuration
+rollback copies are `.env.pre-production-school-link-20260727-1012` and
+`.env.push.production.pre-production-school-link-20260727-1012`. To roll back,
+restore those exact mode-600 files, revert the matching Compose/documentation commit,
+and recreate only `backend` and `notification_scheduler`; do not reset notification
+rows or retry dead rows.
+
+Candidate and restarted production profiles passed fail-fast validation. A live
+non-ingesting school-link probe arrived from `10.250.50.2` and returned 404 for a
+deliberately nonexistent code, proving private routing, bearer authentication and
+source allowlisting. A live signed empty notification probe arrived at FHH from
+`10.250.50.5` and returned the expected authenticated 422. It created no FHH event
+or delivery, and CHH link/outbox aggregates were unchanged. The CHH backend and
+notification scheduler alone were recreated and are healthy; PostgreSQL, frontend,
+Caddy and the production worker retained their uptime.
+
+Focused CHH integration/security validation passed 40 tests. A wider unchanged
+notification file passed 60 tests and retained one unrelated policy-reconciliation
+failure (`cancelled` versus the test's expected `pending`); no code in that path
+changed and the live queue aggregate remained unchanged.
+
+Server-side production enablement is complete, but end-to-end acceptance is still
+pending. CHH currently has no valid unused `fhh_link_invites` row: the recent UI
+action created a separate guardian invite. Generate a fresh FHH invite for the
+intended student, link it through the production APK, and then create one fresh
+controlled homework/update notification. Do not claim production notification
+validation until the resulting CHH outbox row, single FHH ingestion/delivery,
+Firebase acceptance, physical Android receipt and protected deep-link tap are all
+correlated without duplicates. There was no schema, migration, frontend/native or
+APK change.
+
 ## 2026-07-27 CHH-to-FHH private bridge routing restoration
 
 CHH development/pilot now sends school-notification events to the exact FHH
