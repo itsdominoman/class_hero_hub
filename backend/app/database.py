@@ -349,6 +349,23 @@ def validate_runtime_configuration(settings: "Settings" | None = None) -> str:
             "FHH_MESSAGING_ASSERTION_SECRET",
             config.FHH_MESSAGING_ASSERTION_SECRET,
         )
+    if config.FHH_PRODUCTION_MESSAGING_ENABLED:
+        if not config.MESSAGING_ENABLED:
+            _fail(
+                "FHH_PRODUCTION_MESSAGING_ENABLED",
+                "requires MESSAGING_ENABLED",
+            )
+        _validate_secret(
+            "FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET",
+            config.FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET,
+            min_length=MIN_FHH_ASSERTION_SECRET_LENGTH,
+            required=True,
+        )
+    else:
+        _validate_optional_secret(
+            "FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET",
+            config.FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET,
+        )
     if config.MESSAGING_ENABLED and config.FHH_INTEGRATION_ENABLED:
         if not config.FHH_MESSAGING_ASSERTION_ISSUER.strip():
             _fail("FHH_MESSAGING_ASSERTION_ISSUER", "must not be empty")
@@ -381,6 +398,16 @@ def validate_runtime_configuration(settings: "Settings" | None = None) -> str:
             "FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN",
             "must be separate from FHH_MESSAGING_ASSERTION_SECRET",
         )
+    if config.FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET:
+        if config.FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET in {
+            config.FHH_MESSAGING_ASSERTION_SECRET,
+            config.FHH_INTEGRATION_SERVICE_TOKEN,
+            config.FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN,
+        }:
+            _fail(
+                "FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET",
+                "must be separate from development and integration credentials",
+            )
     try:
         parse_ip_networks(config.FHH_INTEGRATION_ALLOWED_IPS)
     except ValueError as exc:
@@ -573,6 +600,8 @@ class Settings(BaseSettings):
     FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN: str = ""
     FHH_PRODUCTION_INTEGRATION_ALLOWED_IPS: str = ""
     FHH_MESSAGING_ASSERTION_SECRET: str = ""
+    FHH_PRODUCTION_MESSAGING_ENABLED: bool = False
+    FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET: str = ""
     FHH_MESSAGING_ASSERTION_ISSUER: str = "fhh-school-messaging"
     FHH_MESSAGING_ASSERTION_AUDIENCE: str = "chh-school-messaging"
     MESSAGING_ENABLED: bool = False

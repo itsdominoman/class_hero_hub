@@ -145,6 +145,36 @@ def test_notification_bridge_validates_distinct_production_route_and_secrets():
         )
 
 
+def test_production_messaging_requires_dedicated_distinct_assertion_secret():
+    base = {
+        "MESSAGING_ENABLED": True,
+        "FHH_PRODUCTION_MESSAGING_ENABLED": True,
+        "FHH_MESSAGING_ASSERTION_SECRET": "d" * 40,
+        "FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET": "p" * 40,
+    }
+    assert validate_runtime_configuration(_base_settings(**base)) == "test"
+
+    with pytest.raises(RuntimeError, match="separate from development"):
+        validate_runtime_configuration(
+            _base_settings(
+                **{
+                    **base,
+                    "FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET": "d" * 40,
+                }
+            )
+        )
+
+    with pytest.raises(RuntimeError, match="FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET"):
+        validate_runtime_configuration(
+            _base_settings(
+                **{
+                    **base,
+                    "FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET": "",
+                }
+            )
+        )
+
+
 def test_notification_bridge_keeps_https_without_private_http_approval():
     config = _bridge_settings(
         FHH_NOTIFICATION_BRIDGE_URL=(

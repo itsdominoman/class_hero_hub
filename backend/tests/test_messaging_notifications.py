@@ -80,6 +80,11 @@ Session = sessionmaker(bind=engine)
 @pytest.fixture
 def db(monkeypatch):
     monkeypatch.setattr(database.settings, "MESSAGING_ENABLED", True)
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_MESSAGING_ASSERTION_SECRET",
+        "development-assertion-" + ("a" * 40),
+    )
     monkeypatch.setattr(database.settings, "MESSAGING_NOTIFICATION_RECHECK_SECONDS", 300)
     monkeypatch.setattr(database.settings, "MESSAGING_NOTIFICATION_SCHEDULER_LEASE_SECONDS", 60)
     Base.metadata.create_all(engine)
@@ -707,6 +712,51 @@ def test_staff_message_targets_one_family_bridge_and_never_staff_or_dual_role_se
     assert db.query(MessageReceiptEvent).count() == before_receipts
 
 
+def test_disabled_production_messaging_cancels_chat_without_bridge_call(
+    db, monkeypatch
+):
+    world = _fhh_direction_world(db)
+    world.link.integration_environment = "production"
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_PRODUCTION_MESSAGING_ENABLED",
+        False,
+    )
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET",
+        "",
+    )
+    now = datetime(2026, 7, 27, 12, 0, tzinfo=UTC)
+    message = _message(db, world, sender=world.teacher, created_at=now)
+    rows = enqueue_message_notifications(
+        db,
+        conversation=world.conversation,
+        message=message,
+        sender=world.teacher,
+        now=now,
+    )
+    db.commit()
+    claimed = claim_dispatch_rows(
+        db,
+        worker_id="production-chat-disabled",
+        limit=10,
+        now=now + timedelta(seconds=1),
+    )
+
+    assert dispatch_claimed_rows(
+        db,
+        row_ids=claimed,
+        worker_id="production-chat-disabled",
+        push_provider=RecordingPushProvider(),
+        bridge_provider=UnusedBridgeProvider(),
+        now=now + timedelta(seconds=1),
+    ) == 1
+    db.refresh(rows[0])
+    assert rows[0].state == "cancelled"
+    assert rows[0].last_error_code == "school_chat_destination_unavailable"
+
+
 def test_preexisting_wrong_direction_family_bridge_rows_are_cancelled_and_not_retried(db):
     world = _fhh_direction_world(db)
     now = datetime(2026, 7, 20, 8, 0, tzinfo=UTC)
@@ -962,6 +1012,12 @@ def test_chh_dispatch_bundles_same_conversation_and_records_provider_acceptance(
 
 
 def test_signed_fhh_bridge_payload_is_minimal_replay_resistant_and_privacy_safe(monkeypatch):
+    monkeypatch.setattr(database.settings, "MESSAGING_ENABLED", True)
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_MESSAGING_ASSERTION_SECRET",
+        "development-assertion-" + ("a" * 40),
+    )
     monkeypatch.setattr(database.settings, "FHH_NOTIFICATION_BRIDGE_URL", "https://dev.familyherohub.com/api/integrations/chh/school-message-notifications")
     monkeypatch.setattr(database.settings, "FHH_NOTIFICATION_SERVICE_TOKEN", "service-" + "t" * 56)
     monkeypatch.setattr(database.settings, "FHH_NOTIFICATION_HMAC_SECRET", "hmac-" + "h" * 59)
@@ -1093,6 +1149,55 @@ def test_signed_fhh_bridge_uses_source_bound_production_configuration(monkeypatc
     )
 
 
+@pytest.mark.parametrize(
+    "route_type",
+    ["school_chat", "survey"],
+)
+def test_production_protected_destination_guard_prevents_bridge_emission(
+    monkeypatch, route_type
+):
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_PRODUCTION_NOTIFICATION_ENABLED",
+        True,
+    )
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_PRODUCTION_MESSAGING_ENABLED",
+        route_type == "survey",
+    )
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET",
+        "",
+    )
+
+    def unexpected_post(*_args, **_kwargs):
+        raise AssertionError("network call was not expected")
+
+    from app import messaging_notification_dispatch
+
+    monkeypatch.setattr(messaging_notification_dispatch.httpx, "post", unexpected_post)
+    with pytest.raises(ProviderError) as caught:
+        SignedFhhBridgeProvider().send(
+            event_id=str(uuid4()),
+            remote_link_id=920,
+            conversation_id=str(uuid4()) if route_type == "school_chat" else None,
+            urgent=False,
+            occurred_at=datetime(2026, 7, 27, 12, 0, tzinfo=UTC),
+            message_direction=(
+                "staff_to_family" if route_type == "school_chat" else None
+            ),
+            route_type=route_type,
+            category="chat" if route_type == "school_chat" else "survey",
+            source_ref=None if route_type == "school_chat" else str(uuid4()),
+            action=None if route_type == "school_chat" else "published",
+            integration_environment="production",
+        )
+    assert caught.value.code == f"{route_type}_destination_unavailable"
+    assert caught.value.terminal is True
+
+
 def test_signed_fhh_bridge_rejects_unknown_environment_without_network(monkeypatch):
     def unexpected_post(*_args, **_kwargs):
         raise AssertionError("network call was not expected")
@@ -1117,6 +1222,12 @@ def test_signed_fhh_bridge_rejects_unknown_environment_without_network(monkeypat
 
 
 def test_signed_fhh_bridge_rejects_redirect_as_terminal(monkeypatch):
+    monkeypatch.setattr(database.settings, "MESSAGING_ENABLED", True)
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_MESSAGING_ASSERTION_SECRET",
+        "development-assertion-" + ("a" * 40),
+    )
     monkeypatch.setattr(
         database.settings,
         "FHH_NOTIFICATION_BRIDGE_URL",

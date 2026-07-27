@@ -57,12 +57,20 @@ def verify_and_consume_actor_assertion(
 ) -> tuple[FhhMessagingIdentity, FhhMessagingIdentityLink]:
     if not settings.MESSAGING_ENABLED:
         raise HTTPException(status_code=404, detail="Messaging is unavailable")
-    if not assertion or not settings.FHH_MESSAGING_ASSERTION_SECRET:
+    if link.integration_environment == "production":
+        if not settings.FHH_PRODUCTION_MESSAGING_ENABLED:
+            raise HTTPException(status_code=404, detail="Messaging is unavailable")
+        assertion_secret = settings.FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET
+    elif link.integration_environment == "development":
+        assertion_secret = settings.FHH_MESSAGING_ASSERTION_SECRET
+    else:
+        raise _deny()
+    if not assertion or not assertion_secret:
         raise _deny()
     try:
         claims = jwt.decode(
             assertion,
-            settings.FHH_MESSAGING_ASSERTION_SECRET,
+            assertion_secret,
             algorithms=[ALGORITHM],
             audience=settings.FHH_MESSAGING_ASSERTION_AUDIENCE,
             issuer=settings.FHH_MESSAGING_ASSERTION_ISSUER,

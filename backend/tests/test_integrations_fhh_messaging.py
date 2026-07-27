@@ -8,14 +8,19 @@ os.environ["APP_ENV"] = "test"
 
 import pytest
 from fastapi.testclient import TestClient
+from fastapi import HTTPException
 from jose import jwt
+from starlette.requests import Request
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app import auth, database, invite_tokens
 from app.database import Base, get_db
-from app.fhh_messaging_assertions import canonical_body_hash
+from app.fhh_messaging_assertions import (
+    canonical_body_hash,
+    verify_and_consume_actor_assertion,
+)
 from app.main import app
 from app.models_school import (
     AcademicYear,
@@ -309,7 +314,16 @@ def _path(link, suffix):
     return f"/api/integrations/fhh/links/{link.id}/messaging{suffix}"
 
 
-def _assertion(identity, link, *, method, path, body=None, **overrides):
+def _assertion(
+    identity,
+    link,
+    *,
+    method,
+    path,
+    body=None,
+    secret=ASSERTION_SECRET,
+    **overrides,
+):
     now = datetime.now(timezone.utc)
     claims = {
         "iss": database.settings.FHH_MESSAGING_ASSERTION_ISSUER,
@@ -326,7 +340,7 @@ def _assertion(identity, link, *, method, path, body=None, **overrides):
         "body_sha256": canonical_body_hash(body),
         **overrides,
     }
-    return jwt.encode(claims, ASSERTION_SECRET, algorithm="HS256")
+    return jwt.encode(claims, secret, algorithm="HS256")
 
 
 def _headers(token, assertion):
@@ -969,3 +983,67 @@ def test_runtime_requires_separate_assertion_secret_only_for_fhh_messaging():
         _env_file=None,
     )
     assert database.validate_runtime_configuration(valid) == "test"
+
+
+def test_production_link_uses_only_dedicated_production_assertion_secret(
+    db, monkeypatch
+):
+    world = _world(db)
+    link = world["links"][0]
+    identity = world["identities"][0]
+    link.integration_environment = "production"
+    db.commit()
+    production_secret = "production-assertion-" + ("p" * 40)
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_PRODUCTION_MESSAGING_ENABLED",
+        True,
+    )
+    monkeypatch.setattr(
+        database.settings,
+        "FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET",
+        production_secret,
+    )
+    path = _path(link, "/inbox")
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": path,
+            "query_string": b"",
+            "headers": [],
+            "scheme": "https",
+            "server": ("class.familyherohub.com", 443),
+            "client": ("10.250.50.2", 50000),
+        }
+    )
+
+    verified_identity, verified_link = verify_and_consume_actor_assertion(
+        db,
+        request=request,
+        link=link,
+        assertion=_assertion(
+            identity,
+            link,
+            method="GET",
+            path=path,
+            secret=production_secret,
+        ),
+    )
+    assert verified_identity.id == identity.id
+    assert verified_link.fhh_link_id == link.id
+
+    with pytest.raises(HTTPException) as caught:
+        verify_and_consume_actor_assertion(
+            db,
+            request=request,
+            link=link,
+            assertion=_assertion(
+                identity,
+                link,
+                method="GET",
+                path=path,
+                secret=ASSERTION_SECRET,
+            ),
+        )
+    assert caught.value.status_code == 401

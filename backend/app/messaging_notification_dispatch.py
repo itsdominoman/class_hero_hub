@@ -45,6 +45,28 @@ class ProviderError(Exception):
         self.invalid_token = invalid_token
 
 
+def _fhh_destination_unavailable_code(
+    integration_environment: str,
+    route_type: str,
+) -> str | None:
+    if route_type not in {"school_chat", "survey"}:
+        return None
+    if not settings.MESSAGING_ENABLED:
+        return f"{route_type}_destination_unavailable"
+    if integration_environment == "production":
+        available = (
+            settings.FHH_PRODUCTION_MESSAGING_ENABLED
+            and bool(settings.FHH_PRODUCTION_MESSAGING_ASSERTION_SECRET.strip())
+        )
+    elif integration_environment == "development":
+        available = bool(settings.FHH_MESSAGING_ASSERTION_SECRET.strip())
+    else:
+        return "fhh_bridge_environment_invalid"
+    if not available:
+        return f"{route_type}_destination_unavailable"
+    return None
+
+
 def school_message_collapse_key(conversation_id: str, message_direction: str) -> str:
     if message_direction not in {"family_to_staff", "staff_to_family", "staff_to_staff"}:
         raise ProviderError("invalid_notification_direction", terminal=True)
@@ -180,6 +202,12 @@ class SignedFhhBridgeProvider:
         response_mode: str | None = None,
         integration_environment: str = "development",
     ) -> str:
+        unavailable_code = _fhh_destination_unavailable_code(
+            integration_environment,
+            route_type,
+        )
+        if unavailable_code:
+            raise ProviderError(unavailable_code, terminal=True)
         if integration_environment == "production":
             if not settings.FHH_PRODUCTION_NOTIFICATION_ENABLED:
                 raise ProviderError(
@@ -673,6 +701,11 @@ def dispatch_claimed_rows(
             )
             if link is None:
                 _cancel_outbox(row, "recipient_ineligible", now)
+            elif unavailable_code := _fhh_destination_unavailable_code(
+                link.integration_environment,
+                "school_chat",
+            ):
+                _cancel_outbox(row, unavailable_code, now)
             else:
                 bridge_contexts.append(context)
     db.flush()
@@ -751,6 +784,12 @@ def dispatch_claimed_rows(
         if row is None:
             continue
         link = db.query(FhhLink).filter(FhhLink.id == row.recipient_fhh_link_id).one()
+        if unavailable_code := _fhh_destination_unavailable_code(
+            link.integration_environment,
+            row.route_type,
+        ):
+            _cancel_outbox(row, unavailable_code, now)
+            continue
         template_args = row.template_args or {}
         try:
             provider_ref = bridge_provider.send(
