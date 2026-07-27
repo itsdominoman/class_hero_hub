@@ -10,8 +10,6 @@ services:
       - .env
       - path: ${CHH_FHH_INTEGRATION_ENV_FILE:-.env.integration}
         required: false
-      - path: ${CHH_FHH_MESSAGING_ENV_FILE:-.env.messaging}
-        required: false
     ports:
       - "10.250.50.5:8000:8000"
       - "127.0.0.1:8000:8000"
@@ -31,8 +29,6 @@ services:
     env_file:
       - .env
       - .env.push
-      - path: ${CHH_FHH_MESSAGING_ENV_FILE:-.env.messaging}
-        required: false
       - path: ${CHH_FHH_NOTIFICATION_ENV_FILE:-.env.push.override}
         required: false
     command: ["python", "-m", "app.messaging_notification_worker"]
