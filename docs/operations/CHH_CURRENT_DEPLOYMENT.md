@@ -1,5 +1,47 @@
 # CHH current pilot deployment
 
+## 2026-07-27 CHH-to-FHH private bridge routing restoration
+
+CHH development/pilot now sends school-notification events to the exact FHH
+development mesh endpoint:
+`http://10.250.50.1:8000/api/integrations/chh/school-message-notifications`.
+The scheduler consumes this target from `.env.push`; the separate, inactive
+production reciprocal configuration uses the corresponding `10.250.50.2` endpoint.
+Each HTTP endpoint must also appear exactly in
+`FHH_NOTIFICATION_APPROVED_PRIVATE_HTTP_ENDPOINTS`. Public HTTP, unapproved private
+HTTP, hostnames, credentials, query strings, fragments, alternate routes and
+redirects remain rejected. Bearer/HMAC authentication, canonical signing, timestamp
+skew, UUID nonce/replay protection, the FHH `10.250.50.5/32` source allowlist and
+the five-second timeout are unchanged.
+
+The regression was caused by the former public HTTPS target: FHH observed CHH's
+public egress source instead of mesh source `10.250.50.5` and rejected these ten
+rows with `fhh_bridge_http_403`:
+
+| Outbox | Event | Category | 2026-07-27 disposition |
+|---:|---|---|---|
+| 56 | `439b2030-216a-40d6-ac3f-891274164f01` | points | Remains dead; revalidate before any future retry |
+| 57 | `8ed07bb2-7e0e-4e19-8243-8587c21d7999` | chat | Remains dead; revalidate before any future retry |
+| 58 | `768a7908-5fe4-4bf3-9b1f-eeab095d28f0` | update | Remains dead; revalidate before any future retry |
+| 59 | `6bd57a7c-20a5-4b02-b2f6-1eba0e834442` | homework | Remains dead; revalidate before any future retry |
+| 61 | `20526112-be24-4689-9a6b-61bb68b8efd8` | chat | Remains dead; revalidate before any future retry |
+| 64 | `1d6ca7ce-313e-44cf-ae72-aba365697e59` | chat | Remains dead; revalidate before any future retry |
+| 65 | `3e5551e8-d60d-40a9-b070-9ba8122d7dcb` | homework | Selectively retried; provider accepted |
+| 66 | `dff16e2a-0aa1-4420-8985-41e6b97fec3b` | chat | Remains dead; revalidate before any future retry |
+| 67 | `22e5a8ed-be7d-4804-af70-229876c953a6` | chat | Remains dead; revalidate before any future retry |
+| 68 | `44531a99-e5c4-4a47-a9cf-d99c8107a4a6` | update | Selectively retried; provider accepted |
+
+The two audited retries were performed only after current eligibility was checked.
+Both were ingested once by FHH and accepted by Firebase for both active development
+installations. A fresh Immediate points event
+`a14e6382-68a5-4480-be67-f1a9124a7127` (CHH outbox 69) followed the normal creation
+path and reached the same provider-accepted state without duplication. Do not
+bulk-retry the remaining rows; use the audited operator action and revalidate each
+row immediately before an explicitly approved selective retry.
+
+Only the notification scheduler was rebuilt/recreated. There was no schema,
+migration, Android/native or APK change.
+
 ## OPS-HEALTH-001 operational readiness
 
 `GET /api/health` is the lightweight process-liveness contract and remains
