@@ -1,7 +1,31 @@
 # CHH Android and Google OAuth setup
 
-Status date: 2026-07-28. This document records the current debug configuration; it
+Status date: 2026-07-29. This document records the current debug configuration; it
 does not configure Google Cloud or release signing.
+
+## Authentication is not admission
+
+Google OAuth and magic links prove control of an identity; they do not grant CHH
+access. A normal browser or Android session is issued only when the active user has
+at least one of these current entitlements:
+
+- an active, non-revoked platform-administrator record;
+- an active administrator or teacher membership at a non-suspended school; or
+- an active guardian link to an active student at a non-suspended school.
+
+An explicit, valid staff invitation (`/invite/<token>`) or guardian join code
+(`/join?c=<code>`) may authenticate a new identity into a short-lived,
+invite-scoped pending session. That session can inspect and complete only the exact
+hashed invitation context; ordinary authenticated routes remain unavailable. The
+pending scope is cleared after the membership or guardian link commits. Bare OAuth
+or magic-link authentication never creates a user or session and receives the
+privacy-safe response `This account is not authorised for Class Hero Hub.` Magic
+link requests remain enumeration-safe and do not create or send a token when there
+is no entitlement or valid invitation.
+
+Admission is checked again on access-token resolution and refresh. Removing,
+revoking or suspending the last entitlement therefore blocks both existing access
+and renewal. Google consent-screen/test-user permission is not CHH authorisation.
 
 ## Revocable staff sessions (AUTH-001)
 
@@ -20,9 +44,10 @@ request bodies or `Authorization` headers over HTTPS.
 
 Refresh rotates the credential. Reuse after the ten-second concurrent-request grace
 revokes that device/browser session chain. Normal logout revokes only the current
-session; `POST /api/auth/logout-all` revokes every session for the user. Inactive
-users cannot use access or refresh credentials. Invitation codes, guardian links,
-school memberships and Google identity matching are unchanged.
+session; `POST /api/auth/logout-all` revokes every session for the user. Inactive or
+no-longer-authorised users cannot use access or refresh credentials. Invitation
+codes, guardian links, school memberships and Google identity matching remain
+separate from session admission.
 
 During rollout only, `LEGACY_ACCESS_TOKEN_ACCEPT_UNTIL` may be set to an explicit
 short UTC deadline. A current browser or updated APK silently exchanges an existing
@@ -68,7 +93,9 @@ state validation to accommodate Android; diagnose redirect/client configuration 
 ## Native flow summary
 
 1. Android Credential Manager returns an ID token for the configured Web client ID.
-2. The Capacitor shell posts it to `/api/auth/google/native`.
+2. The Capacitor shell posts it and the pending deep-link return path to
+   `/api/auth/google/native`; the backend applies the same admission rule used by
+   browser OAuth and magic links.
 3. CHH stores the returned short-lived access and rotating refresh credentials using
    encrypted native storage. Native API requests send the access token as a bearer;
    renewal is silent while the account remains authorised. Browser requests use the
@@ -78,7 +105,9 @@ state validation to accommodate Android; diagnose redirect/client configuration 
 
 - Confirm the CHH Android OAuth client exists in the intended Google Cloud project.
 - Confirm its package name and both current debug fingerprints exactly match this file.
-- Confirm the OAuth consent screen/test-user policy permits the intended test accounts.
+- Confirm the OAuth consent screen/test-user policy permits the intended test
+  accounts, and separately confirm each account has a valid CHH entitlement or
+  invitation.
 - Confirm `GOOGLE_CLIENT_ID` is the intended Web client ID in both backend runtime and
   Android build environment.
 - Obtain and register release signing SHA-1/SHA-256 only when release signing is

@@ -7,11 +7,13 @@ os.environ["APP_ENV"] = "test"
 import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
+from starlette.requests import Request
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app import auth, database, invite_tokens
+from app import admission, auth, database, invite_tokens
+from app.admission import NOT_AUTHORISED_DETAIL
 from app.database import Base, get_db
 from app.main import app
 from app.models_school import AuditLog, Membership, StaffInvite, User
@@ -77,6 +79,24 @@ def school_role_client():
 
 def bearer(email: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {auth.create_access_token({'sub': email})}"}
+
+
+def staff_invite_bearer(db, user: User, raw_token: str) -> dict[str, str]:
+    invite = db.query(StaffInvite).filter(
+        StaffInvite.token_hash == invite_tokens.hash_token(raw_token)
+    ).one()
+    access_token, _ = auth.create_refresh_session(
+        db,
+        user,
+        Request({"type": "http", "headers": []}),
+        client_type="browser",
+        admission_context=admission.AdmissionContext(
+            kind=admission.PENDING_STAFF_INVITE,
+            token_hash=invite.token_hash,
+            expires_at=invite_tokens.as_utc_aware(invite.expires_at),
+        ),
+    )
+    return {"Authorization": f"Bearer {access_token}"}
 
 
 def create_user(db, email: str, name: str = "User") -> User:
@@ -188,7 +208,7 @@ def test_staff_invite_lifecycle_exchange_expired_revoked_and_reused(db, client, 
     invited_user = create_user(db, "gamma-admin@example.com", "Gamma Admin")
     exchange_response = client.post(
         "/api/invites/exchange",
-        headers=bearer(invited_user.email),
+        headers=staff_invite_bearer(db, invited_user, token),
         json={"token": token},
     )
     assert exchange_response.status_code == 200
@@ -221,10 +241,9 @@ def test_staff_invite_lifecycle_exchange_expired_revoked_and_reused(db, client, 
     expired_invite = db.query(StaffInvite).filter_by(id=new_invite_response.json()["id"]).one()
     expired_invite.expires_at = invite_tokens.now_utc() - timedelta(minutes=1)
     db.commit()
-    expired_user = create_user(db, "expired-admin@example.com", "Expired Admin")
     expired_response = client.post(
         "/api/invites/exchange",
-        headers=bearer(expired_user.email),
+        headers=bearer(platform_user.email),
         json={"token": expired_token},
     )
     assert expired_response.status_code == 410
@@ -240,17 +259,16 @@ def test_staff_invite_lifecycle_exchange_expired_revoked_and_reused(db, client, 
         headers=bearer(platform_user.email),
     )
     assert delete_response.status_code == 204
-    revoked_user = create_user(db, "revoked-admin@example.com", "Revoked Admin")
     revoked_response = client.post(
         "/api/invites/exchange",
-        headers=bearer(revoked_user.email),
+        headers=bearer(platform_user.email),
         json={"token": revoked_token},
     )
     assert revoked_response.status_code == 410
 
     invalid_response = client.post(
         "/api/invites/exchange",
-        headers=bearer(revoked_user.email),
+        headers=bearer(platform_user.email),
         json={"token": "not-a-real-token"},
     )
     assert invalid_response.status_code == 401
@@ -307,10 +325,9 @@ def test_invite_exchange_rejects_email_mismatch_suspended_school_and_superseded_
     platform_user = seeded_schools["platform_user"]
     created, first_token = create_platform_school(client, platform_user, sent_invites)
 
-    wrong_user = create_user(db, "wrong-admin@example.com", "Wrong Admin")
     mismatch = client.post(
         "/api/invites/exchange",
-        headers=bearer(wrong_user.email),
+        headers=bearer(seeded_schools["users"]["alpha_admin"].email),
         json={"token": first_token},
     )
     assert mismatch.status_code == 403
@@ -328,7 +345,7 @@ def test_invite_exchange_rejects_email_mismatch_suspended_school_and_superseded_
     invited_user = create_user(db, "gamma-admin@example.com", "Gamma Admin")
     old_token_response = client.post(
         "/api/invites/exchange",
-        headers=bearer(invited_user.email),
+        headers=staff_invite_bearer(db, invited_user, new_token),
         json={"token": first_token},
     )
     assert old_token_response.status_code == 410
@@ -367,7 +384,7 @@ def test_suspension_blocks_school_admin_membership_end_to_end(
     invited_user = create_user(db, "gamma-admin@example.com", "Gamma Admin")
     exchange_response = client.post(
         "/api/invites/exchange",
-        headers=bearer(invited_user.email),
+        headers=staff_invite_bearer(db, invited_user, token),
         json={"token": token},
     )
     assert exchange_response.status_code == 200
@@ -390,4 +407,4 @@ def test_suspension_blocks_school_admin_membership_end_to_end(
         headers=bearer(invited_user.email),
     )
     assert blocked_response.status_code == 403
-    assert blocked_response.json()["detail"] == "This school account is currently suspended."
+    assert blocked_response.json()["detail"] == NOT_AUTHORISED_DETAIL

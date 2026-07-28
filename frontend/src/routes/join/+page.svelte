@@ -30,9 +30,8 @@
     try {
       preview = await api.get(`/join/guardian?c=${encodeURIComponent(code)}`);
       try {
-        await api.get('/me');
-        signedIn = true;
         details = await api.get(`/join/guardian/details?c=${encodeURIComponent(code)}`);
+        signedIn = true;
         relationship = details?.relationship || 'guardian';
       } catch {
         signedIn = false;

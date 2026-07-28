@@ -1,5 +1,36 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-29 — Authentication admission control
+
+Google OAuth and magic links previously upserted an active `User` and issued a
+session after identity verification, even when the identity had no CHH entitlement.
+Authentication now calls one admission policy shared by browser OAuth, Android
+Google, magic-link exchange, access-token resolution and refresh. A normal session
+requires an active platform administrator, active school administrator/teacher
+membership, or active guardian link to an active student at a non-suspended school.
+
+Explicit valid staff and guardian invitations remain onboarding authorities. A new
+identity is stored only after the callback proves the exact invitation context; its
+refresh-session row stores the invitation-token hash, kind and expiry, never the raw
+code. That pending session can use only the matching invite/join endpoints and is
+promoted to a normal session when the membership or guardian link commits. This
+preserves pending browser/Android deep links without making bare OAuth an
+authorisation path.
+
+`backend/scripts/chh_unauthorised_accounts.py` is the repeatable, dry-run-by-default
+inventory command. Its mode-600 CSV contains safe identity metadata and a disposition.
+Deletion requires an existing dry-run report, the explicit confirmation string and
+the pilot hostname. It locks the planned users, rechecks admission before any delete,
+and transactionally removes their refresh sessions, push registrations, magic-link
+records and user rows. Any changed candidate or new entitlement aborts the whole
+transaction. Immutable audit evidence is preserved.
+
+The documented inactive S9 API-smoke identity
+`s9.guardian.qa@myeduzone.org` remains the sole seeded exception because append-only
+audit evidence references it. This supersedes the historical S9 note that suggested
+creating arbitrary temporary users: future onboarding smoke tests must use an exact
+valid guardian or staff invitation.
+
 ## 2026-07-25 — CHH-SURVEY-002/003: Survey scale and close ordering
 
 Survey close and parent response submission now use the same PostgreSQL

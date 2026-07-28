@@ -29,6 +29,7 @@ class MeResponse(BaseModel):
 
 class NativeGoogleLoginRequest(BaseModel):
     id_token: str
+    return_to: Optional[str] = None
 
 
 class NativeGoogleLoginResponse(BaseModel):

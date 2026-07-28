@@ -133,7 +133,7 @@ export function setNativePendingNotificationEvent(eventId: string | null): Promi
   return writeSecureValue(PENDING_NOTIFICATION_EVENT_KEY, eventId);
 }
 
-export async function signInWithNativeGoogle(): Promise<boolean> {
+export async function signInWithNativeGoogle(returnTo?: string): Promise<boolean> {
   if (!isNativePlatform()) return false;
 
   let idToken: string | null = null;
@@ -163,7 +163,7 @@ export async function signInWithNativeGoogle(): Promise<boolean> {
     response = await fetch(nativeApiUrl('/auth/google/native'), {
       method: 'POST',
       headers,
-      body: JSON.stringify({ id_token: idToken }),
+      body: JSON.stringify({ id_token: idToken, return_to: returnTo || null }),
       credentials: 'omit'
     });
   } catch {

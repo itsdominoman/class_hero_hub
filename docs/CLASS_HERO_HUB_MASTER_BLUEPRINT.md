@@ -87,7 +87,12 @@ entry into a server-backed session: 15-minute access JWT, per-browser/device rot
 refresh credential (30-day idle, 180-day absolute), current/all-device revocation and
 refresh-reuse detection. Browser credentials use secure HttpOnly cookies plus CSRF;
 Android credentials use encrypted native storage. Invitation and relationship
-records remain separate. Child QR/device sessions are unchanged.
+records remain separate. Authentication alone is not admission: a normal session
+requires an active platform-admin record, active school administrator/teacher
+membership, or active guardian link. A valid staff/guardian invitation may create
+only an exact-invite-scoped pending session until its entitlement commits. Admission
+is rechecked on access and refresh; unknown bare Google or magic-link identities are
+not persisted. Child QR/device sessions are unchanged.
 
 **Domain (all family-scoped via `family_id`).** Children, points ledger (dual jars: spending/savings, 12 transaction types, partial-unique-index idempotency, reversals), rewards + redemption approval flow, allowance (real money, currency minor units), behaviour presets, calendar entries (event/task, daily/weekly recurrence, rewardable tasks, completion approval, weekly streak multipliers), school-bag items with pack-checks, pet progression, family invites, registration requests + approved-email allowlist.
 

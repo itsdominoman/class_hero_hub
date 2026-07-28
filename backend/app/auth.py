@@ -13,6 +13,7 @@ from jose import JWTError, jwt
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from . import admission
 from .database import get_db, settings
 from .models_school import PlatformAdmin, User, UserRefreshSession
 
@@ -128,6 +129,7 @@ def create_refresh_session(
     request: Request,
     *,
     client_type: str,
+    admission_context: admission.AdmissionContext | None = None,
 ) -> tuple[str, str]:
     now = datetime.now(timezone.utc)
     session_id = str(uuid.uuid4())
@@ -144,6 +146,9 @@ def create_refresh_session(
         last_used_at=now,
         expires_at=min(now + timedelta(days=settings.REFRESH_TOKEN_IDLE_DAYS), absolute_expires_at),
         absolute_expires_at=absolute_expires_at,
+        admission_kind=admission_context.kind if admission_context else None,
+        admission_token_hash=admission_context.token_hash if admission_context else None,
+        admission_expires_at=admission_context.expires_at if admission_context else None,
     )
     db.add(session)
     db.commit()
@@ -151,15 +156,16 @@ def create_refresh_session(
 
 
 def issue_session_access_token(user: User, session: UserRefreshSession) -> str:
-    return create_access_token(
-        {
-            "sub": normalize_email(user.email),
-            "uid": user.id,
-            "sid": session.id,
-            "rgen": session.generation,
-            "typ": "access",
-        }
-    )
+    claims = {
+        "sub": normalize_email(user.email),
+        "uid": user.id,
+        "sid": session.id,
+        "rgen": session.generation,
+        "typ": "access",
+    }
+    if session.admission_kind:
+        claims["adm"] = session.admission_kind
+    return create_access_token(claims)
 
 
 def rotate_refresh_session(
@@ -196,6 +202,19 @@ def rotate_refresh_session(
         session.revoke_reason = "account_inactive"
         db.commit()
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account is not active")
+    if not admission.has_active_entitlement(db, user.id) and not admission.pending_session_is_valid(
+        db,
+        session,
+        user,
+        current=now,
+    ):
+        session.revoked_at = now
+        session.revoke_reason = "admission_revoked"
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=admission.NOT_AUTHORISED_DETAIL,
+        )
 
     token_hash = _refresh_token_hash(raw_token)
     if hmac.compare_digest(token_hash, session.refresh_token_hash):
@@ -270,6 +289,11 @@ def legacy_user_from_token(token: str, db: Session) -> User:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     if (user.status or "active").lower() != "active":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account is not active")
+    if not admission.has_active_entitlement(db, user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=admission.NOT_AUTHORISED_DETAIL,
+        )
     return user
 
 
@@ -316,7 +340,12 @@ def _ensure_bootstrap_platform_admin(db: Session, user: User) -> None:
     db.commit()
 
 
-async def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
+def _current_user_and_session(
+    request: Request,
+    db: Session,
+    *,
+    allow_pending_invite: bool,
+) -> tuple[User, UserRefreshSession | None]:
     token = _get_request_token(request)
 
     if not token:
@@ -338,21 +367,85 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> U
     if (user.status or "active").lower() != "active":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account is not active")
 
+    session: UserRefreshSession | None = None
     session_id = payload.get("sid")
     if payload.get("typ") == "access" and session_id:
         session = db.query(UserRefreshSession).filter(UserRefreshSession.id == session_id).first()
+        now = datetime.now(timezone.utc)
         if (
             session is None
             or session.user_id != user.id
             or session.revoked_at is not None
-            or _as_utc_aware(session.absolute_expires_at) <= datetime.now(timezone.utc)
+            or (_as_utc_aware(session.expires_at) or now) <= now
+            or (_as_utc_aware(session.absolute_expires_at) or now) <= now
         ):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session revoked")
     elif not _legacy_access_allowed():
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Legacy session transition ended")
 
     _ensure_bootstrap_platform_admin(db, user)
+    if admission.has_active_entitlement(db, user.id):
+        return user, session
+    if (
+        allow_pending_invite
+        and session is not None
+        and admission.pending_session_is_valid(db, session, user)
+    ):
+        return user, session
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=admission.NOT_AUTHORISED_DETAIL,
+    )
+
+
+async def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
+    user, _ = _current_user_and_session(request, db, allow_pending_invite=False)
     return user
+
+
+async def get_current_user_for_invite(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> User:
+    user, _ = _current_user_and_session(request, db, allow_pending_invite=True)
+    return user
+
+
+def require_matching_invite_context(
+    request: Request,
+    db: Session,
+    user: User,
+    *,
+    kind: str,
+    raw_token: str,
+) -> None:
+    if admission.has_active_entitlement(db, user.id):
+        return
+    _, session = _current_user_and_session(request, db, allow_pending_invite=True)
+    if session is None or not admission.pending_session_matches(
+        db,
+        session,
+        user,
+        kind=kind,
+        raw_token=raw_token,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=admission.NOT_AUTHORISED_DETAIL,
+        )
+
+
+def activate_invite_session(request: Request, db: Session) -> None:
+    session_id = request_session_id(request)
+    if not session_id:
+        return
+    session = db.query(UserRefreshSession).filter(UserRefreshSession.id == session_id).first()
+    if session is None or session.revoked_at is not None:
+        return
+    session.admission_kind = None
+    session.admission_token_hash = None
+    session.admission_expires_at = None
+    db.commit()
 
 
 async def verify_google_token(token: str):

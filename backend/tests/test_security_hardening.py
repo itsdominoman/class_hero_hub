@@ -34,6 +34,7 @@ def _base_settings(**overrides) -> Settings:
         "DEV_AUTH_ENABLED": False,
         "QA_LOGIN_ENABLED": False,
         "QA_CHILD_LOGIN_ENABLED": False,
+        "FHH_PRODUCTION_MESSAGING_ENABLED": False,
     }
     values.update(overrides)
     return Settings(**values)
@@ -511,11 +512,8 @@ def test_production_authentication_cookie_is_secure_http_only_and_lax(monkeypatc
     monkeypatch.setattr(database.settings, "APP_ENV", "production")
     monkeypatch.setattr(database.settings, "JWT_SECRET", "a" * 32)
 
-    response = authentication._issue_session_response(
-        SimpleNamespace(email="pilot@example.com"),
-        return_to=None,
-        redirect=False,
-    )
+    response = authentication.Response()
+    authentication._set_browser_session_cookies(response, "access", "refresh")
     access_cookie = next(
         header
         for header in response.headers.getlist("set-cookie")

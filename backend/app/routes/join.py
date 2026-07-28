@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
-from .. import auth, invite_tokens
+from .. import admission, auth, invite_tokens
 from ..database import get_db
 from ..models_school import ClassSection, Enrolment, GuardianInvite, GuardianLink, Membership, School, Student, StudentGuardianContact, User
 from ..school_scope import open_interval_expression, write_audit
@@ -127,11 +127,19 @@ def guardian_join_details(
     code: str | None = None,
     c: str | None = None,
     request: Request = None,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(auth.get_current_user_for_invite),
     db: Session = Depends(get_db),
 ):
     _rate_limit(request)
-    invite = _valid_invite(db, code or c or "")
+    raw_code = code or c or ""
+    invite = _valid_invite(db, raw_code)
+    auth.require_matching_invite_context(
+        request,
+        db,
+        current_user,
+        kind=admission.PENDING_GUARDIAN_INVITE,
+        raw_token=raw_code,
+    )
     student = db.query(Student).filter(Student.id == invite.student_id, Student.school_id == invite.school_id).one()
     existing_link = (
         db.query(GuardianLink)
@@ -156,12 +164,19 @@ def guardian_join_details(
 def confirm_guardian_join(
     payload: ConfirmRequest,
     request: Request,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(auth.get_current_user_for_invite),
     db: Session = Depends(get_db),
 ):
     _rate_limit(request)
     normalized = invite_tokens.normalize_short_code(payload.code)
     invite = _valid_invite(db, normalized)
+    auth.require_matching_invite_context(
+        request,
+        db,
+        current_user,
+        kind=admission.PENDING_GUARDIAN_INVITE,
+        raw_token=normalized,
+    )
     student = db.query(Student).filter(Student.id == invite.student_id, Student.school_id == invite.school_id).one()
 
     existing_link = (
@@ -232,4 +247,5 @@ def confirm_guardian_join(
     )
     db.commit()
     db.refresh(link)
+    auth.activate_invite_session(request, db)
     return _success_payload(db, link, student)

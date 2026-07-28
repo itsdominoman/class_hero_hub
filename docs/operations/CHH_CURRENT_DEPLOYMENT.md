@@ -1,5 +1,83 @@
 # CHH current pilot deployment
 
+## 2026-07-29 authentication admission control
+
+CHH pilot now treats Google OAuth and magic links as identity proof, not
+authorisation. A normal browser or Android session requires an active platform
+administrator, active school administrator/teacher membership at a non-suspended
+school, or active guardian link to an active student at a non-suspended school.
+Access-token resolution and refresh repeat that check. Unknown bare identities are
+not created and receive the privacy-safe rejection
+`This account is not authorised for Class Hero Hub.`
+
+Valid staff and guardian invitations remain explicit onboarding authorities.
+OAuth/native/magic authentication entered from `/invite/<token>` or
+`/join?c=<code>` may create an exact-invite-scoped pending session. Only the invite
+hash, kind and expiry are stored in `user_refresh_sessions`; the raw code is not
+stored. Ordinary authenticated routes reject that pending session, which is promoted
+only after the matching membership or guardian link commits. This preserves pending
+deep links and Android account-picker recovery without opening general admission.
+Alembic revision `a4e5f6b7c8d9` adds only the three nullable pending-admission columns
+and their completeness check.
+
+Before inventory or deletion, fresh AES-256-CBC pgBackRest differentials completed
+and passed repository, WAL and application-readiness checks at
+`2026-07-29T00:05:37+04:00`:
+
+- local repository: `20260728-182651F_20260728-200445D`;
+- off-host SFTP repository: `20260725-221530F_20260728-200511D`;
+- repository bytes: `7,156,672` in each repository.
+
+The first backup attempt failed closed because files from the prior manual full
+backup were owned by root. Ownership was corrected only inside the dedicated
+pgBackRest repository to PostgreSQL uid/gid `999:999`, zero root-owned repository
+paths were verified, and both fresh differentials then completed. No database row
+was changed during that repair.
+
+The dry-run inventory found four unauthorised identities: three planned removals and
+one preserved documented S9 API-smoke identity. The guarded transaction locked and
+rechecked all candidates, removed the required
+`google-admin@familyherohub.com`, `test@familyherohub.com` and
+`parent@familyherohub.com` users plus their five refresh sessions, and preserved
+`s9.guardian.qa@myeduzone.org` inactive because append-only audit evidence references
+it. Memberships (`77`), guardian links (`3`), platform admins (`2`), schools (`1`),
+students (`502`), push registrations (`2`) and magic-link rows (`14`) were unchanged;
+post-checks found zero orphaned refresh sessions or push registrations. The final
+mode-600 report is:
+
+- `/opt/apps/class_hero_hub/tmp/chh-unauthorised-account-report-2026-07-28.csv`
+- SHA-256:
+  `9499769f3d122002e326754273a3b1f97ebfe3a5964a3272a9e45d40f16c086a`
+
+Repeatable inventory is dry-run by default:
+
+```bash
+docker compose run --rm --no-deps \
+  -v /opt/apps/class_hero_hub:/repo -w /repo/backend backend \
+  python scripts/chh_unauthorised_accounts.py \
+  --report /repo/tmp/chh-unauthorised-accounts.csv
+```
+
+Deletion additionally requires the existing dry-run report, explicit confirmation
+and `--pilot-target class.familyherohub.com`; it fails closed if the candidate set
+changed or any user gained an entitlement. It is not an automatic or scheduled
+delete.
+
+Validation passed 127 focused authentication, admission cleanup, guardian,
+platform-admin, security, migration-guard and operational-health tests. The built
+backend image independently passed the 56 most directly affected auth/admission
+tests. Svelte check reported zero errors/warnings, the frontend production build
+passed, and a disposable PostgreSQL database passed full upgrade, one-revision
+downgrade, re-upgrade and application smoke. Public pilot checks returned HTTP 200
+for the frontend and readiness (`database=ok`, `migration=current`). A live
+enumeration-safe magic-link request for a removed identity returned the generic
+response while creating neither a user nor magic-link row.
+
+Only the CHH pilot backend and frontend were rebuilt/recreated. PostgreSQL,
+notification scheduler and messaging worker retained their uptime. No native
+Android or Capacitor configuration changed, so no APK was built. CHH production and
+all FHH environments were unchanged.
+
 ## 2026-07-28 AUTH-001 revocable sessions
 
 CHH development/pilot now uses revocable, per-browser/device staff sessions. Access

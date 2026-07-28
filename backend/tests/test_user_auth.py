@@ -14,14 +14,18 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app import auth, database, invite_tokens
+from app.admission import NOT_AUTHORISED_DETAIL
 from app.database import Base, get_db
 from app.main import app
 from app.models_school import (
     AuditLog,
+    GuardianLink,
     MagicLoginToken,
     Membership,
     PlatformAdmin,
     School,
+    StaffInvite,
+    Student,
     User,
     UserRefreshSession,
 )
@@ -99,7 +103,21 @@ def authenticate(client: TestClient, email: str) -> None:
     client.cookies.set("access_token", auth.create_access_token({"sub": email}))
 
 
+def authorise_platform_user(db, email: str, name: str = "Authorised User") -> User:
+    user = db.query(User).filter_by(email=email).first()
+    if user is None:
+        user = User(email=email, name=name, status="active")
+        db.add(user)
+        db.flush()
+    if db.query(PlatformAdmin).filter_by(user_id=user.id).first() is None:
+        db.add(PlatformAdmin(user_id=user.id))
+    db.commit()
+    return user
+
+
 def test_google_callback_upserts_user(db, client, monkeypatch):
+    authorise_platform_user(db, "oauth-user@example.com")
+
     async def fake_authorize_access_token(request):
         return {
             "userinfo": {
@@ -126,6 +144,7 @@ def test_google_callback_upserts_user(db, client, monkeypatch):
 
 
 def test_native_google_login_verifies_token_and_returns_bearer_token(db, client, monkeypatch):
+    authorise_platform_user(db, "native-oauth-user@example.com")
     monkeypatch.setattr(auth_routes, "GOOGLE_NATIVE_LOGIN_RATE_LIMIT", BoundedInMemoryRateLimiter(60, 100))
     monkeypatch.setattr(
         auth,
@@ -151,7 +170,60 @@ def test_native_google_login_verifies_token_and_returns_bearer_token(db, client,
     assert user.google_sub == "native-google-sub"
 
 
+def test_google_login_allows_admin_teacher_and_linked_guardian(
+    db,
+    client,
+    seeded_schools,
+    monkeypatch,
+):
+    school = seeded_schools["schools"]["alpha"]
+    guardian = User(email="linked-guardian@example.com", name="Guardian", status="active")
+    student = Student(
+        school_id=school.id,
+        first_name="Linked",
+        last_name="Child",
+        status="active",
+    )
+    db.add_all([guardian, student])
+    db.flush()
+    db.add(
+        GuardianLink(
+            school_id=school.id,
+            student_id=student.id,
+            user_id=guardian.id,
+            status="active",
+        )
+    )
+    db.commit()
+    emails = [
+        seeded_schools["users"]["alpha_admin"].email,
+        seeded_schools["users"]["alpha_teacher"].email,
+        guardian.email,
+    ]
+    monkeypatch.setattr(
+        auth_routes,
+        "GOOGLE_NATIVE_LOGIN_RATE_LIMIT",
+        BoundedInMemoryRateLimiter(60, 100),
+    )
+    for email in emails:
+        monkeypatch.setattr(
+            auth,
+            "verify_google_id_token",
+            lambda _token, email=email: {
+                "email": email,
+                "name": "Authorised",
+                "sub": f"google-{email}",
+            },
+        )
+        response = client.post("/api/auth/google/native", json={"id_token": "verified"})
+        assert response.status_code == 200
+
+    assert db.query(User).filter(User.email.in_(emails)).count() == 3
+    assert db.query(UserRefreshSession).count() == 3
+
+
 def _native_session(db, client, monkeypatch, email: str = "session-user@example.com"):
+    authorise_platform_user(db, email)
     monkeypatch.setattr(auth_routes, "GOOGLE_NATIVE_LOGIN_RATE_LIMIT", BoundedInMemoryRateLimiter(60, 100))
     monkeypatch.setattr(
         auth,
@@ -195,6 +267,8 @@ def test_short_access_expiry_and_rotating_refresh(db, client, monkeypatch):
 def test_legacy_access_token_transitions_without_duplicate_identity(db, client):
     user = User(email="legacy@example.com", name="Legacy User", status="active")
     db.add(user)
+    db.flush()
+    db.add(PlatformAdmin(user_id=user.id))
     db.commit()
     legacy_access = auth.create_access_token({"sub": user.email})
 
@@ -272,6 +346,7 @@ def test_repeated_google_login_creates_sessions_not_duplicate_identity_records(d
 
 def test_native_account_switch_revokes_replaced_session(db, client, monkeypatch):
     first = _native_session(db, client, monkeypatch, "first-account@example.com")
+    authorise_platform_user(db, "second-account@example.com")
     monkeypatch.setattr(
         auth,
         "verify_google_id_token",
@@ -312,12 +387,111 @@ def test_native_google_login_rejects_invalid_token_without_creating_user(db, cli
     assert db.query(User).count() == 0
 
 
+def test_unknown_google_identities_are_rejected_without_user_or_session(db, client, monkeypatch):
+    async def fake_authorize_access_token(_request):
+        return {
+            "userinfo": {
+                "email": "unknown-browser@example.com",
+                "name": "Unknown Browser",
+                "sub": "unknown-browser-sub",
+            }
+        }
+
+    monkeypatch.setattr(auth_routes.oauth.google, "authorize_access_token", fake_authorize_access_token)
+    browser = client.get("/api/auth/google/callback", follow_redirects=False)
+    assert browser.status_code == 403
+    assert browser.json()["detail"] == NOT_AUTHORISED_DETAIL
+
+    monkeypatch.setattr(auth_routes, "GOOGLE_NATIVE_LOGIN_RATE_LIMIT", BoundedInMemoryRateLimiter(60, 100))
+    monkeypatch.setattr(
+        auth,
+        "verify_google_id_token",
+        lambda _token: {
+            "email": "unknown-native@example.com",
+            "name": "Unknown Native",
+            "sub": "unknown-native-sub",
+        },
+    )
+    native = client.post("/api/auth/google/native", json={"id_token": "valid"})
+    assert native.status_code == 403
+    assert native.json()["detail"] == NOT_AUTHORISED_DETAIL
+    assert db.query(User).count() == 0
+    assert db.query(UserRefreshSession).count() == 0
+
+
+def test_unknown_google_identity_can_complete_valid_staff_invite(db, client, monkeypatch):
+    inviter = authorise_platform_user(db, "inviter@example.com", "Inviter")
+    school = School(name="Invited School", slug="invited-school", status="pending_setup")
+    db.add(school)
+    db.flush()
+    raw_token = "valid-staff-invite-token"
+    db.add(
+        StaffInvite(
+            school_id=school.id,
+            email="invited-admin@example.com",
+            role="school_admin",
+            token_hash=invite_tokens.hash_token(raw_token),
+            invited_by_user_id=inviter.id,
+            expires_at=invite_tokens.now_utc() + timedelta(days=1),
+        )
+    )
+    db.commit()
+    monkeypatch.setattr(
+        auth_routes,
+        "GOOGLE_NATIVE_LOGIN_RATE_LIMIT",
+        BoundedInMemoryRateLimiter(60, 100),
+    )
+    monkeypatch.setattr(
+        auth,
+        "verify_google_id_token",
+        lambda _token: {
+            "email": "invited-admin@example.com",
+            "name": "Invited Admin",
+            "sub": "invited-admin-sub",
+        },
+    )
+
+    login = client.post(
+        "/api/auth/google/native",
+        json={
+            "id_token": "valid",
+            "return_to": f"/invite/{raw_token}",
+        },
+    )
+
+    assert login.status_code == 200
+    access_token = login.json()["access_token"]
+    assert client.get(
+        "/api/me",
+        headers={"Authorization": f"Bearer {access_token}"},
+    ).status_code == 403
+    exchange = client.post(
+        "/api/invites/exchange",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"token": raw_token},
+    )
+    assert exchange.status_code == 200
+    assert client.get(
+        "/api/me",
+        headers={"Authorization": f"Bearer {access_token}"},
+    ).status_code == 200
+    invited = db.query(User).filter_by(email="invited-admin@example.com").one()
+    assert db.query(User).filter_by(email=invited.email).count() == 1
+    assert db.query(Membership).filter_by(
+        user_id=invited.id,
+        school_id=school.id,
+        role="school_admin",
+        status="active",
+    ).count() == 1
+
+
 def magic_token_from_url(url: str) -> str:
     query = parse_qs(urlparse(url).query)
     return (query.get("magicToken") or query.get("token"))[0]
 
 
 def test_magic_link_request_and_exchange_create_normal_session(db, client, monkeypatch):
+    authorise_platform_user(db, "magic-user@example.com")
     sent = []
     monkeypatch.setattr(auth_routes, "MAGIC_REQUEST_RATE_LIMIT", BoundedInMemoryRateLimiter(60, 100))
     monkeypatch.setattr(auth_routes, "MAGIC_EXCHANGE_RATE_LIMIT", BoundedInMemoryRateLimiter(60, 100))
@@ -355,6 +529,7 @@ def test_magic_link_rejects_expiry_reuse_wrong_token_and_rate_limit(db, client, 
     monkeypatch.setattr(auth_routes, "MAGIC_EXCHANGE_RATE_LIMIT", BoundedInMemoryRateLimiter(60, 100))
     monkeypatch.setattr("app.routes.authentication.send_magic_login", lambda email: sent.append(email))
 
+    authorise_platform_user(db, "reuse@example.com")
     assert client.post("/api/auth/magic-link/request", json={"email": "reuse@example.com"}).status_code == 200
     token = magic_token_from_url(sent[-1].login_url)
     assert client.get(f"/api/auth/magic-link/exchange?token={token}").status_code == 200
@@ -365,6 +540,7 @@ def test_magic_link_rejects_expiry_reuse_wrong_token_and_rate_limit(db, client, 
     assert client.post("/api/auth/magic-link/exchange", json={"token": token}).status_code == 410
     assert client.post("/api/auth/magic-link/exchange", json={"token": "wrong-token"}).status_code == 401
 
+    authorise_platform_user(db, "expired@example.com")
     assert client.post("/api/auth/magic-link/request", json={"email": "expired@example.com"}).status_code == 200
     expired_token = magic_token_from_url(sent[-1].login_url)
     expired = db.query(MagicLoginToken).filter_by(email="expired@example.com").one()
@@ -373,8 +549,106 @@ def test_magic_link_rejects_expiry_reuse_wrong_token_and_rate_limit(db, client, 
     assert client.post("/api/auth/magic-link/exchange", json={"token": expired_token}).status_code == 410
 
     monkeypatch.setattr(auth_routes, "MAGIC_REQUEST_RATE_LIMIT", BoundedInMemoryRateLimiter(60, 1))
+    authorise_platform_user(db, "limit1@example.com")
+    authorise_platform_user(db, "limit2@example.com")
     assert client.post("/api/auth/magic-link/request", json={"email": "limit1@example.com"}).status_code == 200
     assert client.post("/api/auth/magic-link/request", json={"email": "limit2@example.com"}).status_code == 429
+
+
+def test_unknown_magic_link_identity_is_privately_rejected_without_state(db, client, monkeypatch):
+    sent = []
+    monkeypatch.setattr(auth_routes, "MAGIC_REQUEST_RATE_LIMIT", BoundedInMemoryRateLimiter(60, 100))
+    monkeypatch.setattr("app.routes.authentication.send_magic_login", lambda email: sent.append(email))
+
+    response = client.post(
+        "/api/auth/magic-link/request",
+        json={"email": "unknown-magic@example.com"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "sent"}
+    assert sent == []
+    assert db.query(MagicLoginToken).count() == 0
+    assert db.query(User).count() == 0
+    assert db.query(UserRefreshSession).count() == 0
+
+
+def test_magic_link_can_complete_valid_staff_invitation(db, client, monkeypatch):
+    sent = []
+    inviter = authorise_platform_user(db, "magic-inviter@example.com", "Inviter")
+    school = School(name="Magic Invite School", slug="magic-invite", status="pending_setup")
+    db.add(school)
+    db.flush()
+    raw_invite = "magic-valid-staff-invite"
+    db.add(
+        StaffInvite(
+            school_id=school.id,
+            email="magic-invited@example.com",
+            role="teacher",
+            token_hash=invite_tokens.hash_token(raw_invite),
+            invited_by_user_id=inviter.id,
+            expires_at=invite_tokens.now_utc() + timedelta(days=1),
+        )
+    )
+    db.commit()
+    monkeypatch.setattr(auth_routes, "MAGIC_REQUEST_RATE_LIMIT", BoundedInMemoryRateLimiter(60, 100))
+    monkeypatch.setattr(auth_routes, "MAGIC_EXCHANGE_RATE_LIMIT", BoundedInMemoryRateLimiter(60, 100))
+    monkeypatch.setattr("app.routes.authentication.send_magic_login", lambda email: sent.append(email))
+    return_to = f"/invite/{raw_invite}"
+
+    requested = client.post(
+        "/api/auth/magic-link/request",
+        json={"email": "magic-invited@example.com", "returnTo": return_to},
+    )
+    assert requested.status_code == 200
+    assert len(sent) == 1
+    magic_token = magic_token_from_url(sent[0].login_url)
+    exchanged = client.post(
+        "/api/auth/magic-link/exchange",
+        json={"token": magic_token},
+    )
+    assert exchanged.status_code == 200
+    assert exchanged.json()["return_to"] == return_to
+    access_token = client.cookies.get("access_token")
+    headers = {"Authorization": f"Bearer {access_token}"}
+    assert client.get("/api/me", headers=headers).status_code == 403
+
+    accepted = client.post(
+        "/api/invites/exchange",
+        headers=headers,
+        json={"token": raw_invite},
+    )
+    assert accepted.status_code == 200
+    assert client.get("/api/me", headers=headers).status_code == 200
+    invited = db.query(User).filter_by(email="magic-invited@example.com").one()
+    assert db.query(Membership).filter_by(
+        user_id=invited.id,
+        school_id=school.id,
+        role="teacher",
+        status="active",
+    ).count() == 1
+
+
+def test_refresh_cannot_revive_user_without_entitlement(db, client):
+    user = User(email="lost-entitlement@example.com", name="Lost", status="active")
+    db.add(user)
+    db.commit()
+    access_token, refresh_token = auth.create_refresh_session(
+        db,
+        user,
+        client.build_request("POST", "/api/auth/google/native"),
+        client_type="android",
+    )
+
+    response = client.post("/api/auth/refresh", json={"refresh_token": refresh_token})
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == NOT_AUTHORISED_DETAIL
+    assert client.get(
+        "/api/me",
+        headers={"Authorization": f"Bearer {access_token}"},
+    ).status_code == 401
+    assert db.query(UserRefreshSession).one().revoke_reason == "admission_revoked"
 
 
 def test_cookie_auth_resolves_user_for_me_v2(db, client, seeded_schools):
@@ -459,8 +733,8 @@ def test_bootstrap_platform_admin_requires_explicit_first_run_flag(
 
     response = client.get("/api/me/v2")
 
-    assert response.status_code == 200
-    assert response.json()["is_platform_admin"] is False
+    assert response.status_code == 403
+    assert response.json()["detail"] == NOT_AUTHORISED_DETAIL
     assert db.query(PlatformAdmin).count() == 0
     assert db.query(AuditLog).filter_by(action="platform_admin.bootstrap").count() == 0
 
@@ -481,8 +755,8 @@ def test_revoked_configured_bootstrap_platform_admin_remains_revoked(
 
     response = client.get("/api/me/v2")
 
-    assert response.status_code == 200
-    assert response.json()["is_platform_admin"] is False
+    assert response.status_code == 403
+    assert response.json()["detail"] == NOT_AUTHORISED_DETAIL
     db.refresh(platform_admin)
     assert platform_admin.revoked_at == revoked_at
     assert db.query(AuditLog).filter_by(action="platform_admin.bootstrap").count() == 0
@@ -537,7 +811,7 @@ def test_require_school_role_rejects_inactive_membership(db, dependency_client, 
     response = dependency_client.get(f"/schools/{alpha.id}/teacher")
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "School role required"
+    assert response.json()["detail"] == NOT_AUTHORISED_DETAIL
 
 
 def test_require_school_role_rejects_wrong_school(db, dependency_client, seeded_schools):
@@ -561,4 +835,4 @@ def test_require_school_role_rejects_suspended_school(db, dependency_client, see
     response = dependency_client.get(f"/schools/{alpha.id}/teacher")
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "This school account is currently suspended."
+    assert response.json()["detail"] == NOT_AUTHORISED_DETAIL

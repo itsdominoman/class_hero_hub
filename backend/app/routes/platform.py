@@ -9,7 +9,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from .. import auth, invite_tokens
+from .. import admission, auth, invite_tokens
 from ..database import get_db
 from ..mailer import send_staff_invite
 from ..models_school import Membership, School, SchoolMessagingPolicy, SchoolPointsNotificationPolicy, StaffInvite, Student, User
@@ -326,7 +326,7 @@ def revoke_invite(
 def exchange_staff_invite(
     payload: ExchangeInviteRequest,
     request: Request,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(auth.get_current_user_for_invite),
     db: Session = Depends(get_db),
 ):
     invite_tokens.register_exchange_attempt(request)
@@ -343,6 +343,13 @@ def exchange_staff_invite(
     expires_at = invite_tokens.as_utc_aware(staff_invite.expires_at)
     if expires_at is None or expires_at <= current:
         raise HTTPException(status_code=status.HTTP_410_GONE, detail="Invite expired")
+    auth.require_matching_invite_context(
+        request,
+        db,
+        current_user,
+        kind=admission.PENDING_STAFF_INVITE,
+        raw_token=payload.token,
+    )
     if _normalize_email(current_user.email) != _normalize_email(staff_invite.email):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This invite was issued for a different email address")
 
@@ -404,6 +411,7 @@ def exchange_staff_invite(
         school_id=school.id,
     )
     db.commit()
+    auth.activate_invite_session(request, db)
     return {
         "status": "accepted",
         "school": {"id": school.id, "name": school.name, "status": school.status},

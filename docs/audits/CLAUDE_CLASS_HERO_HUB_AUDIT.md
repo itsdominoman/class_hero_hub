@@ -10,6 +10,14 @@
 > finding was remediated by AUTH-001 in the CHH development/pilot system. Current
 > behaviour is documented in `docs/ops/CHH_ANDROID_GOOGLE_OAUTH_SETUP.md`. Historical
 > observations below describe the audited pre-remediation state.
+>
+> **Admission-control follow-up, 2026-07-29:** successful Google OAuth or magic-link
+> verification is now identity proof only. CHH development/pilot issues a normal
+> session only for an active platform administrator, school administrator/teacher,
+> or linked guardian; a valid invitation gets a restricted exact-invite session
+> until its entitlement is committed. Unknown identities are not created and cannot
+> refresh. The pilot cleanup and recovery evidence are recorded in
+> `docs/operations/CHH_CURRENT_DEPLOYMENT.md`.
 
 ---
 

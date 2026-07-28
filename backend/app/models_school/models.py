@@ -37,12 +37,21 @@ class UserRefreshSession(Base):
     expires_at = Column(DateTime(timezone=True), nullable=False)
     absolute_expires_at = Column(DateTime(timezone=True), nullable=False)
     previous_valid_until = Column(DateTime(timezone=True), nullable=True)
+    admission_kind = Column(String(24), nullable=True)
+    admission_token_hash = Column(String(64), nullable=True)
+    admission_expires_at = Column(DateTime(timezone=True), nullable=True)
     revoked_at = Column(DateTime(timezone=True), nullable=True)
     revoke_reason = Column(String(32), nullable=True)
 
     __table_args__ = (
         CheckConstraint("generation >= 1", name="ck_user_refresh_sessions_generation"),
         CheckConstraint("client_type IN ('browser', 'android')", name="ck_user_refresh_sessions_client_type"),
+        CheckConstraint(
+            "(admission_kind IS NULL AND admission_token_hash IS NULL AND admission_expires_at IS NULL) OR "
+            "(admission_kind IN ('staff_invite', 'guardian_invite') "
+            "AND admission_token_hash IS NOT NULL AND admission_expires_at IS NOT NULL)",
+            name="ck_user_refresh_sessions_admission_context",
+        ),
         Index("ix_user_refresh_sessions_user_active", "user_id", "revoked_at", "expires_at"),
     )
 

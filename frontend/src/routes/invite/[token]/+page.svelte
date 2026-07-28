@@ -12,22 +12,14 @@
     loading = true;
     error = null;
     try {
-      await api.get('/me/v2');
+      const result = await api.post('/invites/exchange', { token });
+      window.location.href = result?.landing_path || (result?.membership?.role === 'teacher' ? '/teach' : '/school');
     } catch (err: any) {
       if (err?.status === 401) {
         const returnTo = `/invite/${encodeURIComponent(token)}`;
         window.location.href = `/login?returnTo=${encodeURIComponent(returnTo)}`;
         return;
       }
-      error = err?.message || $_('invite.loadError');
-      loading = false;
-      return;
-    }
-
-    try {
-      const result = await api.post('/invites/exchange', { token });
-      window.location.href = result?.landing_path || (result?.membership?.role === 'teacher' ? '/teach' : '/school');
-    } catch (err: any) {
       error = err?.message || $_('invite.exchangeError');
       loading = false;
     }

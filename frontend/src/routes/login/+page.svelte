@@ -23,7 +23,7 @@
   const handleGoogleLogin = async () => {
     if (isNativePlatform()) {
       try {
-        if (await signInWithNativeGoogle()) window.location.replace(returnTo);
+        if (await signInWithNativeGoogle(returnTo)) window.location.replace(returnTo);
       } catch (error) {
         const diagnostic = error as { source?: string; code?: string; status?: number };
         console.error(

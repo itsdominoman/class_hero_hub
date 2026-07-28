@@ -7,11 +7,12 @@ os.environ["DEV_AUTH_ENABLED"] = "false"
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.requests import Request
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app import auth, database, invite_tokens
+from app import admission, auth, database, invite_tokens
 from app.database import Base, get_db
 from app.main import app
 from app.routes.join import JOIN_RATE_LIMITER
@@ -74,6 +75,25 @@ def bearer(email: str, school_id: int | None = None) -> dict[str, str]:
     if school_id is not None:
         headers["X-School-Id"] = str(school_id)
     return headers
+
+
+def guardian_invite_bearer(db, user: User, code: str) -> dict[str, str]:
+    invite = db.query(GuardianInvite).filter(
+        GuardianInvite.token_hash
+        == invite_tokens.hash_token(invite_tokens.normalize_short_code(code))
+    ).one()
+    access_token, _ = auth.create_refresh_session(
+        db,
+        user,
+        Request({"type": "http", "headers": []}),
+        client_type="browser",
+        admission_context=admission.AdmissionContext(
+            kind=admission.PENDING_GUARDIAN_INVITE,
+            token_hash=invite.token_hash,
+            expires_at=invite_tokens.as_utc_aware(invite.expires_at),
+        ),
+    )
+    return {"Authorization": f"Bearer {access_token}"}
 
 
 def create_user(db, email: str, name: str) -> User:
@@ -223,7 +243,10 @@ def test_preview_is_safe_and_does_not_consume_code(db, client, world):
     assert "Sara" not in preview.text
     assert db.query(GuardianInvite).one().claimed_at is None
 
-    details = client.get(f"/api/join/guardian/details?c={code}", headers=bearer(world["guardian"].email))
+    details = client.get(
+        f"/api/join/guardian/details?c={code}",
+        headers=guardian_invite_bearer(db, world["guardian"], code),
+    )
     assert details.status_code == 200
     assert details.json()["student_first_name"] == "Sara"
     assert details.json()["class_section_name"] == "KG 1 A"
@@ -232,7 +255,11 @@ def test_preview_is_safe_and_does_not_consume_code(db, client, world):
 
 def test_confirm_creates_membership_link_claims_invite_and_marks_contact_linked(db, client, world):
     code = create_invite(client, world).json()["code"]
-    resp = client.post("/api/join/guardian/confirm", headers=bearer(world["guardian"].email), json={"code": code, "relationship": "mother"})
+    resp = client.post(
+        "/api/join/guardian/confirm",
+        headers=guardian_invite_bearer(db, world["guardian"], code),
+        json={"code": code, "relationship": "mother"},
+    )
     assert resp.status_code == 200
     assert resp.json()["status"] == "linked"
     invite = db.query(GuardianInvite).one()
@@ -252,7 +279,11 @@ def test_confirm_creates_membership_link_claims_invite_and_marks_contact_linked(
 
 def test_email_mismatch_still_links_and_is_admin_visible(db, client, world):
     code = create_invite(client, world).json()["code"]
-    resp = client.post("/api/join/guardian/confirm", headers=bearer(world["other_guardian"].email), json={"code": code, "relationship": "guardian"})
+    resp = client.post(
+        "/api/join/guardian/confirm",
+        headers=guardian_invite_bearer(db, world["other_guardian"], code),
+        json={"code": code, "relationship": "guardian"},
+    )
     assert resp.status_code == 200
     link = db.query(GuardianLink).one()
     assert link.email_matched_contact is False
@@ -266,8 +297,16 @@ def test_claimed_revoked_expired_invalid_codes_fail_generically(db, client, worl
     generic = invalid.json()["detail"]
 
     code = create_invite(client, world).json()["code"]
-    client.post("/api/join/guardian/confirm", headers=bearer(world["guardian"].email), json={"code": code, "relationship": "mother"})
-    reused = client.post("/api/join/guardian/confirm", headers=bearer(world["other_guardian"].email), json={"code": code, "relationship": "guardian"})
+    client.post(
+        "/api/join/guardian/confirm",
+        headers=guardian_invite_bearer(db, world["guardian"], code),
+        json={"code": code, "relationship": "mother"},
+    )
+    reused = client.post(
+        "/api/join/guardian/confirm",
+        headers=bearer(world["guardian"].email),
+        json={"code": code, "relationship": "guardian"},
+    )
     assert reused.status_code == 404
     assert reused.json()["detail"] == generic
 
@@ -295,7 +334,11 @@ def test_claimed_revoked_expired_invalid_codes_fail_generically(db, client, worl
 
 def test_revoked_link_can_be_restored_by_fresh_invite_and_membership_revoked_only_after_last_link(db, client, world):
     code = create_invite(client, world).json()["code"]
-    client.post("/api/join/guardian/confirm", headers=bearer(world["guardian"].email), json={"code": code, "relationship": "mother"})
+    client.post(
+        "/api/join/guardian/confirm",
+        headers=guardian_invite_bearer(db, world["guardian"], code),
+        json={"code": code, "relationship": "mother"},
+    )
     link = db.query(GuardianLink).one()
     revoked = client.post(f"/api/school/guardian-links/{link.id}/revoke", headers=bearer(world["alpha_admin"].email, world["alpha"].id))
     assert revoked.status_code == 200
@@ -303,7 +346,11 @@ def test_revoked_link_can_be_restored_by_fresh_invite_and_membership_revoked_onl
     assert db.query(Membership).filter_by(school_id=world["alpha"].id, user_id=world["guardian"].id, role="guardian").one().status == "revoked"
 
     fresh = create_invite(client, world, student=world["second_student"], slot=1).json()["code"]
-    client.post("/api/join/guardian/confirm", headers=bearer(world["guardian"].email), json={"code": fresh, "relationship": "guardian"})
+    client.post(
+        "/api/join/guardian/confirm",
+        headers=guardian_invite_bearer(db, world["guardian"], fresh),
+        json={"code": fresh, "relationship": "guardian"},
+    )
     assert db.query(Membership).filter_by(school_id=world["alpha"].id, user_id=world["guardian"].id, role="guardian").one().status == "active"
 
 
