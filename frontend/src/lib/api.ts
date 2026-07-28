@@ -1,5 +1,12 @@
 import { normalizeErrorMessage } from '$lib/errors';
-import { getNativeAccessToken, isNativePlatform, nativeApiUrl } from '$lib/nativeAuth';
+import {
+  clearNativeSession,
+  getNativeAccessToken,
+  getNativeRefreshToken,
+  isNativePlatform,
+  nativeApiUrl,
+  setNativeSession
+} from '$lib/nativeAuth';
 
 const API_BASE = '/api';
 
@@ -40,6 +47,65 @@ function buildApiUrl(path: string): string {
   return `${API_BASE}${normalizedPath}`;
 }
 
+let refreshPromise: Promise<boolean> | null = null;
+
+async function refreshAuthSession(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    const native = isNativePlatform();
+    const headers = new Headers({ 'Content-Type': 'application/json' });
+    let body = '{}';
+    if (native) {
+      const refreshToken = await getNativeRefreshToken();
+      const accessToken = await getNativeAccessToken();
+      if (!refreshToken && !accessToken) return false;
+      if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
+      body = JSON.stringify({ refresh_token: refreshToken });
+    } else {
+      const csrfToken = getCookie('csrf_token');
+      if (csrfToken) headers.set('X-CSRF-Token', csrfToken);
+    }
+
+    const response = await fetch(buildApiUrl('/auth/refresh'), {
+      method: 'POST',
+      headers,
+      body,
+      credentials: native ? 'omit' : 'include'
+    });
+    if (!response.ok) {
+      if (native && (response.status === 401 || response.status === 403)) {
+        await clearNativeSession();
+      }
+      return false;
+    }
+    if (native) {
+      const payload = await response.json();
+      if (!payload?.access_token || !payload?.refresh_token) return false;
+      await setNativeSession(payload.access_token, payload.refresh_token);
+    }
+    return true;
+  })().finally(() => {
+    refreshPromise = null;
+  });
+  return refreshPromise;
+}
+
+async function fetchWithSilentRefresh(url: string, options: RequestInit): Promise<Response> {
+  const response = await fetch(url, options);
+  if (response.status !== 401 || url.endsWith('/auth/refresh')) return response;
+  if (!(await refreshAuthSession())) return response;
+
+  const retryHeaders = new Headers(options.headers || {});
+  if (isNativePlatform()) {
+    const token = await getNativeAccessToken();
+    if (token) retryHeaders.set('Authorization', `Bearer ${token}`);
+  } else {
+    const csrfToken = getCookie('csrf_token');
+    if (csrfToken) retryHeaders.set('X-CSRF-Token', csrfToken);
+  }
+  return fetch(url, { ...options, headers: retryHeaders });
+}
+
 async function throwForErrorResponse(res: Response): Promise<never> {
   const contentType = res.headers.get('content-type') || '';
 
@@ -76,7 +142,7 @@ async function request(path: string, options: RequestInit = {}) {
     }
   }
 
-  const res = await fetch(url, {
+  const res = await fetchWithSilentRefresh(url, {
     ...options,
     method,
     headers,
@@ -114,7 +180,7 @@ async function upload(path: string, formData: FormData, options: RequestInit = {
     if (csrfToken) headers.set('X-CSRF-Token', csrfToken);
   }
 
-  const res = await fetch(url, { ...options, method: 'POST', headers, body: formData, credentials: isNativePlatform() ? 'omit' : 'include' });
+  const res = await fetchWithSilentRefresh(url, { ...options, method: 'POST', headers, body: formData, credentials: isNativePlatform() ? 'omit' : 'include' });
   if (!res.ok) {
     await throwForErrorResponse(res);
   }
@@ -130,7 +196,7 @@ async function download(path: string, options: RequestInit = {}): Promise<Blob> 
     const token = await getNativeAccessToken();
     if (token) headers.set('Authorization', `Bearer ${token}`);
   }
-  const res = await fetch(url, { ...options, method: 'GET', headers, credentials: isNativePlatform() ? 'omit' : 'include' });
+  const res = await fetchWithSilentRefresh(url, { ...options, method: 'GET', headers, credentials: isNativePlatform() ? 'omit' : 'include' });
   if (!res.ok) {
     await throwForErrorResponse(res);
   }
@@ -138,6 +204,7 @@ async function download(path: string, options: RequestInit = {}): Promise<Blob> 
 }
 
 export const api = {
+  refreshAuth: () => refreshAuthSession(),
   get: (path: string, options: RequestInit = {}) => request(path, options),
   post: (path: string, body: any = {}, options: RequestInit = {}) => request(path, { ...options, method: 'POST', body: JSON.stringify(body) }),
   put: (path: string, body: any = {}, options: RequestInit = {}) => request(path, { ...options, method: 'PUT', body: JSON.stringify(body) }),

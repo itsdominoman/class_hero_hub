@@ -1,5 +1,49 @@
 # CHH current pilot deployment
 
+## 2026-07-28 AUTH-001 revocable sessions
+
+CHH development/pilot now uses revocable, per-browser/device staff sessions. Access
+JWTs last 15 minutes. A rotating refresh session has a 30-day idle lifetime and a
+180-day absolute lifetime; only HMAC hashes of the current and immediately previous
+refresh credentials and safe device metadata are stored. A 10-second previous-token
+grace handles concurrent renewal, after which reuse revokes that session chain.
+Logout revokes only the current session; `POST /api/auth/logout-all` revokes every
+session for the user. Disabled or deleted users cannot access or refresh.
+
+The browser stores access and refresh credentials only in Secure, HttpOnly,
+SameSite=Lax cookies. Android stores both in encrypted native storage and silently
+renews on startup and one eligible HTTP 401. Google login, account switching and
+pending authenticated routes retain their existing user flow. Invitation codes,
+school memberships and staff identities were not changed.
+
+Alembic revision `a001c7e9d4f2` adds `user_auth_sessions` without rewriting any user,
+school or membership row. Existing legacy access JWTs are accepted only through
+`2026-08-04T23:59:59Z`; updated clients exchange them silently for a revocable
+session, while older clients require one ordinary Google sign-in after that date.
+The pre-migration pgBackRest full backup is `20260728-182651F`.
+
+Focused validation passed 39 backend authentication, CSRF, QA-login and operational
+health tests; Svelte check reported zero errors/warnings; the frontend production
+build and three push/deep-link preservation tests passed. A disposable PostgreSQL
+database passed clean upgrade, last-revision downgrade and re-upgrade. Fresh
+`testDebugUnitTest`, `lintDebug` and `assembleDebug` Android gates passed.
+
+Only the development backend and frontend were rebuilt/recreated. PostgreSQL, the
+notification scheduler and messaging worker retained their prior uptime. Public
+frontend and readiness returned HTTP 200, the database and migration checks reported
+`ok`/`current`, and recent affected-service logs contained no application errors.
+Production was not changed.
+
+Development APK:
+
+- File: `class-hero-hub-auth001-revocable-sessions-dev-20260728.apk`
+- Package/version: `com.classherohub.app`, code `10`, name
+  `1.8-surveys-polls`
+- Size/SHA-256: `96,337,874` bytes,
+  `8c842eaf32064b83cf1adaf26c96b3b329013e5b3ccfcc900726c3d27eb6eb0d`
+- Server: `/opt/apps/class_hero_hub/tmp/`
+- Windows delivery: `G:\My Drive\CHH\Remote\`
+
 ## 2026-07-27 production School Chats, surveys and destination gating
 
 Production School Chats and linked-parent surveys are enabled with a dedicated

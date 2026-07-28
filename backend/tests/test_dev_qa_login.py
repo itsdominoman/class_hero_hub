@@ -130,6 +130,7 @@ def test_qa_login_creates_reuses_user_platform_admin_and_preserves_csrf(client, 
     assert "qa-token" not in caplog.text
     assert "QA login issued for qa-platform@dev.classherohub.com" in caplog.text
     assert client.cookies.get("access_token")
+    assert client.cookies.get("refresh_token")
     assert client.cookies.get("csrf_token")
 
     me_response = client.get("/api/me")

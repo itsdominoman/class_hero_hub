@@ -128,8 +128,15 @@ async def _qa_login_from_request(request: Request, db: Session) -> JSONResponse:
         platform_admin.revoked_at = None
         db.commit()
 
-    access_token = auth.create_access_token(data={"sub": user.email})
+    auth.revoke_refresh_session(db, auth.request_session_id(request), "session_replaced")
+    access_token, refresh_token = auth.create_refresh_session(
+        db,
+        user,
+        request,
+        client_type="browser",
+    )
     session_max_age = auth.parent_session_cookie_max_age_seconds()
+    refresh_max_age = auth.refresh_session_cookie_max_age_seconds()
     response = JSONResponse(
         content={
             "status": "ok",
@@ -148,6 +155,16 @@ async def _qa_login_from_request(request: Request, db: Session) -> JSONResponse:
         samesite="lax",
         secure=settings.COOKIE_SECURE,
         path="/",
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        max_age=refresh_max_age,
+        expires=refresh_max_age,
+        samesite="lax",
+        secure=settings.COOKIE_SECURE,
+        path="/api/auth",
     )
     auth.set_csrf_cookie(response, auth.create_csrf_token())
     logger.info("QA login issued for %s", email)

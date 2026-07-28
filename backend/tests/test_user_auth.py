@@ -16,7 +16,15 @@ from sqlalchemy.pool import StaticPool
 from app import auth, database, invite_tokens
 from app.database import Base, get_db
 from app.main import app
-from app.models_school import AuditLog, MagicLoginToken, Membership, PlatformAdmin, School, User
+from app.models_school import (
+    AuditLog,
+    MagicLoginToken,
+    Membership,
+    PlatformAdmin,
+    School,
+    User,
+    UserRefreshSession,
+)
 from app.routes import authentication as auth_routes
 from app.school_scope import require_platform_admin, require_school_role
 from app.security import BoundedInMemoryRateLimiter
@@ -106,6 +114,11 @@ def test_google_callback_upserts_user(db, client, monkeypatch):
     response = client.get("/api/auth/google/callback", follow_redirects=False)
 
     assert response.status_code == 302
+    cookies = "\n".join(response.headers.get_list("set-cookie")).lower()
+    assert "refresh_token=" in cookies
+    assert "httponly" in cookies
+    assert "samesite=lax" in cookies
+    assert "path=/api/auth" in cookies
     user = db.query(User).filter_by(email="oauth-user@example.com").one()
     assert user.google_sub == "google-sub-oauth-user"
     assert user.name == "OAuth User"
@@ -132,8 +145,160 @@ def test_native_google_login_verifies_token_and_returns_bearer_token(db, client,
     payload = response.json()
     assert payload["token_type"] == "bearer"
     assert payload["access_token"]
+    assert payload["refresh_token"]
+    assert payload["expires_in"] == 15 * 60
     user = db.query(User).filter_by(email="native-oauth-user@example.com").one()
     assert user.google_sub == "native-google-sub"
+
+
+def _native_session(db, client, monkeypatch, email: str = "session-user@example.com"):
+    monkeypatch.setattr(auth_routes, "GOOGLE_NATIVE_LOGIN_RATE_LIMIT", BoundedInMemoryRateLimiter(60, 100))
+    monkeypatch.setattr(
+        auth,
+        "verify_google_id_token",
+        lambda _token: {
+            "email": email,
+            "name": "Session User",
+            "sub": f"google-{email}",
+        },
+    )
+    response = client.post("/api/auth/google/native", json={"id_token": "verified"})
+    assert response.status_code == 200
+    return response.json()
+
+
+def test_short_access_expiry_and_rotating_refresh(db, client, monkeypatch):
+    first = _native_session(db, client, monkeypatch)
+    first_claims = auth.decode_access_token(first["access_token"])
+    assert first_claims["typ"] == "access"
+    assert first_claims["exp"] - first_claims["iat"] == 15 * 60
+
+    expired_access = auth.create_access_token(
+        {
+            "sub": first_claims["sub"],
+            "uid": first_claims["uid"],
+            "sid": first_claims["sid"],
+            "typ": "access",
+        },
+        expires_delta=timedelta(seconds=-1),
+    )
+    assert client.get("/api/me", headers={"Authorization": f"Bearer {expired_access}"}).status_code == 401
+
+    refreshed = client.post("/api/auth/refresh", json={"refresh_token": first["refresh_token"]})
+    assert refreshed.status_code == 200
+    second = refreshed.json()
+    assert second["access_token"] != first["access_token"]
+    assert second["refresh_token"] != first["refresh_token"]
+    assert client.get("/api/me", headers={"Authorization": f"Bearer {second['access_token']}"}).status_code == 200
+
+
+def test_legacy_access_token_transitions_without_duplicate_identity(db, client):
+    user = User(email="legacy@example.com", name="Legacy User", status="active")
+    db.add(user)
+    db.commit()
+    legacy_access = auth.create_access_token({"sub": user.email})
+
+    response = client.post(
+        "/api/auth/refresh",
+        headers={"Authorization": f"Bearer {legacy_access}"},
+        json={},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["refresh_token"]
+    assert db.query(User).filter_by(email=user.email).count() == 1
+    assert db.query(UserRefreshSession).filter_by(user_id=user.id, client_type="android").count() == 1
+
+
+def test_logout_current_session_and_logout_all_devices(db, client, monkeypatch):
+    first = _native_session(db, client, monkeypatch, "multi-session@example.com")
+    second = _native_session(db, client, monkeypatch, "multi-session@example.com")
+
+    logout = client.post(
+        "/api/auth/logout",
+        headers={"Authorization": f"Bearer {first['access_token']}"},
+    )
+    assert logout.status_code == 200
+    assert client.get("/api/me", headers={"Authorization": f"Bearer {first['access_token']}"}).status_code == 401
+    assert client.get("/api/me", headers={"Authorization": f"Bearer {second['access_token']}"}).status_code == 200
+
+    logout_all = client.post(
+        "/api/auth/logout-all",
+        headers={"Authorization": f"Bearer {second['access_token']}"},
+    )
+    assert logout_all.status_code == 200
+    assert client.get("/api/me", headers={"Authorization": f"Bearer {second['access_token']}"}).status_code == 401
+    assert db.query(UserRefreshSession).filter(UserRefreshSession.revoked_at.is_(None)).count() == 0
+
+
+def test_refresh_reuse_revokes_affected_session_chain(db, client, monkeypatch):
+    first = _native_session(db, client, monkeypatch, "replay@example.com")
+    rotated = client.post("/api/auth/refresh", json={"refresh_token": first["refresh_token"]})
+    assert rotated.status_code == 200
+    session = db.query(UserRefreshSession).one()
+    session.previous_valid_until = datetime.now(timezone.utc) - timedelta(seconds=1)
+    db.commit()
+
+    replay = client.post("/api/auth/refresh", json={"refresh_token": first["refresh_token"]})
+    assert replay.status_code == 401
+    assert replay.json()["detail"] == "Refresh session reuse detected"
+    db.refresh(session)
+    assert session.revoke_reason == "refresh_reuse"
+    assert client.post(
+        "/api/auth/refresh",
+        json={"refresh_token": rotated.json()["refresh_token"]},
+    ).status_code == 401
+
+
+@pytest.mark.parametrize("inactive_status", ["revoked", "suspended", "disabled"])
+def test_inactive_users_cannot_refresh(db, client, monkeypatch, inactive_status):
+    session = _native_session(db, client, monkeypatch, f"{inactive_status}@example.com")
+    user = db.query(User).filter_by(email=f"{inactive_status}@example.com").one()
+    user.status = inactive_status
+    db.commit()
+
+    response = client.post("/api/auth/refresh", json={"refresh_token": session["refresh_token"]})
+    assert response.status_code == 403
+    assert db.query(UserRefreshSession).one().revoke_reason == "account_inactive"
+
+
+def test_repeated_google_login_creates_sessions_not_duplicate_identity_records(db, client, monkeypatch):
+    _native_session(db, client, monkeypatch, "same-person@example.com")
+    _native_session(db, client, monkeypatch, "same-person@example.com")
+    assert db.query(User).filter_by(email="same-person@example.com").count() == 1
+    assert db.query(UserRefreshSession).count() == 2
+    assert db.query(Membership).count() == 0
+
+
+def test_native_account_switch_revokes_replaced_session(db, client, monkeypatch):
+    first = _native_session(db, client, monkeypatch, "first-account@example.com")
+    monkeypatch.setattr(
+        auth,
+        "verify_google_id_token",
+        lambda _token: {
+            "email": "second-account@example.com",
+            "name": "Second Account",
+            "sub": "google-second-account",
+        },
+    )
+
+    switched = client.post(
+        "/api/auth/google/native",
+        headers={"Authorization": f"Bearer {first['access_token']}"},
+        json={"id_token": "verified-second"},
+    )
+
+    assert switched.status_code == 200
+    assert client.get(
+        "/api/me",
+        headers={"Authorization": f"Bearer {first['access_token']}"},
+    ).status_code == 401
+    assert client.get(
+        "/api/me",
+        headers={"Authorization": f"Bearer {switched.json()['access_token']}"},
+    ).status_code == 200
+    replaced = db.query(UserRefreshSession).filter_by(revoke_reason="session_replaced").one()
+    assert replaced.user_id != auth.decode_access_token(switched.json()["access_token"])["uid"]
 
 
 def test_native_google_login_rejects_invalid_token_without_creating_user(db, client, monkeypatch):
@@ -178,6 +343,7 @@ def test_magic_link_request_and_exchange_create_normal_session(db, client, monke
     exchange = client.post("/api/auth/magic-link/exchange", json={"token": token})
     assert exchange.status_code == 200
     assert "access_token" in exchange.cookies
+    assert "refresh_token" in exchange.cookies
 
     user = db.query(User).filter_by(email="magic-user@example.com").one()
     assert user.last_login_at is not None

@@ -82,7 +82,12 @@ Verified by direct inspection on 2026-07-07 (full detail in the two audit docs):
 
 **Architecture.** Monolithic FastAPI app (`backend/app`, ~5,400 lines of routes+services), 17-table SQLAlchemy model (`models.py`), Alembic (6 revisions, PostgreSQL production / SQLite dev path retained), SvelteKit static-adapter frontend with client-side fetch only, Docker Compose (backend, frontend, postgres, postgres_restore), Caddy TLS proxy, pgBackRest WAL backups.
 
-**Auth & sessions.** Parents: Google OAuth only → 30-day JWT in an HttpOnly cookie; CSRF double-submit cookie; admin = membership in `PARENT_EMAILS` env var. Children: QR link tokens (SHA-256-hashed, single-use, 24h expiry, rate-limited exchange) → 30-day device-session cookie. Suspension/revocation enforced per request via DB status checks.
+**Auth & sessions.** Staff/guardians use Google OAuth, native Google or magic-link
+entry into a server-backed session: 15-minute access JWT, per-browser/device rotating
+refresh credential (30-day idle, 180-day absolute), current/all-device revocation and
+refresh-reuse detection. Browser credentials use secure HttpOnly cookies plus CSRF;
+Android credentials use encrypted native storage. Invitation and relationship
+records remain separate. Child QR/device sessions are unchanged.
 
 **Domain (all family-scoped via `family_id`).** Children, points ledger (dual jars: spending/savings, 12 transaction types, partial-unique-index idempotency, reversals), rewards + redemption approval flow, allowance (real money, currency minor units), behaviour presets, calendar entries (event/task, daily/weekly recurrence, rewardable tasks, completion approval, weekly streak multipliers), school-bag items with pack-checks, pet progression, family invites, registration requests + approved-email allowlist.
 

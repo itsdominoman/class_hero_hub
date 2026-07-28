@@ -6,6 +6,11 @@
 **Proof-of-concept URL:** https://class.familyherohub.com
 **Status of this document:** Report only. No code, schema, configuration, secrets, or deployment was changed.
 
+> **Remediation note, 2026-07-28:** the long-lived, non-revocable bearer-session
+> finding was remediated by AUTH-001 in the CHH development/pilot system. Current
+> behaviour is documented in `docs/ops/CHH_ANDROID_GOOGLE_OAUTH_SETUP.md`. Historical
+> observations below describe the audited pre-remediation state.
+
 ---
 
 ## Reading guide — evidence labelling

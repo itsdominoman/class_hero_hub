@@ -9,7 +9,7 @@
   import type { MessagingMembership } from '$lib/messaging/types';
   import { safeguardingApi } from '$lib/safeguarding/api';
   import type { SafeguardingMembership } from '$lib/safeguarding/types';
-  import { clearNativeAccessToken, isNativePlatform } from '$lib/nativeAuth';
+  import { clearNativeSession, isNativePlatform } from '$lib/nativeAuth';
   import { defaultLandingPath, hasRole, type SessionUser } from '$lib/roleRouting';
   import { surveyApi, type SurveyMembership } from '$lib/surveys/api';
 
@@ -34,6 +34,7 @@
 
   async function loadSession() {
     try {
+      await api.refreshAuth();
       currentUser = await api.get('/me');
       messagingMemberships = (currentUser?.memberships || []).filter(
         (row): row is MessagingMembership =>
@@ -146,7 +147,7 @@
     try {
       await api.post('/auth/logout', {});
     } finally {
-      if (nativeApp) await clearNativeAccessToken();
+      if (nativeApp) await clearNativeSession();
       currentUser = null;
       messagingMemberships = [];
       safeguardingMemberships = [];

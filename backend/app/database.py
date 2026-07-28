@@ -573,7 +573,11 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./data/family_hero_hub.sqlite"
     JWT_SECRET: str = ""
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 43200
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_IDLE_DAYS: int = 30
+    REFRESH_TOKEN_ABSOLUTE_DAYS: int = 180
+    REFRESH_TOKEN_REUSE_GRACE_SECONDS: int = 10
+    LEGACY_ACCESS_TOKEN_ACCEPT_UNTIL: str = ""
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
     GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/auth/google/callback"
@@ -647,7 +651,10 @@ class Settings(BaseSettings):
 
     @property
     def COOKIE_SECURE(self) -> bool:
-        return _normalize_environment(self.APP_ENV) == "production"
+        return (
+            _normalize_environment(self.APP_ENV) == "production"
+            or self.PUBLIC_APP_URL.lower().startswith("https://")
+        )
 
     @property
     def SECRET_KEY(self) -> str:

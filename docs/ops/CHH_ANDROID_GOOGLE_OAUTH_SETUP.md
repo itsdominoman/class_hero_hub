@@ -1,7 +1,33 @@
 # CHH Android and Google OAuth setup
 
-Status date: 2026-07-14. This document records the current debug configuration; it
+Status date: 2026-07-28. This document records the current debug configuration; it
 does not configure Google Cloud or release signing.
+
+## Revocable staff sessions (AUTH-001)
+
+Google OAuth, native Google sign-in, magic links and the dev-only QA login all issue
+the same server-backed session. Access JWTs last 15 minutes. Each browser or Android
+installation has a separate rotating refresh session with a 30-day idle limit and a
+180-day absolute limit. The database stores only an HMAC hash of the refresh
+credential plus safe device/browser metadata; raw access and refresh credentials
+must not be logged.
+
+Browser access and refresh credentials are `Secure`, `HttpOnly`, `SameSite=Lax`
+cookies. The refresh cookie is restricted to `/api/auth`; the readable CSRF cookie
+continues to protect cookie-authenticated unsafe requests. Android stores both
+credentials in the existing Keystore-backed encrypted storage and sends them only in
+request bodies or `Authorization` headers over HTTPS.
+
+Refresh rotates the credential. Reuse after the ten-second concurrent-request grace
+revokes that device/browser session chain. Normal logout revokes only the current
+session; `POST /api/auth/logout-all` revokes every session for the user. Inactive
+users cannot use access or refresh credentials. Invitation codes, guardian links,
+school memberships and Google identity matching are unchanged.
+
+During rollout only, `LEGACY_ACCESS_TOKEN_ACCEPT_UNTIL` may be set to an explicit
+short UTC deadline. A current browser or updated APK silently exchanges an existing
+legacy access token for a refresh session before that deadline. After it, a user on
+an old client signs in once; they do not need a new invitation or family/school link.
 
 ## Google Cloud project and clients
 
@@ -43,8 +69,10 @@ state validation to accommodate Android; diagnose redirect/client configuration 
 
 1. Android Credential Manager returns an ID token for the configured Web client ID.
 2. The Capacitor shell posts it to `/api/auth/google/native`.
-3. CHH stores the returned bearer token using encrypted native storage and sends it on
-   native API requests; browser requests keep using browser session credentials.
+3. CHH stores the returned short-lived access and rotating refresh credentials using
+   encrypted native storage. Native API requests send the access token as a bearer;
+   renewal is silent while the account remains authorised. Browser requests use the
+   equivalent secure cookie session.
 
 ## Operator verification before distribution
 

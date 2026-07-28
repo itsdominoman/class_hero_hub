@@ -32,6 +32,10 @@ class MagicLoginRequest(BaseModel):
 class MagicLoginExchangeRequest(BaseModel):
     token: str = Field(min_length=1)
 
+
+class RefreshSessionRequest(BaseModel):
+    refresh_token: str | None = None
+
 oauth = OAuth()
 oauth.register(
     name="google",
@@ -72,24 +76,58 @@ def _rate_limit(limiter: BoundedInMemoryRateLimiter, request: Request, message: 
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=message)
 
 
-def _issue_session_response(user: User, return_to: str | None, *, redirect: bool) -> Response:
-    access_token = auth.create_access_token(data={"sub": user.email})
-    session_max_age = auth.parent_session_cookie_max_age_seconds()
-    if redirect:
-        response: Response = RedirectResponse(f"{settings.PUBLIC_APP_URL.rstrip('/')}{return_to or ''}", status_code=status.HTTP_302_FOUND)
-    else:
-        response = JSONResponse({"status": "signed_in", "return_to": return_to or None}, status_code=status.HTTP_200_OK)
+def _set_browser_session_cookies(response: Response, access_token: str, refresh_token: str) -> None:
+    access_max_age = auth.parent_session_cookie_max_age_seconds()
+    refresh_max_age = auth.refresh_session_cookie_max_age_seconds()
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        max_age=session_max_age,
-        expires=session_max_age,
+        max_age=access_max_age,
+        expires=access_max_age,
         samesite="lax",
         secure=settings.COOKIE_SECURE,
         path="/",
     )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        max_age=refresh_max_age,
+        expires=refresh_max_age,
+        samesite="lax",
+        secure=settings.COOKIE_SECURE,
+        path="/api/auth",
+    )
     auth.set_csrf_cookie(response, auth.create_csrf_token())
+
+
+def _clear_browser_session_cookies(response: Response) -> None:
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("refresh_token", path="/api/auth")
+    auth.clear_csrf_cookie(response)
+
+
+def _issue_session_response(
+    user: User,
+    return_to: str | None,
+    *,
+    redirect: bool,
+    request: Request,
+    db: Session,
+) -> Response:
+    auth.revoke_refresh_session(db, auth.request_session_id(request), "session_replaced")
+    access_token, refresh_token = auth.create_refresh_session(
+        db,
+        user,
+        request,
+        client_type="browser",
+    )
+    if redirect:
+        response: Response = RedirectResponse(f"{settings.PUBLIC_APP_URL.rstrip('/')}{return_to or ''}", status_code=status.HTTP_302_FOUND)
+    else:
+        response = JSONResponse({"status": "signed_in", "return_to": return_to or None}, status_code=status.HTTP_200_OK)
+    _set_browser_session_cookies(response, access_token, refresh_token)
     return response
 
 
@@ -162,7 +200,7 @@ async def exchange_magic_link_get(token: str, request: Request, db: Session = De
 async def exchange_magic_link_post(payload: MagicLoginExchangeRequest, request: Request, db: Session = Depends(get_db)):
     _rate_limit(MAGIC_EXCHANGE_RATE_LIMIT, request, "Too many sign-in link attempts")
     user, return_to = _exchange_magic_login(payload.token, db)
-    response = _issue_session_response(user, return_to, redirect=False)
+    response = _issue_session_response(user, return_to, redirect=False, request=request, db=db)
     return response
 
 
@@ -200,6 +238,8 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         )
         db.add(user)
     else:
+        if (user.status or "active").lower() != "active":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account is not active")
         user.email = email
         user.google_sub = user_info.get("sub")
         user.name = user_info.get("name")
@@ -207,23 +247,17 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    access_token = auth.create_access_token(data={"sub": user.email})
-    session_max_age = auth.parent_session_cookie_max_age_seconds()
-
     response = Response(status_code=status.HTTP_302_FOUND)
     return_to = _safe_return_path(request.session.pop("post_auth_redirect", None))
     response.headers["Location"] = f"{settings.PUBLIC_APP_URL.rstrip('/')}{return_to or ''}"
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        max_age=session_max_age,
-        expires=session_max_age,
-        samesite="lax",
-        secure=settings.COOKIE_SECURE,
-        path="/",
+    auth.revoke_refresh_session(db, auth.request_session_id(request), "session_replaced")
+    access_token, refresh_token = auth.create_refresh_session(
+        db,
+        user,
+        request,
+        client_type="browser",
     )
-    auth.set_csrf_cookie(response, auth.create_csrf_token())
+    _set_browser_session_cookies(response, access_token, refresh_token)
     return response
 
 
@@ -259,15 +293,68 @@ async def google_native_login(
         user.last_login_at = now
     db.commit()
 
-    access_token = auth.create_access_token(data={"sub": user.email})
+    auth.revoke_refresh_session(db, auth.request_session_id(request), "session_replaced")
+    access_token, refresh_token = auth.create_refresh_session(
+        db,
+        user,
+        request,
+        client_type="android",
+    )
     return schemas.NativeGoogleLoginResponse(
         access_token=access_token,
+        refresh_token=refresh_token,
         expires_in=auth.parent_session_cookie_max_age_seconds(),
     )
 
 
+@router.post("/refresh")
+async def refresh_session(
+    request: Request,
+    payload: RefreshSessionRequest | None = None,
+    db: Session = Depends(get_db),
+):
+    supplied_refresh = (payload.refresh_token if payload else None) or request.cookies.get("refresh_token")
+    native_request = bool((payload and payload.refresh_token) or request.headers.get("Authorization"))
+    if supplied_refresh:
+        _, access_token, refresh_token = auth.rotate_refresh_session(db, supplied_refresh)
+    else:
+        legacy_token = auth._get_request_token(request)
+        if not legacy_token:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No refresh session")
+        user = auth.legacy_user_from_token(legacy_token, db)
+        access_token, refresh_token = auth.create_refresh_session(
+            db,
+            user,
+            request,
+            client_type="android" if native_request else "browser",
+        )
+
+    content = {
+        "access_token": access_token if native_request else None,
+        "refresh_token": refresh_token if native_request else None,
+        "token_type": "bearer",
+        "expires_in": auth.parent_session_cookie_max_age_seconds(),
+    }
+    response = JSONResponse(content)
+    if not native_request:
+        _set_browser_session_cookies(response, access_token, refresh_token)
+    return response
+
+
 @router.post("/logout")
-async def logout(response: Response):
-    response.delete_cookie("access_token", path="/")
-    auth.clear_csrf_cookie(response)
-    return {"message": "Logged out"}
+async def logout(request: Request, db: Session = Depends(get_db)):
+    auth.revoke_refresh_session(db, auth.request_session_id(request), "logout")
+    response = JSONResponse({"message": "Logged out"})
+    _clear_browser_session_cookies(response)
+    return response
+
+
+@router.post("/logout-all")
+async def logout_all(
+    current_user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    auth.revoke_all_refresh_sessions(db, current_user.id, "logout_all")
+    response = JSONResponse({"message": "Logged out on all devices"})
+    _clear_browser_session_cookies(response)
+    return response

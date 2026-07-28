@@ -2,6 +2,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 
 const CHH_NATIVE_API_BASE = 'https://class.familyherohub.com/api';
 const ACCESS_TOKEN_KEY = 'chh_access_token';
+const REFRESH_TOKEN_KEY = 'chh_refresh_token';
 const INSTALLATION_ID_KEY = 'chh_installation_id';
 const PUSH_TOKEN_KEY = 'chh_push_token';
 const PENDING_NOTIFICATION_EVENT_KEY = 'chh_pending_notification_event';
@@ -47,6 +48,7 @@ const GoogleAuth = registerPlugin<GoogleAuthPlugin>('GoogleAuth');
 const SecureStorage = registerPlugin<SecureStoragePlugin>('SecureStorage');
 
 let accessToken: string | null = null;
+let refreshToken: string | null = null;
 
 export function isNativePlatform(): boolean {
   return Capacitor.isNativePlatform();
@@ -68,6 +70,30 @@ export async function getNativeAccessToken(): Promise<string | null> {
 export async function clearNativeAccessToken(): Promise<void> {
   accessToken = null;
   if (isNativePlatform()) await SecureStorage.remove({ key: ACCESS_TOKEN_KEY });
+}
+
+export async function getNativeRefreshToken(): Promise<string | null> {
+  if (!isNativePlatform()) return null;
+  if (refreshToken) return refreshToken;
+  const { value } = await SecureStorage.get({ key: REFRESH_TOKEN_KEY });
+  refreshToken = value;
+  return value;
+}
+
+export async function setNativeSession(access: string, refresh: string): Promise<void> {
+  accessToken = access;
+  refreshToken = refresh;
+  if (!isNativePlatform()) return;
+  await SecureStorage.set({ key: ACCESS_TOKEN_KEY, value: access });
+  await SecureStorage.set({ key: REFRESH_TOKEN_KEY, value: refresh });
+}
+
+export async function clearNativeSession(): Promise<void> {
+  accessToken = null;
+  refreshToken = null;
+  if (!isNativePlatform()) return;
+  await SecureStorage.remove({ key: ACCESS_TOKEN_KEY });
+  await SecureStorage.remove({ key: REFRESH_TOKEN_KEY });
 }
 
 async function readSecureValue(key: string): Promise<string | null> {
@@ -131,9 +157,12 @@ export async function signInWithNativeGoogle(): Promise<boolean> {
 
   let response: Response;
   try {
+    const existingAccessToken = await getNativeAccessToken();
+    const headers = new Headers({ 'Content-Type': 'application/json' });
+    if (existingAccessToken) headers.set('Authorization', `Bearer ${existingAccessToken}`);
     response = await fetch(nativeApiUrl('/auth/google/native'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ id_token: idToken }),
       credentials: 'omit'
     });
@@ -150,9 +179,9 @@ export async function signInWithNativeGoogle(): Promise<boolean> {
   }
 
   const payload = await response.json();
-  if (!payload?.access_token) throw new Error('Native Google sign-in returned no session token');
-  const token = payload.access_token as string;
-  accessToken = token;
-  await SecureStorage.set({ key: ACCESS_TOKEN_KEY, value: token });
+  if (!payload?.access_token || !payload?.refresh_token) {
+    throw new Error('Native Google sign-in returned no session credentials');
+  }
+  await setNativeSession(payload.access_token as string, payload.refresh_token as string);
   return true;
 }

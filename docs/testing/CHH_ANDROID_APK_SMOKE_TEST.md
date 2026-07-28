@@ -1,5 +1,31 @@
 # CHH Android APK smoke test
 
+## AUTH-001 revocable-session regression
+
+Use the AUTH-001 development APK and record the APK checksum, device, Android
+version, navigation mode and test accounts.
+
+1. Upgrade over an installation holding a legacy session and launch before the
+   documented transition deadline. Confirm the dashboard restores silently and a
+   pending School Chat or survey notification opens after authentication.
+2. Leave the app open for more than 15 minutes and resume it. Confirm renewal is
+   silent, the same account and school memberships remain, and no invitation or magic
+   link is requested.
+3. Log out on device A. Confirm its prior access no longer works, device B remains
+   signed in, and reopening A shows Login without losing a pending notification
+   destination.
+4. Use log out all devices in a test session and confirm both devices must sign in
+   again. Suspend or disable a test user and confirm silent refresh fails closed.
+5. Sign in with another Google account after logout. Confirm the prior encrypted
+   access and refresh credentials are cleared and the new account cannot see the
+   prior account's school-scoped data or push registration.
+6. Repeat browser Google and magic-link sign-in, logout and idle renewal. Inspect
+   cookies: access and refresh are `Secure`, `HttpOnly`, `SameSite=Lax`; the refresh
+   path is `/api/auth`.
+
+Physical testing remains required for Android Credential Manager, process death,
+background/resume, pending notification hand-off and encrypted-storage restoration.
+
 ## S26n safeguarding UI mop-up
 
 Use `class-hero-hub-safeguarding-ui-dev.apk` against the fixed CHH development API.

@@ -81,6 +81,7 @@ from .models import (
     UpdatePhoto,
     UpdatePost,
     User,
+    UserRefreshSession,
 )
 
 __all__ = [
@@ -166,4 +167,5 @@ __all__ = [
     "UpdatePhoto",
     "UpdatePost",
     "User",
+    "UserRefreshSession",
 ]

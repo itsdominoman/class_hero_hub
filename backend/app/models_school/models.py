@@ -22,6 +22,31 @@ class User(Base):
     last_login_at = Column(DateTime(timezone=True), nullable=True)
 
 
+class UserRefreshSession(Base):
+    __tablename__ = "user_refresh_sessions"
+
+    id = Column(String(36), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    refresh_token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    previous_refresh_token_hash = Column(String(64), nullable=True)
+    generation = Column(Integer, nullable=False, default=1, server_default="1")
+    client_type = Column(String(16), nullable=False, default="browser", server_default="browser")
+    user_agent_hash = Column(String(64), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    last_used_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    absolute_expires_at = Column(DateTime(timezone=True), nullable=False)
+    previous_valid_until = Column(DateTime(timezone=True), nullable=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    revoke_reason = Column(String(32), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("generation >= 1", name="ck_user_refresh_sessions_generation"),
+        CheckConstraint("client_type IN ('browser', 'android')", name="ck_user_refresh_sessions_client_type"),
+        Index("ix_user_refresh_sessions_user_active", "user_id", "revoked_at", "expires_at"),
+    )
+
+
 class School(Base):
     __tablename__ = "schools"
 
