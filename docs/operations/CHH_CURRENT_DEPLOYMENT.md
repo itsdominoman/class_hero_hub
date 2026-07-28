@@ -74,9 +74,21 @@ enumeration-safe magic-link request for a removed identity returned the generic
 response while creating neither a user nor magic-link row.
 
 Only the CHH pilot backend and frontend were rebuilt/recreated. PostgreSQL,
-notification scheduler and messaging worker retained their uptime. No native
-Android or Capacitor configuration changed, so no APK was built. CHH production and
-all FHH environments were unchanged.
+notification scheduler and messaging worker retained their uptime. The native
+Google bridge now carries the exact pending invite/deep-link return path, so the
+updated web assets were synchronised into Capacitor and a fresh development APK
+passed `testDebugUnitTest`, `lintDebug` and `assembleDebug`:
+
+- file: `class-hero-hub-admission-control-dev-20260729.apk`;
+- package/version: `com.classherohub.app`, code `10`, name
+  `1.8-surveys-polls`;
+- size/SHA-256: `96,334,794` bytes,
+  `6f98268fb43db1c0c970d538a82d64dd4fb8f261919c39c15c97abfd3af5fd6b`;
+- server: `/opt/apps/class_hero_hub/tmp/`;
+- Windows delivery: `G:\My Drive\CHH\Remote\`.
+
+The server and Windows copies have identical SHA-256. CHH production and all FHH
+environments were unchanged.
 
 ## 2026-07-28 AUTH-001 revocable sessions
 
