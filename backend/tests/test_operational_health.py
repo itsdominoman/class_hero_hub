@@ -22,7 +22,7 @@ def test_readiness_is_healthy_when_database_and_migration_are_current(monkeypatc
     )
 
     with TestClient(create_app()) as client:
-        response = client.get("/api/ready")
+        response = client.get("/api/health/ready")
 
     assert response.status_code == 200
     assert response.json() == {
@@ -35,7 +35,7 @@ def test_readiness_is_degraded_when_migration_is_outdated(monkeypatch):
     monkeypatch.setattr(operational_health, "_database_probe", lambda: "previous-revision")
 
     with TestClient(create_app()) as client:
-        response = client.get("/api/ready")
+        response = client.get("/api/health/ready")
 
     assert response.status_code == 503
     assert response.json() == {
@@ -51,7 +51,7 @@ def test_readiness_is_unavailable_without_exposing_dependency_errors(monkeypatch
     monkeypatch.setattr(operational_health, "_database_probe", unavailable_probe)
 
     with TestClient(create_app()) as client:
-        response = client.get("/api/ready")
+        response = client.get("/api/health/ready")
 
     assert response.status_code == 503
     assert response.json() == {
@@ -59,3 +59,10 @@ def test_readiness_is_unavailable_without_exposing_dependency_errors(monkeypatch
         "checks": {"database": "unavailable", "migration": "unknown"},
     }
     assert "private diagnostics" not in response.text
+
+
+def test_legacy_readiness_route_is_not_exposed():
+    with TestClient(create_app()) as client:
+        response = client.get("/api/ready")
+
+    assert response.status_code == 404

@@ -170,7 +170,7 @@ def create_app() -> FastAPI:
     def health_check():
         return {"status": "ok"}
 
-    @app.get("/api/ready")
+    @app.get("/api/health/ready")
     def readiness_check():
         payload, status_code = readiness_payload()
         return JSONResponse(status_code=status_code, content=payload)

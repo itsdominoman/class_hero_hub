@@ -342,7 +342,7 @@ migration, Android/native or APK change.
 
 `GET /api/health` is the lightweight process-liveness contract and remains
 compatible with existing consumers: HTTP 200 and `{"status":"ok"}` without a
-database query. `GET /api/ready` is the dependency-aware readiness contract. It
+database query. `GET /api/health/ready` is the dependency-aware readiness contract. It
 uses a separate one-connection pool with two-second connection, pool and statement
 limits, checks `SELECT 1`, and requires the database Alembic revision to equal the
 shipped head (`e7f8a9b0c1d2`). Database failure returns HTTP 503 `unavailable`;
@@ -367,7 +367,7 @@ Only `tmp/backup-status` and `tmp/scheduled-status` are mounted read-only into t
 backend. Queue payloads, messages, school/family identifiers, backup labels and
 secrets are not returned. Docker health checks use readiness for the backend,
 heartbeat freshness for enabled workers, and the static root for the frontend.
-The pgBackRest health job now verifies `/api/ready`; `/api/health` must not be
+The pgBackRest health job now verifies `/api/health/ready`; `/api/health` must not be
 changed into a dependency check. This pilot has status surfacing but no external
 paging or alert delivery.
 

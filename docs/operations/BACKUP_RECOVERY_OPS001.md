@@ -24,7 +24,7 @@ The `administrator` crontab is the single CHH scheduler:
 
 - 02:15 Asia/Muscat daily: differential backup to both repositories; Sunday is full.
 - 06:15 daily: cipher, integrity, freshness (30 hours), and dependency-aware
-  `/api/ready` check.
+  `/api/health/ready` check.
 - 07:15 on day 1 monthly: isolated restore from off-host repository 2.
 
 Both repositories retain four full backups and seven differential backups. WAL

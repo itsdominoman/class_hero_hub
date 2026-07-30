@@ -56,7 +56,7 @@ main() {
   (( now - repo2_stop <= MAX_AGE_SECONDS ))
 
   run_pgbackrest check
-  curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8000/api/ready >/dev/null
+  curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8000/api/health/ready >/dev/null
 
   temp_file="$(mktemp "${STATUS_DIR}/health.json.XXXXXX")"
   jq -n \
