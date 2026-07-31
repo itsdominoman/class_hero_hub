@@ -1,5 +1,6 @@
 import os
 from contextlib import contextmanager
+from datetime import date
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
@@ -12,6 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app import auth, database, mailer
+from app.admission import has_active_entitlement
 from app.database import Base, get_db
 from app.main import app
 from app.models_school import (
@@ -21,6 +23,7 @@ from app.models_school import (
     ClassSection,
     Enrolment,
     GradeLevel,
+    GuardianLink,
     Import,
     ImportRow,
     MagicLoginToken,
@@ -121,9 +124,34 @@ def import_world(db):
     db.add_all([branch, beta_branch])
     db.flush()
 
-    year = AcademicYear(school_id=alpha.id, code="2026", name="2026", status="active", is_current=True)
-    beta_year = AcademicYear(school_id=beta.id, code="2026", name="2026", status="active", is_current=True)
-    db.add_all([year, beta_year])
+    year = AcademicYear(
+        school_id=alpha.id,
+        code="2026",
+        name="2026",
+        status="active",
+        is_current=True,
+        start_date=date(2026, 7, 1),
+        end_date=date(2027, 6, 30),
+    )
+    next_year = AcademicYear(
+        school_id=alpha.id,
+        code="2027",
+        name="2027",
+        status="active",
+        is_current=False,
+        start_date=date(2027, 7, 1),
+        end_date=date(2028, 6, 30),
+    )
+    beta_year = AcademicYear(
+        school_id=beta.id,
+        code="2026",
+        name="2026",
+        status="active",
+        is_current=True,
+        start_date=date(2026, 7, 1),
+        end_date=date(2027, 6, 30),
+    )
+    db.add_all([year, next_year, beta_year])
     db.flush()
 
     kg1 = GradeLevel(school_id=alpha.id, code="KG1", name="KG 1", status="active")
@@ -136,7 +164,10 @@ def import_world(db):
     section_a = ClassSection(school_id=alpha.id, branch_campus_id=branch.id, academic_year_id=year.id, grade_level_id=kg1.id, code="A", name="KG 1 A", status="active")
     section_b = ClassSection(school_id=alpha.id, branch_campus_id=branch.id, academic_year_id=year.id, grade_level_id=kg1.id, code="B", name="KG 1 B", status="active")
     g1_section_a = ClassSection(school_id=alpha.id, branch_campus_id=branch.id, academic_year_id=year.id, grade_level_id=g1.id, code="A", name="Grade 1 A", status="active")
-    db.add_all([section_a, section_b, g1_section_a])
+    next_kg1_section_a = ClassSection(school_id=alpha.id, branch_campus_id=branch.id, academic_year_id=next_year.id, grade_level_id=kg1.id, code="A", name="2027 KG 1 A", status="active")
+    next_kg1_section_b = ClassSection(school_id=alpha.id, branch_campus_id=branch.id, academic_year_id=next_year.id, grade_level_id=kg1.id, code="B", name="2027 KG 1 B", status="active")
+    next_g1_section_a = ClassSection(school_id=alpha.id, branch_campus_id=branch.id, academic_year_id=next_year.id, grade_level_id=g1.id, code="A", name="2027 Grade 1 A", status="active")
+    db.add_all([section_a, section_b, g1_section_a, next_kg1_section_a, next_kg1_section_b, next_g1_section_a])
     db.commit()
 
     return {
@@ -149,16 +180,21 @@ def import_world(db):
         "platform_only": platform_only,
         "branch": branch,
         "year": year,
+        "next_year": next_year,
+        "beta_year": beta_year,
         "kg1": kg1,
         "g1": g1,
         "section_a": section_a,
         "section_b": section_b,
         "g1_section_a": g1_section_a,
+        "next_kg1_section_a": next_kg1_section_a,
+        "next_kg1_section_b": next_kg1_section_b,
+        "next_g1_section_a": next_g1_section_a,
     }
 
 
 CSV_HEADER = (
-    "student_id,first_name,last_name,preferred_name,name_ar,dob,gender,branch,grade,section,"
+    "student_id,first_name,last_name,preferred_name,name_ar,dob,gender,branch,grade,section,student_status,"
     "guardian1_name,guardian1_id,guardian1_email,guardian1_phone,guardian1_relationship,"
     "guardian2_name,guardian2_id,guardian2_email,guardian2_phone,guardian2_relationship"
 )
@@ -175,6 +211,7 @@ def csv_row(
     branch="",
     grade="KG1",
     section="A",
+    student_status="",
     guardian1_name="",
     guardian1_id="",
     guardian1_email="",
@@ -190,6 +227,7 @@ def csv_row(
         [
             student_id, first_name, last_name, preferred_name, name_ar, dob, gender,
             branch, grade, section,
+            student_status,
             guardian1_name, guardian1_id, guardian1_email, guardian1_phone, guardian1_relationship,
             guardian2_name, guardian2_id, guardian2_email, guardian2_phone, guardian2_relationship,
         ]
@@ -201,17 +239,45 @@ def csv_bytes(rows: list[str], header: str = CSV_HEADER, encoding: str = "utf-8-
     return text.encode(encoding)
 
 
-def upload(client, world, rows: list[str], *, header: str = CSV_HEADER, encoding: str = "utf-8-sig", filename: str = "students.csv"):
+def upload(
+    client,
+    world,
+    rows: list[str],
+    *,
+    header: str = CSV_HEADER,
+    encoding: str = "utf-8-sig",
+    filename: str = "students.csv",
+    mode: str = "normal",
+    academic_year_id: int | None = None,
+    effective_date: str | None = None,
+):
     content = csv_bytes(rows, header=header, encoding=encoding)
+    data = {"mode": mode}
+    if academic_year_id is not None:
+        data["academic_year_id"] = str(academic_year_id)
+    if effective_date is not None:
+        data["effective_date"] = effective_date
     return client.post(
         "/api/school/students/imports",
         headers=bearer(world["alpha_admin"].email, world["alpha"].id),
         files={"file": (filename, content, "text/csv")},
+        data=data,
     )
 
 
 def commit(client, world, import_id):
     return client.post(f"/api/school/students/imports/{import_id}/commit", headers=bearer(world["alpha_admin"].email, world["alpha"].id))
+
+
+def annual_upload(client, world, rows: list[str], *, effective_date: str | None = None):
+    return upload(
+        client,
+        world,
+        rows,
+        mode="annual",
+        academic_year_id=world["next_year"].id,
+        effective_date=effective_date,
+    )
 
 
 def row_for(payload, student_id):
@@ -228,6 +294,7 @@ def test_template_download_has_expected_headers(client, import_world):
     assert "guardian1_name" in header_line
     assert "guardian1_phone" in header_line
     assert "guardian2_phone" in header_line
+    assert "student_status" in header_line
     assert "guardian1_relationship" in header_line
     assert "guardian2_relationship" in header_line
 
@@ -508,6 +575,406 @@ def test_same_section_reimport_does_not_duplicate_enrolment(client, import_world
 
     enrolments = db.query(Enrolment).filter(Enrolment.student_id == student.id).all()
     assert len(enrolments) == 1
+
+
+def test_annual_update_requires_scoped_year_and_defaults_to_its_start_date(client, import_world):
+    world = import_world
+    row = csv_row(
+        student_id="ANNUAL-001",
+        first_name="Ali",
+        last_name="Khan",
+        student_status="active",
+    )
+
+    missing_year = upload(client, world, [row], mode="annual")
+    assert missing_year.status_code == 422
+    assert "destination academic year" in missing_year.json()["detail"]
+
+    wrong_school = upload(
+        client,
+        world,
+        [row],
+        mode="annual",
+        academic_year_id=world["beta_year"].id,
+    )
+    assert wrong_school.status_code == 422
+    assert "not available for this school" in wrong_school.json()["detail"]
+
+    staged = annual_upload(client, world, [row])
+    assert staged.status_code == 201
+    assert staged.json()["mode"] == "annual"
+    assert staged.json()["academic_year_id"] == world["next_year"].id
+    assert staged.json()["effective_date"] == "2027-07-01"
+
+
+def test_annual_update_moves_existing_student_preserves_history_and_is_idempotent(
+    client, import_world, db
+):
+    world = import_world
+    initial = upload(
+        client,
+        world,
+        [csv_row(student_id="ANNUAL-MOVE", first_name="Ali", last_name="Khan")],
+    )
+    assert commit(client, world, initial.json()["id"]).status_code == 200
+    student = (
+        db.query(Student)
+        .filter(Student.school_id == world["alpha"].id, Student.external_ref == "ANNUAL-MOVE")
+        .one()
+    )
+
+    annual_row = csv_row(
+        student_id=" annual-move ",
+        first_name="Ali",
+        last_name="Khan",
+        grade="G1",
+        section="A",
+        student_status="active",
+    )
+    staged = annual_upload(client, world, [annual_row], effective_date="2027-07-15")
+    assert staged.status_code == 201
+    assert row_for(staged.json(), "annual-move")["action"] == "move"
+    committed = commit(client, world, staged.json()["id"])
+    assert committed.status_code == 200
+    assert committed.json()["effective_date"] == "2027-07-15"
+
+    enrolments = (
+        db.query(Enrolment)
+        .filter(Enrolment.student_id == student.id)
+        .order_by(Enrolment.valid_from.asc(), Enrolment.id.asc())
+        .all()
+    )
+    assert len(enrolments) == 2
+    assert enrolments[0].class_section_id == world["section_a"].id
+    assert enrolments[0].valid_to == date(2027, 7, 15)
+    assert enrolments[1].class_section_id == world["next_g1_section_a"].id
+    assert enrolments[1].valid_from == date(2027, 7, 15)
+    assert enrolments[1].valid_to is None
+    assert db.query(Student).filter(Student.school_id == world["alpha"].id).count() == 1
+
+    repeated = annual_upload(client, world, [annual_row], effective_date="2027-07-15")
+    assert row_for(repeated.json(), "annual-move")["action"] == "skip"
+    assert commit(client, world, repeated.json()["id"]).status_code == 200
+    assert db.query(Enrolment).filter(Enrolment.student_id == student.id).count() == 2
+
+    audit = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.action == "school.student_import.row_applied",
+            AuditLog.entity_id == student.id,
+        )
+        .order_by(AuditLog.id.asc())
+        .first()
+    )
+    assert audit.actor_user_id == world["alpha_admin"].id
+    assert audit.detail["import_id"] == staged.json()["id"]
+    assert audit.detail["effective_date"] == "2027-07-15"
+    assert audit.detail["previous_enrolment_id"] == enrolments[0].id
+    assert audit.detail["new_enrolment_id"] == enrolments[1].id
+    assert audit.detail["previous_student_status"] == "active"
+    assert audit.detail["new_student_status"] == "active"
+    assert "email" not in str(audit.detail).lower()
+    assert "phone" not in str(audit.detail).lower()
+
+
+def test_annual_update_creates_new_student_and_keeps_non_promoted_student_in_imported_class(
+    client, import_world, db
+):
+    world = import_world
+    initial = upload(
+        client,
+        world,
+        [csv_row(student_id="REPEAT-KG1", first_name="Noor", last_name="Hassan")],
+    )
+    commit(client, world, initial.json()["id"])
+
+    rows = [
+        csv_row(
+            student_id="REPEAT-KG1",
+            first_name="Noor",
+            last_name="Hassan",
+            grade="KG1",
+            section="B",
+            student_status="active",
+        ),
+        csv_row(
+            student_id="NEW-G1",
+            first_name="Sara",
+            last_name="Ahmed",
+            grade="G1",
+            section="A",
+            student_status="active",
+        ),
+        csv_row(
+            student_id="NEW-INACTIVE",
+            first_name="Former",
+            last_name="Student",
+            branch="",
+            grade="",
+            section="",
+            student_status="inactive",
+        ),
+    ]
+    staged = annual_upload(client, world, rows)
+    assert staged.json()["summary"]["move"] == 1
+    assert staged.json()["summary"]["create"] == 1
+    assert staged.json()["summary"]["inactive"] == 1
+    assert commit(client, world, staged.json()["id"]).status_code == 200
+
+    repeated_student = db.query(Student).filter_by(external_ref="REPEAT-KG1").one()
+    new_student = db.query(Student).filter_by(external_ref="NEW-G1").one()
+    new_inactive = db.query(Student).filter_by(external_ref="NEW-INACTIVE").one()
+    repeated_enrolment = (
+        db.query(Enrolment)
+        .filter(Enrolment.student_id == repeated_student.id, Enrolment.valid_to.is_(None))
+        .one()
+    )
+    new_enrolment = (
+        db.query(Enrolment)
+        .filter(Enrolment.student_id == new_student.id, Enrolment.valid_to.is_(None))
+        .one()
+    )
+    assert repeated_enrolment.class_section_id == world["next_kg1_section_b"].id
+    assert new_enrolment.class_section_id == world["next_g1_section_a"].id
+    assert new_inactive.status == "inactive"
+    assert db.query(Enrolment).filter(Enrolment.student_id == new_inactive.id).count() == 0
+
+
+def test_annual_explicit_leaver_removes_current_access_but_preserves_links_and_reactivates(
+    client, import_world, db
+):
+    world = import_world
+    initial_rows = [
+        csv_row(student_id="LEAVER-1", first_name="Ali", last_name="Khan"),
+        csv_row(student_id="STILL-ACTIVE", first_name="Maya", last_name="Khan"),
+    ]
+    initial = upload(client, world, initial_rows)
+    commit(client, world, initial.json()["id"])
+    leaver = db.query(Student).filter_by(external_ref="LEAVER-1").one()
+    untouched = db.query(Student).filter_by(external_ref="STILL-ACTIVE").one()
+    guardian = create_user(db, "leaver-guardian@example.com", "Leaver Guardian")
+    link = GuardianLink(
+        school_id=world["alpha"].id,
+        student_id=leaver.id,
+        user_id=guardian.id,
+        relationship="guardian",
+        status="active",
+    )
+    db.add(link)
+    db.commit()
+    assert has_active_entitlement(db, guardian.id) is True
+
+    leaver_row = csv_row(
+        student_id="LEAVER-1",
+        first_name="Ali",
+        last_name="Khan",
+        branch="",
+        grade="",
+        section="",
+        student_status="leaver",
+    )
+    staged = annual_upload(client, world, [leaver_row])
+    assert row_for(staged.json(), "LEAVER-1")["action"] == "leaver"
+    assert commit(client, world, staged.json()["id"]).status_code == 200
+
+    db.refresh(leaver)
+    db.refresh(untouched)
+    db.refresh(link)
+    assert leaver.status == "leaver"
+    assert untouched.status == "active"
+    assert link.status == "active"
+    assert link.revoked_at is None
+    assert has_active_entitlement(db, guardian.id) is False
+    closed = db.query(Enrolment).filter(Enrolment.student_id == leaver.id).one()
+    untouched_enrolment = db.query(Enrolment).filter(Enrolment.student_id == untouched.id).one()
+    assert closed.valid_to == date(2027, 7, 1)
+    assert untouched_enrolment.valid_to is None
+
+    returning_row = csv_row(
+        student_id="LEAVER-1",
+        first_name="Ali",
+        last_name="Khan",
+        grade="G1",
+        section="A",
+        student_status="active",
+    )
+    returning = annual_upload(client, world, [returning_row])
+    assert row_for(returning.json(), "LEAVER-1")["action"] == "reactivate"
+    assert commit(client, world, returning.json()["id"]).status_code == 200
+    db.refresh(leaver)
+    assert leaver.status == "active"
+    assert has_active_entitlement(db, guardian.id) is True
+    assert (
+        db.query(Enrolment)
+        .filter(
+            Enrolment.student_id == leaver.id,
+            Enrolment.class_section_id == world["next_g1_section_a"].id,
+            Enrolment.valid_from == date(2027, 7, 1),
+            Enrolment.valid_to.is_(None),
+        )
+        .count()
+        == 1
+    )
+
+
+def test_annual_inactive_student_cannot_move_without_explicit_reactivation(
+    client, import_world, db
+):
+    world = import_world
+    initial = upload(
+        client,
+        world,
+        [csv_row(student_id="INACTIVE-1", first_name="Omar", last_name="Saleh")],
+    )
+    commit(client, world, initial.json()["id"])
+    student = db.query(Student).filter_by(external_ref="INACTIVE-1").one()
+
+    inactive_row = csv_row(
+        student_id="INACTIVE-1",
+        first_name="Omar",
+        last_name="Saleh",
+        branch="",
+        grade="",
+        section="",
+        student_status="inactive",
+    )
+    inactive = annual_upload(client, world, [inactive_row])
+    assert row_for(inactive.json(), "INACTIVE-1")["action"] == "inactive"
+    commit(client, world, inactive.json()["id"])
+    db.refresh(student)
+    assert student.status == "inactive"
+
+    invalid_move = annual_upload(
+        client,
+        world,
+        [
+            csv_row(
+                student_id="INACTIVE-1",
+                first_name="Omar",
+                last_name="Saleh",
+                grade="G1",
+                section="A",
+                student_status="inactive",
+            )
+        ],
+    )
+    row = row_for(invalid_move.json(), "INACTIVE-1")
+    assert row["action"] == "conflict"
+    assert any("cannot move" in message for message in row["errors"])
+    assert commit(client, world, invalid_move.json()["id"]).status_code == 200
+    assert db.query(Enrolment).filter(Enrolment.student_id == student.id).count() == 1
+
+
+def test_annual_overlap_and_future_boundary_are_conflicts(client, import_world, db):
+    world = import_world
+    overlap_student = Student(
+        school_id=world["alpha"].id,
+        external_ref="OVERLAP-1",
+        first_name="Aya",
+        last_name="Noor",
+        status="active",
+    )
+    future_student = Student(
+        school_id=world["alpha"].id,
+        external_ref="FUTURE-1",
+        first_name="Zain",
+        last_name="Noor",
+        status="active",
+    )
+    db.add_all([overlap_student, future_student])
+    db.flush()
+    db.add_all(
+        [
+            Enrolment(
+                school_id=world["alpha"].id,
+                student_id=overlap_student.id,
+                class_section_id=world["section_a"].id,
+                valid_from=date(2026, 7, 1),
+            ),
+            Enrolment(
+                school_id=world["alpha"].id,
+                student_id=overlap_student.id,
+                class_section_id=world["section_b"].id,
+                valid_from=date(2027, 1, 1),
+            ),
+            Enrolment(
+                school_id=world["alpha"].id,
+                student_id=future_student.id,
+                class_section_id=world["next_g1_section_a"].id,
+                valid_from=date(2027, 8, 1),
+            ),
+        ]
+    )
+    db.commit()
+
+    staged = annual_upload(
+        client,
+        world,
+        [
+            csv_row(
+                student_id="OVERLAP-1",
+                first_name="Aya",
+                last_name="Noor",
+                grade="G1",
+                student_status="active",
+            ),
+            csv_row(
+                student_id="FUTURE-1",
+                first_name="Zain",
+                last_name="Noor",
+                grade="G1",
+                student_status="active",
+            ),
+        ],
+    )
+    assert row_for(staged.json(), "OVERLAP-1")["action"] == "conflict"
+    assert any("Overlapping" in message for message in row_for(staged.json(), "OVERLAP-1")["errors"])
+    assert row_for(staged.json(), "FUTURE-1")["action"] == "conflict"
+    assert any("earlier" in message for message in row_for(staged.json(), "FUTURE-1")["errors"])
+
+
+def test_annual_mixed_valid_and_unknown_structure_rows_commit_independently(
+    client, import_world, db
+):
+    world = import_world
+    staged = annual_upload(
+        client,
+        world,
+        [
+            csv_row(
+                student_id="VALID-ANNUAL",
+                first_name="Valid",
+                last_name="Student",
+                grade="G1",
+                section="A",
+                student_status="active",
+            ),
+            csv_row(
+                student_id="BAD-SECTION",
+                first_name="Bad",
+                last_name="Section",
+                grade="G1",
+                section="UNKNOWN",
+                student_status="active",
+            ),
+            csv_row(
+                student_id="BAD-STATUS",
+                first_name="Bad",
+                last_name="Status",
+                grade="G1",
+                section="A",
+                student_status="departed",
+            ),
+        ],
+    )
+    assert staged.json()["summary"]["create"] == 1
+    assert staged.json()["summary"]["conflict"] == 2
+    assert row_for(staged.json(), "BAD-SECTION")["action"] == "conflict"
+    assert row_for(staged.json(), "BAD-STATUS")["action"] == "conflict"
+    assert commit(client, world, staged.json()["id"]).status_code == 200
+    assert db.query(Student).filter_by(external_ref="VALID-ANNUAL").count() == 1
+    assert db.query(Student).filter_by(external_ref="BAD-SECTION").count() == 0
+    assert db.query(Student).filter_by(external_ref="BAD-STATUS").count() == 0
 
 
 def test_duplicate_names_are_allowed(client, import_world):

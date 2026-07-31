@@ -14,7 +14,7 @@ from .database import SessionLocal, engine, settings
 from .models_school import MessagingOperationsJob, MessagingWorkerHeartbeat, NotificationOutbox
 
 
-EXPECTED_MIGRATION_REVISION = "c5d6e7f8a9b0"
+EXPECTED_MIGRATION_REVISION = "d6e7f8a9b0c2"
 WORKER_STALE_SECONDS = 120
 QUEUE_BACKLOG_STALE_SECONDS = 300
 BACKUP_MAX_AGE_SECONDS = 30 * 3600

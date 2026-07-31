@@ -1,5 +1,79 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-31 — MIS student import Slice 3: annual roster updates
+
+Student CSV import now has two explicit modes. Normal Import retains the current
+academic-year workflow. Annual Update requires a school-scoped destination
+academic year and a confirmed effective date, defaulted from that year's start
+date. The selected mode, year and date are stored with the staged import, so
+commit revalidates exactly the previewed boundary. The workflow never changes
+the globally current academic year, creates school structure, guesses a
+promotion or treats absence from the file as a leaver.
+
+The CSV template adds `student_status`. It remains optional for backwards-
+compatible Normal Imports, where non-active values are rejected with guidance
+to use Annual Update. Annual Update requires an explicit `active`, `leaver` or
+`inactive` value on every row. Active rows also require an existing branch,
+grade and class/section in the selected year. Matching continues to use the
+school-scoped, trimmed, case-insensitive stable student ID. Unknown IDs create
+one student with the explicit imported status; only an active row opens its
+imported class enrolment. Existing IDs retain the same student record. Imported
+placement controls whether the row creates, moves, updates, reactivates or is
+unchanged, including students repeating a grade or class.
+
+Annual class-enrolment boundaries are half-open. A move closes the previous
+class enrolment with `valid_to` equal to the effective date and opens the
+imported class with `valid_from` equal to that date. Existing history is
+preserved. Multiple enrolments active on the boundary, future incompatible
+boundaries and replacement of a different enrolment starting on the boundary
+are conflicts. Commit re-plans while locking the import, matched students and
+their class enrolments. Conflict and error rows remain unapplied while other
+valid rows in the batch commit.
+
+Leaver and inactive actions are explicit rows only. They preserve the student,
+guardian contacts, CHH guardian links, FHH links, messages, behaviour, survey
+and audit history; close the current class enrolment at the effective date; and
+set the student status to `leaver` or `inactive`. Existing CHH/FHH and roster
+authorization already requires an active student, so current school access
+ends without deleting or rewriting identity links. An explicit active row
+reactivates the same student, opens the imported valid enrolment and restores
+access through those existing approved links. An inactive/leaver student
+cannot be moved unless that row explicitly reactivates them.
+
+Each applied Annual Update row writes append-only audit evidence containing the
+import batch, actor, row, effective date, old/new student status, old/new class
+enrolment IDs and access availability transition. Guardian email and phone
+values are not copied into audit detail. The bilingual administration preview
+shows mode, destination year, effective date and create/update/move/unchanged/
+leaver/inactive/reactivation/conflict/error outcomes, then requires confirmation
+before Annual Update commit.
+
+Migration `d6e7f8a9b0c2` adds the import mode, academic-year reference and
+effective date, plus the three annual row actions. Its downgrade refuses to
+discard annual import history. No student, enrolment, guardian or FHH identity
+row is rewritten by the migration itself.
+
+Focused validation passed with 49 student-import API/service tests against both
+the edited source and rebuilt backend image, plus nine readiness/migration-guard
+tests. Coverage includes stable-ID create/move/
+no-op/idempotence, repeated-grade placement, dated history, overlap and future
+boundary conflicts, leaver/inactive/reactivation lifecycle, retained guardian
+links, access removal/restoration, mixed valid/conflict rows, audit detail,
+permissions and school/year scoping. Svelte reported zero errors and warnings,
+English/Arabic parity passed at 1,758 keys each, and the production frontend
+build completed. PostgreSQL completed an isolated upgrade/downgrade/re-upgrade
+round trip before pilot migration.
+
+Before migration, the pilot contained 502 active students and no import rows.
+Encrypted differential pgBackRest backups completed locally
+(`20260728-182651F_20260731-070012D`) and off-host
+(`20260725-221530F_20260731-070021D`). The pilot upgraded from
+`c5d6e7f8a9b0` to `d6e7f8a9b0c2`; only the CHH backend and frontend were
+rebuilt and recreated. PostgreSQL, both messaging workers, FHH frontend/native
+code and Android/APK artefacts were untouched. Loopback and public readiness
+reported the database and migration current, and both frontend checks returned
+HTTP 200.
+
 ## 2026-07-31 — MIS student import Slice 2: guardian contact management
 
 `student_guardian_contacts` is now the school-held guardian contact record rather

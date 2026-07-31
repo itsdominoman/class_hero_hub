@@ -146,6 +146,7 @@
     grade?: string | null;
     section?: string | null;
     branch?: string | null;
+    student_status?: 'active' | 'leaver' | 'inactive' | null;
     guardian1_name?: string | null;
     guardian1_id?: string | null;
     guardian1_email?: string | null;
@@ -156,7 +157,7 @@
     guardian2_email?: string | null;
     guardian2_phone?: string | null;
     guardian2_relationship?: string | null;
-    action: 'create' | 'update' | 'move' | 'restore' | 'skip' | 'conflict' | 'error';
+    action: 'create' | 'update' | 'move' | 'restore' | 'reactivate' | 'leaver' | 'inactive' | 'skip' | 'conflict' | 'error';
     errors: string[];
     warnings: string[];
     applied_entity_id?: number | null;
@@ -164,6 +165,9 @@
   type StudentImport = {
     id: number;
     filename?: string | null;
+    mode: 'normal' | 'annual';
+    academic_year_id?: number | null;
+    effective_date?: string | null;
     status: 'staged' | 'committed' | 'discarded';
     summary: Record<string, number>;
     rows: ImportRow[];
@@ -467,6 +471,9 @@
   let importUploading = $state(false);
   let importCommitting = $state(false);
   let studentImport = $state<StudentImport | null>(null);
+  let importMode = $state<'normal' | 'annual'>('normal');
+  let importAcademicYearId = $state('');
+  let importEffectiveDate = $state('');
 
   let teacherImportFile = $state<File | null>(null);
   let teacherImportUploading = $state(false);
@@ -1312,14 +1319,25 @@
     importFile = target.files?.[0] || null;
   }
 
+  function handleImportYearChange() {
+    const selectedYear = years.find((year) => String(year.id) === importAcademicYearId);
+    importEffectiveDate = selectedYear?.start_date || '';
+  }
+
   async function uploadImportFile() {
     if (!schoolId || !importFile) return;
+    if (importMode === 'annual' && (!importAcademicYearId || !importEffectiveDate)) return;
     importUploading = true;
     error = null;
     notice = null;
     try {
       const formData = new FormData();
       formData.append('file', importFile);
+      formData.append('mode', importMode);
+      if (importMode === 'annual') {
+        formData.append('academic_year_id', importAcademicYearId);
+        formData.append('effective_date', importEffectiveDate);
+      }
       studentImport = await api.upload('/school/students/imports', formData, schoolOptions());
     } catch (err: any) {
       error = err?.message || $_('school.imports.uploadError');
@@ -1330,6 +1348,10 @@
 
   async function commitImport() {
     if (!schoolId || !studentImport) return;
+    if (
+      studentImport.mode === 'annual'
+      && !confirm($_('school.imports.annualCommitConfirm'))
+    ) return;
     importCommitting = true;
     error = null;
     notice = null;
@@ -1373,6 +1395,9 @@
     update: 'bg-sky-100 text-sky-800',
     move: 'bg-amber-100 text-amber-800',
     restore: 'bg-indigo-100 text-indigo-800',
+    reactivate: 'bg-violet-100 text-violet-800',
+    leaver: 'bg-rose-100 text-rose-800',
+    inactive: 'bg-stone-200 text-stone-800',
     skip: 'bg-slate-200 text-slate-700',
     conflict: 'bg-orange-100 text-orange-800',
     error: 'bg-red-100 text-red-800'
@@ -3611,6 +3636,47 @@
             <div class="rounded-lg border border-slate-200 bg-white p-5">
               <h3 class="text-base font-black text-slate-900">{$_('school.imports.title')}</h3>
               <p class="mt-1 text-sm text-slate-500">{$_('school.imports.help')}</p>
+              <div class="mt-4 grid gap-3 md:grid-cols-3">
+                <label class="text-xs font-bold text-slate-600">
+                  {$_('school.imports.mode')}
+                  <select
+                    class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-normal"
+                    bind:value={importMode}
+                    disabled={importUploading || studentImport?.status === 'staged'}
+                  >
+                    <option value="normal">{$_('school.imports.modeValue.normal')}</option>
+                    <option value="annual">{$_('school.imports.modeValue.annual')}</option>
+                  </select>
+                </label>
+                {#if importMode === 'annual'}
+                  <label class="text-xs font-bold text-slate-600">
+                    {$_('school.imports.destinationYear')}
+                    <select
+                      class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-normal"
+                      bind:value={importAcademicYearId}
+                      onchange={handleImportYearChange}
+                      disabled={importUploading || studentImport?.status === 'staged'}
+                    >
+                      <option value="">{$_('school.imports.selectYear')}</option>
+                      {#each years.filter((year) => year.status !== 'archived') as year}
+                        <option value={String(year.id)}>{year.name}</option>
+                      {/each}
+                    </select>
+                  </label>
+                  <label class="text-xs font-bold text-slate-600">
+                    {$_('school.imports.effectiveDate')}
+                    <input
+                      type="date"
+                      class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-normal"
+                      bind:value={importEffectiveDate}
+                      disabled={importUploading || studentImport?.status === 'staged'}
+                    />
+                  </label>
+                {/if}
+              </div>
+              <p class="mt-2 text-xs text-slate-500">
+                {$_(`school.imports.modeHelp.${importMode}`)}
+              </p>
               <div class="mt-4 flex flex-wrap items-center gap-2">
                 <button type="button" class="btn-secondary rounded-lg px-4 py-2" onclick={downloadImportTemplate}>{$_('school.imports.downloadTemplate')}</button>
                 <input
@@ -3618,8 +3684,14 @@
                   accept=".csv,text/csv"
                   class="rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   onchange={handleImportFileChange}
+                  disabled={importUploading || studentImport?.status === 'staged'}
                 />
-                <button type="button" class="btn-hero rounded-lg px-4 py-2" disabled={!importFile || importUploading} onclick={uploadImportFile}>
+                <button
+                  type="button"
+                  class="btn-hero rounded-lg px-4 py-2"
+                  disabled={!importFile || importUploading || studentImport?.status === 'staged' || (importMode === 'annual' && (!importAcademicYearId || !importEffectiveDate))}
+                  onclick={uploadImportFile}
+                >
                   {importUploading ? $_('school.imports.uploading') : $_('school.imports.upload')}
                 </button>
               </div>
@@ -3631,6 +3703,13 @@
                       <p class="font-bold text-slate-900">{studentImport.filename || $_('school.imports.title')}</p>
                       <p class="mt-1 text-sm text-slate-600">
                         {$_('school.imports.status')}: {$_(`school.imports.statusValue.${studentImport.status}`)}
+                      </p>
+                      <p class="mt-1 text-xs text-slate-500">
+                        {$_('school.imports.mode')}: {$_(`school.imports.modeValue.${studentImport.mode}`)}
+                        {#if studentImport.mode === 'annual'}
+                          · {$_('school.imports.destinationYear')}: {years.find((year) => year.id === studentImport?.academic_year_id)?.name || '—'}
+                          · {$_('school.imports.effectiveDate')}: {studentImport.effective_date || '—'}
+                        {/if}
                       </p>
                     </div>
                     <div class="flex flex-wrap gap-2 text-sm">
@@ -3659,6 +3738,7 @@
                           <th class="px-3 py-2">{$_('school.students.title')}</th>
                           <th class="px-3 py-2">{$_('school.imports.grade')}</th>
                           <th class="px-3 py-2">{$_('school.imports.section')}</th>
+                          <th class="px-3 py-2">{$_('school.imports.studentStatus')}</th>
                           <th class="px-3 py-2">{$_('school.imports.guardians')}</th>
                           <th class="px-3 py-2">{$_('school.imports.action')}</th>
                           <th class="px-3 py-2">{$_('school.imports.notes')}</th>
@@ -3672,6 +3752,9 @@
                             <td class="px-3 py-2">{[row.first_name, row.last_name].filter(Boolean).join(' ') || '—'}</td>
                             <td class="px-3 py-2">{row.grade || '—'}</td>
                             <td class="px-3 py-2">{row.section || '—'}</td>
+                            <td class="px-3 py-2">
+                              {row.student_status ? $_(`school.imports.studentStatusValue.${row.student_status}`) : '—'}
+                            </td>
                             <td class="px-3 py-2 text-xs">
                               {#each importRowGuardianSummaries(row) as summary}
                                 <p>{summary}</p>

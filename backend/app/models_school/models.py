@@ -465,6 +465,9 @@ class Import(Base):
     id = Column(Integer, primary_key=True, index=True)
     school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
     kind = Column(String, nullable=False, default="students", server_default="students")
+    mode = Column(String, nullable=False, default="normal", server_default="normal")
+    academic_year_id = Column(Integer, ForeignKey("academic_years.id"), nullable=True)
+    effective_date = Column(Date, nullable=True)
     filename = Column(String, nullable=True)
     status = Column(String, nullable=False, default="staged", server_default="staged")
     uploaded_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -476,6 +479,14 @@ class Import(Base):
         CheckConstraint(
             "status IN ('staged', 'committed', 'discarded')",
             name="ck_imports_status",
+        ),
+        CheckConstraint(
+            "mode IN ('normal', 'annual')",
+            name="ck_imports_mode",
+        ),
+        CheckConstraint(
+            "mode = 'normal' OR (academic_year_id IS NOT NULL AND effective_date IS NOT NULL)",
+            name="ck_imports_annual_context",
         ),
         Index("ix_imports_school_status", "school_id", "status"),
     )
@@ -496,7 +507,7 @@ class ImportRow(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "action IN ('create', 'update', 'move', 'restore', 'skip', 'conflict', 'error')",
+            "action IN ('create', 'update', 'move', 'restore', 'reactivate', 'leaver', 'inactive', 'skip', 'conflict', 'error')",
             name="ck_import_rows_action",
         ),
     )

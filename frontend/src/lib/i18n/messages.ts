@@ -1253,6 +1253,18 @@ export const en = {
     imports: {
       title: 'Import students (CSV)',
       help: 'Download the template, fill it in, then upload it here for a preview before committing any changes.',
+      mode: 'Import mode',
+      modeValue: {
+        normal: 'Normal Import',
+        annual: 'Annual Update'
+      },
+      modeHelp: {
+        normal: 'Use Normal Import for routine additions and corrections in the current academic year.',
+        annual: 'Annual Update uses the selected year, effective date and each row’s explicit placement and student_status. It never guesses promotion or treats a missing row as a leaver.'
+      },
+      destinationYear: 'Destination academic year',
+      selectYear: 'Select an academic year',
+      effectiveDate: 'Effective date',
       downloadTemplate: 'Download student CSV template',
       upload: 'Upload CSV',
       uploading: 'Uploading…',
@@ -1262,6 +1274,7 @@ export const en = {
       committing: 'Committing…',
       commitError: 'Failed to commit import',
       committed: 'Import committed.',
+      annualCommitConfirm: 'Apply the valid Annual Update rows on the shown effective date? Conflicts and errors will remain unapplied.',
       discard: 'Discard',
       discardError: 'Failed to discard import',
       status: 'Status',
@@ -1275,6 +1288,9 @@ export const en = {
         update: 'Updated',
         move: 'Moved',
         restore: 'Restored',
+        reactivate: 'Reactivated',
+        leaver: 'Leavers',
+        inactive: 'Inactive',
         skip: 'Unchanged',
         conflict: 'Conflicts',
         error: 'Errors'
@@ -1282,6 +1298,12 @@ export const en = {
       row: 'Row',
       grade: 'Grade',
       section: 'Section',
+      studentStatus: 'Student status',
+      studentStatusValue: {
+        active: 'Active',
+        leaver: 'Leaver',
+        inactive: 'Inactive'
+      },
       guardians: 'Guardians',
       guardianSlot: 'Guardian',
       guardianNoName: '(no name)',
@@ -1293,6 +1315,9 @@ export const en = {
         update: 'Update',
         move: 'Move class',
         restore: 'Restore',
+        reactivate: 'Reactivate',
+        leaver: 'Mark as leaver',
+        inactive: 'Mark inactive',
         skip: 'No change',
         conflict: 'Conflict',
         error: 'Error'
@@ -3180,6 +3205,18 @@ export const ar = {
     imports: {
       title: 'استيراد الطلاب (CSV)',
       help: 'نزّل القالب، املأه، ثم ارفعه هنا للمعاينة قبل تنفيذ أي تغييرات.',
+      mode: 'وضع الاستيراد',
+      modeValue: {
+        normal: 'استيراد عادي',
+        annual: 'تحديث سنوي'
+      },
+      modeHelp: {
+        normal: 'استخدم الاستيراد العادي للإضافات والتصحيحات المعتادة في العام الدراسي الحالي.',
+        annual: 'يستخدم التحديث السنوي العام المحدد وتاريخ السريان والموقع والحالة الصريحة في كل صف. لا يتوقع الترفيع ولا يعتبر الطالب غير الموجود في الملف مغادراً.'
+      },
+      destinationYear: 'العام الدراسي المستهدف',
+      selectYear: 'اختر عاماً دراسياً',
+      effectiveDate: 'تاريخ السريان',
       downloadTemplate: 'تنزيل قالب استيراد الطلاب',
       upload: 'رفع ملف CSV',
       uploading: 'جارٍ الرفع…',
@@ -3189,6 +3226,7 @@ export const ar = {
       committing: 'جارٍ التنفيذ…',
       commitError: 'تعذر تنفيذ الاستيراد',
       committed: 'تم تنفيذ الاستيراد.',
+      annualCommitConfirm: 'هل تريد تنفيذ صفوف التحديث السنوي الصالحة في تاريخ السريان المعروض؟ ستبقى صفوف التعارض والأخطاء دون تنفيذ.',
       discard: 'تجاهل',
       discardError: 'تعذر تجاهل الاستيراد',
       status: 'الحالة',
@@ -3202,6 +3240,9 @@ export const ar = {
         update: 'محدّث',
         move: 'منقول',
         restore: 'مستعاد',
+        reactivate: 'أعيد تفعيله',
+        leaver: 'مغادرون',
+        inactive: 'غير نشط',
         skip: 'بلا تغيير',
         conflict: 'تعارضات',
         error: 'أخطاء'
@@ -3209,6 +3250,12 @@ export const ar = {
       row: 'الصف',
       grade: 'المستوى',
       section: 'الشعبة',
+      studentStatus: 'حالة الطالب',
+      studentStatusValue: {
+        active: 'نشط',
+        leaver: 'مغادر',
+        inactive: 'غير نشط'
+      },
       guardians: 'أولياء الأمور',
       guardianSlot: 'ولي الأمر',
       guardianNoName: '(بلا اسم)',
@@ -3220,6 +3267,9 @@ export const ar = {
         update: 'تحديث',
         move: 'نقل الشعبة',
         restore: 'استعادة',
+        reactivate: 'إعادة التفعيل',
+        leaver: 'تحديد كمغادر',
+        inactive: 'تحديد كغير نشط',
         skip: 'بلا تغيير',
         conflict: 'تعارض',
         error: 'خطأ'

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any, Type
 
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -16,6 +16,7 @@ from ..imports_service import (
     OPTIONAL_STUDENT_CSV_COLUMNS,
     TEACHER_CSV_COLUMNS,
     ImportUploadError,
+    STUDENT_IMPORT_MODES,
     decode_csv_bytes,
     existing_guardian_contacts_by_student,
     generate_template_csv,
@@ -2339,6 +2340,9 @@ def _import_summary_payload(imp: Import) -> dict[str, Any]:
         "id": imp.id,
         "school_id": imp.school_id,
         "kind": imp.kind,
+        "mode": imp.mode,
+        "academic_year_id": imp.academic_year_id,
+        "effective_date": imp.effective_date,
         "filename": imp.filename,
         "status": imp.status,
         "summary": imp.summary,
@@ -2358,6 +2362,7 @@ def _import_row_payload(row: ImportRow) -> dict[str, Any]:
         "grade": csv_row.get("grade") or None,
         "section": csv_row.get("section") or None,
         "branch": csv_row.get("branch") or None,
+        "student_status": csv_row.get("student_status") or None,
         "guardian1_name": csv_row.get("guardian1_name") or None,
         "guardian1_id": csv_row.get("guardian1_id") or None,
         "guardian1_email": csv_row.get("guardian1_email") or None,
@@ -2393,21 +2398,54 @@ def download_student_import_template(membership: Membership = Depends(require_sc
 @router.post("/students/imports", status_code=status.HTTP_201_CREATED)
 async def upload_student_import(
     file: UploadFile = File(...),
+    mode: str = Form(default="normal"),
+    academic_year_id: int | None = Form(default=None),
+    effective_date: date | None = Form(default=None),
     membership: Membership = Depends(require_school_role("school_admin")),
     db: Session = Depends(get_db),
 ):
     school_id = _school_id(membership)
+    mode = (mode or "normal").strip().lower()
     content = await file.read()
     try:
+        if mode not in STUDENT_IMPORT_MODES:
+            raise ImportUploadError("Import mode must be 'normal' or 'annual'.")
+        if mode == "annual":
+            if academic_year_id is None:
+                raise ImportUploadError("Annual Update requires a destination academic year.")
+            selected_year = (
+                db.query(AcademicYear)
+                .filter(
+                    AcademicYear.id == academic_year_id,
+                    AcademicYear.school_id == school_id,
+                    AcademicYear.status != "archived",
+                )
+                .first()
+            )
+            if not selected_year:
+                raise ImportUploadError("The selected destination academic year is not available for this school.")
+            effective_date = effective_date or selected_year.start_date
         text = decode_csv_bytes(content)
         raw_rows = parse_csv_rows(
             text,
             CSV_COLUMNS,
-            optional_columns=OPTIONAL_STUDENT_CSV_COLUMNS,
+            optional_columns=(
+                OPTIONAL_STUDENT_CSV_COLUMNS
+                if mode == "normal"
+                else OPTIONAL_STUDENT_CSV_COLUMNS - {"student_status"}
+            ),
         )
         if not raw_rows:
             raise ImportUploadError("CSV has no data rows")
-        plans = plan_student_import_rows(db, school_id, raw_rows, today=_today())
+        plans = plan_student_import_rows(
+            db,
+            school_id,
+            raw_rows,
+            today=_today(),
+            mode=mode,
+            academic_year_id=academic_year_id,
+            effective_date=effective_date,
+        )
     except ImportUploadError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
@@ -2415,6 +2453,9 @@ async def upload_student_import(
     imp = Import(
         school_id=school_id,
         kind="students",
+        mode=mode,
+        academic_year_id=academic_year_id if mode == "annual" else None,
+        effective_date=effective_date if mode == "annual" else None,
         filename=file.filename,
         status="staged",
         uploaded_by_user_id=membership.user_id,
@@ -2433,7 +2474,20 @@ async def upload_student_import(
                 warnings=plan.warnings or None,
             )
         )
-    write_audit(db, membership.user_id, "school.import.staged", imp, {"filename": file.filename, "summary": summary}, school_id=school_id)
+    write_audit(
+        db,
+        membership.user_id,
+        "school.import.staged",
+        imp,
+        {
+            "filename": file.filename,
+            "mode": mode,
+            "academic_year_id": imp.academic_year_id,
+            "effective_date": imp.effective_date.isoformat() if imp.effective_date else None,
+            "summary": summary,
+        },
+        school_id=school_id,
+    )
     db.commit()
     db.refresh(imp)
     return _import_detail_payload(db, imp)
@@ -2448,19 +2502,37 @@ def get_student_import(import_id: int, membership: Membership = Depends(require_
 @router.post("/students/imports/{import_id}/commit")
 def commit_student_import(import_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     school_id = _school_id(membership)
-    imp = _get_owned(db, Import, school_id, import_id)
+    imp = (
+        db.query(Import)
+        .filter(Import.id == import_id, Import.school_id == school_id)
+        .with_for_update()
+        .first()
+    )
+    if imp is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Import not found")
     if imp.status != "staged":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only staged imports can be committed")
 
     rows = db.query(ImportRow).filter(ImportRow.import_id == imp.id).order_by(ImportRow.row_number.asc()).all()
     raw_rows = [row.raw for row in rows]
     today = _today()
+    import_mode = imp.mode or "normal"
+    effective_boundary = imp.effective_date if import_mode == "annual" else today
     try:
-        plans = plan_student_import_rows(db, school_id, raw_rows, today=today)
+        plans = plan_student_import_rows(
+            db,
+            school_id,
+            raw_rows,
+            today=today,
+            mode=import_mode,
+            academic_year_id=imp.academic_year_id,
+            effective_date=effective_boundary,
+            lock_rows=True,
+        )
     except ImportUploadError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
-    student_ids = [plan.student_id for plan in plans if plan.student_id is not None]
+    student_ids = list({plan.student_id for plan in plans if plan.student_id is not None})
     students_by_id = {
         s.id: s
         for s in (
@@ -2469,7 +2541,29 @@ def commit_student_import(import_id: int, membership: Membership = Depends(requi
             else []
         )
     }
-    open_section_by_student = open_section_enrolments_by_student(db, school_id, student_ids, today)
+    open_section_by_student = (
+        open_section_enrolments_by_student(db, school_id, student_ids, today)
+        if import_mode == "normal"
+        else {}
+    )
+    annual_enrolment_ids = {
+        plan.current_enrolment_id
+        for plan in plans
+        if plan.current_enrolment_id is not None
+    }
+    annual_enrolments_by_id = {
+        enrolment.id: enrolment
+        for enrolment in (
+            db.query(Enrolment)
+            .filter(
+                Enrolment.school_id == school_id,
+                Enrolment.id.in_(annual_enrolment_ids),
+            )
+            .all()
+            if annual_enrolment_ids
+            else []
+        )
+    }
     existing_guardian_contacts = existing_guardian_contacts_by_student(db, school_id, student_ids)
     existing_guardian_contacts_by_id = {
         contact.id: contact for contact in existing_guardian_contacts.values()
@@ -2483,18 +2577,32 @@ def commit_student_import(import_id: int, membership: Membership = Depends(requi
         if plan.action in {"error", "conflict"}:
             continue
 
-        if plan.action == "create":
-            student = Student(school_id=school_id, status="active", **plan.cleaned)
+        if plan.student_id is None:
+            student = Student(
+                school_id=school_id,
+                status=plan.student_status or "active",
+                **plan.cleaned,
+            )
             db.add(student)
             db.flush()
+            previous_status = None
         else:
             student = students_by_id[plan.student_id]
+            previous_status = student.status
             for key, value in plan.cleaned.items():
                 setattr(student, key, value)
-            if plan.action == "restore":
+            if import_mode == "annual":
+                student.status = plan.student_status or student.status
+            elif plan.action == "restore":
                 student.status = "active"
 
         row.applied_entity_id = student.id
+        previous_enrolment = (
+            annual_enrolments_by_id.get(plan.current_enrolment_id)
+            if import_mode == "annual"
+            else open_section_by_student.get(student.id)
+        )
+        resulting_enrolment = previous_enrolment
 
         # A direct Enrolment insert (not _create_enrolment_row) is intentional
         # here: the batched open_section_by_student/students_by_id lookups
@@ -2503,21 +2611,47 @@ def commit_student_import(import_id: int, membership: Membership = Depends(requi
         # re-running those as per-row queries would break the "no per-row
         # query in a list/bulk endpoint" rule (see BACKEND_PERFORMANCE.md).
         # _close_enrolment_row is pure (no query), so it's reused as-is.
-        if plan.action != "skip":
-            current_enrolment = open_section_by_student.get(student.id)
-            if current_enrolment is None or current_enrolment.class_section_id != plan.class_section_id:
-                if current_enrolment is not None:
-                    _close_enrolment_row(current_enrolment, today)
-                db.add(
-                    Enrolment(
+        if import_mode == "annual":
+            if effective_boundary is None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Annual Update has no effective date",
+                )
+            if student.status == "active":
+                if (
+                    previous_enrolment is None
+                    or previous_enrolment.class_section_id != plan.class_section_id
+                ):
+                    if previous_enrolment is not None:
+                        previous_enrolment.valid_to = effective_boundary
+                    resulting_enrolment = Enrolment(
                         school_id=school_id,
                         student_id=student.id,
                         class_section_id=plan.class_section_id,
                         kind="member",
-                        valid_from=today,
+                        valid_from=effective_boundary,
                         created_by_user_id=membership.user_id,
                     )
+                    db.add(resulting_enrolment)
+                    db.flush()
+            else:
+                if previous_enrolment is not None:
+                    previous_enrolment.valid_to = effective_boundary
+                resulting_enrolment = None
+        elif plan.action != "skip":
+            current_enrolment = open_section_by_student.get(student.id)
+            if current_enrolment is None or current_enrolment.class_section_id != plan.class_section_id:
+                if current_enrolment is not None:
+                    _close_enrolment_row(current_enrolment, today)
+                resulting_enrolment = Enrolment(
+                    school_id=school_id,
+                    student_id=student.id,
+                    class_section_id=plan.class_section_id,
+                    kind="member",
+                    valid_from=today,
+                    created_by_user_id=membership.user_id,
                 )
+                db.add(resulting_enrolment)
 
         # School-held guardian contacts never create a login, guardian link,
         # invite or message. They are upserted regardless of the
@@ -2592,11 +2726,49 @@ def commit_student_import(import_id: int, membership: Membership = Depends(requi
                     existing_guardian_contacts[(student.id, f"ref:{normalized_ref}")] = created_contact
                 existing_guardian_contacts_by_id[created_contact.id] = created_contact
 
+        if import_mode == "annual":
+            previous_access = previous_status == "active" and previous_enrolment is not None
+            resulting_access = student.status == "active" and resulting_enrolment is not None
+            write_audit(
+                db,
+                membership.user_id,
+                "school.student_import.row_applied",
+                student,
+                {
+                    "import_id": imp.id,
+                    "row_number": plan.row_number,
+                    "mode": import_mode,
+                    "academic_year_id": imp.academic_year_id,
+                    "effective_date": effective_boundary.isoformat(),
+                    "action": plan.action,
+                    "previous_enrolment_id": previous_enrolment.id if previous_enrolment else None,
+                    "new_enrolment_id": resulting_enrolment.id if resulting_enrolment else None,
+                    "previous_student_status": previous_status,
+                    "new_student_status": student.status,
+                    "access_available_before": previous_access,
+                    "access_available_after": resulting_access,
+                    "access_lifecycle_changed": previous_access != resulting_access,
+                },
+                school_id=school_id,
+            )
+
     summary = summarize_plans(plans)
     imp.status = "committed"
     imp.committed_at = invite_tokens.now_utc()
     imp.summary = summary
-    write_audit(db, membership.user_id, "school.import.committed", imp, {"summary": summary}, school_id=school_id)
+    write_audit(
+        db,
+        membership.user_id,
+        "school.import.committed",
+        imp,
+        {
+            "mode": import_mode,
+            "academic_year_id": imp.academic_year_id,
+            "effective_date": effective_boundary.isoformat() if effective_boundary else None,
+            "summary": summary,
+        },
+        school_id=school_id,
+    )
     db.commit()
     db.refresh(imp)
     return _import_detail_payload(db, imp)

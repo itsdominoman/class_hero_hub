@@ -26,6 +26,7 @@ CSV_COLUMNS = [
     "branch",
     "grade",
     "section",
+    "student_status",
     "guardian1_name",
     "guardian1_id",
     "guardian1_email",
@@ -39,6 +40,7 @@ CSV_COLUMNS = [
 ]
 
 OPTIONAL_STUDENT_CSV_COLUMNS = {
+    "student_status",
     "guardian1_id",
     "guardian1_phone",
     "guardian2_id",
@@ -51,7 +53,22 @@ GENDER_VALUES = {"male", "female", "other", "unspecified"}
 
 GUARDIAN_RELATIONSHIP_VALUES = {"mother", "father", "guardian", "other"}
 
-_ROW_ACTIONS = {"create", "update", "move", "restore", "skip", "conflict", "error"}
+STUDENT_IMPORT_MODES = {"normal", "annual"}
+
+ANNUAL_STUDENT_STATUS_VALUES = {"active", "leaver", "inactive"}
+
+_ROW_ACTIONS = {
+    "create",
+    "update",
+    "move",
+    "restore",
+    "reactivate",
+    "leaver",
+    "inactive",
+    "skip",
+    "conflict",
+    "error",
+}
 
 
 class ImportUploadError(ValueError):
@@ -153,6 +170,8 @@ class RowPlan:
     warnings: list[str] = field(default_factory=list)
     student_id: int | None = None
     class_section_id: int | None = None
+    current_enrolment_id: int | None = None
+    student_status: str | None = None
     cleaned: dict[str, Any] | None = None
     guardian_contacts: list[dict[str, Any]] = field(default_factory=list)
 
@@ -252,7 +271,14 @@ def existing_guardian_contacts_by_student(
     return indexed
 
 
-def open_section_enrolments_by_student(db: Session, school_id: int, student_ids: list[int], today: date) -> dict[int, Enrolment]:
+def open_section_enrolments_by_student(
+    db: Session,
+    school_id: int,
+    student_ids: list[int],
+    today: date,
+    *,
+    lock_rows: bool = False,
+) -> dict[int, Enrolment]:
     """One batched lookup of each student's current open class-section enrolment.
 
     Shared by the plan (to decide create/update/move/restore/skip) and the
@@ -261,7 +287,7 @@ def open_section_enrolments_by_student(db: Session, school_id: int, student_ids:
     """
     if not student_ids:
         return {}
-    rows = (
+    query = (
         db.query(Enrolment)
         .filter(
             Enrolment.school_id == school_id,
@@ -270,19 +296,88 @@ def open_section_enrolments_by_student(db: Session, school_id: int, student_ids:
             Enrolment.kind == "member",
             *open_interval_expression(Enrolment, today),
         )
-        .all()
     )
+    if lock_rows:
+        query = query.with_for_update()
+    rows = query.all()
     return {row.student_id: row for row in rows}
 
 
-def plan_student_import_rows(db: Session, school_id: int, raw_rows: list[dict[str, str]], *, today: date | None = None) -> list[RowPlan]:
-    today = today or date.today()
-
-    year = (
-        db.query(AcademicYear)
-        .filter(AcademicYear.school_id == school_id, AcademicYear.is_current.is_(True), AcademicYear.status != "archived")
-        .first()
+def class_section_enrolments_by_student(
+    db: Session,
+    school_id: int,
+    student_ids: list[int],
+    *,
+    lock_rows: bool = False,
+) -> dict[int, list[Enrolment]]:
+    if not student_ids:
+        return {}
+    query = (
+        db.query(Enrolment)
+        .filter(
+            Enrolment.school_id == school_id,
+            Enrolment.student_id.in_(student_ids),
+            Enrolment.class_section_id.is_not(None),
+            Enrolment.kind == "member",
+        )
+        .order_by(Enrolment.student_id.asc(), Enrolment.valid_from.asc(), Enrolment.id.asc())
     )
+    if lock_rows:
+        query = query.with_for_update()
+    indexed: dict[int, list[Enrolment]] = {}
+    for row in query.all():
+        indexed.setdefault(row.student_id, []).append(row)
+    return indexed
+
+
+def plan_student_import_rows(
+    db: Session,
+    school_id: int,
+    raw_rows: list[dict[str, str]],
+    *,
+    today: date | None = None,
+    mode: str = "normal",
+    academic_year_id: int | None = None,
+    effective_date: date | None = None,
+    lock_rows: bool = False,
+) -> list[RowPlan]:
+    today = today or date.today()
+    mode = (mode or "normal").strip().lower()
+    if mode not in STUDENT_IMPORT_MODES:
+        raise ImportUploadError("Import mode must be 'normal' or 'annual'.")
+
+    if mode == "annual":
+        if academic_year_id is None:
+            raise ImportUploadError("Annual Update requires a destination academic year.")
+        year = (
+            db.query(AcademicYear)
+            .filter(
+                AcademicYear.id == academic_year_id,
+                AcademicYear.school_id == school_id,
+                AcademicYear.status != "archived",
+            )
+            .first()
+        )
+        if not year:
+            raise ImportUploadError("The selected destination academic year is not available for this school.")
+        effective_date = effective_date or year.start_date
+        if effective_date is None:
+            raise ImportUploadError("Annual Update requires an effective date because the selected academic year has no start date.")
+        if year.start_date is not None and effective_date < year.start_date:
+            raise ImportUploadError("The effective date cannot be earlier than the selected academic year's start date.")
+        if year.end_date is not None and effective_date > year.end_date:
+            raise ImportUploadError("The effective date cannot be later than the selected academic year's end date.")
+    else:
+        year = (
+            db.query(AcademicYear)
+            .filter(
+                AcademicYear.school_id == school_id,
+                AcademicYear.is_current.is_(True),
+                AcademicYear.status != "archived",
+            )
+            .first()
+        )
+        effective_date = today
     if not year:
         raise ImportUploadError("No current academic year is set for this school. Set a current academic year before importing students.")
 
@@ -304,16 +399,16 @@ def plan_student_import_rows(db: Session, school_id: int, raw_rows: list[dict[st
     ref_counts = Counter(ref for ref in normalized_refs if ref)
 
     non_blank_refs = {ref for ref in normalized_refs if ref}
-    existing_students = (
-        db.query(Student)
-        .filter(
+    if non_blank_refs:
+        student_query = db.query(Student).filter(
             Student.school_id == school_id,
             func.lower(func.trim(Student.external_ref)).in_(non_blank_refs),
         )
-        .all()
-        if non_blank_refs
-        else []
-    )
+        if lock_rows:
+            student_query = student_query.with_for_update()
+        existing_students = student_query.all()
+    else:
+        existing_students = []
     students_by_ref: dict[str, list[Student]] = {}
     for student in existing_students:
         normalized = normalize_student_external_ref(student.external_ref)
@@ -321,7 +416,27 @@ def plan_student_import_rows(db: Session, school_id: int, raw_rows: list[dict[st
             students_by_ref.setdefault(normalized, []).append(student)
 
     student_ids = [s.id for s in existing_students]
-    open_section_by_student = open_section_enrolments_by_student(db, school_id, student_ids, today)
+    open_section_by_student = (
+        open_section_enrolments_by_student(
+            db,
+            school_id,
+            student_ids,
+            today,
+            lock_rows=lock_rows,
+        )
+        if mode == "normal"
+        else {}
+    )
+    class_enrolments_by_student = (
+        class_section_enrolments_by_student(
+            db,
+            school_id,
+            student_ids,
+            lock_rows=lock_rows,
+        )
+        if mode == "annual"
+        else {}
+    )
     guardian_contacts_by_student = existing_guardian_contacts_by_student(db, school_id, student_ids)
 
     plans: list[RowPlan] = []
@@ -340,6 +455,7 @@ def plan_student_import_rows(db: Session, school_id: int, raw_rows: list[dict[st
         branch_raw = row["branch"]
         grade_raw = row["grade"]
         section_raw = row["section"]
+        student_status_raw = row.get("student_status", "").strip().lower()
 
         conflicts: list[str] = []
         if normalized_ref is None:
@@ -366,33 +482,62 @@ def plan_student_import_rows(db: Session, school_id: int, raw_rows: list[dict[st
             else:
                 gender = gender_raw
 
+        imported_status = "active"
+        if mode == "annual":
+            if not student_status_raw:
+                conflicts.append("student_status is required in Annual Update mode")
+                imported_status = None
+            elif student_status_raw not in ANNUAL_STUDENT_STATUS_VALUES:
+                conflicts.append(
+                    f"student_status must be one of {', '.join(sorted(ANNUAL_STUDENT_STATUS_VALUES))}"
+                )
+                imported_status = None
+            else:
+                imported_status = student_status_raw
+        elif student_status_raw and student_status_raw != "active":
+            errors.append("student_status values leaver/inactive require Annual Update mode")
+
+        placement_required = mode == "normal" or imported_status == "active"
+        placement_supplied = bool(branch_raw or grade_raw or section_raw)
+        validate_placement = placement_required or placement_supplied
+        structure_issues: list[str] = []
         branch = None
-        if branch_raw:
-            branch = branch_by_code.get(branch_raw.upper())
-            if branch is None:
-                errors.append(f"Unknown branch '{branch_raw}'")
-        elif len(active_branches) == 1:
-            branch = active_branches[0]
-        elif not active_branches:
-            errors.append("branch is required (this school has no active branch)")
-        else:
-            errors.append("branch is required (this school has more than one branch)")
+        if validate_placement:
+            if branch_raw:
+                branch = branch_by_code.get(branch_raw.upper())
+                if branch is None:
+                    structure_issues.append(f"Unknown branch '{branch_raw}'")
+            elif len(active_branches) == 1:
+                branch = active_branches[0]
+            elif not active_branches:
+                structure_issues.append("branch is required (this school has no active branch)")
+            else:
+                structure_issues.append("branch is required (this school has more than one branch)")
 
         grade = None
-        if not grade_raw:
-            errors.append("grade is required")
-        else:
-            grade = grade_by_code.get(grade_raw.upper())
-            if grade is None:
-                errors.append(f"Unknown grade '{grade_raw}'")
+        if validate_placement:
+            if not grade_raw:
+                structure_issues.append("grade is required")
+            else:
+                grade = grade_by_code.get(grade_raw.upper())
+                if grade is None:
+                    structure_issues.append(f"Unknown grade '{grade_raw}'")
 
         section = None
-        if not section_raw:
-            errors.append("section is required")
-        elif branch is not None and grade is not None:
-            section = section_by_key.get((branch.id, grade.id, section_raw.upper()))
-            if section is None:
-                errors.append(f"Unknown section '{section_raw}' for branch '{branch.code}' / grade '{grade.code}'")
+        if validate_placement:
+            if not section_raw:
+                structure_issues.append("section is required")
+            elif branch is not None and grade is not None:
+                section = section_by_key.get((branch.id, grade.id, section_raw.upper()))
+                if section is None:
+                    structure_issues.append(
+                        f"Unknown section '{section_raw}' for branch '{branch.code}' / grade '{grade.code}'"
+                    )
+
+        if mode == "annual":
+            conflicts.extend(structure_issues)
+        else:
+            errors.extend(structure_issues)
 
         guardian_contacts: list[dict[str, Any]] = []
         for slot in (1, 2):
@@ -435,8 +580,15 @@ def plan_student_import_rows(db: Session, school_id: int, raw_rows: list[dict[st
         if existing is None:
             plans.append(
                 RowPlan(
-                    idx, row, "create", errors, warnings,
-                    student_id=None, class_section_id=section.id, cleaned=cleaned,
+                    idx,
+                    row,
+                    "create" if imported_status == "active" else imported_status,
+                    errors,
+                    warnings,
+                    student_id=None,
+                    class_section_id=section.id if section else None,
+                    student_status=imported_status,
+                    cleaned=cleaned,
                     guardian_contacts=guardian_contacts,
                 )
             )
@@ -480,17 +632,113 @@ def plan_student_import_rows(db: Session, school_id: int, raw_rows: list[dict[st
                     guardian_conflicts,
                     warnings,
                     student_id=existing.id,
-                    class_section_id=section.id,
+                    class_section_id=section.id if section else None,
+                    student_status=imported_status,
                     cleaned=cleaned,
                     guardian_contacts=[],
                 )
             )
             continue
 
-        current_enrolment = open_section_by_student.get(existing.id)
-        current_section_id = current_enrolment.class_section_id if current_enrolment else None
         fields_changed = any(getattr(existing, key) != value for key, value in cleaned.items())
 
+        if mode == "annual":
+            enrolments = class_enrolments_by_student.get(existing.id, [])
+            active_at_effective = [
+                enrolment
+                for enrolment in enrolments
+                if enrolment.valid_from <= effective_date
+                and (enrolment.valid_to is None or enrolment.valid_to > effective_date)
+            ]
+            future_enrolments = [
+                enrolment for enrolment in enrolments if enrolment.valid_from > effective_date
+            ]
+            boundary_conflicts: list[str] = []
+            if len(active_at_effective) > 1:
+                boundary_conflicts.append("Overlapping class enrolments exist at the effective date")
+            if future_enrolments:
+                boundary_conflicts.append(
+                    "The effective date is earlier than an incompatible existing enrolment boundary"
+                )
+            current_enrolment = active_at_effective[0] if len(active_at_effective) == 1 else None
+            current_section_id = current_enrolment.class_section_id if current_enrolment else None
+            target_section_id = section.id if section else None
+
+            if (
+                imported_status == "active"
+                and current_enrolment is not None
+                and current_section_id != target_section_id
+                and current_enrolment.valid_from == effective_date
+            ):
+                boundary_conflicts.append(
+                    "The existing class enrolment starts on the effective date and cannot be replaced at that boundary"
+                )
+            if (
+                existing.status in {"inactive", "leaver", "archived"}
+                and imported_status != "active"
+                and target_section_id is not None
+                and current_section_id != target_section_id
+            ):
+                boundary_conflicts.append(
+                    "An inactive or leaver student cannot move without explicit active reactivation"
+                )
+
+            if boundary_conflicts:
+                plans.append(
+                    RowPlan(
+                        idx,
+                        row,
+                        "conflict",
+                        boundary_conflicts,
+                        warnings,
+                        student_id=existing.id,
+                        class_section_id=target_section_id,
+                        current_enrolment_id=current_enrolment.id if current_enrolment else None,
+                        student_status=imported_status,
+                        cleaned=cleaned,
+                        guardian_contacts=[],
+                    )
+                )
+                continue
+
+            if imported_status == "active":
+                if existing.status != "active":
+                    action = "reactivate"
+                elif current_section_id != target_section_id:
+                    action = "move"
+                elif fields_changed or changed_guardian_contacts:
+                    action = "update"
+                else:
+                    action = "skip"
+            elif (
+                existing.status == imported_status
+                and current_enrolment is None
+                and not fields_changed
+                and not changed_guardian_contacts
+            ):
+                action = "skip"
+            else:
+                action = imported_status
+
+            plans.append(
+                RowPlan(
+                    idx,
+                    row,
+                    action,
+                    errors,
+                    warnings,
+                    student_id=existing.id,
+                    class_section_id=target_section_id,
+                    current_enrolment_id=current_enrolment.id if current_enrolment else None,
+                    student_status=imported_status,
+                    cleaned=cleaned,
+                    guardian_contacts=changed_guardian_contacts,
+                )
+            )
+            continue
+
+        current_enrolment = open_section_by_student.get(existing.id)
+        current_section_id = current_enrolment.class_section_id if current_enrolment else None
         if existing.status == "archived":
             action = "restore"
         elif current_section_id != section.id:
@@ -503,7 +751,11 @@ def plan_student_import_rows(db: Session, school_id: int, raw_rows: list[dict[st
         plans.append(
             RowPlan(
                 idx, row, action, errors, warnings,
-                student_id=existing.id, class_section_id=section.id, cleaned=cleaned,
+                student_id=existing.id,
+                class_section_id=section.id,
+                current_enrolment_id=current_enrolment.id if current_enrolment else None,
+                student_status="active",
+                cleaned=cleaned,
                 guardian_contacts=changed_guardian_contacts,
             )
         )
