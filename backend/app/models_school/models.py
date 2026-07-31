@@ -2581,6 +2581,123 @@ class BehaviourEvent(Base):
     )
 
 
+class StudentRecognitionConfig(Base):
+    __tablename__ = "student_recognition_configs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    recognition_type = Column(String(40), nullable=False, default="star_of_week", server_default="star_of_week")
+    name = Column(String(160), nullable=False)
+    scope_type = Column(String(20), nullable=False)
+    scope_ref_id = Column(Integer, nullable=False)
+    scope_key = Column(String(64), nullable=False)
+    review_period_days = Column(Integer, nullable=False, default=7, server_default="7")
+    minimum_positive_points = Column(Integer, nullable=False, default=1, server_default="1")
+    shortlist_size = Column(Integer, nullable=False, default=3, server_default="3")
+    certificate_title = Column(String(200), nullable=False)
+    signatory_text = Column(String(200), nullable=False)
+    active = Column(Boolean, nullable=False, default=True, server_default="true")
+    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    updated_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        CheckConstraint("recognition_type IN ('star_of_week')", name="ck_student_recognition_configs_type"),
+        CheckConstraint("scope_type IN ('branch', 'grade', 'class')", name="ck_student_recognition_configs_scope_type"),
+        CheckConstraint("review_period_days BETWEEN 1 AND 366", name="ck_student_recognition_configs_period_days"),
+        CheckConstraint("minimum_positive_points >= 1", name="ck_student_recognition_configs_min_points"),
+        CheckConstraint("shortlist_size BETWEEN 1 AND 50", name="ck_student_recognition_configs_shortlist_size"),
+        UniqueConstraint("school_id", "recognition_type", "scope_key", name="uq_student_recognition_configs_scope"),
+        Index("ix_student_recognition_configs_school_active", "school_id", "active"),
+    )
+
+
+class StudentRecognitionCategory(Base):
+    __tablename__ = "student_recognition_categories"
+
+    config_id = Column(Integer, ForeignKey("student_recognition_configs.id", ondelete="RESTRICT"), primary_key=True)
+    category_id = Column(Integer, ForeignKey("behaviour_categories.id", ondelete="RESTRICT"), primary_key=True)
+
+
+class StudentRecognitionReview(Base):
+    __tablename__ = "student_recognition_reviews"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    config_id = Column(Integer, ForeignKey("student_recognition_configs.id", ondelete="RESTRICT"), nullable=False, index=True)
+    recognition_type = Column(String(40), nullable=False)
+    scope_key = Column(String(64), nullable=False)
+    period_start = Column(Date, nullable=False)
+    period_end = Column(Date, nullable=False)
+    criteria_snapshot = Column(JSON, nullable=False)
+    status = Column(String(20), nullable=False, default="draft", server_default="draft")
+    selected_student_id = Column(Integer, ForeignKey("students.id", ondelete="RESTRICT"), nullable=True)
+    citation = Column(String(500), nullable=True)
+    generated_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    generated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    confirmed_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    confirmed_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    revocation_reason = Column(String(500), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("status IN ('draft', 'confirmed', 'revoked')", name="ck_student_recognition_reviews_status"),
+        CheckConstraint("period_start <= period_end", name="ck_student_recognition_reviews_period"),
+        CheckConstraint(
+            "(status = 'draft' AND selected_student_id IS NULL AND confirmed_by_user_id IS NULL AND confirmed_at IS NULL AND revoked_by_user_id IS NULL AND revoked_at IS NULL AND revocation_reason IS NULL) OR "
+            "(status = 'confirmed' AND selected_student_id IS NOT NULL AND confirmed_by_user_id IS NOT NULL AND confirmed_at IS NOT NULL AND revoked_by_user_id IS NULL AND revoked_at IS NULL AND revocation_reason IS NULL) OR "
+            "(status = 'revoked' AND selected_student_id IS NOT NULL AND confirmed_by_user_id IS NOT NULL AND confirmed_at IS NOT NULL AND revoked_by_user_id IS NOT NULL AND revoked_at IS NOT NULL AND revocation_reason IS NOT NULL AND length(trim(revocation_reason)) > 0)",
+            name="ck_student_recognition_reviews_lifecycle",
+        ),
+        Index("ix_student_recognition_reviews_school_generated", "school_id", "generated_at"),
+        Index(
+            "uq_student_recognition_reviews_confirmed_period",
+            "school_id", "recognition_type", "scope_key", "period_start", "period_end",
+            unique=True,
+            postgresql_where=sql_text("status = 'confirmed'"),
+            sqlite_where=sql_text("status = 'confirmed'"),
+        ),
+    )
+
+
+class StudentRecognitionCandidate(Base):
+    __tablename__ = "student_recognition_candidates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    review_id = Column(Integer, ForeignKey("student_recognition_reviews.id", ondelete="RESTRICT"), nullable=False, index=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="RESTRICT"), nullable=False, index=True)
+    student_name = Column(String(240), nullable=False)
+    student_name_ar = Column(String(240), nullable=True)
+    branch_name = Column(String(160), nullable=False)
+    grade_name = Column(String(160), nullable=False)
+    class_name = Column(String(160), nullable=False)
+    positive_points_total = Column(Integer, nullable=False)
+    positive_event_count = Column(Integer, nullable=False)
+    category_totals = Column(JSON, nullable=False)
+    rank = Column(Integer, nullable=False)
+    display_order = Column(Integer, nullable=False)
+    is_excluded = Column(Boolean, nullable=False, default=False, server_default="false")
+    exclusion_reason = Column(String(500), nullable=True)
+    excluded_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    excluded_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("positive_points_total > 0", name="ck_student_recognition_candidates_points"),
+        CheckConstraint("positive_event_count > 0", name="ck_student_recognition_candidates_events"),
+        CheckConstraint("rank >= 1 AND display_order >= 1", name="ck_student_recognition_candidates_order"),
+        CheckConstraint(
+            "(NOT is_excluded AND exclusion_reason IS NULL AND excluded_by_user_id IS NULL AND excluded_at IS NULL) OR "
+            "(is_excluded AND exclusion_reason IS NOT NULL AND length(trim(exclusion_reason)) > 0 AND excluded_by_user_id IS NOT NULL AND excluded_at IS NOT NULL)",
+            name="ck_student_recognition_candidates_exclusion",
+        ),
+        UniqueConstraint("review_id", "student_id", name="uq_student_recognition_candidates_student"),
+        Index("ix_student_recognition_candidates_review_order", "review_id", "display_order"),
+    )
+
+
 class PointNotificationSummary(Base):
     __tablename__ = "point_notification_summaries"
 

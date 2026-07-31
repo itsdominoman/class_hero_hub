@@ -49,6 +49,13 @@
     <div class="card mt-6 p-6">{$_('common.loading')}…</div>
   {:else if membership && governance}
     <div class="mt-6 grid gap-4 sm:grid-cols-2">
+      <a href="/school/recognition" class="card group flex min-h-44 flex-col p-6 transition hover:-translate-y-0.5 hover:border-hero/40 hover:shadow-xl">
+        <span class="text-xs font-black uppercase tracking-wide text-emerald-700">{$_('recognitionPage.eyebrow')}</span>
+        <h2 class="mt-2 text-xl font-black text-slate-900">{$_('recognitionPage.title')}</h2>
+        <p class="mt-2 flex-1 text-sm leading-6 text-slate-600">{$_('recognitionPage.adminCardHelp')}</p>
+        <span class="mt-5 font-black text-hero">{$_('administration.open')} →</span>
+      </a>
+
       <a href="/school/operations" class="card group flex min-h-44 flex-col p-6 transition hover:-translate-y-0.5 hover:border-hero/40 hover:shadow-xl">
         <span class="text-xs font-black uppercase tracking-wide text-emerald-700">{$_('operationsPage.overallStatus')}</span>
         <h2 class="mt-2 text-xl font-black text-slate-900">{$_('administration.systemStatus')}</h2>

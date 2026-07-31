@@ -1,5 +1,21 @@
 # CHH current pilot deployment
 
+## 2026-07-31 positive student recognition
+
+The CHH pilot now has an administrator-only Positive recognition area linked from
+Administration. It supports audited Star of the Week configuration, transparent
+positive-evidence shortlist review, recorded candidate exclusion, explicit recipient
+confirmation, history-preserving revocation/correction and a browser-printable
+English/Arabic certificate. It has no public display endpoint and sends no parent,
+FHH or push notification.
+
+Alembic head is `e8f9a0b1c2d3`. The migration adds four initially empty recognition
+tables plus school/scope/period constraints and indexes; existing behaviour events,
+students, enrolments and audit rows are unchanged. Pre-migration encrypted
+differentials are `20260728-182651F_20260731-172632D` locally and
+`20260725-221530F_20260731-172637D` off-host. Upgrade/downgrade/re-upgrade passed on
+a disposable PostgreSQL database.
+
 ## 2026-07-31 MIS import history and exports
 
 The CHH pilot school administration Students area now provides school-scoped,

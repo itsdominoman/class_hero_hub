@@ -1,5 +1,55 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-31 — Positive student recognition Slice 1
+
+Current-state inspection confirmed that CHH already stores school-scoped behaviour
+categories constrained to `positive` or `needs_work`, signed event-time point
+deltas, complete reversal metadata and append-only audit records. Point totals and
+management reports already exclude reversed events. Management reporting is
+administrator-only but intentionally contains both positive and needs-work views;
+student administration stores active/inactive status and dated class-enrolment
+history. CHH previously had no recognition configuration, shortlist, staff decision,
+award correction or certificate workflow. The School model has no logo field, so
+the first certificate uses the school name and can include a logo only when that
+capability exists later.
+
+Slice 1 adds a separate administrator-only, positive-only recognition workflow.
+A school can configure one Star of the Week definition per branch, grade or class
+scope, a 1–366 day review window, an allowlist of active positive categories, a
+minimum positive-point threshold, target shortlist size, certificate title,
+signatory text and active state. Configuration changes are audited. No negative
+category can be selected, and recognition responses never return needs-work events,
+notes or totals.
+
+Shortlist generation evaluates active students with a valid class enrolment at the
+selected period end, using school-local inclusive date boundaries. It aggregates
+only unreversed, positive-point events in the configured category allowlist.
+Ordering is positive points descending, then positive event count descending, with
+student ID used only as a deterministic final ordering key. Equal point/event totals
+share a rank; a tie at the configured cutoff extends the shortlist. The criteria,
+placement, category totals and candidate ordering are frozen with the draft. A
+draft never has an automatic recipient.
+
+An administrator may exclude a candidate only with an audited reason, optionally
+write a positive citation and explicitly confirm one remaining candidate. A partial
+unique PostgreSQL index prevents more than one confirmed award for the same school,
+recognition type, scope and period. Correction revokes rather than deletes the
+confirmed record, requires a reason and preserves the original selection and audit;
+a replacement review can then be confirmed. There is no public recognition route,
+automatic posting, rotation, notification or FHH payload.
+
+The confirmed review renders an English/Arabic, RTL-compatible browser certificate
+with school name, recognition/certificate title, student and placement snapshots,
+citation, period and signatory. Browser print CSS supports Print / Save as PDF; no
+server-side document framework was introduced.
+
+Alembic `e8f9a0b1c2d3` creates only the four empty recognition tables and their
+constraints/indexes. It does not rewrite behaviour, student, enrolment or audit
+data. Pre-migration encrypted differentials are
+`20260728-182651F_20260731-172632D` locally and
+`20260725-221530F_20260731-172637D` off-host. A disposable PostgreSQL database
+passed full upgrade, one-revision downgrade to `e7f8a9b0c3d4`, and re-upgrade.
+
 ## 2026-07-31 — UIS demo Arabic full-name restoration
 
 The prior acceptance cleanup correctly removed 125 invalid hybrid Arabic/Latin
