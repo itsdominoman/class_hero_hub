@@ -144,7 +144,7 @@
     guardian2_name?: string | null;
     guardian2_email?: string | null;
     guardian2_relationship?: string | null;
-    action: 'create' | 'update' | 'move' | 'restore' | 'skip' | 'error';
+    action: 'create' | 'update' | 'move' | 'restore' | 'skip' | 'conflict' | 'error';
     errors: string[];
     warnings: string[];
     applied_entity_id?: number | null;
@@ -1333,6 +1333,7 @@
 
   function importRowRowClass(row: ImportRow) {
     if (row.action === 'error') return 'bg-red-50';
+    if (row.action === 'conflict') return 'bg-orange-50';
     if (row.action === 'skip') return 'bg-white';
     return 'bg-emerald-50';
   }
@@ -1347,6 +1348,7 @@
     move: 'bg-amber-100 text-amber-800',
     restore: 'bg-indigo-100 text-indigo-800',
     skip: 'bg-slate-200 text-slate-700',
+    conflict: 'bg-orange-100 text-orange-800',
     error: 'bg-red-100 text-red-800'
   };
 

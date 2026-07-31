@@ -1241,6 +1241,7 @@ export const en = {
         move: 'Moved',
         restore: 'Restored',
         skip: 'Unchanged',
+        conflict: 'Conflicts',
         error: 'Errors'
       },
       row: 'Row',
@@ -1258,6 +1259,7 @@ export const en = {
         move: 'Move class',
         restore: 'Restore',
         skip: 'No change',
+        conflict: 'Conflict',
         error: 'Error'
       }
     },
@@ -3131,6 +3133,7 @@ export const ar = {
         move: 'منقول',
         restore: 'مستعاد',
         skip: 'بلا تغيير',
+        conflict: 'تعارضات',
         error: 'أخطاء'
       },
       row: 'الصف',
@@ -3148,6 +3151,7 @@ export const ar = {
         move: 'نقل الشعبة',
         restore: 'استعادة',
         skip: 'بلا تغيير',
+        conflict: 'تعارض',
         error: 'خطأ'
       }
     },

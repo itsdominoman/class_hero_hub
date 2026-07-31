@@ -1,5 +1,46 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-31 — MIS student import Slice 1: stable identity and safe re-imports
+
+Student CSV matching now treats a trimmed `student_id` case-insensitively while
+retaining the latest school-supplied casing for display. A partial unique
+PostgreSQL index enforces that normalised identity per school for non-blank
+`students.external_ref` values; existing blank IDs remain untouched and manual
+student creation may still omit an ID. The student create/update APIs use the
+same matching rule and return a conflict instead of relying only on the index.
+
+Student CSV rows now require `student_id`. Duplicate normalised IDs within a
+file, ambiguous existing identities, and attempts to change linked or ignored
+guardian contacts are staged as explicit `conflict` rows. Conflict and error
+rows remain unapplied while other valid rows can commit. The existing
+create/update/restore/move/skip flow and close-then-open enrolment history are
+unchanged.
+
+Blank optional student cells preserve existing preferred name, Arabic name,
+date of birth and gender. Guardian slots remain the existing two-slot draft
+model, but only non-blank supplied fields are merged. Guardian-only draft
+changes are reported as updates, and an identical re-import does not update the
+contact, timestamp or `source_import_id`. Imports still create no guardian
+account, invitation, email or message.
+
+The Students import preview includes bilingual conflict counts, labels and row
+styling. Focused backend coverage verifies missing and case-variant IDs,
+application/database uniqueness, blank-preserving student and guardian merges,
+true guardian no-ops, protected-contact conflicts, and the existing student and
+enrolment behaviours. Frontend type checking, English/Arabic parity and the
+affected production build were also verified.
+
+Before applying migration `b4c5d6e7f8a9`, the pilot database had no duplicate
+non-blank normalised student IDs and retained two existing students with blank
+IDs. Encrypted differential pgBackRest backups completed locally and off-host.
+The migration was applied and only the CHH backend and frontend services were
+rebuilt and restarted; operational readiness now expects the new migration
+revision.
+
+Deferred to Slice 2: arbitrary guardian contacts, phone numbers and Edit Student
+guardian management. Leavers, annual effective dates, rollover, import-history
+exports, FHH and Android remain outside this slice.
+
 ## 2026-07-29 — Authentication admission control
 
 Google OAuth and magic links previously upserted an active `User` and issued a

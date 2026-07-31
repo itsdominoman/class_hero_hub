@@ -5,7 +5,7 @@ from typing import Any, Type
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -18,6 +18,7 @@ from ..imports_service import (
     decode_csv_bytes,
     existing_guardian_contacts_by_student,
     generate_template_csv,
+    normalize_student_external_ref,
     open_section_enrolments_by_student,
     parse_csv_rows,
     plan_student_import_rows,
@@ -652,6 +653,24 @@ def _clean_student_payload(payload: StudentRequest) -> dict[str, Any]:
         "gender": payload.gender,
         "status": payload.status,
     }
+
+
+def _students_by_normalized_external_ref(
+    db: Session,
+    school_id: int,
+    external_ref: str | None,
+) -> list[Student]:
+    normalized = normalize_student_external_ref(external_ref)
+    if normalized is None:
+        return []
+    return (
+        db.query(Student)
+        .filter(
+            Student.school_id == school_id,
+            func.lower(func.trim(Student.external_ref)) == normalized,
+        )
+        .all()
+    )
 
 
 def _current_student_context(db: Session, school_id: int, student_id: int) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
@@ -2231,7 +2250,10 @@ def create_student(payload: StudentRequest, membership: Membership = Depends(req
     cleaned = _clean_student_payload(payload)
     external_ref = cleaned["external_ref"]
     if external_ref:
-        existing = db.query(Student).filter(Student.school_id == school_id, Student.external_ref == external_ref).first()
+        matches = _students_by_normalized_external_ref(db, school_id, external_ref)
+        if len(matches) > 1:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Student external_ref matches more than one existing student")
+        existing = matches[0] if matches else None
         if existing is not None:
             if existing.status == "archived":
                 for key, value in cleaned.items():
@@ -2244,9 +2266,13 @@ def create_student(payload: StudentRequest, membership: Membership = Depends(req
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Student external_ref is already used by a visible student")
     row = Student(school_id=school_id, **cleaned)
     db.add(row)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Student external_ref is already used by another student")
     write_audit(db, membership.user_id, "school.student.created", row, {"external_ref": external_ref}, school_id=school_id)
-    db.commit()
+    _commit_or_conflict(db, "Student external_ref is already used by another student")
     db.refresh(row)
     return {**_student_with_context(db, row), "restored": False}
 
@@ -2386,7 +2412,7 @@ def commit_student_import(import_id: int, membership: Membership = Depends(requi
         row.errors = plan.errors or None
         row.warnings = plan.warnings or None
 
-        if plan.action == "error":
+        if plan.action in {"error", "conflict"}:
             continue
 
         if plan.action == "create":
@@ -2438,9 +2464,8 @@ def commit_student_import(import_id: int, membership: Membership = Depends(requi
                     # S9 (or an admin) has already acted on this contact;
                     # a re-import must not clobber that decision.
                     continue
-                existing_contact.name = contact["name"]
-                existing_contact.email = contact["email"]
-                existing_contact.relationship = contact["relationship"]
+                for field in contact.get("changed_fields", contact["provided_fields"]):
+                    setattr(existing_contact, field, contact[field])
                 existing_contact.source_import_id = imp.id
             else:
                 db.add(
@@ -2883,12 +2908,12 @@ def update_student(student_id: int, payload: StudentRequest, membership: Members
     cleaned = _clean_student_payload(payload)
     external_ref = cleaned["external_ref"]
     if external_ref:
-        existing = db.query(Student).filter(Student.school_id == school_id, Student.external_ref == external_ref).first()
-        if existing is not None and existing.id != row.id:
+        matches = _students_by_normalized_external_ref(db, school_id, external_ref)
+        if any(existing.id != row.id for existing in matches):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Student external_ref is already used by another student")
     for key, value in cleaned.items():
         setattr(row, key, value)
-    db.commit()
+    _commit_or_conflict(db, "Student external_ref is already used by another student")
     db.refresh(row)
     return _student_with_context(db, row)
 

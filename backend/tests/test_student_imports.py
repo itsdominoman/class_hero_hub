@@ -287,19 +287,26 @@ def test_required_field_errors(client, import_world):
     assert any("first_name" in msg for msg in row["errors"])
 
 
+def test_missing_student_id_is_an_error(client, import_world):
+    resp = upload(client, import_world, [csv_row(first_name="Ali", last_name="Khan")])
+    row = resp.json()["rows"][0]
+    assert row["action"] == "error"
+    assert "student_id is required" in row["errors"]
+
+
 def test_duplicate_student_id_within_file_errors(client, import_world):
     world = import_world
     rows = [
         csv_row(student_id="S-010", first_name="Ali", last_name="Khan"),
-        csv_row(student_id="S-010", first_name="Sara", last_name="Khan", section="B"),
+        csv_row(student_id=" s-010 ", first_name="Sara", last_name="Khan", section="B"),
     ]
     resp = upload(client, world, rows)
     assert resp.status_code == 201
     payload = resp.json()
-    assert payload["summary"]["error"] == 2
+    assert payload["summary"]["conflict"] == 2
     for row in payload["rows"]:
-        assert row["action"] == "error"
-        assert "Duplicate student_id in file" in row["errors"]
+        assert row["action"] == "conflict"
+        assert "Duplicate normalised student_id in file" in row["errors"]
 
 
 def test_invalid_gender_errors(client, import_world):
@@ -382,16 +389,47 @@ def test_existing_student_external_ref_updates_instead_of_duplicating(client, im
     first = upload(client, world, [csv_row(student_id="S-070", first_name="Ali", last_name="Khan")])
     commit(client, world, first.json()["id"])
 
-    second = upload(client, world, [csv_row(student_id="S-070", first_name="Alya", last_name="Khan", preferred_name="Aly")])
+    second = upload(client, world, [csv_row(student_id=" s-070 ", first_name="Alya", last_name="Khan", preferred_name="Aly")])
     payload = second.json()
-    row = row_for(payload, "S-070")
+    row = row_for(payload, "s-070")
     assert row["action"] == "update"
     committed = commit(client, world, payload["id"])
     assert committed.status_code == 200
 
-    students = db.query(Student).filter(Student.school_id == world["alpha"].id, Student.external_ref == "S-070").all()
+    students = db.query(Student).filter(Student.school_id == world["alpha"].id).all()
     assert len(students) == 1
     assert students[0].first_name == "Alya"
+    assert students[0].external_ref == "s-070"
+
+
+def test_blank_optional_student_values_preserve_existing_data(client, import_world, db):
+    world = import_world
+    first = upload(
+        client,
+        world,
+        [
+            csv_row(
+                student_id="S-071",
+                first_name="Ali",
+                last_name="Khan",
+                preferred_name="Aly",
+                name_ar="علي خان",
+                dob="2015-02-03",
+                gender="male",
+            )
+        ],
+    )
+    commit(client, world, first.json()["id"])
+
+    second = upload(client, world, [csv_row(student_id="S-071", first_name="Ali", last_name="Khan")])
+    assert row_for(second.json(), "S-071")["action"] == "skip"
+    commit(client, world, second.json()["id"])
+
+    student = db.query(Student).filter(Student.school_id == world["alpha"].id, Student.external_ref == "S-071").one()
+    assert student.preferred_name == "Aly"
+    assert student.name_ar == "علي خان"
+    assert str(student.date_of_birth) == "2015-02-03"
+    assert student.gender == "male"
 
 
 def test_archived_student_external_ref_restores(client, import_world, db):
@@ -468,8 +506,8 @@ def test_same_section_reimport_does_not_duplicate_enrolment(client, import_world
 def test_duplicate_names_are_allowed(client, import_world):
     world = import_world
     rows = [
-        csv_row(first_name="Ali", last_name="Khan", section="A"),
-        csv_row(first_name="Ali", last_name="Khan", section="B"),
+        csv_row(student_id="S-NAME-1", first_name="Ali", last_name="Khan", section="A"),
+        csv_row(student_id="S-NAME-2", first_name="Ali", last_name="Khan", section="B"),
     ]
     resp = upload(client, world, rows)
     payload = resp.json()
@@ -558,18 +596,49 @@ def test_guardian_contact_reimport_is_idempotent_and_updates_in_place(client, im
 
     second = upload(
         client, world,
-        [csv_row(student_id="S-123", first_name="Ali", last_name="Khan", guardian1_name="Huda Khan", guardian1_email="huda.khan@example.com", guardian1_relationship="mother")],
+        [csv_row(student_id="S-123", first_name="Ali", last_name="Khan", guardian1_email="huda.khan@example.com")],
     )
+    assert row_for(second.json(), "S-123")["action"] == "update"
     commit(client, world, second.json()["id"])
 
     contacts = db.query(StudentGuardianContact).filter(StudentGuardianContact.student_id == student.id).all()
     assert len(contacts) == 1
     assert contacts[0].id == first_contact_id
-    assert contacts[0].name == "Huda Khan"
+    assert contacts[0].name == "Huda"
     assert contacts[0].email == "huda.khan@example.com"
+    assert contacts[0].relationship == "mother"
 
 
-def test_guardian_contact_already_acted_on_is_not_overwritten_by_reimport(client, import_world, db):
+def test_identical_guardian_reimport_is_true_no_op(client, import_world, db):
+    world = import_world
+    row = csv_row(
+        student_id="S-123-NOOP",
+        first_name="Ali",
+        last_name="Khan",
+        guardian1_name="Huda",
+        guardian1_email="huda@example.com",
+        guardian1_relationship="mother",
+    )
+    first = upload(client, world, [row])
+    commit(client, world, first.json()["id"])
+    student = db.query(Student).filter(Student.external_ref == "S-123-NOOP").one()
+    contact = db.query(StudentGuardianContact).filter_by(student_id=student.id, slot=1).one()
+    first_source_import_id = contact.source_import_id
+    first_updated_at = contact.updated_at
+
+    second = upload(client, world, [row])
+    assert row_for(second.json(), "S-123-NOOP")["action"] == "skip"
+    commit(client, world, second.json()["id"])
+
+    db.refresh(contact)
+    assert contact.source_import_id == first_source_import_id
+    assert contact.updated_at == first_updated_at
+
+
+@pytest.mark.parametrize("contact_status", ["linked", "ignored"])
+def test_guardian_contact_already_acted_on_is_conflict_and_not_overwritten(
+    client, import_world, db, contact_status
+):
     world = import_world
     first = upload(
         client, world,
@@ -578,17 +647,23 @@ def test_guardian_contact_already_acted_on_is_not_overwritten_by_reimport(client
     commit(client, world, first.json()["id"])
     student = db.query(Student).filter(Student.school_id == world["alpha"].id, Student.external_ref == "S-124").first()
     contact = db.query(StudentGuardianContact).filter(StudentGuardianContact.student_id == student.id, StudentGuardianContact.slot == 1).first()
-    contact.status = "linked"
+    contact.status = contact_status
     db.commit()
 
     second = upload(
         client, world,
         [csv_row(student_id="S-124", first_name="Ali", last_name="Khan", guardian1_name="Someone Else", guardian1_email="someone@example.com", guardian1_relationship="mother")],
     )
-    commit(client, world, second.json()["id"])
+    preview_row = row_for(second.json(), "S-124")
+    assert preview_row["action"] == "conflict"
+    assert contact_status in " ".join(preview_row["errors"])
+    committed = commit(client, world, second.json()["id"])
+    committed_row = row_for(committed.json(), "S-124")
+    assert committed_row["action"] == "conflict"
+    assert committed_row["applied_entity_id"] is None
 
     db.refresh(contact)
-    assert contact.status == "linked"
+    assert contact.status == contact_status
     assert contact.name == "Huda"
     assert contact.email == "huda@example.com"
 

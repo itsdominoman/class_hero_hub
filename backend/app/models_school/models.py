@@ -387,6 +387,14 @@ class Student(Base):
 
     __table_args__ = (
         Index("ix_students_school_status", "school_id", "status"),
+        Index(
+            "uq_students_school_external_ref_normalized",
+            school_id,
+            func.lower(func.trim(external_ref)),
+            unique=True,
+            postgresql_where=sql_text("external_ref IS NOT NULL AND length(btrim(external_ref)) > 0"),
+            sqlite_where=sql_text("external_ref IS NOT NULL AND length(trim(external_ref)) > 0"),
+        ),
     )
 
 
@@ -488,7 +496,7 @@ class ImportRow(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "action IN ('create', 'update', 'move', 'restore', 'skip', 'error')",
+            "action IN ('create', 'update', 'move', 'restore', 'skip', 'conflict', 'error')",
             name="ck_import_rows_action",
         ),
     )

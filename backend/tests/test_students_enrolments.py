@@ -8,6 +8,7 @@ os.environ["DEV_AUTH_ENABLED"] = "false"
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -178,6 +179,14 @@ def test_school_admin_student_lifecycle_and_duplicate_policy(db, client, enrolme
 
     duplicate = create_student_api(client, world)
     assert duplicate.status_code == 409
+    assert create_student_api(client, world, ref=" s-001 ").status_code == 409
+    other_id = create_student_api(client, world, ref="S-OTHER").json()["id"]
+    update_to_duplicate = client.put(
+        f"/api/school/students/{other_id}",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+        json=student_payload(ref=" s-001 "),
+    )
+    assert update_to_duplicate.status_code == 409
 
     inactive_dup = client.put(
         f"/api/school/students/{student_id}",
@@ -204,6 +213,20 @@ def test_school_admin_student_lifecycle_and_duplicate_policy(db, client, enrolme
     assert restored.status_code == 201
     assert restored.json()["id"] == student_id
     assert restored.json()["restored"] is True
+
+
+def test_student_external_ref_database_uniqueness_is_normalized_per_school(db, enrolment_world):
+    world = enrolment_world
+    db.add(Student(school_id=world["alpha"].id, external_ref="ABC123", first_name="Ali", last_name="Khan"))
+    db.commit()
+
+    db.add(Student(school_id=world["alpha"].id, external_ref=" abc123 ", first_name="Sara", last_name="Khan"))
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
+
+    db.add(Student(school_id=world["beta"].id, external_ref="abc123", first_name="Beta", last_name="Student"))
+    db.commit()
 
 
 def test_student_access_boundaries(db, client, enrolment_world):

@@ -39,11 +39,19 @@ GENDER_VALUES = {"male", "female", "other", "unspecified"}
 
 GUARDIAN_RELATIONSHIP_VALUES = {"mother", "father", "guardian", "other"}
 
-_ROW_ACTIONS = {"create", "update", "move", "restore", "skip", "error"}
+_ROW_ACTIONS = {"create", "update", "move", "restore", "skip", "conflict", "error"}
 
 
 class ImportUploadError(ValueError):
     """Raised for whole-file problems (encoding, headers, missing current year)."""
+
+
+def normalize_student_external_ref(value: str | None) -> str | None:
+    """Return the stable identity form while leaving stored display casing alone."""
+    if value is None:
+        return None
+    cleaned = value.strip()
+    return cleaned.lower() if cleaned else None
 
 
 def generate_template_csv(columns: list[str]) -> str:
@@ -123,7 +131,18 @@ def _validate_guardian_slot(row: dict[str, str], slot: int) -> tuple[dict[str, A
             relationship = relationship_raw
 
     warnings.append(f"Guardian {slot} will be saved as a draft contact only; no invite or message is sent.")
-    return {"slot": slot, "name": name, "email": email, "relationship": relationship}, warnings
+    provided_fields = [
+        field
+        for field, value in (("name", name), ("email", email), ("relationship", relationship))
+        if value is not None
+    ]
+    return {
+        "slot": slot,
+        "name": name,
+        "email": email,
+        "relationship": relationship,
+        "provided_fields": provided_fields,
+    }, warnings
 
 
 def existing_guardian_contacts_by_student(
@@ -192,26 +211,37 @@ def plan_student_import_rows(db: Session, school_id: int, raw_rows: list[dict[st
     )
     section_by_key = {(s.branch_campus_id, s.grade_level_id, s.code.strip().upper()): s for s in sections}
 
-    external_refs = [row["student_id"] for row in raw_rows]
-    ref_counts = Counter(ref for ref in external_refs if ref)
+    normalized_refs = [normalize_student_external_ref(row["student_id"]) for row in raw_rows]
+    ref_counts = Counter(ref for ref in normalized_refs if ref)
 
-    non_blank_refs = {ref for ref in external_refs if ref}
+    non_blank_refs = {ref for ref in normalized_refs if ref}
     existing_students = (
-        db.query(Student).filter(Student.school_id == school_id, Student.external_ref.in_(non_blank_refs)).all()
+        db.query(Student)
+        .filter(
+            Student.school_id == school_id,
+            func.lower(func.trim(Student.external_ref)).in_(non_blank_refs),
+        )
+        .all()
         if non_blank_refs
         else []
     )
-    student_by_ref = {s.external_ref: s for s in existing_students}
+    students_by_ref: dict[str, list[Student]] = {}
+    for student in existing_students:
+        normalized = normalize_student_external_ref(student.external_ref)
+        if normalized is not None:
+            students_by_ref.setdefault(normalized, []).append(student)
 
     student_ids = [s.id for s in existing_students]
     open_section_by_student = open_section_enrolments_by_student(db, school_id, student_ids, today)
+    guardian_contacts_by_student = existing_guardian_contacts_by_student(db, school_id, student_ids)
 
     plans: list[RowPlan] = []
     for idx, row in enumerate(raw_rows, start=1):
         errors: list[str] = []
         warnings: list[str] = []
 
-        external_ref = row["student_id"] or None
+        external_ref = row["student_id"].strip() or None
+        normalized_ref = normalize_student_external_ref(external_ref)
         first_name = row["first_name"]
         last_name = row["last_name"]
         preferred_name = row["preferred_name"] or None
@@ -222,8 +252,11 @@ def plan_student_import_rows(db: Session, school_id: int, raw_rows: list[dict[st
         grade_raw = row["grade"]
         section_raw = row["section"]
 
-        if external_ref and ref_counts[external_ref] > 1:
-            errors.append("Duplicate student_id in file")
+        conflicts: list[str] = []
+        if normalized_ref is None:
+            errors.append("student_id is required")
+        elif ref_counts[normalized_ref] > 1:
+            conflicts.append("Duplicate normalised student_id in file")
 
         if not first_name:
             errors.append("first_name is required")
@@ -283,23 +316,67 @@ def plan_student_import_rows(db: Session, school_id: int, raw_rows: list[dict[st
             plans.append(RowPlan(idx, row, "error", errors, warnings, guardian_contacts=guardian_contacts))
             continue
 
+        matching_students = students_by_ref.get(normalized_ref, []) if normalized_ref else []
+        if len(matching_students) > 1:
+            conflicts.append("Ambiguous existing student identity")
+
+        if conflicts:
+            plans.append(RowPlan(idx, row, "conflict", conflicts, warnings, guardian_contacts=guardian_contacts))
+            continue
+
+        existing = matching_students[0] if matching_students else None
         cleaned = {
             "external_ref": external_ref,
             "first_name": first_name,
             "last_name": last_name,
-            "preferred_name": preferred_name,
-            "name_ar": name_ar,
-            "date_of_birth": dob,
-            "gender": gender,
+            "preferred_name": preferred_name if preferred_name is not None or existing is None else existing.preferred_name,
+            "name_ar": name_ar if name_ar is not None or existing is None else existing.name_ar,
+            "date_of_birth": dob if dob_raw or existing is None else existing.date_of_birth,
+            "gender": gender if gender_raw or existing is None else existing.gender,
         }
 
-        existing = student_by_ref.get(external_ref) if external_ref else None
         if existing is None:
             plans.append(
                 RowPlan(
                     idx, row, "create", errors, warnings,
                     student_id=None, class_section_id=section.id, cleaned=cleaned,
                     guardian_contacts=guardian_contacts,
+                )
+            )
+            continue
+
+        changed_guardian_contacts: list[dict[str, Any]] = []
+        guardian_conflicts: list[str] = []
+        for contact in guardian_contacts:
+            stored = guardian_contacts_by_student.get((existing.id, contact["slot"]))
+            provided_fields = contact["provided_fields"]
+            changed_fields = [
+                field
+                for field in provided_fields
+                if stored is None or getattr(stored, field) != contact[field]
+            ]
+            if not changed_fields:
+                continue
+            if stored is not None and stored.status != "draft":
+                guardian_conflicts.append(
+                    f"Guardian {contact['slot']} contact is {stored.status} and cannot be overwritten by import"
+                )
+                continue
+            contact["changed_fields"] = changed_fields
+            changed_guardian_contacts.append(contact)
+
+        if guardian_conflicts:
+            plans.append(
+                RowPlan(
+                    idx,
+                    row,
+                    "conflict",
+                    guardian_conflicts,
+                    warnings,
+                    student_id=existing.id,
+                    class_section_id=section.id,
+                    cleaned=cleaned,
+                    guardian_contacts=[],
                 )
             )
             continue
@@ -312,7 +389,7 @@ def plan_student_import_rows(db: Session, school_id: int, raw_rows: list[dict[st
             action = "restore"
         elif current_section_id != section.id:
             action = "move"
-        elif fields_changed:
+        elif fields_changed or changed_guardian_contacts:
             action = "update"
         else:
             action = "skip"
@@ -321,7 +398,7 @@ def plan_student_import_rows(db: Session, school_id: int, raw_rows: list[dict[st
             RowPlan(
                 idx, row, action, errors, warnings,
                 student_id=existing.id, class_section_id=section.id, cleaned=cleaned,
-                guardian_contacts=guardian_contacts,
+                guardian_contacts=changed_guardian_contacts,
             )
         )
 
