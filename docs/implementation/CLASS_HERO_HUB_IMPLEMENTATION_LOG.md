@@ -1,5 +1,79 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-31 — MIS student import Slice 4: history, reports and roster exports
+
+The school administration Students area now exposes the existing student import
+ledger without changing the Slice 1–3 import planner or commit/discard
+lifecycle. School administrators can filter Normal Import and Annual Update
+batches by mode, status and upload date, open a batch, and page through its
+stored row outcomes. Batch details include the filename, mode, destination
+academic year and effective date where applicable, uploader, commit actor,
+timestamps and all supported outcome counts. A file hash is returned only if
+the import record already stores one; current imports do not, so no hash is
+invented or reconstructed. After a valid mode and Annual Update context are
+selected, a file that cannot be decoded, parsed or planned is retained as a
+failed batch with one non-sensitive error result; older upload failures are not
+retroactively reconstructed.
+
+Row history is read directly from the immutable stored import rows. It shows the
+CSV row number, stable student ID, student name, intended branch/grade/section,
+stored outcome and reason, and the affected school-scoped student when one was
+applied. It does not rebuild old previews, change historical outcomes, or show
+guardian email and phone values in the administration result table. History and
+row APIs are independently paginated and remain restricted to school
+administrators in the selected school.
+
+Each batch offers streamed UTF-8 CSV reports for all rows, conflicts, errors and
+committed changes. Reports use the import template columns plus the row number,
+outcome, reason and affected student ID, retaining enough source data to correct
+and re-import a failed row. Committed reports contain only applied create,
+update, move, restore, reactivate, leaver and inactive rows. Every CSV starts
+with a UTF-8 BOM for Arabic/Excel compatibility, and cells beginning with a
+spreadsheet formula marker are prefixed safely before download. The importer
+recognises and removes only that exact protective prefix, so formula-safe IDs
+and international `+` phone numbers remain directly re-importable.
+
+Four current, school-scoped exports are available:
+
+- active students with stable ID, English/Arabic/preferred names, DOB, gender,
+  current branch/year/grade/section and explicit status;
+- school-held guardian contacts with stable MIS contact ID, relationship,
+  email, phone, primary/emergency flags and contact lifecycle state;
+- current class/section enrolments with their effective boundaries; and
+- a populated annual-update file using the exact student import template
+  columns and up to the two deterministic guardian slots supported by that
+  template.
+
+Exports deliberately omit CHH login/session/password data, invitation secrets,
+FHH opaque identifiers, messages, behaviour, surveys and safeguarding data.
+History views, report downloads and roster downloads write school-scoped audit
+events containing only batch/export metadata, never guardian contact values.
+Set-based placement and contact queries avoid per-row lookups; CSV responses
+stream in bounded chunks, while the populated annual export refuses more than
+100,000 school-held contact rows rather than loading an unbounded set.
+
+Migration `e7f8a9b0c3d4` only expands the imports status constraint to include
+`failed`; it performs no data rewrite. Its downgrade refuses while failed
+history exists, preventing silent deletion or relabelling. Existing import
+metadata, rows and commit audit records otherwise provide the history contract.
+The migration passed an isolated PostgreSQL upgrade/downgrade/re-upgrade
+rehearsal with application smoke. Encrypted pre-migration differential backups
+completed locally (`20260728-182651F_20260731-075648D`) and off-host
+(`20260725-221530F_20260731-075655D`). The Slice 1 stable identity, Slice 2
+guardian semantics and Slice 3 annual-update, leaver, enrolment and CHH/FHH
+access lifecycle are unchanged.
+
+Focused validation passed all 55 student-import tests and four migration-guard
+tests against the edited source and the rebuilt backend image. Svelte reported
+zero errors and warnings, English/Arabic parity passed at 1,796 keys each, and
+the production frontend build completed. The pilot upgraded to
+`e7f8a9b0c3d4`; only the CHH backend and frontend were rebuilt and recreated.
+PostgreSQL and both workers retained their service lifecycle. Loopback and public
+readiness reported the database and migration current, frontend checks returned
+HTTP 200, all new routes were present in the deployed OpenAPI contract, and
+recent affected-service logs contained no errors. FHH, native code and Android
+artefacts were untouched.
+
 ## 2026-07-31 — MIS student import Slice 3: annual roster updates
 
 Student CSV import now has two explicit modes. Normal Import retains the current

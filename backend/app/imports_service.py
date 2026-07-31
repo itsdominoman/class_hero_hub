@@ -127,6 +127,15 @@ def decode_csv_bytes(content: bytes) -> str:
         raise ImportUploadError("Could not read this file. Save it as UTF-8 or Windows-1256 CSV and try again.")
 
 
+def _restore_exported_csv_cell(value: str | None) -> str:
+    text = (value or "").strip()
+    if text.startswith("'"):
+        escaped = text[1:].lstrip()
+        if escaped and escaped[0] in "=+-@":
+            return escaped.strip()
+    return text
+
+
 def parse_csv_rows(
     text: str,
     columns: list[str],
@@ -151,10 +160,9 @@ def parse_csv_rows(
     for raw_row in reader:
         rows.append(
             {
-                column: (
+                column: _restore_exported_csv_cell(
                     (raw_row.get(original_by_lower[column]) or "") if column in original_by_lower else ""
                 )
-                .strip()
                 for column in columns
             }
         )

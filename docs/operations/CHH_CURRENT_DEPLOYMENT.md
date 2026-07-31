@@ -1,5 +1,34 @@
 # CHH current pilot deployment
 
+## 2026-07-31 MIS import history and exports
+
+The CHH pilot school administration Students area now provides school-scoped,
+paginated student import history and stored row outcomes; streamed UTF-8 reports
+for all rows, conflicts, errors and committed changes; and current active
+student, guardian-contact, class-enrolment and populated annual-update exports.
+Only school administrators may use these routes. Result tables omit guardian
+contact values, while correction reports and authorised contact exports contain
+only the school-held fields required for their stated purpose. Every CSV applies
+spreadsheet-formula neutralisation and every history/report/export access is
+audited without contact values. The importer reverses only that exact export
+escape so safe stable IDs and international `+` phone values can be re-imported.
+
+Alembic revision `e7f8a9b0c3d4` expands only the import status constraint so
+future decoding/parsing/planning failures can be retained as failed history.
+There was no data rewrite. The migration passed an isolated PostgreSQL
+upgrade/downgrade/re-upgrade and application smoke. Pre-migration encrypted
+differentials are `20260728-182651F_20260731-075648D` locally and
+`20260725-221530F_20260731-075655D` off-host.
+
+Validation passed 55 focused student-import tests and four migration-guard tests
+against both edited source and the rebuilt image. Svelte reported zero
+errors/warnings, English/Arabic parity passed at 1,796 keys each, and the
+production frontend build passed. Only the CHH backend and frontend were
+rebuilt/recreated. Public frontend and readiness returned HTTP 200 with
+`database=ok` and `migration=current`; affected-service logs contained no
+errors. PostgreSQL and both workers retained their service lifecycle. FHH,
+native code and Android/APK artefacts were untouched.
+
 ## 2026-07-29 authentication admission control
 
 CHH pilot now treats Google OAuth and magic links as identity proof, not

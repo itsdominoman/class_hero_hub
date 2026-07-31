@@ -172,6 +172,44 @@
     summary: Record<string, number>;
     rows: ImportRow[];
   };
+  type ImportHistoryItem = {
+    id: number;
+    filename?: string | null;
+    file_hash?: string | null;
+    mode: 'normal' | 'annual';
+    academic_year_id?: number | null;
+    academic_year?: { id: number; code: string; name: string; name_ar?: string | null } | null;
+    effective_date?: string | null;
+    status: 'staged' | 'committed' | 'discarded' | 'failed';
+    uploaded_by?: { id: number; name?: string | null } | null;
+    committed_by?: { id: number; name?: string | null } | null;
+    created_at?: string | null;
+    committed_at?: string | null;
+    summary: Record<string, number>;
+  };
+  type ImportHistoryRow = {
+    id: number;
+    row_number: number;
+    student_id?: string | null;
+    student_name?: string | null;
+    intended_placement: {
+      branch?: string | null;
+      grade?: string | null;
+      section?: string | null;
+    };
+    student_status?: 'active' | 'leaver' | 'inactive' | null;
+    action: ImportRow['action'];
+    reason?: string | null;
+    affected_student?: {
+      id: number;
+      student_id?: string | null;
+      display_name: string;
+    } | null;
+  };
+  type ImportHistoryDetail = ImportHistoryItem & {
+    rows: ImportHistoryRow[];
+    rows_pagination: { page: number; page_size: number; total: number; pages: number };
+  };
   type TeacherImportRow = {
     id: number;
     row_number: number;
@@ -474,6 +512,18 @@
   let importMode = $state<'normal' | 'annual'>('normal');
   let importAcademicYearId = $state('');
   let importEffectiveDate = $state('');
+  let importHistoryLoaded = $state(false);
+  let importHistoryLoading = $state(false);
+  let importHistoryItems = $state<ImportHistoryItem[]>([]);
+  let importHistoryPage = $state(1);
+  let importHistoryPages = $state(0);
+  let importHistoryTotal = $state(0);
+  let importHistoryStatus = $state('');
+  let importHistoryMode = $state('');
+  let importHistoryDateFrom = $state('');
+  let importHistoryDateTo = $state('');
+  let selectedImportHistory = $state<ImportHistoryDetail | null>(null);
+  let importDownloadBusy = $state('');
 
   let teacherImportFile = $state<File | null>(null);
   let teacherImportUploading = $state(false);
@@ -1009,7 +1059,10 @@
     notice = null;
     clearValidation();
     activeTab = key;
-    if (key === 'students') ensureStudentsLoaded();
+    if (key === 'students') {
+      void ensureStudentsLoaded();
+      if (!importHistoryLoaded) void loadImportHistory();
+    }
     if (key === 'behaviour' && !behaviourLoaded) loadBehaviour();
     if (key === 'calendar') void loadCalendar();
   }
@@ -1298,17 +1351,123 @@
     }
   }
 
+  function saveDownload(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importHistorySummary(item: ImportHistoryItem) {
+    const keys = ['create', 'update', 'move', 'restore', 'reactivate', 'leaver', 'inactive', 'skip', 'conflict', 'error'];
+    return keys
+      .filter((key) => (item.summary[key] || 0) > 0)
+      .map((key) => `${$_(`school.imports.summary.${key}`)}: ${item.summary[key]}`)
+      .join(' · ') || '—';
+  }
+
+  function formatImportTimestamp(value?: string | null) {
+    if (!value) return '—';
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString($locale || undefined);
+  }
+
+  async function loadImportHistory(page = 1) {
+    if (!schoolId || importHistoryLoading) return;
+    importHistoryLoading = true;
+    error = null;
+    try {
+      const query = new URLSearchParams({
+        page: String(page),
+        page_size: '10'
+      });
+      if (importHistoryStatus) query.set('status', importHistoryStatus);
+      if (importHistoryMode) query.set('mode', importHistoryMode);
+      if (importHistoryDateFrom) query.set('date_from', importHistoryDateFrom);
+      if (importHistoryDateTo) query.set('date_to', importHistoryDateTo);
+      const payload = await api.get(`/school/students/imports?${query.toString()}`, schoolOptions());
+      importHistoryItems = payload.items || [];
+      importHistoryPage = payload.page || page;
+      importHistoryPages = payload.pages || 0;
+      importHistoryTotal = payload.total || 0;
+      importHistoryLoaded = true;
+      if (
+        selectedImportHistory
+        && !importHistoryItems.some((item) => item.id === selectedImportHistory?.id)
+      ) {
+        selectedImportHistory = null;
+      }
+    } catch (err: any) {
+      error = err?.message || $_('school.importHistory.loadError');
+    } finally {
+      importHistoryLoading = false;
+    }
+  }
+
+  async function openImportHistory(importId: number, page = 1) {
+    if (!schoolId) return;
+    importHistoryLoading = true;
+    error = null;
+    try {
+      selectedImportHistory = await api.get(
+        `/school/students/imports/${importId}?page=${page}&page_size=25`,
+        schoolOptions()
+      );
+    } catch (err: any) {
+      error = err?.message || $_('school.importHistory.detailError');
+    } finally {
+      importHistoryLoading = false;
+    }
+  }
+
+  async function clearImportHistoryFilters() {
+    importHistoryStatus = '';
+    importHistoryMode = '';
+    importHistoryDateFrom = '';
+    importHistoryDateTo = '';
+    await loadImportHistory(1);
+  }
+
+  async function downloadImportReport(importId: number, reportType: 'all' | 'conflicts' | 'errors' | 'committed') {
+    if (!schoolId) return;
+    const busyKey = `report-${importId}-${reportType}`;
+    importDownloadBusy = busyKey;
+    error = null;
+    try {
+      const blob = await api.download(
+        `/school/students/imports/${importId}/reports/${reportType}.csv`,
+        schoolOptions()
+      );
+      saveDownload(blob, `student-import-${importId}-${reportType}.csv`);
+    } catch (err: any) {
+      error = err?.message || $_('school.importHistory.downloadError');
+    } finally {
+      importDownloadBusy = '';
+    }
+  }
+
+  async function downloadStudentExport(path: string, filename: string) {
+    if (!schoolId) return;
+    importDownloadBusy = path;
+    error = null;
+    try {
+      const blob = await api.download(path, schoolOptions());
+      saveDownload(blob, filename);
+    } catch (err: any) {
+      error = err?.message || $_('school.importHistory.downloadError');
+    } finally {
+      importDownloadBusy = '';
+    }
+  }
+
   async function downloadImportTemplate() {
     if (!schoolId) return;
     error = null;
     try {
       const blob = await api.download('/school/students/import-template', schoolOptions());
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'student_import_template.csv';
-      link.click();
-      URL.revokeObjectURL(url);
+      saveDownload(blob, 'student_import_template.csv');
     } catch (err: any) {
       error = err?.message || $_('school.imports.templateError');
     }
@@ -1339,6 +1498,7 @@
         formData.append('effective_date', importEffectiveDate);
       }
       studentImport = await api.upload('/school/students/imports', formData, schoolOptions());
+      if (importHistoryLoaded) await loadImportHistory(1);
     } catch (err: any) {
       error = err?.message || $_('school.imports.uploadError');
     } finally {
@@ -1359,6 +1519,7 @@
       studentImport = await api.post(`/school/students/imports/${studentImport.id}/commit`, {}, schoolOptions());
       notice = $_('school.imports.committed');
       await ensureStudentsLoaded();
+      if (importHistoryLoaded) await loadImportHistory(1);
       await refresh();
     } catch (err: any) {
       error = err?.message || $_('school.imports.commitError');
@@ -1377,9 +1538,10 @@
     }
     studentImport = null;
     importFile = null;
+    if (importHistoryLoaded) await loadImportHistory(1);
   }
 
-  function importRowRowClass(row: ImportRow) {
+  function importRowRowClass(row: { action: ImportRow['action'] }) {
     if (row.action === 'error') return 'bg-red-50';
     if (row.action === 'conflict') return 'bg-orange-50';
     if (row.action === 'skip') return 'bg-white';
@@ -1402,6 +1564,7 @@
     conflict: 'bg-orange-100 text-orange-800',
     error: 'bg-red-100 text-red-800'
   };
+  const IMPORT_REPORT_TYPES = ['all', 'conflicts', 'errors', 'committed'] as const;
 
   function importSummaryBadges() {
     if (!studentImport) return [];
@@ -3297,6 +3460,7 @@
               {/if}
             </div>
 
+
             <div class="rounded-lg border border-slate-200 bg-white p-5">
               <h2 class="text-lg font-black text-slate-900">{$_('school.teachers.pending')}</h2>
               {#if pendingTeacherInvites.length === 0}
@@ -3776,6 +3940,233 @@
                       </tbody>
                     </table>
                   </div>
+                </div>
+              {/if}
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-white p-5">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 class="text-base font-black text-slate-900">{$_('school.importHistory.title')}</h3>
+                  <p class="mt-1 text-sm text-slate-500">{$_('school.importHistory.help')}</p>
+                </div>
+                <button
+                  type="button"
+                  class="btn-secondary rounded-lg px-4 py-2"
+                  disabled={importHistoryLoading}
+                  onclick={() => loadImportHistory(importHistoryPage)}
+                >
+                  {$_('school.importHistory.refresh')}
+                </button>
+              </div>
+
+              <div class="mt-4 rounded-lg bg-slate-50 p-4">
+                <p class="text-xs font-black uppercase tracking-wide text-slate-500">{$_('school.importHistory.exportsTitle')}</p>
+                <p class="mt-1 text-xs text-slate-500">{$_('school.importHistory.exportsHelp')}</p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    class="btn-secondary rounded-lg px-3 py-2 text-sm"
+                    disabled={Boolean(importDownloadBusy)}
+                    onclick={() => downloadStudentExport('/school/students/exports/active-roster.csv', 'active-student-roster.csv')}
+                  >{$_('school.importHistory.exportActive')}</button>
+                  <button
+                    type="button"
+                    class="btn-secondary rounded-lg px-3 py-2 text-sm"
+                    disabled={Boolean(importDownloadBusy)}
+                    onclick={() => downloadStudentExport('/school/students/exports/guardian-contacts.csv', 'guardian-contact-roster.csv')}
+                  >{$_('school.importHistory.exportGuardians')}</button>
+                  <button
+                    type="button"
+                    class="btn-secondary rounded-lg px-3 py-2 text-sm"
+                    disabled={Boolean(importDownloadBusy)}
+                    onclick={() => downloadStudentExport('/school/students/exports/class-enrolments.csv', 'current-class-enrolments.csv')}
+                  >{$_('school.importHistory.exportEnrolments')}</button>
+                  <button
+                    type="button"
+                    class="btn-secondary rounded-lg px-3 py-2 text-sm"
+                    disabled={Boolean(importDownloadBusy)}
+                    onclick={() => downloadStudentExport('/school/students/exports/annual-update.csv', 'annual-update-students.csv')}
+                  >{$_('school.importHistory.exportAnnual')}</button>
+                </div>
+              </div>
+
+              <div class="mt-4 grid gap-3 md:grid-cols-4">
+                <label class="text-xs font-bold text-slate-600">
+                  {$_('school.imports.status')}
+                  <select class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-normal" bind:value={importHistoryStatus}>
+                    <option value="">{$_('school.importHistory.all')}</option>
+                    <option value="staged">{$_('school.imports.statusValue.staged')}</option>
+                    <option value="committed">{$_('school.imports.statusValue.committed')}</option>
+                    <option value="discarded">{$_('school.imports.statusValue.discarded')}</option>
+                    <option value="failed">{$_('school.imports.statusValue.failed')}</option>
+                  </select>
+                </label>
+                <label class="text-xs font-bold text-slate-600">
+                  {$_('school.imports.mode')}
+                  <select class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-normal" bind:value={importHistoryMode}>
+                    <option value="">{$_('school.importHistory.all')}</option>
+                    <option value="normal">{$_('school.imports.modeValue.normal')}</option>
+                    <option value="annual">{$_('school.imports.modeValue.annual')}</option>
+                  </select>
+                </label>
+                <label class="text-xs font-bold text-slate-600">
+                  {$_('school.importHistory.dateFrom')}
+                  <input type="date" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-normal" bind:value={importHistoryDateFrom} />
+                </label>
+                <label class="text-xs font-bold text-slate-600">
+                  {$_('school.importHistory.dateTo')}
+                  <input type="date" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-normal" bind:value={importHistoryDateTo} />
+                </label>
+              </div>
+              <div class="mt-3 flex gap-2">
+                <button type="button" class="btn-hero rounded-lg px-4 py-2" disabled={importHistoryLoading} onclick={() => loadImportHistory(1)}>
+                  {$_('school.importHistory.applyFilters')}
+                </button>
+                <button type="button" class="btn-secondary rounded-lg px-4 py-2" disabled={importHistoryLoading} onclick={clearImportHistoryFilters}>
+                  {$_('school.importHistory.clearFilters')}
+                </button>
+              </div>
+
+              {#if importHistoryLoading && !importHistoryLoaded}
+                <p class="mt-4 text-sm text-slate-500">{$_('school.loading')}</p>
+              {:else if importHistoryLoaded}
+                <p class="mt-4 text-xs text-slate-500">{$_('school.importHistory.total')}: {importHistoryTotal}</p>
+                <div class="mt-2 overflow-x-auto rounded-lg border border-slate-100">
+                  <table class="w-full min-w-[1100px] text-left text-sm">
+                    <thead class="bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                      <tr>
+                        <th class="px-3 py-2">{$_('school.importHistory.batch')}</th>
+                        <th class="px-3 py-2">{$_('school.importHistory.file')}</th>
+                        <th class="px-3 py-2">{$_('school.imports.mode')}</th>
+                        <th class="px-3 py-2">{$_('school.imports.destinationYear')}</th>
+                        <th class="px-3 py-2">{$_('school.imports.status')}</th>
+                        <th class="px-3 py-2">{$_('school.importHistory.people')}</th>
+                        <th class="px-3 py-2">{$_('school.importHistory.timestamps')}</th>
+                        <th class="px-3 py-2">{$_('school.importHistory.outcomes')}</th>
+                        <th class="px-3 py-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                      {#each importHistoryItems as item}
+                        <tr>
+                          <td class="px-3 py-2 font-bold">#{item.id}</td>
+                          <td class="px-3 py-2">
+                            <p>{item.filename || '—'}</p>
+                            {#if item.file_hash}<p class="text-xs text-slate-500">{item.file_hash}</p>{/if}
+                          </td>
+                          <td class="px-3 py-2">{$_(`school.imports.modeValue.${item.mode}`)}</td>
+                          <td class="px-3 py-2">
+                            {item.academic_year?.name || '—'}
+                            {#if item.effective_date}<p class="text-xs text-slate-500">{item.effective_date}</p>{/if}
+                          </td>
+                          <td class="px-3 py-2">{$_(`school.imports.statusValue.${item.status}`)}</td>
+                          <td class="px-3 py-2 text-xs">
+                            <p>{$_('school.importHistory.uploadedBy')}: {item.uploaded_by?.name || '—'}</p>
+                            <p>{$_('school.importHistory.committedBy')}: {item.committed_by?.name || '—'}</p>
+                          </td>
+                          <td class="px-3 py-2 text-xs">
+                            <p>{formatImportTimestamp(item.created_at)}</p>
+                            <p>{formatImportTimestamp(item.committed_at)}</p>
+                          </td>
+                          <td class="max-w-sm px-3 py-2 text-xs">{importHistorySummary(item)}</td>
+                          <td class="px-3 py-2">
+                            <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-xs" onclick={() => openImportHistory(item.id)}>
+                              {$_('school.importHistory.open')}
+                            </button>
+                          </td>
+                        </tr>
+                      {:else}
+                        <tr><td colspan="9" class="px-3 py-6 text-center text-slate-500">{$_('school.importHistory.empty')}</td></tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
+                {#if importHistoryPages > 1}
+                  <div class="mt-3 flex items-center justify-end gap-2 text-sm">
+                    <button type="button" class="btn-secondary rounded-lg px-3 py-2" disabled={importHistoryPage <= 1 || importHistoryLoading} onclick={() => loadImportHistory(importHistoryPage - 1)}>
+                      {$_('school.importHistory.previous')}
+                    </button>
+                    <span>{importHistoryPage} / {importHistoryPages}</span>
+                    <button type="button" class="btn-secondary rounded-lg px-3 py-2" disabled={importHistoryPage >= importHistoryPages || importHistoryLoading} onclick={() => loadImportHistory(importHistoryPage + 1)}>
+                      {$_('school.importHistory.next')}
+                    </button>
+                  </div>
+                {/if}
+              {/if}
+
+              {#if selectedImportHistory}
+                <div class="mt-5 rounded-lg border border-sky-200 bg-sky-50 p-4">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h4 class="font-black text-slate-900">{$_('school.importHistory.batch')} #{selectedImportHistory.id}</h4>
+                      <p class="mt-1 text-sm text-slate-600">{selectedImportHistory.filename || '—'} · {importHistorySummary(selectedImportHistory)}</p>
+                    </div>
+                    <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={() => { selectedImportHistory = null; }}>
+                      {$_('school.close')}
+                    </button>
+                  </div>
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    {#each IMPORT_REPORT_TYPES as reportType}
+                      <button
+                        type="button"
+                        class="btn-secondary rounded-lg px-3 py-2 text-sm"
+                        disabled={Boolean(importDownloadBusy)}
+                        onclick={() => downloadImportReport(selectedImportHistory!.id, reportType)}
+                      >
+                        {$_(`school.importHistory.report.${reportType}`)}
+                      </button>
+                    {/each}
+                  </div>
+                  <div class="mt-3 overflow-x-auto rounded-lg border border-sky-100 bg-white">
+                    <table class="w-full min-w-[950px] text-left text-sm">
+                      <thead class="bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                        <tr>
+                          <th class="px-3 py-2">{$_('school.imports.row')}</th>
+                          <th class="px-3 py-2">{$_('school.students.externalRef')}</th>
+                          <th class="px-3 py-2">{$_('school.students.title')}</th>
+                          <th class="px-3 py-2">{$_('school.importHistory.placement')}</th>
+                          <th class="px-3 py-2">{$_('school.imports.action')}</th>
+                          <th class="px-3 py-2">{$_('school.importHistory.reason')}</th>
+                          <th class="px-3 py-2">{$_('school.importHistory.affectedStudent')}</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-slate-100">
+                        {#each selectedImportHistory.rows as row}
+                          <tr class={importRowRowClass(row)}>
+                            <td class="px-3 py-2">{row.row_number}</td>
+                            <td class="px-3 py-2">{row.student_id || '—'}</td>
+                            <td class="px-3 py-2">{row.student_name || '—'}</td>
+                            <td class="px-3 py-2">
+                              {[row.intended_placement.branch, row.intended_placement.grade, row.intended_placement.section].filter(Boolean).join(' / ') || '—'}
+                            </td>
+                            <td class="px-3 py-2 font-semibold">{importActionLabel(row.action)}</td>
+                            <td class="px-3 py-2 text-xs">{row.reason || '—'}</td>
+                            <td class="px-3 py-2 text-xs">{row.affected_student?.display_name || '—'}</td>
+                          </tr>
+                        {:else}
+                          <tr><td colspan="7" class="px-3 py-6 text-center text-slate-500">{$_('school.importHistory.emptyRows')}</td></tr>
+                        {/each}
+                      </tbody>
+                    </table>
+                  </div>
+                  {#if selectedImportHistory.rows_pagination.pages > 1}
+                    <div class="mt-3 flex items-center justify-end gap-2 text-sm">
+                      <button
+                        type="button"
+                        class="btn-secondary rounded-lg px-3 py-2"
+                        disabled={selectedImportHistory.rows_pagination.page <= 1 || importHistoryLoading}
+                        onclick={() => openImportHistory(selectedImportHistory!.id, selectedImportHistory!.rows_pagination.page - 1)}
+                      >{$_('school.importHistory.previous')}</button>
+                      <span>{selectedImportHistory.rows_pagination.page} / {selectedImportHistory.rows_pagination.pages}</span>
+                      <button
+                        type="button"
+                        class="btn-secondary rounded-lg px-3 py-2"
+                        disabled={selectedImportHistory.rows_pagination.page >= selectedImportHistory.rows_pagination.pages || importHistoryLoading}
+                        onclick={() => openImportHistory(selectedImportHistory!.id, selectedImportHistory!.rows_pagination.page + 1)}
+                      >{$_('school.importHistory.next')}</button>
+                    </div>
+                  {/if}
                 </div>
               {/if}
             </div>

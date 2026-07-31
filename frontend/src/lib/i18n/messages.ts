@@ -1281,7 +1281,8 @@ export const en = {
       statusValue: {
         staged: 'Staged (preview only)',
         committed: 'Committed',
-        discarded: 'Discarded'
+        discarded: 'Discarded',
+        failed: 'Failed'
       },
       summary: {
         create: 'New',
@@ -1321,6 +1322,47 @@ export const en = {
         skip: 'No change',
         conflict: 'Conflict',
         error: 'Error'
+      }
+    },
+    importHistory: {
+      title: 'Import History and Exports',
+      help: 'Review previous student imports, inspect row outcomes and download safe operational CSV files.',
+      refresh: 'Refresh history',
+      exportsTitle: 'Roster exports',
+      exportsHelp: 'Exports contain school-held student, placement and guardian-contact data only. Login, invitation, FHH and safeguarding data are excluded.',
+      exportActive: 'Active student roster',
+      exportGuardians: 'Guardian/contact roster',
+      exportEnrolments: 'Current class enrolments',
+      exportAnnual: 'Populated Annual Update CSV',
+      all: 'All',
+      dateFrom: 'From date',
+      dateTo: 'To date',
+      applyFilters: 'Apply filters',
+      clearFilters: 'Clear',
+      total: 'Import batches',
+      batch: 'Batch',
+      file: 'File',
+      people: 'Uploaded / committed by',
+      timestamps: 'Created / committed',
+      outcomes: 'Outcomes',
+      uploadedBy: 'Uploaded by',
+      committedBy: 'Committed by',
+      open: 'Open',
+      empty: 'No imports match these filters.',
+      emptyRows: 'This import has no rows on this page.',
+      previous: 'Previous',
+      next: 'Next',
+      placement: 'Intended placement',
+      reason: 'Reason',
+      affectedStudent: 'Affected student',
+      loadError: 'Failed to load import history',
+      detailError: 'Failed to load import row details',
+      downloadError: 'Failed to download CSV',
+      report: {
+        all: 'All results',
+        conflicts: 'Conflicts only',
+        errors: 'Errors only',
+        committed: 'Committed changes'
       }
     },
     teacherImports: {
@@ -3233,7 +3275,8 @@ export const ar = {
       statusValue: {
         staged: 'معاينة فقط',
         committed: 'تم التنفيذ',
-        discarded: 'تم التجاهل'
+        discarded: 'تم التجاهل',
+        failed: 'فشل'
       },
       summary: {
         create: 'جديد',
@@ -3273,6 +3316,47 @@ export const ar = {
         skip: 'بلا تغيير',
         conflict: 'تعارض',
         error: 'خطأ'
+      }
+    },
+    importHistory: {
+      title: 'سجل الاستيراد والتصدير',
+      help: 'راجع عمليات استيراد الطلاب السابقة ونتائج الصفوف ونزّل ملفات CSV تشغيلية آمنة.',
+      refresh: 'تحديث السجل',
+      exportsTitle: 'تصدير القوائم',
+      exportsHelp: 'تتضمن الصادرات بيانات الطلاب والمواقع وبيانات اتصال أولياء الأمور المحفوظة لدى المدرسة فقط. وتستبعد بيانات تسجيل الدخول والدعوات وفاميلي هيرو هب والحماية.',
+      exportActive: 'قائمة الطلاب النشطين',
+      exportGuardians: 'قائمة أولياء الأمور والاتصالات',
+      exportEnrolments: 'تسجيلات الصفوف الحالية',
+      exportAnnual: 'ملف التحديث السنوي المعبأ',
+      all: 'الكل',
+      dateFrom: 'من تاريخ',
+      dateTo: 'إلى تاريخ',
+      applyFilters: 'تطبيق عوامل التصفية',
+      clearFilters: 'مسح',
+      total: 'دفعات الاستيراد',
+      batch: 'الدفعة',
+      file: 'الملف',
+      people: 'الرفع والتنفيذ بواسطة',
+      timestamps: 'الإنشاء والتنفيذ',
+      outcomes: 'النتائج',
+      uploadedBy: 'تم الرفع بواسطة',
+      committedBy: 'تم التنفيذ بواسطة',
+      open: 'فتح',
+      empty: 'لا توجد عمليات استيراد مطابقة لعوامل التصفية.',
+      emptyRows: 'لا تحتوي هذه الصفحة على صفوف لهذه الدفعة.',
+      previous: 'السابق',
+      next: 'التالي',
+      placement: 'الموقع المقصود',
+      reason: 'السبب',
+      affectedStudent: 'الطالب المتأثر',
+      loadError: 'تعذر تحميل سجل الاستيراد',
+      detailError: 'تعذر تحميل تفاصيل صفوف الاستيراد',
+      downloadError: 'تعذر تنزيل ملف CSV',
+      report: {
+        all: 'كل النتائج',
+        conflicts: 'التعارضات فقط',
+        errors: 'الأخطاء فقط',
+        committed: 'التغييرات المنفذة'
       }
     },
     teacherImports: {

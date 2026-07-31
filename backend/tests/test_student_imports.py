@@ -1,3 +1,5 @@
+import csv
+import io
 import os
 from contextlib import contextmanager
 from datetime import date
@@ -15,6 +17,7 @@ from sqlalchemy.pool import StaticPool
 from app import auth, database, mailer
 from app.admission import has_active_entitlement
 from app.database import Base, get_db
+from app.imports_service import parse_csv_rows
 from app.main import app
 from app.models_school import (
     AcademicYear,
@@ -284,6 +287,12 @@ def row_for(payload, student_id):
     return next(row for row in payload["rows"] if row["student_id"] == student_id)
 
 
+def csv_download_rows(response):
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv")
+    return list(csv.DictReader(io.StringIO(response.content.decode("utf-8-sig"))))
+
+
 def test_template_download_has_expected_headers(client, import_world):
     world = import_world
     resp = client.get("/api/school/students/import-template", headers=bearer(world["alpha_admin"].email, world["alpha"].id))
@@ -318,6 +327,20 @@ def test_cp1256_encoding_supported(client, import_world):
     resp = upload(client, world, rows, encoding="cp1256")
     assert resp.status_code == 201
     assert resp.json()["summary"]["create"] == 1
+
+
+def test_formula_safe_export_cells_are_reimportable():
+    rows = parse_csv_rows(
+        "student_id,guardian1_phone,first_name\n'=MIS-1,'+96812345678,Ali\n",
+        ["student_id", "guardian1_phone", "first_name"],
+    )
+    assert rows == [
+        {
+            "student_id": "=MIS-1",
+            "guardian1_phone": "+96812345678",
+            "first_name": "Ali",
+        }
+    ]
 
 
 def test_undecodable_bytes_return_clear_encoding_error(client, import_world):
@@ -1363,3 +1386,411 @@ def test_import_query_shape_does_not_scale_with_row_count(client, import_world):
     # overhead, which would otherwise catch a superlinear (O(rows^2) or
     # per-row extra lookup) regression.
     assert large_commit_counter["n"] - small_commit_counter["n"] < extra_rows * 5
+
+
+def test_import_history_is_school_scoped_paginated_and_filterable(
+    client, import_world
+):
+    world = import_world
+    committed = upload(
+        client,
+        world,
+        [csv_row(student_id="HISTORY-1", first_name="Ali", last_name="Khan")],
+        filename="normal.csv",
+    )
+    commit(client, world, committed.json()["id"])
+    annual = annual_upload(
+        client,
+        world,
+        [
+            csv_row(
+                student_id="HISTORY-2",
+                first_name="Noor",
+                last_name="Hassan",
+                student_status="active",
+            )
+        ],
+    )
+    discarded = upload(
+        client,
+        world,
+        [csv_row(student_id="HISTORY-3", first_name="Sara", last_name="Ali")],
+        filename="discarded.csv",
+    )
+    client.post(
+        f"/api/school/students/imports/{discarded.json()['id']}/discard",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+    )
+    failed_upload = client.post(
+        "/api/school/students/imports",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+        files={"file": ("failed.csv", b"\xff\xfe\x00bad", "text/csv")},
+    )
+    assert failed_upload.status_code == 422
+
+    first_page = client.get(
+        "/api/school/students/imports?page=1&page_size=2",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+    )
+    assert first_page.status_code == 200
+    assert first_page.json()["total"] == 4
+    assert first_page.json()["pages"] == 2
+    assert len(first_page.json()["items"]) == 2
+
+    committed_only = client.get(
+        "/api/school/students/imports?status=committed&mode=normal",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+    )
+    item = committed_only.json()["items"][0]
+    assert committed_only.json()["total"] == 1
+    assert item["id"] == committed.json()["id"]
+    assert item["filename"] == "normal.csv"
+    assert item["mode"] == "normal"
+    assert item["file_hash"] is None
+    assert item["uploaded_by"]["name"] == "Alpha Admin"
+    assert item["committed_by"]["name"] == "Alpha Admin"
+    assert item["summary"]["create"] == 1
+    created_date = item["created_at"][:10]
+
+    annual_only = client.get(
+        "/api/school/students/imports?status=staged&mode=annual",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+    )
+    annual_item = annual_only.json()["items"][0]
+    assert annual_item["id"] == annual.json()["id"]
+    assert annual_item["academic_year"]["id"] == world["next_year"].id
+    assert annual_item["effective_date"] == "2027-07-01"
+
+    by_date = client.get(
+        f"/api/school/students/imports?date_from={created_date}&date_to={created_date}",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+    )
+    assert by_date.json()["total"] == 4
+
+    failed = client.get(
+        "/api/school/students/imports?status=failed",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+    )
+    assert failed.status_code == 200
+    assert failed.json()["total"] == 1
+    assert failed.json()["items"][0]["filename"] == "failed.csv"
+    assert failed.json()["items"][0]["summary"]["error"] == 1
+    failed_detail = client.get(
+        f"/api/school/students/imports/{failed.json()['items'][0]['id']}",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+    )
+    assert failed_detail.status_code == 200
+    assert failed_detail.json()["rows"][0]["action"] == "error"
+    assert failed_detail.json()["rows"][0]["reason"]
+
+    beta = client.get(
+        "/api/school/students/imports",
+        headers=bearer(world["beta_admin"].email, world["beta"].id),
+    )
+    assert beta.status_code == 200
+    assert beta.json()["total"] == 0
+
+
+def test_import_history_rows_are_paginated_private_and_audited(
+    client, import_world, db
+):
+    world = import_world
+    staged = upload(
+        client,
+        world,
+        [
+            csv_row(
+                student_id="HISTORY-ROW",
+                first_name="Ali",
+                last_name="Khan",
+                guardian1_name="Private Guardian",
+                guardian1_email="private.guardian@example.com",
+                guardian1_phone="+96891234567",
+            )
+        ],
+    )
+    commit(client, world, staged.json()["id"])
+
+    detail = client.get(
+        f"/api/school/students/imports/{staged.json()['id']}?page=1&page_size=1",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+    )
+    assert detail.status_code == 200
+    body = detail.json()
+    assert body["rows_pagination"] == {
+        "page": 1,
+        "page_size": 1,
+        "total": 1,
+        "pages": 1,
+    }
+    row = body["rows"][0]
+    assert row["student_id"] == "HISTORY-ROW"
+    assert row["student_name"] == "Ali Khan"
+    assert row["intended_placement"]["section"] == "A"
+    assert row["action"] == "create"
+    assert row["affected_student"]["student_id"] == "HISTORY-ROW"
+    assert "private.guardian@example.com" not in detail.text
+    assert "+96891234567" not in detail.text
+
+    teacher = client.get(
+        f"/api/school/students/imports/{staged.json()['id']}",
+        headers=bearer(world["alpha_teacher"].email, world["alpha"].id),
+    )
+    assert teacher.status_code == 403
+    cross_school = client.get(
+        f"/api/school/students/imports/{staged.json()['id']}",
+        headers=bearer(world["beta_admin"].email, world["beta"].id),
+    )
+    assert cross_school.status_code == 404
+    audit = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.action == "school.import.history.viewed",
+            AuditLog.entity_id == staged.json()["id"],
+        )
+        .one()
+    )
+    assert audit.actor_user_id == world["alpha_admin"].id
+    assert "email" not in str(audit.detail).lower()
+    assert "phone" not in str(audit.detail).lower()
+
+
+def test_import_result_reports_cover_all_filters_utf8_and_formula_safety(
+    client, import_world, db
+):
+    world = import_world
+    staged = upload(
+        client,
+        world,
+        [
+            csv_row(
+                student_id="REPORT-VALID",
+                first_name="=1+1",
+                last_name="Khan",
+                name_ar="نور",
+            ),
+            csv_row(student_id="REPORT-DUP", first_name="One", last_name="Duplicate"),
+            csv_row(student_id=" report-dup ", first_name="Two", last_name="Duplicate"),
+            csv_row(student_id="REPORT-ERROR", first_name="", last_name="Missing"),
+        ],
+    )
+    assert commit(client, world, staged.json()["id"]).status_code == 200
+
+    report_rows = {}
+    for report_type, expected_count in {
+        "all": 4,
+        "conflicts": 2,
+        "errors": 1,
+        "committed": 1,
+    }.items():
+        response = client.get(
+            f"/api/school/students/imports/{staged.json()['id']}/reports/{report_type}.csv",
+            headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+        )
+        assert response.content.startswith(b"\xef\xbb\xbf")
+        rows = csv_download_rows(response)
+        assert len(rows) == expected_count
+        report_rows[report_type] = rows
+
+    committed_row = report_rows["committed"][0]
+    assert committed_row["outcome"] == "create"
+    assert committed_row["first_name"] == "'=1+1"
+    assert committed_row["name_ar"] == "نور"
+    assert committed_row["affected_student_id"]
+    assert report_rows["conflicts"][0]["reason"]
+    assert report_rows["errors"][0]["reason"]
+    assert set(CSV_HEADER.split(",")).issubset(report_rows["all"][0].keys())
+
+    cross_school = client.get(
+        f"/api/school/students/imports/{staged.json()['id']}/reports/all.csv",
+        headers=bearer(world["beta_admin"].email, world["beta"].id),
+    )
+    assert cross_school.status_code == 404
+    assert (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.action == "school.import.report.exported",
+            AuditLog.entity_id == staged.json()["id"],
+        )
+        .count()
+        == 4
+    )
+
+
+def test_current_roster_guardian_enrolment_and_annual_exports_are_safe(
+    client, import_world, db
+):
+    world = import_world
+    staged = upload(
+        client,
+        world,
+        [
+            csv_row(
+                student_id="EXPORT-1",
+                first_name="=Ali",
+                last_name="Khan",
+                preferred_name="Aly",
+                name_ar="علي خان",
+                dob="2015-02-03",
+                gender="male",
+                guardian1_id="G-EXPORT-1",
+                guardian1_name="@Guardian",
+                guardian1_email="guardian.export@example.com",
+                guardian1_phone="+96891234567",
+                guardian1_relationship="guardian",
+            )
+        ],
+    )
+    commit(client, world, staged.json()["id"])
+    student = db.query(Student).filter_by(external_ref="EXPORT-1").one()
+    contact = db.query(StudentGuardianContact).filter_by(student_id=student.id).one()
+    contact.is_primary = True
+    contact.is_emergency = True
+    db.commit()
+
+    active = client.get(
+        "/api/school/students/exports/active-roster.csv",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+    )
+    active_rows = csv_download_rows(active)
+    assert active_rows[0]["student_id"] == "EXPORT-1"
+    assert active_rows[0]["first_name"] == "'=Ali"
+    assert active_rows[0]["name_ar"] == "علي خان"
+    assert active_rows[0]["student_status"] == "active"
+    assert active_rows[0]["branch"] == "MAIN"
+    assert active_rows[0]["grade"] == "KG1"
+    assert active_rows[0]["section"] == "A"
+
+    guardians = client.get(
+        "/api/school/students/exports/guardian-contacts.csv",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+    )
+    guardian_rows = csv_download_rows(guardians)
+    assert guardian_rows[0]["guardian_contact_id"] == "G-EXPORT-1"
+    assert guardian_rows[0]["guardian_name"] == "'@Guardian"
+    assert guardian_rows[0]["email"] == "guardian.export@example.com"
+    assert guardian_rows[0]["phone"] == "'+96891234567"
+    assert guardian_rows[0]["is_primary"] == "true"
+    assert guardian_rows[0]["is_emergency"] == "true"
+    assert guardian_rows[0]["contact_active"] == "true"
+
+    enrolments = client.get(
+        "/api/school/students/exports/class-enrolments.csv",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+    )
+    enrolment_rows = csv_download_rows(enrolments)
+    assert enrolment_rows[0]["student_id"] == "EXPORT-1"
+    assert enrolment_rows[0]["academic_year"] == "2026"
+    assert enrolment_rows[0]["valid_from"]
+
+    annual = client.get(
+        "/api/school/students/exports/annual-update.csv",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+    )
+    annual_rows = csv_download_rows(annual)
+    assert list(annual_rows[0].keys()) == CSV_HEADER.split(",")
+    assert annual_rows[0]["student_id"] == "EXPORT-1"
+    assert annual_rows[0]["name_ar"] == "علي خان"
+    assert annual_rows[0]["student_status"] == "active"
+    assert annual_rows[0]["guardian1_id"] == "G-EXPORT-1"
+    assert annual_rows[0]["guardian1_name"] == "'@Guardian"
+    assert annual_rows[0]["guardian1_email"] == "guardian.export@example.com"
+
+    forbidden_headers = {
+        "user_id",
+        "password",
+        "session",
+        "token",
+        "fhh_child_ref",
+        "fhh_household_ref",
+        "message",
+        "behaviour",
+        "safeguarding",
+    }
+    for rows in (active_rows, guardian_rows, enrolment_rows, annual_rows):
+        assert forbidden_headers.isdisjoint(rows[0].keys())
+
+    beta = client.get(
+        "/api/school/students/exports/annual-update.csv",
+        headers=bearer(world["beta_admin"].email, world["beta"].id),
+    )
+    assert beta.status_code == 200
+    assert csv_download_rows(beta) == []
+    teacher = client.get(
+        "/api/school/students/exports/active-roster.csv",
+        headers=bearer(world["alpha_teacher"].email, world["alpha"].id),
+    )
+    assert teacher.status_code == 403
+    assert (
+        db.query(AuditLog)
+        .filter(AuditLog.action == "school.student_export.downloaded")
+        .count()
+        == 5
+    )
+
+
+def test_large_import_history_and_exports_have_bounded_query_shape(
+    client, import_world, db
+):
+    world = import_world
+    imp = Import(
+        school_id=world["alpha"].id,
+        kind="students",
+        mode="normal",
+        filename="large.csv",
+        status="staged",
+        uploaded_by_user_id=world["alpha_admin"].id,
+        summary={"total": 500, "skip": 500},
+    )
+    db.add(imp)
+    db.flush()
+    students = [
+        Student(
+            school_id=world["alpha"].id,
+            external_ref=f"BOUNDED-{idx}",
+            first_name=f"First{idx}",
+            last_name=f"Last{idx}",
+            status="active",
+        )
+        for idx in range(40)
+    ]
+    db.add_all(students)
+    db.flush()
+    db.add_all(
+        [
+            ImportRow(
+                import_id=imp.id,
+                row_number=idx,
+                raw={
+                    "student_id": f"LARGE-{idx}",
+                    "first_name": f"First{idx}",
+                    "last_name": f"Last{idx}",
+                    "branch": "MAIN",
+                    "grade": "KG1",
+                    "section": "A",
+                },
+                action="skip",
+            )
+            for idx in range(1, 501)
+        ]
+    )
+    db.commit()
+
+    with count_queries() as detail_queries:
+        detail = client.get(
+            f"/api/school/students/imports/{imp.id}?page=7&page_size=25",
+            headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+        )
+    assert detail.status_code == 200
+    assert len(detail.json()["rows"]) == 25
+    assert detail.json()["rows_pagination"]["total"] == 500
+    assert detail_queries["n"] < 20
+
+    with count_queries() as export_queries:
+        active = client.get(
+            "/api/school/students/exports/active-roster.csv",
+            headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+        )
+    assert active.status_code == 200
+    assert len(csv_download_rows(active)) == 40
+    assert export_queries["n"] < 10

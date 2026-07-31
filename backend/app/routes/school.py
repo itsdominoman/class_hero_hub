@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any, Type
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -31,6 +32,7 @@ from ..imports_service import (
 )
 from ..models_school import (
     AcademicYear,
+    AuditLog,
     BranchCampus,
     ClassSection,
     DefaultSubjectTemplate,
@@ -53,6 +55,23 @@ from ..models_school import (
     User,
 )
 from ..rosters import resolve_rosters_for_students, roster_payload
+from ..student_exports import (
+    CLASS_ENROLMENT_COLUMNS,
+    GUARDIAN_CONTACT_COLUMNS,
+    IMPORT_REPORT_COLUMNS,
+    IMPORT_REPORT_TYPES,
+    STUDENT_ROSTER_COLUMNS,
+    annual_update_rows,
+    current_class_enrolment_rows,
+    current_student_placement_query,
+    guardian_contact_rows,
+    guardian_contacts_for_annual_export,
+    import_report_query,
+    import_report_rows,
+    import_row_reason,
+    stream_utf8_csv,
+    student_roster_rows,
+)
 from .platform import _invite_payload, _issue_staff_invite
 from ..school_scope import is_open_interval, open_interval_expression, require_school_role, write_audit
 
@@ -2335,6 +2354,36 @@ def create_student(payload: StudentRequest, membership: Membership = Depends(req
     return {**_student_with_context(db, row), "restored": False}
 
 
+_IMPORT_HISTORY_SUMMARY_ACTIONS = (
+    "create",
+    "update",
+    "move",
+    "restore",
+    "reactivate",
+    "leaver",
+    "inactive",
+    "skip",
+    "conflict",
+    "error",
+)
+
+
+def _import_history_summary(imp: Import) -> dict[str, int]:
+    stored = imp.summary or {}
+    summary = {
+        action: int(stored.get(action, 0) or 0)
+        for action in _IMPORT_HISTORY_SUMMARY_ACTIONS
+    }
+    summary["total"] = int(stored.get("total", sum(summary.values())) or 0)
+    return summary
+
+
+def _user_history_ref(user: User | None) -> dict[str, Any] | None:
+    if user is None:
+        return None
+    return {"id": user.id, "name": user.name}
+
+
 def _import_summary_payload(imp: Import) -> dict[str, Any]:
     return {
         "id": imp.id,
@@ -2345,9 +2394,34 @@ def _import_summary_payload(imp: Import) -> dict[str, Any]:
         "effective_date": imp.effective_date,
         "filename": imp.filename,
         "status": imp.status,
-        "summary": imp.summary,
+        "summary": _import_history_summary(imp),
         "created_at": imp.created_at,
         "committed_at": imp.committed_at,
+    }
+
+
+def _import_history_payload(
+    imp: Import,
+    *,
+    year: AcademicYear | None,
+    uploaded_by: User | None,
+    committed_by: User | None,
+) -> dict[str, Any]:
+    return {
+        **_import_summary_payload(imp),
+        "file_hash": getattr(imp, "file_hash", None),
+        "academic_year": (
+            {
+                "id": year.id,
+                "code": year.code,
+                "name": year.name,
+                "name_ar": year.name_ar,
+            }
+            if year is not None
+            else None
+        ),
+        "uploaded_by": _user_history_ref(uploaded_by),
+        "committed_by": _user_history_ref(committed_by),
     }
 
 
@@ -2380,6 +2454,105 @@ def _import_row_payload(row: ImportRow) -> dict[str, Any]:
     }
 
 
+def _import_history_context(
+    db: Session,
+    school_id: int,
+    imports: list[Import],
+) -> tuple[dict[int, AcademicYear], dict[int, User], dict[int, int]]:
+    year_ids = {imp.academic_year_id for imp in imports if imp.academic_year_id is not None}
+    years_by_id = {
+        year.id: year
+        for year in (
+            db.query(AcademicYear)
+            .filter(AcademicYear.school_id == school_id, AcademicYear.id.in_(year_ids))
+            .all()
+            if year_ids
+            else []
+        )
+    }
+    import_ids = [imp.id for imp in imports]
+    committed_actor_by_import: dict[int, int] = {}
+    if import_ids:
+        audit_rows = (
+            db.query(AuditLog)
+            .filter(
+                AuditLog.school_id == school_id,
+                AuditLog.action == "school.import.committed",
+                AuditLog.entity_type == "imports",
+                AuditLog.entity_id.in_(import_ids),
+            )
+            .order_by(AuditLog.id.desc())
+            .all()
+        )
+        for audit in audit_rows:
+            if audit.entity_id is not None and audit.actor_user_id is not None:
+                committed_actor_by_import.setdefault(audit.entity_id, audit.actor_user_id)
+    user_ids = {
+        user_id
+        for user_id in (
+            *(imp.uploaded_by_user_id for imp in imports),
+            *committed_actor_by_import.values(),
+        )
+        if user_id is not None
+    }
+    users_by_id = {
+        user.id: user
+        for user in (
+            db.query(User).filter(User.id.in_(user_ids)).all()
+            if user_ids
+            else []
+        )
+    }
+    return years_by_id, users_by_id, committed_actor_by_import
+
+
+def _student_import_or_404(db: Session, school_id: int, import_id: int) -> Import:
+    imp = _get_owned(db, Import, school_id, import_id)
+    if imp.kind != "students":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Import not found")
+    return imp
+
+
+def _history_row_payload(
+    row: ImportRow,
+    affected_student: Student | None,
+) -> dict[str, Any]:
+    raw = row.raw or {}
+    return {
+        "id": row.id,
+        "row_number": row.row_number,
+        "student_id": raw.get("student_id") or None,
+        "student_name": " ".join(
+            value for value in (raw.get("first_name"), raw.get("last_name")) if value
+        )
+        or None,
+        "intended_placement": {
+            "branch": raw.get("branch") or None,
+            "grade": raw.get("grade") or None,
+            "section": raw.get("section") or None,
+        },
+        "student_status": raw.get("student_status") or None,
+        "action": row.action,
+        "reason": import_row_reason(row),
+        "affected_student": (
+            {
+                "id": affected_student.id,
+                "student_id": affected_student.external_ref,
+                "display_name": " ".join(
+                    value
+                    for value in (
+                        affected_student.preferred_name or affected_student.first_name,
+                        affected_student.last_name,
+                    )
+                    if value
+                ),
+            }
+            if affected_student is not None
+            else None
+        ),
+    }
+
+
 def _import_detail_payload(db: Session, imp: Import, row_payload_fn=_import_row_payload) -> dict[str, Any]:
     rows = db.query(ImportRow).filter(ImportRow.import_id == imp.id).order_by(ImportRow.row_number.asc()).all()
     return {**_import_summary_payload(imp), "rows": [row_payload_fn(row) for row in rows]}
@@ -2407,24 +2580,34 @@ async def upload_student_import(
     school_id = _school_id(membership)
     mode = (mode or "normal").strip().lower()
     content = await file.read()
-    try:
-        if mode not in STUDENT_IMPORT_MODES:
-            raise ImportUploadError("Import mode must be 'normal' or 'annual'.")
-        if mode == "annual":
-            if academic_year_id is None:
-                raise ImportUploadError("Annual Update requires a destination academic year.")
-            selected_year = (
-                db.query(AcademicYear)
-                .filter(
-                    AcademicYear.id == academic_year_id,
-                    AcademicYear.school_id == school_id,
-                    AcademicYear.status != "archived",
-                )
-                .first()
+    if mode not in STUDENT_IMPORT_MODES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Import mode must be 'normal' or 'annual'.",
+        )
+    if mode == "annual":
+        if academic_year_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Annual Update requires a destination academic year.",
             )
-            if not selected_year:
-                raise ImportUploadError("The selected destination academic year is not available for this school.")
-            effective_date = effective_date or selected_year.start_date
+        selected_year = (
+            db.query(AcademicYear)
+            .filter(
+                AcademicYear.id == academic_year_id,
+                AcademicYear.school_id == school_id,
+                AcademicYear.status != "archived",
+            )
+            .first()
+        )
+        if not selected_year:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="The selected destination academic year is not available for this school.",
+            )
+        effective_date = effective_date or selected_year.start_date
+
+    try:
         text = decode_csv_bytes(content)
         raw_rows = parse_csv_rows(
             text,
@@ -2447,6 +2630,48 @@ async def upload_student_import(
             effective_date=effective_date,
         )
     except ImportUploadError as exc:
+        failed_summary = {"total": 1, "error": 1}
+        failed_import = Import(
+            school_id=school_id,
+            kind="students",
+            mode=mode,
+            academic_year_id=academic_year_id if mode == "annual" else None,
+            effective_date=effective_date if mode == "annual" else None,
+            filename=file.filename,
+            status="failed",
+            uploaded_by_user_id=membership.user_id,
+            summary=failed_summary,
+        )
+        db.add(failed_import)
+        db.flush()
+        db.add(
+            ImportRow(
+                import_id=failed_import.id,
+                row_number=1,
+                raw={},
+                action="error",
+                errors=[str(exc)],
+            )
+        )
+        write_audit(
+            db,
+            membership.user_id,
+            "school.import.failed",
+            failed_import,
+            {
+                "filename": file.filename,
+                "mode": mode,
+                "academic_year_id": failed_import.academic_year_id,
+                "effective_date": (
+                    failed_import.effective_date.isoformat()
+                    if failed_import.effective_date
+                    else None
+                ),
+                "reason": str(exc),
+            },
+            school_id=school_id,
+        )
+        db.commit()
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
     summary = summarize_plans(plans)
@@ -2493,10 +2718,272 @@ async def upload_student_import(
     return _import_detail_payload(db, imp)
 
 
+@router.get("/students/imports")
+def list_student_imports(
+    import_status: str | None = Query(default=None, alias="status"),
+    mode: str | None = Query(default=None),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=25, ge=1, le=100),
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    if import_status is not None and import_status not in {"staged", "committed", "discarded", "failed"}:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid import status filter")
+    if mode is not None and mode not in STUDENT_IMPORT_MODES:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid import mode filter")
+    if date_from is not None and date_to is not None and date_from > date_to:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="date_from must not be after date_to")
+
+    query = db.query(Import).filter(Import.school_id == school_id, Import.kind == "students")
+    if import_status is not None:
+        query = query.filter(Import.status == import_status)
+    if mode is not None:
+        query = query.filter(Import.mode == mode)
+    if date_from is not None:
+        query = query.filter(func.date(Import.created_at) >= date_from)
+    if date_to is not None:
+        query = query.filter(func.date(Import.created_at) <= date_to)
+
+    total = query.count()
+    imports = (
+        query.order_by(Import.created_at.desc(), Import.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    years_by_id, users_by_id, committed_actor_by_import = _import_history_context(
+        db,
+        school_id,
+        imports,
+    )
+    return {
+        "items": [
+            _import_history_payload(
+                imp,
+                year=years_by_id.get(imp.academic_year_id),
+                uploaded_by=users_by_id.get(imp.uploaded_by_user_id),
+                committed_by=users_by_id.get(committed_actor_by_import.get(imp.id)),
+            )
+            for imp in imports
+        ],
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "pages": (total + page_size - 1) // page_size,
+    }
+
+
 @router.get("/students/imports/{import_id}")
-def get_student_import(import_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
-    imp = _get_owned(db, Import, _school_id(membership), import_id)
-    return _import_detail_payload(db, imp)
+def get_student_import(
+    import_id: int,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=100),
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    imp = _student_import_or_404(db, school_id, import_id)
+    row_query = db.query(ImportRow).filter(ImportRow.import_id == imp.id)
+    total = row_query.count()
+    rows = (
+        row_query.order_by(ImportRow.row_number.asc(), ImportRow.id.asc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    affected_ids = {row.applied_entity_id for row in rows if row.applied_entity_id is not None}
+    affected_by_id = {
+        student.id: student
+        for student in (
+            db.query(Student)
+            .filter(
+                Student.school_id == school_id,
+                Student.id.in_(affected_ids),
+            )
+            .all()
+            if affected_ids
+            else []
+        )
+    }
+    years_by_id, users_by_id, committed_actor_by_import = _import_history_context(
+        db,
+        school_id,
+        [imp],
+    )
+    payload = {
+        **_import_history_payload(
+            imp,
+            year=years_by_id.get(imp.academic_year_id),
+            uploaded_by=users_by_id.get(imp.uploaded_by_user_id),
+            committed_by=users_by_id.get(committed_actor_by_import.get(imp.id)),
+        ),
+        "rows": [
+            _history_row_payload(row, affected_by_id.get(row.applied_entity_id))
+            for row in rows
+        ],
+        "rows_pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "pages": (total + page_size - 1) // page_size,
+        },
+    }
+    write_audit(
+        db,
+        membership.user_id,
+        "school.import.history.viewed",
+        imp,
+        {"import_id": imp.id, "page": page, "page_size": page_size},
+        school_id=school_id,
+    )
+    db.commit()
+    return payload
+
+
+@router.get("/students/imports/{import_id}/reports/{report_type}.csv")
+def download_student_import_report(
+    import_id: int,
+    report_type: str,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    imp = _student_import_or_404(db, school_id, import_id)
+    if report_type not in IMPORT_REPORT_TYPES:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Import report type not found")
+    query = import_report_query(db, imp.id, report_type)
+    write_audit(
+        db,
+        membership.user_id,
+        "school.import.report.exported",
+        imp,
+        {"import_id": imp.id, "report_type": report_type},
+        school_id=school_id,
+    )
+    db.commit()
+    filename = f"student-import-{imp.id}-{report_type}.csv"
+    return StreamingResponse(
+        stream_utf8_csv(IMPORT_REPORT_COLUMNS, import_report_rows(query)),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def _student_export_response(
+    db: Session,
+    membership: Membership,
+    *,
+    export_type: str,
+    columns: list[str],
+    rows,
+):
+    school_id = _school_id(membership)
+    write_audit(
+        db,
+        membership.user_id,
+        "school.student_export.downloaded",
+        ("student_exports", None),
+        {"export_type": export_type, "as_of": _today().isoformat()},
+        school_id=school_id,
+    )
+    db.commit()
+    filename = f"{export_type}-{_today().isoformat()}.csv"
+    return StreamingResponse(
+        stream_utf8_csv(columns, rows),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/students/exports/active-roster.csv")
+def download_active_student_roster(
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    rows = student_roster_rows(
+        current_student_placement_query(
+            db,
+            school_id,
+            _today(),
+            active_students_only=True,
+        )
+    )
+    return _student_export_response(
+        db,
+        membership,
+        export_type="active-student-roster",
+        columns=STUDENT_ROSTER_COLUMNS,
+        rows=rows,
+    )
+
+
+@router.get("/students/exports/guardian-contacts.csv")
+def download_guardian_contact_roster(
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    return _student_export_response(
+        db,
+        membership,
+        export_type="guardian-contact-roster",
+        columns=GUARDIAN_CONTACT_COLUMNS,
+        rows=guardian_contact_rows(db, _school_id(membership)),
+    )
+
+
+@router.get("/students/exports/class-enrolments.csv")
+def download_current_class_enrolments(
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    rows = current_class_enrolment_rows(
+        current_student_placement_query(
+            db,
+            school_id,
+            _today(),
+            active_students_only=False,
+        )
+    )
+    return _student_export_response(
+        db,
+        membership,
+        export_type="current-class-enrolments",
+        columns=CLASS_ENROLMENT_COLUMNS,
+        rows=rows,
+    )
+
+
+@router.get("/students/exports/annual-update.csv")
+def download_populated_annual_update(
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    try:
+        contacts_by_student = guardian_contacts_for_annual_export(db, school_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail=str(exc))
+    rows = annual_update_rows(
+        current_student_placement_query(
+            db,
+            school_id,
+            _today(),
+            active_students_only=False,
+        ),
+        contacts_by_student,
+    )
+    return _student_export_response(
+        db,
+        membership,
+        export_type="annual-update-students",
+        columns=CSV_COLUMNS,
+        rows=rows,
+    )
 
 
 @router.post("/students/imports/{import_id}/commit")

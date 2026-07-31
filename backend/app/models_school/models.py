@@ -477,7 +477,7 @@ class Import(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "status IN ('staged', 'committed', 'discarded')",
+            "status IN ('staged', 'committed', 'discarded', 'failed')",
             name="ck_imports_status",
         ),
         CheckConstraint(
