@@ -418,7 +418,6 @@
     { key: 'announcements', label: 'school.tabs.announcements' },
     { key: 'calendar', label: 'school.tabs.calendar' },
     { key: 'behaviour', label: 'school.tabs.behaviour' },
-    { key: 'students', label: 'school.tabs.students' },
     { key: 'subjects', label: 'school.tabs.subjects' },
     { key: 'defaults', label: 'school.tabs.defaults' },
     { key: 'groups', label: 'school.tabs.groups' }
@@ -2024,13 +2023,7 @@
   }
 
   async function openStudentFromRoster(student: Student) {
-    studentSearch = '';
-    studentSectionFilter = '';
-    await ensureStudentsLoaded();
-    upsertStudentRow(student);
-    activeTab = 'students';
-    await selectStudent(student);
-    await refresh();
+    window.location.href = `/school/students?student=${student.id}`;
   }
 
   async function selectStudent(student: Student) {
@@ -2896,8 +2889,20 @@
           </button>
         {/each}
         <a
+          href="/school/students"
+          class="whitespace-nowrap rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-left text-sm font-bold text-sky-800 transition hover:bg-sky-100 lg:mt-3 lg:block lg:w-full"
+        >
+          {$_('school.tabs.students')} →
+        </a>
+        <a
+          href="/school/students/data"
+          class="whitespace-nowrap rounded-lg border border-sky-200 bg-white px-3 py-2 text-left text-sm font-bold text-sky-800 transition hover:bg-sky-50 lg:mt-2 lg:block lg:w-full"
+        >
+          {$_('school.studentData.title')} →
+        </a>
+        <a
           href="/school/reports"
-          class="whitespace-nowrap rounded-lg border border-hero/30 bg-hero/10 px-3 py-2 text-left text-sm font-bold text-hero transition hover:bg-hero hover:text-white lg:mt-3 lg:block lg:w-full"
+          class="whitespace-nowrap rounded-lg border border-hero/30 bg-hero/10 px-3 py-2 text-left text-sm font-bold text-hero transition hover:bg-hero hover:text-white lg:mt-2 lg:block lg:w-full"
         >
           {$_('nav.reports')} →
         </a>
@@ -2924,6 +2929,11 @@
                     <p class="mt-1 text-sm text-slate-500">{item.count} {$_('school.records')}</p>
                     {#if !item.required}
                       <p class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('school.optional')}</p>
+                    {/if}
+                    {#if item.key === 'student_import'}
+                      <a class="mt-3 inline-block text-sm font-bold text-sky-700 hover:underline" href="/school/students/data">
+                        {$_('school.studentData.openImport')} →
+                      </a>
                     {/if}
                   </div>
                 </div>

@@ -22,6 +22,8 @@ from app.models_school import (
     BranchCampus,
     ClassSection,
     Enrolment,
+    FhhLink,
+    FhhLinkInvite,
     GradeLevel,
     GuardianInvite,
     GuardianLink,
@@ -216,6 +218,69 @@ def test_admin_lists_contact_invite_link_status_and_blocks_wrong_roles(db, clien
     platform = client.post(f"/api/school/students/{world['student'].id}/guardian-invites", headers=bearer(world["platform"].email, world["alpha"].id), json={"contact_id": world["contact"].id})
     assert platform.status_code == 403
     wrong_school = client.post(f"/api/school/students/{world['student'].id}/guardian-invites", headers=bearer(world["beta_admin"].email, world["beta"].id), json={"contact_id": world["contact"].id})
+    assert wrong_school.status_code == 404
+
+
+def test_school_admin_sees_fhh_link_status_without_internal_identity_values(
+    db, client, world
+):
+    invite = FhhLinkInvite(
+        school_id=world["alpha"].id,
+        student_id=world["student"].id,
+        token_hash="fhh-status-invite",
+        display_code_last4="1234",
+        created_by_user_id=world["alpha_admin"].id,
+    )
+    db.add(invite)
+    db.flush()
+    link = FhhLink(
+        school_id=world["alpha"].id,
+        student_id=world["student"].id,
+        source_invite_id=invite.id,
+        link_token_hash="fhh-status-link",
+        fhh_child_ref="opaque-child-value",
+        fhh_household_ref="opaque-household-value",
+        status="active",
+    )
+    db.add(link)
+    db.commit()
+
+    response = client.get(
+        f"/api/school/students/{world['student'].id}/fhh-invites",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["link_status"] == "active"
+    assert payload["link_history_count"] == 1
+    assert payload["link_history"] == [
+        {
+            "status": "active",
+            "linked_at": payload["linked_at"],
+            "revoked_at": None,
+        }
+    ]
+    assert payload["linked_at"]
+    serialized = str(payload)
+    assert "opaque-child-value" not in serialized
+    assert "opaque-household-value" not in serialized
+    assert "link_token_hash" not in serialized
+
+    link.status = "revoked"
+    link.revoked_at = invite_tokens.now_utc()
+    db.commit()
+    revoked = client.get(
+        f"/api/school/students/{world['student'].id}/fhh-invites",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+    )
+    assert revoked.json()["link_status"] == "revoked"
+    assert revoked.json()["link_history"][0]["status"] == "revoked"
+    assert revoked.json()["link_history"][0]["revoked_at"]
+
+    wrong_school = client.get(
+        f"/api/school/students/{world['student'].id}/fhh-invites",
+        headers=bearer(world["beta_admin"].email, world["beta"].id),
+    )
     assert wrong_school.status_code == 404
 
 

@@ -1727,6 +1727,30 @@ def test_current_roster_guardian_enrolment_and_annual_exports_are_safe(
         .count()
         == 5
     )
+    history = client.get(
+        "/api/school/students/export-history?page=1&page_size=2",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+    )
+    assert history.status_code == 200
+    assert history.json()["total"] == 4
+    assert history.json()["pages"] == 2
+    assert len(history.json()["items"]) == 2
+    assert history.json()["items"][0]["activity"] == "export"
+    assert history.json()["items"][0]["status"] == "downloaded"
+    assert history.json()["items"][0]["row_count"] == 1
+    assert history.json()["items"][0]["actor"]["name"] == "Alpha Admin"
+
+    beta_history = client.get(
+        "/api/school/students/export-history",
+        headers=bearer(world["beta_admin"].email, world["beta"].id),
+    )
+    assert beta_history.status_code == 200
+    assert beta_history.json()["total"] == 1
+    teacher_history = client.get(
+        "/api/school/students/export-history",
+        headers=bearer(world["alpha_teacher"].email, world["alpha"].id),
+    )
+    assert teacher_history.status_code == 403
 
 
 def test_large_import_history_and_exports_have_bounded_query_shape(

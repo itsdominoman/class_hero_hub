@@ -1,5 +1,51 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-31 — Students administration experience
+
+Student administration is now a dedicated school-admin route at
+`/school/students`, separate from the MIS/SMS operational route at
+`/school/students/data`. The school administration navigation links to both,
+and the optional setup-checklist import item links directly to Student Import &
+Export. The old combined Students tab is no longer reachable from the
+administration navigation. Returning to the dedicated Students route starts
+with empty search and class filters; an explicit Clear search action is also
+available. Student selection opens a stable detail view rather than scrolling
+to a form elsewhere on the page.
+
+Add Student now captures the required stable Student ID, names, branch, grade
+and class/section together with zero or more guardian contacts. One
+school-scoped backend transaction creates or restores the student, opens the
+class enrolment and creates the school-held guardian contact records. Validation
+is completed before writes, while any later database conflict rolls the whole
+operation back. Existing stable-ID duplicate prevention, archived-student
+restore, enrolment overlap rules and guardian contact normalisation remain the
+authority. No invite, email, CHH login or FHH identity is created by this flow.
+The UI marks required fields, focuses the first invalid field and shows errors
+inline, in the current card and as a viewport toast. Reserved `.test` guardian
+emails are rejected without partial student or enrolment creation.
+
+The student detail view separates Details, Guardians, Placement, CHH access,
+FHH link and History. Guardian contacts remain editable without re-import. The
+school-facing label is now “Guardian ID from school system (optional)” with
+matching guidance. CHH access lists authorised guardian login email,
+relationship and active/revoked state separately from contact and invitation
+records. FHH exposes only current linked/revoked/none status and dates; opaque
+family identifiers remain hidden, and invitation/link history is collapsed.
+All create, update, invite, revoke and placement actions continue to use the
+existing CHH/FHH lifecycle endpoints.
+
+Student Import & Export retains the Slice 1–4 planner, commit/discard and export
+contracts. Its responsive history uses compact cards showing batch/activity
+time, actor, mode or export type, status and row count. Opening a batch shows a
+summary only; full row results remain available through the existing safe CSV
+downloads, with no reset or destructive history action. Roster exports and
+report downloads continue to be audited without guardian contact values.
+
+No migration or data rewrite was required. The only new read models are a
+school-scoped export-activity feed from existing audit events and non-sensitive
+FHH current-status/history summaries from existing link rows. FHH frontend,
+native code and Android artefacts were not changed.
+
 ## 2026-07-31 — MIS student import Slice 4: history, reports and roster exports
 
 The school administration Students area now exposes the existing student import

@@ -17,6 +17,7 @@ from app.database import Base, get_db
 from app.main import app
 from app.models_school import (
     AcademicYear,
+    AuditLog,
     BehaviourCategory,
     BehaviourEvent,
     BranchCampus,
@@ -28,6 +29,7 @@ from app.models_school import (
     StaffAssignment,
     StaffInvite,
     Student,
+    StudentGuardianContact,
     Subject,
     SubjectGroup,
     User,
@@ -157,6 +159,113 @@ def student_payload(ref="S-001", first="Ali", last="Khan"):
 
 def create_student_api(client, world, ref="S-001", first="Ali", last="Khan"):
     return client.post("/api/school/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id), json=student_payload(ref, first, last))
+
+
+def test_complete_student_flow_is_atomic_scoped_and_audited(
+    db, client, enrolment_world
+):
+    world = enrolment_world
+    payload = {
+        "student": {
+            **student_payload("COMPLETE-1", "Amina", "Hassan"),
+            "preferred_name": "Mina",
+            "name_ar": "أمينة حسن",
+            "date_of_birth": "2018-05-04",
+            "gender": "female",
+        },
+        "class_section_id": world["section_a"].id,
+        "guardians": [
+            {
+                "external_ref": "G-100",
+                "name": "Mariam Hassan",
+                "relationship": "mother",
+                "email": "mariam@example.com",
+                "phone": "+968 9123 4567",
+                "is_primary": True,
+                "is_emergency": True,
+            },
+            {
+                "name": "Omar Hassan",
+                "relationship": "father",
+                "email": "omar@example.com",
+            },
+        ],
+    }
+    response = client.post(
+        "/api/school/students/complete",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+        json=payload,
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["student"]["external_ref"] == "COMPLETE-1"
+    assert body["student"]["current_class_section"]["id"] == world["section_a"].id
+    assert body["enrolment"]["class_section"]["id"] == world["section_a"].id
+    assert len(body["guardian_contacts"]) == 2
+    student_id = body["student"]["id"]
+    assert db.query(Enrolment).filter(Enrolment.student_id == student_id).count() == 1
+    contacts = (
+        db.query(StudentGuardianContact)
+        .filter(StudentGuardianContact.student_id == student_id)
+        .order_by(StudentGuardianContact.id)
+        .all()
+    )
+    assert [contact.email for contact in contacts] == [
+        "mariam@example.com",
+        "omar@example.com",
+    ]
+    assert contacts[0].phone_normalized == "+96891234567"
+    actions = {
+        audit.action
+        for audit in db.query(AuditLog).filter(AuditLog.school_id == world["alpha"].id)
+    }
+    assert {
+        "school.student.created",
+        "school.enrolment.created",
+        "school.guardian_contact.created",
+        "school.student.onboarded",
+    }.issubset(actions)
+
+    wrong_school = client.post(
+        "/api/school/students/complete",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+        json={**payload, "student": student_payload("COMPLETE-2"), "class_section_id": world["beta_section"].id},
+    )
+    assert wrong_school.status_code == 400
+    assert db.query(Student).filter(Student.external_ref == "COMPLETE-2").count() == 0
+
+    teacher = client.post(
+        "/api/school/students/complete",
+        headers=bearer(world["alpha_teacher"].email, world["alpha"].id),
+        json={**payload, "student": student_payload("COMPLETE-3")},
+    )
+    assert teacher.status_code == 403
+    assert db.query(Student).filter(Student.external_ref == "COMPLETE-3").count() == 0
+
+
+def test_complete_student_flow_rejects_reserved_guardian_email_without_partial_create(
+    db, client, enrolment_world
+):
+    world = enrolment_world
+    response = client.post(
+        "/api/school/students/complete",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+        json={
+            "student": student_payload("RESERVED-EMAIL"),
+            "class_section_id": world["section_a"].id,
+            "guardians": [
+                {
+                    "name": "Test Guardian",
+                    "relationship": "guardian",
+                    "email": "guardian@school.test",
+                }
+            ],
+        },
+    )
+    assert response.status_code == 422
+    assert "email" in str(response.json()["detail"]).lower()
+    assert db.query(Student).filter(Student.external_ref == "RESERVED-EMAIL").count() == 0
+    assert db.query(StudentGuardianContact).count() == 0
 
 
 def enrol_student(client, world, student_id, payload):

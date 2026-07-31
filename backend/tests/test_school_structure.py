@@ -144,6 +144,16 @@ def test_school_settings_checklist_and_full_structure_crud(db, client, seeded_sc
     assert checklist_response.status_code == 200
     checklist = checklist_response.json()
     assert checklist["counts"]["class_sections"] == 1
+    student_import = next(
+        item for item in checklist["items"] if item["key"] == "student_import"
+    )
+    assert student_import == {
+        "key": "student_import",
+        "label": "Import student data",
+        "complete": False,
+        "count": 0,
+        "required": False,
+    }
     assert checklist["complete"] is True
 
 

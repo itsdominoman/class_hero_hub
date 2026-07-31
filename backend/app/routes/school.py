@@ -38,6 +38,7 @@ from ..models_school import (
     DefaultSubjectTemplate,
     EducationStage,
     Enrolment,
+    FhhLink,
     FhhLinkInvite,
     GradeLevel,
     GuardianInvite,
@@ -64,6 +65,7 @@ from ..student_exports import (
     annual_update_rows,
     current_class_enrolment_rows,
     current_student_placement_query,
+    guardian_contact_query,
     guardian_contact_rows,
     guardian_contacts_for_annual_export,
     import_report_query,
@@ -294,6 +296,12 @@ class GuardianContactRequest(BaseModel):
         if cleaned not in {"mother", "father", "guardian", "other"}:
             raise ValueError("relationship must be mother, father, guardian, or other")
         return cleaned
+
+
+class StudentOnboardingRequest(BaseModel):
+    student: StudentRequest
+    class_section_id: int
+    guardians: list[GuardianContactRequest] = Field(default_factory=list, max_length=10)
 
 
 def _clean_text(value: str | None) -> str | None:
@@ -1169,6 +1177,11 @@ def setup_checklist(
         "class_sections": db.query(ClassSection).filter(ClassSection.school_id == school_id, ClassSection.status != "archived").count(),
         "subjects": db.query(Subject).filter(Subject.school_id == school_id, Subject.status != "archived").count(),
         "subject_groups": db.query(SubjectGroup).filter(SubjectGroup.school_id == school_id, SubjectGroup.status != "archived").count(),
+        "student_imports": db.query(Import).filter(
+            Import.school_id == school_id,
+            Import.kind == "students",
+            Import.status == "committed",
+        ).count(),
     }
     items = [
         _checklist_item("settings", "School settings", True, 1),
@@ -1177,6 +1190,13 @@ def setup_checklist(
         _checklist_item("education_stages", "Education stages", counts["education_stages"] > 0, counts["education_stages"], required=False),
         _checklist_item("grade_levels", "Grade/year levels", counts["grade_levels"] > 0, counts["grade_levels"]),
         _checklist_item("class_sections", "Class sections/homerooms", counts["class_sections"] > 0, counts["class_sections"]),
+        _checklist_item(
+            "student_import",
+            "Import student data",
+            counts["student_imports"] > 0,
+            counts["student_imports"],
+            required=False,
+        ),
         _checklist_item("subjects", "Subjects", counts["subjects"] > 0, counts["subjects"], required=False),
         _checklist_item("subject_groups", "Subject groups", counts["subject_groups"] > 0, counts["subject_groups"], required=False),
     ]
@@ -2354,6 +2374,173 @@ def create_student(payload: StudentRequest, membership: Membership = Depends(req
     return {**_student_with_context(db, row), "restored": False}
 
 
+@router.post("/students/complete", status_code=status.HTTP_201_CREATED)
+def create_complete_student(
+    payload: StudentOnboardingRequest,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    class_section_id, _ = _ensure_active_enrolment_target(
+        db,
+        school_id,
+        class_section_id=payload.class_section_id,
+        subject_group_id=None,
+    )
+    prepared_guardians: list[dict[str, Any]] = []
+    for guardian in payload.guardians:
+        try:
+            phone, phone_normalized = normalize_guardian_phone(guardian.phone)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Guardian phone {exc}",
+            )
+        prepared_guardians.append(
+            {
+                "external_ref": _clean_text(guardian.external_ref),
+                "name": guardian.name.strip(),
+                "relationship": guardian.relationship,
+                "email": auth.normalize_email(str(guardian.email)) if guardian.email else None,
+                "phone": phone,
+                "phone_normalized": phone_normalized,
+                "is_primary": guardian.is_primary,
+                "is_emergency": guardian.is_emergency,
+                "is_active": guardian.is_active,
+            }
+        )
+
+    cleaned = _clean_student_payload(payload.student)
+    external_ref = cleaned["external_ref"]
+    restored = False
+    student = None
+    if external_ref:
+        matches = _students_by_normalized_external_ref(db, school_id, external_ref)
+        if len(matches) > 1:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Student external_ref matches more than one existing student",
+            )
+        student = matches[0] if matches else None
+        if student is not None and student.status != "archived":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Student external_ref is already used by a visible student",
+            )
+        if student is not None:
+            for key, value in cleaned.items():
+                setattr(student, key, value)
+            student.status = "active"
+            restored = True
+
+    if student is None:
+        student = Student(school_id=school_id, **cleaned)
+        db.add(student)
+
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Student external_ref is already used by another student",
+        )
+
+    enrolment = _create_enrolment_row(
+        db,
+        school_id=school_id,
+        student=student,
+        class_section_id=class_section_id,
+        subject_group_id=None,
+        valid_from=_today(),
+        created_by_user_id=membership.user_id,
+        kind="member",
+    )
+    contacts = [
+        StudentGuardianContact(
+            school_id=school_id,
+            student_id=student.id,
+            slot=None,
+            source="manual",
+            status="draft",
+            created_by_user_id=membership.user_id,
+            **guardian,
+        )
+        for guardian in prepared_guardians
+    ]
+    db.add_all(contacts)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A guardian ID from the school system is duplicated for this student",
+        )
+
+    write_audit(
+        db,
+        membership.user_id,
+        "school.student.restored" if restored else "school.student.created",
+        student,
+        {"external_ref": external_ref, "combined_flow": True},
+        school_id=school_id,
+    )
+    write_audit(
+        db,
+        membership.user_id,
+        "school.enrolment.created",
+        enrolment,
+        {
+            "student_id": student.id,
+            "class_section_id": class_section_id,
+            "subject_group_id": None,
+            "kind": "member",
+            "combined_flow": True,
+        },
+        school_id=school_id,
+    )
+    for contact in contacts:
+        write_audit(
+            db,
+            membership.user_id,
+            "school.guardian_contact.created",
+            contact,
+            {
+                "student_id": student.id,
+                "source": "manual",
+                "has_email": bool(contact.email),
+                "has_phone": bool(contact.phone),
+                "is_primary": contact.is_primary,
+                "is_emergency": contact.is_emergency,
+                "is_active": contact.is_active,
+                "combined_flow": True,
+            },
+            school_id=school_id,
+        )
+    write_audit(
+        db,
+        membership.user_id,
+        "school.student.onboarded",
+        student,
+        {
+            "class_section_id": class_section_id,
+            "enrolment_id": enrolment.id,
+            "guardian_contact_ids": [contact.id for contact in contacts],
+            "restored": restored,
+        },
+        school_id=school_id,
+    )
+    db.commit()
+    db.refresh(student)
+    db.refresh(enrolment)
+    return {
+        "student": {**_student_with_context(db, student), "restored": restored},
+        "enrolment": _enrolment_payload(db, enrolment),
+        "guardian_contacts": [_guardian_contact_payload(contact) for contact in contacts],
+    }
+
+
 _IMPORT_HISTORY_SUMMARY_ACTIONS = (
     "create",
     "update",
@@ -2776,6 +2963,64 @@ def list_student_imports(
     }
 
 
+@router.get("/students/export-history")
+def list_student_export_history(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    query = db.query(AuditLog).filter(
+        AuditLog.school_id == school_id,
+        AuditLog.action.in_(
+            {
+                "school.student_export.downloaded",
+                "school.import.report.exported",
+            }
+        ),
+    )
+    total = query.count()
+    audits = (
+        query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    user_ids = {audit.actor_user_id for audit in audits if audit.actor_user_id is not None}
+    users_by_id = {
+        user.id: user
+        for user in (
+            db.query(User).filter(User.id.in_(user_ids)).all()
+            if user_ids
+            else []
+        )
+    }
+    return {
+        "items": [
+            {
+                "id": audit.id,
+                "activity": "export",
+                "export_type": (
+                    (audit.detail or {}).get("export_type")
+                    if audit.action == "school.student_export.downloaded"
+                    else f"import-{(audit.detail or {}).get('report_type', 'results')}"
+                ),
+                "import_id": (audit.detail or {}).get("import_id"),
+                "status": "downloaded",
+                "row_count": (audit.detail or {}).get("row_count"),
+                "created_at": audit.created_at,
+                "actor": _user_history_ref(users_by_id.get(audit.actor_user_id)),
+            }
+            for audit in audits
+        ],
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "pages": (total + page_size - 1) // page_size,
+    }
+
+
 @router.get("/students/imports/{import_id}")
 def get_student_import(
     import_id: int,
@@ -2855,12 +3100,13 @@ def download_student_import_report(
     if report_type not in IMPORT_REPORT_TYPES:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Import report type not found")
     query = import_report_query(db, imp.id, report_type)
+    row_count = query.count()
     write_audit(
         db,
         membership.user_id,
         "school.import.report.exported",
         imp,
-        {"import_id": imp.id, "report_type": report_type},
+        {"import_id": imp.id, "report_type": report_type, "row_count": row_count},
         school_id=school_id,
     )
     db.commit()
@@ -2879,6 +3125,7 @@ def _student_export_response(
     export_type: str,
     columns: list[str],
     rows,
+    row_count: int,
 ):
     school_id = _school_id(membership)
     write_audit(
@@ -2886,7 +3133,11 @@ def _student_export_response(
         membership.user_id,
         "school.student_export.downloaded",
         ("student_exports", None),
-        {"export_type": export_type, "as_of": _today().isoformat()},
+        {
+            "export_type": export_type,
+            "as_of": _today().isoformat(),
+            "row_count": row_count,
+        },
         school_id=school_id,
     )
     db.commit()
@@ -2904,20 +3155,20 @@ def download_active_student_roster(
     db: Session = Depends(get_db),
 ):
     school_id = _school_id(membership)
-    rows = student_roster_rows(
-        current_student_placement_query(
-            db,
-            school_id,
-            _today(),
-            active_students_only=True,
-        )
+    query = current_student_placement_query(
+        db,
+        school_id,
+        _today(),
+        active_students_only=True,
     )
+    rows = student_roster_rows(query)
     return _student_export_response(
         db,
         membership,
         export_type="active-student-roster",
         columns=STUDENT_ROSTER_COLUMNS,
         rows=rows,
+        row_count=query.count(),
     )
 
 
@@ -2926,12 +3177,14 @@ def download_guardian_contact_roster(
     membership: Membership = Depends(require_school_role("school_admin")),
     db: Session = Depends(get_db),
 ):
+    query = guardian_contact_query(db, _school_id(membership))
     return _student_export_response(
         db,
         membership,
         export_type="guardian-contact-roster",
         columns=GUARDIAN_CONTACT_COLUMNS,
-        rows=guardian_contact_rows(db, _school_id(membership)),
+        rows=guardian_contact_rows(query),
+        row_count=query.count(),
     )
 
 
@@ -2941,20 +3194,21 @@ def download_current_class_enrolments(
     db: Session = Depends(get_db),
 ):
     school_id = _school_id(membership)
-    rows = current_class_enrolment_rows(
-        current_student_placement_query(
-            db,
-            school_id,
-            _today(),
-            active_students_only=False,
-        )
+    query = current_student_placement_query(
+        db,
+        school_id,
+        _today(),
+        active_students_only=False,
     )
+    enrolment_query = query.filter(Enrolment.id.is_not(None))
+    rows = current_class_enrolment_rows(enrolment_query)
     return _student_export_response(
         db,
         membership,
         export_type="current-class-enrolments",
         columns=CLASS_ENROLMENT_COLUMNS,
         rows=rows,
+        row_count=enrolment_query.count(),
     )
 
 
@@ -2968,21 +3222,20 @@ def download_populated_annual_update(
         contacts_by_student = guardian_contacts_for_annual_export(db, school_id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail=str(exc))
-    rows = annual_update_rows(
-        current_student_placement_query(
-            db,
-            school_id,
-            _today(),
-            active_students_only=False,
-        ),
-        contacts_by_student,
+    query = current_student_placement_query(
+        db,
+        school_id,
+        _today(),
+        active_students_only=False,
     )
+    rows = annual_update_rows(query, contacts_by_student)
     return _student_export_response(
         db,
         membership,
         export_type="annual-update-students",
         columns=CSV_COLUMNS,
         rows=rows,
+        row_count=query.count(),
     )
 
 
@@ -3737,7 +3990,33 @@ def list_fhh_invites(student_id: int, membership: Membership = Depends(require_s
     rows = db.query(FhhLinkInvite).filter(
         FhhLinkInvite.school_id == school_id, FhhLinkInvite.student_id == student.id
     ).order_by(FhhLinkInvite.created_at.desc(), FhhLinkInvite.id.desc()).all()
-    return {"student": _student_with_context(db, student), "invites": [_fhh_invite_payload(row) for row in rows]}
+    links = (
+        db.query(FhhLink)
+        .filter(FhhLink.school_id == school_id, FhhLink.student_id == student.id)
+        .order_by(FhhLink.created_at.desc(), FhhLink.id.desc())
+        .all()
+    )
+    active_link = next(
+        (link for link in links if link.status == "active" and link.revoked_at is None),
+        None,
+    )
+    latest_link = active_link or (links[0] if links else None)
+    return {
+        "student": _student_with_context(db, student),
+        "invites": [_fhh_invite_payload(row) for row in rows],
+        "link_status": "active" if active_link else "revoked" if links else "none",
+        "linked_at": latest_link.created_at if latest_link else None,
+        "revoked_at": latest_link.revoked_at if latest_link else None,
+        "link_history_count": len(links),
+        "link_history": [
+            {
+                "status": "active" if link.status == "active" and link.revoked_at is None else "revoked",
+                "linked_at": link.created_at,
+                "revoked_at": link.revoked_at,
+            }
+            for link in links
+        ],
+    }
 
 
 @router.post("/students/{student_id}/fhh-invites", status_code=status.HTTP_201_CREATED)

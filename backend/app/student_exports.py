@@ -262,8 +262,8 @@ def current_class_enrolment_rows(query: Query) -> Iterator[list[Any]]:
         ]
 
 
-def guardian_contact_rows(db: Session, school_id: int) -> Iterator[list[Any]]:
-    query = (
+def guardian_contact_query(db: Session, school_id: int) -> Query:
+    return (
         db.query(StudentGuardianContact, Student)
         .join(
             Student,
@@ -278,6 +278,9 @@ def guardian_contact_rows(db: Session, school_id: int) -> Iterator[list[Any]]:
         )
         .order_by(Student.id.asc(), StudentGuardianContact.id.asc())
     )
+
+
+def guardian_contact_rows(query: Query) -> Iterator[list[Any]]:
     for contact, student in query.yield_per(500):
         yield [
             student.external_ref,
