@@ -37,6 +37,7 @@ from app.models_school import (
     StudentGuardianContact,
     User,
 )
+from app.student_exports import AnnualGuardianContact, guardian_contacts_for_annual_export
 
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -1688,6 +1689,11 @@ def test_current_roster_guardian_enrolment_and_annual_exports_are_safe(
     contact.is_primary = True
     contact.is_emergency = True
     db.commit()
+
+    materialized_contacts = guardian_contacts_for_annual_export(db, world["alpha"].id)
+    db.commit()
+    assert isinstance(materialized_contacts[student.id][0], AnnualGuardianContact)
+    assert materialized_contacts[student.id][0].name == "@Guardian"
 
     active = client.get(
         "/api/school/students/exports/active-roster.csv",

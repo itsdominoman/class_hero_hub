@@ -16,6 +16,9 @@ from datetime import date, datetime, time, timedelta, timezone
 from itertools import cycle
 from pathlib import Path
 from typing import Iterable
+from unicodedata import name as unicode_name
+
+from sqlalchemy.orm import Session
 
 ROOT = Path(__file__).resolve().parents[1]
 APP_IMPORT_ROOT = ROOT if (ROOT / "app").exists() else ROOT.parent
@@ -48,7 +51,6 @@ from app.models_school import (
     GuardianLink,
     FhhLink,
 )
-from app.imports_service import has_mixed_arabic_latin_letters
 
 TARGET_SCHOOL_NAME = "United International School"
 DEFAULT_SCHOOL_SLUG = "united-international-school"
@@ -87,6 +89,23 @@ QUICK_ACTION_DEFAULTS = {
     "positive": ["Listening well", "Good work", "Teamwork", "Helping others", "Kindness", "Great effort"],
     "needs_work": ["Not listening", "Disrupting others", "Unkind behaviour", "Unsafe behaviour", "Off-task", "Not following instructions"],
 }
+
+ARABIC_MALE_GIVEN_NAMES = (
+    "أحمد", "محمد", "يوسف", "عمر", "علي", "حسن", "حسين", "خالد", "راشد", "مازن",
+    "زياد", "سامر", "طارق", "ياسر", "إبراهيم", "إسماعيل", "عبدالله", "عبدالرحمن",
+    "سليم", "كريم", "حمد", "سعيد", "ناصر", "أنس", "أيمن",
+)
+ARABIC_FEMALE_GIVEN_NAMES = (
+    "مريم", "فاطمة", "نور", "سارة", "ليان", "جود", "ريم", "هدى", "آية", "زينب",
+    "سلمى", "دانا", "لينا", "ياسمين", "رانيا", "فرح", "مها", "نورة", "عائشة", "خديجة",
+    "لمى", "ريتال", "حلا", "شهد", "أمل",
+)
+ARABIC_FAMILY_NAMES = (
+    "السالمي", "الحارثي", "البلوشي", "الرواحي", "المعمري", "الهنائي", "الشحي", "الكندي",
+    "العلوي", "الفارسي", "الزدجالي", "اليعقوبي", "السيابي", "المقبالي", "الرحبي",
+    "البوسعيدي", "الخروصي", "الشقصي", "المحروقي", "العامري", "الشامسي", "المنذري",
+    "العريمي", "الوهيبي", "المسكري", "الناعبي", "الصوافي", "الرشيدي", "الفزاري", "الحبسي",
+)
 
 
 @dataclass(frozen=True)
@@ -149,7 +168,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--repair-student-name-ar-only",
         action="store_true",
-        help="Only clear mixed Arabic/Latin name_ar values in the designated demo-student namespace.",
+        help="Populate Arabic-only names only for the 125 reconstructed legacy demo rows.",
     )
     return parser.parse_args(argv)
 
@@ -2523,32 +2542,97 @@ def apply_demo_quick_action_defaults(db, world: World) -> None:
     db.flush()
 
 
-def clear_mixed_demo_student_name_ar(db, world: World, *, apply: bool, counts: Counter) -> None:
-    """Clear known-invalid hybrid names only in the designated demo namespace."""
+def _demo_student_number(external_ref: str | None) -> int | None:
+    value = (external_ref or "").strip()
+    if not value.startswith(DEMO_STUDENT_REF_PREFIX):
+        return None
+    suffix = value[len(DEMO_STUDENT_REF_PREFIX):]
+    if not suffix.isdigit():
+        return None
+    number = int(suffix)
+    return number if number > 0 else None
+
+
+def _is_arabic_only_name(value: str | None) -> bool:
+    found_arabic_letter = False
+    for character in value or "":
+        if not character.isalpha():
+            continue
+        if "ARABIC" not in unicode_name(character, ""):
+            return False
+        found_arabic_letter = True
+    return found_arabic_letter
+
+
+def deterministic_demo_student_name_ar(student: Student) -> str | None:
+    """Generate an Arabic-only full name from demo identity, never Latin names."""
+    number = _demo_student_number(student.external_ref)
+    if number is None:
+        return None
+    index = number - 1
+    if student.gender == "female":
+        given_names = ARABIC_FEMALE_GIVEN_NAMES
+    elif student.gender == "male":
+        given_names = ARABIC_MALE_GIVEN_NAMES
+    else:
+        given_names = ARABIC_FEMALE_GIVEN_NAMES if number % 2 == 0 else ARABIC_MALE_GIVEN_NAMES
+    given_name = given_names[index % len(given_names)]
+    family_name = ARABIC_FAMILY_NAMES[(index // len(given_names)) % len(ARABIC_FAMILY_NAMES)]
+    return f"{given_name} {family_name}"
+
+
+def populate_demo_student_name_ar(
+    db: Session,
+    world: World,
+    *,
+    apply: bool,
+    counts: Counter,
+    legacy_correction_only: bool = False,
+) -> None:
+    """Populate invalid/blank demo names without overwriting Arabic-only values."""
     demo_students = (
         db.query(Student)
         .filter(
             Student.school_id == world.school.id,
             Student.external_ref.like(f"{DEMO_STUDENT_REF_PREFIX}%"),
         )
+        .order_by(Student.external_ref)
         .all()
     )
-    affected = [student for student in demo_students if has_mixed_arabic_latin_letters(student.name_ar)]
-    for student in affected:
-        student.name_ar = None
-    counts["cleared_mixed_demo_name_ar"] += len(affected)
+    affected: list[Student] = []
+    filled_blank = 0
+    replaced_invalid = 0
+    for student in demo_students:
+        number = _demo_student_number(student.external_ref)
+        if number is None or (legacy_correction_only and number % 4 != 0):
+            continue
+        if _is_arabic_only_name(student.name_ar):
+            continue
+        generated_name = deterministic_demo_student_name_ar(student)
+        if generated_name is None:
+            continue
+        if (student.name_ar or "").strip():
+            replaced_invalid += 1
+        else:
+            filled_blank += 1
+        student.name_ar = generated_name
+        affected.append(student)
+    counts["populated_demo_name_ar"] += len(affected)
     if apply and affected:
         db.add(
             AuditLog(
                 school_id=world.school.id,
                 actor_user_id=None,
-                action="demo.student_name_ar.cleared",
+                action="demo.student_name_ar.populated",
                 entity_type="students",
                 entity_id=None,
                 detail={
                     "count": len(affected),
+                    "filled_blank": filled_blank,
+                    "replaced_invalid": replaced_invalid,
                     "external_ref_prefix": DEMO_STUDENT_REF_PREFIX,
-                    "rule": "mixed Arabic and Latin letters",
+                    "scope": "legacy_correction" if legacy_correction_only else "all_demo_students",
+                    "strategy": "stable numeric demo ID mapped to Arabic-only given and family name pools",
                 },
             )
         )
@@ -2558,7 +2642,7 @@ def clear_mixed_demo_student_name_ar(db, world: World, *, apply: bool, counts: C
 def seed_school(db, *, school_slug: str, as_of: date, apply: bool, scale: str = SCALE_DEMO) -> RunSummary:
     world = load_world(db, school_slug)
     counts: Counter = Counter()
-    clear_mixed_demo_student_name_ar(db, world, apply=apply, counts=counts)
+    populate_demo_student_name_ar(db, world, apply=apply, counts=counts)
     apply_demo_quick_action_defaults(db, world)
     personas = select_personas(world, db)
     pool = teacher_pool(world, db)
@@ -2641,7 +2725,7 @@ def print_summary(summary: RunSummary) -> None:
     print(f"Would create / created: {summary.counts['created']}")
     print(f"Already present: {summary.counts['already_present']}")
     print(f"Skipped photos: {summary.counts['skipped_photos']}")
-    print(f"Cleared mixed-script demo Arabic names: {summary.counts['cleared_mixed_demo_name_ar']}")
+    print(f"Populated demo Arabic names: {summary.counts['populated_demo_name_ar']}")
     if summary.skipped_photos_reason:
         print(f"Photo note: {summary.skipped_photos_reason}")
     print("No messaging, auth, guardian-link, or FHH-link data was touched.")
@@ -2661,7 +2745,13 @@ def main(argv: list[str] | None = None) -> int:
                 world = load_world(db, args.school_slug)
                 counts: Counter = Counter()
                 try:
-                    clear_mixed_demo_student_name_ar(db, world, apply=args.apply, counts=counts)
+                    populate_demo_student_name_ar(
+                        db,
+                        world,
+                        apply=args.apply,
+                        counts=counts,
+                        legacy_correction_only=True,
+                    )
                     if args.apply:
                         db.commit()
                     else:
@@ -2671,7 +2761,7 @@ def main(argv: list[str] | None = None) -> int:
                     raise
                 print(f"Mode: {'apply' if args.apply else 'dry-run'}")
                 print(f"Target school: {world.school.name} ({world.school.slug})")
-                print(f"Cleared mixed-script demo Arabic names: {counts['cleared_mixed_demo_name_ar']}")
+                print(f"Populated legacy demo Arabic names: {counts['populated_demo_name_ar']}")
                 print("No non-demo students, messaging, auth, guardian-link, or FHH-link data was touched.")
                 if not args.apply:
                     print("DRY RUN: rolled back, no changes were committed.")

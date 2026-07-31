@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import date
 from typing import Any, Iterable, Iterator, Sequence
 
@@ -35,6 +36,16 @@ IMPORT_CHANGE_ACTIONS = {
 }
 EXPORT_ROW_LIMIT = 100_000
 CSV_CHUNK_BYTES = 64 * 1024
+
+
+@dataclass(frozen=True)
+class AnnualGuardianContact:
+    name: str | None
+    external_ref: str | None
+    email: str | None
+    phone: str | None
+    relationship: str | None
+
 
 STUDENT_ROSTER_COLUMNS = [
     "student_id",
@@ -303,7 +314,7 @@ def guardian_contact_rows(query: Query) -> Iterator[list[Any]]:
 def guardian_contacts_for_annual_export(
     db: Session,
     school_id: int,
-) -> dict[int, list[StudentGuardianContact]]:
+) -> dict[int, list[AnnualGuardianContact]]:
     contacts = (
         db.query(StudentGuardianContact)
         .filter(StudentGuardianContact.school_id == school_id)
@@ -320,16 +331,24 @@ def guardian_contacts_for_annual_export(
     )
     if len(contacts) > EXPORT_ROW_LIMIT:
         raise ValueError("Guardian contact export exceeds the supported row limit")
-    grouped: dict[int, list[StudentGuardianContact]] = defaultdict(list)
+    grouped: dict[int, list[AnnualGuardianContact]] = defaultdict(list)
     for contact in contacts:
         if len(grouped[contact.student_id]) < 2:
-            grouped[contact.student_id].append(contact)
+            grouped[contact.student_id].append(
+                AnnualGuardianContact(
+                    name=contact.name,
+                    external_ref=contact.external_ref,
+                    email=contact.email,
+                    phone=contact.phone,
+                    relationship=contact.relationship,
+                )
+            )
     return grouped
 
 
 def annual_update_rows(
     placement_query: Query,
-    contacts_by_student: dict[int, list[StudentGuardianContact]],
+    contacts_by_student: dict[int, list[AnnualGuardianContact]],
 ) -> Iterator[list[Any]]:
     for student, _enrolment, section, branch, grade, _year in placement_query.yield_per(500):
         contacts = contacts_by_student.get(student.id, [])

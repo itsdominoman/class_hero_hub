@@ -33,9 +33,11 @@ Key properties:
 - no internet downloads or hotlinked images are used
 - if no reviewed local photo asset manifest is present, update photos are skipped cleanly
 - Bob Smith and any already-linked students are excluded from persona selection
-- demo students in the designated `UIS-DEMO-STU-` stable-ID namespace never
-  retain a hybrid Arabic/Latin `name_ar`; the seeder clears only those invalid
-  demo values and leaves Arabic-only, blank and non-demo values unchanged
+- demo students in the designated `UIS-DEMO-STU-` stable-ID namespace receive
+  deterministic Arabic-only full names from separate Arabic given-name and
+  family-name pools; Latin-script student fields are never appended or reused
+- existing nonblank Arabic-only demo names and all non-demo students remain
+  unchanged; ordinary demo seeding fills only blank or invalid demo names
 
 Dry-run example:
 
@@ -55,9 +57,11 @@ python backend/scripts/seed_realistic_demo_school.py --apply --as-of 2026-07-12
 The apply form is intentionally guarded and should only be used after review in a
 development environment.
 
-To inspect or repair only mixed-script Arabic names in the designated demo
-student namespace, use the same dry-run-first workflow. Apply writes one audit
-record with the affected count and rule, without student names or contact data:
+The original bootstrap assigned a mixed name to every fourth demo stable ID.
+The prior cleanup cleared exactly those 125 values. To restore only that proven
+legacy set, use the same dry-run-first workflow below. It does not fill the other
+pre-existing blank demo names. Apply writes one audit record with counts, scope
+and naming strategy, without student names or contact data:
 
 ```bash
 cd /opt/apps/class_hero_hub

@@ -1,5 +1,60 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-31 — UIS demo Arabic full-name restoration
+
+The prior acceptance cleanup correctly removed 125 invalid hybrid Arabic/Latin
+`name_ar` values, but deliberately did not invent replacements. A review of the
+pre-seed SQL backup established the exact provenance rule: the original demo
+bootstrap populated every fourth `UIS-DEMO-STU-*` numeric stable ID, from 0004
+through 0500. All 125 such rows are now blank; the other 375 demo rows were
+already blank. This reconstruction allows the repair to target the exact prior
+correction rather than treating all 500 blank demo names as affected.
+
+The realistic demo seeder now derives a complete Arabic-only full name from the
+numeric demo stable ID, the synthetic gender field and fixed Arabic given-name
+and family-name pools. The mapping is deterministic and independent of Latin
+first, last or preferred names. For the 125 legacy rows it yields 125 distinct
+full names. Existing nonblank Arabic-only demo names are preserved, while
+ordinary future demo seeding fills blank or invalid names only inside the exact
+UIS demo namespace. Non-demo students are never selected.
+
+The existing repair-only command applies the reconstructed every-fourth-ID scope
+and remains dry-run by default behind the development environment and explicit
+school confirmation guards. Apply writes one non-sensitive
+`demo.student_name_ar.populated` audit entry containing only counts, scope, demo
+ID prefix and strategy; no student name or contact value is logged. No schema
+migration, guardian/access lifecycle change, FHH change or Android artefact is
+involved.
+
+The live dry-run selected exactly 125 rows and rolled back. Encrypted
+differential backups then completed locally
+(`20260728-182651F_20260731-164433D`) and off-host
+(`20260725-221530F_20260731-164439D`). Apply populated those 125 blank legacy
+rows and one audit event recorded 125 blank fills and zero invalid-value
+replacements. Afterwards all 125 target rows had Arabic-only names, all 125
+full names were distinct, no target remained blank, and no demo name contained
+mixed Arabic/Latin letters. The four non-demo student rows retained the same
+count and opaque data fingerprint across the correction.
+
+Live verification also exposed a pre-existing Annual Update streaming defect:
+guardian contact ORM rows were expired by the export audit commit before the
+CSV iterator read them. The export now snapshots only the five required contact
+fields into immutable values before that commit. This does not change contact,
+identity or export schemas; it prevents detached-session failures while retaining
+the existing row limit and streaming behaviour. The active-roster export already
+worked correctly.
+
+Focused validation passed all 73 demo-seeder and student import/export tests,
+including deterministic variation, demo/non-demo scope, audit privacy, active
+roster, populated Annual Update, UTF-8 BOM and byte-exact Arabic round trips.
+Two focused tests also passed from the rebuilt backend image. Only the CHH
+backend image was rebuilt and its service recreated; the frontend, PostgreSQL
+and both workers retained their lifecycle. Live active-roster and Annual Update
+downloads each returned HTTP 200 and matched all 125 expected Arabic names with
+UTF-8 BOM and byte-exact round trips. Local/public readiness reported the
+database and migration current at `e7f8a9b0c3d4`, and post-deployment backend
+logs contained no errors.
+
 ## 2026-07-31 — Students acceptance cleanup and Arabic-name data quality
 
 The Students and Student Import & Export routes now keep viewport notifications

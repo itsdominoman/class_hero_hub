@@ -89,38 +89,76 @@ def create_category(db, category_type: str, label: str, points_value: int, sort_
     return category
 
 
-def test_demo_student_arabic_name_guard_is_narrow_and_audited(db):
+def test_demo_student_arabic_names_are_deterministic_narrow_and_audited(db):
+    legacy_names = [
+        module.deterministic_demo_student_name_ar(
+            Student(
+                external_ref=f"UIS-DEMO-STU-{number:04d}",
+                gender="female" if number % 3 else "male",
+            )
+        )
+        for number in range(4, 501, 4)
+    ]
+    assert len(set(legacy_names)) == 125
+    assert all(value and len(value.split()) == 2 and module._is_arabic_only_name(value) for value in legacy_names)
+
     seeded = build_world(db)
-    students = db.query(Student).filter(Student.school_id == seeded["school"].id).order_by(Student.id).limit(4).all()
-    students[0].external_ref = "UIS-DEMO-STU-0001"
-    students[0].name_ar = "نور Smith"
-    students[1].external_ref = "UIS-DEMO-STU-0002"
-    students[1].name_ar = "نُور عبد الله-السالمي"
-    students[2].external_ref = "UIS-DEMO-STU-0003"
-    students[2].name_ar = None
-    students[3].external_ref = "REAL-0001"
-    students[3].name_ar = "سارة Jones"
+    students = db.query(Student).filter(Student.school_id == seeded["school"].id).order_by(Student.id).limit(6).all()
+    students[0].external_ref = "UIS-DEMO-STU-0004"
+    students[0].gender = "female"
+    students[0].name_ar = None
+    students[1].external_ref = "UIS-DEMO-STU-0008"
+    students[1].gender = "male"
+    students[1].name_ar = "نور Smith"
+    students[2].external_ref = "UIS-DEMO-STU-0012"
+    students[2].name_ar = "نُور عبد الله-السالمي"
+    students[3].external_ref = "UIS-DEMO-STU-0016"
+    students[3].gender = "unspecified"
+    students[3].name_ar = None
+    students[4].external_ref = "UIS-DEMO-STU-0001"
+    students[4].name_ar = None
+    students[5].external_ref = "REAL-0001"
+    students[5].name_ar = "سارة Jones"
     db.commit()
 
     counts = Counter()
     world = module.load_world(db, "united-international-school")
-    module.clear_mixed_demo_student_name_ar(db, world, apply=True, counts=counts)
+    module.populate_demo_student_name_ar(
+        db,
+        world,
+        apply=True,
+        counts=counts,
+        legacy_correction_only=True,
+    )
     db.commit()
 
-    assert counts["cleared_mixed_demo_name_ar"] == 1
-    assert students[0].name_ar is None
-    assert students[1].name_ar == "نُور عبد الله-السالمي"
-    assert students[2].name_ar is None
-    assert students[3].name_ar == "سارة Jones"
-    audit = db.query(AuditLog).filter(AuditLog.action == "demo.student_name_ar.cleared").one()
+    generated_names = {students[index].name_ar for index in (0, 1, 3)}
+    assert counts["populated_demo_name_ar"] == 3
+    assert len(generated_names) == 3
+    assert all(module._is_arabic_only_name(value) for value in generated_names)
+    assert students[2].name_ar == "نُور عبد الله-السالمي"
+    assert students[4].name_ar is None
+    assert students[5].name_ar == "سارة Jones"
+    assert module.deterministic_demo_student_name_ar(students[0]) == students[0].name_ar
+
+    audit = db.query(AuditLog).filter(AuditLog.action == "demo.student_name_ar.populated").one()
     assert audit.school_id == seeded["school"].id
     assert audit.actor_user_id is None
     assert audit.detail == {
-        "count": 1,
+        "count": 3,
+        "filled_blank": 2,
+        "replaced_invalid": 1,
         "external_ref_prefix": "UIS-DEMO-STU-",
-        "rule": "mixed Arabic and Latin letters",
+        "scope": "legacy_correction",
+        "strategy": "stable numeric demo ID mapped to Arabic-only given and family name pools",
     }
     assert "نور Smith" not in str(audit.detail)
+
+    all_demo_counts = Counter()
+    module.populate_demo_student_name_ar(db, world, apply=False, counts=all_demo_counts)
+    assert all_demo_counts["populated_demo_name_ar"] == 1
+    assert module._is_arabic_only_name(students[4].name_ar)
+    assert students[5].name_ar == "سارة Jones"
 
 
 def build_world(db):
