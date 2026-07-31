@@ -72,11 +72,19 @@
   };
   type GuardianContact = {
     id: number;
-    slot: number;
+    slot?: number | null;
+    external_ref?: string | null;
     name?: string | null;
     email?: string | null;
+    phone?: string | null;
+    phone_normalized?: string | null;
     relationship?: string | null;
+    is_primary: boolean;
+    is_emergency: boolean;
+    is_active: boolean;
+    source: 'import' | 'manual';
     status: 'draft' | 'linked' | 'ignored';
+    access_status: 'draft' | 'invited' | 'linked' | 'ignored' | 'inactive';
   };
   type GuardianInvite = {
     id: number;
@@ -139,10 +147,14 @@
     section?: string | null;
     branch?: string | null;
     guardian1_name?: string | null;
+    guardian1_id?: string | null;
     guardian1_email?: string | null;
+    guardian1_phone?: string | null;
     guardian1_relationship?: string | null;
     guardian2_name?: string | null;
+    guardian2_id?: string | null;
     guardian2_email?: string | null;
+    guardian2_phone?: string | null;
     guardian2_relationship?: string | null;
     action: 'create' | 'update' | 'move' | 'restore' | 'skip' | 'conflict' | 'error';
     errors: string[];
@@ -469,6 +481,17 @@
   let subjectForm = $state(baseForm('ENG', 'English'));
   let groupForm = $state({ ...baseForm('', ''), academic_year_id: '', class_section_id: '', grade_level_id: '', subject_id: '', enrolment_policy: 'default_for_section' });
   let studentForm = $state({ external_ref: '', first_name: '', last_name: '', preferred_name: '', name_ar: '', date_of_birth: '', gender: '', status: 'active' });
+  let guardianContactForm = $state({
+    external_ref: '',
+    name: '',
+    relationship: '',
+    email: '',
+    phone: '',
+    is_primary: false,
+    is_emergency: false,
+    is_active: true
+  });
+  let editingGuardianContactId = $state<number | null>(null);
   let groupContextMode = $state<'section' | 'grade'>('section');
   let lastAutoGroupCode = $state('');
   let lastAutoGroupName = $state('');
@@ -857,6 +880,7 @@
       lastAutoGroupName = '';
     } else if (path === 'students') {
       studentForm = { external_ref: '', first_name: '', last_name: '', preferred_name: '', name_ar: '', date_of_birth: '', gender: '', status: 'active' };
+      resetGuardianContactForm();
     } else if (path === 'default-subject-templates') {
       resetTemplateForm();
     }
@@ -1187,6 +1211,8 @@
       status: student.status
     };
     loadStudentEnrolments(student.id);
+    loadStudentGuardians(student.id);
+    loadStudentFhhInvites(student.id);
   }
 
   async function saveStudent() {
@@ -1365,10 +1391,12 @@
     const summaries: string[] = [];
     for (const slot of [1, 2] as const) {
       const name = row[`guardian${slot}_name`];
+      const contactId = row[`guardian${slot}_id`];
       const email = row[`guardian${slot}_email`];
+      const phone = row[`guardian${slot}_phone`];
       const relationship = row[`guardian${slot}_relationship`];
-      if (!name && !email && !relationship) continue;
-      const parts = [name || $_('school.imports.guardianNoName'), email, relationship].filter(Boolean);
+      if (!name && !contactId && !email && !phone && !relationship) continue;
+      const parts = [name || $_('school.imports.guardianNoName'), contactId, email, phone, relationship].filter(Boolean);
       summaries.push(`${$_('school.imports.guardianSlot')} ${slot}: ${parts.join(' · ')}`);
     }
     return summaries;
@@ -1534,14 +1562,13 @@
     }
   }
 
-  async function generateGuardianInvite(slot: number, contactId?: number | null) {
+  async function generateGuardianInvite(contactId: number) {
     if (!schoolId || !selectedStudentId) return;
     generatedInvite = null;
     generatedInviteQr = '';
     letterVisible = false;
     try {
-      const body = contactId ? { contact_id: contactId } : { slot };
-      generatedInvite = await api.post(`/school/students/${selectedStudentId}/guardian-invites`, body, schoolOptions());
+      generatedInvite = await api.post(`/school/students/${selectedStudentId}/guardian-invites`, { contact_id: contactId }, schoolOptions());
       if (generatedInvite?.join_url) {
         generatedInviteQr = await QRCode.toDataURL(generatedInvite.join_url, {
           errorCorrectionLevel: 'M',
@@ -1579,16 +1606,90 @@
     }
   }
 
-  function contactForSlot(slot: number) {
-    return studentGuardians?.contacts.find((contact) => contact.slot === slot) || null;
+  function resetGuardianContactForm() {
+    editingGuardianContactId = null;
+    guardianContactForm = {
+      external_ref: '',
+      name: '',
+      relationship: '',
+      email: '',
+      phone: '',
+      is_primary: false,
+      is_emergency: false,
+      is_active: true
+    };
   }
 
-  function activeInviteForSlot(slot: number) {
-    return studentGuardians?.invites.find((invite) => invite.slot === slot && invite.status === 'active') || null;
+  function editGuardianContact(contact: GuardianContact) {
+    editingGuardianContactId = contact.id;
+    guardianContactForm = {
+      external_ref: contact.external_ref || '',
+      name: contact.name || '',
+      relationship: contact.relationship || '',
+      email: contact.email || '',
+      phone: contact.phone || '',
+      is_primary: contact.is_primary,
+      is_emergency: contact.is_emergency,
+      is_active: contact.is_active
+    };
   }
 
-  function latestInviteForSlot(slot: number) {
-    return studentGuardians?.invites.find((invite) => invite.slot === slot) || null;
+  async function saveGuardianContact() {
+    if (!schoolId || !selectedStudentId || !guardianContactForm.name.trim()) return;
+    saving = true;
+    error = null;
+    const payload = {
+      external_ref: guardianContactForm.external_ref || null,
+      name: guardianContactForm.name,
+      relationship: guardianContactForm.relationship || null,
+      email: guardianContactForm.email || null,
+      phone: guardianContactForm.phone || null,
+      is_primary: guardianContactForm.is_primary,
+      is_emergency: guardianContactForm.is_emergency,
+      is_active: guardianContactForm.is_active
+    };
+    try {
+      if (editingGuardianContactId) {
+        await api.put(`/school/guardian-contacts/${editingGuardianContactId}`, payload, schoolOptions());
+        notice = $_('school.guardians.contactUpdated');
+      } else {
+        await api.post(`/school/students/${selectedStudentId}/guardian-contacts`, payload, schoolOptions());
+        notice = $_('school.guardians.contactCreated');
+      }
+      resetGuardianContactForm();
+      await loadStudentGuardians(selectedStudentId);
+    } catch (err: any) {
+      error = err?.message || $_('school.guardians.contactSaveError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function setGuardianContactActive(contact: GuardianContact, active: boolean) {
+    if (!schoolId || !selectedStudentId) return;
+    if (!active && !confirm($_('school.guardians.inactivateConfirm'))) return;
+    try {
+      await api.put(`/school/guardian-contacts/${contact.id}`, {
+        external_ref: contact.external_ref || null,
+        name: contact.name || '',
+        relationship: contact.relationship || null,
+        email: contact.email || null,
+        phone: contact.phone || null,
+        is_primary: contact.is_primary,
+        is_emergency: contact.is_emergency,
+        is_active: active
+      }, schoolOptions());
+      notice = active ? $_('school.guardians.contactActivated') : $_('school.guardians.contactInactivated');
+      await loadStudentGuardians(selectedStudentId);
+    } catch (err: any) {
+      error = err?.message || $_('school.guardians.contactSaveError');
+    }
+  }
+
+  function activeInviteForContact(contactId: number) {
+    return studentGuardians?.invites.find(
+      (invite) => invite.student_guardian_contact_id === contactId && invite.status === 'active'
+    ) || null;
   }
 
   function guardianStatusKey(status?: string | null) {
@@ -3407,6 +3508,96 @@
                 </label>
                 <StatusInput bind:value={studentForm.status} />
               </div>
+              {#if editingPath === 'students' && editingId}
+                <section class="mt-5 rounded-xl border border-sky-200 bg-sky-50/40 p-4">
+                  <div>
+                    <h3 class="font-black text-slate-900">{$_('school.guardians.contactsTitle')}</h3>
+                    <p class="mt-1 text-sm text-slate-600">{$_('school.guardians.contactsHelp')}</p>
+                    <p class="mt-1 text-xs font-semibold text-slate-600">{$_('school.guardians.identitySeparation')}</p>
+                  </div>
+
+                  <div class="mt-4 grid gap-3 md:grid-cols-3">
+                    <TextInput label={$_('school.guardians.fullName')} bind:value={guardianContactForm.name} />
+                    <TextInput label={$_('school.guardians.contactId')} bind:value={guardianContactForm.external_ref} />
+                    <label class="block text-sm font-semibold text-slate-700">
+                      {$_('school.guardians.relationship')}
+                      <select class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-normal" bind:value={guardianContactForm.relationship}>
+                        <option value="">{$_('school.guardians.relationshipNone')}</option>
+                        <option value="mother">{$_('school.guardians.relationships.mother')}</option>
+                        <option value="father">{$_('school.guardians.relationships.father')}</option>
+                        <option value="guardian">{$_('school.guardians.relationships.guardian')}</option>
+                        <option value="other">{$_('school.guardians.relationships.other')}</option>
+                      </select>
+                    </label>
+                    <TextInput label={$_('school.guardians.email')} bind:value={guardianContactForm.email} />
+                    <TextInput label={$_('school.guardians.phone')} bind:value={guardianContactForm.phone} />
+                    <div class="flex flex-wrap items-center gap-4 pt-6 text-sm font-semibold text-slate-700">
+                      <label class="flex items-center gap-2"><input type="checkbox" bind:checked={guardianContactForm.is_primary} /> {$_('school.guardians.primary')}</label>
+                      <label class="flex items-center gap-2"><input type="checkbox" bind:checked={guardianContactForm.is_emergency} /> {$_('school.guardians.emergency')}</label>
+                      <label class="flex items-center gap-2"><input type="checkbox" bind:checked={guardianContactForm.is_active} /> {$_('school.guardians.activeContact')}</label>
+                    </div>
+                  </div>
+                  <div class="mt-3 flex gap-2">
+                    <button type="button" class="btn-hero rounded-lg px-3 py-2 text-sm" disabled={saving || !guardianContactForm.name.trim()} onclick={saveGuardianContact}>
+                      {editingGuardianContactId ? $_('school.guardians.updateContact') : $_('school.guardians.addContact')}
+                    </button>
+                    {#if editingGuardianContactId}
+                      <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={resetGuardianContactForm}>{$_('common.cancel')}</button>
+                    {/if}
+                  </div>
+
+                  {#if loadingGuardians}
+                    <p class="mt-4 text-sm text-slate-500">{$_('common.loading')}</p>
+                  {:else if studentGuardians?.contacts?.length}
+                    <div class="mt-4 space-y-3">
+                      {#each studentGuardians.contacts as contact (contact.id)}
+                        {@const activeInvite = activeInviteForContact(contact.id)}
+                        <div class={`rounded-lg border p-3 ${contact.is_active ? 'border-slate-200 bg-white' : 'border-slate-200 bg-slate-100'}`}>
+                          <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                            <div>
+                              <p class="font-bold text-slate-900">{contact.name}</p>
+                              <p class="mt-1 text-sm text-slate-600">{[contact.relationship, contact.email, contact.phone].filter(Boolean).join(' · ')}</p>
+                              <div class="mt-2 flex flex-wrap gap-2 text-xs font-bold">
+                                <span class="rounded-full bg-slate-200 px-2 py-1">{$_(guardianStatusKey(contact.access_status))}</span>
+                                {#if contact.is_primary}<span class="rounded-full bg-emerald-100 px-2 py-1 text-emerald-800">{$_('school.guardians.primary')}</span>{/if}
+                                {#if contact.is_emergency}<span class="rounded-full bg-orange-100 px-2 py-1 text-orange-800">{$_('school.guardians.emergency')}</span>{/if}
+                                <span class="rounded-full bg-sky-100 px-2 py-1 text-sky-800">{contact.source === 'import' ? $_('school.guardians.imported') : $_('school.guardians.manual')}</span>
+                              </div>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                              <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={() => editGuardianContact(contact)}>{$_('school.edit')}</button>
+                              <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={() => setGuardianContactActive(contact, !contact.is_active)}>
+                                {contact.is_active ? $_('school.guardians.inactivate') : $_('school.guardians.activate')}
+                              </button>
+                              {#if activeInvite}
+                                <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={() => revokeGuardianInvite(activeInvite.id)}>{$_('school.guardians.revoke')}</button>
+                              {:else if contact.is_active && contact.status !== 'ignored'}
+                                <button type="button" class="btn-hero rounded-lg px-3 py-2 text-sm" onclick={() => generateGuardianInvite(contact.id)}>{$_('school.guardians.generate')}</button>
+                              {/if}
+                            </div>
+                          </div>
+                        </div>
+                      {/each}
+                    </div>
+                  {:else}
+                    <p class="mt-4 text-sm text-slate-500">{$_('school.guardians.noContacts')}</p>
+                  {/if}
+
+                  <div class="mt-4 border-t border-sky-200 pt-3 text-sm text-slate-600">
+                    <p class="font-bold text-slate-800">{$_('school.guardians.fhhStatus')}</p>
+                    <p class="mt-1">{$_('school.guardians.fhhStatusCount', { values: { count: studentFhhInvites?.invites?.length || 0 } })}</p>
+                    {#if studentFhhInvites?.invites?.length}
+                      <div class="mt-2 flex flex-wrap gap-2">
+                        {#each studentFhhInvites.invites as invite}
+                          <span class="rounded-full bg-white px-2 py-1 text-xs font-bold text-sky-800">
+                            {$_(`school.fhhLink.status.${fhhInviteStatus(invite)}`)}
+                          </span>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+                </section>
+              {/if}
               <div class="mt-4 flex items-center gap-2">
                 <button type="button" class="btn-hero inline-flex items-center gap-2 rounded-lg" disabled={saving} onclick={saveStudent}>
                   {#if editingPath === 'students'}{$_('school.save')}{:else}<Plus class="h-4 w-4" />{$_('school.add')}{/if}
@@ -3639,28 +3830,26 @@
                   {/if}
 
                   <div class="mt-4 grid gap-3 lg:grid-cols-2">
-                    {#each [1, 2] as slot}
-                      {@const contact = contactForSlot(slot)}
-                      {@const activeInvite = activeInviteForSlot(slot)}
-                      {@const latestInvite = latestInviteForSlot(slot)}
+                    {#each studentGuardians?.contacts || [] as contact (contact.id)}
+                      {@const activeInvite = activeInviteForContact(contact.id)}
                       <div class="rounded-lg border border-slate-100 bg-slate-50 p-3">
                         <div class="flex items-start justify-between gap-3">
                           <div>
-                            <p class="font-bold text-slate-900">{guardianDisplayName(contact || { slot }, $_('school.guardians.slot', { values: { slot } }))}</p>
+                            <p class="font-bold text-slate-900">{guardianDisplayName(contact, $_('school.guardians.contact'))}</p>
                             {#if contact?.email}
                               <p class="mt-1 text-xs text-slate-500">{contact.email}</p>
                             {/if}
+                            {#if contact?.phone}
+                              <p class="mt-1 text-xs text-slate-500">{contact.phone}</p>
+                            {/if}
                             <p class="mt-2 text-xs font-semibold text-slate-600">
-                              {$_('school.guardians.contact')}: {$_(guardianStatusKey(contact?.status))}
-                              {#if latestInvite}
-                                · {$_('school.guardians.invite')}: {$_(guardianStatusKey(latestInvite.status))}
-                              {/if}
+                              {$_('school.guardians.contact')}: {$_(guardianStatusKey(contact.access_status))}
                             </p>
                           </div>
                           {#if activeInvite}
                             <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={() => revokeGuardianInvite(activeInvite.id)}>{$_('school.guardians.revoke')}</button>
-                          {:else}
-                            <button type="button" class="btn-hero rounded-lg px-3 py-2 text-sm" onclick={() => generateGuardianInvite(slot, contact?.id)}>{$_('school.guardians.generate')}</button>
+                          {:else if contact.is_active && contact.status !== 'ignored'}
+                            <button type="button" class="btn-hero rounded-lg px-3 py-2 text-sm" onclick={() => generateGuardianInvite(contact.id)}>{$_('school.guardians.generate')}</button>
                           {/if}
                         </div>
                       </div>

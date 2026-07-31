@@ -503,38 +503,51 @@ class ImportRow(Base):
 
 
 class StudentGuardianContact(Base):
-    """A draft guardian contact staged by import (never a login, never contacted).
-
-    S9 guardian onboarding is expected to consume/migrate these rows into
-    real `guardian_links` + invites once that workflow exists; `status`
-    tracks that lifecycle (`draft` until S9 acts on it, then `linked` or
-    `ignored`) so a later re-import never silently overwrites a decision S9
-    has already made.
-    """
+    """School-held guardian contact details, separate from login identity."""
 
     __tablename__ = "student_guardian_contacts"
 
     id = Column(Integer, primary_key=True, index=True)
     school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
     student_id = Column(Integer, ForeignKey("students.id"), nullable=False, index=True)
-    slot = Column(Integer, nullable=False)
+    # Slots 1/2 remain only for MIS CSV compatibility. Manually maintained
+    # contacts have no slot, allowing any reasonable number per student.
+    slot = Column(Integer, nullable=True)
+    external_ref = Column(String, nullable=True)
     name = Column(String, nullable=True)
     email = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    phone_normalized = Column(String, nullable=True)
     relationship = Column(String, nullable=True)
+    is_primary = Column(Boolean, nullable=False, default=False, server_default="false")
+    is_emergency = Column(Boolean, nullable=False, default=False, server_default="false")
+    is_active = Column(Boolean, nullable=False, default=True, server_default="true")
+    source = Column(String, nullable=False, default="manual", server_default="manual")
     source_import_id = Column(Integer, ForeignKey("imports.id"), nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     status = Column(String, nullable=False, default="draft", server_default="draft")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
         UniqueConstraint("school_id", "student_id", "slot", name="uq_student_guardian_contacts_school_student_slot"),
-        CheckConstraint("slot IN (1, 2)", name="ck_student_guardian_contacts_slot"),
+        CheckConstraint("slot IS NULL OR slot IN (1, 2)", name="ck_student_guardian_contacts_slot"),
         CheckConstraint(
             "relationship IS NULL OR relationship IN ('mother', 'father', 'guardian', 'other')",
             name="ck_student_guardian_contacts_relationship",
         ),
         CheckConstraint("status IN ('draft', 'linked', 'ignored')", name="ck_student_guardian_contacts_status"),
+        CheckConstraint("source IN ('import', 'manual')", name="ck_student_guardian_contacts_source"),
         Index("ix_student_guardian_contacts_school_student", "school_id", "student_id"),
+        Index(
+            "uq_guardian_contacts_student_external_ref_norm",
+            "school_id",
+            "student_id",
+            func.lower(func.trim(external_ref)),
+            unique=True,
+            postgresql_where=sql_text("external_ref IS NOT NULL AND length(btrim(external_ref)) > 0"),
+            sqlite_where=sql_text("external_ref IS NOT NULL AND length(trim(external_ref)) > 0"),
+        ),
     )
 
 

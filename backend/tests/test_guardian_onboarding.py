@@ -207,6 +207,7 @@ def test_admin_lists_contact_invite_link_status_and_blocks_wrong_roles(db, clien
     listed = client.get(f"/api/school/students/{world['student'].id}/guardian-invites", headers=bearer(world["alpha_admin"].email, world["alpha"].id))
     assert listed.status_code == 200
     assert listed.json()["contacts"][0]["email"] == "fatima@example.com"
+    assert listed.json()["contacts"][0]["access_status"] == "invited"
     assert listed.json()["invites"][0]["status"] == "active"
     assert "code" not in listed.json()["invites"][0]
 
@@ -215,6 +216,110 @@ def test_admin_lists_contact_invite_link_status_and_blocks_wrong_roles(db, clien
     platform = client.post(f"/api/school/students/{world['student'].id}/guardian-invites", headers=bearer(world["platform"].email, world["alpha"].id), json={"contact_id": world["contact"].id})
     assert platform.status_code == 403
     wrong_school = client.post(f"/api/school/students/{world['student'].id}/guardian-invites", headers=bearer(world["beta_admin"].email, world["beta"].id), json={"contact_id": world["contact"].id})
+    assert wrong_school.status_code == 404
+
+
+def test_admin_adds_edits_and_inactivates_unlimited_guardian_contacts(db, client, world):
+    created_ids = []
+    for index in range(3):
+        created = client.post(
+            f"/api/school/students/{world['student'].id}/guardian-contacts",
+            headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+            json={
+                "external_ref": f"G-{index}",
+                "name": f"Guardian {index}",
+                "relationship": "guardian",
+                "email": f"guardian{index}@example.com",
+                "phone": "00 968 9123 4567",
+                "is_primary": index == 0,
+                "is_emergency": index == 1,
+                "is_active": True,
+            },
+        )
+        assert created.status_code == 201
+        created_ids.append(created.json()["id"])
+    assert db.query(StudentGuardianContact).filter_by(student_id=world["student"].id).count() == 5
+    contact = db.query(StudentGuardianContact).filter_by(id=created_ids[0]).one()
+    assert contact.slot is None
+    assert contact.phone_normalized == "+96891234567"
+    assert contact.source == "manual"
+
+    updated = client.put(
+        f"/api/school/guardian-contacts/{contact.id}",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+        json={
+            "external_ref": "G-0",
+            "name": "Updated Guardian",
+            "relationship": "mother",
+            "email": "updated@example.com",
+            "phone": "+968 9988 7766",
+            "is_primary": False,
+            "is_emergency": True,
+            "is_active": False,
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["access_status"] == "inactive"
+    db.refresh(contact)
+    assert contact.name == "Updated Guardian"
+    assert contact.relationship == "mother"
+    assert contact.phone_normalized == "+96899887766"
+    assert contact.is_active is False
+    actions = {row.action for row in db.query(AuditLog).filter(AuditLog.entity_id == contact.id).all()}
+    assert "school.guardian_contact.created" in actions
+    assert "school.guardian_contact.inactivated" in actions
+
+
+def test_contact_email_edit_does_not_change_linked_login_identity(db, client, world):
+    code = create_invite(client, world).json()["code"]
+    linked = client.post(
+        "/api/join/guardian/confirm",
+        headers=guardian_invite_bearer(db, world["guardian"], code),
+        json={"code": code, "relationship": "mother"},
+    )
+    assert linked.status_code == 200
+    original_login_email = world["guardian"].email
+    edited = client.put(
+        f"/api/school/guardian-contacts/{world['contact'].id}",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+        json={
+            "name": "Fatima Contact",
+            "relationship": "mother",
+            "email": "school-contact@example.com",
+            "phone": "+968 9000 0000",
+            "is_primary": True,
+            "is_emergency": False,
+            "is_active": True,
+        },
+    )
+    assert edited.status_code == 200
+    db.refresh(world["guardian"])
+    assert world["guardian"].email == original_login_email
+    assert db.query(GuardianLink).filter_by(user_id=world["guardian"].id).one().status == "active"
+    audit = db.query(AuditLog).filter_by(action="school.guardian_contact.updated").one()
+    assert {"email", "phone", "phone_normalized"}.issubset(set(audit.detail["changed_fields"]))
+    assert "school-contact@example.com" not in str(audit.detail)
+
+
+def test_guardian_contact_permissions_and_school_scope(db, client, world):
+    payload = {"name": "Manual Guardian", "relationship": "guardian", "is_active": True}
+    teacher = client.post(
+        f"/api/school/students/{world['student'].id}/guardian-contacts",
+        headers=bearer(world["alpha_teacher"].email, world["alpha"].id),
+        json=payload,
+    )
+    assert teacher.status_code == 403
+    platform = client.post(
+        f"/api/school/students/{world['student'].id}/guardian-contacts",
+        headers=bearer(world["platform"].email, world["alpha"].id),
+        json=payload,
+    )
+    assert platform.status_code == 403
+    wrong_school = client.put(
+        f"/api/school/guardian-contacts/{world['contact'].id}",
+        headers=bearer(world["beta_admin"].email, world["beta"].id),
+        json=payload,
+    )
     assert wrong_school.status_code == 404
 
 
@@ -352,6 +457,25 @@ def test_revoked_link_can_be_restored_by_fresh_invite_and_membership_revoked_onl
         json={"code": fresh, "relationship": "guardian"},
     )
     assert db.query(Membership).filter_by(school_id=world["alpha"].id, user_id=world["guardian"].id, role="guardian").one().status == "active"
+
+
+def test_one_guardian_account_can_link_to_siblings(db, client, world):
+    first_code = create_invite(client, world).json()["code"]
+    first = client.post(
+        "/api/join/guardian/confirm",
+        headers=guardian_invite_bearer(db, world["guardian"], first_code),
+        json={"code": first_code, "relationship": "mother"},
+    )
+    assert first.status_code == 200
+    sibling_code = create_invite(client, world, student=world["second_student"], slot=1).json()["code"]
+    sibling = client.post(
+        "/api/join/guardian/confirm",
+        headers=guardian_invite_bearer(db, world["guardian"], sibling_code),
+        json={"code": sibling_code, "relationship": "mother"},
+    )
+    assert sibling.status_code == 200
+    links = db.query(GuardianLink).filter_by(user_id=world["guardian"].id, status="active").all()
+    assert {link.student_id for link in links} == {world["student"].id, world["second_student"].id}
 
 
 def test_suspended_school_and_archived_student_block_join(db, client, world):

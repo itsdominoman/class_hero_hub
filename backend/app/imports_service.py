@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
+from email_validator import EmailNotValidError, validate_email
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -26,12 +27,23 @@ CSV_COLUMNS = [
     "grade",
     "section",
     "guardian1_name",
+    "guardian1_id",
     "guardian1_email",
+    "guardian1_phone",
     "guardian1_relationship",
     "guardian2_name",
+    "guardian2_id",
     "guardian2_email",
+    "guardian2_phone",
     "guardian2_relationship",
 ]
+
+OPTIONAL_STUDENT_CSV_COLUMNS = {
+    "guardian1_id",
+    "guardian1_phone",
+    "guardian2_id",
+    "guardian2_phone",
+}
 
 TEACHER_CSV_COLUMNS = ["email", "first_name", "last_name", "name_ar"]
 
@@ -54,6 +66,32 @@ def normalize_student_external_ref(value: str | None) -> str | None:
     return cleaned.lower() if cleaned else None
 
 
+def normalize_guardian_external_ref(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    return cleaned.lower() if cleaned else None
+
+
+def normalize_guardian_phone(value: str | None) -> tuple[str | None, str | None]:
+    """Validate a usable phone value and return display + comparison forms."""
+    if value is None or not value.strip():
+        return None, None
+    display = value.strip()
+    compact = "".join(ch for ch in display if ch not in " -().")
+    if compact.startswith("00"):
+        compact = f"+{compact[2:]}"
+    if compact.startswith("+"):
+        digits = compact[1:]
+        normalized = compact
+    else:
+        digits = compact
+        normalized = compact
+    if not digits.isdigit() or not 7 <= len(digits) <= 15:
+        raise ValueError("must contain 7 to 15 digits and may start with + or 00")
+    return display, normalized
+
+
 def generate_template_csv(columns: list[str]) -> str:
     buffer = io.StringIO()
     writer = csv.writer(buffer)
@@ -72,19 +110,37 @@ def decode_csv_bytes(content: bytes) -> str:
         raise ImportUploadError("Could not read this file. Save it as UTF-8 or Windows-1256 CSV and try again.")
 
 
-def parse_csv_rows(text: str, columns: list[str]) -> list[dict[str, str]]:
+def parse_csv_rows(
+    text: str,
+    columns: list[str],
+    *,
+    optional_columns: set[str] | None = None,
+) -> list[dict[str, str]]:
     reader = csv.DictReader(io.StringIO(text))
     # Header matching is case/whitespace-insensitive (a common Excel-resave
     # quirk), but DictReader keys rows by the *original* header spelling, so
     # row values must be looked up through this original-name map rather than
     # by the lowercase column name directly.
     original_by_lower = {(name or "").strip().lower(): name for name in (reader.fieldnames or [])}
-    missing = [column for column in columns if column not in original_by_lower]
+    optional_columns = optional_columns or set()
+    missing = [
+        column
+        for column in columns
+        if column not in original_by_lower and column not in optional_columns
+    ]
     if missing:
         raise ImportUploadError(f"CSV is missing required columns: {', '.join(missing)}")
     rows: list[dict[str, str]] = []
     for raw_row in reader:
-        rows.append({column: (raw_row.get(original_by_lower[column]) or "").strip() for column in columns})
+        rows.append(
+            {
+                column: (
+                    (raw_row.get(original_by_lower[column]) or "") if column in original_by_lower else ""
+                )
+                .strip()
+                for column in columns
+            }
+        )
     return rows
 
 
@@ -101,7 +157,9 @@ class RowPlan:
     guardian_contacts: list[dict[str, Any]] = field(default_factory=list)
 
 
-def _validate_guardian_slot(row: dict[str, str], slot: int) -> tuple[dict[str, Any] | None, list[str]]:
+def _validate_guardian_slot(
+    row: dict[str, str], slot: int
+) -> tuple[dict[str, Any] | None, list[str], list[str]]:
     """Parse+validate one guardian slot's columns. Never raises/errors the row:
 
     guardian data is prep-only for a future workflow (S9), so bad or
@@ -109,17 +167,31 @@ def _validate_guardian_slot(row: dict[str, str], slot: int) -> tuple[dict[str, A
     left blank or staged as-is, never blocks student create/update.
     """
     warnings: list[str] = []
+    errors: list[str] = []
+    external_ref = row[f"guardian{slot}_id"] or None
     name = row[f"guardian{slot}_name"] or None
     email = row[f"guardian{slot}_email"] or None
+    phone_raw = row[f"guardian{slot}_phone"] or None
     relationship_raw = (row[f"guardian{slot}_relationship"] or "").strip().lower()
 
-    if not name and not email and not relationship_raw:
-        return None, warnings
+    if not external_ref and not name and not email and not phone_raw and not relationship_raw:
+        return None, warnings, errors
 
-    if email and "@" not in email:
-        warnings.append(f"guardian{slot}_email does not look like a valid email")
+    if email:
+        try:
+            email = normalize_email(validate_email(email, check_deliverability=False).normalized)
+        except EmailNotValidError:
+            errors.append(f"guardian{slot}_email is not a valid email")
     if email and not name:
         warnings.append(f"guardian{slot}_name is missing; add a name before this guardian can be invited later")
+
+    phone = None
+    phone_normalized = None
+    if phone_raw:
+        try:
+            phone, phone_normalized = normalize_guardian_phone(phone_raw)
+        except ValueError as exc:
+            errors.append(f"guardian{slot}_phone {exc}")
 
     relationship: str | None = None
     if relationship_raw:
@@ -133,21 +205,31 @@ def _validate_guardian_slot(row: dict[str, str], slot: int) -> tuple[dict[str, A
     warnings.append(f"Guardian {slot} will be saved as a draft contact only; no invite or message is sent.")
     provided_fields = [
         field
-        for field, value in (("name", name), ("email", email), ("relationship", relationship))
+        for field, value in (
+            ("external_ref", external_ref),
+            ("name", name),
+            ("email", email),
+            ("phone", phone),
+            ("phone_normalized", phone_normalized),
+            ("relationship", relationship),
+        )
         if value is not None
     ]
     return {
         "slot": slot,
+        "external_ref": external_ref,
         "name": name,
         "email": email,
+        "phone": phone,
+        "phone_normalized": phone_normalized,
         "relationship": relationship,
         "provided_fields": provided_fields,
-    }, warnings
+    }, warnings, errors
 
 
 def existing_guardian_contacts_by_student(
     db: Session, school_id: int, student_ids: list[int]
-) -> dict[tuple[int, int], StudentGuardianContact]:
+) -> dict[tuple[int, int | str], StudentGuardianContact]:
     """One batched lookup of every (student, slot) draft guardian contact.
 
     Shared shape with open_section_enrolments_by_student: keyed for O(1)
@@ -160,7 +242,14 @@ def existing_guardian_contacts_by_student(
         .filter(StudentGuardianContact.school_id == school_id, StudentGuardianContact.student_id.in_(student_ids))
         .all()
     )
-    return {(row.student_id, row.slot): row for row in rows}
+    indexed: dict[tuple[int, int | str], StudentGuardianContact] = {}
+    for row in rows:
+        if row.slot is not None:
+            indexed[(row.student_id, row.slot)] = row
+        normalized_ref = normalize_guardian_external_ref(row.external_ref)
+        if normalized_ref:
+            indexed[(row.student_id, f"ref:{normalized_ref}")] = row
+    return indexed
 
 
 def open_section_enrolments_by_student(db: Session, school_id: int, student_ids: list[int], today: date) -> dict[int, Enrolment]:
@@ -307,10 +396,18 @@ def plan_student_import_rows(db: Session, school_id: int, raw_rows: list[dict[st
 
         guardian_contacts: list[dict[str, Any]] = []
         for slot in (1, 2):
-            contact, slot_warnings = _validate_guardian_slot(row, slot)
+            contact, slot_warnings, slot_errors = _validate_guardian_slot(row, slot)
             warnings.extend(slot_warnings)
+            errors.extend(slot_errors)
             if contact:
                 guardian_contacts.append(contact)
+        guardian_refs = [
+            normalize_guardian_external_ref(contact["external_ref"])
+            for contact in guardian_contacts
+            if contact["external_ref"]
+        ]
+        if len(guardian_refs) != len(set(guardian_refs)):
+            conflicts.append("Duplicate normalised guardian contact ID in row")
 
         if errors:
             plans.append(RowPlan(idx, row, "error", errors, warnings, guardian_contacts=guardian_contacts))
@@ -348,7 +445,16 @@ def plan_student_import_rows(db: Session, school_id: int, raw_rows: list[dict[st
         changed_guardian_contacts: list[dict[str, Any]] = []
         guardian_conflicts: list[str] = []
         for contact in guardian_contacts:
-            stored = guardian_contacts_by_student.get((existing.id, contact["slot"]))
+            normalized_guardian_ref = normalize_guardian_external_ref(contact["external_ref"])
+            contact_key: tuple[int, int | str] = (
+                (existing.id, f"ref:{normalized_guardian_ref}")
+                if normalized_guardian_ref
+                else (existing.id, contact["slot"])
+            )
+            stored = guardian_contacts_by_student.get(contact_key)
+            if stored is None and normalized_guardian_ref:
+                stored = guardian_contacts_by_student.get((existing.id, contact["slot"]))
+            contact["existing_contact_id"] = stored.id if stored is not None else None
             provided_fields = contact["provided_fields"]
             changed_fields = [
                 field

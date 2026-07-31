@@ -16,6 +16,7 @@ from app.database import Base, get_db
 from app.main import app
 from app.models_school import (
     AcademicYear,
+    AuditLog,
     BranchCampus,
     ClassSection,
     Enrolment,
@@ -158,8 +159,8 @@ def import_world(db):
 
 CSV_HEADER = (
     "student_id,first_name,last_name,preferred_name,name_ar,dob,gender,branch,grade,section,"
-    "guardian1_name,guardian1_email,guardian1_relationship,"
-    "guardian2_name,guardian2_email,guardian2_relationship"
+    "guardian1_name,guardian1_id,guardian1_email,guardian1_phone,guardian1_relationship,"
+    "guardian2_name,guardian2_id,guardian2_email,guardian2_phone,guardian2_relationship"
 )
 
 
@@ -175,18 +176,22 @@ def csv_row(
     grade="KG1",
     section="A",
     guardian1_name="",
+    guardian1_id="",
     guardian1_email="",
+    guardian1_phone="",
     guardian1_relationship="",
     guardian2_name="",
+    guardian2_id="",
     guardian2_email="",
+    guardian2_phone="",
     guardian2_relationship="",
 ) -> str:
     return ",".join(
         [
             student_id, first_name, last_name, preferred_name, name_ar, dob, gender,
             branch, grade, section,
-            guardian1_name, guardian1_email, guardian1_relationship,
-            guardian2_name, guardian2_email, guardian2_relationship,
+            guardian1_name, guardian1_id, guardian1_email, guardian1_phone, guardian1_relationship,
+            guardian2_name, guardian2_id, guardian2_email, guardian2_phone, guardian2_relationship,
         ]
     )
 
@@ -221,6 +226,8 @@ def test_template_download_has_expected_headers(client, import_world):
     header_line = resp.text.strip().splitlines()[0]
     assert header_line.split(",") == CSV_HEADER.split(",")
     assert "guardian1_name" in header_line
+    assert "guardian1_phone" in header_line
+    assert "guardian2_phone" in header_line
     assert "guardian1_relationship" in header_line
     assert "guardian2_relationship" in header_line
 
@@ -526,6 +533,77 @@ def test_guardian_email_with_missing_name_produces_warning_not_error(client, imp
     assert any("guardian1_name is missing" in warning for warning in row["warnings"])
 
 
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("guardian1_email", "not-an-email", "guardian1_email is not a valid email"),
+        ("guardian1_phone", "call-me", "guardian1_phone must contain 7 to 15 digits"),
+    ],
+)
+def test_invalid_guardian_email_or_phone_is_an_error(client, import_world, field, value, message):
+    kwargs = {field: value}
+    resp = upload(
+        client,
+        import_world,
+        [csv_row(student_id="S-120-BAD", first_name="Ali", last_name="Khan", guardian1_name="Huda", **kwargs)],
+    )
+    row = row_for(resp.json(), "S-120-BAD")
+    assert row["action"] == "error"
+    assert any(message in error for error in row["errors"])
+
+
+def test_guardian_phone_and_stable_id_import_are_blank_preserving_and_idempotent(client, import_world, db):
+    first = upload(
+        client,
+        import_world,
+        [
+            csv_row(
+                student_id="S-120-PHONE",
+                first_name="Ali",
+                last_name="Khan",
+                guardian1_id=" G-100 ",
+                guardian1_name="Huda",
+                guardian1_email="HUDA@example.com",
+                guardian1_phone="00 968 9123 4567",
+                guardian1_relationship="mother",
+            )
+        ],
+    )
+    commit(client, import_world, first.json()["id"])
+    student = db.query(Student).filter_by(external_ref="S-120-PHONE").one()
+    contact = db.query(StudentGuardianContact).filter_by(student_id=student.id).one()
+    assert contact.external_ref == "G-100"
+    assert contact.email == "huda@example.com"
+    assert contact.phone == "00 968 9123 4567"
+    assert contact.phone_normalized == "+96891234567"
+    assert contact.source == "import"
+    first_import_id = contact.source_import_id
+    first_updated_at = contact.updated_at
+
+    second = upload(
+        client,
+        import_world,
+        [
+            csv_row(
+                student_id="S-120-PHONE",
+                first_name="Ali",
+                last_name="Khan",
+                guardian2_id="G-100",
+                guardian2_name="Huda",
+                guardian2_email="huda@example.com",
+                guardian2_phone="",
+            )
+        ],
+    )
+    assert row_for(second.json(), "S-120-PHONE")["action"] == "skip"
+    commit(client, import_world, second.json()["id"])
+    db.refresh(contact)
+    assert db.query(StudentGuardianContact).filter_by(student_id=student.id).count() == 1
+    assert contact.phone_normalized == "+96891234567"
+    assert contact.source_import_id == first_import_id
+    assert contact.updated_at == first_updated_at
+
+
 def test_invalid_guardian_relationship_warns_not_errors(client, import_world, db):
     world = import_world
     resp = upload(
@@ -580,6 +658,10 @@ def test_commit_creates_draft_guardian_contacts(client, import_world, db):
     assert contacts[1].slot == 2
     assert contacts[1].name == "Yousef Khan"
     assert contacts[1].relationship == "father"
+    audits = db.query(AuditLog).filter_by(action="school.guardian_contact.created").all()
+    assert len(audits) == 2
+    assert all(row.detail["source"] == "import" for row in audits)
+    assert "huda@example.com" not in str([row.detail for row in audits])
 
 
 def test_guardian_contact_reimport_is_idempotent_and_updates_in_place(client, import_world, db):

@@ -13,11 +13,14 @@ from .. import auth, invite_tokens
 from ..database import get_db, settings
 from ..imports_service import (
     CSV_COLUMNS,
+    OPTIONAL_STUDENT_CSV_COLUMNS,
     TEACHER_CSV_COLUMNS,
     ImportUploadError,
     decode_csv_bytes,
     existing_guardian_contacts_by_student,
     generate_template_csv,
+    normalize_guardian_external_ref,
+    normalize_guardian_phone,
     normalize_student_external_ref,
     open_section_enrolments_by_student,
     parse_csv_rows,
@@ -240,6 +243,32 @@ class GuardianInviteCreateRequest(BaseModel):
     @classmethod
     def validate_relationship(cls, value: str | None) -> str | None:
         if value is None:
+            return None
+        cleaned = value.strip().lower()
+        if cleaned not in {"mother", "father", "guardian", "other"}:
+            raise ValueError("relationship must be mother, father, guardian, or other")
+        return cleaned
+
+
+class GuardianContactRequest(BaseModel):
+    external_ref: str | None = Field(default=None, max_length=120)
+    name: str = Field(min_length=1, max_length=200)
+    relationship: str | None = None
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, max_length=60)
+    is_primary: bool = False
+    is_emergency: bool = False
+    is_active: bool = True
+
+    @field_validator("external_ref", "name", "phone", mode="before")
+    @classmethod
+    def clean_contact_text(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("relationship")
+    @classmethod
+    def validate_contact_relationship(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
             return None
         cleaned = value.strip().lower()
         if cleaned not in {"mother", "father", "guardian", "other"}:
@@ -706,14 +735,33 @@ def _guardian_invite_status(row: GuardianInvite) -> str:
     return "active"
 
 
-def _guardian_contact_payload(row: StudentGuardianContact) -> dict[str, Any]:
+def _guardian_contact_payload(
+    row: StudentGuardianContact, invites: list[GuardianInvite] | None = None
+) -> dict[str, Any]:
+    access_status = row.status
+    if not row.is_active:
+        access_status = "inactive"
+    elif row.status == "draft" and any(
+        invite.student_guardian_contact_id == row.id and _guardian_invite_status(invite) == "active"
+        for invite in (invites or [])
+    ):
+        access_status = "invited"
     return {
         "id": row.id,
         "slot": row.slot,
+        "external_ref": row.external_ref,
         "name": row.name,
         "email": row.email,
+        "phone": row.phone,
+        "phone_normalized": row.phone_normalized,
         "relationship": row.relationship,
+        "is_primary": row.is_primary,
+        "is_emergency": row.is_emergency,
+        "is_active": row.is_active,
+        "source": row.source,
+        "source_import_id": row.source_import_id,
         "status": row.status,
+        "access_status": access_status,
     }
 
 
@@ -755,7 +803,14 @@ def _guardian_join_url(display_code: str) -> str:
     return f"{settings.PUBLIC_APP_URL.rstrip('/')}/join?c={display_code}"
 
 
-def _active_live_invite_query(db: Session, school_id: int, student_id: int, slot: int | None):
+def _active_live_invite_query(
+    db: Session,
+    school_id: int,
+    student_id: int,
+    *,
+    contact_id: int | None = None,
+    slot: int | None = None,
+):
     query = db.query(GuardianInvite).filter(
         GuardianInvite.school_id == school_id,
         GuardianInvite.student_id == student_id,
@@ -763,6 +818,8 @@ def _active_live_invite_query(db: Session, school_id: int, student_id: int, slot
         GuardianInvite.claimed_at.is_(None),
         GuardianInvite.expires_at > invite_tokens.now_utc(),
     )
+    if contact_id is not None:
+        return query.filter(GuardianInvite.student_guardian_contact_id == contact_id)
     return query.filter(GuardianInvite.slot == slot) if slot is not None else query.filter(GuardianInvite.slot.is_(None))
 
 
@@ -2302,10 +2359,14 @@ def _import_row_payload(row: ImportRow) -> dict[str, Any]:
         "section": csv_row.get("section") or None,
         "branch": csv_row.get("branch") or None,
         "guardian1_name": csv_row.get("guardian1_name") or None,
+        "guardian1_id": csv_row.get("guardian1_id") or None,
         "guardian1_email": csv_row.get("guardian1_email") or None,
+        "guardian1_phone": csv_row.get("guardian1_phone") or None,
         "guardian1_relationship": csv_row.get("guardian1_relationship") or None,
         "guardian2_name": csv_row.get("guardian2_name") or None,
+        "guardian2_id": csv_row.get("guardian2_id") or None,
         "guardian2_email": csv_row.get("guardian2_email") or None,
+        "guardian2_phone": csv_row.get("guardian2_phone") or None,
         "guardian2_relationship": csv_row.get("guardian2_relationship") or None,
         "action": row.action,
         "errors": row.errors or [],
@@ -2339,7 +2400,11 @@ async def upload_student_import(
     content = await file.read()
     try:
         text = decode_csv_bytes(content)
-        raw_rows = parse_csv_rows(text, CSV_COLUMNS)
+        raw_rows = parse_csv_rows(
+            text,
+            CSV_COLUMNS,
+            optional_columns=OPTIONAL_STUDENT_CSV_COLUMNS,
+        )
         if not raw_rows:
             raise ImportUploadError("CSV has no data rows")
         plans = plan_student_import_rows(db, school_id, raw_rows, today=_today())
@@ -2406,6 +2471,9 @@ def commit_student_import(import_id: int, membership: Membership = Depends(requi
     }
     open_section_by_student = open_section_enrolments_by_student(db, school_id, student_ids, today)
     existing_guardian_contacts = existing_guardian_contacts_by_student(db, school_id, student_ids)
+    existing_guardian_contacts_by_id = {
+        contact.id: contact for contact in existing_guardian_contacts.values()
+    }
 
     for plan, row in zip(plans, rows):
         row.action = plan.action
@@ -2451,14 +2519,21 @@ def commit_student_import(import_id: int, membership: Membership = Depends(requi
                     )
                 )
 
-        # Guardian contacts are draft-only prep records (never contacted, no
-        # login, no guardian_link) and are upserted regardless of the
+        # School-held guardian contacts never create a login, guardian link,
+        # invite or message. They are upserted regardless of the
         # student row's own action — a guardian-only edit on an otherwise
         # unchanged student must still land, not be skipped along with the
         # student "skip" action.
         for contact in plan.guardian_contacts:
-            key = (student.id, contact["slot"])
-            existing_contact = existing_guardian_contacts.get(key)
+            existing_contact = existing_guardian_contacts_by_id.get(contact.get("existing_contact_id"))
+            if existing_contact is None:
+                normalized_ref = normalize_guardian_external_ref(contact.get("external_ref"))
+                key = (
+                    (student.id, f"ref:{normalized_ref}")
+                    if normalized_ref
+                    else (student.id, contact["slot"])
+                )
+                existing_contact = existing_guardian_contacts.get(key)
             if existing_contact is not None:
                 if existing_contact.status != "draft":
                     # S9 (or an admin) has already acted on this contact;
@@ -2467,19 +2542,55 @@ def commit_student_import(import_id: int, membership: Membership = Depends(requi
                 for field in contact.get("changed_fields", contact["provided_fields"]):
                     setattr(existing_contact, field, contact[field])
                 existing_contact.source_import_id = imp.id
-            else:
-                db.add(
-                    StudentGuardianContact(
-                        school_id=school_id,
-                        student_id=student.id,
-                        slot=contact["slot"],
-                        name=contact["name"],
-                        email=contact["email"],
-                        relationship=contact["relationship"],
-                        source_import_id=imp.id,
-                        status="draft",
-                    )
+                existing_contact.source = "import"
+                write_audit(
+                    db,
+                    membership.user_id,
+                    "school.guardian_contact.updated",
+                    existing_contact,
+                    {
+                        "student_id": student.id,
+                        "source": "import",
+                        "import_id": imp.id,
+                        "changed_fields": contact.get("changed_fields", contact["provided_fields"]),
+                    },
+                    school_id=school_id,
                 )
+            else:
+                created_contact = StudentGuardianContact(
+                    school_id=school_id,
+                    student_id=student.id,
+                    slot=contact["slot"],
+                    external_ref=contact["external_ref"],
+                    name=contact["name"],
+                    email=contact["email"],
+                    phone=contact["phone"],
+                    phone_normalized=contact["phone_normalized"],
+                    relationship=contact["relationship"],
+                    source="import",
+                    source_import_id=imp.id,
+                    status="draft",
+                )
+                db.add(created_contact)
+                db.flush()
+                write_audit(
+                    db,
+                    membership.user_id,
+                    "school.guardian_contact.created",
+                    created_contact,
+                    {
+                        "student_id": student.id,
+                        "source": "import",
+                        "import_id": imp.id,
+                        "provided_fields": contact["provided_fields"],
+                    },
+                    school_id=school_id,
+                )
+                existing_guardian_contacts[(student.id, contact["slot"])] = created_contact
+                normalized_ref = normalize_guardian_external_ref(contact.get("external_ref"))
+                if normalized_ref:
+                    existing_guardian_contacts[(student.id, f"ref:{normalized_ref}")] = created_contact
+                existing_guardian_contacts_by_id[created_contact.id] = created_contact
 
     summary = summarize_plans(plans)
     imp.status = "committed"
@@ -2678,7 +2789,12 @@ def list_student_guardians(student_id: int, membership: Membership = Depends(req
     contacts = (
         db.query(StudentGuardianContact)
         .filter(StudentGuardianContact.school_id == school_id, StudentGuardianContact.student_id == student.id)
-        .order_by(StudentGuardianContact.slot.asc())
+        .order_by(
+            StudentGuardianContact.is_active.desc(),
+            StudentGuardianContact.is_primary.desc(),
+            StudentGuardianContact.slot.asc().nullslast(),
+            StudentGuardianContact.id.asc(),
+        )
         .all()
     )
     invites = (
@@ -2697,10 +2813,153 @@ def list_student_guardians(student_id: int, membership: Membership = Depends(req
     users_by_id = {u.id: u for u in (db.query(User).filter(User.id.in_(user_ids)).all() if user_ids else [])}
     return {
         "student": _student_with_context(db, student),
-        "contacts": [_guardian_contact_payload(contact) for contact in contacts],
+        "contacts": [_guardian_contact_payload(contact, invites) for contact in contacts],
         "invites": [_guardian_invite_payload(invite) for invite in invites],
         "links": [_guardian_link_payload(link, users_by_id.get(link.user_id)) for link in links],
     }
+
+
+@router.post("/students/{student_id}/guardian-contacts", status_code=status.HTTP_201_CREATED)
+def create_guardian_contact(
+    student_id: int,
+    payload: GuardianContactRequest,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    student = _get_owned(db, Student, school_id, student_id)
+    try:
+        phone, phone_normalized = normalize_guardian_phone(payload.phone)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"phone {exc}")
+    contact = StudentGuardianContact(
+        school_id=school_id,
+        student_id=student.id,
+        slot=None,
+        external_ref=_clean_text(payload.external_ref),
+        name=payload.name.strip(),
+        relationship=payload.relationship,
+        email=auth.normalize_email(str(payload.email)) if payload.email else None,
+        phone=phone,
+        phone_normalized=phone_normalized,
+        is_primary=payload.is_primary,
+        is_emergency=payload.is_emergency,
+        is_active=payload.is_active,
+        source="manual",
+        created_by_user_id=membership.user_id,
+        status="draft",
+    )
+    db.add(contact)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Guardian contact ID is already used for this student",
+        )
+    write_audit(
+        db,
+        membership.user_id,
+        "school.guardian_contact.created",
+        contact,
+        {
+            "student_id": student.id,
+            "source": "manual",
+            "has_email": bool(contact.email),
+            "has_phone": bool(contact.phone),
+            "is_primary": contact.is_primary,
+            "is_emergency": contact.is_emergency,
+            "is_active": contact.is_active,
+        },
+        school_id=school_id,
+    )
+    db.commit()
+    db.refresh(contact)
+    return _guardian_contact_payload(contact)
+
+
+@router.put("/guardian-contacts/{contact_id}")
+def update_guardian_contact(
+    contact_id: int,
+    payload: GuardianContactRequest,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    contact = (
+        db.query(StudentGuardianContact)
+        .filter(StudentGuardianContact.id == contact_id, StudentGuardianContact.school_id == school_id)
+        .first()
+    )
+    if not contact:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Guardian contact not found")
+    try:
+        phone, phone_normalized = normalize_guardian_phone(payload.phone)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"phone {exc}")
+    updated = {
+        "external_ref": _clean_text(payload.external_ref),
+        "name": payload.name.strip(),
+        "relationship": payload.relationship,
+        "email": auth.normalize_email(str(payload.email)) if payload.email else None,
+        "phone": phone,
+        "phone_normalized": phone_normalized,
+        "is_primary": payload.is_primary,
+        "is_emergency": payload.is_emergency,
+        "is_active": payload.is_active,
+    }
+    changed_fields = [field for field, value in updated.items() if getattr(contact, field) != value]
+    if not changed_fields:
+        return _guardian_contact_payload(contact)
+    was_active = contact.is_active
+    for field, value in updated.items():
+        setattr(contact, field, value)
+    revoked_invite_ids: list[int] = []
+    if was_active and not contact.is_active:
+        for invite in (
+            db.query(GuardianInvite)
+            .filter(
+                GuardianInvite.school_id == school_id,
+                GuardianInvite.student_guardian_contact_id == contact.id,
+                GuardianInvite.revoked_at.is_(None),
+                GuardianInvite.claimed_at.is_(None),
+            )
+            .all()
+        ):
+            invite.revoked_at = invite_tokens.now_utc()
+            invite.revoked_by_user_id = membership.user_id
+            revoked_invite_ids.append(invite.id)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Guardian contact ID is already used for this student",
+        )
+    action = (
+        "school.guardian_contact.inactivated"
+        if was_active and not contact.is_active
+        else "school.guardian_contact.activated"
+        if not was_active and contact.is_active
+        else "school.guardian_contact.updated"
+    )
+    write_audit(
+        db,
+        membership.user_id,
+        action,
+        contact,
+        {
+            "student_id": contact.student_id,
+            "changed_fields": changed_fields,
+            "revoked_invite_ids": revoked_invite_ids,
+        },
+        school_id=school_id,
+    )
+    db.commit()
+    db.refresh(contact)
+    return _guardian_contact_payload(contact)
 
 
 @router.post("/students/{student_id}/guardian-invites", status_code=status.HTTP_201_CREATED)
@@ -2730,6 +2989,8 @@ def create_guardian_invite(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid guardian contact")
         if contact.status == "ignored":
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ignored guardian contacts cannot receive invites")
+        if not contact.is_active:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive guardian contacts cannot receive invites")
         slot = contact.slot
         relationship = _guardian_relationship_label(payload.relationship) or contact.relationship
         guardian_name = _clean_text(payload.guardian_name) or contact.name
@@ -2742,8 +3003,14 @@ def create_guardian_invite(
         guardian_name = _clean_text(payload.guardian_name)
         guardian_email = auth.normalize_email(str(payload.guardian_email)) if payload.guardian_email else None
 
-    if _active_live_invite_query(db, school_id, student.id, slot).first():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="An active invite already exists for this guardian slot. Revoke it before generating another.")
+    if _active_live_invite_query(
+        db,
+        school_id,
+        student.id,
+        contact_id=contact.id if contact else None,
+        slot=slot,
+    ).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="An active invite already exists for this guardian contact. Revoke it before generating another.")
 
     raw_code = invite_tokens.generate_short_code()
     display_code = invite_tokens.display_short_code(raw_code)

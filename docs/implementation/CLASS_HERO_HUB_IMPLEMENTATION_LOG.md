@@ -1,5 +1,54 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-31 — MIS student import Slice 2: guardian contact management
+
+`student_guardian_contacts` is now the school-held guardian contact record rather
+than a permanent two-slot staging model. Existing slot 1/2 rows remain in place
+with their source import, relationship and draft/linked/ignored status. New
+manual contacts have no slot, so a student can have any reasonable number.
+Contacts now store an optional stable MIS contact ID, full name, relationship,
+validated email, display and normalised phone values, primary and emergency
+flags, active state, manual/import source and creator/import metadata.
+
+Guardian contacts remain distinct from CHH `users`, `guardian_invites` and
+`guardian_links`, and from FHH link invitations. Editing contact email or phone
+does not edit a login identity or FHH identity. Existing guardian users may
+continue to hold active links to multiple siblings. Access generation and
+revocation reuse the existing single-use invitation and link flows; imports
+never create an account, invitation or message.
+
+Edit Student now loads all guardian contacts and lets school administrators add,
+edit, inactivate or reactivate them, set primary/emergency flags, and generate
+or revoke CHH access. It shows draft, invited, linked, ignored and inactive
+contact states plus the count of FHH invitation/link records without exposing
+FHH family identifiers. Contact changes are school-scoped and audited by action
+and changed field names without copying contact email or phone values into audit
+detail.
+
+The student CSV template retains guardian 1/2 compatibility and adds
+`guardian1_id`, `guardian1_phone`, `guardian2_id` and `guardian2_phone`.
+Those four new headers are optional when uploading, so existing Slice 1 CSV
+files remain accepted while newly downloaded templates include them.
+Nonblank stable contact IDs match case-insensitively for the same student,
+including when sibling files use the same school-held ID. Blank cells preserve
+stored values, identical re-imports remain no-ops, and linked/ignored contact
+changes remain unapplied conflicts. Invalid email and phone values are row
+errors. Phone comparison values accept 7–15 digits, convert an international
+`00` prefix to `+`, and retain the entered display value separately.
+
+Migration `c5d6e7f8a9b0` completed an isolated PostgreSQL
+upgrade/downgrade/re-upgrade rehearsal before pilot use. The pilot contained no
+guardian-contact rows at migration time, so no live slot rows required
+backfill; the in-place migration preserves existing source, relationship and
+status columns. Encrypted differential pgBackRest backups completed locally
+(`20260728-182651F_20260731-052643D`) and off-host
+(`20260725-221530F_20260731-052650D`) before migration. Only the CHH backend and
+frontend were rebuilt and restarted.
+
+Deferred to Slice 3: annual effective dates, explicit leaver handling and
+enrolment rollover. Automatic guardian merging without stable IDs, login-email
+changes, FHH changes and Android work remain out of scope.
+
 ## 2026-07-31 — MIS student import Slice 1: stable identity and safe re-imports
 
 Student CSV matching now treats a trimmed `student_id` case-insensitively while
