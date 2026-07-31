@@ -26,6 +26,7 @@ from app.database import SessionLocal
 from app.models_school import (
     AcademicYear,
     Announcement,
+    AuditLog,
     BehaviourCategory,
     BehaviourEvent,
     BranchCampus,
@@ -47,12 +48,14 @@ from app.models_school import (
     GuardianLink,
     FhhLink,
 )
+from app.imports_service import has_mixed_arabic_latin_letters
 
 TARGET_SCHOOL_NAME = "United International School"
 DEFAULT_SCHOOL_SLUG = "united-international-school"
 SEED_NAMESPACE = "s22-demo-v1"
 SHOWCASE_SEED_NAMESPACE = "s22c-showcase-v1"
 MANAGEMENT_SEED_NAMESPACE = "s22d-management-v1"
+DEMO_STUDENT_REF_PREFIX = "UIS-DEMO-STU-"
 SCALE_DEMO = "demo"
 SCALE_SHOWCASE = "showcase"
 SCALE_MANAGEMENT = "management"
@@ -143,6 +146,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--as-of", dest="as_of", default=None, help="Anchor date for deterministic output (YYYY-MM-DD).")
     parser.add_argument("--school-slug", dest="school_slug", default=DEFAULT_SCHOOL_SLUG, help="Target school slug.")
     parser.add_argument("--scale", choices=(SCALE_DEMO, SCALE_SHOWCASE, SCALE_MANAGEMENT), default=SCALE_DEMO, help="Seed size/profile.")
+    parser.add_argument(
+        "--repair-student-name-ar-only",
+        action="store_true",
+        help="Only clear mixed Arabic/Latin name_ar values in the designated demo-student namespace.",
+    )
     return parser.parse_args(argv)
 
 
@@ -2515,13 +2523,46 @@ def apply_demo_quick_action_defaults(db, world: World) -> None:
     db.flush()
 
 
+def clear_mixed_demo_student_name_ar(db, world: World, *, apply: bool, counts: Counter) -> None:
+    """Clear known-invalid hybrid names only in the designated demo namespace."""
+    demo_students = (
+        db.query(Student)
+        .filter(
+            Student.school_id == world.school.id,
+            Student.external_ref.like(f"{DEMO_STUDENT_REF_PREFIX}%"),
+        )
+        .all()
+    )
+    affected = [student for student in demo_students if has_mixed_arabic_latin_letters(student.name_ar)]
+    for student in affected:
+        student.name_ar = None
+    counts["cleared_mixed_demo_name_ar"] += len(affected)
+    if apply and affected:
+        db.add(
+            AuditLog(
+                school_id=world.school.id,
+                actor_user_id=None,
+                action="demo.student_name_ar.cleared",
+                entity_type="students",
+                entity_id=None,
+                detail={
+                    "count": len(affected),
+                    "external_ref_prefix": DEMO_STUDENT_REF_PREFIX,
+                    "rule": "mixed Arabic and Latin letters",
+                },
+            )
+        )
+    db.flush()
+
+
 def seed_school(db, *, school_slug: str, as_of: date, apply: bool, scale: str = SCALE_DEMO) -> RunSummary:
     world = load_world(db, school_slug)
+    counts: Counter = Counter()
+    clear_mixed_demo_student_name_ar(db, world, apply=apply, counts=counts)
     apply_demo_quick_action_defaults(db, world)
     personas = select_personas(world, db)
     pool = teacher_pool(world, db)
     seed_namespace = seed_namespace_for_scale(scale)
-    counts: Counter = Counter()
     skipped_photos_reason = None
 
     try:
@@ -2600,6 +2641,7 @@ def print_summary(summary: RunSummary) -> None:
     print(f"Would create / created: {summary.counts['created']}")
     print(f"Already present: {summary.counts['already_present']}")
     print(f"Skipped photos: {summary.counts['skipped_photos']}")
+    print(f"Cleared mixed-script demo Arabic names: {summary.counts['cleared_mixed_demo_name_ar']}")
     if summary.skipped_photos_reason:
         print(f"Photo note: {summary.skipped_photos_reason}")
     print("No messaging, auth, guardian-link, or FHH-link data was touched.")
@@ -2615,6 +2657,25 @@ def main(argv: list[str] | None = None) -> int:
 
         db = SessionLocal()
         try:
+            if args.repair_student_name_ar_only:
+                world = load_world(db, args.school_slug)
+                counts: Counter = Counter()
+                try:
+                    clear_mixed_demo_student_name_ar(db, world, apply=args.apply, counts=counts)
+                    if args.apply:
+                        db.commit()
+                    else:
+                        db.rollback()
+                except Exception:
+                    db.rollback()
+                    raise
+                print(f"Mode: {'apply' if args.apply else 'dry-run'}")
+                print(f"Target school: {world.school.name} ({world.school.slug})")
+                print(f"Cleared mixed-script demo Arabic names: {counts['cleared_mixed_demo_name_ar']}")
+                print("No non-demo students, messaging, auth, guardian-link, or FHH-link data was touched.")
+                if not args.apply:
+                    print("DRY RUN: rolled back, no changes were committed.")
+                return 0
             summary = seed_school(db, school_slug=args.school_slug, as_of=as_of, apply=args.apply, scale=args.scale)
             print_summary(summary)
             if not args.apply:

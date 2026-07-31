@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { beforeNavigate } from '$app/navigation';
+  import { onDestroy, onMount } from 'svelte';
   import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
 
@@ -13,7 +14,9 @@
     effective_date?: string | null;
     status: 'staged' | 'committed' | 'discarded' | 'failed';
     summary: Record<string, number>;
+    rows?: ImportRow[];
   };
+  type ImportRow = { row_number: number; student_id?: string | null; warnings?: string[] };
   type ImportHistoryItem = StudentImport & {
     file_hash?: string | null;
     academic_year?: { id: number; name: string } | null;
@@ -42,6 +45,8 @@
   let years = $state<Year[]>([]);
   let error = $state('');
   let notice = $state('');
+  let toast = $state<{ kind: 'error' | 'success'; message: string } | null>(null);
+  let toastTimer: ReturnType<typeof setTimeout> | null = null;
   let busy = $state('');
 
   let importMode = $state<'normal' | 'annual'>('normal');
@@ -49,6 +54,7 @@
   let effectiveDate = $state('');
   let importFile = $state<File | null>(null);
   let stagedImport = $state<StudentImport | null>(null);
+  let stagedWarnings = $derived(previewWarnings(stagedImport));
 
   let imports = $state<ImportHistoryItem[]>([]);
   let importPage = $state(1);
@@ -72,12 +78,44 @@
   function showError(message: string) {
     error = message;
     notice = '';
+    showToast('error', message);
   }
 
   function showNotice(message: string) {
     notice = message;
     error = '';
+    showToast('success', message);
   }
+
+  function clearToast() {
+    if (toastTimer !== null) clearTimeout(toastTimer);
+    toastTimer = null;
+    toast = null;
+  }
+
+  function showToast(kind: 'error' | 'success', message: string) {
+    clearToast();
+    toast = { kind, message };
+    toastTimer = setTimeout(() => {
+      toast = null;
+      toastTimer = null;
+    }, kind === 'error' ? 6000 : 4000);
+  }
+
+  function displayWarning(message: string) {
+    return message === 'name_ar contains both Arabic and Latin letters; review that it is the complete Arabic-script student name.'
+      ? $_('school.imports.nameArMixedWarning')
+      : message;
+  }
+
+  function previewWarnings(item: StudentImport | null) {
+    return (item?.rows || [])
+      .flatMap((row) => (row.warnings || []).map((message) => ({ row, message })))
+      .sort((left, right) => Number(right.message.startsWith('name_ar contains')) - Number(left.message.startsWith('name_ar contains')));
+  }
+
+  beforeNavigate(clearToast);
+  onDestroy(clearToast);
 
   function saveDownload(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);
@@ -315,6 +353,17 @@
           <div class="mt-5 rounded-xl border border-sky-200 bg-sky-50/50 p-4">
             <div class="flex flex-wrap items-start justify-between gap-3"><div><p class="font-black">{stagedImport.filename || `#${stagedImport.id}`}</p><p class="mt-1 text-sm text-slate-600">{$_(`school.imports.modeValue.${stagedImport.mode}`)} · {$_(`school.imports.statusValue.${stagedImport.status}`)}{#if stagedImport.effective_date} · {stagedImport.effective_date}{/if}</p></div><span class="rounded-full bg-white px-3 py-1 text-xs font-black">{rowCount(stagedImport)} {$_('school.studentData.rows')}</span></div>
             <div class="mt-3 flex flex-wrap gap-2">{#each summaryKeys as key}{#if (stagedImport.summary[key] || 0) > 0}<span class="rounded-full bg-white px-2.5 py-1 text-xs font-black">{$_(`school.imports.summary.${key}`)}: {stagedImport.summary[key]}</span>{/if}{/each}</div>
+            {#if stagedWarnings.length}
+              <div class="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950" role="status">
+                <p class="font-black">{$_('school.studentData.previewWarnings')}</p>
+                <ul class="mt-2 space-y-1">
+                  {#each stagedWarnings.slice(0, 20) as warning}
+                    <li>{$_('school.imports.row')} {warning.row.row_number}{#if warning.row.student_id} ({warning.row.student_id}){/if}: {displayWarning(warning.message)}</li>
+                  {/each}
+                </ul>
+                {#if stagedWarnings.length > 20}<p class="mt-2 font-bold">{$_('school.studentData.moreWarnings', { values: { count: stagedWarnings.length - 20 } })}</p>{/if}
+              </div>
+            {/if}
             <div class="mt-4 flex flex-wrap gap-2">{#each reportTypes as report}<button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={Boolean(busy)} onclick={() => downloadReport(stagedImport!.id, report)}>{$_(`school.importHistory.report.${report}`)}</button>{/each}</div>
             {#if stagedImport.status === 'staged'}<div class="mt-4 flex flex-wrap gap-2"><button type="button" class="btn-hero rounded-xl px-4 py-2.5" disabled={Boolean(busy)} onclick={commitImport}>{busy === 'commit' ? $_('school.imports.committing') : $_('school.imports.commit')}</button><button type="button" class="btn-secondary rounded-xl px-4 py-2.5" disabled={Boolean(busy)} onclick={discardImport}>{$_('school.imports.discard')}</button></div>{/if}
           </div>
@@ -363,5 +412,5 @@
     </section>
   </section>
 
-  {#if error || notice}<div class={`fixed bottom-4 end-4 z-50 max-w-sm rounded-xl px-4 py-3 text-sm font-bold text-white shadow-xl ${error ? 'bg-red-700' : 'bg-emerald-700'}`} role={error ? 'alert' : 'status'}>{error || notice}</div>{/if}
+  {#if toast}<div class={`fixed bottom-4 end-4 z-50 max-w-sm rounded-xl px-4 py-3 text-sm font-bold text-white shadow-xl ${toast.kind === 'error' ? 'bg-red-700' : 'bg-emerald-700'}`} role={toast.kind === 'error' ? 'alert' : 'status'} aria-live={toast.kind === 'error' ? 'assertive' : 'polite'}>{toast.message}</div>{/if}
 {/if}

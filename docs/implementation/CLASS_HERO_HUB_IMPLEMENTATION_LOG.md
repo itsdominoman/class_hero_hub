@@ -1,5 +1,63 @@
 # Class Hero Hub Implementation Log
 
+## 2026-07-31 — Students acceptance cleanup and Arabic-name data quality
+
+The Students and Student Import & Export routes now keep viewport notifications
+separate from their inline page/card state. A new notification replaces the
+current one instead of stacking, errors expire after six seconds, successes
+after four seconds, and route navigation or component teardown clears the
+notification immediately. Successful actions replace any stale error with the
+success notification while clearing the page-level error. Existing field-level
+validation, including the reserved `.test` guardian-email reason and first-error
+focus, remains in place until correction or resubmission. Alert/status roles and
+assertive/polite live-region announcements are retained.
+
+Student import now detects Unicode Arabic and Latin letters in the same
+`name_ar` value. The row receives a non-blocking warning in the bilingual staged
+preview and in its persisted row outcome/report. Spaces, punctuation, digits,
+diacritics and Arabic-only name forms do not trigger it. Commit remains allowed
+and stores the administrator's exact supplied value; CHH neither rejects nor
+rewrites an intentionally reviewed mixed-script real-school name. Blank
+`name_ar` values continue to preserve existing imported data under the prior
+Slice 1 contract.
+
+The original UIS demo-roster bootstrap, rather than the tracked realistic
+activity seeder, had combined Arabic given names with Latin surnames. The
+official seeder now applies a defensive rule before any demo activity: only
+students in the exact target demo school whose stable ID starts
+`UIS-DEMO-STU-` have a mixed Arabic/Latin `name_ar` cleared. The repair-only CLI
+uses the same school/environment guards, defaults to dry-run and writes one
+non-sensitive audit event on apply containing only the count, rule and demo ID
+prefix. It never invents an Arabic surname.
+
+The pilot provenance audit found exactly 125 affected active records, all in
+that designated demo namespace and original bootstrap timestamp. None had
+committed-import, manual/combined-create or student seed-manifest provenance,
+and zero affected records existed outside the namespace. After encrypted
+differential backups locally (`20260728-182651F_20260731-105259D`) and off-host
+(`20260725-221530F_20260731-105309D`), the repair-only dry-run and apply each
+selected exactly 125 rows. The post-change mixed-script count is zero and one
+school-scoped `demo.student_name_ar.cleared` audit record stores that count. No
+real/uncertain student, guardian, enrolment, access, message or FHH record was
+changed.
+
+CSV encoding behaviour was not changed. Active-roster, populated Annual Update
+and import-result reports remain UTF-8 with BOM and retain spreadsheet-formula
+protection. Focused byte round-trip tests preserve Arabic diacritics,
+punctuation and spacing exactly, so any remaining Google Sheets mobile font or
+RTL presentation issue is third-party rendering rather than CHH data
+corruption.
+
+No migration was required. Focused validation passed 73 backend import/seeder
+tests and eight Students presentation checks. Svelte reported zero errors and
+warnings, English/Arabic parity passed at 1,864 keys each, and the production
+frontend build completed. FHH, native code and Android/APK artefacts were
+untouched. Only the CHH backend and frontend images were rebuilt and their
+services recreated; PostgreSQL and both workers remained running. The focused
+tests also passed from the rebuilt backend image. Local and public readiness
+reported the database and migration current, both Students routes returned HTTP
+200, and affected-service startup logs contained no errors.
+
 ## 2026-07-31 — Students administration experience
 
 Student administration is now a dedicated school-admin route at

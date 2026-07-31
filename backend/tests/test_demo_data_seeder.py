@@ -1,5 +1,6 @@
 import os
 import sys
+from collections import Counter
 from datetime import datetime, timezone
 from importlib import util
 from pathlib import Path
@@ -18,6 +19,7 @@ from app.database import Base  # noqa: E402
 from app.models_school import (  # noqa: E402
     AcademicYear,
     Announcement,
+    AuditLog,
     BehaviourCategory,
     BehaviourEvent,
     BranchCampus,
@@ -85,6 +87,40 @@ def create_category(db, category_type: str, label: str, points_value: int, sort_
     )
     db.add(category)
     return category
+
+
+def test_demo_student_arabic_name_guard_is_narrow_and_audited(db):
+    seeded = build_world(db)
+    students = db.query(Student).filter(Student.school_id == seeded["school"].id).order_by(Student.id).limit(4).all()
+    students[0].external_ref = "UIS-DEMO-STU-0001"
+    students[0].name_ar = "نور Smith"
+    students[1].external_ref = "UIS-DEMO-STU-0002"
+    students[1].name_ar = "نُور عبد الله-السالمي"
+    students[2].external_ref = "UIS-DEMO-STU-0003"
+    students[2].name_ar = None
+    students[3].external_ref = "REAL-0001"
+    students[3].name_ar = "سارة Jones"
+    db.commit()
+
+    counts = Counter()
+    world = module.load_world(db, "united-international-school")
+    module.clear_mixed_demo_student_name_ar(db, world, apply=True, counts=counts)
+    db.commit()
+
+    assert counts["cleared_mixed_demo_name_ar"] == 1
+    assert students[0].name_ar is None
+    assert students[1].name_ar == "نُور عبد الله-السالمي"
+    assert students[2].name_ar is None
+    assert students[3].name_ar == "سارة Jones"
+    audit = db.query(AuditLog).filter(AuditLog.action == "demo.student_name_ar.cleared").one()
+    assert audit.school_id == seeded["school"].id
+    assert audit.actor_user_id is None
+    assert audit.detail == {
+        "count": 1,
+        "external_ref_prefix": "UIS-DEMO-STU-",
+        "rule": "mixed Arabic and Latin letters",
+    }
+    assert "نور Smith" not in str(audit.detail)
 
 
 def build_world(db):

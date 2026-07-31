@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { beforeNavigate } from '$app/navigation';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
 
@@ -110,6 +111,8 @@
   let schoolName = $state('');
   let error = $state('');
   let notice = $state('');
+  let toast = $state<{ kind: 'error' | 'success'; message: string } | null>(null);
+  let toastTimer: ReturnType<typeof setTimeout> | null = null;
   let saving = $state(false);
   let view = $state<'list' | 'add' | 'detail'>('list');
   let activeDetailTab = $state<DetailTab>('details');
@@ -174,12 +177,32 @@
   function showError(message: string) {
     error = message;
     notice = '';
+    showToast('error', message);
   }
 
   function showNotice(message: string) {
     notice = message;
     error = '';
+    showToast('success', message);
   }
+
+  function clearToast() {
+    if (toastTimer !== null) clearTimeout(toastTimer);
+    toastTimer = null;
+    toast = null;
+  }
+
+  function showToast(kind: 'error' | 'success', message: string) {
+    clearToast();
+    toast = { kind, message };
+    toastTimer = setTimeout(() => {
+      toast = null;
+      toastTimer = null;
+    }, kind === 'error' ? 6000 : 4000);
+  }
+
+  beforeNavigate(clearToast);
+  onDestroy(clearToast);
 
   function rowName(rows: Row[], id?: number | null) {
     return rows.find((row) => row.id === id)?.name || '—';
@@ -907,8 +930,8 @@
     {/if}
   </section>
 
-  {#if error || notice}
-    <div class={`fixed bottom-4 end-4 z-50 max-w-sm rounded-xl px-4 py-3 text-sm font-bold shadow-xl ${error ? 'bg-red-700 text-white' : 'bg-emerald-700 text-white'}`} role={error ? 'alert' : 'status'}>{error || notice}</div>
+  {#if toast}
+    <div class={`fixed bottom-4 end-4 z-50 max-w-sm rounded-xl px-4 py-3 text-sm font-bold text-white shadow-xl ${toast.kind === 'error' ? 'bg-red-700' : 'bg-emerald-700'}`} role={toast.kind === 'error' ? 'alert' : 'status'} aria-live={toast.kind === 'error' ? 'assertive' : 'polite'}>{toast.message}</div>
   {/if}
 {/if}
 

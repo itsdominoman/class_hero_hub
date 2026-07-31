@@ -17,7 +17,7 @@ from sqlalchemy.pool import StaticPool
 from app import auth, database, mailer
 from app.admission import has_active_entitlement
 from app.database import Base, get_db
-from app.imports_service import parse_csv_rows
+from app.imports_service import MIXED_NAME_AR_WARNING, has_mixed_arabic_latin_letters, parse_csv_rows
 from app.main import app
 from app.models_school import (
     AcademicYear,
@@ -319,6 +319,47 @@ def test_upload_parses_utf8_and_bom(client, import_world):
     assert bom.status_code == 201
     assert bom.json()["summary"]["create"] == 1
     assert row_for(bom.json(), "S-002")["errors"] == []
+
+
+def test_mixed_script_arabic_name_warns_without_rewriting_or_blocking(client, import_world, db):
+    world = import_world
+    mixed_name = "نُور Hassan"
+    arabic_name = "نُور عبد الله-السالمي"
+    assert has_mixed_arabic_latin_letters(mixed_name)
+    assert not has_mixed_arabic_latin_letters(arabic_name)
+    assert not has_mixed_arabic_latin_letters("")
+
+    staged = upload(
+        client,
+        world,
+        [
+            csv_row(student_id="NAME-AR-MIXED", first_name="Nour", last_name="Hassan", name_ar=mixed_name),
+            csv_row(student_id="NAME-AR-CLEAN", first_name="Nour", last_name="Al Salmi", name_ar=arabic_name),
+            csv_row(student_id="NAME-AR-BLANK", first_name="Noor", last_name="Blank"),
+        ],
+    )
+    assert staged.status_code == 201
+    mixed_row = row_for(staged.json(), "NAME-AR-MIXED")
+    assert mixed_row["action"] == "create"
+    assert mixed_row["errors"] == []
+    assert mixed_row["warnings"] == [MIXED_NAME_AR_WARNING]
+    assert row_for(staged.json(), "NAME-AR-CLEAN")["warnings"] == []
+    assert row_for(staged.json(), "NAME-AR-BLANK")["warnings"] == []
+
+    committed = commit(client, world, staged.json()["id"])
+    assert committed.status_code == 200
+    saved = db.query(Student).filter(Student.external_ref == "NAME-AR-MIXED").one()
+    assert saved.name_ar == mixed_name
+
+    report = client.get(
+        f"/api/school/students/imports/{staged.json()['id']}/reports/all.csv",
+        headers=bearer(world["alpha_admin"].email, world["alpha"].id),
+    )
+    assert report.content.startswith(b"\xef\xbb\xbf")
+    assert report.content.decode("utf-8-sig").encode("utf-8-sig") == report.content
+    report_row = next(row for row in csv_download_rows(report) if row["student_id"] == "NAME-AR-MIXED")
+    assert report_row["name_ar"] == mixed_name
+    assert MIXED_NAME_AR_WARNING in report_row["reason"]
 
 
 def test_cp1256_encoding_supported(client, import_world):
@@ -1630,7 +1671,7 @@ def test_current_roster_guardian_enrolment_and_annual_exports_are_safe(
                 first_name="=Ali",
                 last_name="Khan",
                 preferred_name="Aly",
-                name_ar="علي خان",
+                name_ar="عَلِيّ عبد الله-السالمي",
                 dob="2015-02-03",
                 gender="male",
                 guardian1_id="G-EXPORT-1",
@@ -1652,10 +1693,12 @@ def test_current_roster_guardian_enrolment_and_annual_exports_are_safe(
         "/api/school/students/exports/active-roster.csv",
         headers=bearer(world["alpha_admin"].email, world["alpha"].id),
     )
+    assert active.content.startswith(b"\xef\xbb\xbf")
+    assert active.content.decode("utf-8-sig").encode("utf-8-sig") == active.content
     active_rows = csv_download_rows(active)
     assert active_rows[0]["student_id"] == "EXPORT-1"
     assert active_rows[0]["first_name"] == "'=Ali"
-    assert active_rows[0]["name_ar"] == "علي خان"
+    assert active_rows[0]["name_ar"] == "عَلِيّ عبد الله-السالمي"
     assert active_rows[0]["student_status"] == "active"
     assert active_rows[0]["branch"] == "MAIN"
     assert active_rows[0]["grade"] == "KG1"
@@ -1687,10 +1730,12 @@ def test_current_roster_guardian_enrolment_and_annual_exports_are_safe(
         "/api/school/students/exports/annual-update.csv",
         headers=bearer(world["alpha_admin"].email, world["alpha"].id),
     )
+    assert annual.content.startswith(b"\xef\xbb\xbf")
+    assert annual.content.decode("utf-8-sig").encode("utf-8-sig") == annual.content
     annual_rows = csv_download_rows(annual)
     assert list(annual_rows[0].keys()) == CSV_HEADER.split(",")
     assert annual_rows[0]["student_id"] == "EXPORT-1"
-    assert annual_rows[0]["name_ar"] == "علي خان"
+    assert annual_rows[0]["name_ar"] == "عَلِيّ عبد الله-السالمي"
     assert annual_rows[0]["student_status"] == "active"
     assert annual_rows[0]["guardian1_id"] == "G-EXPORT-1"
     assert annual_rows[0]["guardian1_name"] == "'@Guardian"

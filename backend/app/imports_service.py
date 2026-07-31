@@ -6,6 +6,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
+from unicodedata import name as unicode_name
 
 from email_validator import EmailNotValidError, validate_email
 from sqlalchemy import func
@@ -57,6 +58,11 @@ STUDENT_IMPORT_MODES = {"normal", "annual"}
 
 ANNUAL_STUDENT_STATUS_VALUES = {"active", "leaver", "inactive"}
 
+MIXED_NAME_AR_WARNING = (
+    "name_ar contains both Arabic and Latin letters; review that it is the complete "
+    "Arabic-script student name."
+)
+
 _ROW_ACTIONS = {
     "create",
     "update",
@@ -88,6 +94,26 @@ def normalize_guardian_external_ref(value: str | None) -> str | None:
         return None
     cleaned = value.strip()
     return cleaned.lower() if cleaned else None
+
+
+def has_mixed_arabic_latin_letters(value: str | None) -> bool:
+    """Return true only when both scripts contain letters.
+
+    Spaces, digits and punctuation are deliberately ignored so normal Arabic
+    name forms remain valid and mixed-script names can be reviewed rather than
+    rejected or rewritten.
+    """
+    has_arabic = False
+    has_latin = False
+    for character in value or "":
+        if not character.isalpha():
+            continue
+        character_name = unicode_name(character, "")
+        has_arabic = has_arabic or "ARABIC" in character_name
+        has_latin = has_latin or "LATIN" in character_name
+        if has_arabic and has_latin:
+            return True
+    return False
 
 
 def normalize_guardian_phone(value: str | None) -> tuple[str | None, str | None]:
@@ -458,6 +484,8 @@ def plan_student_import_rows(
         last_name = row["last_name"]
         preferred_name = row["preferred_name"] or None
         name_ar = row["name_ar"] or None
+        if has_mixed_arabic_latin_letters(name_ar):
+            warnings.append(MIXED_NAME_AR_WARNING)
         dob_raw = row["dob"]
         gender_raw = row["gender"].lower()
         branch_raw = row["branch"]

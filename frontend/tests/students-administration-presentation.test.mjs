@@ -58,6 +58,30 @@ test('history stays compact while detailed rows remain downloadable', () => {
   assert.match(dataSource, /fixed bottom-4 end-4/);
 });
 
+test('viewport toasts replace, expire and clear on navigation without removing inline errors', () => {
+  for (const source of [adminSource, dataSource]) {
+    assert.match(source, /beforeNavigate\(clearToast\)/);
+    assert.match(source, /onDestroy\(clearToast\)/);
+    assert.match(source, /function showToast/);
+    assert.match(source, /clearToast\(\);\s*toast = \{ kind, message \}/);
+    assert.match(source, /kind === 'error' \? 6000 : 4000/);
+    assert.match(source, /aria-live=/);
+    assert.match(source, /\{toast\.message\}/);
+  }
+  assert.match(adminSource, /fieldErrors\[`guardian-\$\{draft\.key\}-email`\]/);
+  assert.match(adminSource, /focusFirstError\(\)/);
+});
+
+test('mixed-script Arabic-name import warnings are visible and localised', () => {
+  assert.match(dataSource, /item\?\.rows/);
+  assert.match(dataSource, /previewWarnings\(stagedImport\)/);
+  assert.match(dataSource, /name_ar contains both Arabic and Latin letters/);
+  assert.match(dataSource, /school\.imports\.nameArMixedWarning/);
+  assert.match(dataSource, /school\.studentData\.previewWarnings/);
+  assert.match(messagesSource, /complete Arabic-script name/);
+  assert.match(messagesSource, /يحتوي حقل الاسم العربي على أحرف عربية ولاتينية/);
+});
+
 test('English and Arabic copy use the school-system guardian ID label', () => {
   assert.match(messagesSource, /Guardian ID from school system \(optional\)/);
   assert.match(messagesSource, /معرّف ولي الأمر من نظام المدرسة \(اختياري\)/);
