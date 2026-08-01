@@ -1,5 +1,47 @@
 # CHH current pilot deployment
 
+## 2026-08-01 student lookup and list-state slice
+
+The Students workspace now loads a bounded 25-record page instead of the entire
+school roster. Administrators can move between pages with labelled Previous/Next
+controls and a visible result range. The school-scoped API supports opt-in `page`
+and `page_size` parameters with a maximum page size of 100; callers that omit both
+parameters retain the existing array response, preserving the Reports workspace and
+other established consumers.
+
+Student search now treats each whitespace-separated part as a required term that
+may match first name, last name, preferred name or external reference. This allows
+complete names such as `Adnan Al Balushi` to match across stored name fields without
+changing tenancy or school-administrator permission checks. Search input is capped
+at 100 characters.
+
+Search, class-section filter and page state are stored in the existing
+`/school/students` query string. Opening a student adds the existing `student`
+parameter without removing list state; returning to the list restores the same
+results. Reloading a student deep link fetches that school-scoped student directly,
+so it remains valid when the record is not on the currently loaded page. Invalid or
+archived class-section parameters are cleared instead of being sent to the API.
+English and Arabic copy covers the persistence note, result range and accessible
+pagination labels.
+
+Validation passed all 32 student/enrolment backend tests, eight focused student
+administration presentation tests, English/Arabic parity at 1,991 keys each, Svelte
+checking with zero errors and warnings, the source and container frontend production
+builds, and three focused tests inside the rebuilt backend image. Signed-in deployed
+browser checks confirmed complete-name search, URL-backed filter and page reloads,
+student-detail reload/return, exactly 25 visible records per full page, and no
+horizontal overflow in English and Arabic/RTL at 390, 768, 1024, 1280 and 1440 CSS
+pixels. Browser console checks returned no warnings or errors.
+
+Implementation commit `50c04f1` was deployed by rebuilding and recreating only the
+CHH pilot backend and frontend. Loopback and public frontend checks returned HTTP
+200, readiness returned `database=ok,migration=current`, and both services are
+healthy with clean startup logs. PostgreSQL, the notification scheduler and the
+messaging production worker retained their running containers. Configuration,
+schema and data were unchanged; no backup, migration, native change or APK was
+required. Physical Android Back, safe-area and real-device touch/menu verification
+remain for Dom.
+
 ## 2026-08-01 global navigation consistency
 
 The CHH pilot now builds desktop and compact global navigation from one ordered,
