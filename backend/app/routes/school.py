@@ -2312,7 +2312,9 @@ def deactivate_teacher(
 def list_students(
     include_archived: bool = False,
     class_section_id: int | None = None,
-    search: str | None = None,
+    search: str | None = Query(default=None, max_length=100),
+    page: int | None = Query(default=None, ge=1),
+    page_size: int | None = Query(default=None, ge=1, le=100),
     membership: Membership = Depends(require_school_role("school_admin")),
     db: Session = Depends(get_db),
 ):
@@ -2320,8 +2322,8 @@ def list_students(
     query = db.query(Student).filter(Student.school_id == school_id)
     if not include_archived:
         query = query.filter(Student.status != "archived")
-    if search:
-        term = f"%{search.strip().lower()}%"
+    for search_part in (search or "").split():
+        term = f"%{search_part}%"
         query = query.filter(
             (Student.first_name.ilike(term))
             | (Student.last_name.ilike(term))
@@ -2337,7 +2339,20 @@ def list_students(
             *open_interval_expression(Enrolment, _today()),
         )
         query = query.filter(Student.id.in_(student_ids))
-    rows = query.order_by(Student.last_name.asc(), Student.first_name.asc(), Student.id.asc()).all()
+    query = query.order_by(Student.last_name.asc(), Student.first_name.asc(), Student.id.asc())
+    if page is not None or page_size is not None:
+        requested_page = page or 1
+        requested_page_size = page_size or 25
+        total = query.order_by(None).count()
+        rows = query.offset((requested_page - 1) * requested_page_size).limit(requested_page_size).all()
+        return {
+            "items": _students_with_context_bulk(db, school_id, rows),
+            "page": requested_page,
+            "page_size": requested_page_size,
+            "total": total,
+            "pages": (total + requested_page_size - 1) // requested_page_size,
+        }
+    rows = query.all()
     return _students_with_context_bulk(db, school_id, rows)
 
 

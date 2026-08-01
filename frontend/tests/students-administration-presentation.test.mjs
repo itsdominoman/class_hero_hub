@@ -43,11 +43,22 @@ test('student detail exposes distinct data, guardian, placement and access conce
   assert.doesNotMatch(adminSource, /opaque|household|device_token|invite_token/);
 });
 
-test('search clears explicitly and naturally resets when the route is recreated', () => {
-  assert.match(adminSource, /let search = \$state\(''\)/);
+test('student search and class filters are URL-backed with bounded pagination', () => {
+  assert.match(adminSource, /const STUDENT_PAGE_SIZE = 25/);
+  assert.match(adminSource, /requestedUrl\.searchParams\.get\('search'\)/);
+  assert.match(adminSource, /requestedUrl\.searchParams\.get\('class_section_id'\)/);
+  assert.match(adminSource, /requestedUrl\.searchParams\.get\('page'\)/);
+  assert.match(adminSource, /query\.set\('page_size', String\(STUDENT_PAGE_SIZE\)\)/);
+  assert.match(adminSource, /syncStudentUrl\(student\.id\)/);
+  assert.match(adminSource, /api\.get\(`\/school\/students\/\$\{requestedId\}`/);
+  assert.match(adminSource, /school\.studentAdmin\.resultsSummary/);
+  assert.match(adminSource, /school\.studentAdmin\.previousPage/);
+  assert.match(adminSource, /school\.studentAdmin\.nextPage/);
   assert.match(adminSource, /async function clearSearch\(\)/);
   assert.match(adminSource, /search = ''/);
   assert.match(adminSource, /sectionFilter = ''/);
+  assert.match(messagesSource, /filters stay in the page URL/);
+  assert.match(messagesSource, /يبقى البحث وفلتر الشعبة في رابط الصفحة/);
 });
 
 test('history stays compact while detailed rows remain downloadable', () => {

@@ -324,6 +324,59 @@ def test_school_admin_student_lifecycle_and_duplicate_policy(db, client, enrolme
     assert restored.json()["restored"] is True
 
 
+def test_student_search_matches_full_name_and_opt_in_pagination_is_scoped(db, client, enrolment_world):
+    world = enrolment_world
+    headers = bearer(world["alpha_admin"].email, world["alpha"].id)
+    for ref, first, last in [
+        ("S-BOB", "Bob", "Smith"),
+        ("S-ANA", "Ana", "Adams"),
+        ("S-CARA", "Cara", "Clark"),
+        ("S-DAN", "Dan", "Davis"),
+        ("S-ELI", "Eli", "Evans"),
+    ]:
+        assert create_student_api(client, world, ref=ref, first=first, last=last).status_code == 201
+    db.add(Student(school_id=world["beta"].id, external_ref="BETA-BOB", first_name="Bob", last_name="Smith"))
+    db.commit()
+
+    legacy = client.get("/api/school/students", headers=headers)
+    assert legacy.status_code == 200
+    assert isinstance(legacy.json(), list)
+    assert len(legacy.json()) == 5
+
+    full_name = client.get(
+        "/api/school/students",
+        params={"search": "Bob Smith", "page": 1, "page_size": 25},
+        headers=headers,
+    )
+    assert full_name.status_code == 200
+    assert full_name.json()["total"] == 1
+    assert [row["external_ref"] for row in full_name.json()["items"]] == ["S-BOB"]
+
+    first_page = client.get(
+        "/api/school/students",
+        params={"page": 1, "page_size": 2},
+        headers=headers,
+    )
+    assert first_page.status_code == 200
+    assert first_page.json()["total"] == 5
+    assert first_page.json()["pages"] == 3
+    assert first_page.json()["page_size"] == 2
+    assert [row["last_name"] for row in first_page.json()["items"]] == ["Adams", "Clark"]
+
+    last_page = client.get(
+        "/api/school/students",
+        params={"page": 3, "page_size": 2},
+        headers=headers,
+    )
+    assert last_page.status_code == 200
+    assert [row["last_name"] for row in last_page.json()["items"]] == ["Smith"]
+    assert client.get(
+        "/api/school/students",
+        params={"page_size": 101},
+        headers=headers,
+    ).status_code == 422
+
+
 def test_student_external_ref_database_uniqueness_is_normalized_per_school(db, enrolment_world):
     world = enrolment_world
     db.add(Student(school_id=world["alpha"].id, external_ref="ABC123", first_name="Ali", last_name="Khan"))

@@ -28,6 +28,13 @@
     status: string;
     current_class_section?: Row | null;
   };
+  type StudentPage = {
+    items: Student[];
+    page: number;
+    page_size: number;
+    total: number;
+    pages: number;
+  };
   type Enrolment = {
     id: number;
     class_section_id?: number | null;
@@ -104,6 +111,7 @@
 
   const detailTabs = ['details', 'guardians', 'placement', 'access', 'fhh', 'history'] as const;
   type DetailTab = (typeof detailTabs)[number];
+  const STUDENT_PAGE_SIZE = 25;
 
   let loading = $state(true);
   let allowed = $state(false);
@@ -124,6 +132,9 @@
   let students = $state<Student[]>([]);
   let search = $state('');
   let sectionFilter = $state('');
+  let studentPage = $state(1);
+  let studentTotal = $state(0);
+  let studentPages = $state(0);
   let selectedStudent = $state<Student | null>(null);
   let enrolments = $state<Enrolment[]>([]);
   let guardians = $state<Guardians | null>(null);
@@ -278,22 +289,73 @@
     }
   }
 
-  async function loadStudents() {
-    if (!schoolId) return;
+  function studentListUrl(studentId?: number) {
     const query = new URLSearchParams();
     if (search.trim()) query.set('search', search.trim());
     if (sectionFilter) query.set('class_section_id', sectionFilter);
-    students = await api.get(`/school/students${query.size ? `?${query.toString()}` : ''}`, schoolOptions());
+    if (studentPage > 1) query.set('page', String(studentPage));
+    if (studentId) query.set('student', String(studentId));
+    return `/school/students${query.size ? `?${query.toString()}` : ''}`;
+  }
+
+  function syncStudentUrl(studentId?: number) {
+    history.replaceState({}, '', studentListUrl(studentId));
+  }
+
+  function firstStudentNumber() {
+    return studentTotal ? (studentPage - 1) * STUDENT_PAGE_SIZE + 1 : 0;
+  }
+
+  function lastStudentNumber() {
+    return Math.min(studentPage * STUDENT_PAGE_SIZE, studentTotal);
+  }
+
+  async function loadStudents({ resetPage = false, syncUrl = true } = {}) {
+    if (!schoolId) return;
+    if (resetPage) studentPage = 1;
+    const query = new URLSearchParams();
+    if (search.trim()) query.set('search', search.trim());
+    if (sectionFilter) query.set('class_section_id', sectionFilter);
+    query.set('page', String(studentPage));
+    query.set('page_size', String(STUDENT_PAGE_SIZE));
+    const result: StudentPage = await api.get(`/school/students?${query.toString()}`, schoolOptions());
+    if (result.pages > 0 && studentPage > result.pages) {
+      studentPage = result.pages;
+      await loadStudents({ syncUrl });
+      return;
+    }
+    students = result.items;
+    studentPage = result.pages ? result.page : 1;
+    studentTotal = result.total;
+    studentPages = result.pages;
+    if (syncUrl) syncStudentUrl();
+  }
+
+  async function applyFilters() {
+    await loadStudents({ resetPage: true });
   }
 
   async function clearSearch() {
     search = '';
     sectionFilter = '';
+    await loadStudents({ resetPage: true });
+  }
+
+  async function changeStudentPage(nextPage: number) {
+    if (nextPage < 1 || nextPage > studentPages || nextPage === studentPage) return;
+    studentPage = nextPage;
     await loadStudents();
+    document.getElementById('student-records')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   async function init() {
     try {
+      const requestedUrl = new URL(window.location.href);
+      search = requestedUrl.searchParams.get('search') || '';
+      sectionFilter = requestedUrl.searchParams.get('class_section_id') || '';
+      const requestedPage = Number(requestedUrl.searchParams.get('page'));
+      studentPage = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+      const requestedId = Number(requestedUrl.searchParams.get('student'));
       const me = await api.get('/me/v2');
       const membership = (me?.memberships || []).find((item: Membership) => item.role === 'school_admin');
       if (!membership) return;
@@ -306,11 +368,20 @@
         api.get('/school/grade-levels', schoolOptions()),
         api.get('/school/class-sections', schoolOptions())
       ]);
-      await loadStudents();
-      const requestedId = Number(new URL(window.location.href).searchParams.get('student'));
+      if (sectionFilter && !sections.some((section) => section.id === Number(sectionFilter) && section.status !== 'archived')) {
+        sectionFilter = '';
+      }
+      await loadStudents({ syncUrl: false });
       if (requestedId) {
-        const student = students.find((item) => item.id === requestedId);
-        if (student) await openStudent(student);
+        try {
+          const student = await api.get(`/school/students/${requestedId}`, schoolOptions());
+          await openStudent(student);
+        } catch (err: any) {
+          if (err?.status !== 404) throw err;
+          syncStudentUrl();
+        }
+      } else {
+        syncStudentUrl();
       }
     } catch (err: any) {
       if (err?.status === 401) {
@@ -340,7 +411,7 @@
     view = 'list';
     selectedStudent = null;
     activeDetailTab = 'details';
-    history.replaceState({}, '', '/school/students');
+    syncStudentUrl();
   }
 
   function addGuardianDraft() {
@@ -433,14 +504,16 @@
     fieldErrors = {};
     generatedGuardianInvite = null;
     generatedFhhInvite = null;
-    history.replaceState({}, '', `/school/students?student=${student.id}`);
+    syncStudentUrl(student.id);
     await Promise.all([loadEnrolments(), loadGuardians(), loadFhh()]);
   }
 
   async function reloadSelectedStudent() {
     const id = selectedStudent?.id;
-    await loadStudents();
-    if (id) selectedStudent = students.find((item) => item.id === id) || selectedStudent;
+    if (!id) return;
+    const refreshed = await api.get(`/school/students/${id}`, schoolOptions());
+    selectedStudent = refreshed;
+    students = students.map((item) => (item.id === id ? refreshed : item));
   }
 
   async function loadEnrolments() {
@@ -695,7 +768,7 @@
     {/if}
 
     {#if view === 'list'}
-      <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+      <div id="student-records" class="mt-6 scroll-mt-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 class="text-xl font-black text-slate-900">{$_('school.students.listTitle')}</h2>
@@ -703,10 +776,10 @@
           </div>
           <button type="button" class="btn-hero rounded-xl px-4 py-3" onclick={openAdd}>+ {$_('school.studentAdmin.addStudent')}</button>
         </div>
-        <form class="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(200px,320px)_auto_auto]" onsubmit={(event) => { event.preventDefault(); void loadStudents(); }}>
+        <form class="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(200px,320px)_auto_auto]" onsubmit={(event) => { event.preventDefault(); void applyFilters(); }}>
           <label class="text-sm font-bold text-slate-700">
             {$_('school.students.search')}
-            <input class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" bind:value={search} />
+            <input class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" maxlength="100" bind:value={search} />
           </label>
           <label class="text-sm font-bold text-slate-700">
             {$_('school.students.classSection')}
@@ -720,6 +793,9 @@
           <button class="btn-hero self-end rounded-xl px-4 py-2.5" type="submit">{$_('school.students.applyFilters')}</button>
           <button class="btn-secondary self-end rounded-xl px-4 py-2.5" type="button" onclick={clearSearch}>{$_('school.studentAdmin.clearSearch')}</button>
         </form>
+        <p class="mt-4 text-sm font-semibold text-slate-600" aria-live="polite">
+          {$_('school.studentAdmin.resultsSummary', { values: { from: firstStudentNumber(), to: lastStudentNumber(), total: studentTotal } })}
+        </p>
         {#if students.length}
           <div class="mt-5 grid gap-3 md:grid-cols-2">
             {#each students as student (student.id)}
@@ -734,6 +810,19 @@
           <p class="mt-6 rounded-xl bg-slate-50 p-5 text-sm font-semibold text-slate-600">
             {search.trim() || sectionFilter ? $_('school.students.emptyFiltered') : $_('school.students.empty')}
           </p>
+        {/if}
+        {#if studentPages > 1}
+          <nav class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4" aria-label={$_('school.studentAdmin.paginationLabel')}>
+            <button type="button" class="btn-secondary rounded-xl px-4 py-2.5" disabled={studentPage <= 1} onclick={() => void changeStudentPage(studentPage - 1)}>
+              {$_('school.studentAdmin.previousPage')}
+            </button>
+            <span class="text-sm font-bold text-slate-700">
+              {$_('school.studentAdmin.pageSummary', { values: { page: studentPage, pages: studentPages } })}
+            </span>
+            <button type="button" class="btn-secondary rounded-xl px-4 py-2.5" disabled={studentPage >= studentPages} onclick={() => void changeStudentPage(studentPage + 1)}>
+              {$_('school.studentAdmin.nextPage')}
+            </button>
+          </nav>
         {/if}
       </div>
     {:else if view === 'add'}
