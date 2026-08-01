@@ -10,6 +10,7 @@
   import TextInput from '$lib/components/school/TextInput.svelte';
   import TimeZoneSelector from '$lib/components/TimeZoneSelector.svelte';
   import { guardianDisplayName } from '$lib/guardianDisplay';
+  import { SCHOOL_MENU_GROUPS, SCHOOL_TABS, type SchoolMenuGroup } from '$lib/schoolMenu';
   import { CheckCircle2, Circle, Pencil, Plus, Trash2 } from 'lucide-svelte';
   import QRCode from 'qrcode';
 
@@ -405,23 +406,6 @@
     exceptions: ContactException[];
   };
 
-  const tabs = [
-    { key: 'checklist', label: 'school.tabs.checklist' },
-    { key: 'settings', label: 'school.tabs.settings' },
-    { key: 'branches', label: 'school.tabs.branches' },
-    { key: 'stages', label: 'school.tabs.stages' },
-    { key: 'years', label: 'school.tabs.years' },
-    { key: 'levels', label: 'school.tabs.levels' },
-    { key: 'sections', label: 'school.tabs.sections' },
-    { key: 'rosters', label: 'school.tabs.rosters' },
-    { key: 'teachers', label: 'school.tabs.teachers' },
-    { key: 'announcements', label: 'school.tabs.announcements' },
-    { key: 'calendar', label: 'school.tabs.calendar' },
-    { key: 'behaviour', label: 'school.tabs.behaviour' },
-    { key: 'subjects', label: 'school.tabs.subjects' },
-    { key: 'defaults', label: 'school.tabs.defaults' },
-    { key: 'groups', label: 'school.tabs.groups' }
-  ];
   const pointsNotificationModes: PointsNotificationPolicy['mode'][] = ['summaries', 'immediate', 'off'];
 
   let loading = $state(true);
@@ -896,7 +880,7 @@
     error = null;
     try {
       const requestedTab = new URL(window.location.href).searchParams.get('tab');
-      if (requestedTab && tabs.some((tab) => tab.key === requestedTab)) activeTab = requestedTab;
+      if (requestedTab && SCHOOL_TABS.some((tab) => tab.key === requestedTab)) activeTab = requestedTab;
       await loadMe();
       if (allowed) await loadAll();
     } catch (err: any) {
@@ -1050,6 +1034,14 @@
     selectTab('announcements');
     await tick();
     document.getElementById('announcements-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function schoolMenuItemClass(active = false) {
+    return `flex min-h-10 w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-start text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero ${active ? 'border-hero/30 bg-hero/10 text-hero' : 'border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50'}`;
+  }
+
+  function isSchoolMenuGroupActive(group: SchoolMenuGroup) {
+    return group.items.some((item) => item.type === 'tab' && item.key === activeTab);
   }
 
   function selectTab(key: string) {
@@ -2877,36 +2869,67 @@
       <div class="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">{notice}</div>
     {/if}
 
-    <div class="mt-6 grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-      <nav class="flex gap-2 overflow-x-auto lg:block lg:overflow-visible">
-        {#each tabs as tab}
-          <button
-            type="button"
-            class={`whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm font-semibold transition lg:mb-1 lg:block lg:w-full ${activeTab === tab.key ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
-            onclick={() => selectTab(tab.key)}
-          >
-            {$_(tab.label)}
-          </button>
-        {/each}
-        <a
-          href="/school/students"
-          class="whitespace-nowrap rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-left text-sm font-bold text-sky-800 transition hover:bg-sky-100 lg:mt-3 lg:block lg:w-full"
-        >
-          {$_('school.tabs.students')} →
-        </a>
-        <a
-          href="/school/students/data"
-          class="whitespace-nowrap rounded-lg border border-sky-200 bg-white px-3 py-2 text-left text-sm font-bold text-sky-800 transition hover:bg-sky-50 lg:mt-2 lg:block lg:w-full"
-        >
-          {$_('school.studentData.title')} →
-        </a>
-        <a
-          href="/school/reports"
-          class="whitespace-nowrap rounded-lg border border-hero/30 bg-hero/10 px-3 py-2 text-left text-sm font-bold text-hero transition hover:bg-hero hover:text-white lg:mt-2 lg:block lg:w-full"
-        >
-          {$_('nav.reports')} →
-        </a>
-        <a href="/school/administration" class="whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 py-2 text-left text-sm font-bold text-slate-700 transition hover:bg-slate-100 lg:mt-2 lg:block lg:w-full">{$_('nav.administration')} →</a>
+    <div class="mt-6 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)]">
+      <nav class="lg:hidden" aria-label={$_('school.menu.navigationLabel')}>
+        <div class="space-y-2">
+          {#each SCHOOL_MENU_GROUPS as group}
+            <details class="rounded-xl border border-slate-200 bg-white" open={isSchoolMenuGroupActive(group)}>
+              <summary class="cursor-pointer px-4 py-3 text-sm font-bold text-slate-900">{$_(group.label)}</summary>
+              <div class="space-y-1 border-t border-slate-100 p-2">
+                {#each group.items as item}
+                  {#if item.type === 'tab'}
+                    <button
+                      type="button"
+                      class={schoolMenuItemClass(activeTab === item.key)}
+                      aria-current={activeTab === item.key ? 'page' : undefined}
+                      onclick={() => selectTab(item.key)}
+                    >
+                      <span>{$_(item.label)}</span>
+                    </button>
+                  {:else}
+                    <a href={item.href} class={schoolMenuItemClass()}>
+                      <span>{$_(item.label)}</span>
+                      {#if item.type === 'shortcut'}
+                        <span class="shrink-0 rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{$_('school.menu.shortcut')}</span>
+                      {/if}
+                    </a>
+                  {/if}
+                {/each}
+              </div>
+            </details>
+          {/each}
+        </div>
+      </nav>
+
+      <nav class="hidden rounded-xl border border-slate-200 bg-white p-3 lg:block" aria-label={$_('school.menu.navigationLabel')}>
+        <div class="space-y-5">
+          {#each SCHOOL_MENU_GROUPS as group}
+            <section aria-labelledby={`school-menu-${group.key}`}>
+              <h2 id={`school-menu-${group.key}`} class="px-3 text-xs font-bold uppercase tracking-wide text-slate-500">{$_(group.label)}</h2>
+              <div class="mt-1 space-y-1">
+                {#each group.items as item}
+                  {#if item.type === 'tab'}
+                    <button
+                      type="button"
+                      class={schoolMenuItemClass(activeTab === item.key)}
+                      aria-current={activeTab === item.key ? 'page' : undefined}
+                      onclick={() => selectTab(item.key)}
+                    >
+                      <span>{$_(item.label)}</span>
+                    </button>
+                  {:else}
+                    <a href={item.href} class={schoolMenuItemClass()}>
+                      <span>{$_(item.label)}</span>
+                      {#if item.type === 'shortcut'}
+                        <span class="shrink-0 rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{$_('school.menu.shortcut')}</span>
+                      {/if}
+                    </a>
+                  {/if}
+                {/each}
+              </div>
+            </section>
+          {/each}
+        </div>
       </nav>
 
       <div class="min-w-0">
@@ -3649,7 +3672,7 @@
           </div>
         {:else if activeTab === 'behaviour'}
           <section class="rounded-lg border border-slate-200 bg-white p-5">
-            <div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="text-xl font-black text-slate-900">{$_('school.behaviour.title')}</h2><p class="mt-1 text-sm text-slate-500">{$_('school.behaviour.intro')}</p></div><button type="button" class="btn-secondary rounded-lg px-3 py-2" onclick={loadBehaviour}>{$_('school.behaviour.seed')}</button></div>
+            <div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="text-xl font-black text-slate-900">{$_('school.behaviour.title')}</h2><p class="mt-1 text-sm text-slate-500">{$_('school.behaviour.intro')}</p></div><div class="flex flex-wrap gap-2"><a href="/school/reports" class="btn-secondary rounded-lg px-3 py-2">{$_('school.menu.openReports')} →</a><button type="button" class="btn-secondary rounded-lg px-3 py-2" onclick={loadBehaviour}>{$_('school.behaviour.seed')}</button></div></div>
             <form class="mt-5 grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-2" onsubmit={(event) => { event.preventDefault(); saveBehaviour(); }}>
               <select class="rounded-lg border border-slate-200 px-3 py-2" bind:value={behaviourForm.type} disabled={editingBehaviourId !== null} onchange={() => { behaviourForm.points_value = behaviourForm.type === 'positive' ? 1 : -1; }}><option value="positive">{$_('school.behaviour.positive')}</option><option value="needs_work">{$_('school.behaviour.needsWork')}</option></select>
               <input class="rounded-lg border border-slate-200 px-3 py-2" required maxlength="120" bind:value={behaviourForm.label} placeholder={$_('school.behaviour.label')} />
