@@ -1,5 +1,42 @@
 # CHH current pilot deployment
 
+## 2026-08-02 recognition review usability
+
+Recognition draft reviews now keep large and cutoff-tied shortlists inside a
+bounded candidate list instead of extending the page by thousands of pixels.
+Candidates render as compact rows with name, class, positive points, event count
+and shared rank visible. Positive category detail, staff-only safeguard evidence,
+recorded overrides and exclusion actions remain available in an expandable evidence
+area; positive-only ranking, staff-only evidence boundaries and the existing audit
+operations are unchanged.
+
+The draft decision summary is presented before the candidate list on mobile and in
+a sticky side panel from 1280 CSS pixels. It always shows the current selected
+recipient, citation field and primary confirmation action. The selected row has a
+consistent visible state in both LTR and RTL. The shortlist has contained scrolling,
+stable scrollbar space and overscroll containment, while direct review URLs and the
+existing Back hierarchy remain unchanged.
+
+Validation passed eight focused Recognition source tests, English/Arabic parity at
+2,007 keys each, Svelte checking with zero errors or warnings, and the affected
+production frontend build. Ten containerised Playwright cases exercised 50-candidate
+tied shortlists in English and Arabic/RTL at 390, 768, 1024, 1280 and 1440 CSS
+pixels, including evidence expansion, last-row selection, enabled primary action,
+sticky controls and zero horizontal overflow. The existing Recognition deep-link,
+refresh and Back/Forward browser test also passed. Signed-in deployed-browser
+verification opened a 90-candidate cutoff-tied pilot review and confirmed a 590px
+bounded list containing 9,449px of rows, automatic internal scrolling, expandable
+evidence and a visible sticky decision panel.
+
+Implementation commit `263cd50` was deployed by recreating only the CHH pilot
+frontend from the validated image. Loopback and public Recognition checks returned
+HTTP 200, readiness returned `database=ok,migration=current`, and all pilot services
+are healthy with no frontend startup errors. Backend, PostgreSQL, the notification
+scheduler and messaging production worker retained their running containers.
+Configuration, schema and data were unchanged; no backup, migration, native change
+or APK was required. Physical Android Back, safe-area, touch-target and real-device
+shortlist scrolling verification remain for Dom.
+
 ## 2026-08-02 URL and Back-state consistency
 
 School setup tabs, Reports filters and open sections, Recognition review selection,
