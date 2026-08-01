@@ -1,5 +1,49 @@
 # CHH current pilot deployment
 
+## 2026-08-01 School setup menu grouping
+
+The School setup workspace now uses one ordered menu definition for desktop and
+mobile. The six workflow groups are School structure (Checklist, School settings,
+Branches/campuses, Academic years, Education stages & terminology, Grade/year
+levels, Sections); Teaching setup (Classes & rosters, Staff & teaching assignments,
+Subjects, Default subjects, Subject groups); Students (Student records, Student
+Import & Export); Communication (Notices, School calendar); Behaviour & insights
+(Behaviour & points, Reports, Positive recognition); and System (System &
+compliance). Existing URLs, destinations, school-administrator access checks and
+backend behaviour are unchanged.
+
+The canonical Students and Student Import & Export destinations remain links from
+School setup. Reports remains in global navigation, while Reports, Positive
+recognition and System & compliance are labelled contextual shortcuts within the
+School setup hierarchy. Behaviour & points also has a contextual Reports shortcut
+beside its existing page action. Ordinary items now share one neutral type and
+weight treatment, with one consistent purple active state and
+`aria-current="page"`. At widths below 1024 CSS pixels the same definition renders
+as six compact, keyboard-accessible group accordions; the group containing the
+current tab opens automatically. English and Arabic labels and shortcut wording are
+kept in parity, including RTL layout.
+
+Validation passed ten focused navigation/menu source tests, English/Arabic parity
+at 2,001 keys each, Svelte checking with zero errors and warnings, the affected
+container production build, and 18 Playwright role/layout checks. The browser
+matrix covered school-admin and mixed-role School setup visibility and English and
+Arabic/RTL containment at 390, 768, 1024, 1280 and 1440 CSS pixels. It also verified
+the six groups and workflow order, preserved URLs, three labelled contextual
+shortcuts, exactly one active item, mobile accordion behaviour and zero horizontal
+overflow. Platform-admin and teacher visibility remained covered by the shared
+global-navigation checks. Signed-in deployed-browser verification confirmed the
+same six-group English desktop hierarchy, exactly one current item, the three
+shortcut destinations, the automatically opened current mobile group, and zero
+overflow in English and Arabic/RTL at 390 CSS pixels.
+
+Implementation commit `00adc26` was deployed by rebuilding and recreating only the
+CHH pilot frontend. Loopback and public frontend checks returned HTTP 200, readiness
+returned `database=ok,migration=current`, and the frontend is healthy with no recent
+errors. Backend, PostgreSQL, the notification scheduler, the messaging production
+worker, FHH, configuration, schema and data were unchanged. No database backup,
+migration, native change or APK was required. Physical Android Back, safe-area and
+real-device accordion/touch verification remain for Dom.
+
 ## 2026-08-01 student lookup and list-state slice
 
 The Students workspace now loads a bounded 25-record page instead of the entire
