@@ -1,5 +1,37 @@
 # CHH current pilot deployment
 
+## 2026-08-02 multi-school context pilot-scope assessment
+
+Multi-school switching was assessed and intentionally not implemented. A read-only,
+aggregate check of the live pilot found exactly one school, with no suspension, and
+zero users holding active memberships across more than one school. The same-role
+counts are also zero for school administrators and teachers, and there are no mixed
+staff accounts spanning schools. This confirms the earlier audit decision in
+`docs/audits/2026-07-07-post-s4-fable-checkpoint-audit.md` and
+`docs/audits/2026-07-07-post-s5-teachers-assignments-audit.md`: the two-school test
+harness protects tenancy, but switching UI does not pay for itself before a second
+real pilot school exists.
+
+The data model and `/api/me/v2` can represent multiple school memberships. Teach
+already aggregates a teacher's active assignment cards, while Messages and Surveys
+have their own membership selection. Core School setup, Students, Reports,
+Recognition, System & compliance and related school-admin pages still resolve the
+first active school-admin membership. That is unambiguous for the current one-school
+pilot, but it must not become the multi-school design: before onboarding a second
+pilot school or issuing any staff account an active membership in another school,
+add an explicit shared school-context selection and remove silent first-membership
+resolution across those pages.
+
+Eighteen focused backend tests passed for cross-school School setup requests,
+wrong-school role resolution, teacher dashboard/assignment scoping, platform-only
+denial and deactivation boundaries. API readiness remains
+`database=ok,migration=current`. Because the assessment showed no live multi-school
+workflow, no runtime, URL, permission, localisation, configuration, schema or data
+change was made. No build, service recreation, migration, backup or APK was needed;
+all CHH pilot services retained their existing healthy containers. The assessment
+is documented and tagged independently so the deferral and its activation condition
+are explicit.
+
 ## 2026-08-02 recognition review usability
 
 Recognition draft reviews now keep large and cutoff-tied shortlists inside a
