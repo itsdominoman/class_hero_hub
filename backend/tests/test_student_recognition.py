@@ -104,8 +104,9 @@ def recognition_world(db):
     positive = BehaviourCategory(school_id=school.id, type="positive", label="Helpful", points_value=2, active=True)
     leadership = BehaviourCategory(school_id=school.id, type="positive", label="Leadership", points_value=2, active=True)
     negative = BehaviourCategory(school_id=school.id, type="needs_work", label="Off task", points_value=-2, active=True)
+    late = BehaviourCategory(school_id=school.id, type="needs_work", label="Late for class", points_value=-1, active=True)
     other_positive = BehaviourCategory(school_id=other_school.id, type="positive", label="Helpful", points_value=2, active=True)
-    db.add_all([positive, leadership, negative, other_positive])
+    db.add_all([positive, leadership, negative, late, other_positive])
     db.flush()
     event_time = datetime(2026, 7, 29, 10, tzinfo=timezone.utc)
     events = []
@@ -135,6 +136,7 @@ def recognition_world(db):
         "positive": positive,
         "leadership": leadership,
         "negative": negative,
+        "late": late,
         "other_positive": other_positive,
     }
 
@@ -163,16 +165,40 @@ def create_config(client, world, **overrides):
     return response.json()
 
 
+def add_event(db, world, student, category, *, reversed=False):
+    event_time = datetime(2026, 7, 29, 10, tzinfo=timezone.utc)
+    event = BehaviourEvent(
+        school_id=world["school"].id,
+        student_id=student.id,
+        category_id=category.id,
+        actor_user_id=world["teacher"].id,
+        points_delta=category.points_value,
+        source="teacher",
+        context_type="general",
+        note="internal evidence must not reach certificates",
+        created_at=event_time,
+        reversed_at=event_time if reversed else None,
+        reversed_by_user_id=world["admin"].id if reversed else None,
+        reversal_reason="Correction" if reversed else None,
+    )
+    db.add(event)
+    return event
+
+
 def test_configuration_is_positive_only_admin_scoped_and_audited(client, db, recognition_world):
     world = recognition_world
     path = "/api/school/recognition/configs"
     assert client.post(path, headers=headers(world["teacher"], world["school"]), json=config_body(world)).status_code == 403
     assert client.post(path, headers=headers(world["admin"], world["school"]), json=config_body(world, category_ids=[world["negative"].id])).status_code == 422
     assert client.post(path, headers=headers(world["admin"], world["school"]), json=config_body(world, category_ids=[world["other_positive"].id])).status_code == 422
+    assert client.post(path, headers=headers(world["admin"], world["school"]), json=config_body(world, needs_work_category_ids=[world["positive"].id])).status_code == 422
     assert client.post(path, headers=headers(world["outsider"], world["other_school"]), json=config_body(world)).status_code == 422
     config = create_config(client, world)
     assert config["scope"] == {"type": "class", "id": world["section"].id, "name": "Grade 5 A", "name_ar": None}
     assert [row["label"] for row in config["categories"]] == ["Helpful", "Leadership"]
+    assert config["needs_work_safeguard_enabled"] is False
+    assert config["maximum_needs_work_events"] == 0
+    assert config["needs_work_category_ids"] == []
     assert db.query(AuditLog).filter_by(action="recognition.config.created", school_id=world["school"].id).count() == 1
 
 
@@ -182,12 +208,12 @@ def test_shortlist_uses_only_unreversed_positive_scoped_period_evidence_and_show
     response = client.post(
         "/api/school/recognition/reviews",
         headers=headers(world["admin"], world["school"]),
-        json={"config_id": config["id"], "period_end": "2026-07-31"},
+        json={"config_id": config["id"], "period_end": "2026-08-01"},
     )
     assert response.status_code == 201, response.text
     payload = response.json()
     assert payload["status"] == "draft" and payload["selected_student_id"] is None
-    assert payload["period_start"] == "2026-07-25" and payload["period_end"] == "2026-07-31"
+    assert payload["period_start"] == "2026-07-26" and payload["period_end"] == "2026-08-01"
     assert payload["criteria"]["ordering"] == "positive_points_desc_then_positive_events_desc"
     assert payload["criteria"]["tie_rule"] == "shared_rank_and_include_cutoff_ties"
     assert len(payload["candidates"]) == 2  # one configured slot, extended for the cutoff tie
@@ -196,10 +222,121 @@ def test_shortlist_uses_only_unreversed_positive_scoped_period_evidence_and_show
         assert candidate["positive_points_total"] == 6
         assert candidate["positive_event_count"] == 3
         assert candidate["rank"] == 1
+        assert candidate["safeguard_excluded"] is False
+        assert candidate["safeguard_counted_total"] == 0
+        assert candidate["is_eligible"] is True
         assert {row["label"] for row in candidate["category_totals"]} == {"Helpful", "Leadership"}
         assert "private negative evidence" not in str(candidate)
     assert world["students"][2].id not in {row["student_id"] for row in payload["candidates"]}
     assert db.query(AuditLog).filter_by(action="recognition.shortlist.generated", school_id=world["school"].id).count() == 1
+
+
+def test_safeguard_threshold_selected_categories_reversals_override_and_positive_ranking(client, db, recognition_world):
+    world = recognition_world
+    cara = world["students"][2]
+    db.add(
+        Enrolment(
+            school_id=world["school"].id,
+            student_id=cara.id,
+            class_section_id=world["section"].id,
+            kind="member",
+            valid_from=date(2026, 7, 1),
+        )
+    )
+    add_event(db, world, cara, world["positive"])
+    for _ in range(3):
+        add_event(db, world, world["students"][0], world["negative"])
+        add_event(db, world, world["students"][1], world["negative"])
+    for _ in range(2):
+        add_event(db, world, cara, world["negative"])
+    for _ in range(5):
+        add_event(db, world, world["students"][0], world["late"])
+    add_event(db, world, world["students"][0], world["negative"], reversed=True)
+    db.commit()
+
+    config = create_config(
+        client,
+        world,
+        shortlist_size=3,
+        needs_work_safeguard_enabled=True,
+        maximum_needs_work_events=3,
+        needs_work_category_ids=[world["negative"].id],
+    )
+    response = client.post(
+        "/api/school/recognition/reviews",
+        headers=headers(world["admin"], world["school"]),
+        json={"config_id": config["id"], "period_end": "2026-08-01"},
+    )
+    assert response.status_code == 201, response.text
+    payload = response.json()
+    candidates = {row["student_id"]: row for row in payload["candidates"]}
+    ava = candidates[world["students"][0].id]
+    ben = candidates[world["students"][1].id]
+    cara_candidate = candidates[cara.id]
+
+    assert (ava["safeguard_counted_total"], ava["safeguard_excluded"], ava["is_eligible"]) == (4, True, False)
+    assert (ben["safeguard_counted_total"], ben["safeguard_excluded"], ben["is_eligible"]) == (3, False, True)
+    assert (cara_candidate["safeguard_counted_total"], cara_candidate["safeguard_excluded"], cara_candidate["is_eligible"]) == (2, False, True)
+    assert ava["safeguard_category_totals"] == [{"id": world["negative"].id, "label": "Off task", "events": 4}]
+    assert (ava["rank"], ben["rank"], cara_candidate["rank"]) == (1, 1, 3)
+    assert "internal evidence must not reach certificates" not in str(payload)
+
+    endpoint = f"/api/school/recognition/reviews/{payload['id']}"
+    blocked = client.post(
+        f"{endpoint}/confirm",
+        headers=headers(world["admin"], world["school"]),
+        json={"student_id": ava["student_id"]},
+    )
+    assert blocked.status_code == 422
+    assert blocked.json()["detail"] == "Selected student is not eligible under current criteria"
+    assert client.post(
+        f"{endpoint}/candidates/{ava['id']}/override-safeguard",
+        headers=headers(world["admin"], world["school"]),
+        json={"reason": " "},
+    ).status_code == 422
+    overridden = client.post(
+        f"{endpoint}/candidates/{ava['id']}/override-safeguard",
+        headers=headers(world["admin"], world["school"]),
+        json={"reason": "Staff reviewed the full context"},
+    )
+    assert overridden.status_code == 200, overridden.text
+    assert overridden.json()["safeguard_overridden"] is True
+    assert overridden.json()["is_eligible"] is True
+    confirmed = client.post(
+        f"{endpoint}/confirm",
+        headers=headers(world["admin"], world["school"]),
+        json={"student_id": ava["student_id"]},
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    actions = [
+        row.action
+        for row in db.query(AuditLog).filter(AuditLog.school_id == world["school"].id).all()
+    ]
+    assert actions.count("recognition.candidate.safeguard_excluded") == 1
+    assert actions.count("recognition.candidate.safeguard_overridden") == 1
+
+
+def test_safeguard_empty_category_selection_counts_all_needs_work_categories(client, db, recognition_world):
+    world = recognition_world
+    add_event(db, world, world["students"][0], world["late"])
+    db.commit()
+    config = create_config(
+        client,
+        world,
+        needs_work_safeguard_enabled=True,
+        maximum_needs_work_events=1,
+        needs_work_category_ids=[],
+    )
+    payload = client.post(
+        "/api/school/recognition/reviews",
+        headers=headers(world["admin"], world["school"]),
+        json={"config_id": config["id"], "period_end": "2026-08-01"},
+    ).json()
+    ava = next(row for row in payload["candidates"] if row["student_id"] == world["students"][0].id)
+    assert payload["criteria"]["needs_work_safeguard"]["category_filter"] == "all_needs_work"
+    assert ava["safeguard_counted_total"] == 2
+    assert {row["label"] for row in ava["safeguard_category_totals"]} == {"Off task", "Late for class"}
+    assert ava["safeguard_excluded"] is True
 
 
 def test_exclusion_confirmation_duplicate_prevention_and_audited_correction(client, db, recognition_world):
@@ -247,4 +384,4 @@ def test_review_detail_and_lists_cannot_cross_school_boundary(client, recognitio
     assert client.get("/api/school/recognition/reviews", headers=headers(world["outsider"], world["other_school"])).json() == {"reviews": []}
     detail = client.get(f"/api/school/recognition/reviews/{review['id']}", headers=headers(world["admin"], world["school"])).json()
     assert detail["school"] == {"name": "Alpha School", "name_ar": None, "logo_url": None}
-    assert "needs_work" not in str(detail) and "private negative evidence" not in str(detail)
+    assert "private negative evidence" not in str(detail)

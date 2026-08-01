@@ -1,5 +1,48 @@
 # Class Hero Hub Implementation Log
 
+## 2026-08-01 — Recognition eligibility safeguard and actionable reviews
+
+Physical acceptance confirmed that draft review cards were technically clickable
+but did not communicate that they opened the staff decision section. Draft cards
+now contain an explicit **Review shortlist** action, use native button keyboard
+activation, show pointer/hover/focus states, and scroll and focus the selected
+decision section. The selected card has a persistent visual state. Repeated clicks
+on the already selected card focus the existing section without a duplicate fetch;
+confirmed and revoked cards retain distinct, readable treatments and view actions.
+
+Recognition configurations now have an optional, administrator-only needs-work
+eligibility safeguard. It is disabled by default, preserving the existing
+positive-only shortlist. When enabled, the school sets a non-negative maximum and
+may select the active needs-work categories that count; an empty selection means
+all needs-work categories. Generation counts only unreversed events inside the
+same school-local inclusive review period. A candidate is marked **Not eligible
+under current criteria** only when the count is greater than the maximum, so below
+and equal remain eligible.
+
+The positive shortlist is still selected and ranked solely by configured positive
+points and positive event count, including the existing shared-rank/cutoff-tie
+rule. The safeguard is evaluated only after that positive ordering is fixed and
+does not reorder or replace candidates. Each draft freezes the counted total and
+staff-visible category counts; event notes are not copied. An administrator may
+override an automatic safeguard exclusion on a draft only with a 3–500 character
+reason. Automatic exclusions and overrides have separate append-only audit
+actions. Manual shortlist exclusion remains separate. Confirmation rejects a
+safeguard-excluded candidate until an override exists.
+
+The certificate continues to render only the positive award fields, recipient,
+placement, citation, period and signatory. It contains no safeguard state,
+needs-work total, category evidence or override reason. There is still no public
+recognition route, automatic publication, notification or FHH payload.
+
+Alembic `f9a0b1c2d3e4` adds two defaulted configuration columns, one optional
+category association table and defaulted candidate snapshot/override columns with
+checks and a staff-user foreign key. It does not rewrite behaviour events,
+recognition history, students, enrolments or audit data. Focused validation covers
+disabled behaviour; below/equal/above boundaries; reversed and selected/all-category
+counting; required audited override; positive-rank independence; certificate
+privacy; the exact inclusive 2026-07-26 through 2026-08-01 range; review-card
+activation/focus; English/Arabic parity and RTL-compatible logical styling.
+
 ## 2026-07-31 — Positive student recognition Slice 1
 
 Current-state inspection confirmed that CHH already stores school-scoped behaviour

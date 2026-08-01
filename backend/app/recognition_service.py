@@ -20,6 +20,7 @@ from .models_school import (
     StudentRecognitionCategory,
     StudentRecognitionConfig,
     StudentRecognitionReview,
+    StudentRecognitionSafeguardCategory,
 )
 
 
@@ -59,11 +60,43 @@ def positive_categories(db: Session, school_id: int, category_ids: list[int]) ->
     return [by_id[row_id] for row_id in unique_ids]
 
 
+def selected_needs_work_categories(
+    db: Session,
+    school_id: int,
+    category_ids: list[int],
+) -> list[BehaviourCategory]:
+    unique_ids = list(dict.fromkeys(category_ids))
+    if not unique_ids:
+        return []
+    rows = (
+        db.query(BehaviourCategory)
+        .filter(BehaviourCategory.school_id == school_id, BehaviourCategory.id.in_(unique_ids))
+        .all()
+    )
+    by_id = {row.id: row for row in rows}
+    if len(by_id) != len(unique_ids) or any(row.type != "needs_work" or not row.active for row in rows):
+        raise HTTPException(422, "Safeguard categories must be active needs-work categories in this school")
+    return [by_id[row_id] for row_id in unique_ids]
+
+
 def config_categories(db: Session, config_id: int) -> list[BehaviourCategory]:
     return (
         db.query(BehaviourCategory)
         .join(StudentRecognitionCategory, StudentRecognitionCategory.category_id == BehaviourCategory.id)
         .filter(StudentRecognitionCategory.config_id == config_id)
+        .order_by(BehaviourCategory.sort_order, BehaviourCategory.id)
+        .all()
+    )
+
+
+def safeguard_categories(db: Session, config_id: int) -> list[BehaviourCategory]:
+    return (
+        db.query(BehaviourCategory)
+        .join(
+            StudentRecognitionSafeguardCategory,
+            StudentRecognitionSafeguardCategory.category_id == BehaviourCategory.id,
+        )
+        .filter(StudentRecognitionSafeguardCategory.config_id == config_id)
         .order_by(BehaviourCategory.sort_order, BehaviourCategory.id)
         .all()
     )
@@ -84,6 +117,7 @@ def scope_payload(db: Session, config: StudentRecognitionConfig) -> dict:
 
 def config_payload(db: Session, config: StudentRecognitionConfig) -> dict:
     categories = config_categories(db, config.id)
+    needs_work_categories = safeguard_categories(db, config.id)
     return {
         "id": config.id,
         "recognition_type": config.recognition_type,
@@ -94,6 +128,10 @@ def config_payload(db: Session, config: StudentRecognitionConfig) -> dict:
         "categories": [{"id": row.id, "label": row.label, "points_value": row.points_value} for row in categories],
         "minimum_positive_points": config.minimum_positive_points,
         "shortlist_size": config.shortlist_size,
+        "needs_work_safeguard_enabled": config.needs_work_safeguard_enabled,
+        "maximum_needs_work_events": config.maximum_needs_work_events,
+        "needs_work_category_ids": [row.id for row in needs_work_categories],
+        "needs_work_categories": [{"id": row.id, "label": row.label} for row in needs_work_categories],
         "certificate_title": config.certificate_title,
         "signatory_text": config.signatory_text,
         "active": config.active,
@@ -103,6 +141,7 @@ def config_payload(db: Session, config: StudentRecognitionConfig) -> dict:
 
 
 def candidate_payload(candidate: StudentRecognitionCandidate) -> dict:
+    safeguard_overridden = candidate.safeguard_overridden_at is not None
     return {
         "id": candidate.id,
         "student_id": candidate.student_id,
@@ -119,6 +158,13 @@ def candidate_payload(candidate: StudentRecognitionCandidate) -> dict:
         "is_excluded": candidate.is_excluded,
         "exclusion_reason": candidate.exclusion_reason,
         "excluded_at": candidate.excluded_at,
+        "safeguard_excluded": candidate.safeguard_excluded,
+        "safeguard_counted_total": candidate.safeguard_counted_total,
+        "safeguard_category_totals": candidate.safeguard_category_totals,
+        "safeguard_overridden": safeguard_overridden,
+        "safeguard_override_reason": candidate.safeguard_override_reason,
+        "safeguard_overridden_at": candidate.safeguard_overridden_at,
+        "is_eligible": not candidate.is_excluded and (not candidate.safeguard_excluded or safeguard_overridden),
     }
 
 
@@ -199,6 +245,7 @@ def generate_shortlist(
         raise HTTPException(422, "Recognition configuration has no valid positive categories")
     scope = scope_payload(db, config)
     category_ids = [row.id for row in categories]
+    needs_work_categories = safeguard_categories(db, config.id)
     criteria = {
         "recognition_name": config.name,
         "scope": scope,
@@ -208,6 +255,13 @@ def generate_shortlist(
         "categories": [{"id": row.id, "label": row.label} for row in categories],
         "ordering": "positive_points_desc_then_positive_events_desc",
         "tie_rule": "shared_rank_and_include_cutoff_ties",
+        "needs_work_safeguard": {
+            "enabled": config.needs_work_safeguard_enabled,
+            "maximum_allowed_events": config.maximum_needs_work_events,
+            "category_filter": "selected" if needs_work_categories else "all_needs_work",
+            "categories": [{"id": row.id, "label": row.label} for row in needs_work_categories],
+            "rule": "not_eligible_when_count_exceeds_maximum",
+        },
         "certificate_title": config.certificate_title,
         "signatory_text": config.signatory_text,
     }
@@ -270,6 +324,44 @@ def generate_shortlist(
         cutoff_key = (cutoff["points"], cutoff["events"])
         ordered = [item for item in ordered if (item[1]["points"], item[1]["events"]) >= cutoff_key]
 
+    safeguard_totals: dict[int, dict] = {}
+    if config.needs_work_safeguard_enabled and ordered:
+        safeguarded_student_ids = [student_id for student_id, _ in ordered]
+        safeguard_query = (
+            db.query(
+                BehaviourEvent.student_id,
+                BehaviourCategory.id.label("category_id"),
+                BehaviourCategory.label.label("category_label"),
+                func.count(BehaviourEvent.id).label("event_count"),
+            )
+            .join(BehaviourCategory, BehaviourCategory.id == BehaviourEvent.category_id)
+            .filter(
+                BehaviourEvent.school_id == config.school_id,
+                BehaviourEvent.student_id.in_(safeguarded_student_ids),
+                BehaviourEvent.reversed_at.is_(None),
+                BehaviourEvent.created_at >= start_at,
+                BehaviourEvent.created_at < end_at,
+                BehaviourCategory.school_id == config.school_id,
+                BehaviourCategory.type == "needs_work",
+            )
+        )
+        if needs_work_categories:
+            safeguard_query = safeguard_query.filter(
+                BehaviourEvent.category_id.in_([row.id for row in needs_work_categories])
+            )
+        safeguard_rows = safeguard_query.group_by(
+            BehaviourEvent.student_id,
+            BehaviourCategory.id,
+            BehaviourCategory.label,
+        ).all()
+        for row in safeguard_rows:
+            entry = safeguard_totals.setdefault(row.student_id, {"events": 0, "categories": []})
+            events = int(row.event_count or 0)
+            entry["events"] += events
+            entry["categories"].append(
+                {"id": row.category_id, "label": row.category_label, "events": events}
+            )
+
     previous_score = None
     current_rank = 0
     for display_order, (student_id, values) in enumerate(ordered, 1):
@@ -279,6 +371,8 @@ def generate_shortlist(
             previous_score = score
         student, section, grade, branch = placements[student_id]
         values["categories"].sort(key=lambda item: (-item["points"], -item["events"], item["label"], item["id"]))
+        safeguard = safeguard_totals.get(student_id, {"events": 0, "categories": []})
+        safeguard["categories"].sort(key=lambda item: (-item["events"], item["label"], item["id"]))
         db.add(
             StudentRecognitionCandidate(
                 school_id=config.school_id,
@@ -294,6 +388,12 @@ def generate_shortlist(
                 category_totals=values["categories"],
                 rank=current_rank,
                 display_order=display_order,
+                safeguard_excluded=(
+                    config.needs_work_safeguard_enabled
+                    and safeguard["events"] > config.maximum_needs_work_events
+                ),
+                safeguard_counted_total=safeguard["events"],
+                safeguard_category_totals=safeguard["categories"],
             )
         )
     db.flush()

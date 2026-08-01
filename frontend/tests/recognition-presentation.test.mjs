@@ -6,13 +6,30 @@ const source = readFileSync(new URL('../src/routes/school/recognition/+page.svel
 const administration = readFileSync(new URL('../src/routes/school/administration/+page.svelte', import.meta.url), 'utf8');
 const messages = readFileSync(new URL('../src/lib/i18n/messages.ts', import.meta.url), 'utf8');
 
-test('recognition is an administrator-led positive-only workflow', () => {
+test('recognition keeps positive ranking and adds a staff-only eligibility safeguard', () => {
   assert.match(administration, /href="\/school\/recognition"/);
   assert.match(source, /\/school\/recognition\/options/);
   assert.match(source, /\/school\/recognition\/reviews/);
   assert.match(source, /noAutomaticWinner/);
   assert.match(source, /positiveOnlyHelp/);
-  assert.doesNotMatch(source, /needs_work|negative leaderboard|worst student/i);
+  assert.match(source, /needs_work_safeguard_enabled/);
+  assert.match(source, /maximum_needs_work_events/);
+  assert.match(source, /needs_work_category_ids/);
+  assert.match(source, /override-safeguard/);
+  assert.doesNotMatch(source, /negative leaderboard|worst student|bad student/i);
+});
+
+test('review cards expose an actionable keyboard button and focus the selected decision section', () => {
+  assert.match(source, /reviewShortlist/);
+  assert.match(source, /class=\{`review-card/);
+  assert.match(source, /aria-pressed=\{currentReview\?\.id === review\.id\}/);
+  assert.match(source, /cursor: pointer/);
+  assert.match(source, /\.review-card:hover/);
+  assert.match(source, /\.review-card:focus-visible/);
+  assert.match(source, /decisionSection\?\.scrollIntoView/);
+  assert.match(source, /decisionSection\?\.focus/);
+  assert.match(source, /bind:this=\{decisionSection\} tabindex="-1"/);
+  assert.match(source, /if \(currentReview\?\.id === reviewId && !forceReload\)/);
 });
 
 test('shortlist requires explicit selection and supports recorded exclusion and correction', () => {
@@ -30,11 +47,13 @@ test('confirmed award renders a browser-printable certificate without publicatio
   assert.match(source, /@page \{ size: A4 landscape/);
   assert.match(source, /notPublished/);
   assert.doesNotMatch(source, /api\.post\([^\n]*(publish|notification)/i);
+  const certificate = source.slice(source.indexOf('{#if currentReview?.status'), source.indexOf('<style>'));
+  assert.doesNotMatch(certificate, /safeguard_counted_total|safeguard_category_totals|countedNeedsWork/);
 });
 
 test('English and Arabic recognition copy remains paired', () => {
   assert.equal((messages.match(/recognitionPage: \{/g) || []).length, 2);
   assert.match(messages, /Positive recognition/);
   assert.match(messages, /التقدير الإيجابي/);
-  assert.match(messages, /لا يُستخدم السلوك السلبي ولا يظهر هنا أبداً/);
+  assert.match(messages, /غير مؤهل وفق المعايير الحالية/);
 });

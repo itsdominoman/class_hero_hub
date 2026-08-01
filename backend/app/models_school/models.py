@@ -2594,6 +2594,8 @@ class StudentRecognitionConfig(Base):
     review_period_days = Column(Integer, nullable=False, default=7, server_default="7")
     minimum_positive_points = Column(Integer, nullable=False, default=1, server_default="1")
     shortlist_size = Column(Integer, nullable=False, default=3, server_default="3")
+    needs_work_safeguard_enabled = Column(Boolean, nullable=False, default=False, server_default="false")
+    maximum_needs_work_events = Column(Integer, nullable=False, default=0, server_default="0")
     certificate_title = Column(String(200), nullable=False)
     signatory_text = Column(String(200), nullable=False)
     active = Column(Boolean, nullable=False, default=True, server_default="true")
@@ -2608,6 +2610,7 @@ class StudentRecognitionConfig(Base):
         CheckConstraint("review_period_days BETWEEN 1 AND 366", name="ck_student_recognition_configs_period_days"),
         CheckConstraint("minimum_positive_points >= 1", name="ck_student_recognition_configs_min_points"),
         CheckConstraint("shortlist_size BETWEEN 1 AND 50", name="ck_student_recognition_configs_shortlist_size"),
+        CheckConstraint("maximum_needs_work_events >= 0", name="ck_student_recognition_configs_max_needs_work"),
         UniqueConstraint("school_id", "recognition_type", "scope_key", name="uq_student_recognition_configs_scope"),
         Index("ix_student_recognition_configs_school_active", "school_id", "active"),
     )
@@ -2615,6 +2618,13 @@ class StudentRecognitionConfig(Base):
 
 class StudentRecognitionCategory(Base):
     __tablename__ = "student_recognition_categories"
+
+    config_id = Column(Integer, ForeignKey("student_recognition_configs.id", ondelete="RESTRICT"), primary_key=True)
+    category_id = Column(Integer, ForeignKey("behaviour_categories.id", ondelete="RESTRICT"), primary_key=True)
+
+
+class StudentRecognitionSafeguardCategory(Base):
+    __tablename__ = "student_recognition_safeguard_categories"
 
     config_id = Column(Integer, ForeignKey("student_recognition_configs.id", ondelete="RESTRICT"), primary_key=True)
     category_id = Column(Integer, ForeignKey("behaviour_categories.id", ondelete="RESTRICT"), primary_key=True)
@@ -2683,15 +2693,27 @@ class StudentRecognitionCandidate(Base):
     exclusion_reason = Column(String(500), nullable=True)
     excluded_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
     excluded_at = Column(DateTime(timezone=True), nullable=True)
+    safeguard_excluded = Column(Boolean, nullable=False, default=False, server_default="false")
+    safeguard_counted_total = Column(Integer, nullable=False, default=0, server_default="0")
+    safeguard_category_totals = Column(JSON, nullable=False, default=list, server_default="[]")
+    safeguard_override_reason = Column(String(500), nullable=True)
+    safeguard_overridden_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    safeguard_overridden_at = Column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
         CheckConstraint("positive_points_total > 0", name="ck_student_recognition_candidates_points"),
         CheckConstraint("positive_event_count > 0", name="ck_student_recognition_candidates_events"),
         CheckConstraint("rank >= 1 AND display_order >= 1", name="ck_student_recognition_candidates_order"),
+        CheckConstraint("safeguard_counted_total >= 0", name="ck_student_recognition_candidates_safeguard_total"),
         CheckConstraint(
             "(NOT is_excluded AND exclusion_reason IS NULL AND excluded_by_user_id IS NULL AND excluded_at IS NULL) OR "
             "(is_excluded AND exclusion_reason IS NOT NULL AND length(trim(exclusion_reason)) > 0 AND excluded_by_user_id IS NOT NULL AND excluded_at IS NOT NULL)",
             name="ck_student_recognition_candidates_exclusion",
+        ),
+        CheckConstraint(
+            "(safeguard_override_reason IS NULL AND safeguard_overridden_by_user_id IS NULL AND safeguard_overridden_at IS NULL) OR "
+            "(safeguard_excluded AND safeguard_override_reason IS NOT NULL AND length(trim(safeguard_override_reason)) > 0 AND safeguard_overridden_by_user_id IS NOT NULL AND safeguard_overridden_at IS NOT NULL)",
+            name="ck_student_recognition_candidates_safeguard_override",
         ),
         UniqueConstraint("review_id", "student_id", name="uq_student_recognition_candidates_student"),
         Index("ix_student_recognition_candidates_review_order", "review_id", "display_order"),

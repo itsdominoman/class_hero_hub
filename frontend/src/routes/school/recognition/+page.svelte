@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
 
@@ -15,6 +15,10 @@
     categories: { id: number; label: string; points_value: number }[];
     minimum_positive_points: number;
     shortlist_size: number;
+    needs_work_safeguard_enabled: boolean;
+    maximum_needs_work_events: number;
+    needs_work_category_ids: number[];
+    needs_work_categories: { id: number; label: string }[];
     certificate_title: string;
     signatory_text: string;
     active: boolean;
@@ -33,6 +37,12 @@
     rank: number;
     is_excluded: boolean;
     exclusion_reason?: string | null;
+    safeguard_excluded: boolean;
+    safeguard_counted_total: number;
+    safeguard_category_totals: { id: number; label: string; events: number }[];
+    safeguard_overridden: boolean;
+    safeguard_override_reason?: string | null;
+    is_eligible: boolean;
   };
   type Review = {
     id: number;
@@ -61,13 +71,16 @@
     category_ids: [] as number[],
     minimum_positive_points: 1,
     shortlist_size: 3,
+    needs_work_safeguard_enabled: false,
+    maximum_needs_work_events: 0,
+    needs_work_category_ids: [] as number[],
     certificate_title: 'Star of the Week',
     signatory_text: 'Head of School',
     active: true
   });
 
   let membership = $state<Membership | null>(null);
-  let options = $state<{ branches: Option[]; grades: Option[]; classes: Option[]; positive_categories: Option[] }>({ branches: [], grades: [], classes: [], positive_categories: [] });
+  let options = $state<{ branches: Option[]; grades: Option[]; classes: Option[]; positive_categories: Option[]; needs_work_categories: Option[] }>({ branches: [], grades: [], classes: [], positive_categories: [], needs_work_categories: [] });
   let configs = $state<RecognitionConfig[]>([]);
   let reviews = $state<Review[]>([]);
   let currentReview = $state<Review | null>(null);
@@ -79,11 +92,15 @@
   let citation = $state('');
   let excludingCandidateId = $state<number | null>(null);
   let exclusionReason = $state('');
+  let overridingCandidateId = $state<number | null>(null);
+  let overrideReason = $state('');
   let revocationReason = $state('');
   let loading = $state(true);
   let saving = $state(false);
   let error = $state('');
   let notice = $state('');
+  let openingReviewId = $state<number | null>(null);
+  let decisionSection = $state<HTMLElement>();
 
   function schoolOptions() {
     return membership ? { headers: { 'X-School-Id': String(membership.school_id), 'X-Membership-Id': String(membership.membership_id) } } : {};
@@ -107,6 +124,12 @@
     form.category_ids = form.category_ids.includes(id)
       ? form.category_ids.filter((value) => value !== id)
       : [...form.category_ids, id];
+  }
+
+  function toggleNeedsWorkCategory(id: number) {
+    form.needs_work_category_ids = form.needs_work_category_ids.includes(id)
+      ? form.needs_work_category_ids.filter((value) => value !== id)
+      : [...form.needs_work_category_ids, id];
   }
 
   function configPayload() {
@@ -152,6 +175,9 @@
       category_ids: [...config.category_ids],
       minimum_positive_points: config.minimum_positive_points,
       shortlist_size: config.shortlist_size,
+      needs_work_safeguard_enabled: config.needs_work_safeguard_enabled,
+      maximum_needs_work_events: config.maximum_needs_work_events,
+      needs_work_category_ids: [...config.needs_work_category_ids],
       certificate_title: config.certificate_title,
       signatory_text: config.signatory_text,
       active: config.active
@@ -200,7 +226,13 @@
     }
   }
 
-  async function openReview(reviewId: number) {
+  async function openReview(reviewId: number, forceReload = false) {
+    if (openingReviewId !== null) return;
+    if (currentReview?.id === reviewId && !forceReload) {
+      await focusDecisionSection();
+      return;
+    }
+    openingReviewId = reviewId;
     saving = true;
     error = '';
     try {
@@ -209,12 +241,22 @@
       citation = currentReview?.citation || '';
       excludingCandidateId = null;
       exclusionReason = '';
+      overridingCandidateId = null;
+      overrideReason = '';
       revocationReason = '';
+      await focusDecisionSection();
     } catch (caught: any) {
       error = caught?.message || $_('recognitionPage.loadError');
     } finally {
+      openingReviewId = null;
       saving = false;
     }
+  }
+
+  async function focusDecisionSection() {
+    await tick();
+    decisionSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    decisionSection?.focus({ preventScroll: true });
   }
 
   async function excludeCandidate(candidate: Candidate) {
@@ -223,8 +265,23 @@
     error = '';
     try {
       await api.post(`/school/recognition/reviews/${currentReview.id}/candidates/${candidate.id}/exclude`, { reason: exclusionReason }, schoolOptions());
-      await openReview(currentReview.id);
+      await openReview(currentReview.id, true);
       notice = $_('recognitionPage.candidateExcluded');
+    } catch (caught: any) {
+      error = caught?.message || $_('recognitionPage.saveError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function overrideSafeguard(candidate: Candidate) {
+    if (!currentReview || overrideReason.trim().length < 3) return;
+    saving = true;
+    error = '';
+    try {
+      await api.post(`/school/recognition/reviews/${currentReview.id}/candidates/${candidate.id}/override-safeguard`, { reason: overrideReason }, schoolOptions());
+      await openReview(currentReview.id, true);
+      notice = $_('recognitionPage.overrideRecorded');
     } catch (caught: any) {
       error = caught?.message || $_('recognitionPage.saveError');
     } finally {
@@ -238,7 +295,7 @@
     error = '';
     try {
       await api.post(`/school/recognition/reviews/${currentReview.id}/confirm`, { student_id: Number(selectedStudentId), citation: citation || null }, schoolOptions());
-      await openReview(currentReview.id);
+      await openReview(currentReview.id, true);
       const loaded = await api.get('/school/recognition/reviews?limit=25', schoolOptions());
       reviews = loaded.reviews;
       notice = $_('recognitionPage.awardConfirmed');
@@ -255,7 +312,7 @@
     error = '';
     try {
       await api.post(`/school/recognition/reviews/${currentReview.id}/revoke`, { reason: revocationReason }, schoolOptions());
-      await openReview(currentReview.id);
+      await openReview(currentReview.id, true);
       const loaded = await api.get('/school/recognition/reviews?limit=25', schoolOptions());
       reviews = loaded.reviews;
       notice = $_('recognitionPage.awardRevoked');
@@ -322,6 +379,24 @@
               {/each}
             </div>
           </fieldset>
+          <fieldset class="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <legend class="px-1 text-sm font-black text-amber-950">{$_('recognitionPage.needsWorkSafeguard')}</legend>
+            <label class="flex items-center gap-3 text-sm font-bold text-amber-950"><input type="checkbox" bind:checked={form.needs_work_safeguard_enabled} />{$_('recognitionPage.enableSafeguard')}</label>
+            <p class="mt-2 text-xs leading-5 text-amber-900">{$_('recognitionPage.safeguardHelp')}</p>
+            {#if form.needs_work_safeguard_enabled}
+              <label class="mt-4 block text-sm font-bold text-amber-950">{$_('recognitionPage.maximumNeedsWork')}<input type="number" min="0" class="mt-1 w-full rounded-xl border border-amber-200 bg-white px-3 py-2" bind:value={form.maximum_needs_work_events} /></label>
+              <p class="mt-4 text-sm font-black text-amber-950">{$_('recognitionPage.safeguardCategories')}</p>
+              <p class="mt-1 text-xs leading-5 text-amber-900">{$_('recognitionPage.safeguardCategoriesHelp')}</p>
+              <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                {#each options.needs_work_categories as category}
+                  <label class="flex items-center gap-3 rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm font-semibold text-amber-950">
+                    <input type="checkbox" checked={form.needs_work_category_ids.includes(category.id)} onchange={() => toggleNeedsWorkCategory(category.id)} />
+                    <span>{category.label}</span>
+                  </label>
+                {/each}
+              </div>
+            {/if}
+          </fieldset>
           <label class="mt-5 flex items-center gap-3 text-sm font-bold text-slate-700"><input type="checkbox" bind:checked={form.active} />{$_('recognitionPage.active')}</label>
           <div class="mt-6 flex flex-wrap gap-3">
             <button class="btn-hero rounded-xl px-5 py-3" type="submit" disabled={saving}>{$_('recognitionPage.saveConfig')}</button>
@@ -353,6 +428,7 @@
                   <span class="font-black text-slate-900">{config.name}</span>
                   <span class="ms-2 text-xs font-bold text-slate-500">{config.active ? $_('recognitionPage.active') : $_('recognitionPage.inactive')}</span>
                   <span class="mt-1 block text-sm text-slate-600">{config.scope.name} · {config.review_period_days} {$_('recognitionPage.days')} · {config.minimum_positive_points} {$_('recognitionPage.positivePoints')}</span>
+                  {#if config.needs_work_safeguard_enabled}<span class="mt-1 block text-xs font-semibold text-amber-800">{$_('recognitionPage.safeguardEnabledSummary', { values: { count: config.maximum_needs_work_events } })}</span>{/if}
                 </button>
               {/each}
             </div>
@@ -365,44 +441,57 @@
         {#if reviews.length === 0}<p class="mt-3 text-sm text-slate-500">{$_('recognitionPage.noReviews')}</p>{/if}
         <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {#each reviews as review}
-            <button type="button" class="rounded-xl border border-slate-200 p-4 text-start hover:border-hero" onclick={() => openReview(review.id)}>
+            <button type="button" class={`review-card rounded-xl border p-4 text-start ${review.status === 'draft' ? 'review-card-draft' : review.status === 'confirmed' ? 'review-card-confirmed' : 'review-card-revoked'} ${currentReview?.id === review.id ? 'review-card-selected' : ''}`} aria-pressed={currentReview?.id === review.id} onclick={() => openReview(review.id)}>
               <span class="font-black text-slate-900">{review.criteria?.recognition_name}</span>
               <span class="mt-1 block text-sm text-slate-600">{review.period_start} – {review.period_end}</span>
               <span class="mt-2 inline-block rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-700">{statusLabel(review.status)}</span>
+              <span class="review-card-action mt-3 flex items-center justify-between gap-2 text-sm font-black"><span>{$_(`recognitionPage.${review.status === 'draft' ? 'reviewShortlist' : review.status === 'confirmed' ? 'viewConfirmedReview' : 'viewRevokedReview'}`)}</span><span aria-hidden="true">→</span></span>
             </button>
           {/each}
         </div>
       </section>
 
       {#if currentReview}
-        <section class="card mt-6 p-6">
+        <section class="card mt-6 p-6 focus:outline-none focus-visible:ring-4 focus-visible:ring-hero/30" bind:this={decisionSection} tabindex="-1" aria-labelledby="recognition-decision-title">
           <div class="flex flex-wrap items-start justify-between gap-3">
-            <div><h2 class="text-xl font-black text-slate-900">{currentReview.criteria.recognition_name}</h2><p class="mt-1 text-sm text-slate-600">{currentReview.criteria.scope.name} · {currentReview.period_start} – {currentReview.period_end}</p></div>
+            <div><h2 id="recognition-decision-title" class="text-xl font-black text-slate-900">{currentReview.criteria.recognition_name}</h2><p class="mt-1 text-sm text-slate-600">{currentReview.criteria.scope.name} · {currentReview.period_start} – {currentReview.period_end}</p></div>
             <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">{statusLabel(currentReview.status)}</span>
           </div>
           <div class="mt-4 rounded-xl border border-sky-100 bg-sky-50 p-4 text-sm text-sky-950">
             <p class="font-black">{$_('recognitionPage.criteria')}</p>
             <p class="mt-1">{$_('recognitionPage.criteriaSummary', { values: { points: currentReview.criteria.minimum_positive_points, days: currentReview.criteria.review_period_days, count: currentReview.criteria.shortlist_size } })}</p>
             <p class="mt-1">{$_('recognitionPage.tieHelp')}</p>
+            {#if currentReview.criteria.needs_work_safeguard?.enabled}<p class="mt-2 font-semibold">{$_('recognitionPage.safeguardCriteria', { values: { count: currentReview.criteria.needs_work_safeguard.maximum_allowed_events, categories: currentReview.criteria.needs_work_safeguard.categories.length ? currentReview.criteria.needs_work_safeguard.categories.map((row: any) => row.label).join(', ') : $_('recognitionPage.allNeedsWorkCategories') } })}</p>{/if}
           </div>
           {#if (currentReview.candidates || []).length === 0}
             <p class="mt-5 text-sm text-slate-500">{$_('recognitionPage.noEligibleCandidates')}</p>
           {:else}
             <div class="mt-5 space-y-4">
               {#each currentReview.candidates || [] as candidate}
-                <article class={`rounded-2xl border p-4 ${candidate.is_excluded ? 'border-slate-200 bg-slate-50 opacity-70' : 'border-emerald-200 bg-white'}`}>
+                <article class={`rounded-2xl border p-4 ${candidate.is_eligible ? 'border-emerald-200 bg-white' : 'border-slate-300 bg-slate-50'}`}>
                   <div class="flex flex-wrap items-start justify-between gap-3">
                     <div class="flex gap-3">
-                      {#if currentReview.status === 'draft'}<input type="radio" name="recipient" value={String(candidate.student_id)} bind:group={selectedStudentId} disabled={candidate.is_excluded} aria-label={$_('recognitionPage.selectRecipient')} />{/if}
+                      {#if currentReview.status === 'draft'}<input type="radio" name="recipient" value={String(candidate.student_id)} bind:group={selectedStudentId} disabled={!candidate.is_eligible} aria-label={$_('recognitionPage.selectRecipient')} />{/if}
                       <div><h3 class="font-black text-slate-900">{$locale === 'ar' && candidate.student_name_ar ? candidate.student_name_ar : candidate.student_name}</h3><p class="text-sm text-slate-600">{candidate.grade_name} · {candidate.class_name}</p></div>
                     </div>
                     <div class="text-end"><p class="font-black text-emerald-800">{candidate.positive_points_total} {$_('recognitionPage.positivePoints')}</p><p class="text-xs text-slate-500">{candidate.positive_event_count} {$_('recognitionPage.positiveEvents')} · {$_('recognitionPage.rank')} {candidate.rank}</p></div>
                   </div>
                   <div class="mt-3 flex flex-wrap gap-2">{#each candidate.category_totals as total}<span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">{total.label}: {total.points} / {total.events}</span>{/each}</div>
+                  {#if candidate.safeguard_excluded}
+                    <div class={`mt-3 rounded-xl border p-3 text-sm ${candidate.safeguard_overridden ? 'border-sky-200 bg-sky-50 text-sky-950' : 'border-slate-300 bg-white text-slate-700'}`}>
+                      <p class="font-black">{candidate.safeguard_overridden ? $_('recognitionPage.eligibilityOverridden') : $_('recognitionPage.notEligible')}</p>
+                      <p class="mt-1">{$_('recognitionPage.countedNeedsWork', { values: { count: candidate.safeguard_counted_total } })}</p>
+                      <div class="mt-2 flex flex-wrap gap-2">{#each candidate.safeguard_category_totals as total}<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">{total.label}: {total.events}</span>{/each}</div>
+                      {#if candidate.safeguard_overridden}<p class="mt-2 font-semibold">{$_('recognitionPage.overrideReasonRecorded')}: {candidate.safeguard_override_reason}</p>
+                      {:else if currentReview.status === 'draft' && overridingCandidateId === candidate.id}
+                        <div class="mt-3 flex flex-col gap-2 sm:flex-row"><input class="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm" bind:value={overrideReason} maxlength="500" placeholder={$_('recognitionPage.overrideReason')} /><button class="btn-secondary rounded-xl px-4 py-2" disabled={saving || overrideReason.trim().length < 3} onclick={() => overrideSafeguard(candidate)}>{$_('recognitionPage.recordOverride')}</button></div>
+                      {:else if currentReview.status === 'draft'}<button class="mt-3 text-sm font-bold underline" type="button" onclick={() => { overridingCandidateId = candidate.id; overrideReason = ''; }}>{$_('recognitionPage.overrideSafeguard')}</button>{/if}
+                    </div>
+                  {/if}
                   {#if candidate.is_excluded}<p class="mt-3 text-sm font-semibold text-slate-600">{$_('recognitionPage.excluded')}: {candidate.exclusion_reason}</p>
                   {:else if currentReview.status === 'draft' && excludingCandidateId === candidate.id}
                     <div class="mt-3 flex flex-col gap-2 sm:flex-row"><input class="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm" bind:value={exclusionReason} maxlength="500" placeholder={$_('recognitionPage.exclusionReason')} /><button class="btn-secondary rounded-xl px-4 py-2" disabled={saving || exclusionReason.trim().length < 3} onclick={() => excludeCandidate(candidate)}>{$_('recognitionPage.recordExclusion')}</button></div>
-                  {:else if currentReview.status === 'draft'}<button class="mt-3 text-sm font-bold text-slate-600 underline" type="button" onclick={() => { excludingCandidateId = candidate.id; exclusionReason = ''; }}>{$_('recognitionPage.exclude')}</button>{/if}
+                  {:else if currentReview.status === 'draft' && candidate.is_eligible}<button class="mt-3 text-sm font-bold text-slate-600 underline" type="button" onclick={() => { excludingCandidateId = candidate.id; exclusionReason = ''; }}>{$_('recognitionPage.exclude')}</button>{/if}
                 </article>
               {/each}
             </div>
@@ -439,6 +528,14 @@
 </section>
 
 <style>
+  .review-card { cursor: pointer; transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease; }
+  .review-card:hover { border-color: var(--hero-color); box-shadow: 0 8px 24px rgb(15 23 42 / .1); transform: translateY(-1px); }
+  .review-card:focus-visible { outline: 3px solid rgb(124 58 237 / .35); outline-offset: 3px; }
+  .review-card-draft { border-color: #fbbf24; background: #fffbeb; }
+  .review-card-confirmed { border-color: #a7f3d0; background: #f0fdf4; }
+  .review-card-revoked { border-color: #cbd5e1; background: #f8fafc; }
+  .review-card-selected { border-color: var(--hero-color); box-shadow: 0 0 0 3px rgb(124 58 237 / .18); }
+  .review-card-action { color: var(--hero-color); }
   .certificate { border: 12px double #d4a72c; min-height: 720px; display: flex; flex-direction: column; justify-content: center; }
   @media print {
     :global(header), :global(footer), .no-print { display: none !important; }
