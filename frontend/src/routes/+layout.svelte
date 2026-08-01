@@ -393,7 +393,7 @@
     {@render children()}
   </main>
 
-  {#if !nativeApp}
+  {#if !nativeApp && !messagingRoute}
   <footer class="bg-slate-900 text-slate-400 pt-16 pb-[calc(4rem+var(--safe-bottom))] md:pt-20 mt-16 md:mt-20 relative overflow-hidden">
     <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-hero/50 to-transparent"></div>
     <div class="max-w-7xl mx-auto px-4">

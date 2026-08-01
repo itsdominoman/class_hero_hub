@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import { locale } from "svelte-i18n";
@@ -42,6 +42,7 @@
       save: "Save draft",
       permission: "Survey administrators",
       loading: "Loading surveys…",
+      close: "Close",
     },
     ar: {
       title: "الاستبيانات",
@@ -61,6 +62,7 @@
       save: "حفظ المسودة",
       permission: "مسؤولو الاستبيانات",
       loading: "جارٍ تحميل الاستبيانات…",
+      close: "إغلاق",
     },
   };
   let ar = $derived($locale === "ar");
@@ -76,6 +78,8 @@
   let previewOpen = $state(false);
   let saving = $state(false);
   let permissionBusy = $state<number | null>(null);
+  let createSurveyButton = $state<HTMLButtonElement>();
+  let closeSurveyButton = $state<HTMLButtonElement>();
   let form = $state({
     title: "",
     introduction: "",
@@ -120,6 +124,45 @@
       notices_feed_enabled: true,
       questions: [newQuestion("single_choice")],
     };
+  }
+  async function openEditor() {
+    resetForm();
+    previewOpen = false;
+    editorOpen = true;
+    document.body.classList.add("survey-composer-open");
+    await tick();
+    closeSurveyButton?.focus();
+  }
+  async function closeEditor(restoreFocus = true) {
+    if (!editorOpen) return;
+    editorOpen = false;
+    previewOpen = false;
+    document.body.classList.remove("survey-composer-open");
+    await tick();
+    if (restoreFocus) createSurveyButton?.focus();
+  }
+  function handleKeydown(event: KeyboardEvent) {
+    if (editorOpen && event.key === "Escape") {
+      event.preventDefault();
+      void closeEditor();
+    }
+  }
+  function handleNativeBack(event: Event) {
+    if (!editorOpen || event.defaultPrevented) return;
+    const active = document.activeElement;
+    const editable =
+      active instanceof HTMLInputElement ||
+      active instanceof HTMLTextAreaElement ||
+      (active instanceof HTMLElement && active.isContentEditable);
+    if (editable && document.documentElement.classList.contains("native-keyboard-open")) {
+      active.blur();
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    void closeEditor();
   }
   function newQuestion(type = "single_choice"): Question {
     return {
@@ -294,6 +337,13 @@
   onMount(() => {
     resetForm();
     void load();
+    window.addEventListener("keydown", handleKeydown);
+    window.addEventListener("chh:native-back", handleNativeBack);
+    return () => {
+      window.removeEventListener("keydown", handleKeydown);
+      window.removeEventListener("chh:native-back", handleNativeBack);
+      document.body.classList.remove("survey-composer-open");
+    };
   });
 </script>
 
@@ -312,11 +362,10 @@
       <p class="mt-2 max-w-2xl text-sm font-semibold text-slate-600">{t.sub}</p>
     </div>
     {#if membership}<button
+        bind:this={createSurveyButton}
+        type="button"
         class="btn-hero inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3"
-        onclick={() => {
-          resetForm();
-          editorOpen = true;
-        }}><Plus size={18} />{t.create}</button
+        onclick={openEditor}><Plus size={18} />{t.create}</button
       >{/if}
   </header>
   {#if error}<div
@@ -410,24 +459,34 @@
 
 {#if editorOpen}
   <div
-    class="fixed inset-0 z-[110] overflow-y-auto bg-slate-950/55 p-3 sm:p-6"
+    class="survey-dialog-layer fixed inset-x-0 top-0 z-[110] flex items-start justify-center bg-slate-950/55"
     dir={ar ? "rtl" : "ltr"}
+    role="presentation"
   >
     <div
-      class="mx-auto max-w-4xl rounded-[2rem] bg-white p-5 shadow-2xl sm:p-8"
+      class="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-[2rem] bg-white shadow-2xl"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="survey-composer-title"
+      data-testid="survey-composer-dialog"
     >
-      <div class="flex items-center justify-between gap-4">
+      <div class="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-8">
         <div>
           <p class="text-xs font-black uppercase tracking-widest text-hero">
             {t.newSurvey}
           </p>
-          <h2 class="mt-1 text-2xl font-black text-slate-950">{t.basics}</h2>
+          <h2 id="survey-composer-title" class="mt-1 text-2xl font-black text-slate-950">{t.basics}</h2>
         </div>
         <button
-          class="rounded-full bg-slate-100 px-4 py-2 font-black"
-          onclick={() => (editorOpen = false)}>×</button
+          bind:this={closeSurveyButton}
+          type="button"
+          class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full bg-slate-100 px-4 py-2 font-black text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero"
+          aria-label={t.close}
+          data-testid="survey-composer-close"
+          onclick={() => void closeEditor()}><span aria-hidden="true" class="text-xl leading-none">×</span><span>{t.close}</span></button
         >
       </div>
+      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5 sm:px-8 sm:pb-8" data-testid="survey-composer-scroll">
       {#if previewOpen}
         <section
           class="mt-6 rounded-[1.75rem] border border-hero/20 bg-hero/5 p-5"
@@ -514,7 +573,7 @@
             >
           </div>
           {#if form.audience_type !== "whole_school"}<div
-              class="mt-3 grid max-h-48 gap-2 overflow-y-auto rounded-2xl border border-slate-200 p-3 sm:grid-cols-2"
+              class="mt-3 grid gap-2 rounded-2xl border border-slate-200 p-3 sm:grid-cols-2"
             >
               {#each targetRows() as row}<label
                   class="flex items-center gap-2 rounded-xl p-2 text-sm font-bold hover:bg-slate-50"
@@ -709,13 +768,16 @@
           </div>
         </section>
       {/if}
-      <div class="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+      </div>
+      <div class="flex shrink-0 flex-col-reverse gap-3 border-t border-slate-200 bg-white p-4 sm:flex-row sm:justify-end sm:px-8">
         <button
+          type="button"
           class="rounded-2xl border border-slate-200 px-5 py-3 font-black text-slate-600"
           onclick={() => (previewOpen = !previewOpen)}
           ><Eye class="inline" size={17} />
           {previewOpen ? "Edit" : t.preview}</button
         ><button
+          type="button"
           class="btn-hero rounded-2xl px-6 py-3"
           disabled={saving || previewOpen}
           onclick={saveDraft}>{saving ? "Saving…" : t.save}</button
@@ -788,5 +850,18 @@
   }
   .icon:hover {
     background: #e2e8f0;
+  }
+  .survey-dialog-layer {
+    height: var(--native-viewport-height, 100dvh);
+    padding-top: max(0.75rem, var(--safe-top));
+    padding-right: max(0.75rem, var(--safe-right));
+    padding-bottom: max(0.75rem, var(--safe-bottom));
+    padding-left: max(0.75rem, var(--safe-left));
+  }
+  :global(body.survey-composer-open) {
+    overflow: hidden;
+  }
+  :global(body.survey-composer-open .app-main) {
+    overflow-y: hidden !important;
   }
 </style>

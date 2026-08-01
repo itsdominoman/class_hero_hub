@@ -333,6 +333,29 @@ test.beforeEach(async ({ page }) => {
   await mockSession(page);
 });
 
+for (const { width, height } of [
+  { width: 390, height: 844 },
+  { width: 768, height: 900 }
+]) {
+  for (const language of ['en', 'ar'] as const) {
+    test(`messages remains a footer-free ${language.toUpperCase()} workspace at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height });
+      await page.addInitScript((value) => localStorage.setItem('familyHeroHub.language', value), language);
+      await mockEnabledMessaging(page);
+      await page.goto('/messages');
+
+      await expect(page.getByTestId('messaging-workspace')).toBeVisible();
+      await expect(page.locator('footer')).toHaveCount(0);
+      await expect(page.locator('html')).toHaveAttribute('dir', language === 'ar' ? 'rtl' : 'ltr');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
+        .toBeLessThanOrEqual(0);
+
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await expect(page.locator('footer')).toHaveCount(0);
+    });
+  }
+}
+
 test('receipt-only polls advance an outgoing tick without remounting the draft', async ({ page }) => {
   let deltaPoll = 0;
   const outgoing = {

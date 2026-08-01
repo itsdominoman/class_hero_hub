@@ -21,6 +21,22 @@ test('survey editor presents audience, privacy, response-unit, timezone and prev
   assert.match(source, /ltr/);
 });
 
+test('survey composer is a single-scroll accessible mobile dialog', () => {
+  const source = read('src/routes/school/surveys/+page.svelte');
+  assert.match(source, /role="dialog"/);
+  assert.match(source, /aria-modal="true"/);
+  assert.match(source, /aria-labelledby="survey-composer-title"/);
+  assert.match(source, /data-testid="survey-composer-close"/);
+  assert.match(source, /close: "Close"/);
+  assert.match(source, /close: "إغلاق"/);
+  assert.match(source, /event\.key === "Escape"/);
+  assert.match(source, /chh:native-back/);
+  assert.match(source, /native-keyboard-open/);
+  assert.match(source, /survey-composer-open/);
+  assert.match(source, /data-testid="survey-composer-scroll"/);
+  assert.doesNotMatch(source, /max-h-48 overflow-y-auto/);
+});
+
 test('survey results expose lifecycle, response metrics, reminder and safe CSV actions', () => {
   const source = read('src/routes/school/surveys/[id]/+page.svelte');
   for (const label of ['Publish', 'Close', 'Reopen', 'Archive', 'Send reminder', 'Export CSV']) {
