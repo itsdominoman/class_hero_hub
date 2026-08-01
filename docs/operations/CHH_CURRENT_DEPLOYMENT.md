@@ -1,5 +1,44 @@
 # CHH current pilot deployment
 
+## 2026-08-01 recognition review and configuration lifecycle
+
+Physical-test investigation found that the apparent one-point threshold failure was
+caused by configuration selection and timing, not shortlist filtering. All three
+retained drafts freeze `minimum_positive_points = 1`; the current configuration was
+later edited to 2. Every retained candidate meets the minimum in its own immutable
+review snapshot. The staff page now shows the selected configuration's scope,
+inclusive review period, minimum positive points, target size and safeguard state
+beside **Generate shortlist**, and repeats the frozen minimum, scope and target on
+every review card. Configuration option labels include these criteria so similarly
+named entries remain distinguishable.
+
+Generation now serialises on the selected configuration and returns the existing
+unconfirmed draft for the same configuration and exact inclusive period instead of
+creating another. The frontend opens that draft and de-duplicates it locally. Staff
+can explicitly open any review; draft, archived, confirmed and revoked/corrected
+cards have separate treatments and the selected review remains highlighted. An
+administrator may discard only an unconfirmed draft, with confirmation and a
+3–500-character reason. This changes its state to archived, removes it from the
+default list and records `recognition.review.archived`; archived history remains
+available separately. Confirmed awards cannot be discarded and remain
+correction/revocation-only.
+
+Configurations now have explicit edit, deactivate and archive actions. Inactive and
+archived configurations are excluded from generation server-side and in the UI.
+Archiving requires confirmation and a reason, preserves every existing review
+snapshot, and records `recognition.config.archived`. Archived history is available
+separately and an archived scope may receive a replacement configuration. Creating
+an active configuration with a case-, spacing- or punctuation-equivalent active
+name requires an explicit warning confirmation.
+
+Alembic head is `a0b1c2d3e4f5`. The migration adds nullable archive actor/time/reason
+fields and lifecycle checks to recognition configurations and reviews, permits
+`archived` only for never-confirmed reviews, and replaces the configuration scope
+constraint with a partial unique index covering non-archived configurations. It
+does not rewrite existing configurations, reviews, candidates, behaviour events or
+audit records. Downgrade is intended only before archive/replacement use; after
+such use it fails closed on the restored constraints instead of deleting history.
+
 ## 2026-08-01 recognition eligibility safeguard and review actions
 
 The CHH pilot recognition workflow now supports a school-configurable, disabled-by-

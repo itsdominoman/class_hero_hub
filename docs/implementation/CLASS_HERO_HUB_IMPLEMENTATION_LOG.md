@@ -1,5 +1,42 @@
 # Class Hero Hub Implementation Log
 
+## 2026-08-01 — Recognition review and configuration management
+
+The physical-test one-point examples came from older frozen review criteria rather
+than a threshold bypass: each of the three deployed drafts stores a minimum of one,
+while the source configuration now stores two. Shortlist generation filters
+students below the configured minimum before sorting or applying the target/cutoff
+tie rule. Consequently a target of three returns only two when only two students
+qualify, and ties expand only among already-qualified students. Reviews keep their
+complete criteria snapshot after their configuration is edited, deactivated or
+archived.
+
+For the same configuration and exact inclusive period, generation takes a row lock
+and returns an existing draft rather than generating another. Drafts can be archived
+only by a school administrator after a confirmation and required reason; the action
+is audited and the row/candidate evidence remains intact. Confirmed and revoked
+reviews reject archive attempts. Active history is the default view, with archived
+reviews available through a separate staff toggle and distinct visual treatment.
+
+The management UI now exposes **Open review** and **Discard review** as native
+keyboard buttons, retains scroll/focus and selected-review styling, and shows frozen
+scope/minimum/target criteria on cards. The generation panel displays the chosen
+configuration's scope, inclusive period length, minimum, target and safeguard state.
+Configuration cards expose edit, deactivate and reasoned archive actions. Only
+active, non-archived configurations can generate. A normalised-name warning requires
+explicit confirmation before a case-, spacing- or punctuation-equivalent active
+configuration is created, while option/card criteria distinguish legitimate similar
+names.
+
+Alembic `a0b1c2d3e4f5` adds nullable archive metadata and checks to the two existing
+recognition lifecycle tables and changes scope uniqueness to cover only current
+(non-archived) configurations. No existing snapshot or behaviour/audit data is
+rewritten. Focused coverage includes below/equal/above minimums, too-few qualifiers,
+eligible cutoff ties, duplicate draft reuse, required audited archive reasons,
+confirmed-review protection, inactive/archived generation rejection, frozen
+snapshots, similar-name confirmation, inclusive dates, localisation parity and
+certificate privacy.
+
 ## 2026-08-01 — Recognition eligibility safeguard and actionable reviews
 
 Physical acceptance confirmed that draft review cards were technically clickable

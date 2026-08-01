@@ -135,6 +135,9 @@ def config_payload(db: Session, config: StudentRecognitionConfig) -> dict:
         "certificate_title": config.certificate_title,
         "signatory_text": config.signatory_text,
         "active": config.active,
+        "status": "archived" if config.archived_at else "active" if config.active else "inactive",
+        "archived_at": config.archived_at.isoformat() if config.archived_at else None,
+        "archive_reason": config.archive_reason,
         "created_at": config.created_at.isoformat() if config.created_at else None,
         "updated_at": config.updated_at.isoformat() if config.updated_at else None,
     }
@@ -184,6 +187,8 @@ def review_payload(db: Session, review: StudentRecognitionReview, *, include_can
         "confirmed_at": review.confirmed_at,
         "revoked_at": review.revoked_at,
         "revocation_reason": review.revocation_reason,
+        "archived_at": review.archived_at,
+        "archive_reason": review.archive_reason,
     }
     if include_candidates:
         candidates = (

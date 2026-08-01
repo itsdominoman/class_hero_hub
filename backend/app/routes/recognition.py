@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -56,6 +56,7 @@ class RecognitionConfigRequest(BaseModel):
     certificate_title: str = Field(min_length=1, max_length=200)
     signatory_text: str = Field(min_length=1, max_length=200)
     active: bool = True
+    confirm_similar_active_configuration: bool = False
 
     @field_validator("name", "certificate_title", "signatory_text")
     @classmethod
@@ -130,14 +131,34 @@ class RevokeReviewRequest(BaseModel):
         return value
 
 
-def _config(db: Session, school_id: int, config_id: int) -> StudentRecognitionConfig:
-    row = db.query(StudentRecognitionConfig).filter(
+class ArchiveRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: str = Field(min_length=3, max_length=500)
+
+    @field_validator("reason")
+    @classmethod
+    def strip_reason(cls, value: str) -> str:
+        value = value.strip()
+        if len(value) < 3:
+            raise ValueError("Reason must contain at least three characters")
+        return value
+
+
+def _config(db: Session, school_id: int, config_id: int, *, lock: bool = False) -> StudentRecognitionConfig:
+    query = db.query(StudentRecognitionConfig).filter(
         StudentRecognitionConfig.id == config_id,
         StudentRecognitionConfig.school_id == school_id,
-    ).first()
+    )
+    if lock and db.bind and db.bind.dialect.name == "postgresql":
+        query = query.with_for_update()
+    row = query.first()
     if not row:
         raise HTTPException(404, "Recognition configuration not found")
     return row
+
+
+def _normalise_recognition_name(value: str) -> str:
+    return "".join(character for character in value.casefold() if character.isalnum())
 
 
 def _review(db: Session, school_id: int, review_id: int, *, lock: bool = False) -> StudentRecognitionReview:
@@ -191,10 +212,19 @@ def recognition_options(
 
 @router.get("/recognition/configs")
 def list_configs(
+    include_archived: bool = Query(default=False),
     membership: Membership = Depends(require_school_role("school_admin")),
     db: Session = Depends(get_db),
 ):
-    rows = db.query(StudentRecognitionConfig).filter(StudentRecognitionConfig.school_id == membership.school_id).order_by(StudentRecognitionConfig.active.desc(), StudentRecognitionConfig.name, StudentRecognitionConfig.id).all()
+    query = db.query(StudentRecognitionConfig).filter(StudentRecognitionConfig.school_id == membership.school_id)
+    if not include_archived:
+        query = query.filter(StudentRecognitionConfig.archived_at.is_(None))
+    rows = query.order_by(
+        StudentRecognitionConfig.archived_at.is_not(None),
+        StudentRecognitionConfig.active.desc(),
+        StudentRecognitionConfig.name,
+        StudentRecognitionConfig.id,
+    ).all()
     return {"configs": [config_payload(db, row) for row in rows]}
 
 
@@ -210,7 +240,24 @@ def create_config(
     safeguard_category_rows = selected_needs_work_categories(
         db, membership.school_id, body.needs_work_category_ids
     )
-    values = body.model_dump(exclude={"category_ids", "needs_work_category_ids"})
+    active_names = [
+        row.name
+        for row in db.query(StudentRecognitionConfig.name).filter(
+            StudentRecognitionConfig.school_id == membership.school_id,
+            StudentRecognitionConfig.active.is_(True),
+            StudentRecognitionConfig.archived_at.is_(None),
+        ).all()
+    ]
+    normalised_name = _normalise_recognition_name(body.name)
+    if (
+        body.active
+        and any(_normalise_recognition_name(name) == normalised_name for name in active_names)
+        and not body.confirm_similar_active_configuration
+    ):
+        raise HTTPException(409, "Confirm creation of a similarly named active recognition configuration")
+    values = body.model_dump(
+        exclude={"category_ids", "needs_work_category_ids", "confirm_similar_active_configuration"}
+    )
     row = StudentRecognitionConfig(
         school_id=membership.school_id,
         scope_key=f"{body.scope_type}:{scope.id}",
@@ -242,13 +289,17 @@ def update_config(
     db: Session = Depends(get_db),
 ):
     row = _config(db, membership.school_id, config_id)
+    if row.archived_at is not None:
+        raise HTTPException(409, "Archived recognition configurations cannot be changed")
     before = config_payload(db, row)
     scope = scope_record(db, membership.school_id, body.scope_type, body.scope_ref_id)
     categories = positive_categories(db, membership.school_id, body.category_ids)
     safeguard_category_rows = selected_needs_work_categories(
         db, membership.school_id, body.needs_work_category_ids
     )
-    for key, value in body.model_dump(exclude={"category_ids", "needs_work_category_ids"}).items():
+    for key, value in body.model_dump(
+        exclude={"category_ids", "needs_work_category_ids", "confirm_similar_active_configuration"}
+    ).items():
         setattr(row, key, value)
     row.scope_key = f"{body.scope_type}:{scope.id}"
     row.updated_by_user_id = user.id
@@ -266,26 +317,81 @@ def update_config(
     return config_payload(db, row)
 
 
+@router.post("/recognition/configs/{config_id}/archive")
+def archive_config(
+    config_id: int,
+    body: ArchiveRequest,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    row = _config(db, membership.school_id, config_id, lock=True)
+    if row.archived_at is not None:
+        return config_payload(db, row)
+    before = config_payload(db, row)
+    row.active = False
+    row.archived_by_user_id = user.id
+    row.archived_at = datetime.now(timezone.utc)
+    row.archive_reason = body.reason
+    row.updated_by_user_id = user.id
+    after = config_payload(db, row)
+    write_audit(
+        db,
+        user,
+        "recognition.config.archived",
+        row,
+        {"before": before, "after": after, "reason": body.reason},
+        membership.school_id,
+    )
+    db.commit()
+    db.refresh(row)
+    return config_payload(db, row)
+
+
 @router.get("/recognition/reviews")
 def list_reviews(
     limit: int = Query(default=25, ge=1, le=100),
+    include_archived: bool = Query(default=False),
     membership: Membership = Depends(require_school_role("school_admin")),
     db: Session = Depends(get_db),
 ):
-    rows = db.query(StudentRecognitionReview).filter(StudentRecognitionReview.school_id == membership.school_id).order_by(StudentRecognitionReview.generated_at.desc(), StudentRecognitionReview.id.desc()).limit(limit).all()
+    query = db.query(StudentRecognitionReview).filter(
+        StudentRecognitionReview.school_id == membership.school_id
+    )
+    if not include_archived:
+        query = query.filter(StudentRecognitionReview.status != "archived")
+    rows = query.order_by(
+        StudentRecognitionReview.generated_at.desc(), StudentRecognitionReview.id.desc()
+    ).limit(limit).all()
     return {"reviews": [review_payload(db, row, include_candidates=False) for row in rows]}
 
 
 @router.post("/recognition/reviews", status_code=201)
 def create_review(
     body: GenerateReviewRequest,
+    response: Response,
     membership: Membership = Depends(require_school_role("school_admin")),
     user: User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
-    config = _config(db, membership.school_id, body.config_id)
+    config = _config(db, membership.school_id, body.config_id, lock=True)
+    if config.archived_at is not None:
+        raise HTTPException(422, "Recognition configuration is archived")
     if not config.active:
         raise HTTPException(422, "Recognition configuration is inactive")
+    period_start = body.period_end - timedelta(days=config.review_period_days - 1)
+    existing = db.query(StudentRecognitionReview).filter(
+        StudentRecognitionReview.school_id == membership.school_id,
+        StudentRecognitionReview.config_id == config.id,
+        StudentRecognitionReview.period_start == period_start,
+        StudentRecognitionReview.period_end == body.period_end,
+        StudentRecognitionReview.status == "draft",
+    ).first()
+    if existing:
+        response.status_code = 200
+        payload = review_payload(db, existing)
+        payload["was_existing_draft"] = True
+        return payload
     school = db.query(School).filter(School.id == membership.school_id).one()
     review = generate_shortlist(db, school=school, config=config, period_end=body.period_end, actor_user_id=user.id)
     candidates = db.query(StudentRecognitionCandidate).filter(StudentRecognitionCandidate.review_id == review.id).order_by(StudentRecognitionCandidate.display_order).all()
@@ -321,7 +427,9 @@ def create_review(
     )
     db.commit()
     db.refresh(review)
-    return review_payload(db, review)
+    payload = review_payload(db, review)
+    payload["was_existing_draft"] = False
+    return payload
 
 
 @router.get("/recognition/reviews/{review_id}")
@@ -335,6 +443,41 @@ def get_review(
     payload = review_payload(db, review)
     payload["school"] = {"name": school.name, "name_ar": school.name_ar, "logo_url": None}
     return payload
+
+
+@router.post("/recognition/reviews/{review_id}/archive")
+def archive_review(
+    review_id: int,
+    body: ArchiveRequest,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    review = _review(db, membership.school_id, review_id, lock=True)
+    if review.status == "archived":
+        return review_payload(db, review)
+    if review.status != "draft":
+        raise HTTPException(409, "Only an unconfirmed draft review can be archived")
+    review.status = "archived"
+    review.archived_by_user_id = user.id
+    review.archived_at = datetime.now(timezone.utc)
+    review.archive_reason = body.reason
+    write_audit(
+        db,
+        user,
+        "recognition.review.archived",
+        review,
+        {
+            "config_id": review.config_id,
+            "period_start": review.period_start.isoformat(),
+            "period_end": review.period_end.isoformat(),
+            "reason": body.reason,
+        },
+        membership.school_id,
+    )
+    db.commit()
+    db.refresh(review)
+    return review_payload(db, review)
 
 
 @router.post("/recognition/reviews/{review_id}/candidates/{candidate_id}/exclude")

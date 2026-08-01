@@ -2599,6 +2599,9 @@ class StudentRecognitionConfig(Base):
     certificate_title = Column(String(200), nullable=False)
     signatory_text = Column(String(200), nullable=False)
     active = Column(Boolean, nullable=False, default=True, server_default="true")
+    archived_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+    archive_reason = Column(String(500), nullable=True)
     created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     updated_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -2611,7 +2614,18 @@ class StudentRecognitionConfig(Base):
         CheckConstraint("minimum_positive_points >= 1", name="ck_student_recognition_configs_min_points"),
         CheckConstraint("shortlist_size BETWEEN 1 AND 50", name="ck_student_recognition_configs_shortlist_size"),
         CheckConstraint("maximum_needs_work_events >= 0", name="ck_student_recognition_configs_max_needs_work"),
-        UniqueConstraint("school_id", "recognition_type", "scope_key", name="uq_student_recognition_configs_scope"),
+        CheckConstraint(
+            "(archived_at IS NULL AND archived_by_user_id IS NULL AND archive_reason IS NULL) OR "
+            "(NOT active AND archived_at IS NOT NULL AND archived_by_user_id IS NOT NULL AND archive_reason IS NOT NULL AND length(trim(archive_reason)) > 0)",
+            name="ck_student_recognition_configs_archive",
+        ),
+        Index(
+            "uq_student_recognition_configs_current_scope",
+            "school_id", "recognition_type", "scope_key",
+            unique=True,
+            postgresql_where=sql_text("archived_at IS NULL"),
+            sqlite_where=sql_text("archived_at IS NULL"),
+        ),
         Index("ix_student_recognition_configs_school_active", "school_id", "active"),
     )
 
@@ -2651,14 +2665,18 @@ class StudentRecognitionReview(Base):
     revoked_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
     revoked_at = Column(DateTime(timezone=True), nullable=True)
     revocation_reason = Column(String(500), nullable=True)
+    archived_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+    archive_reason = Column(String(500), nullable=True)
 
     __table_args__ = (
-        CheckConstraint("status IN ('draft', 'confirmed', 'revoked')", name="ck_student_recognition_reviews_status"),
+        CheckConstraint("status IN ('draft', 'confirmed', 'revoked', 'archived')", name="ck_student_recognition_reviews_status"),
         CheckConstraint("period_start <= period_end", name="ck_student_recognition_reviews_period"),
         CheckConstraint(
-            "(status = 'draft' AND selected_student_id IS NULL AND confirmed_by_user_id IS NULL AND confirmed_at IS NULL AND revoked_by_user_id IS NULL AND revoked_at IS NULL AND revocation_reason IS NULL) OR "
-            "(status = 'confirmed' AND selected_student_id IS NOT NULL AND confirmed_by_user_id IS NOT NULL AND confirmed_at IS NOT NULL AND revoked_by_user_id IS NULL AND revoked_at IS NULL AND revocation_reason IS NULL) OR "
-            "(status = 'revoked' AND selected_student_id IS NOT NULL AND confirmed_by_user_id IS NOT NULL AND confirmed_at IS NOT NULL AND revoked_by_user_id IS NOT NULL AND revoked_at IS NOT NULL AND revocation_reason IS NOT NULL AND length(trim(revocation_reason)) > 0)",
+            "(status = 'draft' AND selected_student_id IS NULL AND confirmed_by_user_id IS NULL AND confirmed_at IS NULL AND revoked_by_user_id IS NULL AND revoked_at IS NULL AND revocation_reason IS NULL AND archived_by_user_id IS NULL AND archived_at IS NULL AND archive_reason IS NULL) OR "
+            "(status = 'confirmed' AND selected_student_id IS NOT NULL AND confirmed_by_user_id IS NOT NULL AND confirmed_at IS NOT NULL AND revoked_by_user_id IS NULL AND revoked_at IS NULL AND revocation_reason IS NULL AND archived_by_user_id IS NULL AND archived_at IS NULL AND archive_reason IS NULL) OR "
+            "(status = 'revoked' AND selected_student_id IS NOT NULL AND confirmed_by_user_id IS NOT NULL AND confirmed_at IS NOT NULL AND revoked_by_user_id IS NOT NULL AND revoked_at IS NOT NULL AND revocation_reason IS NOT NULL AND length(trim(revocation_reason)) > 0 AND archived_by_user_id IS NULL AND archived_at IS NULL AND archive_reason IS NULL) OR "
+            "(status = 'archived' AND selected_student_id IS NULL AND confirmed_by_user_id IS NULL AND confirmed_at IS NULL AND revoked_by_user_id IS NULL AND revoked_at IS NULL AND revocation_reason IS NULL AND archived_by_user_id IS NOT NULL AND archived_at IS NOT NULL AND archive_reason IS NOT NULL AND length(trim(archive_reason)) > 0)",
             name="ck_student_recognition_reviews_lifecycle",
         ),
         Index("ix_student_recognition_reviews_school_generated", "school_id", "generated_at"),

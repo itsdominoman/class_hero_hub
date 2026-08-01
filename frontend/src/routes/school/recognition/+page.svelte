@@ -22,6 +22,9 @@
     certificate_title: string;
     signatory_text: string;
     active: boolean;
+    status: 'active' | 'inactive' | 'archived';
+    archived_at?: string | null;
+    archive_reason?: string | null;
   };
   type Candidate = {
     id: number;
@@ -50,7 +53,7 @@
     period_start: string;
     period_end: string;
     criteria: any;
-    status: 'draft' | 'confirmed' | 'revoked';
+    status: 'draft' | 'confirmed' | 'revoked' | 'archived';
     selected_student_id?: number | null;
     selected_candidate?: Candidate | null;
     candidates?: Candidate[];
@@ -59,6 +62,9 @@
     confirmed_at?: string | null;
     revoked_at?: string | null;
     revocation_reason?: string | null;
+    archived_at?: string | null;
+    archive_reason?: string | null;
+    was_existing_draft?: boolean;
     school?: { name: string; name_ar?: string | null; logo_url?: string | null };
   };
 
@@ -101,6 +107,12 @@
   let notice = $state('');
   let openingReviewId = $state<number | null>(null);
   let decisionSection = $state<HTMLElement>();
+  let showArchivedConfigs = $state(false);
+  let showArchivedReviews = $state(false);
+  let discardingReviewId = $state<number | null>(null);
+  let discardReason = $state('');
+  let archivingConfigId = $state<number | null>(null);
+  let configArchiveReason = $state('');
 
   function schoolOptions() {
     return membership ? { headers: { 'X-School-Id': String(membership.school_id), 'X-Membership-Id': String(membership.membership_id) } } : {};
@@ -132,8 +144,59 @@
       : [...form.needs_work_category_ids, id];
   }
 
-  function configPayload() {
-    return { ...form, scope_ref_id: Number(form.scope_ref_id) };
+  function configPayload(confirmSimilar = false) {
+    return { ...form, scope_ref_id: Number(form.scope_ref_id), confirm_similar_active_configuration: confirmSimilar };
+  }
+
+  function payloadForConfig(config: RecognitionConfig, active = config.active) {
+    return {
+      recognition_type: config.recognition_type,
+      name: config.name,
+      scope_type: config.scope.type,
+      scope_ref_id: config.scope.id,
+      review_period_days: config.review_period_days,
+      category_ids: config.category_ids,
+      minimum_positive_points: config.minimum_positive_points,
+      shortlist_size: config.shortlist_size,
+      needs_work_safeguard_enabled: config.needs_work_safeguard_enabled,
+      maximum_needs_work_events: config.maximum_needs_work_events,
+      needs_work_category_ids: config.needs_work_category_ids,
+      certificate_title: config.certificate_title,
+      signatory_text: config.signatory_text,
+      active,
+      confirm_similar_active_configuration: false
+    };
+  }
+
+  function selectedConfig() {
+    return configs.find((row) => row.id === Number(reviewConfigId));
+  }
+
+  function activeConfigs() {
+    return configs.filter((row) => row.status === 'active' && !row.archived_at);
+  }
+
+  function visibleConfigs() {
+    return configs.filter((row) => showArchivedConfigs || row.status !== 'archived');
+  }
+
+  function visibleReviews() {
+    return reviews.filter((row) => showArchivedReviews || row.status !== 'archived');
+  }
+
+  function configOptionLabel(config: RecognitionConfig) {
+    return `${config.name} · ${config.scope.name} · ${config.minimum_positive_points} ${$_('recognitionPage.positivePoints')} · ${config.shortlist_size}`;
+  }
+
+  async function reloadConfigs() {
+    const loaded = await api.get('/school/recognition/configs?include_archived=true', schoolOptions());
+    configs = loaded.configs;
+    if (!activeConfigs().some((row) => String(row.id) === reviewConfigId)) reviewConfigId = String(activeConfigs()[0]?.id || '');
+  }
+
+  async function reloadReviews() {
+    const loaded = await api.get('/school/recognition/reviews?limit=25&include_archived=true', schoolOptions());
+    reviews = loaded.reviews;
   }
 
   async function load() {
@@ -145,13 +208,13 @@
       if (!membership) throw new Error($_('recognitionPage.adminRequired'));
       const [loadedOptions, loadedConfigs, loadedReviews] = await Promise.all([
         api.get('/school/recognition/options', schoolOptions()),
-        api.get('/school/recognition/configs', schoolOptions()),
-        api.get('/school/recognition/reviews?limit=25', schoolOptions())
+        api.get('/school/recognition/configs?include_archived=true', schoolOptions()),
+        api.get('/school/recognition/reviews?limit=25&include_archived=true', schoolOptions())
       ]);
       options = loadedOptions;
       configs = loadedConfigs.configs;
       reviews = loadedReviews.reviews;
-      if (!reviewConfigId && configs.some((row) => row.active)) reviewConfigId = String(configs.find((row) => row.active)?.id || '');
+      if (!reviewConfigId && activeConfigs().length) reviewConfigId = String(activeConfigs()[0].id);
     } catch (caught: any) {
       error = caught?.message || $_('recognitionPage.loadError');
     } finally {
@@ -195,13 +258,61 @@
     }
     saving = true;
     try {
-      const saved = editingConfigId
-        ? await api.put(`/school/recognition/configs/${editingConfigId}`, configPayload(), schoolOptions())
-        : await api.post('/school/recognition/configs', configPayload(), schoolOptions());
+      let saved;
+      if (editingConfigId) {
+        saved = await api.put(`/school/recognition/configs/${editingConfigId}`, configPayload(), schoolOptions());
+      } else {
+        try {
+          saved = await api.post('/school/recognition/configs', configPayload(), schoolOptions());
+        } catch (caught: any) {
+          const isSimilarWarning = caught?.status === 409 && caught?.message?.includes('similarly named');
+          const scopeName = scopeOptions().find((row) => row.id === Number(form.scope_ref_id));
+          if (!isSimilarWarning || !window.confirm($_('recognitionPage.similarConfigWarning', { values: { name: form.name, scope: scopeName ? optionName(scopeName) : '' } }))) throw caught;
+          saved = await api.post('/school/recognition/configs', configPayload(true), schoolOptions());
+        }
+      }
       configs = [saved, ...configs.filter((row) => row.id !== saved.id)];
       if (!reviewConfigId && saved.active) reviewConfigId = String(saved.id);
       notice = $_('recognitionPage.configSaved');
       resetForm();
+    } catch (caught: any) {
+      error = caught?.message || $_('recognitionPage.saveError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function deactivateConfig(config: RecognitionConfig) {
+    if (config.status !== 'active' || !window.confirm($_('recognitionPage.confirmDeactivateConfig', { values: { name: config.name } }))) return;
+    saving = true;
+    error = '';
+    try {
+      await api.put(`/school/recognition/configs/${config.id}`, payloadForConfig(config, false), schoolOptions());
+      await reloadConfigs();
+      notice = $_('recognitionPage.configDeactivated');
+    } catch (caught: any) {
+      error = caught?.message || $_('recognitionPage.saveError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  function beginArchiveConfig(config: RecognitionConfig) {
+    archivingConfigId = config.id;
+    configArchiveReason = '';
+  }
+
+  async function archiveConfig(config: RecognitionConfig) {
+    if (configArchiveReason.trim().length < 3 || !window.confirm($_('recognitionPage.confirmArchiveConfig', { values: { name: config.name } }))) return;
+    saving = true;
+    error = '';
+    try {
+      await api.post(`/school/recognition/configs/${config.id}/archive`, { reason: configArchiveReason }, schoolOptions());
+      await reloadConfigs();
+      archivingConfigId = null;
+      configArchiveReason = '';
+      if (editingConfigId === config.id) resetForm();
+      notice = $_('recognitionPage.configArchived');
     } catch (caught: any) {
       error = caught?.message || $_('recognitionPage.saveError');
     } finally {
@@ -216,9 +327,9 @@
     notice = '';
     try {
       const review = await api.post('/school/recognition/reviews', { config_id: Number(reviewConfigId), period_end: periodEnd }, schoolOptions());
-      reviews = [review, ...reviews];
-      await openReview(review.id);
-      notice = $_('recognitionPage.shortlistReady');
+      reviews = [review, ...reviews.filter((row) => row.id !== review.id)];
+      await openReview(review.id, true);
+      notice = review.was_existing_draft ? $_('recognitionPage.existingDraftOpened') : $_('recognitionPage.shortlistReady');
     } catch (caught: any) {
       error = caught?.message || $_('recognitionPage.generateError');
     } finally {
@@ -244,11 +355,41 @@
       overridingCandidateId = null;
       overrideReason = '';
       revocationReason = '';
+      discardingReviewId = null;
+      discardReason = '';
       await focusDecisionSection();
     } catch (caught: any) {
       error = caught?.message || $_('recognitionPage.loadError');
     } finally {
       openingReviewId = null;
+      saving = false;
+    }
+  }
+
+  async function beginDiscardReview(review: Review) {
+    if (openingReviewId !== null) return;
+    await openReview(review.id);
+    if (currentReview?.id !== review.id) return;
+    discardingReviewId = review.id;
+    discardReason = '';
+    await focusDecisionSection();
+  }
+
+  async function discardReview() {
+    if (!currentReview || currentReview.status !== 'draft' || discardReason.trim().length < 3) return;
+    if (!window.confirm($_('recognitionPage.confirmDiscardReview'))) return;
+    saving = true;
+    error = '';
+    try {
+      await api.post(`/school/recognition/reviews/${currentReview.id}/archive`, { reason: discardReason }, schoolOptions());
+      await reloadReviews();
+      currentReview = null;
+      discardingReviewId = null;
+      discardReason = '';
+      notice = $_('recognitionPage.reviewDiscarded');
+    } catch (caught: any) {
+      error = caught?.message || $_('recognitionPage.saveError');
+    } finally {
       saving = false;
     }
   }
@@ -296,8 +437,7 @@
     try {
       await api.post(`/school/recognition/reviews/${currentReview.id}/confirm`, { student_id: Number(selectedStudentId), citation: citation || null }, schoolOptions());
       await openReview(currentReview.id, true);
-      const loaded = await api.get('/school/recognition/reviews?limit=25', schoolOptions());
-      reviews = loaded.reviews;
+      await reloadReviews();
       notice = $_('recognitionPage.awardConfirmed');
     } catch (caught: any) {
       error = caught?.message || $_('recognitionPage.confirmError');
@@ -313,8 +453,7 @@
     try {
       await api.post(`/school/recognition/reviews/${currentReview.id}/revoke`, { reason: revocationReason }, schoolOptions());
       await openReview(currentReview.id, true);
-      const loaded = await api.get('/school/recognition/reviews?limit=25', schoolOptions());
-      reviews = loaded.reviews;
+      await reloadReviews();
       notice = $_('recognitionPage.awardRevoked');
     } catch (caught: any) {
       error = caught?.message || $_('recognitionPage.revokeError');
@@ -411,9 +550,19 @@
             <label class="mt-4 block text-sm font-bold text-slate-700">{$_('recognitionPage.configuration')}
               <select class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" bind:value={reviewConfigId}>
                 <option value="">{$_('recognitionPage.choose')}</option>
-                {#each configs.filter((row) => row.active) as config}<option value={String(config.id)}>{config.name} · {config.scope.name}</option>{/each}
+                {#each activeConfigs() as config}<option value={String(config.id)}>{configOptionLabel(config)}</option>{/each}
               </select>
             </label>
+            {#if selectedConfig()}
+              {@const config = selectedConfig()!}
+              <dl class="mt-4 grid grid-cols-2 gap-3 rounded-xl border border-sky-100 bg-sky-50 p-4 text-sm text-sky-950">
+                <div><dt class="font-black">{$_('recognitionPage.scope')}</dt><dd>{config.scope.name}</dd></div>
+                <div><dt class="font-black">{$_('recognitionPage.reviewDays')}</dt><dd>{config.review_period_days} {$_('recognitionPage.days')}</dd></div>
+                <div><dt class="font-black">{$_('recognitionPage.minimumPoints')}</dt><dd>{config.minimum_positive_points}</dd></div>
+                <div><dt class="font-black">{$_('recognitionPage.shortlistSize')}</dt><dd>{config.shortlist_size}</dd></div>
+                <div class="col-span-2"><dt class="font-black">{$_('recognitionPage.needsWorkSafeguard')}</dt><dd>{config.needs_work_safeguard_enabled ? $_('recognitionPage.safeguardOn') : $_('recognitionPage.safeguardOff')}</dd></div>
+              </dl>
+            {/if}
             <label class="mt-4 block text-sm font-bold text-slate-700">{$_('recognitionPage.periodEnd')}<input type="date" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" bind:value={periodEnd} /></label>
             <button class="btn-hero mt-5 w-full rounded-xl px-5 py-3" type="button" disabled={saving || !reviewConfigId || !periodEnd} onclick={generateReview}>{$_('recognitionPage.generate')}</button>
             <p class="mt-3 text-xs leading-5 text-slate-500">{$_('recognitionPage.noAutomaticWinner')}</p>
@@ -421,15 +570,25 @@
 
           <section class="card p-6">
             <h2 class="text-lg font-black text-slate-900">{$_('recognitionPage.configurations')}</h2>
-            {#if configs.length === 0}<p class="mt-3 text-sm text-slate-500">{$_('recognitionPage.noConfigs')}</p>{/if}
+            <button class="mt-3 text-sm font-bold text-hero underline" type="button" aria-expanded={showArchivedConfigs} onclick={() => (showArchivedConfigs = !showArchivedConfigs)}>{showArchivedConfigs ? $_('recognitionPage.hideArchivedConfigs') : $_('recognitionPage.showArchivedConfigs')}</button>
+            {#if visibleConfigs().length === 0}<p class="mt-3 text-sm text-slate-500">{$_('recognitionPage.noConfigs')}</p>{/if}
             <div class="mt-3 space-y-3">
-              {#each configs as config}
-                <button type="button" class="w-full rounded-xl border border-slate-200 p-3 text-start hover:border-hero" onclick={() => editConfig(config)}>
-                  <span class="font-black text-slate-900">{config.name}</span>
-                  <span class="ms-2 text-xs font-bold text-slate-500">{config.active ? $_('recognitionPage.active') : $_('recognitionPage.inactive')}</span>
-                  <span class="mt-1 block text-sm text-slate-600">{config.scope.name} · {config.review_period_days} {$_('recognitionPage.days')} · {config.minimum_positive_points} {$_('recognitionPage.positivePoints')}</span>
-                  {#if config.needs_work_safeguard_enabled}<span class="mt-1 block text-xs font-semibold text-amber-800">{$_('recognitionPage.safeguardEnabledSummary', { values: { count: config.maximum_needs_work_events } })}</span>{/if}
-                </button>
+              {#each visibleConfigs() as config}
+                <article class={`rounded-xl border p-3 ${config.status === 'active' ? 'border-emerald-200 bg-emerald-50/40' : config.status === 'archived' ? 'border-slate-200 bg-slate-100' : 'border-amber-200 bg-amber-50/40'}`}>
+                  <div class="flex flex-wrap items-start justify-between gap-2"><div><h3 class="font-black text-slate-900">{config.name}</h3><p class="mt-1 text-sm text-slate-600">{config.scope.name} · {config.review_period_days} {$_('recognitionPage.days')} · {config.minimum_positive_points} {$_('recognitionPage.positivePoints')} · {config.shortlist_size} {$_('recognitionPage.shortlistPlaces')}</p></div><span class="rounded-full bg-white px-2 py-1 text-xs font-bold text-slate-600">{$_(`recognitionPage.configStatus.${config.status}`)}</span></div>
+                  <p class="mt-1 text-xs font-semibold text-slate-600">{config.needs_work_safeguard_enabled ? $_('recognitionPage.safeguardEnabledSummary', { values: { count: config.maximum_needs_work_events } }) : $_('recognitionPage.safeguardOff')}</p>
+                  {#if config.status === 'archived'}<p class="mt-2 text-xs text-slate-600">{$_('recognitionPage.archiveReason')}: {config.archive_reason}</p>{/if}
+                  {#if config.status !== 'archived'}
+                    <div class="mt-3 flex flex-wrap gap-2">
+                      <button class="btn-secondary rounded-lg px-3 py-2 text-sm" type="button" onclick={() => editConfig(config)}>{$_('recognitionPage.editAction')}</button>
+                      {#if config.status === 'active'}<button class="btn-secondary rounded-lg px-3 py-2 text-sm" type="button" onclick={() => deactivateConfig(config)}>{$_('recognitionPage.deactivateAction')}</button>{/if}
+                      <button class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700" type="button" onclick={() => beginArchiveConfig(config)}>{$_('recognitionPage.archiveAction')}</button>
+                    </div>
+                    {#if archivingConfigId === config.id}
+                      <div class="mt-3 rounded-xl border border-slate-200 bg-white p-3"><label class="block text-sm font-bold text-slate-700">{$_('recognitionPage.configArchiveReason')}<input class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" bind:value={configArchiveReason} maxlength="500" /></label><div class="mt-2 flex gap-2"><button class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold" type="button" disabled={saving || configArchiveReason.trim().length < 3} onclick={() => archiveConfig(config)}>{$_('recognitionPage.archiveAction')}</button><button class="text-sm font-bold underline" type="button" onclick={() => (archivingConfigId = null)}>{$_('common.cancel')}</button></div></div>
+                    {/if}
+                  {/if}
+                </article>
               {/each}
             </div>
           </section>
@@ -438,15 +597,21 @@
 
       <section class="card mt-6 p-6">
         <h2 class="text-xl font-black text-slate-900">{$_('recognitionPage.recentReviews')}</h2>
-        {#if reviews.length === 0}<p class="mt-3 text-sm text-slate-500">{$_('recognitionPage.noReviews')}</p>{/if}
+        <button class="mt-3 text-sm font-bold text-hero underline" type="button" aria-expanded={showArchivedReviews} onclick={() => (showArchivedReviews = !showArchivedReviews)}>{showArchivedReviews ? $_('recognitionPage.hideArchivedReviews') : $_('recognitionPage.showArchivedReviews')}</button>
+        {#if visibleReviews().length === 0}<p class="mt-3 text-sm text-slate-500">{$_('recognitionPage.noReviews')}</p>{/if}
         <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {#each reviews as review}
-            <button type="button" class={`review-card rounded-xl border p-4 text-start ${review.status === 'draft' ? 'review-card-draft' : review.status === 'confirmed' ? 'review-card-confirmed' : 'review-card-revoked'} ${currentReview?.id === review.id ? 'review-card-selected' : ''}`} aria-pressed={currentReview?.id === review.id} onclick={() => openReview(review.id)}>
-              <span class="font-black text-slate-900">{review.criteria?.recognition_name}</span>
-              <span class="mt-1 block text-sm text-slate-600">{review.period_start} – {review.period_end}</span>
-              <span class="mt-2 inline-block rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-700">{statusLabel(review.status)}</span>
-              <span class="review-card-action mt-3 flex items-center justify-between gap-2 text-sm font-black"><span>{$_(`recognitionPage.${review.status === 'draft' ? 'reviewShortlist' : review.status === 'confirmed' ? 'viewConfirmedReview' : 'viewRevokedReview'}`)}</span><span aria-hidden="true">→</span></span>
-            </button>
+          {#each visibleReviews() as review}
+            <article class={`review-card rounded-xl border p-4 ${review.status === 'draft' ? 'review-card-draft' : review.status === 'confirmed' ? 'review-card-confirmed' : review.status === 'archived' ? 'review-card-archived' : 'review-card-revoked'} ${currentReview?.id === review.id ? 'review-card-selected' : ''}`}>
+              <h3 class="font-black text-slate-900">{review.criteria?.recognition_name}</h3>
+              <p class="mt-1 text-sm text-slate-600">{review.criteria?.scope?.name} · {review.period_start} – {review.period_end}</p>
+              <p class="mt-1 text-xs text-slate-500">{$_('recognitionPage.minimumPoints')}: {review.criteria?.minimum_positive_points} · {$_('recognitionPage.shortlistSize')}: {review.criteria?.shortlist_size}</p>
+              <span class="mt-2 inline-block rounded-full bg-white px-2 py-1 text-xs font-black text-slate-700">{statusLabel(review.status)}</span>
+              {#if review.status === 'archived'}<p class="mt-2 text-xs text-slate-600">{$_('recognitionPage.archiveReason')}: {review.archive_reason}</p>{/if}
+              <div class="mt-3 flex flex-wrap gap-2">
+                <button type="button" class="review-card-action rounded-lg border border-current px-3 py-2 text-sm font-black" aria-pressed={currentReview?.id === review.id} onclick={() => openReview(review.id)}>{$_('recognitionPage.openReview')} <span aria-hidden="true">→</span></button>
+                {#if review.status === 'draft'}<button type="button" class="rounded-lg border border-slate-400 px-3 py-2 text-sm font-bold text-slate-700" onclick={() => beginDiscardReview(review)}>{$_('recognitionPage.discardReview')}</button>{/if}
+              </div>
+            </article>
           {/each}
         </div>
       </section>
@@ -502,9 +667,18 @@
               <button class="btn-hero mt-3 rounded-xl px-5 py-3" type="button" disabled={saving || !selectedStudentId} onclick={confirmReview}>{$_('recognitionPage.confirm')}</button>
               <p class="mt-2 text-xs text-amber-900">{$_('recognitionPage.confirmHelp')}</p>
             </div>
+            <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              {#if discardingReviewId === currentReview.id}
+                <label class="block text-sm font-black text-slate-800">{$_('recognitionPage.discardReason')}<textarea class="mt-2 min-h-20 w-full rounded-xl border border-slate-300 bg-white px-3 py-2" bind:value={discardReason} maxlength="500"></textarea></label>
+                <div class="mt-3 flex flex-wrap gap-2"><button class="rounded-xl border border-slate-400 px-4 py-2 font-bold text-slate-800" type="button" disabled={saving || discardReason.trim().length < 3} onclick={discardReview}>{$_('recognitionPage.discardReview')}</button><button class="text-sm font-bold underline" type="button" onclick={() => (discardingReviewId = null)}>{$_('common.cancel')}</button></div>
+              {:else}
+                <button class="rounded-xl border border-slate-400 px-4 py-2 font-bold text-slate-800" type="button" onclick={() => { discardingReviewId = currentReview!.id; discardReason = ''; }}>{$_('recognitionPage.discardReview')}</button>
+              {/if}
+            </div>
           {:else if currentReview.status === 'confirmed'}
             <div class="mt-6 rounded-2xl border border-red-100 bg-red-50 p-4"><p class="text-sm font-black text-red-900">{$_('recognitionPage.correctAward')}</p><div class="mt-2 flex flex-col gap-2 sm:flex-row"><input class="flex-1 rounded-xl border border-red-200 bg-white px-3 py-2" bind:value={revocationReason} maxlength="500" placeholder={$_('recognitionPage.revocationReason')} /><button class="rounded-xl border border-red-300 px-4 py-2 font-bold text-red-800" disabled={saving || revocationReason.trim().length < 3} onclick={revokeReview}>{$_('recognitionPage.revoke')}</button></div></div>
-          {:else}<p class="mt-5 text-sm font-semibold text-red-700">{$_('recognitionPage.revokedReason')}: {currentReview.revocation_reason}</p>{/if}
+          {:else if currentReview.status === 'revoked'}<p class="mt-5 text-sm font-semibold text-red-700">{$_('recognitionPage.revokedReason')}: {currentReview.revocation_reason}</p>
+          {:else}<p class="mt-5 text-sm font-semibold text-slate-600">{$_('recognitionPage.archiveReason')}: {currentReview.archive_reason}</p>{/if}
         </section>
       {/if}
     {/if}
@@ -528,12 +702,15 @@
 </section>
 
 <style>
-  .review-card { cursor: pointer; transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease; }
-  .review-card:hover { border-color: var(--hero-color); box-shadow: 0 8px 24px rgb(15 23 42 / .1); transform: translateY(-1px); }
-  .review-card:focus-visible { outline: 3px solid rgb(124 58 237 / .35); outline-offset: 3px; }
+  .review-card { transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease; }
+  .review-card:hover { box-shadow: 0 8px 24px rgb(15 23 42 / .1); transform: translateY(-1px); }
+  .review-card button { cursor: pointer; }
+  .review-card button:hover { background: rgb(255 255 255 / .7); }
+  .review-card button:focus-visible { outline: 3px solid rgb(124 58 237 / .35); outline-offset: 3px; }
   .review-card-draft { border-color: #fbbf24; background: #fffbeb; }
   .review-card-confirmed { border-color: #a7f3d0; background: #f0fdf4; }
   .review-card-revoked { border-color: #cbd5e1; background: #f8fafc; }
+  .review-card-archived { border-color: #cbd5e1; background: #f1f5f9; opacity: .86; }
   .review-card-selected { border-color: var(--hero-color); box-shadow: 0 0 0 3px rgb(124 58 237 / .18); }
   .review-card-action { color: var(--hero-color); }
   .certificate { border: 12px double #d4a72c; min-height: 720px; display: flex; flex-direction: column; justify-content: center; }

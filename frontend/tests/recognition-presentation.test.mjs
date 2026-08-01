@@ -20,16 +20,40 @@ test('recognition keeps positive ranking and adds a staff-only eligibility safeg
 });
 
 test('review cards expose an actionable keyboard button and focus the selected decision section', () => {
-  assert.match(source, /reviewShortlist/);
-  assert.match(source, /class=\{`review-card/);
+  assert.match(source, /recognitionPage\.openReview/);
+  assert.match(source, /<article class=\{`review-card/);
+  assert.match(source, /<button type="button" class="review-card-action/);
   assert.match(source, /aria-pressed=\{currentReview\?\.id === review\.id\}/);
   assert.match(source, /cursor: pointer/);
-  assert.match(source, /\.review-card:hover/);
-  assert.match(source, /\.review-card:focus-visible/);
+  assert.match(source, /\.review-card button:hover/);
+  assert.match(source, /\.review-card button:focus-visible/);
   assert.match(source, /decisionSection\?\.scrollIntoView/);
   assert.match(source, /decisionSection\?\.focus/);
   assert.match(source, /bind:this=\{decisionSection\} tabindex="-1"/);
   assert.match(source, /if \(currentReview\?\.id === reviewId && !forceReload\)/);
+});
+
+test('draft and configuration lifecycle controls preserve history and avoid duplicate cards', () => {
+  assert.match(source, /was_existing_draft/);
+  assert.match(source, /reviews\.filter\(\(row\) => row\.id !== review\.id\)/);
+  assert.match(source, /existingDraftOpened/);
+  assert.match(source, /reviews\/\$\{currentReview\.id\}\/archive/);
+  assert.match(source, /discardReason\.trim\(\)\.length < 3/);
+  assert.match(source, /confirmDiscardReview/);
+  assert.match(source, /configs\/\$\{config\.id\}\/archive/);
+  assert.match(source, /configArchiveReason\.trim\(\)\.length < 3/);
+  assert.match(source, /row\.status === 'active' && !row\.archived_at/);
+  assert.match(source, /include_archived=true/);
+  assert.match(source, /similarConfigWarning/);
+});
+
+test('generation shows the selected frozen criteria and excludes inactive or archived configurations', () => {
+  assert.match(source, /selectedConfig\(\)/);
+  assert.match(source, /config\.minimum_positive_points/);
+  assert.match(source, /config\.shortlist_size/);
+  assert.match(source, /config\.needs_work_safeguard_enabled/);
+  assert.match(source, /configOptionLabel\(config\)/);
+  assert.match(source, /configStatus\.\$\{config\.status\}/);
 });
 
 test('shortlist requires explicit selection and supports recorded exclusion and correction', () => {

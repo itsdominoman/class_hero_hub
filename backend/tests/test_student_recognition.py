@@ -231,6 +231,196 @@ def test_shortlist_uses_only_unreversed_positive_scoped_period_evidence_and_show
     assert db.query(AuditLog).filter_by(action="recognition.shortlist.generated", school_id=world["school"].id).count() == 1
 
 
+def test_minimum_threshold_short_list_and_cutoff_ties_only_include_eligible_students(client, db, recognition_world):
+    world = recognition_world
+    cara = world["students"][2]
+    db.add(
+        Enrolment(
+            school_id=world["school"].id,
+            student_id=cara.id,
+            class_section_id=world["section"].id,
+            kind="member",
+            valid_from=date(2026, 7, 1),
+        )
+    )
+    db.add(
+        BehaviourEvent(
+            school_id=world["school"].id,
+            student_id=cara.id,
+            category_id=world["positive"].id,
+            actor_user_id=world["teacher"].id,
+            points_delta=1,
+            source="teacher",
+            context_type="general",
+            created_at=datetime(2026, 7, 29, 10, tzinfo=timezone.utc),
+        )
+    )
+    db.commit()
+
+    class_config = create_config(client, world, minimum_positive_points=2, shortlist_size=3)
+    class_review = client.post(
+        "/api/school/recognition/reviews",
+        headers=headers(world["admin"], world["school"]),
+        json={"config_id": class_config["id"], "period_end": "2026-08-01"},
+    ).json()
+    assert len(class_review["candidates"]) == 2
+    assert all(row["positive_points_total"] >= 2 for row in class_review["candidates"])
+    assert cara.id not in {row["student_id"] for row in class_review["candidates"]}
+
+    branch_config = create_config(
+        client,
+        world,
+        name="Branch recognition",
+        scope_type="branch",
+        scope_ref_id=world["branch"].id,
+        minimum_positive_points=6,
+        shortlist_size=1,
+    )
+    branch_review = client.post(
+        "/api/school/recognition/reviews",
+        headers=headers(world["admin"], world["school"]),
+        json={"config_id": branch_config["id"], "period_end": "2026-08-01"},
+    ).json()
+    assert len(branch_review["candidates"]) == 2
+    assert all(row["positive_points_total"] == 6 and row["rank"] == 1 for row in branch_review["candidates"])
+    assert cara.id not in {row["student_id"] for row in branch_review["candidates"]}
+
+
+def test_duplicate_draft_returns_existing_then_archives_with_reason_and_audit(client, db, recognition_world):
+    world = recognition_world
+    config = create_config(client, world)
+    endpoint = "/api/school/recognition/reviews"
+    body = {"config_id": config["id"], "period_end": "2026-08-01"}
+    first = client.post(endpoint, headers=headers(world["admin"], world["school"]), json=body)
+    second = client.post(endpoint, headers=headers(world["admin"], world["school"]), json=body)
+    assert first.status_code == 201 and first.json()["was_existing_draft"] is False
+    assert second.status_code == 200 and second.json()["was_existing_draft"] is True
+    assert second.json()["id"] == first.json()["id"]
+    assert db.query(StudentRecognitionReview).filter_by(config_id=config["id"], status="draft").count() == 1
+    assert db.query(AuditLog).filter_by(action="recognition.shortlist.generated").count() == 1
+
+    review_id = first.json()["id"]
+    assert client.post(
+        f"{endpoint}/{review_id}/archive",
+        headers=headers(world["admin"], world["school"]),
+        json={"reason": " "},
+    ).status_code == 422
+    archived = client.post(
+        f"{endpoint}/{review_id}/archive",
+        headers=headers(world["admin"], world["school"]),
+        json={"reason": "Generated for the wrong review date"},
+    )
+    assert archived.status_code == 200 and archived.json()["status"] == "archived"
+    assert archived.json()["archive_reason"] == "Generated for the wrong review date"
+    assert client.get(endpoint, headers=headers(world["admin"], world["school"])).json() == {"reviews": []}
+    history = client.get(
+        f"{endpoint}?include_archived=true",
+        headers=headers(world["admin"], world["school"]),
+    ).json()["reviews"]
+    assert [row["id"] for row in history] == [review_id]
+    assert db.query(AuditLog).filter_by(action="recognition.review.archived").count() == 1
+
+    replacement = client.post(endpoint, headers=headers(world["admin"], world["school"]), json=body).json()
+    selected = replacement["candidates"][0]
+    confirmed = client.post(
+        f"{endpoint}/{replacement['id']}/confirm",
+        headers=headers(world["admin"], world["school"]),
+        json={"student_id": selected["student_id"]},
+    )
+    assert confirmed.status_code == 200
+    cannot_archive = client.post(
+        f"{endpoint}/{replacement['id']}/archive",
+        headers=headers(world["admin"], world["school"]),
+        json={"reason": "Must use correction instead"},
+    )
+    assert cannot_archive.status_code == 409
+
+
+def test_config_lifecycle_snapshot_and_similar_name_confirmation(client, db, recognition_world):
+    world = recognition_world
+    config = create_config(client, world)
+    review = client.post(
+        "/api/school/recognition/reviews",
+        headers=headers(world["admin"], world["school"]),
+        json={"config_id": config["id"], "period_end": "2026-08-01"},
+    ).json()
+    assert review["criteria"]["minimum_positive_points"] == 1
+
+    updated_body = config_body(world, minimum_positive_points=2)
+    updated = client.put(
+        f"/api/school/recognition/configs/{config['id']}",
+        headers=headers(world["admin"], world["school"]),
+        json=updated_body,
+    )
+    assert updated.status_code == 200 and updated.json()["minimum_positive_points"] == 2
+    frozen = client.get(
+        f"/api/school/recognition/reviews/{review['id']}",
+        headers=headers(world["admin"], world["school"]),
+    ).json()
+    assert frozen["criteria"]["minimum_positive_points"] == 1
+
+    inactive_body = {**updated_body, "active": False}
+    inactive = client.put(
+        f"/api/school/recognition/configs/{config['id']}",
+        headers=headers(world["admin"], world["school"]),
+        json=inactive_body,
+    )
+    assert inactive.status_code == 200 and inactive.json()["status"] == "inactive"
+    assert client.post(
+        "/api/school/recognition/reviews",
+        headers=headers(world["admin"], world["school"]),
+        json={"config_id": config["id"], "period_end": "2026-08-02"},
+    ).status_code == 422
+
+    archived = client.post(
+        f"/api/school/recognition/configs/{config['id']}/archive",
+        headers=headers(world["admin"], world["school"]),
+        json={"reason": "Replacing this configuration"},
+    )
+    assert archived.status_code == 200 and archived.json()["status"] == "archived"
+    assert client.put(
+        f"/api/school/recognition/configs/{config['id']}",
+        headers=headers(world["admin"], world["school"]),
+        json=updated_body,
+    ).status_code == 409
+    assert client.post(
+        "/api/school/recognition/reviews",
+        headers=headers(world["admin"], world["school"]),
+        json={"config_id": config["id"], "period_end": "2026-08-02"},
+    ).status_code == 422
+    assert client.get(
+        "/api/school/recognition/configs",
+        headers=headers(world["admin"], world["school"]),
+    ).json() == {"configs": []}
+    assert client.get(
+        "/api/school/recognition/configs?include_archived=true",
+        headers=headers(world["admin"], world["school"]),
+    ).json()["configs"][0]["id"] == config["id"]
+
+    replacement = create_config(client, world, name="Replacement recognition")
+    assert replacement["scope"]["id"] == world["section"].id
+
+    similar_body = config_body(
+        world,
+        name="Replacement-recognition",
+        scope_type="branch",
+        scope_ref_id=world["branch"].id,
+    )
+    warning = client.post(
+        "/api/school/recognition/configs",
+        headers=headers(world["admin"], world["school"]),
+        json=similar_body,
+    )
+    assert warning.status_code == 409
+    confirmed_similar = client.post(
+        "/api/school/recognition/configs",
+        headers=headers(world["admin"], world["school"]),
+        json={**similar_body, "confirm_similar_active_configuration": True},
+    )
+    assert confirmed_similar.status_code == 201
+    assert db.query(AuditLog).filter_by(action="recognition.config.archived").count() == 1
+
+
 def test_safeguard_threshold_selected_categories_reversals_override_and_positive_ranking(client, db, recognition_world):
     world = recognition_world
     cara = world["students"][2]
