@@ -1,5 +1,51 @@
 # CHH current pilot deployment
 
+## 2026-08-01 permission-aware destinations
+
+The school-admin and teacher global destinations were checked against their
+existing role and permission gates. Messages already hides its navigation item
+when the membership API is unavailable and provides an explicit direct-URL state;
+Surveys does the same through its school-admin availability probe. School setup,
+Teach, Reports and System & compliance remain actionable under their existing role
+checks. Safeguarding was the confirmed dead end: its non-sensitive availability
+probe previously treated any active safeguarding grant as enough to show the menu,
+including moderation or export grants that provide no landing-page action.
+
+Safeguarding availability now returns true only when the exact active school
+membership has either `messaging.safeguarding_review` or
+`messaging.manage_safeguarding_permissions`. A membership with neither permission
+does not receive desktop or mobile navigation; a direct URL shows a clear English
+or Arabic unavailable state without restricted labels, counts or disabled actions.
+Review-only access shows only Message reviews, manage-only access shows only
+Permission management, and memberships with both permissions see both. A
+manage-only user opening the review URL receives review-specific unavailable copy.
+Mixed-role accounts select the first membership with a usable safeguarding entry
+permission rather than an unrelated membership. Existing URLs and every protected
+backend permission check remain unchanged; adjunct moderation, export, internal-note
+export and legal-hold permissions retain their existing enforcement inside an
+authorised workflow.
+
+Validation passed all nine focused safeguarding backend tests in the rebuilt image,
+seven focused frontend source tests, English/Arabic parity at 2,002 keys each,
+Svelte checking with zero errors and warnings, and the affected backend and frontend
+production builds. Thirty Playwright navigation and safeguarding checks passed for
+no access, review-only, manage-only, full and mixed-role combinations, followed by
+the focused manage-only direct-route assertion. The matrix covered platform-admin,
+school-admin, teacher and mixed-role navigation plus English and Arabic/RTL at 390,
+768, 1024, 1280 and 1440 CSS pixels. Signed-in deployed-browser verification
+confirmed hidden navigation and the explicit no-access state in English desktop and
+Arabic/RTL at 390 CSS pixels, with zero horizontal overflow and no console warnings
+or errors.
+
+Implementation commit `d47d093` was deployed by rebuilding and recreating only the
+CHH pilot backend and frontend. Both services are healthy; loopback and public
+frontend checks returned HTTP 200 and readiness returned
+`database=ok,migration=current`. PostgreSQL, the notification scheduler and the
+messaging production worker retained their running containers. Configuration,
+schema and data were unchanged; no backup, migration, native change or APK was
+required. Physical Android Back, safe-area and real-device compact-menu/touch
+verification remain for Dom.
+
 ## 2026-08-01 School setup menu grouping
 
 The School setup workspace now uses one ordered menu definition for desktop and
