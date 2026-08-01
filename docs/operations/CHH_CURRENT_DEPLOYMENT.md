@@ -1,5 +1,43 @@
 # CHH current pilot deployment
 
+## 2026-08-02 URL and Back-state consistency
+
+School setup tabs, Reports filters and open sections, Recognition review selection,
+Student list/search/page/detail context, and Messages membership/inbox/conversation
+context now use their existing route query strings. Refreshes and bookmarks restore
+the same usable context. User-initiated context changes create browser history
+entries, so browser Back/Forward follows the work a user performed instead of
+silently replacing it; background refreshes continue to replace or preserve the
+current entry without polluting history.
+
+Page Back controls and the existing `chh:native-back` event share the same
+hierarchy: close the current detail, review, report section or conversation first,
+then return to the preserved list, overview or inbox. Direct deep links without a
+prior in-app entry clear their local detail state safely rather than leaving the
+application. Existing paths, school scoping, destinations and role/permission
+checks are unchanged. No query value bypasses the existing school-scoped API.
+
+Validation passed 41 focused navigation, messaging, recognition, reporting and
+student source tests, English/Arabic parity at 2,002 keys each, and Svelte checking
+with zero errors or warnings. The affected production frontend image built
+successfully. Nineteen containerised Playwright checks passed, covering school-admin,
+teacher and mixed-role flows, refresh, deep links, browser Back/Forward and native
+Back. English and Arabic/RTL School setup checks passed at 390, 768, 1024, 1280 and
+1440 CSS pixels with no horizontal overflow. Signed-in deployed-browser verification
+confirmed a School setup tab deep link and a Reports open-section deep link, then
+restored both contexts through browser Back and Forward.
+
+Implementation commit `3989aab` was deployed by recreating only the CHH pilot
+frontend from the validated image. Loopback checks for `/`, `/messages`, Reports,
+Recognition and Students and public checks for `/` and `/messages` returned HTTP
+200. API health returned `status=ok`, readiness returned
+`database=ok,migration=current`, and all pilot services are healthy with no frontend
+startup errors. Backend, PostgreSQL, the notification scheduler and messaging
+production worker retained their running containers. Configuration, schema and data
+were unchanged; no backup, migration, native change or APK was required. Physical
+Android Back, safe-area, keyboard and real-device history verification remain for
+Dom.
+
 ## 2026-08-02 mobile overlays and workspaces
 
 The survey composer is now a bounded modal workspace with one internal scroll
