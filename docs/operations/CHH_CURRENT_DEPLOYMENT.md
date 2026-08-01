@@ -1,5 +1,52 @@
 # CHH current pilot deployment
 
+## 2026-08-01 recognition eligibility safeguard and review actions
+
+The CHH pilot recognition workflow now supports a school-configurable, disabled-by-
+default staff eligibility safeguard. When enabled, it counts only unreversed
+needs-work events inside the same inclusive school-local review period and marks a
+student **Not eligible under current criteria** only when the count is greater than
+the configured maximum. The school may restrict counting to selected active
+needs-work categories; selecting none counts all such categories. Positive points
+and positive event count remain the only shortlist and rank inputs.
+
+Administrators can see the frozen counted total and category-count evidence on the
+staff review, but no event note is copied. An override requires a reason and is
+audited separately from the automatic safeguard exclusion. Certificates and the
+existing positive award output contain no needs-work totals, categories, evidence
+or override data. There is still no public recognition endpoint or FHH/notification
+publication path.
+
+Awaiting-decision cards now include a clear **Review shortlist** action, native
+keyboard activation, pointer/hover/focus treatment, selected-card styling, and
+scroll/focus the matching decision section. Repeat activation focuses the existing
+review without opening a duplicate. Confirmed and revoked/corrected cards use
+separate readable treatments and view actions.
+
+Alembic head is `f9a0b1c2d3e4`. The additive migration adds two defaulted settings
+columns, one optional category association table, and defaulted candidate snapshot
+and audited-override columns. Existing recognition configuration remains disabled
+for the safeguard and no behaviour, student, enrolment, certificate or audit row
+was rewritten. A disposable PostgreSQL database passed full upgrade, one-revision
+downgrade, re-upgrade and application smoke. The backend readiness revision was
+updated to the same head.
+
+Fresh pre-migration AES-256-CBC differential backups and repository/WAL/readiness
+checks passed:
+
+- local: `20260728-182651F_20260801-134906D`;
+- off-host: `20260725-221530F_20260801-134918D`;
+- repository bytes: `7,338,944` in each repository.
+
+Focused validation passed 11 recognition/readiness tests inside the rebuilt backend
+image, five frontend recognition presentation/accessibility/privacy tests, i18n
+parity at 1,959 English and 1,959 Arabic keys, Svelte check with zero errors and
+zero warnings, and local plus host production frontend builds. Only the CHH backend
+and frontend were rebuilt/recreated. PostgreSQL and both workers retained their
+lifecycles; all five containers are healthy and readiness reports
+`database=ok,migration=current`. FHH, native code and Android/APK artefacts were
+untouched.
+
 ## 2026-07-31 positive student recognition
 
 The CHH pilot now has an administrator-only Positive recognition area linked from
