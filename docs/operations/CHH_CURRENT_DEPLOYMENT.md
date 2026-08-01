@@ -39,6 +39,32 @@ does not rewrite existing configurations, reviews, candidates, behaviour events 
 audit records. Downgrade is intended only before archive/replacement use; after
 such use it fails closed on the restored constraints instead of deleting history.
 
+Migration safety note: the first disposable rehearsal overrode `DATABASE_URL`, but
+the compose service retained its separate `MIGRATION_DATABASE_URL`; the additive
+upgrade therefore reached the pilot before the planned fresh differential. The
+migration guard refused the attempted downgrade. No application service was using
+the new fields and the migration rewrote no rows. Verified same-day pre-change
+recovery points at `f9a0b1c2d3e4` remain available as local
+`20260728-182651F_20260801-134906D` and off-host
+`20260725-221530F_20260801-134918D`. Immediate post-upgrade AES-256-CBC
+differentials completed as local `20260728-182651F_20260801-144429D` and off-host
+`20260725-221530F_20260801-144438D`; both repositories and WAL passed `check`.
+The corrected disposable run explicitly isolated both database variables and
+passed full upgrade, downgrade to `f9a0b1c2d3e4`, re-upgrade and model compilation.
+
+Validation passed 14 recognition/readiness tests in the rebuilt backend image,
+seven frontend management/accessibility/privacy checks, parity at 1,986 English
+and Arabic keys, Svelte check with zero errors and warnings, and local plus image
+production builds. Signed-in deployed-browser verification confirmed the selected
+configuration displays minimum 2 while all three retained cards display their
+frozen minimum 1; repeat generation opened an existing draft, focused the decision
+section and left the database review count at three. Keyboard Enter opened the
+correct older review, exactly one selected card was shown, reasoned discard controls
+stayed disabled without a reason, and Arabic switched the page to `lang=ar` and
+`dir=rtl` with matching open/discard actions. Only backend and frontend were
+recreated; PostgreSQL and both workers retained their lifecycles. All five services
+are healthy and readiness reports `database=ok,migration=current`.
+
 ## 2026-08-01 recognition eligibility safeguard and review actions
 
 The CHH pilot recognition workflow now supports a school-configurable, disabled-by-

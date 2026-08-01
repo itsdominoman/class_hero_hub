@@ -37,6 +37,16 @@ confirmed-review protection, inactive/archived generation rejection, frozen
 snapshots, similar-name confirmation, inclusive dates, localisation parity and
 certificate privacy.
 
+Deployed verification retained the three existing drafts for explicit staff
+cleanup; none was automatically archived. Repeat generation for the current
+configuration/period returned an existing draft and the review count remained
+three. The deployed page showed current minimum 2 beside generation and frozen
+minimum 1 on each older card, making the original selection/timing cause visible.
+Keyboard activation focused the correct decision section with one selected card,
+and the required-reason discard control was disabled while blank. English and
+Arabic were physically checked in the signed-in web app, including `ltr`/`rtl`
+document direction and translated open/discard actions.
+
 ## 2026-08-01 — Recognition eligibility safeguard and actionable reviews
 
 Physical acceptance confirmed that draft review cards were technically clickable
