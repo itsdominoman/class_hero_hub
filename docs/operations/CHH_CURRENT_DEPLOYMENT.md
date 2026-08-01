@@ -1,5 +1,42 @@
 # CHH current pilot deployment
 
+## 2026-08-02 mobile overlays and workspaces
+
+The survey composer is now a bounded modal workspace with one internal scroll
+region. The backdrop and target list no longer compete for vertical scrolling;
+the header, visible English/Arabic Close control and actions remain fixed while
+the form scrolls. The dialog exposes `role=dialog`, `aria-modal` and a labelled
+title, focuses Close on opening, restores focus to Create survey on closing, and
+locks background/main-page scrolling. Its height follows the existing native
+visual-viewport variable and all four existing safe-area insets.
+
+Escape and the existing `chh:native-back` event close the composer. When a text
+field is focused while the native keyboard is open, the first Back dismisses the
+keyboard without closing the composer; a subsequent Back closes it. The hosted
+Messages route no longer renders the global site footer, so its independently
+scrolling workspace cannot reveal unrelated footer content. Existing survey and
+messaging URLs, role/permission checks and backend behaviour are unchanged.
+
+Validation passed 26 focused navigation, messaging and survey presentation tests,
+English/Arabic parity at 2,002 keys each, and Svelte checking with zero errors or
+warnings. The affected production frontend image built successfully. Nine
+containerised Playwright checks passed in English and Arabic/RTL at 390 and 768 CSS
+pixels, covering one survey scroll owner, dialog bounds, visible Close, focus
+restoration, Escape, keyboard-first native Back, zero horizontal overflow and the
+footer-free Messages workspace. Signed-in deployed-browser verification confirmed
+the labelled survey dialog and Close action and confirmed that Messages exposes no
+global footer.
+
+Implementation commit `0cdb7f8` was deployed by rebuilding and recreating only the
+CHH pilot frontend. Loopback and public `/` and `/messages` checks returned HTTP
+200, API health returned `status=ok`, readiness returned
+`database=ok,migration=current`, and the frontend is healthy with clean startup
+logs. Backend, PostgreSQL, the notification scheduler and messaging production
+worker retained their running containers. Configuration, schema and data were
+unchanged; no backup, migration, native change or APK was required. Physical
+Android keyboard, native Back, safe-area and real-device overlay/workspace
+verification remain for Dom.
+
 ## 2026-08-01 permission-aware destinations
 
 The school-admin and teacher global destinations were checked against their
