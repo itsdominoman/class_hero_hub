@@ -1,5 +1,40 @@
 # CHH current pilot deployment
 
+## 2026-08-01 global navigation consistency
+
+The CHH pilot now builds desktop and compact global navigation from one ordered,
+role-filtered definition: Family, Platform admin, School setup, Teach, Messages,
+Surveys, Reports, System & compliance, Safeguarding, then Logout. Existing URLs,
+membership availability checks and permission visibility are unchanged. The four
+ambiguous labels have matching English and Arabic wording: **Platform admin**,
+**School setup**, **Reports** and **System & compliance**.
+
+Every recognised workspace route now exposes one visible `aria-current="page"`
+state. Reports, Surveys, Safeguarding and the System & compliance routes, including
+Recognition, Governance and Operations, take precedence over the general School
+setup route. Current links use the shared purple active treatment and retain a
+visible keyboard-focus outline. The horizontal navigation now starts at the `xl`
+breakpoint; 1024px and narrower layouts use the bounded compact menu instead of
+compressing the brand and links.
+
+Focused validation passed four route/order/translation tests, English/Arabic parity
+at 1,986 keys each, Svelte checking with zero errors and warnings, the local and
+container production builds, and 14 Playwright role/layout checks. Those browser
+checks covered platform-admin, school-admin, teacher and mixed-role visibility plus
+English and Arabic/RTL containment at 390, 768, 1024, 1280 and 1440 CSS pixels.
+Signed-in deployed-browser verification confirmed the new labels and order, exactly
+one active item on School setup, Reports, Surveys, System & compliance and
+Safeguarding, and a non-overlapping 1024px compact header with zero horizontal
+overflow.
+
+Implementation commit `46e2921` was deployed by rebuilding and recreating only the
+CHH pilot frontend. Loopback and public frontend checks returned HTTP 200, API health
+returned `status=ok`, and the frontend is healthy with clean startup logs. Backend,
+PostgreSQL, the notification scheduler, the messaging production worker, FHH,
+configuration, schema and data were unchanged. No database backup, migration,
+native change or APK was required. Physical Android Back, safe-area and real-device
+menu verification remain for Dom.
+
 ## 2026-08-01 recognition review and configuration lifecycle
 
 Physical-test investigation found that the apparent one-point threshold failure was
