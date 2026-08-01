@@ -7,6 +7,11 @@
   import { initI18n } from '$lib/i18n';
   import { errorStatus, messagingApi } from '$lib/messaging/api';
   import type { MessagingMembership } from '$lib/messaging/types';
+  import {
+    activeNavigationItem,
+    GLOBAL_NAVIGATION_ORDER,
+    type GlobalNavigationItemId
+  } from '$lib/navigation';
   import { safeguardingApi } from '$lib/safeguarding/api';
   import type { SafeguardingMembership } from '$lib/safeguarding/types';
   import { clearNativeSession, isNativePlatform } from '$lib/nativeAuth';
@@ -27,6 +32,13 @@
   let nativePushStatus = $state<'enabled' | 'disabled' | 'denied' | null>(null);
   let showPushExplanation = $state(false);
   let changingPush = $state(false);
+
+  type NavigationItem = {
+    id: GlobalNavigationItemId;
+    href: string;
+    labelKey: string;
+    visible: boolean;
+  };
 
   if (nativeApp && typeof document !== 'undefined') {
     document.documentElement.classList.add('native-app');
@@ -257,6 +269,58 @@
   let surveysHref = $derived(
     surveyMemberships.length ? `/school/surveys?membership=${surveyMemberships[0].membership_id}` : '/school/surveys'
   );
+  let navigationItemConfig = $derived<Record<GlobalNavigationItemId, Omit<NavigationItem, 'id'>>>(
+    {
+      family: { href: '/parent', labelKey: 'nav.family', visible: hasGuardian },
+      platform: {
+        href: '/platform',
+        labelKey: 'nav.admin',
+        visible: Boolean(currentUser?.is_platform_admin)
+      },
+      school: { href: '/school', labelKey: 'nav.school', visible: hasSchoolAdmin },
+      teach: { href: '/teach', labelKey: 'nav.teach', visible: hasTeacher },
+      messages: { href: '/messages', labelKey: 'nav.messages', visible: messagingAvailable },
+      surveys: { href: surveysHref, labelKey: 'nav.surveys', visible: surveyMemberships.length > 0 },
+      reports: { href: '/school/reports', labelKey: 'nav.reports', visible: hasSchoolAdmin },
+      system: {
+        href: '/school/administration',
+        labelKey: 'nav.administration',
+        visible: hasSchoolAdmin
+      },
+      safeguarding: {
+        href: safeguardingHref,
+        labelKey: 'nav.safeguarding',
+        visible: safeguardingMemberships.length > 0
+      },
+      dashboard: { href: dashboardHref, labelKey: 'nav.dashboard', visible: !hasAnyRole }
+    }
+  );
+  let navigationItems = $derived(
+    GLOBAL_NAVIGATION_ORDER.map((id) => ({ id, ...navigationItemConfig[id] })).filter(
+      (item) => item.visible
+    )
+  );
+  let currentNavigationItem = $derived(activeNavigationItem($page.url.pathname));
+
+  function navigationItemIsCurrent(item: NavigationItem) {
+    return item.id === 'dashboard'
+      ? $page.url.pathname === item.href
+      : currentNavigationItem === item.id;
+  }
+
+  function desktopNavigationClass(item: NavigationItem) {
+    const base =
+      'relative rounded-xl px-2.5 py-2 text-[0.8125rem] font-bold uppercase tracking-wide transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero 2xl:text-sm';
+    return navigationItemIsCurrent(item)
+      ? `${base} bg-hero/10 text-hero ring-1 ring-inset ring-hero/20`
+      : `${base} text-slate-500 hover:bg-slate-100 hover:text-hero`;
+  }
+
+  function mobileNavigationClass(item: NavigationItem) {
+    return navigationItemIsCurrent(item)
+      ? 'mobile-nav-link mobile-nav-link-active flex items-center justify-between gap-3'
+      : 'mobile-nav-link flex items-center justify-between gap-3';
+  }
   // Messaging already owns a bounded viewport and its single bottom inset at the
   // sticky composer. Every other native route gets the bottom inset from app-main.
   let messagingRoute = $derived($page.url.pathname.startsWith('/messages'));
@@ -273,59 +337,24 @@
         </div>
       </a>
       
-      <nav class="hidden md:flex items-center gap-8">
+      <nav class="hidden xl:flex items-center gap-1.5">
         {#if !currentUser}
           <a href="/login" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
             {$_('nav.login')}
           </a>
         {:else}
-          {#if hasGuardian}
-            <a href="/parent" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
-              {$_('nav.family')}
-            </a>
-          {/if}
-          {#if currentUser.is_platform_admin}
-            <a href="/platform" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
-              {$_('nav.admin')}
-            </a>
-          {/if}
-          {#if hasSchoolAdmin}
-            <a href="/school" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
-              {$_('nav.school')}
-            </a>
-            <a href="/school/reports" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
-              {$_('nav.reports')}
-            </a>
-            <a href="/school/administration" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">{$_('nav.administration')}</a>
-          {/if}
-          {#if surveyMemberships.length > 0}
-            <a href={surveysHref} class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
-              {$_('nav.surveys')}
-            </a>
-          {/if}
-          {#if hasTeacher}
-            <a href="/teach" class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
-              {$_('nav.teach')}
-            </a>
-          {/if}
-          {#if messagingAvailable}
-            <a href="/messages" class="relative text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
-              {$_('nav.messages')}
-              {#if messagingUnread > 0}
-                <span class="absolute -right-3 -top-3 grid min-w-5 place-items-center rounded-full bg-hero px-1 text-[0.6rem] leading-5 text-white" aria-label={$_('messaging.unreadCount', { values: { count: messagingUnread } })}>{messagingUnread > 99 ? '99+' : messagingUnread}</span>
+          {#each navigationItems as item (item.id)}
+            <a
+              href={item.href}
+              class={desktopNavigationClass(item)}
+              aria-current={navigationItemIsCurrent(item) ? 'page' : undefined}
+            >
+              {$_(item.labelKey)}
+              {#if item.id === 'messages' && messagingUnread > 0}
+                <span class="absolute -right-2 -top-2 grid min-w-5 place-items-center rounded-full bg-hero px-1 text-[0.6rem] leading-5 text-white" aria-label={$_('messaging.unreadCount', { values: { count: messagingUnread } })}>{messagingUnread > 99 ? '99+' : messagingUnread}</span>
               {/if}
             </a>
-          {/if}
-          {#if safeguardingMemberships.length > 0}
-            <a href={safeguardingHref} class="text-sm font-bold text-slate-500 hover:text-amber-700 uppercase tracking-wide transition-colors">
-              {$_('nav.safeguarding')}
-            </a>
-          {/if}
-          {#if !hasAnyRole}
-            <a href={dashboardHref} class="text-sm font-bold text-slate-500 hover:text-hero uppercase tracking-wide transition-colors">
-              {$_('nav.dashboard')}
-            </a>
-          {/if}
+          {/each}
           <button onclick={handleLogout} class="btn-hero px-6 py-3 rounded-2xl text-sm uppercase tracking-wide">{$_('nav.logout')}</button>
         {/if}
       </nav>
@@ -333,7 +362,7 @@
       {#if currentUser}
         <button
           type="button"
-          class="md:hidden inline-flex shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white p-3 text-slate-700 shadow-sm transition hover:border-hero hover:text-hero"
+          class="xl:hidden inline-flex shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white p-3 text-slate-700 shadow-sm transition hover:border-hero hover:text-hero"
           aria-label={mobileMenuOpen ? $_('nav.closeMenu') : $_('nav.openMenu')}
           aria-expanded={mobileMenuOpen}
           aria-controls="mobile-navigation"
@@ -342,7 +371,7 @@
           <span aria-hidden="true" class="text-xl leading-none">{mobileMenuOpen ? '×' : '☰'}</span>
         </button>
       {:else}
-        <a href="/login" class="md:hidden inline-flex shrink-0 items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-white shadow-sm">
+        <a href="/login" class="xl:hidden inline-flex shrink-0 items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-white shadow-sm">
           {$_('nav.login')}
         </a>
       {/if}
@@ -411,7 +440,7 @@
 </div>
 
 {#if currentUser && mobileMenuOpen}
-  <div class="md:hidden fixed inset-0 z-[100]" role="presentation">
+  <div class="xl:hidden fixed inset-0 z-[100]" role="presentation">
     <button type="button" class="absolute inset-0 h-full w-full bg-slate-950/45" aria-label={$_('nav.closeMenu')} onclick={closeMobileMenu}></button>
     <div id="mobile-navigation" class="absolute inset-y-0 right-0 flex w-[min(22rem,88vw)] flex-col overflow-y-auto bg-white px-5 pb-[calc(1.25rem+var(--safe-bottom))] pt-[calc(1.25rem+var(--safe-top))] shadow-2xl" role="dialog" aria-modal="true" aria-label={$_('nav.menu')}>
       <div class="flex items-center justify-between border-b border-slate-200 pb-4">
@@ -419,23 +448,19 @@
         <button type="button" class="rounded-xl p-2 text-slate-700 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero" aria-label={$_('nav.closeMenu')} onclick={closeMobileMenu}><span aria-hidden="true" class="text-2xl leading-none">×</span></button>
       </div>
       <nav class="mt-5 flex flex-col gap-2" aria-label={$_('nav.menu')}>
-        {#if hasGuardian}<a href="/parent" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.family')}</a>{/if}
-        {#if currentUser.is_platform_admin}<a href="/platform" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.admin')}</a>{/if}
-        {#if hasSchoolAdmin}
-          <a href="/school" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.school')}</a>
-          <a href="/school/reports" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.reports')}</a>
-          <a href="/school/administration" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.administration')}</a>
-        {/if}
-        {#if hasTeacher}<a href="/teach" onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.teach')}</a>{/if}
-        {#if surveyMemberships.length > 0}<a href={surveysHref} onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.surveys')}</a>{/if}
-        {#if messagingAvailable}
-          <a href="/messages" onclick={closeMobileMenu} class="mobile-nav-link flex items-center justify-between gap-3">
-            <span>{$_('nav.messages')}</span>
-            {#if messagingUnread > 0}<span class="rounded-full bg-hero px-2 py-0.5 text-xs text-white" aria-label={$_('messaging.unreadCount', { values: { count: messagingUnread } })}>{messagingUnread > 99 ? '99+' : messagingUnread}</span>{/if}
+        {#each navigationItems as item (item.id)}
+          <a
+            href={item.href}
+            onclick={closeMobileMenu}
+            class={mobileNavigationClass(item)}
+            aria-current={navigationItemIsCurrent(item) ? 'page' : undefined}
+          >
+            <span>{$_(item.labelKey)}</span>
+            {#if item.id === 'messages' && messagingUnread > 0}
+              <span class="rounded-full bg-hero px-2 py-0.5 text-xs text-white" aria-label={$_('messaging.unreadCount', { values: { count: messagingUnread } })}>{messagingUnread > 99 ? '99+' : messagingUnread}</span>
+            {/if}
           </a>
-        {/if}
-        {#if safeguardingMemberships.length > 0}<a href={safeguardingHref} onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.safeguarding')}</a>{/if}
-        {#if !hasAnyRole}<a href={dashboardHref} onclick={closeMobileMenu} class="mobile-nav-link">{$_('nav.dashboard')}</a>{/if}
+        {/each}
       </nav>
       {#if nativePushStatus}
         <section class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -459,6 +484,9 @@
   :global(body.mobile-menu-open) { overflow: hidden; }
   .mobile-nav-link { border-radius: .9rem; padding: .9rem 1rem; color: #334155; font-size: .95rem; font-weight: 700; }
   .mobile-nav-link:hover, .mobile-nav-link:focus-visible { background: #f0fdf4; color: #0f766e; outline: none; }
+  .mobile-nav-link-active,
+  .mobile-nav-link-active:hover,
+  .mobile-nav-link-active:focus-visible { background: rgb(139 92 246 / .1); color: #7c3aed; box-shadow: inset 0 0 0 1px rgb(139 92 246 / .2); }
   @media (max-width: 420px) {
     .brand-title > span:first-child { font-size: 1rem; }
     .brand-title > span:last-child { display: block; font-size: .6875rem; }
