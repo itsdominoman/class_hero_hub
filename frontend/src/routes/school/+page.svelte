@@ -1044,7 +1044,23 @@
     return group.items.some((item) => item.type === 'tab' && item.key === activeTab);
   }
 
-  function selectTab(key: string) {
+  function requestedSchoolTab() {
+    const requested = new URL(window.location.href).searchParams.get('tab');
+    return requested && SCHOOL_TABS.some((tab) => tab.key === requested) ? requested : 'checklist';
+  }
+
+  function syncSchoolTab(mode: 'push' | 'replace') {
+    const url = new URL(window.location.href);
+    if (activeTab === 'checklist') url.searchParams.delete('tab');
+    else url.searchParams.set('tab', activeTab);
+    const target = `${url.pathname}${url.search}${url.hash}`;
+    if (target === `${window.location.pathname}${window.location.search}${window.location.hash}`) return;
+    const state = { ...(window.history.state || {}), chhSchoolTabEntry: mode === 'push' };
+    window.history[mode === 'push' ? 'pushState' : 'replaceState'](state, '', target);
+  }
+
+  function selectTab(key: string, historyMode: 'push' | 'replace' | 'none' = 'push') {
+    if (!SCHOOL_TABS.some((tab) => tab.key === key)) key = 'checklist';
     editingPath = null;
     editingId = null;
     notice = null;
@@ -1056,6 +1072,7 @@
     }
     if (key === 'behaviour' && !behaviourLoaded) loadBehaviour();
     if (key === 'calendar') void loadCalendar();
+    if (historyMode !== 'none') syncSchoolTab(historyMode);
   }
 
   // Load a row's current values into its form and switch that block into edit mode.
@@ -2823,11 +2840,25 @@
   });
 
   onMount(() => {
+    const onPopState = () => selectTab(requestedSchoolTab(), 'none');
+    const onNativeBack = (event: Event) => {
+      if (event.defaultPrevented || activeTab === 'checklist') return;
+      if (window.history.state?.chhSchoolTabEntry) window.history.back();
+      else selectTab('checklist', 'replace');
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    window.addEventListener('popstate', onPopState);
+    window.addEventListener('chh:native-back', onNativeBack);
     void (async () => {
       await init();
       await tick();
       if (window.location.hash) document.querySelector(window.location.hash)?.scrollIntoView({ block: 'start' });
     })();
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      window.removeEventListener('chh:native-back', onNativeBack);
+    };
   });
 </script>
 

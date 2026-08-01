@@ -333,6 +333,32 @@ test.beforeEach(async ({ page }) => {
   await mockSession(page);
 });
 
+test('conversation URL supports refresh, browser Back/Forward and Android Back to the inbox', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockEnabledMessaging(page);
+  await page.goto('/messages');
+
+  const conversationButton = page.getByRole('list', { name: 'Conversation list' }).getByRole('button').first();
+  await conversationButton.click();
+  await expect(page).toHaveURL(new RegExp(`conversation=${conversationId}`));
+  await expect(page.getByRole('heading', { name: 'Mariam Al Harthy' })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Mariam Al Harthy' })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: 'Messages' })).toBeVisible();
+  await expect(page).not.toHaveURL(/conversation=/);
+  await page.goForward();
+  await expect(page.getByRole('heading', { name: 'Mariam Al Harthy' })).toBeVisible();
+
+  const handled = await page.evaluate(() =>
+    !window.dispatchEvent(new CustomEvent('chh:native-back', { cancelable: true }))
+  );
+  expect(handled).toBe(true);
+  await expect(page.getByRole('heading', { name: 'Messages' })).toBeVisible();
+  await expect(page).not.toHaveURL(/conversation=/);
+});
+
 for (const { width, height } of [
   { width: 390, height: 844 },
   { width: 768, height: 900 }

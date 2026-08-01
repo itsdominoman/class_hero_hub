@@ -70,13 +70,23 @@
   let filteredConversations = $derived(filterConversations(conversations, search, filter));
   let totalUnread = $derived(conversations.reduce((sum, row) => sum + row.unread_count, 0));
 
-  function updateConversationQuery(id: string | null) {
+  function updateConversationQuery(
+    id: string | null,
+    historyMode: 'push' | 'replace' | 'none' = 'replace'
+  ) {
+    if (historyMode === 'none') return;
     const url = new URL(window.location.href);
     if (id) url.searchParams.set('conversation', id);
     else url.searchParams.delete('conversation');
     if (membership) url.searchParams.set('membership', String(membership.membership_id));
     else url.searchParams.delete('membership');
-    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    const target = `${url.pathname}${url.search}${url.hash}`;
+    if (target === `${window.location.pathname}${window.location.search}${window.location.hash}`) return;
+    const state = {
+      ...(window.history.state || {}),
+      chhMessageConversationEntry: historyMode === 'push' && Boolean(id)
+    };
+    window.history[historyMode === 'push' ? 'pushState' : 'replaceState'](state, '', target);
   }
 
   function requestedConversationId(): string | null {
@@ -251,7 +261,7 @@
     conversationPhotoDrafts = {};
   }
 
-  function clearConversationSelection() {
+  function clearConversationSelection(historyMode: 'push' | 'replace' | 'none' = 'replace') {
     activeEpoch += 1;
     selectedId = null;
     selectedConversation = null;
@@ -269,7 +279,7 @@
     acknowledgedReadThrough = 0;
     pendingReceiptThrough = 0;
     receiptAcknowledgementInFlight = false;
-    updateConversationQuery(null);
+    updateConversationQuery(null, historyMode);
   }
 
   function preserveNewerSummary(
@@ -300,7 +310,7 @@
       available = true;
       if (options.openRequested) {
         const requested = requestedConversationId();
-        if (requested) await openConversation(requested, false);
+        if (requested) await openConversation(requested, 'none');
       }
     } catch (cause) {
       if (errorStatus(cause) === 404) {
@@ -342,7 +352,10 @@
     }
   }
 
-  async function openConversation(id: string, updateUrl = true) {
+  async function openConversation(
+    id: string,
+    historyMode: 'push' | 'replace' | 'none' = 'push'
+  ) {
     if (!membership) return;
     if (selectedId !== id) {
       saveActiveDraft();
@@ -361,7 +374,7 @@
     mobileThreadOpen = true;
     loadingConversation = true;
     conversationError = null;
-    if (updateUrl) updateConversationQuery(id);
+    updateConversationQuery(id, historyMode);
     try {
       const [detail, page] = await Promise.all([
         messagingApi.detail(membership, id),
@@ -406,7 +419,8 @@
   function closeConversation() {
     saveActiveDraft();
     saveActivePhotos();
-    clearConversationSelection();
+    if (window.history.state?.chhMessageConversationEntry) window.history.back();
+    else clearConversationSelection('replace');
   }
 
   async function loadOlderMessages() {
@@ -764,7 +778,7 @@
   }
 
   function retrySelectedConversation() {
-    if (selectedId) void openConversation(selectedId, false);
+    if (selectedId) void openConversation(selectedId, 'none');
   }
 
   async function openCompose() {
@@ -815,7 +829,10 @@
     }
   }
 
-  async function selectMembership(id: number) {
+  async function selectMembership(
+    id: number,
+    historyMode: 'push' | 'replace' | 'none' = 'push'
+  ) {
     const next = memberships.find((row) => row.membership_id === id);
     if (!next || next.membership_id === membership?.membership_id) return;
     saveActiveDraft();
@@ -823,7 +840,8 @@
     notificationPreference = null;
     available = true;
     conversations = [];
-    clearConversationSelection();
+    clearConversationSelection('none');
+    updateConversationQuery(null, historyMode);
     await Promise.all([loadInbox(), loadNotificationPreference()]);
   }
 
@@ -857,7 +875,7 @@
         }
       }
       if (membership) {
-        updateConversationQuery(requestedConversationId());
+        updateConversationQuery(requestedConversationId(), 'replace');
         await Promise.all([
           loadInbox({ openRequested: true }),
           loadNotificationPreference()
@@ -888,6 +906,18 @@
       if (!document.hidden) refreshVisible();
     };
     const onAppResume = () => refreshVisible();
+    const onPopState = async () => {
+      const requestedMembership = requestedMembershipId();
+      if (requestedMembership && requestedMembership !== membership?.membership_id) {
+        await selectMembership(requestedMembership, 'none');
+      }
+      const requestedConversation = requestedConversationId();
+      if (requestedConversation && requestedConversation !== selectedId) {
+        await openConversation(requestedConversation, 'none');
+      } else if (!requestedConversation && selectedId) {
+        clearConversationSelection('none');
+      }
+    };
     const onNativeBack = (event: Event) => {
       if (event.defaultPrevented) return;
       // The shell owns its drawer; let its listener consume Back before this route.
@@ -919,6 +949,7 @@
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('chh:app-resume', onAppResume);
+    window.addEventListener('popstate', onPopState);
     window.addEventListener('chh:native-back', onNativeBack);
     let removeNativeListener: (() => Promise<void>) | null = null;
     void import('@capacitor/app').then(async ({ App }) => {
@@ -936,6 +967,7 @@
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('chh:app-resume', onAppResume);
+      window.removeEventListener('popstate', onPopState);
       window.removeEventListener('chh:native-back', onNativeBack);
       if (removeNativeListener) void removeNativeListener();
       if (pollTimer) clearInterval(pollTimer);

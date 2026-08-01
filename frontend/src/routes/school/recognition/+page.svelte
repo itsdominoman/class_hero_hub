@@ -118,6 +118,36 @@
     return membership ? { headers: { 'X-School-Id': String(membership.school_id), 'X-Membership-Id': String(membership.membership_id) } } : {};
   }
 
+  function requestedReviewId() {
+    const value = Number(new URL(window.location.href).searchParams.get('review'));
+    return Number.isInteger(value) && value > 0 ? value : null;
+  }
+
+  function syncReviewUrl(reviewId: number | null, mode: 'push' | 'replace') {
+    const url = new URL(window.location.href);
+    if (reviewId) url.searchParams.set('review', String(reviewId));
+    else url.searchParams.delete('review');
+    const target = `${url.pathname}${url.search}${url.hash}`;
+    if (target === `${window.location.pathname}${window.location.search}${window.location.hash}`) return;
+    const state = { ...(window.history.state || {}), chhRecognitionReviewEntry: mode === 'push' && Boolean(reviewId) };
+    window.history[mode === 'push' ? 'pushState' : 'replaceState'](state, '', target);
+  }
+
+  function clearCurrentReview(historyMode: 'push' | 'replace' | 'none' = 'push') {
+    currentReview = null;
+    selectedStudentId = '';
+    citation = '';
+    excludingCandidateId = null;
+    overridingCandidateId = null;
+    discardingReviewId = null;
+    if (historyMode !== 'none') syncReviewUrl(null, historyMode);
+  }
+
+  function backToReviews() {
+    if (window.history.state?.chhRecognitionReviewEntry) window.history.back();
+    else clearCurrentReview('replace');
+  }
+
   function scopeOptions() {
     if (form.scope_type === 'branch') return options.branches;
     if (form.scope_type === 'grade') return options.grades;
@@ -215,6 +245,8 @@
       configs = loadedConfigs.configs;
       reviews = loadedReviews.reviews;
       if (!reviewConfigId && activeConfigs().length) reviewConfigId = String(activeConfigs()[0].id);
+      const requested = requestedReviewId();
+      if (requested) await openReview(requested, false, 'none');
     } catch (caught: any) {
       error = caught?.message || $_('recognitionPage.loadError');
     } finally {
@@ -337,7 +369,11 @@
     }
   }
 
-  async function openReview(reviewId: number, forceReload = false) {
+  async function openReview(
+    reviewId: number,
+    forceReload = false,
+    historyMode: 'push' | 'replace' | 'none' = 'push'
+  ) {
     if (openingReviewId !== null) return;
     if (currentReview?.id === reviewId && !forceReload) {
       await focusDecisionSection();
@@ -357,6 +393,7 @@
       revocationReason = '';
       discardingReviewId = null;
       discardReason = '';
+      if (historyMode !== 'none') syncReviewUrl(reviewId, historyMode);
       await focusDecisionSection();
     } catch (caught: any) {
       error = caught?.message || $_('recognitionPage.loadError');
@@ -383,7 +420,7 @@
     try {
       await api.post(`/school/recognition/reviews/${currentReview.id}/archive`, { reason: discardReason }, schoolOptions());
       await reloadReviews();
-      currentReview = null;
+      clearCurrentReview('replace');
       discardingReviewId = null;
       discardReason = '';
       notice = $_('recognitionPage.reviewDiscarded');
@@ -406,7 +443,7 @@
     error = '';
     try {
       await api.post(`/school/recognition/reviews/${currentReview.id}/candidates/${candidate.id}/exclude`, { reason: exclusionReason }, schoolOptions());
-      await openReview(currentReview.id, true);
+      await openReview(currentReview.id, true, 'replace');
       notice = $_('recognitionPage.candidateExcluded');
     } catch (caught: any) {
       error = caught?.message || $_('recognitionPage.saveError');
@@ -421,7 +458,7 @@
     error = '';
     try {
       await api.post(`/school/recognition/reviews/${currentReview.id}/candidates/${candidate.id}/override-safeguard`, { reason: overrideReason }, schoolOptions());
-      await openReview(currentReview.id, true);
+      await openReview(currentReview.id, true, 'replace');
       notice = $_('recognitionPage.overrideRecorded');
     } catch (caught: any) {
       error = caught?.message || $_('recognitionPage.saveError');
@@ -436,7 +473,7 @@
     error = '';
     try {
       await api.post(`/school/recognition/reviews/${currentReview.id}/confirm`, { student_id: Number(selectedStudentId), citation: citation || null }, schoolOptions());
-      await openReview(currentReview.id, true);
+      await openReview(currentReview.id, true, 'replace');
       await reloadReviews();
       notice = $_('recognitionPage.awardConfirmed');
     } catch (caught: any) {
@@ -452,7 +489,7 @@
     error = '';
     try {
       await api.post(`/school/recognition/reviews/${currentReview.id}/revoke`, { reason: revocationReason }, schoolOptions());
-      await openReview(currentReview.id, true);
+      await openReview(currentReview.id, true, 'replace');
       await reloadReviews();
       notice = $_('recognitionPage.awardRevoked');
     } catch (caught: any) {
@@ -466,7 +503,26 @@
     window.print();
   }
 
-  onMount(load);
+  onMount(() => {
+    const onPopState = () => {
+      const requested = requestedReviewId();
+      if (requested) void openReview(requested, false, 'none');
+      else clearCurrentReview('none');
+    };
+    const onNativeBack = (event: Event) => {
+      if (event.defaultPrevented || !currentReview) return;
+      backToReviews();
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    window.addEventListener('popstate', onPopState);
+    window.addEventListener('chh:native-back', onNativeBack);
+    void load();
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      window.removeEventListener('chh:native-back', onNativeBack);
+    };
+  });
 </script>
 
 <svelte:head><title>{$_('recognitionPage.pageTitle')}</title></svelte:head>
@@ -618,6 +674,7 @@
 
       {#if currentReview}
         <section class="card mt-6 p-6 focus:outline-none focus-visible:ring-4 focus-visible:ring-hero/30" bind:this={decisionSection} tabindex="-1" aria-labelledby="recognition-decision-title">
+          <button type="button" class="mb-4 text-sm font-bold text-hero hover:underline" onclick={backToReviews}>← {$_('recognitionPage.recentReviews')}</button>
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div><h2 id="recognition-decision-title" class="text-xl font-black text-slate-900">{currentReview.criteria.recognition_name}</h2><p class="mt-1 text-sm text-slate-600">{currentReview.criteria.scope.name} · {currentReview.period_start} – {currentReview.period_end}</p></div>
             <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">{statusLabel(currentReview.status)}</span>

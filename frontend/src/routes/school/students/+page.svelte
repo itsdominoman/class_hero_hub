@@ -298,8 +298,18 @@
     return `/school/students${query.size ? `?${query.toString()}` : ''}`;
   }
 
-  function syncStudentUrl(studentId?: number) {
-    history.replaceState({}, '', studentListUrl(studentId));
+  function syncStudentUrl(
+    studentId?: number,
+    historyMode: 'push' | 'replace' | 'none' = 'replace'
+  ) {
+    if (historyMode === 'none') return;
+    const target = studentListUrl(studentId);
+    if (target === `${window.location.pathname}${window.location.search}`) return;
+    const state = {
+      ...(window.history.state || {}),
+      chhStudentDetailEntry: historyMode === 'push' && Boolean(studentId)
+    };
+    window.history[historyMode === 'push' ? 'pushState' : 'replaceState'](state, '', target);
   }
 
   function firstStudentNumber() {
@@ -310,7 +320,15 @@
     return Math.min(studentPage * STUDENT_PAGE_SIZE, studentTotal);
   }
 
-  async function loadStudents({ resetPage = false, syncUrl = true } = {}) {
+  async function loadStudents({
+    resetPage = false,
+    syncUrl = true,
+    historyMode = 'replace'
+  }: {
+    resetPage?: boolean;
+    syncUrl?: boolean;
+    historyMode?: 'push' | 'replace';
+  } = {}) {
     if (!schoolId) return;
     if (resetPage) studentPage = 1;
     const query = new URLSearchParams();
@@ -321,41 +339,60 @@
     const result: StudentPage = await api.get(`/school/students?${query.toString()}`, schoolOptions());
     if (result.pages > 0 && studentPage > result.pages) {
       studentPage = result.pages;
-      await loadStudents({ syncUrl });
+      await loadStudents({ syncUrl, historyMode });
       return;
     }
     students = result.items;
     studentPage = result.pages ? result.page : 1;
     studentTotal = result.total;
     studentPages = result.pages;
-    if (syncUrl) syncStudentUrl();
+    if (syncUrl) syncStudentUrl(undefined, historyMode);
   }
 
   async function applyFilters() {
-    await loadStudents({ resetPage: true });
+    await loadStudents({ resetPage: true, historyMode: 'push' });
   }
 
   async function clearSearch() {
     search = '';
     sectionFilter = '';
-    await loadStudents({ resetPage: true });
+    await loadStudents({ resetPage: true, historyMode: 'push' });
   }
 
   async function changeStudentPage(nextPage: number) {
     if (nextPage < 1 || nextPage > studentPages || nextPage === studentPage) return;
     studentPage = nextPage;
-    await loadStudents();
+    await loadStudents({ historyMode: 'push' });
     document.getElementById('student-records')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function restoreStudentUrl() {
+    const requestedUrl = new URL(window.location.href);
+    search = requestedUrl.searchParams.get('search') || '';
+    sectionFilter = requestedUrl.searchParams.get('class_section_id') || '';
+    const requestedPage = Number(requestedUrl.searchParams.get('page'));
+    studentPage = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+    const requestedId = Number(requestedUrl.searchParams.get('student'));
+    if (sectionFilter && !sections.some((section) => section.id === Number(sectionFilter) && section.status !== 'archived')) {
+      sectionFilter = '';
+    }
+    await loadStudents({ syncUrl: false });
+    if (Number.isInteger(requestedId) && requestedId > 0) {
+      try {
+        const student = await api.get(`/school/students/${requestedId}`, schoolOptions());
+        await openStudent(student, 'none');
+        return;
+      } catch (err: any) {
+        if (err?.status !== 404) throw err;
+      }
+    }
+    view = 'list';
+    selectedStudent = null;
+    activeDetailTab = 'details';
   }
 
   async function init() {
     try {
-      const requestedUrl = new URL(window.location.href);
-      search = requestedUrl.searchParams.get('search') || '';
-      sectionFilter = requestedUrl.searchParams.get('class_section_id') || '';
-      const requestedPage = Number(requestedUrl.searchParams.get('page'));
-      studentPage = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-      const requestedId = Number(requestedUrl.searchParams.get('student'));
       const me = await api.get('/me/v2');
       const membership = (me?.memberships || []).find((item: Membership) => item.role === 'school_admin');
       if (!membership) return;
@@ -368,21 +405,8 @@
         api.get('/school/grade-levels', schoolOptions()),
         api.get('/school/class-sections', schoolOptions())
       ]);
-      if (sectionFilter && !sections.some((section) => section.id === Number(sectionFilter) && section.status !== 'archived')) {
-        sectionFilter = '';
-      }
-      await loadStudents({ syncUrl: false });
-      if (requestedId) {
-        try {
-          const student = await api.get(`/school/students/${requestedId}`, schoolOptions());
-          await openStudent(student);
-        } catch (err: any) {
-          if (err?.status !== 404) throw err;
-          syncStudentUrl();
-        }
-      } else {
-        syncStudentUrl();
-      }
+      await restoreStudentUrl();
+      syncStudentUrl(selectedStudent?.id, 'replace');
     } catch (err: any) {
       if (err?.status === 401) {
         window.location.href = `/login?returnTo=${encodeURIComponent('/school/students')}`;
@@ -408,10 +432,14 @@
   }
 
   function returnToList() {
+    if (view === 'detail' && window.history.state?.chhStudentDetailEntry) {
+      window.history.back();
+      return;
+    }
     view = 'list';
     selectedStudent = null;
     activeDetailTab = 'details';
-    syncStudentUrl();
+    syncStudentUrl(undefined, 'replace');
   }
 
   function addGuardianDraft() {
@@ -487,7 +515,10 @@
     }
   }
 
-  async function openStudent(student: Student) {
+  async function openStudent(
+    student: Student,
+    historyMode: 'push' | 'replace' | 'none' = 'push'
+  ) {
     selectedStudent = student;
     studentForm = {
       external_ref: student.external_ref || '',
@@ -504,7 +535,7 @@
     fieldErrors = {};
     generatedGuardianInvite = null;
     generatedFhhInvite = null;
-    syncStudentUrl(student.id);
+    syncStudentUrl(student.id, historyMode);
     await Promise.all([loadEnrolments(), loadGuardians(), loadFhh()]);
   }
 
@@ -732,7 +763,24 @@
     }
   }
 
-  onMount(init);
+  onMount(() => {
+    const onPopState = () => {
+      if (allowed) void restoreStudentUrl();
+    };
+    const onNativeBack = (event: Event) => {
+      if (event.defaultPrevented || (view !== 'detail' && view !== 'add')) return;
+      returnToList();
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    window.addEventListener('popstate', onPopState);
+    window.addEventListener('chh:native-back', onNativeBack);
+    void init();
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      window.removeEventListener('chh:native-back', onNativeBack);
+    };
+  });
 </script>
 
 <svelte:head>

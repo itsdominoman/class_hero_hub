@@ -11,11 +11,12 @@ const dataSource = readFileSync(
   'utf8'
 );
 const schoolSource = readFileSync(new URL('../src/routes/school/+page.svelte', import.meta.url), 'utf8');
+const schoolMenuSource = readFileSync(new URL('../src/lib/schoolMenu.ts', import.meta.url), 'utf8');
 const messagesSource = readFileSync(new URL('../src/lib/i18n/messages.ts', import.meta.url), 'utf8');
 
 test('student editing and student data operations are separate routes', () => {
-  assert.match(schoolSource, /href="\/school\/students"/);
-  assert.match(schoolSource, /href="\/school\/students\/data"/);
+  assert.match(schoolMenuSource, /href: '\/school\/students'/);
+  assert.match(schoolMenuSource, /href: '\/school\/students\/data'/);
   assert.doesNotMatch(schoolSource, /\{ key: 'students', label: 'school\.tabs\.students' \}/);
   assert.match(adminSource, /href="\/school\/students\/data"/);
   assert.match(dataSource, /href="\/school\/students"/);
@@ -49,7 +50,8 @@ test('student search and class filters are URL-backed with bounded pagination', 
   assert.match(adminSource, /requestedUrl\.searchParams\.get\('class_section_id'\)/);
   assert.match(adminSource, /requestedUrl\.searchParams\.get\('page'\)/);
   assert.match(adminSource, /query\.set\('page_size', String\(STUDENT_PAGE_SIZE\)\)/);
-  assert.match(adminSource, /syncStudentUrl\(student\.id\)/);
+  assert.match(adminSource, /historyMode: 'push' \| 'replace' \| 'none' = 'push'/);
+  assert.match(adminSource, /syncStudentUrl\(student\.id, historyMode\)/);
   assert.match(adminSource, /api\.get\(`\/school\/students\/\$\{requestedId\}`/);
   assert.match(adminSource, /school\.studentAdmin\.resultsSummary/);
   assert.match(adminSource, /school\.studentAdmin\.previousPage/);

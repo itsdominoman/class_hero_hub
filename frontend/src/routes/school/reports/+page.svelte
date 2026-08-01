@@ -45,6 +45,8 @@
 
   const duties = ['break', 'lunch', 'playground', 'hallway', 'assembly', 'bus', 'general_duty'];
   const dimensions: MatrixDimension[] = ['student', 'class_section', 'grade', 'subject', 'subject_group', 'teacher', 'duty_context', 'category', 'category_type', 'date_bucket'];
+  const reportSections: ReportSection[] = ['trend', 'classes', 'grades', 'subjects', 'duties', 'categories', 'students', 'teachers', 'events', 'patterns'];
+  const matrixMeasures: MatrixOrderBy[] = ['total_events', 'positive_count', 'needs_work_count', 'signed_points_total'];
   const matrixFilterKeys: Partial<Record<MatrixDimension, FilterKey>> = {
     student: 'studentId',
     class_section: 'classSectionId',
@@ -110,6 +112,94 @@
 
   function options(): RequestInit {
     return { headers: { 'X-School-Id': String(schoolId) } };
+  }
+
+  function hasReportContext() {
+    return Boolean(activeSection || Object.values(filters).some(Boolean));
+  }
+
+  function reportUrl() {
+    const url = new URL(window.location.href);
+    const values: Record<string, string> = {
+      date_from: filters.dateFrom,
+      date_to: filters.dateTo,
+      category_type: filters.categoryType,
+      grade_level_id: filters.gradeLevelId,
+      class_section_id: filters.classSectionId,
+      subject_id: filters.subjectId,
+      duty_context: filters.dutyContext,
+      category_id: filters.categoryId,
+      actor_user_id: filters.actorUserId,
+      student_id: filters.studentId
+    };
+    for (const [key, value] of Object.entries(values)) {
+      if (value) url.searchParams.set(key, value);
+      else url.searchParams.delete(key);
+    }
+    if (activeSection) url.searchParams.set('section', activeSection);
+    else url.searchParams.delete('section');
+    if (activeSection === 'events' && eventOffset > 0) url.searchParams.set('events_offset', String(eventOffset));
+    else url.searchParams.delete('events_offset');
+    if (activeSection === 'patterns') {
+      url.searchParams.set('row_dimension', matrixRowDimension);
+      url.searchParams.set('column_dimension', matrixColumnDimension || 'none');
+      url.searchParams.set('order_by', matrixOrderBy);
+      url.searchParams.set('limit', matrixLimit);
+    } else {
+      for (const key of ['row_dimension', 'column_dimension', 'order_by', 'limit']) url.searchParams.delete(key);
+    }
+    return `${url.pathname}${url.search}${url.hash}`;
+  }
+
+  function syncReportUrl(mode: 'push' | 'replace') {
+    const target = reportUrl();
+    if (target === `${window.location.pathname}${window.location.search}${window.location.hash}`) return;
+    const state = { ...(window.history.state || {}), chhReportContextEntry: mode === 'push' && hasReportContext() };
+    window.history[mode === 'push' ? 'pushState' : 'replaceState'](state, '', target);
+  }
+
+  function restoreReportUrl() {
+    const params = new URL(window.location.href).searchParams;
+    filters = {
+      dateFrom: params.get('date_from') || '',
+      dateTo: params.get('date_to') || '',
+      categoryType: params.get('category_type') || '',
+      gradeLevelId: params.get('grade_level_id') || '',
+      classSectionId: params.get('class_section_id') || '',
+      subjectId: params.get('subject_id') || '',
+      dutyContext: params.get('duty_context') || '',
+      categoryId: params.get('category_id') || '',
+      actorUserId: params.get('actor_user_id') || '',
+      studentId: params.get('student_id') || ''
+    };
+    const requestedSection = params.get('section') as ReportSection | null;
+    activeSection = requestedSection && reportSections.includes(requestedSection) ? requestedSection : null;
+    eventsOpen = activeSection === 'events';
+    const requestedOffset = Number(params.get('events_offset'));
+    eventOffset = Number.isInteger(requestedOffset) && requestedOffset > 0 ? requestedOffset : 0;
+    const requestedRow = params.get('row_dimension') as MatrixDimension | null;
+    matrixRowDimension = requestedRow && dimensions.includes(requestedRow) ? requestedRow : 'student';
+    const requestedColumn = params.get('column_dimension') as MatrixDimension | 'none' | null;
+    matrixColumnDimension = requestedColumn === 'none'
+      ? ''
+      : requestedColumn && dimensions.includes(requestedColumn as MatrixDimension)
+        ? requestedColumn as MatrixDimension
+        : 'subject';
+    const requestedOrder = params.get('order_by') as MatrixOrderBy | null;
+    matrixOrderBy = requestedOrder && matrixMeasures.includes(requestedOrder) ? requestedOrder : 'total_events';
+    matrixLimit = ['10', '25', '50'].includes(params.get('limit') || '') ? params.get('limit')! : '25';
+    drilldownSummary = '';
+    drilldownPrevious = null;
+    selectedStudent = null;
+    studentSearch = '';
+    studentResults = [];
+    studentSearchOpen = false;
+  }
+
+  async function restoreReportsFromHistory() {
+    restoreReportUrl();
+    await loadReports();
+    if (activeSection === 'patterns') await loadMatrix('none');
   }
 
   function query(extra: Record<string, string | number | null | undefined> = {}) {
@@ -184,7 +274,7 @@
       filterNotice = $_('reports.subjectDutyCleared');
     }
     filters[key] = value;
-    if (reload) void loadReports();
+    if (reload) void applyReportState();
   }
 
   function clearFilter(key: FilterKey) {
@@ -196,7 +286,7 @@
       studentResults = [];
       studentSearchOpen = false;
     }
-    void loadReports();
+    void applyReportState();
   }
 
   function clearDrilldown({ restore = true, reload = true }: { restore?: boolean; reload?: boolean } = {}) {
@@ -207,27 +297,39 @@
     }
     drilldownSummary = '';
     drilldownPrevious = null;
-    eventsOpen = false;
+    eventsOpen = activeSection === 'events';
     eventRows = [];
     eventOffset = 0;
     eventTotal = 0;
-    if (reload) void loadReports();
+    if (reload) void applyReportState();
   }
 
   function openSection(section: ReportSection) {
     activeSection = section;
+    eventOffset = 0;
+    eventsOpen = section === 'events';
+    syncReportUrl('push');
     if (section === 'events') {
-      eventsOpen = true;
-      void loadEvents(0);
+      void loadEvents(0, 'none');
     }
   }
 
-  function closeSection() {
+  function clearSection(historyMode: 'replace' | 'none' = 'replace') {
+    const restoredDrilldown = Boolean(drilldownPrevious);
     activeSection = null;
-    if (eventsOpen || drilldownSummary) clearDrilldown();
+    if (eventsOpen || drilldownSummary) clearDrilldown({ restore: true, reload: false });
+    eventsOpen = false;
+    eventOffset = 0;
+    if (historyMode !== 'none') syncReportUrl(historyMode);
+    if (restoredDrilldown) void loadReports();
   }
 
-  function reset() {
+  function closeSection() {
+    if (window.history.state?.chhReportContextEntry) window.history.back();
+    else clearSection('replace');
+  }
+
+  function reset(historyMode: 'push' | 'replace' = 'push') {
     filters = { dateFrom: '', dateTo: '', categoryType: '', gradeLevelId: '', classSectionId: '', subjectId: '', dutyContext: '', categoryId: '', actorUserId: '', studentId: '' };
     studentSearch = '';
     studentResults = [];
@@ -235,7 +337,16 @@
     selectedStudent = null;
     filterNotice = '';
     clearDrilldown({ restore: false, reload: false });
-    void loadReports();
+    activeSection = null;
+    eventsOpen = false;
+    void applyReportState(historyMode);
+  }
+
+  async function applyReportState(historyMode: 'push' | 'replace' = 'push') {
+    eventOffset = 0;
+    syncReportUrl(historyMode);
+    await loadReports();
+    if (activeSection === 'patterns') await loadMatrix('none');
   }
 
   async function loadMetadata() {
@@ -268,7 +379,6 @@
     }
     loading = true;
     error = '';
-    eventOffset = 0;
     try {
       const q = query();
       const [overviewData, trendData, breakdownData, studentData, teacherData] = await Promise.all([
@@ -284,7 +394,7 @@
       breakdowns = breakdownData;
       support = studentData;
       usage = (teacherData?.teachers || []).map((row: Row & { display_name?: string }) => ({ ...row, label: row.display_name || $_('reports.staffMember') }));
-      if (eventsOpen) await loadEvents(0);
+      if (eventsOpen) await loadEvents(eventOffset, 'none');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : $_('reports.loadError');
       error = message || $_('reports.loadError');
@@ -298,8 +408,13 @@
     }
   }
 
-  async function loadEvents(offset = eventOffset) {
+  async function loadEvents(
+    offset = eventOffset,
+    historyMode: 'push' | 'replace' | 'none' = 'push'
+  ) {
     if (!schoolId) return;
+    eventOffset = offset;
+    if (historyMode !== 'none') syncReportUrl(historyMode);
     eventsLoading = true;
     try {
       const data = await api.get(`/school/reports/behaviour/events${query({ limit: 25, offset })}`, options());
@@ -359,6 +474,8 @@
     drilldownSummary = summary;
     eventsOpen = true;
     activeSection = 'events';
+    eventOffset = 0;
+    syncReportUrl('push');
     await loadReports();
     await tick();
     eventsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -387,7 +504,7 @@
     await openDrilldown(entries as DrilldownEntry[], cellLabel ? `${rowLabel} · ${cellLabel}` : rowLabel);
   }
 
-  async function loadMatrix() {
+  async function loadMatrix(historyMode: 'push' | 'replace' | 'none' = 'push') {
     if (!schoolId) return;
     if (filters.subjectId && filters.dutyContext) {
       matrixError = $_('reports.subjectDutyIncompatible');
@@ -395,6 +512,7 @@
     }
     matrixLoading = true;
     matrixError = '';
+    if (historyMode !== 'none') syncReportUrl(historyMode);
     try {
       const data = await api.get(`/school/reports/behaviour/matrix${query({ row_dimension: matrixRowDimension, column_dimension: matrixColumnDimension || null, order_by: matrixOrderBy, limit: matrixLimit })}`, options());
       matrixRows = data?.rows || [];
@@ -432,7 +550,10 @@
       schoolId = membership.school_id;
       allowed = true;
       await loadMetadata();
+      restoreReportUrl();
       await loadReports();
+      if (activeSection === 'patterns') await loadMatrix('none');
+      syncReportUrl('replace');
     } catch (err: unknown) {
       const status = (err as { status?: number })?.status;
       if (status === 401) {
@@ -445,7 +566,25 @@
     }
   }
 
-  onMount(init);
+  onMount(() => {
+    const onPopState = () => {
+      if (allowed) void restoreReportsFromHistory();
+    };
+    const onNativeBack = (event: Event) => {
+      if (event.defaultPrevented || !hasReportContext()) return;
+      if (window.history.state?.chhReportContextEntry) window.history.back();
+      else reset('replace');
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    window.addEventListener('popstate', onPopState);
+    window.addEventListener('chh:native-back', onNativeBack);
+    void init();
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      window.removeEventListener('chh:native-back', onNativeBack);
+    };
+  });
 </script>
 
 <svelte:head>
@@ -469,10 +608,10 @@
       <p class="max-w-xs rounded-2xl bg-slate-100 px-4 py-3 text-xs text-slate-600">{$_('reports.teacherUsageGuardrail')}</p>
     </header>
 
-    <form class="report-card mb-5 rounded-3xl p-5" onsubmit={(event) => { event.preventDefault(); void loadReports(); }}>
+    <form class="report-card mb-5 rounded-3xl p-5" onsubmit={(event) => { event.preventDefault(); void applyReportState(); }}>
       <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 class="text-lg font-bold text-slate-900">{$_('reports.filters')}</h2>
-        <button type="button" onclick={reset} class="text-sm font-semibold text-slate-600 hover:text-hero">{$_('reports.reset')}</button>
+        <button type="button" onclick={() => reset()} class="text-sm font-semibold text-slate-600 hover:text-hero">{$_('reports.reset')}</button>
       </div>
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <label for="date-from">{$_('reports.dateFrom')}<input id="date-from" bind:value={filters.dateFrom} type="date" /></label>
@@ -496,7 +635,7 @@
         {#each activeFilterChips as chip}
           <button class="filter-chip" onclick={() => clearFilter(chip.key)}>{chip.text}<span aria-hidden="true"> ×</span><span class="sr-only">{$_('reports.removeFilter')}</span></button>
         {/each}
-        <button class="text-sm font-semibold text-hero hover:underline" onclick={reset}>{$_('reports.clearAllFilters')}</button>
+        <button class="text-sm font-semibold text-hero hover:underline" onclick={() => reset()}>{$_('reports.clearAllFilters')}</button>
       </div>
     {/if}
 
@@ -617,7 +756,7 @@
 {/snippet}
 
 {#snippet Launcher(section: ReportSection, title: string, description: string)}
-  <button type="button" onclick={() => openSection(section)} class:active-launcher={activeSection === section} class="report-launcher text-left">
+  <button type="button" onclick={() => activeSection === section ? closeSection() : openSection(section)} class:active-launcher={activeSection === section} class="report-launcher text-left">
     <span class="font-bold text-slate-900">{title}</span>
     <span class="mt-1 block text-sm leading-5 text-slate-600">{description}</span>
     <span class="mt-3 block text-sm font-bold text-hero">{activeSection === section ? $_('reports.closeSection') : '→'}</span>

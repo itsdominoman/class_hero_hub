@@ -176,3 +176,50 @@ test('mixed-role administrator retains the same School setup hierarchy', async (
   await expect(navigation.locator('a')).toHaveCount(5);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
+
+for (const width of [390, 768, 1024, 1280, 1440]) {
+  for (const locale of ['en', 'ar']) {
+    test(`School setup restores a ${locale.toUpperCase()} tab deep link at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await mockSchoolSetup(page, true, locale);
+      await page.goto('/school?tab=teachers');
+
+      const navigation = page.locator('nav[aria-label]:visible').filter({
+        has: page.getByRole('button', {
+          name: locale === 'ar' ? 'الموظفون وتكليفات التدريس' : 'Staff & teaching assignments',
+          exact: true
+        })
+      });
+      await expect(navigation.getByRole('button', {
+        name: locale === 'ar' ? 'الموظفون وتكليفات التدريس' : 'Staff & teaching assignments',
+        exact: true
+      })).toHaveAttribute('aria-current', 'page');
+      await page.reload();
+      await expect(page).toHaveURL(/tab=teachers/);
+      await expect(page.locator('html')).toHaveAttribute('dir', locale === 'ar' ? 'rtl' : 'ltr');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+    });
+  }
+}
+
+test('School setup tab changes support browser and Android Back hierarchy', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await mockSchoolSetup(page, true);
+  await page.goto('/school');
+
+  const navigation = page.locator('nav[aria-label="School setup navigation"]:visible');
+  await navigation.getByText('Behaviour & insights', { exact: true }).click();
+  await navigation.getByRole('button', { name: 'Behaviour & points', exact: true }).click();
+  await expect(page).toHaveURL(/tab=behaviour/);
+  await page.goBack();
+  await expect(page).not.toHaveURL(/tab=/);
+  await expect(navigation.getByRole('button', { name: 'Checklist', exact: true })).toHaveAttribute('aria-current', 'page');
+  await page.goForward();
+  await expect(page).toHaveURL(/tab=behaviour/);
+
+  const handled = await page.evaluate(() =>
+    !window.dispatchEvent(new CustomEvent('chh:native-back', { cancelable: true }))
+  );
+  expect(handled).toBe(true);
+  await expect(page).not.toHaveURL(/tab=behaviour/);
+});
