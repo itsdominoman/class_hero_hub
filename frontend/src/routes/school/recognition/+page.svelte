@@ -202,6 +202,12 @@
     return configs.find((row) => row.id === Number(reviewConfigId));
   }
 
+  function selectedCandidate() {
+    return (currentReview?.candidates || []).find(
+      (candidate) => String(candidate.student_id) === selectedStudentId
+    ) || null;
+  }
+
   function activeConfigs() {
     return configs.filter((row) => row.status === 'active' && !row.archived_at);
   }
@@ -685,45 +691,68 @@
             <p class="mt-1">{$_('recognitionPage.tieHelp')}</p>
             {#if currentReview.criteria.needs_work_safeguard?.enabled}<p class="mt-2 font-semibold">{$_('recognitionPage.safeguardCriteria', { values: { count: currentReview.criteria.needs_work_safeguard.maximum_allowed_events, categories: currentReview.criteria.needs_work_safeguard.categories.length ? currentReview.criteria.needs_work_safeguard.categories.map((row: any) => row.label).join(', ') : $_('recognitionPage.allNeedsWorkCategories') } })}</p>{/if}
           </div>
-          {#if (currentReview.candidates || []).length === 0}
-            <p class="mt-5 text-sm text-slate-500">{$_('recognitionPage.noEligibleCandidates')}</p>
-          {:else}
-            <div class="mt-5 space-y-4">
-              {#each currentReview.candidates || [] as candidate}
-                <article class={`rounded-2xl border p-4 ${candidate.is_eligible ? 'border-emerald-200 bg-white' : 'border-slate-300 bg-slate-50'}`}>
-                  <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div class="flex gap-3">
-                      {#if currentReview.status === 'draft'}<input type="radio" name="recipient" value={String(candidate.student_id)} bind:group={selectedStudentId} disabled={!candidate.is_eligible} aria-label={$_('recognitionPage.selectRecipient')} />{/if}
-                      <div><h3 class="font-black text-slate-900">{$locale === 'ar' && candidate.student_name_ar ? candidate.student_name_ar : candidate.student_name}</h3><p class="text-sm text-slate-600">{candidate.grade_name} · {candidate.class_name}</p></div>
-                    </div>
-                    <div class="text-end"><p class="font-black text-emerald-800">{candidate.positive_points_total} {$_('recognitionPage.positivePoints')}</p><p class="text-xs text-slate-500">{candidate.positive_event_count} {$_('recognitionPage.positiveEvents')} · {$_('recognitionPage.rank')} {candidate.rank}</p></div>
-                  </div>
-                  <div class="mt-3 flex flex-wrap gap-2">{#each candidate.category_totals as total}<span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">{total.label}: {total.points} / {total.events}</span>{/each}</div>
-                  {#if candidate.safeguard_excluded}
-                    <div class={`mt-3 rounded-xl border p-3 text-sm ${candidate.safeguard_overridden ? 'border-sky-200 bg-sky-50 text-sky-950' : 'border-slate-300 bg-white text-slate-700'}`}>
-                      <p class="font-black">{candidate.safeguard_overridden ? $_('recognitionPage.eligibilityOverridden') : $_('recognitionPage.notEligible')}</p>
-                      <p class="mt-1">{$_('recognitionPage.countedNeedsWork', { values: { count: candidate.safeguard_counted_total } })}</p>
-                      <div class="mt-2 flex flex-wrap gap-2">{#each candidate.safeguard_category_totals as total}<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">{total.label}: {total.events}</span>{/each}</div>
-                      {#if candidate.safeguard_overridden}<p class="mt-2 font-semibold">{$_('recognitionPage.overrideReasonRecorded')}: {candidate.safeguard_override_reason}</p>
-                      {:else if currentReview.status === 'draft' && overridingCandidateId === candidate.id}
-                        <div class="mt-3 flex flex-col gap-2 sm:flex-row"><input class="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm" bind:value={overrideReason} maxlength="500" placeholder={$_('recognitionPage.overrideReason')} /><button class="btn-secondary rounded-xl px-4 py-2" disabled={saving || overrideReason.trim().length < 3} onclick={() => overrideSafeguard(candidate)}>{$_('recognitionPage.recordOverride')}</button></div>
-                      {:else if currentReview.status === 'draft'}<button class="mt-3 text-sm font-bold underline" type="button" onclick={() => { overridingCandidateId = candidate.id; overrideReason = ''; }}>{$_('recognitionPage.overrideSafeguard')}</button>{/if}
-                    </div>
-                  {/if}
-                  {#if candidate.is_excluded}<p class="mt-3 text-sm font-semibold text-slate-600">{$_('recognitionPage.excluded')}: {candidate.exclusion_reason}</p>
-                  {:else if currentReview.status === 'draft' && excludingCandidateId === candidate.id}
-                    <div class="mt-3 flex flex-col gap-2 sm:flex-row"><input class="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm" bind:value={exclusionReason} maxlength="500" placeholder={$_('recognitionPage.exclusionReason')} /><button class="btn-secondary rounded-xl px-4 py-2" disabled={saving || exclusionReason.trim().length < 3} onclick={() => excludeCandidate(candidate)}>{$_('recognitionPage.recordExclusion')}</button></div>
-                  {:else if currentReview.status === 'draft' && candidate.is_eligible}<button class="mt-3 text-sm font-bold text-slate-600 underline" type="button" onclick={() => { excludingCandidateId = candidate.id; exclusionReason = ''; }}>{$_('recognitionPage.exclude')}</button>{/if}
-                </article>
-              {/each}
+          <div class={`mt-5 grid gap-4 ${currentReview.status === 'draft' ? 'xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start' : ''}`}>
+            {#if currentReview.status === 'draft'}
+              {@const chosenCandidate = selectedCandidate()}
+              <aside class="recognition-decision-controls order-1 rounded-2xl border border-amber-200 bg-amber-50 p-4 xl:order-2" aria-labelledby="recognition-decision-summary-title">
+                <h3 id="recognition-decision-summary-title" class="text-sm font-black text-amber-950">{$_('recognitionPage.decisionSummary')}</h3>
+                {#if chosenCandidate}
+                  <p class="mt-2 text-xs font-bold uppercase tracking-wide text-amber-800">{$_('recognitionPage.selectedRecipient')}</p>
+                  <p class="mt-1 font-black text-slate-900">{$locale === 'ar' && chosenCandidate.student_name_ar ? chosenCandidate.student_name_ar : chosenCandidate.student_name}</p>
+                  <p class="text-sm text-slate-600">{chosenCandidate.positive_points_total} {$_('recognitionPage.positivePoints')} · {$_('recognitionPage.rank')} {chosenCandidate.rank}</p>
+                {:else}
+                  <p class="mt-2 text-sm text-amber-900">{$_('recognitionPage.decisionPending')}</p>
+                {/if}
+                <label class="mt-4 block text-sm font-black text-amber-950">{$_('recognitionPage.citation')}<textarea class="mt-2 min-h-20 w-full rounded-xl border border-amber-200 bg-white px-3 py-2" bind:value={citation} maxlength="500"></textarea></label>
+                <button class="btn-hero mt-3 w-full rounded-xl px-5 py-3" type="button" disabled={saving || !selectedStudentId} onclick={confirmReview}>{$_('recognitionPage.confirm')}</button>
+                <p class="mt-2 text-xs text-amber-900">{$_('recognitionPage.confirmHelp')}</p>
+              </aside>
+            {/if}
+
+            <div class="order-2 min-w-0 xl:order-1">
+              {#if (currentReview.candidates || []).length === 0}
+                <p class="text-sm text-slate-500">{$_('recognitionPage.noEligibleCandidates')}</p>
+              {:else}
+                <ol class="recognition-candidate-list divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white" aria-label={$_('recognitionPage.candidateList')}>
+                  {#each currentReview.candidates || [] as candidate}
+                    <li class={`recognition-candidate-row px-3 py-3 ${selectedStudentId === String(candidate.student_id) ? 'recognition-candidate-row-selected' : ''} ${candidate.is_eligible ? '' : 'bg-slate-50'}`}>
+                      <div class="flex items-start justify-between gap-3">
+                        <div class="flex min-w-0 gap-3">
+                          {#if currentReview.status === 'draft'}<input class="mt-1" type="radio" name="recipient" value={String(candidate.student_id)} bind:group={selectedStudentId} disabled={!candidate.is_eligible} aria-label={$_('recognitionPage.selectRecipient')} />{/if}
+                          <div class="min-w-0"><h3 class="truncate font-black text-slate-900">{$locale === 'ar' && candidate.student_name_ar ? candidate.student_name_ar : candidate.student_name}</h3><p class="truncate text-sm text-slate-600">{candidate.grade_name} · {candidate.class_name}</p></div>
+                        </div>
+                        <div class="shrink-0 text-end"><p class="font-black text-emerald-800">{candidate.positive_points_total} {$_('recognitionPage.positivePoints')}</p><p class="text-xs text-slate-500">{candidate.positive_event_count} {$_('recognitionPage.positiveEvents')} · {$_('recognitionPage.rank')} {candidate.rank}</p></div>
+                      </div>
+                      <div class="mt-2 flex flex-wrap gap-2">
+                        {#if candidate.safeguard_excluded}<span class={`rounded-full px-2 py-1 text-xs font-bold ${candidate.safeguard_overridden ? 'bg-sky-100 text-sky-900' : 'bg-slate-200 text-slate-800'}`}>{candidate.safeguard_overridden ? $_('recognitionPage.eligibilityOverridden') : $_('recognitionPage.notEligible')}</span>{/if}
+                        {#if candidate.is_excluded}<span class="rounded-full bg-slate-200 px-2 py-1 text-xs font-bold text-slate-800">{$_('recognitionPage.excluded')}</span>{/if}
+                      </div>
+                      <details class="mt-2 text-sm text-slate-700">
+                        <summary class="cursor-pointer font-bold text-hero">{$_('recognitionPage.candidateEvidence')}</summary>
+                        <div class="mt-3 flex flex-wrap gap-2">{#each candidate.category_totals as total}<span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">{total.label}: {total.points} / {total.events}</span>{/each}</div>
+                        {#if candidate.safeguard_excluded}
+                          <div class={`mt-3 rounded-xl border p-3 ${candidate.safeguard_overridden ? 'border-sky-200 bg-sky-50 text-sky-950' : 'border-slate-300 bg-white text-slate-700'}`}>
+                            <p class="font-black">{candidate.safeguard_overridden ? $_('recognitionPage.eligibilityOverridden') : $_('recognitionPage.notEligible')}</p>
+                            <p class="mt-1">{$_('recognitionPage.countedNeedsWork', { values: { count: candidate.safeguard_counted_total } })}</p>
+                            <div class="mt-2 flex flex-wrap gap-2">{#each candidate.safeguard_category_totals as total}<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">{total.label}: {total.events}</span>{/each}</div>
+                            {#if candidate.safeguard_overridden}<p class="mt-2 font-semibold">{$_('recognitionPage.overrideReasonRecorded')}: {candidate.safeguard_override_reason}</p>
+                            {:else if currentReview.status === 'draft' && overridingCandidateId === candidate.id}
+                              <div class="mt-3 flex flex-col gap-2 sm:flex-row"><input class="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm" bind:value={overrideReason} maxlength="500" placeholder={$_('recognitionPage.overrideReason')} /><button class="btn-secondary rounded-xl px-4 py-2" disabled={saving || overrideReason.trim().length < 3} onclick={() => overrideSafeguard(candidate)}>{$_('recognitionPage.recordOverride')}</button></div>
+                            {:else if currentReview.status === 'draft'}<button class="mt-3 text-sm font-bold underline" type="button" onclick={() => { overridingCandidateId = candidate.id; overrideReason = ''; }}>{$_('recognitionPage.overrideSafeguard')}</button>{/if}
+                          </div>
+                        {/if}
+                        {#if candidate.is_excluded}<p class="mt-3 font-semibold text-slate-600">{$_('recognitionPage.excluded')}: {candidate.exclusion_reason}</p>
+                        {:else if currentReview.status === 'draft' && excludingCandidateId === candidate.id}
+                          <div class="mt-3 flex flex-col gap-2 sm:flex-row"><input class="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm" bind:value={exclusionReason} maxlength="500" placeholder={$_('recognitionPage.exclusionReason')} /><button class="btn-secondary rounded-xl px-4 py-2" disabled={saving || exclusionReason.trim().length < 3} onclick={() => excludeCandidate(candidate)}>{$_('recognitionPage.recordExclusion')}</button></div>
+                        {:else if currentReview.status === 'draft' && candidate.is_eligible}<button class="mt-3 text-sm font-bold text-slate-600 underline" type="button" onclick={() => { excludingCandidateId = candidate.id; exclusionReason = ''; }}>{$_('recognitionPage.exclude')}</button>{/if}
+                      </details>
+                    </li>
+                  {/each}
+                </ol>
+              {/if}
             </div>
-          {/if}
+          </div>
           {#if currentReview.status === 'draft'}
-            <div class="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-              <label class="block text-sm font-black text-amber-950">{$_('recognitionPage.citation')}<textarea class="mt-2 min-h-24 w-full rounded-xl border border-amber-200 bg-white px-3 py-2" bind:value={citation} maxlength="500"></textarea></label>
-              <button class="btn-hero mt-3 rounded-xl px-5 py-3" type="button" disabled={saving || !selectedStudentId} onclick={confirmReview}>{$_('recognitionPage.confirm')}</button>
-              <p class="mt-2 text-xs text-amber-900">{$_('recognitionPage.confirmHelp')}</p>
-            </div>
             <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
               {#if discardingReviewId === currentReview.id}
                 <label class="block text-sm font-black text-slate-800">{$_('recognitionPage.discardReason')}<textarea class="mt-2 min-h-20 w-full rounded-xl border border-slate-300 bg-white px-3 py-2" bind:value={discardReason} maxlength="500"></textarea></label>
@@ -770,6 +799,13 @@
   .review-card-archived { border-color: #cbd5e1; background: #f1f5f9; opacity: .86; }
   .review-card-selected { border-color: var(--hero-color); box-shadow: 0 0 0 3px rgb(124 58 237 / .18); }
   .review-card-action { color: var(--hero-color); }
+  .recognition-candidate-list { max-height: min(65dvh, 44rem); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+  .recognition-candidate-row { scroll-margin-block: .75rem; }
+  .recognition-candidate-row-selected { background: rgb(245 243 255); box-shadow: inset 4px 0 0 var(--hero-color); }
+  :global([dir='rtl']) .recognition-candidate-row-selected { box-shadow: inset -4px 0 0 var(--hero-color); }
+  @media (min-width: 1280px) {
+    .recognition-decision-controls { position: sticky; top: 1rem; }
+  }
   .certificate { border: 12px double #d4a72c; min-height: 720px; display: flex; flex-direction: column; justify-content: center; }
   @media print {
     :global(header), :global(footer), .no-print { display: none !important; }

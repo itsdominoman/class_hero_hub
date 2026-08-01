@@ -64,6 +64,22 @@ test('shortlist requires explicit selection and supports recorded exclusion and 
   assert.match(source, /revocationReason\.trim\(\)\.length < 3/);
 });
 
+test('large and tied shortlists use compact rows with a visible decision workspace', () => {
+  assert.match(source, /recognition-candidate-list/);
+  assert.match(source, /max-height: min\(65dvh, 44rem\)/);
+  assert.match(source, /overflow-y: auto/);
+  assert.match(source, /recognition-candidate-row-selected/);
+  assert.match(source, /<details class="mt-2 text-sm text-slate-700">/);
+  assert.match(source, /recognitionPage\.candidateEvidence/);
+  assert.match(source, /recognition-decision-controls/);
+  assert.match(source, /position: sticky/);
+  assert.match(source, /recognitionPage\.decisionSummary/);
+  assert.match(source, /selectedCandidate\(\)/);
+  assert.match(source, /w-full rounded-xl px-5 py-3/);
+  assert.match(source, /safeguard_counted_total/);
+  assert.match(source, /override-safeguard/);
+});
+
 test('confirmed award renders a browser-printable certificate without publication', () => {
   assert.match(source, /currentReview\?\.status === 'confirmed'/);
   assert.match(source, /window\.print\(\)/);
