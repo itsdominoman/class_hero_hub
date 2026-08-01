@@ -306,7 +306,7 @@
     {#if loading}
       <div class="grid min-h-52 place-items-center text-sm font-bold text-slate-500">{$_('common.loading')}</div>
     {:else if !context || !membership || !canReview}
-      <section class="empty-card"><h2>{$_('safeguarding.noAccessTitle')}</h2><p>{$_('safeguarding.noAccessBody')}</p></section>
+      <section class="empty-card"><h2>{$_('safeguarding.noAccessTitle')}</h2><p>{$_('safeguarding.reviewAccessBody')}</p></section>
     {:else}
       <form class="mt-4 min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" onsubmit={searchConversations} data-testid="safeguarding-search-form">
         <div class="mb-4"><h2 class="text-lg font-black text-slate-950">{$_('safeguarding.search.title')}</h2><p class="mt-1 text-xs leading-5 text-slate-500">{$_('safeguarding.search.help')}</p></div>

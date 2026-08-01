@@ -17,6 +17,7 @@ const allPermissions = [
   "messaging.export_evidence",
   "messaging.export_internal_notes",
   "messaging.manage_safeguarding_permissions",
+  "messaging.manage_legal_holds",
 ];
 
 const context = {
@@ -174,12 +175,22 @@ const reviewDetail = {
   capabilities: { can_moderate: true, can_export: true, has_composer: false },
 };
 
-type MockOptions = { permissions?: string[] };
+type MockOptions = {
+  permissions?: string[];
+  available?: boolean;
+  locale?: "en" | "ar";
+};
 
 async function mockSafeguarding(page: Page, options: MockOptions = {}) {
   const requests: Array<{ path: string; method: string; body?: unknown }> = [];
   const permissionSet = options.permissions ?? allPermissions;
   const grants = new Set<string>(["messaging.safeguarding_review"]);
+
+  if (options.locale) {
+    await page.addInitScript((language) => {
+      localStorage.setItem("familyHeroHub.language", language);
+    }, options.locale);
+  }
 
   await page.route("**/api/me", async (route) => {
     await route.fulfill({
@@ -208,7 +219,7 @@ async function mockSafeguarding(page: Page, options: MockOptions = {}) {
     expect(request.headers()["x-membership-id"]).toBe("51");
 
     if (path.endsWith("/availability")) {
-      await route.fulfill({ json: { available: true } });
+      await route.fulfill({ json: { available: options.available ?? true } });
       return;
     }
     if (path.endsWith("/context")) {
@@ -303,6 +314,72 @@ test("landing page separates message reviews from permission management", async 
   await expect(page.getByTestId("safeguarding-search-form")).toHaveCount(0);
   await expect(page.getByTestId("permission-checklist-form")).toHaveCount(0);
 });
+
+test("review-only access shows only the review destination", async ({ page }) => {
+  await mockSafeguarding(page, {
+    permissions: ["messaging.safeguarding_review"],
+  });
+  await page.goto("/school/safeguarding?membership=51");
+
+  await expect(page.getByTestId("message-reviews-action")).toBeVisible();
+  await expect(page.getByTestId("permission-management-action")).toHaveCount(0);
+});
+
+test("manage-only access shows only permission management", async ({ page }) => {
+  await mockSafeguarding(page, {
+    permissions: ["messaging.manage_safeguarding_permissions"],
+  });
+  await page.goto("/school/safeguarding?membership=51");
+
+  await expect(page.getByTestId("message-reviews-action")).toHaveCount(0);
+  await expect(page.getByTestId("permission-management-action")).toBeVisible();
+
+  await page.goto("/school/safeguarding/message-reviews?membership=51");
+  await expect(
+    page.getByText(
+      "This account has not been granted safeguarding review access for this school.",
+    ),
+  ).toBeVisible();
+  await expect(page.getByTestId("safeguarding-search-form")).toHaveCount(0);
+});
+
+for (const locale of ["en", "ar"] as const) {
+  test(`no actionable access has a clear ${locale} direct-URL state`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockSafeguarding(page, {
+      available: false,
+      permissions: ["messaging.moderate"],
+      locale,
+    });
+    await page.goto("/school/safeguarding?membership=51");
+
+    await expect(page.locator("html")).toHaveAttribute(
+      "dir",
+      locale === "ar" ? "rtl" : "ltr",
+    );
+    await expect(
+      page.getByRole("heading", {
+        name:
+          locale === "ar"
+            ? "لم تُمنح صلاحية مراجعة الحماية"
+            : "Safeguarding access is not assigned",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        locale === "ar"
+          ? "لم يُمنح هذا الحساب صلاحية مراجعة الحماية أو إدارة صلاحياتها في هذه المدرسة."
+          : "This account has not been granted safeguarding review or permission-management access for this school.",
+      ),
+    ).toBeVisible();
+    await expect(page.getByTestId("message-reviews-action")).toHaveCount(0);
+    await expect(page.getByTestId("permission-management-action")).toHaveCount(0);
+    await expect(page.locator('a[href^="/school/safeguarding"]')).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
+  });
+}
 
 test("mobile search is labelled, friendly, focused, and has correct Back behavior", async ({
   page,

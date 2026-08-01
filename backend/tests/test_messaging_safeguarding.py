@@ -108,6 +108,30 @@ def _moderation(reason="Audited safeguarding intervention required"):
     }
 
 
+def test_availability_requires_an_actionable_landing_permission(db, client):
+    no_access = _school_world(db, "safeguarding-availability-none")
+    adjunct_only = _school_world(db, "safeguarding-availability-adjunct")
+    review_only = _school_world(db, "safeguarding-availability-review")
+    manage_only = _school_world(db, "safeguarding-availability-manage")
+
+    _grant(db, adjunct_only, adjunct_only["admin"], MODERATE, EXPORT)
+    _grant(db, review_only, review_only["admin"], REVIEW)
+    _grant(db, manage_only, manage_only["admin"], MANAGE)
+
+    assert client.get(
+        "/api/safeguarding/availability", headers=_staff_headers(no_access)
+    ).json() == {"available": False}
+    assert client.get(
+        "/api/safeguarding/availability", headers=_staff_headers(adjunct_only)
+    ).json() == {"available": False}
+    assert client.get(
+        "/api/safeguarding/availability", headers=_staff_headers(review_only)
+    ).json() == {"available": True}
+    assert client.get(
+        "/api/safeguarding/availability", headers=_staff_headers(manage_only)
+    ).json() == {"available": True}
+
+
 def test_authorisation_metadata_search_and_review_have_no_participant_receipt_unread_or_push_side_effects(db, client):
     world = _school_world(db, "safeguarding-review")
     other = _school_world(db, "safeguarding-other")

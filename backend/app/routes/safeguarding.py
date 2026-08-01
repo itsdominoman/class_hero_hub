@@ -359,11 +359,13 @@ def availability(
     current_user: User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Return only whether this exact signed-in membership has any active grant.
+    """Return only whether this membership can open a safeguarding destination.
 
     The application shell uses this non-sensitive probe to hide navigation without
     generating routine denied-access audit noise for every ordinary staff session.
-    Protected endpoints still resolve and audit the full safeguarding actor.
+    Adjunct permissions such as moderation or evidence export are useful only inside
+    a review and must not expose an otherwise empty landing page. Protected endpoints
+    still resolve and audit the full safeguarding actor.
     """
     _private(response)
     school_id = _school_id(request)
@@ -377,6 +379,7 @@ def availability(
         .filter(
             MessagingPermissionGrant.school_id == school_id,
             MessagingPermissionGrant.membership_id == membership_id,
+            MessagingPermissionGrant.permission.in_((PERMISSION_REVIEW, PERMISSION_MANAGE)),
             MessagingPermissionGrant.revoked_at.is_(None),
             Membership.school_id == school_id,
             Membership.user_id == current_user.id,

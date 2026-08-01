@@ -60,7 +60,7 @@ const mixedRoleHrefs = [
   "/school/surveys?membership=102",
   "/school/reports",
   "/school/administration",
-  "/school/safeguarding?membership=101",
+  "/school/safeguarding?membership=102",
 ];
 
 async function json(route: Route, body: unknown) {
@@ -70,7 +70,12 @@ async function json(route: Route, body: unknown) {
   });
 }
 
-async function mockSession(page: Page, roleCase: RoleCase, locale = "en") {
+async function mockSession(
+  page: Page,
+  roleCase: RoleCase,
+  locale = "en",
+  safeguardingAvailableMembershipIds?: number[],
+) {
   await page.addInitScript((language) => {
     localStorage.setItem("familyHeroHub.language", language);
   }, locale);
@@ -81,6 +86,12 @@ async function mockSession(page: Page, roleCase: RoleCase, locale = "en") {
     school_name: "Navigation Test School",
     role,
   }));
+  const safeguardingMembershipIds = new Set(
+    safeguardingAvailableMembershipIds ??
+      memberships
+        .filter((row) => row.role === "school_admin" || row.role === "teacher")
+        .map((row) => row.membership_id),
+  );
 
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -93,10 +104,15 @@ async function mockSession(page: Page, roleCase: RoleCase, locale = "en") {
       });
       return;
     }
-    if (
-      path.endsWith("/safeguarding/availability") ||
-      path.endsWith("/school/surveys/availability")
-    ) {
+    if (path.endsWith("/safeguarding/availability")) {
+      await json(route, {
+        available: safeguardingMembershipIds.has(
+          Number(route.request().headers()["x-membership-id"]),
+        ),
+      });
+      return;
+    }
+    if (path.endsWith("/school/surveys/availability")) {
       await json(route, { available: true });
       return;
     }
@@ -141,6 +157,34 @@ for (const roleCase of roleCases) {
     );
   });
 }
+
+for (const width of [390, 1280]) {
+  test(`teacher without actionable safeguarding access has no destination at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await mockSession(page, roleCases[2], "en", []);
+    await page.goto("/faq");
+
+    const navigation = await openVisibleNavigation(page, width);
+    await expect(
+      navigation.locator('a[href^="/school/safeguarding"]'),
+    ).toHaveCount(0);
+  });
+}
+
+test("mixed-role navigation selects an actionable safeguarding membership", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockSession(page, roleCases[3], "en", [103]);
+  await page.goto("/faq");
+
+  const navigation = await openVisibleNavigation(page, 390);
+  await expect(
+    navigation.getByRole("link", { name: "Safeguarding", exact: true }),
+  ).toHaveAttribute("href", "/school/safeguarding?membership=103");
+});
 
 for (const width of [390, 768, 1024, 1280, 1440]) {
   for (const locale of ["en", "ar"]) {
