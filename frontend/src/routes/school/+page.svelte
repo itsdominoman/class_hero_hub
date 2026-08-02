@@ -2838,8 +2838,7 @@
 
   $effect(() => {
     if ($page.url.pathname !== '/school') return;
-    const requested = $page.url.searchParams.get('tab');
-    const nextTab = requested && SCHOOL_TABS.some((tab) => tab.key === requested) ? requested : 'checklist';
+    const nextTab = requestedSchoolTab();
     if (nextTab !== activeTab) selectTab(nextTab, 'none');
   });
 
@@ -2853,8 +2852,13 @@
         return;
       }
       if (event.defaultPrevented || activeTab === 'checklist') return;
-      if (window.history.state?.chhSchoolTabEntry) window.history.back();
-      else selectTab('checklist', 'replace');
+      if (window.history.state?.chhSchoolTabEntry) {
+        window.addEventListener('popstate', () => selectTab(requestedSchoolTab(), 'none'), {
+          capture: true,
+          once: true
+        });
+        window.history.back();
+      } else selectTab('checklist', 'replace');
       event.preventDefault();
       event.stopImmediatePropagation();
     };

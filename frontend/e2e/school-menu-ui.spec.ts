@@ -265,4 +265,6 @@ test('School setup tab changes support browser and Android Back hierarchy', asyn
   );
   expect(handled).toBe(true);
   await expect(page).not.toHaveURL(/tab=behaviour/);
+  await expect(page.locator('#school-setup-content')).toContainText('School settings');
+  await expect(page.locator('#school-setup-content')).not.toContainText('Behaviour categories');
 });

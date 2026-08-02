@@ -88,6 +88,18 @@ test('compact School setup navigation lives in the app drawer while desktop keep
   assert.match(layoutSource, /if \(mobileMenuOpen\) \{[\s\S]+closeMobileMenu\(\);[\s\S]+stopImmediatePropagation/);
 });
 
+test('School setup Back state follows the current browser URL', () => {
+  assert.match(
+    schoolSource,
+    /\$effect\(\(\) => \{[\s\S]+if \(\$page\.url\.pathname !== '\/school'\) return;[\s\S]+const nextTab = requestedSchoolTab\(\);[\s\S]+selectTab\(nextTab, 'none'\)/
+  );
+  assert.match(schoolSource, /const onPopState = \(\) => selectTab\(requestedSchoolTab\(\), 'none'\)/);
+  assert.match(
+    schoolSource,
+    /window\.addEventListener\('popstate', \(\) => selectTab\(requestedSchoolTab\(\), 'none'\), \{[\s\S]+capture: true,[\s\S]+once: true/
+  );
+});
+
 test('English and Arabic menu labels describe the hierarchy consistently', () => {
   assert.deepEqual(Object.keys(en.school.menu.groups), Object.keys(ar.school.menu.groups));
   assert.deepEqual(Object.values(en.school.menu.groups), [
