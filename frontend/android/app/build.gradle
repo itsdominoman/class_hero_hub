@@ -23,8 +23,8 @@ android {
         applicationId "com.classherohub.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 11
-        versionName "1.9-current-frontend"
+        versionCode 12
+        versionName "1.10-school-setup-drawer"
         resValue "string", "google_web_client_id", googleClientId
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
