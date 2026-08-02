@@ -2,7 +2,7 @@
   import '../app.css';
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
-  import { _ } from 'svelte-i18n';
+  import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
   import LanguageSelector from '$lib/components/LanguageSelector.svelte';
   import { initI18n } from '$lib/i18n';
@@ -19,6 +19,26 @@
   import { defaultLandingPath, hasRole, type SessionUser } from '$lib/roleRouting';
   import { SCHOOL_MENU_GROUPS, SCHOOL_TABS, type SchoolMenuItem } from '$lib/schoolMenu';
   import { surveyApi, type SurveyMembership } from '$lib/surveys/api';
+  import { getPublicSiteCopy } from '$lib/publicSite';
+
+  const PUBLIC_WEBSITE_PATHS = new Set([
+    '/',
+    '/features',
+    '/how-it-works',
+    '/schools',
+    '/family-connection',
+    '/faq',
+    '/pilot',
+    '/contact',
+    '/guides/administrator',
+    '/guides/teacher',
+    '/guides/families',
+    '/safety-privacy',
+    '/privacy',
+    '/terms',
+    '/data-requests',
+    '/login'
+  ]);
 
   let { children } = $props();
   let currentUser = $state<SessionUser | null>(null);
@@ -34,6 +54,10 @@
   let nativePushStatus = $state<'enabled' | 'disabled' | 'denied' | null>(null);
   let showPushExplanation = $state(false);
   let changingPush = $state(false);
+  let publicCopy = $derived(getPublicSiteCopy($locale));
+  let publicWebsiteRoute = $derived(
+    !nativeApp && PUBLIC_WEBSITE_PATHS.has($page.url.pathname)
+  );
 
   type NavigationItem = {
     id: GlobalNavigationItemId;
@@ -371,6 +395,49 @@
 </script>
 
 <div class="app-shell min-h-dvh max-w-full overflow-x-hidden flex flex-col">
+  {#if publicWebsiteRoute}
+    <header class="app-header sticky top-0 z-50 shrink-0 border-b border-slate-200/70 bg-white/90 shadow-sm backdrop-blur-xl pt-[var(--safe-top)]">
+      <div class="mx-auto flex min-h-20 max-w-7xl items-center justify-between gap-3 px-3 py-3 sm:px-4">
+        <a href="/" class="group flex min-w-0 items-center gap-3" aria-label={$_('app.name')}>
+          <img src="/chh-logo-master.png" alt="" class="h-11 w-11 shrink-0 rounded-2xl object-contain shadow-xl shadow-hero/20 transition duration-300 group-hover:rotate-3 sm:h-12 sm:w-12" />
+          <div class="brand-title flex min-w-0 flex-col -space-y-1">
+            <span class="text-lg font-black uppercase leading-none tracking-tighter text-slate-950 sm:text-2xl">{$_('app.classHero')}</span>
+            <span class="text-xs font-black uppercase leading-none tracking-[0.16em] text-hero">{$_('app.hub')}</span>
+          </div>
+        </a>
+
+        <nav class="hidden items-center gap-1 xl:flex" aria-label={publicCopy.nav.menu}>
+          <a href="/features" class="public-nav-link" aria-current={$page.url.pathname === '/features' ? 'page' : undefined}>{publicCopy.nav.product}</a>
+          <a href="/how-it-works" class="public-nav-link" aria-current={$page.url.pathname === '/how-it-works' ? 'page' : undefined}>{publicCopy.nav.howItWorks}</a>
+          <a href="/schools" class="public-nav-link" aria-current={$page.url.pathname === '/schools' ? 'page' : undefined}>{publicCopy.nav.schools}</a>
+          <a href="/family-connection" class="public-nav-link" aria-current={$page.url.pathname === '/family-connection' ? 'page' : undefined}>{publicCopy.nav.familyConnection}</a>
+          <LanguageSelector compact navigation />
+          <a href={currentUser ? dashboardHref : '/login'} class="inline-flex min-h-11 items-center rounded-xl px-3 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-100 hover:text-hero focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero">
+            {currentUser ? publicCopy.nav.dashboard : publicCopy.nav.staffLogin}
+          </a>
+          <a href="/pilot" class="inline-flex min-h-11 items-center rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-hero focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero">
+            {publicCopy.nav.requestPilot}
+          </a>
+        </nav>
+
+        <div class="flex shrink-0 items-center gap-2 xl:hidden">
+          <a href={currentUser ? dashboardHref : '/login'} class="inline-flex min-h-11 items-center rounded-xl px-2.5 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-100 hover:text-hero sm:px-3 sm:text-sm">
+            {currentUser ? publicCopy.nav.dashboard : publicCopy.nav.staffLogin}
+          </a>
+          <button
+            type="button"
+            class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-hero hover:text-hero focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero"
+            aria-label={mobileMenuOpen ? publicCopy.nav.closeMenu : publicCopy.nav.openMenu}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="public-mobile-navigation"
+            onclick={toggleMobileMenu}
+          >
+            <span aria-hidden="true" class="text-xl leading-none">{mobileMenuOpen ? '×' : '☰'}</span>
+          </button>
+        </div>
+      </div>
+    </header>
+  {:else}
   <header class="app-header bg-white/80 backdrop-blur-xl sticky top-0 z-50 shrink-0 border-b border-slate-200/50 shadow-sm pt-[var(--safe-top)]">
     <div class="max-w-7xl mx-auto px-3 sm:px-4 min-h-20 py-3 flex items-center justify-between gap-3">
       <a href="/" class="flex min-w-0 items-center gap-3 group">
@@ -422,6 +489,7 @@
       {/if}
     </div>
 </header>
+  {/if}
 
   {#if nativeApp && currentUser && showPushExplanation}
     <section class="mx-3 mt-3 rounded-2xl border border-hero/20 bg-white p-4 shadow-lg" aria-labelledby="push-explanation-title">
@@ -439,52 +507,122 @@
   </main>
 
   {#if !nativeApp && !messagingRoute}
-  <footer class="bg-slate-900 text-slate-400 pt-16 pb-[calc(4rem+var(--safe-bottom))] md:pt-20 mt-16 md:mt-20 relative overflow-hidden">
-    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-hero/50 to-transparent"></div>
-    <div class="max-w-7xl mx-auto px-4">
-      <div class="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
-        <div class="text-start">
-          <div class="flex items-center gap-3 mb-6 opacity-50 grayscale">
-            <img src="/chh-logo-master.png" alt={$_('app.name')} class="h-10 w-10 rounded-xl bg-white object-contain" />
-            <span class="text-xl font-bold tracking-tighter text-white uppercase">{$_('app.name')}</span>
+    {#if publicWebsiteRoute}
+      <footer class="relative overflow-hidden bg-slate-950 pb-[calc(3rem+var(--safe-bottom))] pt-14 text-slate-400 sm:pt-16">
+        <div class="absolute left-0 top-0 h-px w-full bg-gradient-to-r from-transparent via-violet-400/70 to-transparent"></div>
+        <div class="mx-auto max-w-7xl px-4">
+          <div class="grid gap-12 lg:grid-cols-[0.82fr_1.18fr]">
+            <div class="text-start">
+              <a href="/" class="inline-flex items-center gap-3" aria-label={$_('app.name')}>
+                <img src="/chh-logo-master.png" alt="" class="h-12 w-12 rounded-2xl bg-white object-contain" />
+                <span class="text-xl font-black uppercase tracking-tight text-white">{$_('app.name')}</span>
+              </a>
+              <p class="mt-6 max-w-md text-base leading-relaxed text-slate-300 sm:text-lg">{publicCopy.footer.description}</p>
+              <p class="mt-5 text-sm font-black uppercase tracking-[0.16em] text-violet-300">{publicCopy.footer.tagline}</p>
+              <div class="mt-7 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p class="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{publicCopy.footer.emailLabel}</p>
+                <a class="mt-2 inline-flex text-sm font-bold text-violet-300 transition hover:text-white sm:text-base" href="mailto:support@classherohub.com">support@classherohub.com</a>
+              </div>
+            </div>
+
+            <div class="grid gap-9 sm:grid-cols-3">
+              <div class="min-w-0 text-start">
+                <p class="text-sm font-black uppercase tracking-[0.14em] text-white">{publicCopy.footer.product}</p>
+                <nav class="mt-5 flex flex-col gap-3 text-sm font-semibold" aria-label={publicCopy.footer.product}>
+                  <a href="/" class="footer-link">{publicCopy.footer.home}</a>
+                  <a href="/features" class="footer-link">{publicCopy.footer.features}</a>
+                  <a href="/how-it-works" class="footer-link">{publicCopy.footer.howItWorks}</a>
+                  <a href="/schools" class="footer-link">{publicCopy.footer.schools}</a>
+                  <a href="/family-connection" class="footer-link">{publicCopy.footer.familyConnection}</a>
+                  <a href="/faq" class="footer-link">{publicCopy.footer.faq}</a>
+                  <a href="/pilot" class="footer-link">{publicCopy.footer.requestPilot}</a>
+                </nav>
+              </div>
+
+              <div class="min-w-0 text-start">
+                <p class="text-sm font-black uppercase tracking-[0.14em] text-white">{publicCopy.footer.support}</p>
+                <nav class="mt-5 flex flex-col gap-3 text-sm font-semibold" aria-label={publicCopy.footer.support}>
+                  <a href="/contact" class="footer-link">{publicCopy.footer.contact}</a>
+                  <a href="/guides/administrator" class="footer-link">{publicCopy.footer.administratorGuide}</a>
+                  <a href="/guides/teacher" class="footer-link">{publicCopy.footer.teacherGuide}</a>
+                  <a href="/guides/families" class="footer-link">{publicCopy.footer.familyGuide}</a>
+                  <a href="/safety-privacy" class="footer-link">{publicCopy.footer.safetyPrivacy}</a>
+                </nav>
+              </div>
+
+              <div class="min-w-0 text-start">
+                <p class="text-sm font-black uppercase tracking-[0.14em] text-white">{publicCopy.footer.legal}</p>
+                <nav class="mt-5 flex flex-col gap-3 text-sm font-semibold" aria-label={publicCopy.footer.legal}>
+                  <a href="/privacy" class="footer-link">{publicCopy.footer.privacy}</a>
+                  <a href="/terms" class="footer-link">{publicCopy.footer.terms}</a>
+                  <a href="/data-requests" class="footer-link">{publicCopy.footer.dataRequests}</a>
+                </nav>
+              </div>
+            </div>
           </div>
-          <p class="text-lg leading-relaxed max-w-md">{$_('footer.description')}</p>
-          <p class="mt-6 text-sm font-semibold uppercase tracking-wide text-white">{$_('footer.tagline')}</p>
         </div>
-
-        <div class="grid gap-8 sm:grid-cols-3">
-          <div class="min-w-0">
-            <p class="text-white font-semibold uppercase tracking-wide text-sm mb-4">{$_('nav.product')}</p>
-            <div class="flex flex-col gap-3 text-sm font-semibold">
-              <a href="/" class="hover:text-hero transition-colors">{$_('nav.home')}</a>
-              <a href="/#how-it-works" class="hover:text-hero transition-colors">{$_('nav.howItWorks')}</a>
-              <a href="/faq" class="hover:text-hero transition-colors">{$_('nav.faq')}</a>
+      </footer>
+    {:else}
+      <footer class="relative mt-16 overflow-hidden bg-slate-900 pb-[calc(4rem+var(--safe-bottom))] pt-16 text-slate-400 md:mt-20 md:pt-20">
+        <div class="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-transparent via-hero/50 to-transparent"></div>
+        <div class="mx-auto max-w-7xl px-4">
+          <div class="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
+            <div class="text-start">
+              <div class="mb-6 flex items-center gap-3 opacity-50 grayscale">
+                <img src="/chh-logo-master.png" alt={$_('app.name')} class="h-10 w-10 rounded-xl bg-white object-contain" />
+                <span class="text-xl font-bold uppercase tracking-tighter text-white">{$_('app.name')}</span>
+              </div>
+              <p class="max-w-md text-lg leading-relaxed">{$_('footer.description')}</p>
+              <p class="mt-6 text-sm font-semibold uppercase tracking-wide text-white">{$_('footer.tagline')}</p>
             </div>
-          </div>
-
-          <div class="min-w-0">
-            <p class="text-white font-semibold uppercase tracking-wide text-sm mb-4">{$_('nav.support')}</p>
-            <div class="flex flex-col gap-3 text-sm font-semibold">
-              <a href="/contact" class="hover:text-hero transition-colors">{$_('nav.contact')}</a>
-              <a href="/safety-privacy" class="hover:text-hero transition-colors">{$_('nav.safetyPrivacy')}</a>
-            </div>
-          </div>
-
-          <div class="min-w-0">
-            <p class="text-white font-semibold uppercase tracking-wide text-sm mb-4">{$_('nav.legal')}</p>
-            <div class="flex flex-col gap-3 text-sm font-semibold">
-              <a href="/privacy" class="hover:text-hero transition-colors">{$_('nav.privacyPolicy')}</a>
-              <a href="/terms" class="hover:text-hero transition-colors">{$_('nav.terms')}</a>
+            <div class="grid gap-8 sm:grid-cols-3">
+              <div class="min-w-0"><p class="mb-4 text-sm font-semibold uppercase tracking-wide text-white">{$_('nav.product')}</p><div class="flex flex-col gap-3 text-sm font-semibold"><a href="/" class="transition-colors hover:text-hero">{$_('nav.home')}</a><a href="/#how-it-works" class="transition-colors hover:text-hero">{$_('nav.howItWorks')}</a><a href="/faq" class="transition-colors hover:text-hero">{$_('nav.faq')}</a></div></div>
+              <div class="min-w-0"><p class="mb-4 text-sm font-semibold uppercase tracking-wide text-white">{$_('nav.support')}</p><div class="flex flex-col gap-3 text-sm font-semibold"><a href="/contact" class="transition-colors hover:text-hero">{$_('nav.contact')}</a><a href="/safety-privacy" class="transition-colors hover:text-hero">{$_('nav.safetyPrivacy')}</a></div></div>
+              <div class="min-w-0"><p class="mb-4 text-sm font-semibold uppercase tracking-wide text-white">{$_('nav.legal')}</p><div class="flex flex-col gap-3 text-sm font-semibold"><a href="/privacy" class="transition-colors hover:text-hero">{$_('nav.privacyPolicy')}</a><a href="/terms" class="transition-colors hover:text-hero">{$_('nav.terms')}</a></div></div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  </footer>
+      </footer>
+    {/if}
   {/if}
 </div>
 
-{#if currentUser && mobileMenuOpen}
+{#if publicWebsiteRoute && mobileMenuOpen}
+  <div class="fixed inset-0 z-[100] xl:hidden" role="presentation">
+    <button type="button" class="absolute inset-0 h-full w-full bg-slate-950/55 backdrop-blur-sm" aria-label={publicCopy.nav.closeMenu} onclick={closeMobileMenu}></button>
+    <div id="public-mobile-navigation" class="absolute inset-y-0 end-0 flex w-[min(24rem,90vw)] flex-col overflow-y-auto overscroll-contain bg-white px-5 pb-[calc(1.25rem+var(--safe-bottom))] pt-[calc(1.25rem+var(--safe-top))] shadow-2xl" role="dialog" aria-modal="true" aria-label={publicCopy.nav.menu}>
+      <div class="flex items-center justify-between border-b border-slate-200 pb-4">
+        <div class="flex items-center gap-3">
+          <img src="/chh-logo-master.png" alt="" class="h-10 w-10 rounded-xl object-contain" />
+          <span class="text-base font-black text-slate-950">{publicCopy.nav.menu}</span>
+        </div>
+        <button type="button" class="grid h-11 w-11 place-items-center rounded-xl text-slate-700 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero" aria-label={publicCopy.nav.closeMenu} onclick={closeMobileMenu}><span aria-hidden="true" class="text-2xl leading-none">×</span></button>
+      </div>
+
+      <div class="mt-5">
+        <LanguageSelector />
+      </div>
+
+      <nav class="mt-5 flex flex-col gap-2" aria-label={publicCopy.nav.menu}>
+        <a href="/features" onclick={closeMobileMenu} class="public-mobile-link" aria-current={$page.url.pathname === '/features' ? 'page' : undefined}>{publicCopy.nav.product}</a>
+        <a href="/how-it-works" onclick={closeMobileMenu} class="public-mobile-link" aria-current={$page.url.pathname === '/how-it-works' ? 'page' : undefined}>{publicCopy.nav.howItWorks}</a>
+        <a href="/schools" onclick={closeMobileMenu} class="public-mobile-link" aria-current={$page.url.pathname === '/schools' ? 'page' : undefined}>{publicCopy.nav.schools}</a>
+        <a href="/family-connection" onclick={closeMobileMenu} class="public-mobile-link" aria-current={$page.url.pathname === '/family-connection' ? 'page' : undefined}>{publicCopy.nav.familyConnection}</a>
+        <a href="/faq" onclick={closeMobileMenu} class="public-mobile-link" aria-current={$page.url.pathname === '/faq' ? 'page' : undefined}>{publicCopy.footer.faq}</a>
+        <a href="/contact" onclick={closeMobileMenu} class="public-mobile-link" aria-current={$page.url.pathname === '/contact' ? 'page' : undefined}>{publicCopy.footer.contact}</a>
+      </nav>
+
+      <div class="mt-6 border-t border-slate-200 pt-5">
+        <a href={currentUser ? dashboardHref : '/login'} onclick={closeMobileMenu} class="inline-flex min-h-12 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 font-bold text-slate-800 transition hover:border-violet-300 hover:text-violet-700">
+          {currentUser ? publicCopy.nav.dashboard : publicCopy.nav.staffLogin}
+        </a>
+        <a href="/pilot" onclick={closeMobileMenu} class="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 font-bold text-white transition hover:bg-violet-800">
+          {publicCopy.nav.requestPilot}
+        </a>
+      </div>
+    </div>
+  </div>
+{:else if currentUser && mobileMenuOpen}
   <div class="xl:hidden fixed inset-0 z-[100]" role="presentation">
     <button type="button" class="absolute inset-0 h-full w-full bg-slate-950/45" aria-label={$_('nav.closeMenu')} onclick={closeMobileMenu}></button>
     <div id="mobile-navigation" class="absolute inset-y-0 end-0 flex w-[min(22rem,88vw)] flex-col overflow-y-auto overscroll-contain bg-white px-5 pb-[calc(1.25rem+var(--safe-bottom))] pt-[calc(1.25rem+var(--safe-top))] shadow-2xl" role="dialog" aria-modal="true" aria-label={$_('nav.menu')}>
@@ -557,6 +695,18 @@
 
 <style>
   :global(body.mobile-menu-open) { overflow: hidden; }
+  .public-nav-link { min-height: 2.75rem; display: inline-flex; align-items: center; border-radius: .75rem; padding: .55rem .7rem; color: #475569; font-size: .8125rem; font-weight: 700; transition: color .2s, background-color .2s; }
+  .public-nav-link:hover,
+  .public-nav-link:focus-visible,
+  .public-nav-link[aria-current='page'] { background: rgb(124 58 237 / .08); color: #6d28d9; outline: none; }
+  .public-nav-link:focus-visible { box-shadow: 0 0 0 2px white, 0 0 0 4px #7c3aed; }
+  .public-mobile-link { min-height: 3rem; display: flex; align-items: center; border-radius: .9rem; padding: .8rem 1rem; color: #334155; font-size: .95rem; font-weight: 700; }
+  .public-mobile-link:hover,
+  .public-mobile-link:focus-visible,
+  .public-mobile-link[aria-current='page'] { background: rgb(124 58 237 / .08); color: #6d28d9; outline: none; }
+  .footer-link { color: #94a3b8; transition: color .2s; }
+  .footer-link:hover,
+  .footer-link:focus-visible { color: #c4b5fd; outline: none; }
   .mobile-nav-link { border-radius: .9rem; padding: .9rem 1rem; color: #334155; font-size: .95rem; font-weight: 700; }
   .mobile-nav-link:hover, .mobile-nav-link:focus-visible { background: #f0fdf4; color: #0f766e; outline: none; }
   .mobile-nav-link-active,

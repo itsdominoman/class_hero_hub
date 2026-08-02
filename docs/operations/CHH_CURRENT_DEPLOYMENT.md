@@ -1,5 +1,46 @@
 # CHH current pilot deployment
 
+## 2026-08-02 bilingual public website pilot release
+
+The CHH root now presents the complete Class Hero Hub public website rather than
+the previous placeholder. Its positioning line is `School life, clearly
+connected.` The public information architecture covers the home page, product
+overview, how it works, schools, the Family Hero Hub connection, pilot enquiries,
+FAQ, contact and support, administrator/teacher/family guides, safety and privacy,
+the Privacy Policy, Terms of Service, and data/account requests. Every surface has
+paired professional English and Arabic copy, document-level LTR/RTL switching,
+responsive navigation and the shared support address
+`support@classherohub.com`.
+
+The website keeps the product boundary explicit. CHH is for authorised school
+staff and school roles. Parents and guardians do not sign in to CHH; linked
+homework, notices, updates, school points, calendar items, surveys and School
+Chats appear in Family Hero Hub when the school enables the corresponding
+feature. FHH continues to own family, household, child and device identity, and
+family clients never call CHH directly. The coordinated FHH public-home wording
+links to the CHH family-connection explanation without changing FHH application
+behaviour.
+
+Public routes use a dedicated marketing header, compact drawer and full
+product/support/legal footer. Authenticated school routes retain the existing
+role-aware application shell and staff login. The Capacitor/native root detection
+and signed-out redirect to `/login` are preserved, so native users do not enter
+the marketing website. Pilot calls to action make no pricing promise. The legal
+pages deliberately identify the outstanding professional review of controller and
+processor roles, jurisdiction, retention, subprocessors, transfer rights,
+governing law, liability, service levels and commercial terms instead of inventing
+them.
+
+Focused validation passed Svelte check with zero errors or warnings, public-copy
+shape and CHH/FHH boundary tests, English/Arabic parity at 2,153 catalogue keys,
+the production static build and an 18-case Playwright public-route suite. The
+browser suite covers all public routes, internal links, signed-out staff login,
+English/Arabic switching, document language and direction, console/page errors,
+horizontal containment and the native root bypass. Direct visual checks at 390,
+768, 1024, 1280 and 1440 CSS pixels covered the hero, desktop and compact headers,
+mobile drawer and footer; Arabic RTL was checked at 390 pixels. No database,
+migration, backend, permission, integration protocol or native bundle changed.
+
 ## 2026-08-02 authenticated language switcher pilot release
 
 The Arabic catalogue and RTL shell were already persistent, but the only visible

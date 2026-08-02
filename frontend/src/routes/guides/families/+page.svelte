@@ -3,7 +3,7 @@
   import PublicInfoPage from '$lib/components/public/PublicInfoPage.svelte';
   import { getPublicSiteCopy } from '$lib/publicSite';
 
-  let copy = $derived(getPublicSiteCopy($locale).pages.terms);
+  let copy = $derived(getPublicSiteCopy($locale).pages.familyGuide);
 </script>
 
-<PublicInfoPage page={copy} article />
+<PublicInfoPage page={copy} />
