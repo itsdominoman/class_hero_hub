@@ -904,7 +904,7 @@ test('closed, offline, and revoked thread states remain explicit and content-saf
   await page.goto(`/messages?conversation=${conversationId}`);
   await expect(page.getByText('Read only', { exact: true })).toBeVisible();
   await expect(
-    page.getByText('This conversation is read only because current access or assignment has ended.')
+    page.getByText('This conversation is currently read-only.')
   ).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toBeDisabled();
 

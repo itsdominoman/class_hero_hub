@@ -3,9 +3,9 @@
 Status date: 2026-08-02
 Scope: implementation record for the Class Hero Hub (CHH) Capacitor Android app.
 
-## 2026-08-02 Arabic localisation pilot candidate
+## 2026-08-02 Arabic localisation pilot APK
 
-The CHH Arabic localisation candidate bundles the same production frontend assets
+The CHH Arabic localisation APK bundles the same production frontend assets
 intended for the hosted pilot. It fixes backend checklist/status/error fallbacks,
 catalogues the survey administration workflow, prefers supplied Arabic school
 structure names, and corrects logical alignment, arrows, chevrons, protected-photo
@@ -18,11 +18,51 @@ to code `14`, version name `1.12-arabic-localisation-pilot`. A signed-in hosted 
 also exposed browser-default English month names in Arabic. Platform, School setup,
 Students, Reports, teacher/guardian calendars and messaging date/time presentation
 now use the active Arabic locale while the English path remains unchanged; report
-numbers and the School setup record count follow the same rule. The candidate source
+numbers and the School setup record count follow the same rule. The final source
 passes 62 focused tests, English/Arabic parity at 2,153 keys, Svelte check with zero
-diagnostics and the production static frontend build. Final Capacitor sync, signed
-APK assembly, in-place RMX3997 installation, signer/hash checks and Drive delivery
-will be appended after physical verification; no older APK will be relabelled.
+diagnostics, the production static frontend build and an 84-case serial Playwright
+matrix spanning representative roles, navigation, School setup, messaging,
+safeguarding, recognition, surveys and bounded native routes.
+
+Capacitor sync produced byte-identical copies of every production build asset in
+Android's public bundle apart from the expected Capacitor bridge files. The hosted
+and bundled entry point has SHA-256
+`ed059965f70525f5c2ddda6bedf037fb3af1446b26ca96aba196a116e93f0bd4`.
+App-scoped `testDebugUnitTest`, `lintDebug`, `assembleDebug` and
+`assembleDebugAndroidTest` passed on Temurin 21.0.11 with Android SDK/build tools
+35. ZIP integrity, manifest/package/version inspection and v1/v2 signature
+verification passed.
+
+Final artifact:
+`/opt/apps/class_hero_hub/tmp/class-hero-hub-arabic-localisation-v1.12-code14-20260802.apk`;
+identical Windows copy at
+`C:\Users\Dom\Documents\CHH - FHH\class-hero-hub-arabic-localisation-v1.12-code14-20260802.apk`
+and Drive copy at
+`G:\My Drive\CHH\Remote\class-hero-hub-arabic-localisation-v1.12-code14-20260802.apk`.
+It is `96,323,858` bytes with SHA-256
+`2e82c67f4a9f3ac6dc9157959682490132725aad1ff717bd8ab009631e40ac3d`.
+The established signer is `C=US, O=Android, CN=Android Debug`, certificate SHA-256
+`e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`;
+v3/v4 are not used by this debug build. Remote build, Windows, Drive and the base
+APK pulled from the installed package have identical byte size and SHA-256.
+
+`adb install -r` upgraded the connected RMX3997 in place. Version code changed from
+13 to 14 while the original first-install timestamp, app-data inode and notification
+and microphone grants remained unchanged. Physical Arabic/RTL verification covered
+authenticated launch, the global drawer, School setup, platform administration,
+Behaviour & points, Students, Import & Export, Reports, Recognition, Surveys,
+Messages, System & compliance, Safeguarding and the localised teacher access
+boundary. The 360-CSS-pixel WebView had zero horizontal overflow on all checked
+routes; safe-area clearance, mirrored directions and native Back order were correct.
+A fresh-launch log contained no application/runtime or WebView console error.
+
+The installed pilot account has no teacher membership, so the true teacher route was
+validated in the passed mocked-role browser matrix while the physical app correctly
+showed the access boundary. English could not be selected from the authenticated
+route without logging out and risking the retained pilot session; English remains
+covered by hosted and browser validation. The app was left authenticated in Arabic
+on School setup. No older APK was overwritten or relabelled. Release tag:
+`chh-arabic-localisation-pilot-code14-20260802`.
 
 ## 2026-08-02 School setup drawer pilot APK
 

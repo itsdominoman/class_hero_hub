@@ -52,6 +52,7 @@ async function mockTeacherDashboard(page: Page) {
     school_name: 'Al Noor School',
     role: 'teacher'
   };
+  await page.route('**/api/auth/refresh', (route) => route.fulfill({ status: 404, json: { detail: 'No refresh required in UI test' } }));
   await page.route('**/api/me', (route) => json(route, {
     id: 5,
     name: 'Teacher One',
@@ -95,12 +96,12 @@ test('native teacher shell stays fixed and scrolls terminal controls within its 
   const header = page.locator('.app-header');
   const logo = header.getByRole('img', { name: 'Class Hero Hub' });
   const menu = header.getByRole('button', { name: 'Open menu' });
-  const appMain = page.locator('.app-main');
-  const lastClass = page.getByRole('link', { name: 'Grade 18 Home Room Main' });
+  const classList = page.getByTestId('teach-class-list');
+  const lastClass = page.getByRole('link', { name: 'G18A Home Room Main' });
   await expect(lastClass).toBeAttached();
 
   const beforeHeader = await header.boundingBox();
-  const shellMetrics = await appMain.evaluate((element) => {
+  const listMetrics = await classList.evaluate((element) => {
     const style = getComputedStyle(element);
     element.scrollTop = element.scrollHeight;
     element.dispatchEvent(new Event('scroll'));
@@ -112,10 +113,10 @@ test('native teacher shell stays fixed and scrolls terminal controls within its 
       documentScroll: window.scrollY
     };
   });
-  expect(shellMetrics.overflowY).toBe('auto');
-  expect(shellMetrics.scrollHeight).toBeGreaterThan(shellMetrics.clientHeight);
-  expect(shellMetrics.scrollTop).toBeGreaterThan(0);
-  expect(shellMetrics.documentScroll).toBe(0);
+  expect(listMetrics.overflowY).toBe('auto');
+  expect(listMetrics.scrollHeight).toBeGreaterThan(listMetrics.clientHeight);
+  expect(listMetrics.scrollTop).toBeGreaterThan(0);
+  expect(listMetrics.documentScroll).toBe(0);
 
   const afterHeader = await header.boundingBox();
   expect(afterHeader?.y).toBeCloseTo(beforeHeader?.y || 0, 0);
@@ -258,6 +259,55 @@ async function mockAuthenticatedRouteAudit(page: Page) {
       await json(route, { categories: [] });
       return;
     }
+    if (path.endsWith('/school/messaging-policy')) {
+      await json(route, {
+        enabled: true,
+        guardian_replies_enabled: true,
+        delivery_receipts_visible: true,
+        read_receipts_visible: true,
+        allow_staff_out_of_hours_opt_in: false,
+        teachers_may_mark_urgent: false,
+        contact_hours_enabled: false,
+        notification_delay_mode: 'delay_notifications_only',
+        notification_preview_mode: 'generic',
+        retention_days: 365,
+        email_mode: 'off',
+        policy_version: 1
+      });
+      return;
+    }
+    if (path.endsWith('/school/messaging-contact-hours')) {
+      await json(route, {
+        school_id: 7,
+        school_timezone: 'Asia/Muscat',
+        policy_version: 1,
+        enabled: false,
+        notification_delay_mode: 'delay_notifications_only',
+        allow_staff_out_of_hours_opt_in: false,
+        teachers_may_mark_urgent: false,
+        weekly_windows: [],
+        exceptions: []
+      });
+      return;
+    }
+    if (path.endsWith('/school/points-notification-policy')) {
+      await json(route, {
+        school_id: 7,
+        school_timezone: 'Asia/Muscat',
+        mode: 'off',
+        daily_enabled: false,
+        weekly_enabled: false,
+        monthly_enabled: false,
+        week_starts_on: 1,
+        week_ends_on: 7,
+        weekly_summary_day: 7,
+        daily_summary_time: '15:00:00',
+        weekly_summary_time: '15:00:00',
+        monthly_summary_time: '15:00:00',
+        policy_version: 1
+      });
+      return;
+    }
     if (path.includes('/school/reports/behaviour/overview')) {
       await json(route, {
         metrics: {
@@ -305,8 +355,8 @@ async function mockAuthenticatedRouteAudit(page: Page) {
   });
 }
 
-async function scrollShellToEnd(page: Page) {
-  await page.locator('.app-main').evaluate((element) => {
+async function scrollToEnd(locator: Locator) {
+  await locator.evaluate((element) => {
     element.scrollTop = element.scrollHeight;
     element.dispatchEvent(new Event('scroll'));
   });
@@ -327,30 +377,32 @@ test('bounded native route scroller keeps final class, student, setup, and Repor
   await expect(page.getByRole('heading', { name: 'My classes' })).toBeVisible();
   const finalClass = page.locator('a[href="/teach/assignments/18"]').first();
   await expect(finalClass).toBeAttached();
-  await scrollShellToEnd(page);
+  await scrollToEnd(page.getByTestId('teach-class-list'));
   await expectAboveNavigation(finalClass);
 
   await page.goto('/teach/assignments/77', { waitUntil: 'domcontentloaded' });
   const finalStudent = page.getByRole('button', { name: 'Award behaviour to Student 30 Audit' });
   await expect(finalStudent).toBeAttached();
-  await scrollShellToEnd(page);
+  await scrollToEnd(page.locator('.app-main'));
   await expectAboveNavigation(finalStudent);
 
   await page.goto('/school', { waitUntil: 'domcontentloaded' });
   const finalSetupCard = page.getByRole('heading', { name: 'Setup card 24' }).locator('..').locator('..');
   await expect(finalSetupCard).toBeAttached();
-  await scrollShellToEnd(page);
+  await scrollToEnd(page.locator('.app-main'));
   await expectAboveNavigation(finalSetupCard);
 
-  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Open menu' }).click();
+  const schoolNavigation = page.getByRole('dialog', { name: 'Menu' }).getByRole('navigation', { name: 'School setup navigation' });
+  await schoolNavigation.getByRole('link', { name: 'School settings', exact: true }).click();
   const finalSetupControl = page.getByRole('button', { name: 'Enable voice notes' });
   await expect(finalSetupControl).toBeAttached();
-  await scrollShellToEnd(page);
+  await scrollToEnd(page.locator('.app-main'));
   await expectAboveNavigation(finalSetupControl);
 
   await page.goto('/school/reports', { waitUntil: 'domcontentloaded' });
   const finalReportControl = page.locator('.report-launcher').last();
   await expect(finalReportControl).toBeAttached();
-  await scrollShellToEnd(page);
+  await scrollToEnd(page.locator('.app-main'));
   await expectAboveNavigation(finalReportControl);
 });

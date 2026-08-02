@@ -62,15 +62,15 @@ async function mockApis(page: Page, membership: typeof adminMembership | typeof 
   });
 }
 
-test('teacher does not see Administration while an ordinary administrator sees only authorised cards', async ({ page }) => {
+test('teacher does not see System & compliance while an ordinary administrator sees only authorised cards', async ({ page }) => {
   await mockApis(page, teacherMembership);
   await page.goto('/');
-  await expect(page.getByRole('link', { name: 'Administration' })).not.toBeVisible();
+  await expect(page.getByRole('link', { name: 'System & compliance' })).not.toBeVisible();
 
   await page.unroute('**/api/**');
   await mockApis(page, adminMembership, false);
   await page.goto('/school/administration');
-  await expect(page.getByRole('link', { name: 'Administration' }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'System & compliance' }).first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'System status' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Compliance / Feature controls' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Advanced operations' })).not.toBeVisible();

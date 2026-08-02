@@ -1,6 +1,6 @@
 # CHH current pilot deployment
 
-## 2026-08-02 Arabic localisation audit release candidate
+## 2026-08-02 Arabic localisation audit pilot release
 
 The CHH-wide Arabic audit found three localisation gaps that ordinary catalogue
 parity could not detect. School setup checklist labels came from English backend
@@ -8,22 +8,21 @@ display strings and were rendered verbatim; survey administration kept much of i
 system copy inline in English; and several school, class, subject, status, role and
 result components displayed API values directly despite an active Arabic locale.
 Unknown English backend error details could also pass through the shared API client.
-The signed-in pilot audit additionally found that several CHH date, time and report
-number formatters asked the browser for its default locale, so Arabic pages could
-still show English month names. Those formatters now select Arabic only in Arabic
-mode and retain the previous browser-default formatting in English mode.
+The signed-in pilot audit additionally found date, time and report-number formatters
+using the browser default locale, so Arabic pages could still show English month
+names. Those formatters now select Arabic only in Arabic mode and retain the
+previous browser-default formatting in English mode.
 
-The release candidate maps the stable School setup checklist keys, invitation and
-plan result values to paired catalogue entries, moves all survey composer/results
-system copy and accessibility labels into the shared catalogue, and prevents an
-English backend error fallback from appearing in Arabic mode. Platform, School
-setup, Students and Import & Export, Behaviour & points, Reports, Recognition,
-Surveys, Messages, Safeguarding, System & compliance and teacher/class surfaces
-were checked for literal visible text and physical-direction CSS. Shared controls
-now use logical start/end positioning; directional arrows and chevrons mirror in
-RTL; and the protected-message photo viewer reverses its visual, keyboard and swipe
-directions in Arabic. English rendering paths retain their previous wording and API
-values.
+The release maps stable School setup checklist keys, invitation and plan result
+values to paired catalogue entries, moves all survey composer/results system copy
+and accessibility labels into the shared catalogue, and prevents English backend
+error fallbacks from appearing in Arabic mode. Platform, School setup, Students and
+Import & Export, Behaviour & points, Reports, Recognition, Surveys, Messages,
+Safeguarding, System & compliance and teacher/class surfaces were checked for
+literal visible text and physical-direction CSS. Shared controls now use logical
+start/end positioning; arrows and chevrons mirror in RTL; and protected-message
+photo navigation reverses its visual, keyboard and swipe directions in Arabic.
+English rendering paths retain their previous wording and API values.
 
 Arabic display prefers an existing `name_ar` for schools, branches, years, stages,
 grades, classes, subjects and subject groups. If a school has not supplied an
@@ -34,15 +33,74 @@ controlled educational terms use `السنوات الدراسية`, `المرا�
 `الصفوف/المستويات الدراسية`, `الشعب` and `مجموعات المواد`; the survey workflow uses
 `الاستجابات`, `معدل الاستجابة`, `وحدة الاستجابة` and `مقياس تقييم`.
 
-Release-candidate validation passes 62 focused localisation, School setup, student,
-teacher, survey, messaging, recognition and navigation tests; English/Arabic parity
-at 2,153 keys per locale; Svelte check with zero errors or warnings; and the
-production static frontend build. No backend, database, route, permission or
-migration change is included. The Android package remains
-`com.classherohub.app`; the candidate increments it from code 13 to code 14 with
-version name `1.12-arabic-localisation-pilot`. Hosted deployment, responsive signed-in
-role checks and physical RMX3997 installation/verification are recorded here after
-completion.
+Implementation commits `209655e` and `0e1e499` were deployed by rebuilding and
+recreating only the pilot frontend. All services are healthy; loopback and public
+frontend checks return HTTP 200 and readiness reports `database=ok` and
+`migration=current`. The backend, PostgreSQL, scheduler and messaging production
+worker were not rebuilt or restarted. There is no schema, migration, configuration,
+route, permission or data change, so no database backup or rollback action was
+required.
+
+Validation passed 62 focused localisation, School setup, student, teacher, survey,
+messaging, recognition and navigation tests; English/Arabic parity at 2,153 keys per
+locale; Svelte check with zero errors or warnings; and the production static frontend
+build. A final 84-case serial Playwright matrix passed navigation and URL state,
+School setup, administration, messaging, safeguarding, recognition, survey/mobile
+workspaces and native shell behaviour. Its English/Arabic checks cover 390, 768,
+1024, 1280 and 1440 CSS pixels where applicable, Android Back order and horizontal
+containment.
+
+A signed-in hosted audit covered representative platform-administrator and
+school-administrator routes at mobile, tablet and desktop widths in Arabic/RTL, plus
+an English/LTR desktop control. Platform, School setup, Behaviour & points, Students,
+Student Import & Export, Reports, Recognition, Surveys, Messages, System &
+compliance and Safeguarding had no horizontal overflow or unexplained English system
+labels. The current pilot account has no teacher membership, so the live `/teach`
+check correctly showed the localised access boundary; the true teacher role and
+class workflow are covered by the passed mocked-role browser matrix. The visible
+`United International School` and restored guardian-survey title are intentional
+school-entered data, not system-text fallbacks.
+
+The bundled code-14 frontend and hosted build come from the same final application
+source. Capacitor's copied public assets are byte-identical to the production build
+counterparts apart from its expected bridge files, including an identical
+`index.html` SHA-256 of
+`ed059965f70525f5c2ddda6bedf037fb3af1446b26ca96aba196a116e93f0bd4`.
+
+### Arabic localisation pilot APK
+
+- Package `com.classherohub.app`; version code `14`; version name
+  `1.12-arabic-localisation-pilot`; min SDK 23 and compile/target SDK 35.
+- Artifact:
+  `/opt/apps/class_hero_hub/tmp/class-hero-hub-arabic-localisation-v1.12-code14-20260802.apk`;
+  identical Drive copy at
+  `G:\My Drive\CHH\Remote\class-hero-hub-arabic-localisation-v1.12-code14-20260802.apk`.
+- Size `96,323,858` bytes; SHA-256
+  `2e82c67f4a9f3ac6dc9157959682490132725aad1ff717bd8ab009631e40ac3d`.
+- Android Debug signer DN `C=US, O=Android, CN=Android Debug`; certificate SHA-256
+  `e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
+  APK signature schemes v1 and v2 verify; v3/v4 are not used by this debug build.
+- `testDebugUnitTest`, `lintDebug`, `assembleDebug` and
+  `assembleDebugAndroidTest` passed on Temurin 21.0.11 and Android SDK/build tools
+  35. ZIP integrity, package/version, signer and source/local/Drive hashes passed.
+
+`adb install -r` upgraded the RMX3997 from code 13 without uninstalling. The original
+first-install timestamp, app-data inode and notification/microphone grants were
+preserved; the pulled installed base APK is byte-for-byte identical to the delivered
+file. Physical Arabic/RTL verification covered launch into the authenticated School
+setup workspace, the full drawer hierarchy, School setup, platform administration,
+Behaviour & points, Students, Import & Export, Reports, Recognition, Surveys,
+Messages, System & compliance, Safeguarding and the teacher access boundary. The
+360-CSS-pixel WebView reported zero horizontal overflow on every checked route;
+safe areas, RTL order, mirrored controls and drawer-first/native route Back behaviour
+were correct, and a fresh-launch log contained no application/runtime or WebView
+console error. The app was left authenticated in Arabic on School setup.
+
+Physical English switching was intentionally not attempted because this authenticated
+route exposes no language selector and logging out would discard the retained pilot
+session. English mode is instead covered by the passed source, browser matrix and
+signed-in hosted checks. No production environment was touched. Release tag:
+`chh-arabic-localisation-pilot-code14-20260802`.
 
 ## 2026-08-02 compact School setup navigation
 

@@ -158,7 +158,7 @@ test('mobile School setup uses the app drawer and reveals selected content immed
   await navigation.getByRole('link', { name: 'Behaviour & points', exact: true }).click();
   await expect(dialog).not.toBeVisible();
   await expect(page).toHaveURL(/tab=behaviour/);
-  const content = page.getByRole('link', { name: 'Open reports →', exact: true });
+  const content = page.getByRole('link', { name: 'Open reports', exact: true });
   await expect(content).toBeVisible();
   expect((await content.boundingBox())?.y ?? 900).toBeLessThan(844);
   await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
@@ -189,7 +189,7 @@ test('mixed-role administrator retains the same School setup hierarchy', async (
   const dialog = await openCompactMenu(page);
   const navigation = dialog.locator('nav[aria-label="School setup navigation"]');
   await expect(navigation.getByRole('link', { name: 'Behaviour & points', exact: true })).toHaveAttribute('aria-current', 'page');
-  await expect(page.getByRole('link', { name: 'Open reports →', exact: true })).toHaveAttribute('href', '/school/reports');
+  await expect(page.getByRole('link', { name: 'Open reports', exact: true })).toHaveAttribute('href', '/school/reports');
   await expect(navigation.locator('a')).toHaveCount(20);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
