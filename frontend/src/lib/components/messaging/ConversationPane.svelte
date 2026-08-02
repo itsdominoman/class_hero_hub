@@ -172,7 +172,7 @@
   }
 
   function formatDate(value: string) {
-    return new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat($locale === 'ar' ? 'ar' : undefined, {
       dateStyle: 'medium',
       timeStyle: 'short'
     }).format(new Date(value));

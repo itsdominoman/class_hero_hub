@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { _ } from 'svelte-i18n';
+  import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
   import { initialsFromStudentName } from '$lib/guardianDisplay';
 
@@ -218,12 +218,12 @@
 
   function formatDate(value?: string | null) {
     if (!value) return '';
-    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value));
+    return new Intl.DateTimeFormat($locale === 'ar' ? 'ar' : undefined, { dateStyle: 'medium' }).format(new Date(value));
   }
 
   function formatDateTime(value?: string | null) {
     if (!value) return '';
-    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+    return new Intl.DateTimeFormat($locale === 'ar' ? 'ar' : undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
   }
 
   function attachmentLabel(attachment: AnnouncementAttachment) {
@@ -300,8 +300,8 @@
   }
   function formatEventDate(item: CalendarItem) {
     const options: Intl.DateTimeFormatOptions = item.all_day ? { dateStyle: 'medium' } : { dateStyle: 'medium', timeStyle: 'short' };
-    let label = new Intl.DateTimeFormat(undefined, options).format(new Date(item.starts_at));
-    if (item.ends_at && !item.all_day) label += ` – ${new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(new Date(item.ends_at))}`;
+    let label = new Intl.DateTimeFormat($locale === 'ar' ? 'ar' : undefined, options).format(new Date(item.starts_at));
+    if (item.ends_at && !item.all_day) label += ` – ${new Intl.DateTimeFormat($locale === 'ar' ? 'ar' : undefined, { timeStyle: 'short' }).format(new Date(item.ends_at))}`;
     return label;
   }
   function compactCalendarItems() {

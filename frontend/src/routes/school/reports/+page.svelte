@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { _ } from 'svelte-i18n';
+  import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
 
   type Membership = { school_id: number; school_name: string; role: string };
@@ -223,8 +223,9 @@
     return params.toString() ? `?${params}` : '';
   }
 
-  const number = (value: number | undefined) => new Intl.NumberFormat().format(value || 0);
-  const percent = (value: number | undefined) => new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 }).format(value || 0);
+  const number = (value: number | undefined) => new Intl.NumberFormat($locale === 'ar' ? 'ar' : undefined).format(value || 0);
+  const percent = (value: number | undefined) => new Intl.NumberFormat($locale === 'ar' ? 'ar' : undefined, { style: 'percent', maximumFractionDigits: 1 }).format(value || 0);
+  const dateTime = (value: string) => new Date(value).toLocaleString($locale === 'ar' ? 'ar' : undefined);
   const dutyLabel = (value: string) => $_(`parent.points.duty.${value}`);
   const categoryTypeLabel = (value: string) => value === 'positive' ? $_('reports.positive') : $_('reports.needsWork');
   const measureLabel = (value: MatrixOrderBy) => $_(`reports.measures.${value}`);
@@ -777,7 +778,7 @@
 {/snippet}
 
 {#snippet EventsTable()}
-  <div class="mt-5 overflow-x-auto">{#if eventsLoading}<p class="py-4 text-sm text-slate-500">{$_('reports.loading')}</p>{:else if !eventRows.length}<p class="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">{$_('reports.noEvents')}</p>{:else}<table><thead><tr><th>{$_('reports.date')}</th><th>{$_('reports.student')}</th><th>{$_('reports.category')}</th><th>{$_('reports.points')}</th><th>{$_('reports.context')}</th><th>{$_('reports.staff')}</th></tr></thead><tbody>{#each eventRows as event}<tr><td>{new Date(event.created_at).toLocaleString()}</td><td>{event.student_display_name}</td><td>{event.category_label}<span class:positive-badge={event.category_type === 'positive'} class:needs-work-badge={event.category_type === 'needs_work'} class="badge">{categoryTypeLabel(event.category_type)}</span></td><td>{number(event.points_delta)}</td><td>{event.class_section_name || event.subject_name || (event.duty_context ? dutyLabel(event.duty_context) : $_(`reports.contextTypes.${event.context_type}`))}</td><td>{event.staff_display_name || $_('reports.staffMember')}</td></tr>{/each}</tbody></table><div class="mt-4 flex items-center justify-between gap-3"><button class="pagination-button" disabled={eventOffset === 0} onclick={() => void loadEvents(Math.max(0, eventOffset - 25))}>{$_('reports.previous')}</button><span class="text-sm text-slate-500">{$_('reports.pagination', { values: { from: eventOffset + 1, to: Math.min(eventOffset + eventRows.length, eventTotal), total: eventTotal } })}</span><button class="pagination-button" disabled={eventOffset + eventRows.length >= eventTotal} onclick={() => void loadEvents(eventOffset + 25)}>{$_('reports.next')}</button></div>{/if}</div>
+  <div class="mt-5 overflow-x-auto">{#if eventsLoading}<p class="py-4 text-sm text-slate-500">{$_('reports.loading')}</p>{:else if !eventRows.length}<p class="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">{$_('reports.noEvents')}</p>{:else}<table><thead><tr><th>{$_('reports.date')}</th><th>{$_('reports.student')}</th><th>{$_('reports.category')}</th><th>{$_('reports.points')}</th><th>{$_('reports.context')}</th><th>{$_('reports.staff')}</th></tr></thead><tbody>{#each eventRows as event}<tr><td>{dateTime(event.created_at)}</td><td>{event.student_display_name}</td><td>{event.category_label}<span class:positive-badge={event.category_type === 'positive'} class:needs-work-badge={event.category_type === 'needs_work'} class="badge">{categoryTypeLabel(event.category_type)}</span></td><td>{number(event.points_delta)}</td><td>{event.class_section_name || event.subject_name || (event.duty_context ? dutyLabel(event.duty_context) : $_(`reports.contextTypes.${event.context_type}`))}</td><td>{event.staff_display_name || $_('reports.staffMember')}</td></tr>{/each}</tbody></table><div class="mt-4 flex items-center justify-between gap-3"><button class="pagination-button" disabled={eventOffset === 0} onclick={() => void loadEvents(Math.max(0, eventOffset - 25))}>{$_('reports.previous')}</button><span class="text-sm text-slate-500">{$_('reports.pagination', { values: { from: eventOffset + 1, to: Math.min(eventOffset + eventRows.length, eventTotal), total: eventTotal } })}</span><button class="pagination-button" disabled={eventOffset + eventRows.length >= eventTotal} onclick={() => void loadEvents(eventOffset + 25)}>{$_('reports.next')}</button></div>{/if}</div>
 {/snippet}
 
 <style>

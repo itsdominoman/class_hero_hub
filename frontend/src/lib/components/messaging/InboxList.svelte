@@ -21,7 +21,7 @@
     const date = new Date(value);
     const now = new Date();
     const sameDay = date.toDateString() === now.toDateString();
-    return new Intl.DateTimeFormat(undefined, sameDay
+    return new Intl.DateTimeFormat($locale === 'ar' ? 'ar' : undefined, sameDay
       ? { hour: '2-digit', minute: '2-digit' }
       : { month: 'short', day: 'numeric' }).format(date);
   }

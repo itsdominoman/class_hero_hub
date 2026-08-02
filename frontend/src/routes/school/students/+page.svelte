@@ -253,7 +253,7 @@
   function formatDate(value?: string | null) {
     if (!value) return '—';
     const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString($locale === 'ar' ? 'ar' : undefined);
   }
 
   function studentPayload() {

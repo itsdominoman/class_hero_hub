@@ -28,7 +28,7 @@
     admin_email: ''
   });
 
-  const formatDate = (value: string) => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value));
+  const formatDate = (value: string) => new Intl.DateTimeFormat($locale === 'ar' ? 'ar' : undefined, { dateStyle: 'medium' }).format(new Date(value));
   const roleCount = (school: SchoolRow, role: string) => school.counts?.memberships_by_role?.[role] || 0;
   const schoolName = (school: SchoolRow) => $locale === 'ar' && school.name_ar ? school.name_ar : school.name;
 

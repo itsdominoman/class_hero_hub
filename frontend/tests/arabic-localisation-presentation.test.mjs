@@ -66,3 +66,27 @@ test('Arabic catalogue does not expose development TODO markers', () => {
   walk(ar);
   assert.equal(arabicValues.some((value) => value.includes('TODO')), false);
 });
+
+test('system dates, times and report numbers follow the active Arabic locale', () => {
+  const localeAwareFiles = [
+    'src/routes/platform/+page.svelte',
+    'src/routes/platform/[id]/+page.svelte',
+    'src/routes/parent/+page.svelte',
+    'src/routes/school/+page.svelte',
+    'src/routes/school/reports/+page.svelte',
+    'src/routes/school/students/+page.svelte',
+    'src/routes/teach/+page.svelte',
+    'src/routes/teach/assignments/[id]/+page.svelte',
+    'src/lib/components/messaging/InboxList.svelte',
+    'src/lib/components/messaging/ConversationPane.svelte'
+  ];
+  for (const path of localeAwareFiles) {
+    const source = read(path);
+    assert.doesNotMatch(source, /Intl\.(?:DateTime|Number)Format\(undefined/, path);
+    assert.doesNotMatch(source, /\.toLocale(?:Date)?String\(\)/, path);
+  }
+  assert.match(read('src/routes/platform/+page.svelte'), /\$locale === 'ar' \? 'ar' : undefined/);
+  assert.match(read('src/routes/school/reports/+page.svelte'), /new Intl\.NumberFormat\(\$locale === 'ar'/);
+  assert.equal(en.school.recordCount, '{count} records');
+  assert.equal(ar.school.recordCount, 'عدد السجلات: {count}');
+});

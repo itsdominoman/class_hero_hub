@@ -1968,14 +1968,14 @@
     if (!value) return '';
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return value;
-    return parsed.toLocaleDateString();
+    return parsed.toLocaleDateString($locale === 'ar' ? 'ar' : undefined);
   }
 
   function formatDateTime(value?: string | null) {
     if (!value) return '';
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return value;
-    return parsed.toLocaleString();
+    return parsed.toLocaleString($locale === 'ar' ? 'ar' : undefined);
   }
 
   async function loadClassRoster(showValidation = true) {
@@ -2713,7 +2713,7 @@
   }
 
   function formatCalendarDate(event: CalendarEvent) {
-    return new Intl.DateTimeFormat(undefined, event.all_day ? { dateStyle: 'medium' } : { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(event.starts_at));
+    return new Intl.DateTimeFormat($locale === 'ar' ? 'ar' : undefined, event.all_day ? { dateStyle: 'medium' } : { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(event.starts_at));
   }
 
   async function loadCalendar() {
@@ -3006,7 +3006,7 @@
                   {/if}
                   <div>
                     <h2 class="font-bold text-slate-900">{checklistLabel(item)}</h2>
-                    <p class="mt-1 text-sm text-slate-500">{item.count} {$_('school.records')}</p>
+                    <p class="mt-1 text-sm text-slate-500">{$_('school.recordCount', { values: { count: item.count } })}</p>
                     {#if !item.required}
                       <p class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('school.optional')}</p>
                     {/if}

@@ -14,8 +14,12 @@ School-entered names and content are never translated; `name_ar` is preferred wh
 present and the exact supplied value is the deliberate fallback.
 
 The Android configuration advances package `com.classherohub.app` from code `13`
-to code `14`, version name `1.12-arabic-localisation-pilot`. The candidate source
-passes 57 focused tests, English/Arabic parity at 2,152 keys, Svelte check with zero
+to code `14`, version name `1.12-arabic-localisation-pilot`. A signed-in hosted pass
+also exposed browser-default English month names in Arabic. Platform, School setup,
+Students, Reports, teacher/guardian calendars and messaging date/time presentation
+now use the active Arabic locale while the English path remains unchanged; report
+numbers and the School setup record count follow the same rule. The candidate source
+passes 62 focused tests, English/Arabic parity at 2,153 keys, Svelte check with zero
 diagnostics and the production static frontend build. Final Capacitor sync, signed
 APK assembly, in-place RMX3997 installation, signer/hash checks and Drive delivery
 will be appended after physical verification; no older APK will be relabelled.

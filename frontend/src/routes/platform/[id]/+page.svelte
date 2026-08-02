@@ -37,7 +37,7 @@
   let inviteEmail = $state('');
   let reason = $state('');
 
-  const formatDate = (value?: string | null) => value ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '-';
+  const formatDate = (value?: string | null) => value ? new Intl.DateTimeFormat($locale === 'ar' ? 'ar' : undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '-';
   const roleCount = (role: string) => school?.counts?.memberships_by_role?.[role] || 0;
 
   async function loadSchool() {

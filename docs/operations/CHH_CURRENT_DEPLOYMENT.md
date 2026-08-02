@@ -8,6 +8,10 @@ display strings and were rendered verbatim; survey administration kept much of i
 system copy inline in English; and several school, class, subject, status, role and
 result components displayed API values directly despite an active Arabic locale.
 Unknown English backend error details could also pass through the shared API client.
+The signed-in pilot audit additionally found that several CHH date, time and report
+number formatters asked the browser for its default locale, so Arabic pages could
+still show English month names. Those formatters now select Arabic only in Arabic
+mode and retain the previous browser-default formatting in English mode.
 
 The release candidate maps the stable School setup checklist keys, invitation and
 plan result values to paired catalogue entries, moves all survey composer/results
@@ -30,9 +34,9 @@ controlled educational terms use `السنوات الدراسية`, `المرا�
 `الصفوف/المستويات الدراسية`, `الشعب` and `مجموعات المواد`; the survey workflow uses
 `الاستجابات`, `معدل الاستجابة`, `وحدة الاستجابة` and `مقياس تقييم`.
 
-Release-candidate validation passes 57 focused localisation, School setup, student,
+Release-candidate validation passes 62 focused localisation, School setup, student,
 teacher, survey, messaging, recognition and navigation tests; English/Arabic parity
-at 2,152 keys per locale; Svelte check with zero errors or warnings; and the
+at 2,153 keys per locale; Svelte check with zero errors or warnings; and the
 production static frontend build. No backend, database, route, permission or
 migration change is included. The Android package remains
 `com.classherohub.app`; the candidate increments it from code 13 to code 14 with
