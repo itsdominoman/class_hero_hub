@@ -1,4 +1,6 @@
 import { normalizeErrorMessage } from '$lib/errors';
+import { get } from 'svelte/store';
+import { _, locale } from 'svelte-i18n';
 import {
   clearNativeSession,
   getNativeAccessToken,
@@ -48,6 +50,12 @@ function buildApiUrl(path: string): string {
 }
 
 let refreshPromise: Promise<boolean> | null = null;
+
+function localizedApiError(message: string) {
+  return get(locale) === 'ar' && /[A-Za-z]/.test(message)
+    ? get(_)('common.requestFailed')
+    : message;
+}
 
 async function refreshAuthSession(): Promise<boolean> {
   if (refreshPromise) return refreshPromise;
@@ -111,13 +119,17 @@ async function throwForErrorResponse(res: Response): Promise<never> {
 
   if (contentType.includes('application/json')) {
     const error = await res.json().catch(() => ({ detail: 'Request failed' }));
-    const requestError = new Error(normalizeErrorMessage(error, 'Request failed')) as Error & { status?: number };
+    const normalized = normalizeErrorMessage(error, 'Request failed');
+    const message = localizedApiError(normalized);
+    const requestError = new Error(message) as Error & { status?: number };
     requestError.status = res.status;
     throw requestError;
   }
 
   const text = await res.text().catch(() => '');
-  const requestError = new Error(normalizeErrorMessage(text, `Request failed with status ${res.status}`)) as Error & { status?: number };
+  const normalized = normalizeErrorMessage(text, `Request failed with status ${res.status}`);
+  const message = localizedApiError(normalized);
+  const requestError = new Error(message) as Error & { status?: number };
   requestError.status = res.status;
   throw requestError;
 }
@@ -160,7 +172,7 @@ async function request(path: string, options: RequestInit = {}) {
   const contentType = res.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
     const text = await res.text().catch(() => '');
-    throw new Error(`Expected JSON response but received ${contentType || 'unknown content type'}: ${text.slice(0, 120)}`);
+    throw new Error(localizedApiError(`Expected JSON response but received ${contentType || 'unknown content type'}: ${text.slice(0, 120)}`));
   }
 
   return res.json();

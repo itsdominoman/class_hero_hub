@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n';
+  import { _, locale } from 'svelte-i18n';
   import { Pencil, Trash2 } from 'lucide-svelte';
 
   type Row = {
@@ -36,11 +36,15 @@
   function statusClass(status: string) {
     return status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600';
   }
+
+  function statusLabel(status: string) {
+    return $locale === 'ar' ? $_(`school.${status}`) : status;
+  }
 </script>
 
 <div class="mt-5 overflow-x-auto rounded-lg border border-slate-200">
   <table class="min-w-full divide-y divide-slate-200 text-sm">
-    <thead class="bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+    <thead class="bg-slate-50 text-start text-xs font-bold uppercase tracking-wide text-slate-500">
       <tr>
         <th class="px-3 py-2">{$_('school.code')}</th>
         <th class="px-3 py-2">{$_('school.nameEn')}</th>
@@ -57,8 +61,8 @@
           <td class="px-3 py-2">{row.name}</td>
           <td class="px-3 py-2">{row.name_ar || '-'}</td>
           <td class="px-3 py-2 text-slate-500">{extra(row)}</td>
-          <td class="px-3 py-2"><span class={`rounded-full px-2 py-1 text-xs font-bold ${statusClass(row.status)}`}>{row.status}</span></td>
-          <td class="px-3 py-2 text-right">
+          <td class="px-3 py-2"><span class={`rounded-full px-2 py-1 text-xs font-bold ${statusClass(row.status)}`}>{statusLabel(row.status)}</span></td>
+          <td class="px-3 py-2 text-end">
             <div class="inline-flex gap-1">
               <button class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-slate-900" aria-label={$_('school.edit')} onclick={() => onedit(row)}>
                 <Pencil class="h-4 w-4" />

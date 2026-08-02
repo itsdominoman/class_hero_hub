@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { _ } from 'svelte-i18n';
+  import { _, locale } from 'svelte-i18n';
   import type { MessagePhoto } from '$lib/messaging/types';
 
   let { photos, index = $bindable(0), load, onclose }: {
@@ -79,7 +79,7 @@
     if (single && start && scale === 1) {
       const dx = event.clientX - start.x;
       const dy = event.clientY - start.y;
-      if (Math.abs(dx) > 56 && Math.abs(dx) > Math.abs(dy)) move(dx < 0 ? 1 : -1);
+      if (Math.abs(dx) > 56 && Math.abs(dx) > Math.abs(dy)) move((dx < 0 ? 1 : -1) * ($locale === 'ar' ? -1 : 1));
     }
     gestureStart = null; pinchStart = null; clampPan();
   }
@@ -90,8 +90,8 @@
   }
   function keydown(event: KeyboardEvent) {
     if (event.key === 'Escape') onclose();
-    else if (event.key === 'ArrowLeft') move(-1);
-    else if (event.key === 'ArrowRight') move(1);
+    else if (event.key === 'ArrowLeft') move($locale === 'ar' ? 1 : -1);
+    else if (event.key === 'ArrowRight') move($locale === 'ar' ? -1 : 1);
   }
 
   $effect(() => { photos[index]?.id; void fetchFull(); });
@@ -109,12 +109,12 @@
     <button type="button" onclick={onclose} class="grid h-11 w-11 place-items-center rounded-full bg-white/10 text-xl" aria-label={$_('messaging.closePhoto')}>×</button>
   </header>
   <div bind:this={stage} role="group" aria-label={$_('messaging.photoViewer')} class="relative flex min-h-0 flex-1 select-none items-center justify-center overflow-hidden p-3 pb-[calc(0.75rem+var(--safe-bottom))]" style="touch-action:none" onpointerdown={pointerDown} onpointermove={pointerMove} onpointerup={pointerUp} onpointercancel={pointerUp} ondblclick={doubleClick}>
-    <button type="button" onclick={() => move(-1)} disabled={index === 0} class="absolute left-3 z-10 hidden h-11 w-11 place-items-center rounded-full bg-black/45 text-2xl disabled:opacity-20 sm:grid" aria-label={$_('messaging.previousPhoto')}>â€¹</button>
+    <button type="button" onclick={() => move(-1)} disabled={index === 0} class="absolute start-3 z-10 hidden h-11 w-11 place-items-center rounded-full bg-black/45 text-2xl disabled:opacity-20 sm:grid" aria-label={$_('messaging.previousPhoto')}><span class="inline-block rtl:-scale-x-100" aria-hidden="true">‹</span></button>
     {#if photoState === 'ready'}
       <img src={objectUrl} alt={$_('messaging.photoAlt', { values: { number: index + 1 } })} draggable="false" class="block max-h-full max-w-full origin-center object-contain will-change-transform" style:transform={`translate3d(${translateX}px,${translateY}px,0) scale(${scale})`} />
     {:else if photoState === 'failed'}
-      <button type="button" onclick={fetchFull} class="rounded-2xl bg-white/10 px-5 py-4 text-sm font-bold">{$_('messaging.photoUnavailable')} Â· {$_('messaging.retry')}</button>
+      <button type="button" onclick={fetchFull} class="rounded-2xl bg-white/10 px-5 py-4 text-sm font-bold">{$_('messaging.photoUnavailable')} · {$_('messaging.retry')}</button>
     {:else}<span class="h-10 w-10 animate-spin rounded-full border-4 border-white/30 border-t-white" aria-label={$_('messaging.loadingPhoto')}></span>{/if}
-    <button type="button" onclick={() => move(1)} disabled={index === photos.length - 1} class="absolute right-3 z-10 hidden h-11 w-11 place-items-center rounded-full bg-black/45 text-2xl disabled:opacity-20 sm:grid" aria-label={$_('messaging.nextPhoto')}>â€º</button>
+    <button type="button" onclick={() => move(1)} disabled={index === photos.length - 1} class="absolute end-3 z-10 hidden h-11 w-11 place-items-center rounded-full bg-black/45 text-2xl disabled:opacity-20 sm:grid" aria-label={$_('messaging.nextPhoto')}><span class="inline-block rtl:-scale-x-100" aria-hidden="true">›</span></button>
   </div>
 </div>

@@ -70,7 +70,7 @@
 
   const emptyForm = () => ({
     recognition_type: 'star_of_week' as const,
-    name: 'Star of the Week',
+    name: $_('recognitionPage.defaultName'),
     scope_type: 'class' as 'branch' | 'grade' | 'class',
     scope_ref_id: '',
     review_period_days: 7,
@@ -80,8 +80,8 @@
     needs_work_safeguard_enabled: false,
     maximum_needs_work_events: 0,
     needs_work_category_ids: [] as number[],
-    certificate_title: 'Star of the Week',
-    signatory_text: 'Head of School',
+    certificate_title: $_('recognitionPage.defaultName'),
+    signatory_text: $_('recognitionPage.defaultSignatory'),
     active: true
   });
 
@@ -221,7 +221,7 @@
   }
 
   function configOptionLabel(config: RecognitionConfig) {
-    return `${config.name} · ${config.scope.name} · ${config.minimum_positive_points} ${$_('recognitionPage.positivePoints')} · ${config.shortlist_size}`;
+    return `${config.name} · ${optionName(config.scope)} · ${config.minimum_positive_points} ${$_('recognitionPage.positivePoints')} · ${config.shortlist_size}`;
   }
 
   async function reloadConfigs() {
@@ -535,7 +535,7 @@
 
 <section class="recognition-page mx-auto max-w-7xl px-4 py-8">
   <div class="no-print">
-    <a href="/school/administration" class="text-sm font-bold text-hero">← {$_('recognitionPage.back')}</a>
+    <a href="/school/administration" class="text-sm font-bold text-hero"><span class="inline-block rtl:-scale-x-100" aria-hidden="true">←</span> {$_('recognitionPage.back')}</a>
     <p class="eyebrow mt-4">{$_('recognitionPage.eyebrow')}</p>
     <h1 class="mt-2 text-3xl font-black text-slate-900">{$_('recognitionPage.title')}</h1>
     <p class="mt-2 max-w-3xl text-slate-600">{$_('recognitionPage.intro')}</p>
@@ -618,7 +618,7 @@
             {#if selectedConfig()}
               {@const config = selectedConfig()!}
               <dl class="mt-4 grid grid-cols-2 gap-3 rounded-xl border border-sky-100 bg-sky-50 p-4 text-sm text-sky-950">
-                <div><dt class="font-black">{$_('recognitionPage.scope')}</dt><dd>{config.scope.name}</dd></div>
+                <div><dt class="font-black">{$_('recognitionPage.scope')}</dt><dd>{optionName(config.scope)}</dd></div>
                 <div><dt class="font-black">{$_('recognitionPage.reviewDays')}</dt><dd>{config.review_period_days} {$_('recognitionPage.days')}</dd></div>
                 <div><dt class="font-black">{$_('recognitionPage.minimumPoints')}</dt><dd>{config.minimum_positive_points}</dd></div>
                 <div><dt class="font-black">{$_('recognitionPage.shortlistSize')}</dt><dd>{config.shortlist_size}</dd></div>
@@ -637,7 +637,7 @@
             <div class="mt-3 space-y-3">
               {#each visibleConfigs() as config}
                 <article class={`rounded-xl border p-3 ${config.status === 'active' ? 'border-emerald-200 bg-emerald-50/40' : config.status === 'archived' ? 'border-slate-200 bg-slate-100' : 'border-amber-200 bg-amber-50/40'}`}>
-                  <div class="flex flex-wrap items-start justify-between gap-2"><div><h3 class="font-black text-slate-900">{config.name}</h3><p class="mt-1 text-sm text-slate-600">{config.scope.name} · {config.review_period_days} {$_('recognitionPage.days')} · {config.minimum_positive_points} {$_('recognitionPage.positivePoints')} · {config.shortlist_size} {$_('recognitionPage.shortlistPlaces')}</p></div><span class="rounded-full bg-white px-2 py-1 text-xs font-bold text-slate-600">{$_(`recognitionPage.configStatus.${config.status}`)}</span></div>
+                  <div class="flex flex-wrap items-start justify-between gap-2"><div><h3 class="font-black text-slate-900">{config.name}</h3><p class="mt-1 text-sm text-slate-600">{optionName(config.scope)} · {config.review_period_days} {$_('recognitionPage.days')} · {config.minimum_positive_points} {$_('recognitionPage.positivePoints')} · {config.shortlist_size} {$_('recognitionPage.shortlistPlaces')}</p></div><span class="rounded-full bg-white px-2 py-1 text-xs font-bold text-slate-600">{$_(`recognitionPage.configStatus.${config.status}`)}</span></div>
                   <p class="mt-1 text-xs font-semibold text-slate-600">{config.needs_work_safeguard_enabled ? $_('recognitionPage.safeguardEnabledSummary', { values: { count: config.maximum_needs_work_events } }) : $_('recognitionPage.safeguardOff')}</p>
                   {#if config.status === 'archived'}<p class="mt-2 text-xs text-slate-600">{$_('recognitionPage.archiveReason')}: {config.archive_reason}</p>{/if}
                   {#if config.status !== 'archived'}
@@ -670,7 +670,7 @@
               <span class="mt-2 inline-block rounded-full bg-white px-2 py-1 text-xs font-black text-slate-700">{statusLabel(review.status)}</span>
               {#if review.status === 'archived'}<p class="mt-2 text-xs text-slate-600">{$_('recognitionPage.archiveReason')}: {review.archive_reason}</p>{/if}
               <div class="mt-3 flex flex-wrap gap-2">
-                <button type="button" class="review-card-action rounded-lg border border-current px-3 py-2 text-sm font-black" aria-pressed={currentReview?.id === review.id} onclick={() => openReview(review.id)}>{$_('recognitionPage.openReview')} <span aria-hidden="true">→</span></button>
+                <button type="button" class="review-card-action rounded-lg border border-current px-3 py-2 text-sm font-black" aria-pressed={currentReview?.id === review.id} onclick={() => openReview(review.id)}>{$_('recognitionPage.openReview')} <span class="inline-block rtl:-scale-x-100" aria-hidden="true">→</span></button>
                 {#if review.status === 'draft'}<button type="button" class="rounded-lg border border-slate-400 px-3 py-2 text-sm font-bold text-slate-700" onclick={() => beginDiscardReview(review)}>{$_('recognitionPage.discardReview')}</button>{/if}
               </div>
             </article>
@@ -680,7 +680,7 @@
 
       {#if currentReview}
         <section class="card mt-6 p-6 focus:outline-none focus-visible:ring-4 focus-visible:ring-hero/30" bind:this={decisionSection} tabindex="-1" aria-labelledby="recognition-decision-title">
-          <button type="button" class="mb-4 text-sm font-bold text-hero hover:underline" onclick={backToReviews}>← {$_('recognitionPage.recentReviews')}</button>
+          <button type="button" class="mb-4 text-sm font-bold text-hero hover:underline" onclick={backToReviews}><span class="inline-block rtl:-scale-x-100" aria-hidden="true">←</span> {$_('recognitionPage.recentReviews')}</button>
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div><h2 id="recognition-decision-title" class="text-xl font-black text-slate-900">{currentReview.criteria.recognition_name}</h2><p class="mt-1 text-sm text-slate-600">{currentReview.criteria.scope.name} · {currentReview.period_start} – {currentReview.period_end}</p></div>
             <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">{statusLabel(currentReview.status)}</span>

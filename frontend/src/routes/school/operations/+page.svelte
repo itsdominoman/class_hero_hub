@@ -174,7 +174,7 @@
 
     {#if governance?.is_current_owner}
       <div class="mt-5 flex justify-end">
-        <a href="/school/operations/advanced" class="btn-secondary inline-flex min-h-12 items-center rounded-xl px-4 py-2">{$_('operationsPage.advancedLink')} →</a>
+        <a href="/school/operations/advanced" class="btn-secondary inline-flex min-h-12 items-center rounded-xl px-4 py-2">{$_('operationsPage.advancedLink')} <span class="inline-block rtl:-scale-x-100" aria-hidden="true">→</span></a>
       </div>
     {/if}
   {/if}

@@ -1,12 +1,12 @@
 export type TeacherClassAssignment = {
   id: number;
   role: string;
-  school: { name: string };
-  class_section?: { name?: string | null; code?: string | null } | null;
-  subject_group?: { name?: string | null; code?: string | null } | null;
-  branch?: { name?: string | null } | null;
-  grade_level?: { name?: string | null } | null;
-  subject?: { name?: string | null } | null;
+  school: { name: string; name_ar?: string | null };
+  class_section?: { name?: string | null; name_ar?: string | null; code?: string | null } | null;
+  subject_group?: { name?: string | null; name_ar?: string | null; code?: string | null } | null;
+  branch?: { name?: string | null; name_ar?: string | null } | null;
+  grade_level?: { name?: string | null; name_ar?: string | null } | null;
+  subject?: { name?: string | null; name_ar?: string | null } | null;
 };
 
 export type SubjectPalette = {
@@ -49,6 +49,10 @@ const neutralPalettes: SubjectPalette[] = [
 
 function normalized(value?: string | null) {
   return (value || '').normalize('NFKC').trim().replace(/\s+/g, ' ');
+}
+
+function localizedName(value: { name?: string | null; name_ar?: string | null } | null | undefined, locale: string) {
+  return normalized(locale === 'ar' && value?.name_ar ? value.name_ar : value?.name);
 }
 
 function normalizedDigits(value: string) {
@@ -135,8 +139,8 @@ export function compareTeacherClasses(
     leftKey.stage - rightKey.stage ||
     leftKey.grade - rightKey.grade ||
     compareSection(leftKey.section, rightKey.section, locale) ||
-    collator(locale).compare(normalized(left.branch?.name), normalized(right.branch?.name)) ||
-    collator(locale).compare(normalized(left.school.name), normalized(right.school.name)) ||
+    collator(locale).compare(localizedName(left.branch, locale), localizedName(right.branch, locale)) ||
+    collator(locale).compare(localizedName(left.school, locale), localizedName(right.school, locale)) ||
     collator(locale).compare(leftKey.fallback, rightKey.fallback) ||
     left.id - right.id
   );
@@ -153,16 +157,21 @@ function stripAcademicContext(value: string) {
 export function subjectLabel(
   card: TeacherClassAssignment,
   homeroomLabel: string,
-  subjectFallback: string
+  subjectFallback: string,
+  locale = 'en'
 ) {
   if (card.role === 'homeroom') return homeroomLabel;
-  const explicitSubject = normalized(card.subject?.name);
+  const explicitSubject = localizedName(card.subject, locale);
   if (explicitSubject) return explicitSubject;
-  const groupLabel = normalized(card.subject_group?.name || card.subject_group?.code);
+  const groupLabel = localizedName(card.subject_group, locale) || normalized(card.subject_group?.code);
   return stripAcademicContext(groupLabel) || groupLabel || subjectFallback;
 }
 
-export function classLabel(card: TeacherClassAssignment) {
+export function classLabel(card: TeacherClassAssignment, locale = 'en') {
+  const localizedClass = locale === 'ar'
+    ? localizedName(card.class_section, locale) || localizedName(card.subject_group, locale)
+    : '';
+  if (localizedClass) return localizedClass;
   const key = academicKey(card);
   if (key.stage < 2) {
     const grade = `${key.stage === 0 ? 'KG' : 'G'}${key.grade}`;
@@ -205,7 +214,7 @@ export function groupTeacherClasses<T extends TeacherClassAssignment>(
   const groups = new Map<string, TeacherClassGroup<T>>();
   for (const assignment of assignments) {
     const homeroom = assignment.role === 'homeroom';
-    const label = subjectLabel(assignment, homeroomLabel, subjectFallback);
+    const label = subjectLabel(assignment, homeroomLabel, subjectFallback, locale);
     const key = homeroom ? '__homeroom__' : normalized(label).toLocaleLowerCase(locale || 'en');
     const existing = groups.get(key);
     if (existing) existing.assignments.push(assignment);

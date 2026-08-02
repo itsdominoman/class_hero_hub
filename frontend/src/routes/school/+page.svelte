@@ -695,8 +695,51 @@
 
   function rowName(rows: Row[], id?: number | string | null) {
     const numericId = Number(id);
-    return rows.find((row) => row.id === numericId)?.name || '-';
+    return localizedRowName(rows.find((row) => row.id === numericId)) || '-';
   }
+
+  function localizedRowName(row?: Pick<Row, 'name' | 'name_ar'> | null) {
+    if (!row) return '';
+    return $locale === 'ar' && row.name_ar ? row.name_ar : row.name;
+  }
+
+  const checklistKeys = new Set([
+    'settings', 'branches', 'academic_years', 'education_stages', 'grade_levels',
+    'class_sections', 'student_import', 'subjects', 'subject_groups'
+  ]);
+
+  function checklistLabel(item: ChecklistItem) {
+    if (checklistKeys.has(item.key)) return $_(`school.checklistItems.${item.key}`);
+    return $locale === 'ar' ? $_('school.resultReasons.unknown') : item.label;
+  }
+
+  const resultReasonKeys: Record<string, string> = {
+    'Subject not found': 'subjectNotFound',
+    'Subject is archived': 'subjectArchived',
+    'Class section not found': 'classNotFound',
+    'Archived class section cannot be selected': 'classArchived',
+    'Inactive class section cannot be selected': 'classInactive',
+    'Class section does not belong to the selected academic year': 'wrongYear',
+    'Class section does not belong to the selected grade/year level': 'wrongLevel',
+    'This value is already used by an inactive record. Edit or reactivate that record instead.': 'inactiveDuplicate',
+    'An active record with this code already exists.': 'activeDuplicate'
+  };
+
+  function resultReason(reason?: string | null) {
+    if (!reason || $locale !== 'ar') return reason || '';
+    const key = resultReasonKeys[reason];
+    return $_(`school.resultReasons.${key || 'unknown'}`);
+  }
+
+  function systemValue(namespace: string, value: string) {
+    return $locale === 'ar' ? $_(`${namespace}.${value}`) : value;
+  }
+
+  let displayGradeLevelLabel = $derived(
+    ['Grade', 'Year', 'Form', 'Level'].includes(gradeLevelLabel)
+      ? $_(`school.settings.levelLabels.${gradeLevelLabel}`)
+      : gradeLevelLabel
+  );
 
   function levelName(id?: number | string | null) {
     return rowName(levels, id);
@@ -2565,8 +2608,8 @@
   }
 
   function assignmentName(assignment: StaffAssignment) {
-    if (assignment.role === 'homeroom') return assignment.class_section?.name || rowName(sections, assignment.class_section_id);
-    return assignment.subject_group?.name || rowName(groups, assignment.subject_group_id);
+    if (assignment.role === 'homeroom') return localizedRowName(assignment.class_section) || rowName(sections, assignment.class_section_id);
+    return localizedRowName(assignment.subject_group) || rowName(groups, assignment.subject_group_id);
   }
 
   function selectedStudent() {
@@ -2747,7 +2790,7 @@
   }
 
   function enrolmentName(enrolment: Enrolment) {
-    return enrolment.class_section?.name || enrolment.subject_group?.name || rowName(sections, enrolment.class_section_id) || rowName(groups, enrolment.subject_group_id);
+    return localizedRowName(enrolment.class_section) || localizedRowName(enrolment.subject_group) || rowName(sections, enrolment.class_section_id) || rowName(groups, enrolment.subject_group_id);
   }
 
   function enrolmentType(enrolment: Enrolment) {
@@ -2777,7 +2820,7 @@
   }
 
   function groupRosterTitle() {
-    return groupRoster?.subject_group?.name || rowName(groups, groupRosterId);
+    return localizedRowName(groupRoster?.subject_group) || rowName(groups, groupRosterId);
   }
 
   function genderOptions() {
@@ -2791,7 +2834,7 @@
   }
 
   function studentCurrentClass(student: Student) {
-    return student.current_class_section?.name || $_('school.students.notEnrolled');
+    return student.current_class_section ? localizedRowName(student.current_class_section) : $_('school.students.notEnrolled');
   }
 
   function studentActionLabel(student: Student) {
@@ -2804,7 +2847,7 @@
   }
 
   function classRosterTitle() {
-    return classRoster?.class_section?.name || rowName(sections, rosterSectionId);
+    return localizedRowName(classRoster?.class_section) || rowName(sections, rosterSectionId);
   }
 
   function upsertStudentRow(row: Student) {
@@ -2948,9 +2991,9 @@
 
       <div id="school-setup-content" class="min-w-0">
         {#if activeTab === 'checklist'}
-          <button type="button" class="mb-4 flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left text-sm hover:bg-slate-50" onclick={openAnnouncements}>
+          <button type="button" class="mb-4 flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-start text-sm hover:bg-slate-50" onclick={openAnnouncements}>
             <span class="font-semibold text-slate-700">{$_('school.announcements.checklistShortcut')}</span>
-            <span class="font-bold text-violet-700">{$_('school.announcements.bannerButton')} →</span>
+            <span class="font-bold text-violet-700">{$_('school.announcements.bannerButton')} <span class="inline-block rtl:-scale-x-100" aria-hidden="true">→</span></span>
           </button>
           <div class="grid gap-3 sm:grid-cols-2">
             {#each checklist as item}
@@ -2962,14 +3005,14 @@
                     <Circle class="mt-0.5 h-5 w-5 text-slate-300" />
                   {/if}
                   <div>
-                    <h2 class="font-bold text-slate-900">{item.label}</h2>
+                    <h2 class="font-bold text-slate-900">{checklistLabel(item)}</h2>
                     <p class="mt-1 text-sm text-slate-500">{item.count} {$_('school.records')}</p>
                     {#if !item.required}
                       <p class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('school.optional')}</p>
                     {/if}
                     {#if item.key === 'student_import'}
                       <a class="mt-3 inline-block text-sm font-bold text-sky-700 hover:underline" href="/school/students/data">
-                        {$_('school.studentData.openImport')} →
+                        {$_('school.studentData.openImport')} <span class="inline-block rtl:-scale-x-100" aria-hidden="true">→</span>
                       </a>
                     {/if}
                   </div>
@@ -3230,7 +3273,7 @@
               {#each ['Grade', 'Year', 'Form', 'Level'] as option}
                 <label class="flex items-center gap-2 rounded-lg border border-slate-200 p-3 text-sm font-semibold">
                   <input type="radio" bind:group={labelChoice} value={option} />
-                  {option}
+                  {$_(`school.settings.levelLabels.${option}`)}
                 </label>
               {/each}
               <label class="flex items-center gap-2 rounded-lg border border-slate-200 p-3 text-sm font-semibold">
@@ -3286,7 +3329,7 @@
           </div>
         {:else if activeTab === 'levels'}
           <div class="rounded-lg border border-slate-200 bg-white p-5">
-            <h2 class="text-lg font-black text-slate-900">{gradeLevelLabel} {$_('school.levels.title')}</h2>
+            <h2 class="text-lg font-black text-slate-900">{displayGradeLevelLabel} {$_('school.levels.title')}</h2>
             <div class="mt-4 grid gap-3 md:grid-cols-5">
               <TextInput label={$_('school.code')} bind:value={levelForm.code} error={fieldError('grade-levels', 'code')} />
               <TextInput label={$_('school.nameEn')} bind:value={levelForm.name} error={fieldError('grade-levels', 'name')} />
@@ -3316,7 +3359,7 @@
             <div class="mt-4 grid gap-3 md:grid-cols-7">
               <SelectInput label={$_('school.branches.single')} bind:value={sectionForm.branch_campus_id} rows={branches} error={fieldError('class-sections', 'branch_campus_id')} />
               <SelectInput label={$_('school.years.single')} bind:value={sectionForm.academic_year_id} rows={years} error={fieldError('class-sections', 'academic_year_id')} />
-              <SelectInput label={gradeLevelLabel} bind:value={sectionForm.grade_level_id} rows={levels} error={fieldError('class-sections', 'grade_level_id')} />
+              <SelectInput label={displayGradeLevelLabel} bind:value={sectionForm.grade_level_id} rows={levels} error={fieldError('class-sections', 'grade_level_id')} />
               <TextInput label={$_('school.sectionLabel')} bind:value={sectionForm.code} error={fieldError('class-sections', 'code')} />
               <TextInput label={$_('school.nameEn')} bind:value={sectionForm.name} error={fieldError('class-sections', 'name')} />
               <TextInput label={$_('school.nameAr')} bind:value={sectionForm.name_ar} />
@@ -3366,7 +3409,7 @@
                     <p class="mt-2 text-sm text-slate-600">
                       {$_('school.branches.single')}: {classRoster.branch?.name || '-'} ·
                       {$_('school.years.single')}: {classRoster.academic_year?.name || '-'} ·
-                      {gradeLevelLabel}: {classRoster.grade_level?.name || '-'}
+                      {displayGradeLevelLabel}: {localizedRowName(classRoster.grade_level) || '-'}
                     </p>
                   </div>
                   <div class="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm">
@@ -3473,7 +3516,7 @@
 
                   <p class="mt-4 text-xs text-slate-500">{$_('school.teacherImports.note')}</p>
                   <div class="mt-2 overflow-x-auto rounded-lg border border-slate-100">
-                    <table class="w-full min-w-[700px] text-left text-sm">
+                    <table class="w-full min-w-[700px] text-start text-sm">
                       <thead class="bg-slate-50 text-xs font-bold uppercase text-slate-500">
                         <tr>
                           <th class="px-3 py-2">{$_('school.teacherImports.row')}</th>
@@ -3518,7 +3561,7 @@
                     <div class="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p class="break-all font-bold text-slate-900">{invite.email}</p>
-                        <p class="mt-1 text-sm text-slate-500">{$_(`platform.inviteStatuses.${invite.status}`)} · {invite.send_status || '-'}</p>
+                        <p class="mt-1 text-sm text-slate-500">{$_(`platform.inviteStatuses.${invite.status}`)} · {invite.send_status ? systemValue('school.sendStatuses', invite.send_status) : '-'}</p>
                       </div>
                       <div class="flex gap-2">
                         <button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" disabled={saving} onclick={() => { teacherInviteEmail = invite.email; inviteTeacher(); }}>{$_('platform.resend')}</button>
@@ -3667,7 +3710,7 @@
                 <div class="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-100">
                   {#each announcements as announcement}
                     <div class="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
-                      <button type="button" class="min-w-0 flex-1 text-left" onclick={() => viewAnnouncement(announcement)}>
+                      <button type="button" class="min-w-0 flex-1 text-start" onclick={() => viewAnnouncement(announcement)}>
                         <p class="truncate font-black text-slate-900">{announcement.title}</p>
                         <p class="mt-1 text-sm text-slate-500">
                           {announcementContext(announcement)} · {formatDate(announcement.created_at)} · {$_('school.announcements.attachmentCount', { values: { count: announcement.attachment_count } })}
@@ -3686,7 +3729,7 @@
           </div>
         {:else if activeTab === 'behaviour'}
           <section class="rounded-lg border border-slate-200 bg-white p-5">
-            <div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="text-xl font-black text-slate-900">{$_('school.behaviour.title')}</h2><p class="mt-1 text-sm text-slate-500">{$_('school.behaviour.intro')}</p></div><div class="flex flex-wrap gap-2"><a href="/school/reports" class="btn-secondary rounded-lg px-3 py-2">{$_('school.menu.openReports')} →</a><button type="button" class="btn-secondary rounded-lg px-3 py-2" onclick={loadBehaviour}>{$_('school.behaviour.seed')}</button></div></div>
+            <div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="text-xl font-black text-slate-900">{$_('school.behaviour.title')}</h2><p class="mt-1 text-sm text-slate-500">{$_('school.behaviour.intro')}</p></div><div class="flex flex-wrap gap-2"><a href="/school/reports" class="btn-secondary rounded-lg px-3 py-2">{$_('school.menu.openReports')} <span class="inline-block rtl:-scale-x-100" aria-hidden="true">→</span></a><button type="button" class="btn-secondary rounded-lg px-3 py-2" onclick={loadBehaviour}>{$_('school.behaviour.seed')}</button></div></div>
             <form class="mt-5 grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-2" onsubmit={(event) => { event.preventDefault(); saveBehaviour(); }}>
               <select class="rounded-lg border border-slate-200 px-3 py-2" bind:value={behaviourForm.type} disabled={editingBehaviourId !== null} onchange={() => { behaviourForm.points_value = behaviourForm.type === 'positive' ? 1 : -1; }}><option value="positive">{$_('school.behaviour.positive')}</option><option value="needs_work">{$_('school.behaviour.needsWork')}</option></select>
               <input class="rounded-lg border border-slate-200 px-3 py-2" required maxlength="120" bind:value={behaviourForm.label} placeholder={$_('school.behaviour.label')} />
@@ -3718,7 +3761,7 @@
               </div>
               <div class="mt-5 flex justify-end"><button type="button" class="btn-hero rounded-xl px-4 py-3 disabled:opacity-60" disabled={quickBehaviourSaving} onclick={saveQuickBehaviours}>{quickBehaviourSaving ? $_('school.behaviour.quickSaving') : $_('school.behaviour.quickSave')}</button></div>
             </section>
-            <div class="mt-7 grid gap-5 md:grid-cols-2">{#each ['positive', 'needs_work'] as type}<div><h3 class={`font-black ${type === 'positive' ? 'text-emerald-700' : 'text-amber-700'}`}>{type === 'positive' ? $_('school.behaviour.positive') : $_('school.behaviour.needsWork')}</h3><div class="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-200">{#each behaviourCategories.filter((row) => row.type === type) as row}<button type="button" class="flex w-full items-center justify-between gap-2 p-3 text-left hover:bg-slate-50" onclick={() => editBehaviour(row)}><span class="min-w-0"><span class:line-through={!row.active} class="block truncate text-sm font-bold text-slate-800">{row.label}</span><span class="mt-1 flex flex-wrap gap-1">{#if row.is_quick_action}<span class="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-black text-violet-700">{$_('school.behaviour.quickBadge')}</span>{/if}{#if !row.active}<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-500">{$_('school.behaviour.inactive')}</span>{/if}</span></span><span class="shrink-0 text-sm font-black text-slate-500">{row.points_value > 0 ? '+' : ''}{row.points_value}</span></button>{/each}</div></div>{/each}</div>
+            <div class="mt-7 grid gap-5 md:grid-cols-2">{#each ['positive', 'needs_work'] as type}<div><h3 class={`font-black ${type === 'positive' ? 'text-emerald-700' : 'text-amber-700'}`}>{type === 'positive' ? $_('school.behaviour.positive') : $_('school.behaviour.needsWork')}</h3><div class="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-200">{#each behaviourCategories.filter((row) => row.type === type) as row}<button type="button" class="flex w-full items-center justify-between gap-2 p-3 text-start hover:bg-slate-50" onclick={() => editBehaviour(row)}><span class="min-w-0"><span class:line-through={!row.active} class="block truncate text-sm font-bold text-slate-800">{row.label}</span><span class="mt-1 flex flex-wrap gap-1">{#if row.is_quick_action}<span class="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-black text-violet-700">{$_('school.behaviour.quickBadge')}</span>{/if}{#if !row.active}<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-500">{$_('school.behaviour.inactive')}</span>{/if}</span></span><span class="shrink-0 text-sm font-black text-slate-500">{row.points_value > 0 ? '+' : ''}{row.points_value}</span></button>{/each}</div></div>{/each}</div>
           </section>
         {:else if activeTab === 'students'}
           <div class="space-y-5">
@@ -3941,7 +3984,7 @@
 
                   <p class="mt-4 text-xs text-slate-500">{$_('school.imports.guardianNote')}</p>
                   <div class="mt-2 overflow-x-auto rounded-lg border border-slate-100">
-                    <table class="w-full min-w-[900px] text-left text-sm">
+                    <table class="w-full min-w-[900px] text-start text-sm">
                       <thead class="bg-slate-50 text-xs font-bold uppercase text-slate-500">
                         <tr>
                           <th class="px-3 py-2">{$_('school.imports.row')}</th>
@@ -4080,7 +4123,7 @@
               {:else if importHistoryLoaded}
                 <p class="mt-4 text-xs text-slate-500">{$_('school.importHistory.total')}: {importHistoryTotal}</p>
                 <div class="mt-2 overflow-x-auto rounded-lg border border-slate-100">
-                  <table class="w-full min-w-[1100px] text-left text-sm">
+                  <table class="w-full min-w-[1100px] text-start text-sm">
                     <thead class="bg-slate-50 text-xs font-bold uppercase text-slate-500">
                       <tr>
                         <th class="px-3 py-2">{$_('school.importHistory.batch')}</th>
@@ -4166,7 +4209,7 @@
                     {/each}
                   </div>
                   <div class="mt-3 overflow-x-auto rounded-lg border border-sky-100 bg-white">
-                    <table class="w-full min-w-[950px] text-left text-sm">
+                    <table class="w-full min-w-[950px] text-start text-sm">
                       <thead class="bg-slate-50 text-xs font-bold uppercase text-slate-500">
                         <tr>
                           <th class="px-3 py-2">{$_('school.imports.row')}</th>
@@ -4238,7 +4281,7 @@
                   {#each students as student}
                     <div class={`p-4 ${selectedStudentId === student.id ? 'bg-slate-50' : 'bg-white'}`}>
                       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <button type="button" class="text-left" onclick={() => selectStudent(student)}>
+                        <button type="button" class="text-start" onclick={() => selectStudent(student)}>
                           <h4 class="font-black text-slate-900">{student.display_name}</h4>
                           <p class="mt-1 text-sm text-slate-500">
                             {student.external_ref || $_('school.students.noExternalRef')}
@@ -4338,7 +4381,7 @@
                             <p class="mt-3 break-all text-sm font-semibold text-slate-700">{generatedInvite.join_url}</p>
                           </div>
 
-                          <ol class="mt-8 list-decimal space-y-2 pl-5 text-slate-800">
+                          <ol class="mt-8 list-decimal space-y-2 ps-5 text-slate-800">
                             <li>{$_('school.guardians.letterStepScan')}</li>
                             <li>{$_('school.guardians.letterStepSignIn')}</li>
                             <li>{$_('school.guardians.letterStepConfirm')}</li>
@@ -4528,11 +4571,11 @@
                 <div class="md:col-span-2">
                   <p class="text-sm font-semibold text-slate-700">{$_('school.groups.contextType')}</p>
                   <div class="mt-1 grid gap-2 sm:grid-cols-2">
-                    <button type="button" class={`rounded-lg border px-3 py-2 text-left text-sm font-semibold ${groupContextMode === 'section' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700'}`} onclick={() => setGroupContextMode('section')}>
+                    <button type="button" class={`rounded-lg border px-3 py-2 text-start text-sm font-semibold ${groupContextMode === 'section' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700'}`} onclick={() => setGroupContextMode('section')}>
                       {$_('school.groups.sectionSpecific')}
                       <span class={`mt-1 block text-xs font-medium ${groupContextMode === 'section' ? 'text-slate-200' : 'text-slate-500'}`}>{$_('school.groups.sectionSpecificHelp')}</span>
                     </button>
-                    <button type="button" class={`rounded-lg border px-3 py-2 text-left text-sm font-semibold ${groupContextMode === 'grade' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700'}`} onclick={() => setGroupContextMode('grade')}>
+                    <button type="button" class={`rounded-lg border px-3 py-2 text-start text-sm font-semibold ${groupContextMode === 'grade' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700'}`} onclick={() => setGroupContextMode('grade')}>
                       {$_('school.groups.gradeLevel')}
                       <span class={`mt-1 block text-xs font-medium ${groupContextMode === 'grade' ? 'text-slate-200' : 'text-slate-500'}`}>{$_('school.groups.gradeLevelHelp')}</span>
                     </button>
@@ -4541,7 +4584,7 @@
                 {#if groupContextMode === 'section'}
                   <SelectInput label={$_('school.sections.single')} bind:value={groupForm.class_section_id} rows={sections} error={fieldError('subject-groups', 'class_section_id')} />
                 {:else}
-                  <SelectInput label={gradeLevelLabel} bind:value={groupForm.grade_level_id} rows={levels} error={fieldError('subject-groups', 'grade_level_id')} />
+                  <SelectInput label={displayGradeLevelLabel} bind:value={groupForm.grade_level_id} rows={levels} error={fieldError('subject-groups', 'grade_level_id')} />
                 {/if}
                 <TextInput label={$_('school.code')} bind:value={groupForm.code} error={fieldError('subject-groups', 'code')} />
                 <TextInput label={$_('school.nameEn')} bind:value={groupForm.name} error={fieldError('subject-groups', 'name')} />
@@ -4580,7 +4623,7 @@
               <p class="mt-2 max-w-3xl text-sm text-slate-600">{$_('school.groups.bulkHelp')}</p>
               <div class="mt-4 grid gap-3 md:grid-cols-4">
                 <SelectInput label={$_('school.years.single')} bind:value={bulkGroupForm.academic_year_id} rows={years} error={fieldError('bulk-subject-groups', 'academic_year_id')} />
-                <SelectInput label={gradeLevelLabel} bind:value={bulkGroupForm.grade_level_id} rows={levels} error={fieldError('bulk-subject-groups', 'grade_level_id')} />
+                <SelectInput label={displayGradeLevelLabel} bind:value={bulkGroupForm.grade_level_id} rows={levels} error={fieldError('bulk-subject-groups', 'grade_level_id')} />
                 <SelectInput label={$_('school.subjects.single')} bind:value={bulkGroupForm.subject_id} rows={subjects} error={fieldError('bulk-subject-groups', 'subject_id')} />
                 <label class="block text-sm font-semibold text-slate-700">
                   {$_('school.groups.enrolmentPolicy')}
@@ -4637,8 +4680,8 @@
                     <div class="mt-3 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
                       {#each bulkGroupResult.results.filter((item) => item.status === 'failed' || item.status === 'skipped') as item}
                         <div class="p-3 text-sm">
-                          <p class="font-bold text-slate-900">{item.class_section?.name || rowName(sections, item.class_section_id)} · {item.status}</p>
-                          <p class="mt-1 text-slate-600">{item.reason}</p>
+                          <p class="font-bold text-slate-900">{localizedRowName(item.class_section) || rowName(sections, item.class_section_id)} · {systemValue('school.resultStatuses', item.status)}</p>
+                          <p class="mt-1 text-slate-600">{resultReason(item.reason)}</p>
                         </div>
                       {/each}
                     </div>
@@ -4728,18 +4771,18 @@
                 <div class="md:col-span-2">
                   <p class="text-sm font-semibold text-slate-700">{$_('school.defaults.scope')}</p>
                   <div class="mt-1 grid gap-2 sm:grid-cols-2">
-                    <button type="button" class={`rounded-lg border px-3 py-2 text-left text-sm font-semibold ${templateForm.scope === 'stage' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700'}`} onclick={() => setTemplateScope('stage')}>
+                    <button type="button" class={`rounded-lg border px-3 py-2 text-start text-sm font-semibold ${templateForm.scope === 'stage' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700'}`} onclick={() => setTemplateScope('stage')}>
                       {$_('school.stages.single')}
                     </button>
-                    <button type="button" class={`rounded-lg border px-3 py-2 text-left text-sm font-semibold ${templateForm.scope === 'grade' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700'}`} onclick={() => setTemplateScope('grade')}>
-                      {gradeLevelLabel}
+                    <button type="button" class={`rounded-lg border px-3 py-2 text-start text-sm font-semibold ${templateForm.scope === 'grade' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700'}`} onclick={() => setTemplateScope('grade')}>
+                      {displayGradeLevelLabel}
                     </button>
                   </div>
                 </div>
                 {#if templateForm.scope === 'stage'}
                   <SelectInput label={$_('school.stages.single')} bind:value={templateForm.education_stage_id} rows={stages} error={fieldError('default-subject-templates', 'education_stage_id')} />
                 {:else}
-                  <SelectInput label={gradeLevelLabel} bind:value={templateForm.grade_level_id} rows={levels} error={fieldError('default-subject-templates', 'grade_level_id')} />
+                  <SelectInput label={displayGradeLevelLabel} bind:value={templateForm.grade_level_id} rows={levels} error={fieldError('default-subject-templates', 'grade_level_id')} />
                 {/if}
                 <SelectInput label={$_('school.subjects.single')} bind:value={templateForm.subject_id} rows={subjects} error={fieldError('default-subject-templates', 'subject_id')} />
                 <StatusInput bind:value={templateForm.status} />
@@ -4764,7 +4807,7 @@
               <h3 class="text-base font-black text-slate-900">{$_('school.defaults.existing')}</h3>
               <div class="mt-4 overflow-x-auto rounded-lg border border-slate-200">
                 <table class="min-w-full divide-y divide-slate-200 text-sm">
-                  <thead class="bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+                  <thead class="bg-slate-50 text-start text-xs font-bold uppercase tracking-wide text-slate-500">
                     <tr>
                       <th class="px-3 py-2">{$_('school.defaults.scope')}</th>
                       <th class="px-3 py-2">{$_('school.subjects.single')}</th>
@@ -4778,11 +4821,11 @@
                         <td class="px-3 py-2 font-semibold text-slate-900">
                           {row.education_stage_id
                             ? `${$_('school.stages.single')}: ${row.education_stage?.name || stageName(row.education_stage_id)}`
-                            : `${gradeLevelLabel}: ${row.grade_level?.name || levelName(row.grade_level_id)}`}
+                            : `${displayGradeLevelLabel}: ${localizedRowName(row.grade_level) || levelName(row.grade_level_id)}`}
                         </td>
-                        <td class="px-3 py-2">{row.subject?.name || subjectName(row.subject_id)}</td>
-                        <td class="px-3 py-2"><span class={`rounded-full px-2 py-1 text-xs font-bold ${row.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{row.status}</span></td>
-                        <td class="px-3 py-2 text-right">
+                        <td class="px-3 py-2">{localizedRowName(row.subject) || subjectName(row.subject_id)}</td>
+                        <td class="px-3 py-2"><span class={`rounded-full px-2 py-1 text-xs font-bold ${row.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{systemValue('school', row.status)}</span></td>
+                        <td class="px-3 py-2 text-end">
                           <div class="inline-flex gap-1">
                             <button class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-slate-900" aria-label={$_('school.edit')} onclick={() => editTemplate(row)}>
                               <Pencil class="h-4 w-4" />
@@ -4808,7 +4851,7 @@
                 <SelectInput label={$_('school.years.single')} bind:value={templateApplyForm.academic_year_id} rows={years} error={fieldError('template-apply', 'academic_year_id')} />
                 <SelectInput label={$_('school.branches.single')} bind:value={templateApplyForm.branch_campus_id} rows={branches} optional />
                 <SelectInput label={$_('school.stages.single')} bind:value={templateApplyForm.education_stage_id} rows={stages} optional />
-                <SelectInput label={gradeLevelLabel} bind:value={templateApplyForm.grade_level_id} rows={levels} optional />
+                <SelectInput label={displayGradeLevelLabel} bind:value={templateApplyForm.grade_level_id} rows={levels} optional />
               </div>
               <div class="mt-4 flex flex-wrap items-center gap-2">
                 <button type="button" class="btn-secondary rounded-lg px-4 py-2" disabled={templatePreviewLoading || templateApplyLoading} onclick={previewTemplateApplication}>{$_('school.defaults.preview')}</button>
@@ -4835,8 +4878,8 @@
                     <div class="mt-3 max-h-96 divide-y divide-slate-200 overflow-y-auto rounded-lg border border-slate-200 bg-white">
                       {#each templateApplyResult.results as item}
                         <div class="p-3 text-sm">
-                          <p class="font-bold text-slate-900">{item.class_section?.name || rowName(sections, item.class_section_id)} · {item.subject?.name || subjectName(item.subject_id)} · {item.status}</p>
-                          {#if item.reason}<p class="mt-1 text-slate-600">{item.reason}</p>{/if}
+                          <p class="font-bold text-slate-900">{localizedRowName(item.class_section) || rowName(sections, item.class_section_id)} · {localizedRowName(item.subject) || subjectName(item.subject_id)} · {systemValue('school.resultStatuses', item.status)}</p>
+                          {#if item.reason}<p class="mt-1 text-slate-600">{resultReason(item.reason)}</p>{/if}
                         </div>
                       {/each}
                     </div>
@@ -4858,8 +4901,8 @@
                     <div class="mt-3 max-h-96 divide-y divide-slate-200 overflow-y-auto rounded-lg border border-slate-200 bg-white">
                       {#each templatePreviewResult.results as item}
                         <div class="p-3 text-sm">
-                          <p class="font-bold text-slate-900">{item.class_section?.name || rowName(sections, item.class_section_id)} · {item.subject?.name || subjectName(item.subject_id)} · {item.status}</p>
-                          {#if item.reason}<p class="mt-1 text-slate-600">{item.reason}</p>{/if}
+                          <p class="font-bold text-slate-900">{localizedRowName(item.class_section) || rowName(sections, item.class_section_id)} · {localizedRowName(item.subject) || subjectName(item.subject_id)} · {systemValue('school.resultStatuses', item.status)}</p>
+                          {#if item.reason}<p class="mt-1 text-slate-600">{resultReason(item.reason)}</p>{/if}
                         </div>
                       {/each}
                     </div>

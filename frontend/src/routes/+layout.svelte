@@ -441,7 +441,7 @@
     <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-hero/50 to-transparent"></div>
     <div class="max-w-7xl mx-auto px-4">
       <div class="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
-        <div class="text-left">
+        <div class="text-start">
           <div class="flex items-center gap-3 mb-6 opacity-50 grayscale">
             <img src="/chh-logo-master.png" alt={$_('app.name')} class="h-10 w-10 rounded-xl bg-white object-contain" />
             <span class="text-xl font-bold tracking-tighter text-white uppercase">{$_('app.name')}</span>

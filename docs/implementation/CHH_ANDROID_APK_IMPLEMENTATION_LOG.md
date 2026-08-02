@@ -3,6 +3,23 @@
 Status date: 2026-08-02
 Scope: implementation record for the Class Hero Hub (CHH) Capacitor Android app.
 
+## 2026-08-02 Arabic localisation pilot candidate
+
+The CHH Arabic localisation candidate bundles the same production frontend assets
+intended for the hosted pilot. It fixes backend checklist/status/error fallbacks,
+catalogues the survey administration workflow, prefers supplied Arabic school
+structure names, and corrects logical alignment, arrows, chevrons, protected-photo
+navigation and Arabic accessibility labels without changing routes or permissions.
+School-entered names and content are never translated; `name_ar` is preferred when
+present and the exact supplied value is the deliberate fallback.
+
+The Android configuration advances package `com.classherohub.app` from code `13`
+to code `14`, version name `1.12-arabic-localisation-pilot`. The candidate source
+passes 57 focused tests, English/Arabic parity at 2,152 keys, Svelte check with zero
+diagnostics and the production static frontend build. Final Capacitor sync, signed
+APK assembly, in-place RMX3997 installation, signer/hash checks and Drive delivery
+will be appended after physical verification; no older APK will be relabelled.
+
 ## 2026-08-02 School setup drawer pilot APK
 
 Frontend commit `bb742c1` moves the compact School setup hierarchy out of the page

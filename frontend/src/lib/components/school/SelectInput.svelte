@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n';
+  import { _, locale } from 'svelte-i18n';
 
-  type Row = { id: number; name: string; status?: string };
+  type Row = { id: number; name: string; name_ar?: string | null; status?: string };
 
   let {
     label,
@@ -16,6 +16,10 @@
   // exception is the row already selected (e.g. an inactive parent kept while
   // editing a child) so its value is not silently dropped by the bound select.
   const selectable = $derived(rows.filter((row: Row) => (row.status ?? 'active') === 'active' || String(row.id) === value));
+
+  function displayName(row: Row) {
+    return $locale === 'ar' && row.name_ar ? row.name_ar : row.name;
+  }
 </script>
 
 <label class="block text-sm font-semibold text-slate-700">
@@ -23,7 +27,7 @@
   <select class={`mt-1 w-full rounded-lg border px-3 py-2 font-normal ${error ? 'border-red-400 bg-red-50' : 'border-slate-200'}`} bind:value aria-invalid={error ? 'true' : 'false'}>
     <option value="">{optional ? $_('school.none') : $_('school.select')}</option>
     {#each selectable as row}
-      <option value={String(row.id)}>{row.name}</option>
+      <option value={String(row.id)}>{displayName(row)}</option>
     {/each}
   </select>
   {#if error}

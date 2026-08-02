@@ -77,9 +77,9 @@
           <div class="absolute inset-x-0 bottom-0 bg-slate-950/75 px-1.5 py-1 text-center text-[0.6rem] font-bold text-white">
             {photo.state === 'uploading' ? $_('messaging.uploadingPhoto') : photo.state === 'failed' ? $_('messaging.photoUploadFailed') : photo.state === 'ready' ? $_('messaging.photoReady') : $_('messaging.photoPending')}
           </div>
-          <button type="button" onclick={() => onremovephoto(photo)} class="absolute right-1 top-1 grid h-7 w-7 place-items-center rounded-full bg-slate-950/80 text-white" aria-label={$_('messaging.removePhoto')}><X size={14} /></button>
+          <button type="button" onclick={() => onremovephoto(photo)} class="absolute end-1 top-1 grid h-7 w-7 place-items-center rounded-full bg-slate-950/80 text-white" aria-label={$_('messaging.removePhoto')}><X size={14} /></button>
           {#if photo.state === 'failed'}
-            <button type="button" onclick={() => onretryphoto(photo)} class="absolute left-1 top-1 grid h-7 w-7 place-items-center rounded-full bg-white text-red-700 shadow" aria-label={$_('messaging.retryPhoto')}><RefreshCw size={14} /></button>
+            <button type="button" onclick={() => onretryphoto(photo)} class="absolute start-1 top-1 grid h-7 w-7 place-items-center rounded-full bg-white text-red-700 shadow" aria-label={$_('messaging.retryPhoto')}><RefreshCw size={14} /></button>
           {/if}
         </div>
       {/each}

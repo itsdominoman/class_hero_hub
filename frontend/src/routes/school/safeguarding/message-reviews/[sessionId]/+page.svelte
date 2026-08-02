@@ -332,7 +332,7 @@
     </div>
 
     <main class="mx-auto w-full min-w-0 max-w-6xl px-3 py-4 sm:px-6" data-testid="safeguarding-review-workspace">
-      <a class="mb-3 inline-flex min-h-10 items-center text-sm font-bold text-amber-800" href={membershipHref('/school/safeguarding/message-reviews', membership)}>← {$_('safeguarding.active.backToSearch')}</a>
+      <a class="mb-3 inline-flex min-h-10 items-center text-sm font-bold text-amber-800" href={membershipHref('/school/safeguarding/message-reviews', membership)}><span class="inline-block rtl:-scale-x-100" aria-hidden="true">←</span> {$_('safeguarding.active.backToSearch')}</a>
 
       <section class="context-card">
         <div class="grid min-w-0 gap-3 md:grid-cols-[1.2fr_1fr]">

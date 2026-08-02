@@ -546,12 +546,12 @@
   }
 
   function loadMessagePhoto(photo: MessagePhoto, variant: 'thumbnail' | 'full') {
-    if (!membership || !selectedId) return Promise.reject(new Error('Conversation unavailable'));
+    if (!membership || !selectedId) return Promise.reject(new Error($_('messaging.conversationUnavailable')));
     return messagingApi.photo(membership, selectedId, photo.id, variant);
   }
 
   function loadMessageVoice(voice: MessageVoiceNote) {
-    if (!membership || !selectedId) return Promise.reject(new Error('Conversation unavailable'));
+    if (!membership || !selectedId) return Promise.reject(new Error($_('messaging.conversationUnavailable')));
     return messagingApi.voice(membership, selectedId, voice.id);
   }
 

@@ -2,7 +2,7 @@
   import { onMount, onDestroy, tick } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { _ } from 'svelte-i18n';
+  import { _, locale } from 'svelte-i18n';
   import { ArrowLeft, BookOpen, CalendarDays, Camera, Megaphone, MessageCircle, Star, Users } from 'lucide-svelte';
   import { api } from '$lib/api';
   import {
@@ -357,7 +357,11 @@
   function classTitle() {
     const assignment = detail?.assignment;
     if (!assignment) return '';
-    return assignment.subject_group?.name || assignment.class_section?.name || assignment.subject?.name || $_('teach.subject');
+    return localizedRef(assignment.subject_group) || localizedRef(assignment.class_section) || localizedRef(assignment.subject) || $_('teach.subject');
+  }
+
+  function localizedRef(ref?: Ref | null) {
+    return $locale === 'ar' && ref?.name_ar ? ref.name_ar : ref?.name || '';
   }
 
   function markImageFailed(studentId: number) {
@@ -927,7 +931,7 @@
 <section class="min-h-screen bg-slate-50/70 pb-14">
   <div class="mx-auto max-w-6xl px-4 py-6 sm:py-8">
     <a href="/teach" class="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:text-hero">
-      <ArrowLeft size={17} aria-hidden="true" />
+      <ArrowLeft class="rtl:rotate-180" size={17} aria-hidden="true" />
       {$_('teach.classDetail.back')}
     </a>
 
@@ -944,41 +948,41 @@
         <div class="absolute -bottom-20 right-24 h-44 w-44 rounded-full bg-amber-300/20"></div>
         <div class="relative max-w-3xl">
           <div class="flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-wider text-white/80">
-            <span>{detail.assignment.school.name}</span>
+            <span>{localizedRef(detail.assignment.school)}</span>
             <span aria-hidden="true">•</span>
             <span>{$_(`teach.roles.${detail.assignment.role}`)}</span>
           </div>
           <h1 class="mt-3 text-3xl font-black sm:text-4xl">{classTitle()}</h1>
-          {#if detail.assignment.subject?.name && detail.assignment.subject_group?.name !== detail.assignment.subject.name}
-            <p class="mt-2 text-lg font-semibold text-white/90">{detail.assignment.subject.name}</p>
+          {#if localizedRef(detail.assignment.subject) && localizedRef(detail.assignment.subject_group) !== localizedRef(detail.assignment.subject)}
+            <p class="mt-2 text-lg font-semibold text-white/90">{localizedRef(detail.assignment.subject)}</p>
           {/if}
           <div class="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-white/90">
-            {#if detail.assignment.grade_level?.name}<span>{detail.assignment.grade_level.name}</span>{/if}
-            {#if detail.assignment.branch?.name}<span>{detail.assignment.branch.name}</span>{/if}
-            {#if detail.assignment.academic_year?.name}<span>{detail.assignment.academic_year.name}</span>{/if}
+            {#if localizedRef(detail.assignment.grade_level)}<span>{localizedRef(detail.assignment.grade_level)}</span>{/if}
+            {#if localizedRef(detail.assignment.branch)}<span>{localizedRef(detail.assignment.branch)}</span>{/if}
+            {#if localizedRef(detail.assignment.academic_year)}<span>{localizedRef(detail.assignment.academic_year)}</span>{/if}
             <span class="inline-flex items-center gap-1.5"><Users size={17} aria-hidden="true" /> {$_('teach.classDetail.studentCount', { values: { count: detail.student_count } })}</span>
           </div>
         </div>
       </header>
 
       <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-violet-100 bg-white p-4 text-left shadow-sm hover:border-violet-300" onclick={openPointsModal}>
+        <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-violet-100 bg-white p-4 text-start shadow-sm hover:border-violet-300" onclick={openPointsModal}>
           <span class="shrink-0 rounded-xl bg-violet-100 p-2 text-violet-700"><Star size={21} aria-hidden="true" /></span>
           <span class="min-w-0 flex-1"><strong class="block break-words text-sm leading-tight text-slate-900">{$_('teach.classDetail.actions.points')}</strong><small class="block break-words text-xs font-semibold text-violet-600">{$_('teach.points.open')}</small></span>
         </button>
-        <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-sky-100 bg-white p-4 text-left shadow-sm hover:border-sky-300" onclick={openUpdatesModal}>
+        <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-sky-100 bg-white p-4 text-start shadow-sm hover:border-sky-300" onclick={openUpdatesModal}>
           <span class="shrink-0 rounded-xl bg-sky-100 p-2 text-sky-700"><Camera size={21} aria-hidden="true" /></span>
           <span class="min-w-0 flex-1"><strong class="block break-words text-sm leading-tight text-slate-900">{$_('teach.classDetail.actions.updates')}</strong><small class="block break-words text-xs font-semibold text-sky-600">{$_('teach.points.open')}</small></span>
         </button>
-        <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-amber-100 bg-white p-4 text-left shadow-sm hover:border-amber-300" onclick={openHomeworkModal}>
+        <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-amber-100 bg-white p-4 text-start shadow-sm hover:border-amber-300" onclick={openHomeworkModal}>
           <span class="shrink-0 rounded-xl bg-amber-100 p-2 text-amber-700"><BookOpen size={21} aria-hidden="true" /></span>
           <span class="min-w-0 flex-1"><strong class="block break-words text-sm leading-tight text-slate-900">{$_('teach.classDetail.actions.homework')}</strong><small class="block break-words text-xs font-semibold text-amber-700">{$_('teach.points.open')}</small></span>
         </button>
-        <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-indigo-100 bg-white p-4 text-left shadow-sm hover:border-indigo-300" onclick={openCalendarModal}>
+        <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-indigo-100 bg-white p-4 text-start shadow-sm hover:border-indigo-300" onclick={openCalendarModal}>
           <span class="shrink-0 rounded-xl bg-indigo-100 p-2 text-indigo-700"><CalendarDays size={21} aria-hidden="true" /></span>
           <span class="min-w-0 flex-1"><strong class="block break-words text-sm leading-tight text-slate-900">{$_('calendar.title')}</strong><small class="block break-words text-xs font-semibold text-indigo-600">{$_('teach.points.open')}</small></span>
         </button>
-        <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-emerald-100 bg-white p-4 text-left shadow-sm hover:border-emerald-200" onclick={openAnnouncementModal}>
+        <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-emerald-100 bg-white p-4 text-start shadow-sm hover:border-emerald-200" onclick={openAnnouncementModal}>
           <span class="shrink-0 rounded-xl bg-emerald-100 p-2 text-emerald-700"><Megaphone size={21} aria-hidden="true" /></span>
           <span class="min-w-0 flex-1"><strong class="block break-words text-sm leading-tight text-slate-900">{$_('teach.classDetail.actions.announcements')}</strong><small class="block break-words text-xs font-semibold text-emerald-600">{$_('teach.points.open')}</small></span>
         </button>
@@ -1091,7 +1095,7 @@
               <div class="mt-1.5 flex flex-1 flex-col gap-1 sm:mt-3 sm:gap-2">
                 {#if actions.length}
                   {#each actions as action}
-                    <button type="button" class={`grid min-h-11 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded-xl border bg-white px-1.5 py-2 text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-wait disabled:opacity-60 sm:min-h-14 sm:gap-3 sm:px-4 sm:py-3 ${isPositive ? 'border-emerald-200 text-emerald-950 hover:border-emerald-400 hover:shadow-md focus-visible:ring-emerald-200' : 'border-orange-200 text-orange-950 hover:border-orange-400 hover:shadow-md focus-visible:ring-orange-200'}`} disabled={quickAwardSaving} title={action.label} aria-label={actionLabel(action, quickAwardStudent)} onclick={() => submitQuickAward(action)}><span class="min-w-0 break-normal text-[13px] font-bold leading-[1.15] sm:truncate sm:whitespace-nowrap sm:text-base sm:font-black">{quickAwardSaving ? $_('teach.quickAward.saving') : action.label}</span><span class={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-black sm:rounded-lg sm:px-2 sm:py-1 sm:text-sm ${isPositive ? 'bg-emerald-100 text-emerald-800' : 'bg-orange-100 text-orange-800'}`}>{action.points_value > 0 ? '+' : ''}{action.points_value}</span></button>
+                    <button type="button" class={`grid min-h-11 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded-xl border bg-white px-1.5 py-2 text-start shadow-sm transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-wait disabled:opacity-60 sm:min-h-14 sm:gap-3 sm:px-4 sm:py-3 ${isPositive ? 'border-emerald-200 text-emerald-950 hover:border-emerald-400 hover:shadow-md focus-visible:ring-emerald-200' : 'border-orange-200 text-orange-950 hover:border-orange-400 hover:shadow-md focus-visible:ring-orange-200'}`} disabled={quickAwardSaving} title={action.label} aria-label={actionLabel(action, quickAwardStudent)} onclick={() => submitQuickAward(action)}><span class="min-w-0 break-normal text-[13px] font-bold leading-[1.15] sm:truncate sm:whitespace-nowrap sm:text-base sm:font-black">{quickAwardSaving ? $_('teach.quickAward.saving') : action.label}</span><span class={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-black sm:rounded-lg sm:px-2 sm:py-1 sm:text-sm ${isPositive ? 'bg-emerald-100 text-emerald-800' : 'bg-orange-100 text-orange-800'}`}>{action.points_value > 0 ? '+' : ''}{action.points_value}</span></button>
                   {/each}
                 {:else if showingOther}
                   <p class="rounded-xl bg-white/70 px-3 py-4 text-sm font-semibold text-slate-500">{$_('teach.quickAward.noOther')}</p>
@@ -1156,7 +1160,7 @@
           <div class="flex gap-3"><button class="btn-hero rounded-lg px-4 py-2" type="submit" disabled={homeworkSaving}>{homeworkSaving ? $_('teach.homework.saving') : $_('teach.homework.saveChanges')}</button><button class="btn-secondary rounded-lg px-4 py-2" type="button" onclick={cancelEditHomework}>{$_('teach.homework.cancel')}</button></div>
         </form>
       {:else if homeworkMode === 'list' && !viewingHomework}
-        {#if homeworkListError}<p class="mt-4 text-sm font-semibold text-red-700">{homeworkListError}</p>{:else if homeworkItems.length === 0}<p class="mt-5 text-sm text-slate-500">{$_('teach.homework.empty')}</p>{:else}<div class="mt-4 max-h-[58vh] divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">{#each homeworkItems.slice(0, 20) as item}<div class="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"><button type="button" class="min-w-0 text-left" onclick={() => openHomeworkDetail(item)}><p class="truncate font-bold text-slate-900">{item.title}</p><p class="mt-1 text-xs text-slate-500">{item.item_type === 'homework' ? $_('teach.homework.types.homework') : $_('teach.homework.types.diary')}{item.due_at ? ` · ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(item.due_at))}` : ''} · {$_('teach.homework.attachmentCount', { values: { count: item.attachment_count } })} · {$_('teach.homework.resourceCount', { values: { count: item.resource_links?.length || 0 } })}{item.status === 'archived' ? ` · ${$_('teach.homework.archived')}` : ''}</p></button><div class="flex shrink-0 gap-2"><button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={() => openHomeworkDetail(item)}>{$_('teach.homework.view')}</button>{#if item.status === 'active'}<button type="button" class="rounded-lg border border-sky-200 px-3 py-2 text-sm font-bold text-sky-800" onclick={() => startEditHomework(item)}>{$_('teach.homework.edit')}</button><button type="button" class="rounded-lg border border-amber-200 px-3 py-2 text-sm font-bold text-amber-800" onclick={() => archiveHomework(item)}>{$_('teach.homework.archive')}</button>{/if}</div></div>{/each}</div>{/if}
+        {#if homeworkListError}<p class="mt-4 text-sm font-semibold text-red-700">{homeworkListError}</p>{:else if homeworkItems.length === 0}<p class="mt-5 text-sm text-slate-500">{$_('teach.homework.empty')}</p>{:else}<div class="mt-4 max-h-[58vh] divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">{#each homeworkItems.slice(0, 20) as item}<div class="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"><button type="button" class="min-w-0 text-start" onclick={() => openHomeworkDetail(item)}><p class="truncate font-bold text-slate-900">{item.title}</p><p class="mt-1 text-xs text-slate-500">{item.item_type === 'homework' ? $_('teach.homework.types.homework') : $_('teach.homework.types.diary')}{item.due_at ? ` · ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(item.due_at))}` : ''} · {$_('teach.homework.attachmentCount', { values: { count: item.attachment_count } })} · {$_('teach.homework.resourceCount', { values: { count: item.resource_links?.length || 0 } })}{item.status === 'archived' ? ` · ${$_('teach.homework.archived')}` : ''}</p></button><div class="flex shrink-0 gap-2"><button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={() => openHomeworkDetail(item)}>{$_('teach.homework.view')}</button>{#if item.status === 'active'}<button type="button" class="rounded-lg border border-sky-200 px-3 py-2 text-sm font-bold text-sky-800" onclick={() => startEditHomework(item)}>{$_('teach.homework.edit')}</button><button type="button" class="rounded-lg border border-amber-200 px-3 py-2 text-sm font-bold text-amber-800" onclick={() => archiveHomework(item)}>{$_('teach.homework.archive')}</button>{/if}</div></div>{/each}</div>{/if}
       {:else if homeworkMode === 'list' && viewingHomework}
         <div class="mt-5"><button type="button" class="text-sm font-bold text-hero" onclick={() => viewingHomework = null}>{$_('teach.homework.back')}</button><h3 class="mt-3 break-words text-2xl font-black text-slate-900">{viewingHomework.title}</h3><p class="mt-1 text-xs font-bold uppercase text-amber-700">{viewingHomework.item_type === 'homework' ? $_('teach.homework.types.homework') : $_('teach.homework.types.diary')}</p>{#if viewingHomework.due_at}<p class="mt-4 rounded-xl bg-amber-50 p-3 text-sm font-bold text-amber-800">{$_('teach.homework.due')}: {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(viewingHomework.due_at))}</p>{/if}<div class="mt-5 whitespace-pre-wrap break-words text-slate-700">{viewingHomework.body}</div>{#if viewingHomework.resource_links?.length}<div class="mt-6"><h4 class="text-sm font-black uppercase text-slate-500">{$_('teach.homework.resourceLinks')}</h4><div class="mt-2 grid gap-2">{#each viewingHomework.resource_links as link}<a class="break-all rounded-xl border border-sky-100 bg-sky-50 p-3 text-sm font-bold text-sky-800" href={link.url} target="_blank" rel="noopener noreferrer">{link.label || link.url}</a>{/each}</div></div>{/if}<div class="mt-6 flex justify-end gap-3">{#if viewingHomework.status === 'active'}<button type="button" class="rounded-lg border border-sky-200 px-4 py-2 font-bold text-sky-800" onclick={() => startEditHomework(viewingHomework!)}>{$_('teach.homework.edit')}</button><button type="button" class="rounded-lg border border-amber-200 px-4 py-2 font-bold text-amber-800" onclick={() => archiveHomework(viewingHomework!)}>{$_('teach.homework.archive')}</button>{/if}</div></div>
       {:else}
@@ -1189,7 +1193,7 @@
           <div class="flex gap-3"><button class="btn-hero rounded-lg px-4 py-2" type="submit" disabled={updatesSaving}>{updatesSaving ? $_('teach.updates.saving') : $_('teach.updates.saveChanges')}</button><button class="btn-secondary rounded-lg px-4 py-2" type="button" onclick={cancelEditUpdate}>{$_('teach.updates.cancel')}</button></div>
         </form>
       {:else if updatesMode === 'list' && !viewingUpdate}
-        {#if updatesListError}<p class="mt-4 text-sm font-semibold text-red-700">{updatesListError}</p>{:else if updateItems.length === 0}<p class="mt-5 text-sm text-slate-500">{$_('teach.updates.empty')}</p>{:else}<div class="mt-4 max-h-[58vh] divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">{#each updateItems.slice(0, 20) as item}<div class="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"><button type="button" class="min-w-0 text-left" onclick={() => openUpdateDetail(item)}><p class="line-clamp-2 break-words font-bold text-slate-900">{item.body}</p><p class="mt-1 text-xs text-slate-500">{item.created_at ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(item.created_at)) : ''} · {$_('teach.updates.photoCount', { values: { count: item.photo_count } })}{item.status === 'archived' ? ` · ${$_('teach.updates.archived')}` : ''}</p></button><div class="flex shrink-0 gap-2"><button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={() => openUpdateDetail(item)}>{$_('teach.updates.view')}</button>{#if item.status === 'active'}<button type="button" class="rounded-lg border border-sky-200 px-3 py-2 text-sm font-bold text-sky-800" onclick={() => startEditUpdate(item)}>{$_('teach.updates.edit')}</button><button type="button" class="rounded-lg border border-amber-200 px-3 py-2 text-sm font-bold text-amber-800" onclick={() => archiveUpdate(item)}>{$_('teach.updates.archive')}</button>{/if}</div></div>{/each}</div>{/if}
+        {#if updatesListError}<p class="mt-4 text-sm font-semibold text-red-700">{updatesListError}</p>{:else if updateItems.length === 0}<p class="mt-5 text-sm text-slate-500">{$_('teach.updates.empty')}</p>{:else}<div class="mt-4 max-h-[58vh] divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">{#each updateItems.slice(0, 20) as item}<div class="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"><button type="button" class="min-w-0 text-start" onclick={() => openUpdateDetail(item)}><p class="line-clamp-2 break-words font-bold text-slate-900">{item.body}</p><p class="mt-1 text-xs text-slate-500">{item.created_at ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(item.created_at)) : ''} · {$_('teach.updates.photoCount', { values: { count: item.photo_count } })}{item.status === 'archived' ? ` · ${$_('teach.updates.archived')}` : ''}</p></button><div class="flex shrink-0 gap-2"><button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={() => openUpdateDetail(item)}>{$_('teach.updates.view')}</button>{#if item.status === 'active'}<button type="button" class="rounded-lg border border-sky-200 px-3 py-2 text-sm font-bold text-sky-800" onclick={() => startEditUpdate(item)}>{$_('teach.updates.edit')}</button><button type="button" class="rounded-lg border border-amber-200 px-3 py-2 text-sm font-bold text-amber-800" onclick={() => archiveUpdate(item)}>{$_('teach.updates.archive')}</button>{/if}</div></div>{/each}</div>{/if}
       {:else if updatesMode === 'list' && viewingUpdate}
         <div class="mt-5">
           <button type="button" class="text-sm font-bold text-hero" onclick={() => viewingUpdate = null}>{$_('teach.updates.back')}</button>
@@ -1277,7 +1281,7 @@
           <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600 disabled:opacity-50" disabled={selectedStudents.length === 0} onclick={clearStudentSelection}>{$_('teach.points.clearSelection')}</button>
         </div>
       </div>
-      <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">{#each detail.students as student}<button type="button" aria-pressed={selectedStudents.includes(student.id)} class={`min-w-0 rounded-xl border p-3 text-left text-sm font-bold ${selectedStudents.includes(student.id) ? 'border-violet-500 bg-violet-50 text-violet-800' : 'border-slate-200 text-slate-700'}`} onclick={() => toggleStudent(student.id)}><span class="block truncate">{student.display_name}</span></button>{/each}</div>
+      <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">{#each detail.students as student}<button type="button" aria-pressed={selectedStudents.includes(student.id)} class={`min-w-0 rounded-xl border p-3 text-start text-sm font-bold ${selectedStudents.includes(student.id) ? 'border-violet-500 bg-violet-50 text-violet-800' : 'border-slate-200 text-slate-700'}`} onclick={() => toggleStudent(student.id)}><span class="block truncate">{student.display_name}</span></button>{/each}</div>
       <form class="mt-5 grid gap-3" onsubmit={(event) => { event.preventDefault(); submitPoints(); }}><label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.points.category')}<select class="rounded-lg border border-slate-200 px-3 py-2" required bind:value={categoryId}>{#each categories.filter((row) => row.type === pointType) as category}<option value={category.id}>{category.label} ({category.points_value > 0 ? '+' : ''}{category.points_value})</option>{/each}</select></label><label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.points.note')}<textarea class="min-h-20 rounded-lg border border-slate-200 px-3 py-2" maxlength="500" bind:value={pointNote}></textarea></label><button type="submit" class="btn-hero rounded-lg px-4 py-3" disabled={pointsSaving || !selectedStudents.length || !categoryId}>{pointsSaving ? $_('teach.points.saving') : selectedStudents.length === 1 ? $_('teach.points.saveForOne') : $_('teach.points.saveForMany', { values: { count: selectedStudents.length } })}</button></form>
     </div>
   </div>

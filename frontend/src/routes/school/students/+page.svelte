@@ -1,7 +1,7 @@
 <script lang="ts">
   import { beforeNavigate } from '$app/navigation';
   import { onDestroy, onMount, tick } from 'svelte';
-  import { _ } from 'svelte-i18n';
+  import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
 
   type Membership = { school_id: number; school_name: string; role: string };
@@ -216,12 +216,32 @@
   onDestroy(clearToast);
 
   function rowName(rows: Row[], id?: number | null) {
-    return rows.find((row) => row.id === id)?.name || '—';
+    const row = rows.find((item) => item.id === id);
+    return row ? localizedRowName(row) : '—';
+  }
+
+  function localizedRowName(row: Row) {
+    return $locale === 'ar' && row.name_ar ? row.name_ar : row.name;
+  }
+
+  function relationshipLabel(value?: string | null) {
+    if (!value) return '';
+    return $locale === 'ar' && ['mother', 'father', 'guardian', 'other'].includes(value)
+      ? $_(`school.guardians.relationships.${value}`)
+      : value;
+  }
+
+  function guardianStatus(value: string) {
+    return $locale === 'ar' ? $_(`school.guardians.status.${value}`) : value;
+  }
+
+  function studentStatus(value: string) {
+    return $locale === 'ar' ? $_(`school.${value}`) : value;
   }
 
   function sectionContext(section?: Row | null) {
     if (!section) return '—';
-    return [rowName(branches, section.branch_campus_id), rowName(levels, section.grade_level_id), section.name]
+    return [rowName(branches, section.branch_campus_id), rowName(levels, section.grade_level_id), localizedRowName(section)]
       .filter(Boolean)
       .join(' · ');
   }
@@ -800,7 +820,7 @@
   <section class="mx-auto max-w-7xl px-4 py-6 sm:py-8">
     <header class="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <a class="text-sm font-bold text-sky-700 hover:underline" href="/school">← {$_('school.studentAdmin.backToAdmin')}</a>
+        <a class="text-sm font-bold text-sky-700 hover:underline" href="/school"><span class="inline-block rtl:-scale-x-100" aria-hidden="true">←</span> {$_('school.studentAdmin.backToAdmin')}</a>
         <p class="eyebrow mt-3">{schoolName}</p>
         <h1 class="mt-2 text-3xl font-black text-slate-900">{$_('school.studentAdmin.title')}</h1>
         <p class="mt-2 max-w-2xl text-slate-600">{$_('school.studentAdmin.intro')}</p>
@@ -875,7 +895,7 @@
       </div>
     {:else if view === 'add'}
       <div class="mt-6">
-        <button type="button" class="text-sm font-bold text-sky-700 hover:underline" onclick={returnToList}>← {$_('school.studentAdmin.backToStudents')}</button>
+        <button type="button" class="text-sm font-bold text-sky-700 hover:underline" onclick={returnToList}><span class="inline-block rtl:-scale-x-100" aria-hidden="true">←</span> {$_('school.studentAdmin.backToStudents')}</button>
         <form class="mt-4 space-y-5" onsubmit={(event) => { event.preventDefault(); void createCompleteStudent(); }}>
           <section class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
             <h2 class="text-xl font-black text-slate-900">{$_('school.studentAdmin.addStudent')}</h2>
@@ -969,9 +989,9 @@
       </div>
     {:else if selectedStudent}
       <div class="mt-6">
-        <button type="button" class="text-sm font-bold text-sky-700 hover:underline" onclick={returnToList}>← {$_('school.studentAdmin.backToStudents')}</button>
+        <button type="button" class="text-sm font-bold text-sky-700 hover:underline" onclick={returnToList}><span class="inline-block rtl:-scale-x-100" aria-hidden="true">←</span> {$_('school.studentAdmin.backToStudents')}</button>
         <div class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
-          <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><h2 class="text-2xl font-black text-slate-900">{selectedStudent.display_name}</h2><p class="mt-1 text-sm text-slate-600">{selectedStudent.external_ref || $_('school.students.noExternalRef')} · {currentClass(selectedStudent)}</p></div><span class="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">{selectedStudent.status}</span></div>
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><h2 class="text-2xl font-black text-slate-900">{selectedStudent.display_name}</h2><p class="mt-1 text-sm text-slate-600">{selectedStudent.external_ref || $_('school.students.noExternalRef')} · {currentClass(selectedStudent)}</p></div><span class="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">{studentStatus(selectedStudent.status)}</span></div>
           <nav class="mt-5 flex gap-2 overflow-x-auto border-b border-slate-200 pb-3" aria-label={$_('school.studentAdmin.detailNavigation')}>
             {#each detailTabs as tab}<button type="button" class:btn-hero={activeDetailTab === tab} class:btn-secondary={activeDetailTab !== tab} class="shrink-0 rounded-lg px-3 py-2 text-sm" onclick={() => activeDetailTab = tab}>{$_(`school.studentAdmin.tabs.${tab}`)}</button>{/each}
           </nav>
@@ -1006,7 +1026,7 @@
               </form>
               <div class="mt-4 space-y-3">
                 {#each guardians?.contacts || [] as contact (contact.id)}
-                  <article class={`rounded-xl border p-4 ${contact.is_active ? 'border-slate-200' : 'border-slate-200 bg-slate-50'}`}><div class="flex flex-col gap-3 sm:flex-row sm:justify-between"><div><p class="font-black">{contact.name}</p><p class="mt-1 text-sm text-slate-600">{[contact.relationship, contact.email, contact.phone].filter(Boolean).join(' · ') || '—'}</p><p class="mt-2 text-xs font-bold text-slate-500">{contact.source === 'import' ? $_('school.guardians.imported') : $_('school.guardians.manual')} · {contact.access_status}</p></div><div class="flex flex-wrap gap-2"><button class="btn-secondary rounded-lg px-3 py-2 text-sm" type="button" onclick={() => editGuardian(contact)}>{$_('school.edit')}</button><button class="btn-secondary rounded-lg px-3 py-2 text-sm" type="button" onclick={() => toggleGuardian(contact)}>{contact.is_active ? $_('school.guardians.inactivate') : $_('school.guardians.activate')}</button>{#if activeInvite(contact.id)}<button class="btn-secondary rounded-lg px-3 py-2 text-sm" type="button" onclick={() => revokeGuardianInvite(activeInvite(contact.id)!.id)}>{$_('school.guardians.revoke')}</button>{:else if contact.is_active}<button class="btn-hero rounded-lg px-3 py-2 text-sm" type="button" onclick={() => generateGuardianCode(contact.id)}>{$_('school.guardians.generate')}</button>{/if}</div></div></article>
+                  <article class={`rounded-xl border p-4 ${contact.is_active ? 'border-slate-200' : 'border-slate-200 bg-slate-50'}`}><div class="flex flex-col gap-3 sm:flex-row sm:justify-between"><div><p class="font-black">{contact.name}</p><p class="mt-1 text-sm text-slate-600">{[relationshipLabel(contact.relationship), contact.email, contact.phone].filter(Boolean).join(' · ') || '—'}</p><p class="mt-2 text-xs font-bold text-slate-500">{contact.source === 'import' ? $_('school.guardians.imported') : $_('school.guardians.manual')} · {guardianStatus(contact.access_status)}</p></div><div class="flex flex-wrap gap-2"><button class="btn-secondary rounded-lg px-3 py-2 text-sm" type="button" onclick={() => editGuardian(contact)}>{$_('school.edit')}</button><button class="btn-secondary rounded-lg px-3 py-2 text-sm" type="button" onclick={() => toggleGuardian(contact)}>{contact.is_active ? $_('school.guardians.inactivate') : $_('school.guardians.activate')}</button>{#if activeInvite(contact.id)}<button class="btn-secondary rounded-lg px-3 py-2 text-sm" type="button" onclick={() => revokeGuardianInvite(activeInvite(contact.id)!.id)}>{$_('school.guardians.revoke')}</button>{:else if contact.is_active}<button class="btn-hero rounded-lg px-3 py-2 text-sm" type="button" onclick={() => generateGuardianCode(contact.id)}>{$_('school.guardians.generate')}</button>{/if}</div></div></article>
                 {:else}
                   <p class="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">{$_('school.guardians.noContacts')}</p>
                 {/each}
@@ -1016,7 +1036,7 @@
           {:else if activeDetailTab === 'placement'}
             <div class="mt-5"><h3 class="font-black">{$_('school.studentAdmin.currentPlacement')}</h3><p class="mt-2 text-slate-700">{currentClass(selectedStudent)}</p><div class="mt-5 max-w-xl rounded-xl border border-slate-200 p-4"><label class="text-sm font-bold">{$_('school.students.moveClass')}<select data-field="move" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" bind:value={moveSectionId}><option value="">{$_('school.select')}</option>{#each sections.filter((row) => row.status !== 'archived') as section}<option value={String(section.id)}>{sectionContext(section)}</option>{/each}</select>{#if fieldErrors.move}<span class="mt-1 block text-xs text-red-700">{fieldErrors.move}</span>{/if}</label><p class="mt-2 text-xs text-slate-500">{$_('school.students.moveHelp')}</p><button type="button" class="btn-hero mt-4 rounded-xl px-4 py-2.5" disabled={saving} onclick={moveStudent}>{$_('school.students.move')}</button></div></div>
           {:else if activeDetailTab === 'access'}
-            <div class="mt-5"><h3 class="font-black">{$_('school.studentAdmin.chhAccounts')}</h3><p class="mt-1 text-sm text-slate-600">{$_('school.studentAdmin.chhAccountsHelp')}</p><div class="mt-4 space-y-3">{#each guardians?.links || [] as link (link.id)}<article class="rounded-xl border border-slate-200 p-4"><div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p class="font-black">{link.user_email || link.display_name || '—'}</p><p class="mt-1 text-sm text-slate-600">{link.relationship || $_('school.guardians.relationshipNone')} · {$_(`school.guardians.status.${link.status}`)}</p></div>{#if link.status === 'active'}<button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={() => revokeGuardianLink(link.id)}>{$_('school.guardians.revokeLink')}</button>{/if}</div></article>{:else}<p class="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">{$_('school.studentAdmin.noChhAccounts')}</p>{/each}</div><h4 class="mt-6 font-black">{$_('school.studentAdmin.invitationHistory')}</h4><div class="mt-3 space-y-2">{#each guardians?.invites || [] as invite}<div class="rounded-xl border border-slate-200 p-3 text-sm"><span class="font-bold">{invite.guardian_name || '—'}</span> · {invite.relationship || '—'} · {invite.status} · {formatDate(invite.created_at)}{#if invite.status === 'active'}<button type="button" class="ms-3 font-bold text-red-700" onclick={() => revokeGuardianInvite(invite.id)}>{$_('school.guardians.revoke')}</button>{/if}</div>{:else}<p class="text-sm text-slate-500">{$_('school.studentAdmin.noInvitations')}</p>{/each}</div></div>
+            <div class="mt-5"><h3 class="font-black">{$_('school.studentAdmin.chhAccounts')}</h3><p class="mt-1 text-sm text-slate-600">{$_('school.studentAdmin.chhAccountsHelp')}</p><div class="mt-4 space-y-3">{#each guardians?.links || [] as link (link.id)}<article class="rounded-xl border border-slate-200 p-4"><div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p class="font-black">{link.user_email || link.display_name || '—'}</p><p class="mt-1 text-sm text-slate-600">{relationshipLabel(link.relationship) || $_('school.guardians.relationshipNone')} · {guardianStatus(link.status)}</p></div>{#if link.status === 'active'}<button type="button" class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={() => revokeGuardianLink(link.id)}>{$_('school.guardians.revokeLink')}</button>{/if}</div></article>{:else}<p class="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">{$_('school.studentAdmin.noChhAccounts')}</p>{/each}</div><h4 class="mt-6 font-black">{$_('school.studentAdmin.invitationHistory')}</h4><div class="mt-3 space-y-2">{#each guardians?.invites || [] as invite}<div class="rounded-xl border border-slate-200 p-3 text-sm"><span class="font-bold">{invite.guardian_name || '—'}</span> · {relationshipLabel(invite.relationship) || '—'} · {guardianStatus(invite.status)} · {formatDate(invite.created_at)}{#if invite.status === 'active'}<button type="button" class="ms-3 font-bold text-red-700" onclick={() => revokeGuardianInvite(invite.id)}>{$_('school.guardians.revoke')}</button>{/if}</div>{:else}<p class="text-sm text-slate-500">{$_('school.studentAdmin.noInvitations')}</p>{/each}</div></div>
           {:else if activeDetailTab === 'fhh'}
             <div class="mt-5">
               <h3 class="font-black">{$_('school.fhhLink.title')}</h3>
@@ -1060,7 +1080,7 @@
               </details>
             </div>
           {:else}
-            <div class="mt-5"><h3 class="font-black">{$_('school.students.history')}</h3><div class="mt-4 space-y-3">{#each enrolments as enrolment (enrolment.id)}<article class="rounded-xl border border-slate-200 p-4"><p class="font-black">{enrolment.class_section?.name || enrolment.subject_group?.name || '—'}</p><p class="mt-1 text-sm text-slate-600">{enrolment.valid_from} → {enrolment.valid_to || $_('school.students.open')}</p></article>{:else}<p class="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">{$_('school.students.noEnrolments')}</p>{/each}</div></div>
+            <div class="mt-5"><h3 class="font-black">{$_('school.students.history')}</h3><div class="mt-4 space-y-3">{#each enrolments as enrolment (enrolment.id)}<article class="rounded-xl border border-slate-200 p-4"><p class="font-black">{enrolment.class_section ? localizedRowName(enrolment.class_section) : enrolment.subject_group ? localizedRowName(enrolment.subject_group) : '—'}</p><p class="mt-1 text-sm text-slate-600">{enrolment.valid_from} <span class="inline-block rtl:-scale-x-100" aria-hidden="true">→</span> {enrolment.valid_to || $_('school.students.open')}</p></article>{:else}<p class="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">{$_('school.students.noEnrolments')}</p>{/each}</div></div>
           {/if}
         </div>
       </div>

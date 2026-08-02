@@ -59,6 +59,18 @@ test('unknown subject colours are deterministic neutral pastels', () => {
   assert.notDeepEqual(subjectPalette('Robotics'), subjectPalette('English'));
 });
 
+test('Arabic presentation prefers stored Arabic school, class and subject names', () => {
+  const card = {
+    ...assignment(20, 'Maths', 'G7', 'A'),
+    school: { name: 'Pilot School', name_ar: 'مدرسة التجربة' },
+    class_section: { name: 'Grade 7 A', name_ar: 'الصف السابع أ' },
+    subject_group: { name: 'Grade 7 A Maths', name_ar: 'رياضيات الصف السابع أ' },
+    subject: { name: 'Maths', name_ar: 'الرياضيات' }
+  };
+  assert.equal(classLabel(card, 'ar'), 'الصف السابع أ');
+  assert.equal(groupTeacherClasses([card], 'ar', 'مربي الصف', 'المادة')[0].label, 'الرياضيات');
+});
+
 test('mobile source fixes the compact controls and gives scroll ownership to the grouped class list', () => {
   assert.match(pageSource, /data-testid="teach-fixed-panel"/);
   assert.match(pageSource, /data-testid="teach-utility-actions"[^>]*grid-cols-3/);

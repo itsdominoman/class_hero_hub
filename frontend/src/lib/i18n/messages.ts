@@ -155,6 +155,8 @@ export const en = {
     candidateExcluded: 'Candidate exclusion recorded.',
     notEligible: 'Not eligible under current criteria',
     countedNeedsWork: '{count} counted needs-work events in this review period.',
+    defaultName: 'Star of the Week',
+    defaultSignatory: 'Head of School',
     overrideSafeguard: 'Override eligibility safeguard',
     overrideReason: 'Required reason for safeguard override',
     recordOverride: 'Record override',
@@ -332,7 +334,8 @@ export const en = {
     loading: 'Loading',
     copyTodo: 'Copy TODO',
     close: 'Close',
-    cancel: 'Cancel'
+    cancel: 'Cancel',
+    requestFailed: 'The request could not be completed. Please try again.'
   },
   timezoneSelector: {
     searchPlaceholder: 'Search by city, country or region',
@@ -379,6 +382,120 @@ export const en = {
       civvies: 'Civvies day',
       charity: 'Charity day',
       homework_due: 'Homework due'
+    }
+  },
+  surveyManagement: {
+    title: 'Surveys',
+    subtitle: 'Create, publish and report on targeted parent surveys.',
+    create: 'Create survey',
+    drafts: 'Drafts',
+    open: 'Open',
+    closed: 'Closed',
+    archived: 'Archived',
+    all: 'All',
+    empty: 'No surveys in this view.',
+    newSurvey: 'New survey',
+    details: 'Survey details',
+    audience: 'Audience',
+    questions: 'Questions',
+    preview: 'Preview',
+    saveDraft: 'Save draft',
+    administrators: 'Survey administrators',
+    loading: 'Loading surveys…',
+    close: 'Close',
+    enabled: 'Enabled',
+    disabled: 'Disabled',
+    surveyTitle: 'Survey title',
+    question: 'Question',
+    titleField: 'Title',
+    introduction: 'Short introduction',
+    instructions: 'Instructions (optional)',
+    opensAt: 'Opens (school time)',
+    closesAt: 'Closes (school time)',
+    responseUnit: 'Response unit',
+    anonymousResponses: 'Anonymous responses',
+    parentResults: 'Parents may see results after closing',
+    pushNotification: 'Push notification',
+    dashboardCard: 'Dashboard card',
+    noticesFeed: 'Notices-feed link',
+    oneReminder: 'One reminder',
+    reminderAt: 'Reminder (school time)',
+    addQuestion: '+ Question',
+    moveUp: 'Move up',
+    moveDown: 'Move down',
+    delete: 'Delete',
+    required: 'Required',
+    choice: 'Choice {number}',
+    addChoice: '+ Choice',
+    minimum: 'Minimum',
+    maximum: 'Maximum',
+    edit: 'Edit',
+    saving: 'Saving…',
+    permissionRequired: 'You do not have survey management permission.',
+    notFound: 'Survey not found.',
+    back: 'Surveys',
+    results: 'Results',
+    comments: 'Comments / free text',
+    publish: 'Publish',
+    reopen: 'Reopen',
+    archive: 'Archive',
+    sendReminder: 'Send reminder',
+    exportCsv: 'Export CSV',
+    noComments: 'No free-text responses.',
+    anonymous: 'Anonymous',
+    identified: 'Identified',
+    reopenTitle: 'Reopen survey',
+    reopenHelp: 'Choose a new closing time. Existing responses and results will be kept.',
+    newClosingTime: 'New closing time',
+    cancel: 'Cancel',
+    reopening: 'Reopening...',
+    loadingOne: 'Loading…',
+    eligible: 'Eligible',
+    responses: 'Responses',
+    rate: 'Rate',
+    responseRate: 'Response rate',
+    reminder: 'Reminder',
+    completed: '{count} completed',
+    outstanding: '{count} outstanding',
+    answers: '{count} answers',
+    average: 'Average',
+    textAnswersBelow: 'Text answers are listed below.',
+    responsePage: '{count} responses · page {page}',
+    search: 'Search',
+    futureClosingTime: 'Choose a future closing time before reopening.',
+    audiences: {
+      whole_school: 'Whole school',
+      branch: 'Branch',
+      grade: 'Grade / level',
+      class: 'Class / homeroom',
+      selected_families: 'Selected linked families'
+    },
+    responseModes: {
+      guardian: 'One per guardian',
+      household: 'One per household'
+    },
+    types: {
+      single_choice: 'Single choice',
+      multiple_choice: 'Multiple choice',
+      yes_no: 'Yes / No',
+      rating: 'Rating',
+      short_text: 'Short text',
+      long_text: 'Long text'
+    },
+    statuses: {
+      draft: 'Draft',
+      scheduled: 'Scheduled',
+      open: 'Open',
+      closed: 'Closed',
+      archived: 'Archived',
+      active: 'Active',
+      inactive: 'Inactive'
+    },
+    reminderStatuses: {
+      off: 'Off',
+      disabled: 'Disabled',
+      scheduled: 'Scheduled',
+      sent: 'Sent'
     }
   },
   home: {
@@ -696,6 +813,7 @@ export const en = {
     loadingConversation: 'Loading conversation…',
     loadError: 'Failed to load messages',
     conversationLoadError: 'Failed to load this conversation',
+    conversationUnavailable: 'Conversation unavailable',
     readUpdateError: 'The conversation loaded, but its unread status could not be updated. It will retry automatically.',
     olderLoadError: 'Failed to load older messages',
     recipientLoadError: 'Failed to load recipients',
@@ -888,6 +1006,9 @@ export const en = {
       accepted: 'Accepted',
       revoked: 'Revoked',
       expired: 'Expired'
+    },
+    roles: {
+      school_admin: 'School administrator'
     }
   },
   invite: {
@@ -972,6 +1093,43 @@ export const en = {
       defaults: 'Default subjects',
       groups: 'Subject groups'
     },
+    checklistItems: {
+      settings: 'School settings',
+      branches: 'Branches/campuses',
+      academic_years: 'Academic years',
+      education_stages: 'Education stages',
+      grade_levels: 'Grade/year levels',
+      class_sections: 'Sections',
+      student_import: 'Student import',
+      subjects: 'Subjects',
+      subject_groups: 'Subject groups'
+    },
+    sendStatuses: {
+      pending: 'Pending',
+      sent: 'Sent',
+      failed: 'Failed'
+    },
+    resultStatuses: {
+      created: 'Created',
+      restored: 'Restored',
+      skipped: 'Skipped',
+      failed: 'Failed',
+      would_create: 'Would create',
+      would_restore: 'Would restore',
+      skipped_existing: 'Existing record skipped'
+    },
+    resultReasons: {
+      subjectNotFound: 'Subject not found.',
+      subjectArchived: 'The subject is archived.',
+      classNotFound: 'Class section not found.',
+      classArchived: 'An archived class section cannot be selected.',
+      classInactive: 'An inactive class section cannot be selected.',
+      wrongYear: 'The class section does not belong to the selected academic year.',
+      wrongLevel: 'The class section does not belong to the selected grade/year level.',
+      inactiveDuplicate: 'This value is already used by an inactive record. Edit or reactivate that record instead.',
+      activeDuplicate: 'An active record with this code already exists.',
+      unknown: 'The item could not be processed.'
+    },
     menu: {
       navigationLabel: 'School setup navigation',
       shortcut: 'Shortcut',
@@ -988,7 +1146,13 @@ export const en = {
     },
     settings: {
       levelLabel: 'Level label',
-      customLabel: 'Custom label'
+      customLabel: 'Custom label',
+      levelLabels: {
+        Grade: 'Grade',
+        Year: 'Year',
+        Form: 'Form',
+        Level: 'Level'
+      }
     },
     compliance: {
       eyebrow: 'Compliance',
@@ -1488,6 +1652,10 @@ export const en = {
       templateError: 'Failed to download template',
       uploadError: 'Failed to upload CSV',
       nameArMixedWarning: 'The Arabic-name field contains both Arabic and Latin letters. Review that it is the student\'s complete Arabic-script name.',
+      guardianNameWarning: 'Guardian {slot} needs a name before an invitation can be sent.',
+      guardianRelationshipWarning: 'Guardian {slot} has an unsupported relationship value; it was left blank.',
+      guardianDraftWarning: 'Guardian {slot} will be saved as a draft contact; no invitation or message is sent.',
+      rowWarning: 'This row contains import data that needs review.',
       commit: 'Commit valid rows',
       committing: 'Committing…',
       commitError: 'Failed to commit import',
@@ -1965,6 +2133,7 @@ export const en = {
     emailMagicLink: 'Email me a sign-in link',
     magicSent: 'Check your email for a one-time sign-in link.',
     magicError: 'Failed to send sign-in link',
+    googleError: 'Google sign-in could not be completed. Please try again.',
     magicReady: 'Confirm to finish signing in.',
     continueMagic: 'Continue sign in',
     magicExchangeError: 'Failed to sign in with this link',
@@ -2370,7 +2539,9 @@ export const ar = {
     recordExclusion: 'تسجيل الاستبعاد',
     candidateExcluded: 'تم تسجيل استبعاد المرشح.',
     notEligible: 'غير مؤهل وفق المعايير الحالية',
-    countedNeedsWork: '{count} من أحداث يحتاج إلى تحسين المحتسبة ضمن فترة المراجعة هذه.',
+    countedNeedsWork: '{count} من الأحداث التي تحتاج إلى تحسين والمحتسبة ضمن فترة المراجعة هذه.',
+    defaultName: 'نجم الأسبوع',
+    defaultSignatory: 'مدير المدرسة',
     overrideSafeguard: 'تجاوز ضابط الأهلية',
     overrideReason: 'السبب المطلوب لتجاوز ضابط الأهلية',
     recordOverride: 'تسجيل التجاوز',
@@ -2453,7 +2624,7 @@ export const ar = {
     backupSuccess: 'اكتملت أحدث نسخة احتياطية بنجاح منذ {age}',
     backupMissing: 'لا يتوفر تأكيد حديث للنسخ الاحتياطي',
     workerHealth: 'صحة العاملات',
-    workersHealthy: 'جميع العاملات وعددها {count} ترسل تقاريرها بصورة طبيعية',
+    workersHealthy: 'جميع العمليات العاملة وعددها {count} ترسل تقاريرها بصورة طبيعية',
     workersUnhealthy: 'تحتاج عاملة واحدة أو أكثر إلى الانتباه',
     pendingJobs: 'المهام المعلّقة',
     deadJobs: 'المهام الفاشلة',
@@ -2546,9 +2717,10 @@ export const ar = {
   },
   common: {
     loading: 'جار التحميل',
-    copyTodo: 'نسخة TODO',
+    copyTodo: 'نسخ',
     close: 'إغلاق',
-    cancel: 'إلغاء'
+    cancel: 'إلغاء',
+    requestFailed: 'تعذر إكمال الطلب. يُرجى المحاولة مرة أخرى.'
   },
   timezoneSelector: {
     searchPlaceholder: 'ابحث بالمدينة أو الدولة أو المنطقة',
@@ -2597,6 +2769,120 @@ export const ar = {
       homework_due: 'موعد الواجب'
     }
   },
+  surveyManagement: {
+    title: 'الاستبيانات',
+    subtitle: 'إنشاء استبيانات موجهة لأولياء الأمور ونشرها وتحليل نتائجها.',
+    create: 'إنشاء استبيان',
+    drafts: 'المسودات',
+    open: 'المفتوحة',
+    closed: 'المغلقة',
+    archived: 'المؤرشفة',
+    all: 'الكل',
+    empty: 'لا توجد استبيانات في هذا العرض.',
+    newSurvey: 'استبيان جديد',
+    details: 'تفاصيل الاستبيان',
+    audience: 'الجمهور المستهدف',
+    questions: 'الأسئلة',
+    preview: 'معاينة',
+    saveDraft: 'حفظ المسودة',
+    administrators: 'مسؤولو الاستبيانات',
+    loading: 'جارٍ تحميل الاستبيانات…',
+    close: 'إغلاق',
+    enabled: 'مفعّل',
+    disabled: 'معطّل',
+    surveyTitle: 'عنوان الاستبيان',
+    question: 'السؤال',
+    titleField: 'العنوان',
+    introduction: 'مقدمة موجزة',
+    instructions: 'التعليمات (اختياري)',
+    opensAt: 'موعد الفتح (بتوقيت المدرسة)',
+    closesAt: 'موعد الإغلاق (بتوقيت المدرسة)',
+    responseUnit: 'وحدة الاستجابة',
+    anonymousResponses: 'استجابات مجهولة الهوية',
+    parentResults: 'السماح لأولياء الأمور بعرض النتائج بعد الإغلاق',
+    pushNotification: 'إشعار فوري',
+    dashboardCard: 'بطاقة في لوحة المعلومات',
+    noticesFeed: 'رابط في موجز التنبيهات',
+    oneReminder: 'تذكير واحد',
+    reminderAt: 'موعد التذكير (بتوقيت المدرسة)',
+    addQuestion: '+ إضافة سؤال',
+    moveUp: 'تحريك إلى أعلى',
+    moveDown: 'تحريك إلى أسفل',
+    delete: 'حذف',
+    required: 'إلزامي',
+    choice: 'الخيار {number}',
+    addChoice: '+ إضافة خيار',
+    minimum: 'الحد الأدنى',
+    maximum: 'الحد الأقصى',
+    edit: 'تعديل',
+    saving: 'جارٍ الحفظ…',
+    permissionRequired: 'ليست لديك صلاحية إدارة الاستبيانات.',
+    notFound: 'لم يتم العثور على الاستبيان.',
+    back: 'الاستبيانات',
+    results: 'النتائج',
+    comments: 'التعليقات والإجابات النصية',
+    publish: 'نشر',
+    reopen: 'إعادة فتح',
+    archive: 'أرشفة',
+    sendReminder: 'إرسال تذكير',
+    exportCsv: 'تصدير CSV',
+    noComments: 'لا توجد إجابات نصية.',
+    anonymous: 'مجهول الهوية',
+    identified: 'معلوم الهوية',
+    reopenTitle: 'إعادة فتح الاستبيان',
+    reopenHelp: 'اختر موعد إغلاق جديداً. ستبقى الاستجابات والنتائج الحالية محفوظة.',
+    newClosingTime: 'موعد الإغلاق الجديد',
+    cancel: 'إلغاء',
+    reopening: 'جارٍ إعادة الفتح…',
+    loadingOne: 'جارٍ التحميل…',
+    eligible: 'المؤهلون',
+    responses: 'الاستجابات',
+    rate: 'المعدل',
+    responseRate: 'معدل الاستجابة',
+    reminder: 'التذكير',
+    completed: 'مكتملة: {count}',
+    outstanding: 'متبقية: {count}',
+    answers: 'الإجابات: {count}',
+    average: 'المتوسط',
+    textAnswersBelow: 'تُعرض الإجابات النصية أدناه.',
+    responsePage: '{count} استجابة · الصفحة {page}',
+    search: 'بحث',
+    futureClosingTime: 'اختر موعد إغلاق لاحقاً قبل إعادة فتح الاستبيان.',
+    audiences: {
+      whole_school: 'المدرسة بأكملها',
+      branch: 'الفرع',
+      grade: 'الصف / المستوى الدراسي',
+      class: 'الصف / الشعبة',
+      selected_families: 'الأسر المرتبطة المحددة'
+    },
+    responseModes: {
+      guardian: 'استجابة واحدة لكل ولي أمر',
+      household: 'استجابة واحدة لكل أسرة'
+    },
+    types: {
+      single_choice: 'اختيار واحد',
+      multiple_choice: 'اختيارات متعددة',
+      yes_no: 'نعم / لا',
+      rating: 'مقياس تقييم',
+      short_text: 'إجابة قصيرة',
+      long_text: 'إجابة مطولة'
+    },
+    statuses: {
+      draft: 'مسودة',
+      scheduled: 'مجدول',
+      open: 'مفتوح',
+      closed: 'مغلق',
+      archived: 'مؤرشف',
+      active: 'نشط',
+      inactive: 'غير نشط'
+    },
+    reminderStatuses: {
+      off: 'متوقف',
+      disabled: 'متوقف',
+      scheduled: 'مجدول',
+      sent: 'تم الإرسال'
+    }
+  },
   home: {
     title: 'كلاس هيرو هب | مركز تواصل مدرسي',
     metaDescription: 'مركز تواصل مدرسي للإشعارات والتحديثات والوصول حسب الدور.',
@@ -2638,7 +2924,7 @@ export const ar = {
     signal3: 'يبقى التواصل المدرسي الخاص هو التركيز.',
     statusEyebrow: 'الحالة الحالية',
     statusHeading: 'واجهة المدرسة قيد العمل',
-    statusText: 'تفاصيل النسخة والميزات TODO أثناء إزالة الواجهة السابقة.'
+    statusText: 'تفاصيل النسخة والميزات قيد الإعداد أثناء إزالة الواجهة السابقة.'
   },
   safeguarding: {
     title: 'مراجعات حماية الرسائل',
@@ -2908,6 +3194,7 @@ export const ar = {
     loadingConversation: 'جار تحميل المحادثة…',
     loadError: 'تعذر تحميل الرسائل',
     conversationLoadError: 'تعذر تحميل هذه المحادثة',
+    conversationUnavailable: 'المحادثة غير متاحة',
     readUpdateError: 'تم تحميل المحادثة، لكن تعذر تحديث حالة القراءة. ستتم إعادة المحاولة تلقائيا.',
     olderLoadError: 'تعذر تحميل الرسائل الأقدم',
     recipientLoadError: 'تعذر تحميل المستلمين',
@@ -3100,6 +3387,9 @@ export const ar = {
       accepted: 'مقبولة',
       revoked: 'ملغاة',
       expired: 'منتهية'
+    },
+    roles: {
+      school_admin: 'مسؤول المدرسة'
     }
   },
   invite: {
@@ -3172,7 +3462,7 @@ export const ar = {
       branches: 'الفروع والحُرُم المدرسية',
       stages: 'المراحل التعليمية والمصطلحات',
       years: 'السنوات الدراسية',
-      levels: 'مستويات الصفوف/السنوات',
+      levels: 'الصفوف/المستويات الدراسية',
       sections: 'الشعب',
       rosters: 'الصفوف والقوائم',
       teachers: 'الموظفون وتكليفات التدريس',
@@ -3183,6 +3473,43 @@ export const ar = {
       subjects: 'المواد',
       defaults: 'المواد الافتراضية',
       groups: 'مجموعات المواد'
+    },
+    checklistItems: {
+      settings: 'إعدادات المدرسة',
+      branches: 'الفروع والحُرُم المدرسية',
+      academic_years: 'السنوات الدراسية',
+      education_stages: 'المراحل التعليمية',
+      grade_levels: 'الصفوف/المستويات الدراسية',
+      class_sections: 'الشعب',
+      student_import: 'استيراد بيانات الطلاب',
+      subjects: 'المواد',
+      subject_groups: 'مجموعات المواد'
+    },
+    sendStatuses: {
+      pending: 'قيد الانتظار',
+      sent: 'تم الإرسال',
+      failed: 'تعذر الإرسال'
+    },
+    resultStatuses: {
+      created: 'تم الإنشاء',
+      restored: 'تمت الاستعادة',
+      skipped: 'تم التخطي',
+      failed: 'تعذر التنفيذ',
+      would_create: 'سيُنشأ',
+      would_restore: 'سيُستعاد',
+      skipped_existing: 'تم تخطي السجل الموجود'
+    },
+    resultReasons: {
+      subjectNotFound: 'لم يتم العثور على المادة.',
+      subjectArchived: 'المادة مؤرشفة.',
+      classNotFound: 'لم يتم العثور على الشعبة.',
+      classArchived: 'لا يمكن اختيار شعبة مؤرشفة.',
+      classInactive: 'لا يمكن اختيار شعبة غير نشطة.',
+      wrongYear: 'لا تنتمي الشعبة إلى السنة الدراسية المحددة.',
+      wrongLevel: 'لا تنتمي الشعبة إلى الصف أو المستوى الدراسي المحدد.',
+      inactiveDuplicate: 'هذه القيمة مستخدمة في سجل غير نشط. عدّل ذلك السجل أو أعد تفعيله.',
+      activeDuplicate: 'يوجد سجل نشط يحمل هذا الرمز بالفعل.',
+      unknown: 'تعذر تنفيذ هذا العنصر.'
     },
     menu: {
       navigationLabel: 'تنقل إعداد المدرسة',
@@ -3200,7 +3527,13 @@ export const ar = {
     },
     settings: {
       levelLabel: 'تسمية المستوى',
-      customLabel: 'تسمية مخصصة'
+      customLabel: 'تسمية مخصصة',
+      levelLabels: {
+        Grade: 'صف',
+        Year: 'سنة',
+        Form: 'صف دراسي',
+        Level: 'مستوى'
+      }
     },
     compliance: {
       eyebrow: 'الامتثال',
@@ -3336,7 +3669,7 @@ export const ar = {
     },
     groups: {
       title: 'مجموعات المواد',
-      help: 'مجموعة المادة هي مجموعة التدريس لمادة معينة، مثل KG 1 A English أو Grade 7 Maths Set 1.',
+      help: 'مجموعة المادة هي مجموعة التدريس لمادة معينة، مثل مجموعة اللغة الإنجليزية للصف الأول أو مجموعة الرياضيات الأولى للصف السابع.',
       recommendation: 'ينبغي لمعظم المدارس استخدام المجموعات الخاصة بالشعب للمواد العادية. استخدم مستوى دراسي / عابرة للشعب فقط للمجموعات أو الاختيارات أو المجموعات التي تجمع طلابا من أكثر من شعبة.',
       contextType: 'نوع المجموعة',
       sectionSpecific: 'خاصة بشعبة',
@@ -3700,6 +4033,10 @@ export const ar = {
       templateError: 'تعذر تنزيل القالب',
       uploadError: 'تعذر رفع ملف CSV',
       nameArMixedWarning: 'يحتوي حقل الاسم العربي على أحرف عربية ولاتينية؛ راجع أنه الاسم الكامل للطالب بالخط العربي.',
+      guardianNameWarning: 'يلزم إدخال اسم ولي الأمر {slot} قبل إرسال دعوة إليه.',
+      guardianRelationshipWarning: 'قيمة صلة ولي الأمر {slot} غير مدعومة؛ لذلك تُركت فارغة.',
+      guardianDraftWarning: 'سيُحفظ ولي الأمر {slot} كجهة اتصال في وضع المسودة، ولن تُرسل دعوة أو رسالة.',
+      rowWarning: 'يحتوي هذا الصف على بيانات استيراد تتطلب المراجعة.',
       commit: 'تنفيذ الصفوف الصالحة',
       committing: 'جارٍ التنفيذ…',
       commitError: 'تعذر تنفيذ الاستيراد',
@@ -4136,35 +4473,35 @@ export const ar = {
   faq: {
     pageTitle: 'الأسئلة الشائعة | كلاس هيرو هب',
     heading: 'الأسئلة الشائعة',
-    intro: 'TODO: استبدال أسئلة المنزل السابقة بأسئلة تواصل مدرسي.',
-    placeholderHeading: 'نسخة الأسئلة المدرسية TODO',
+    intro: 'يجري إعداد أسئلة التواصل المدرسي لتحل محل الأسئلة السابقة.',
+    placeholderHeading: 'أسئلة التواصل المدرسي قيد الإعداد',
     placeholderText: 'تم الاحتفاظ بهذه الصفحة أثناء إعادة كتابة نسخة المنتج لكلاس هيرو هب.'
   },
   safetyPrivacy: {
     pageTitle: 'السلامة والخصوصية | كلاس هيرو هب',
     heading: 'السلامة والخصوصية',
-    intro: 'TODO: استبدال نسخة السلامة والخصوصية المنزلية بنسخة تواصل مدرسي.',
-    placeholderHeading: 'نسخة السلامة TODO',
+    intro: 'يجري إعداد معلومات السلامة والخصوصية الخاصة بالتواصل المدرسي.',
+    placeholderHeading: 'معلومات السلامة قيد الإعداد',
     placeholderText: 'تم الاحتفاظ بهذه الصفحة أثناء إعداد نسخة الخصوصية الموجهة للمدرسة.'
   },
   privacyPolicy: {
     pageTitle: 'سياسة الخصوصية | كلاس هيرو هب',
     heading: 'سياسة الخصوصية',
-    intro: 'TODO: استبدال سياسة الخصوصية المنزلية بنسخة تواصل مدرسي.',
-    placeholderHeading: 'نسخة سياسة الخصوصية TODO',
+    intro: 'يجري إعداد سياسة الخصوصية الخاصة بالتواصل المدرسي.',
+    placeholderHeading: 'سياسة الخصوصية قيد الإعداد',
     placeholderText: 'تم الاحتفاظ بهذه الصفحة كعنصر نائب لإعادة كتابة سياسة كلاس هيرو هب.'
   },
   terms: {
     pageTitle: 'شروط الخدمة | كلاس هيرو هب',
     heading: 'شروط الخدمة',
-    intro: 'TODO: استبدال شروط المنزل السابقة بنسخة تواصل مدرسي.',
-    placeholderHeading: 'نسخة الشروط TODO',
+    intro: 'يجري إعداد شروط الاستخدام الخاصة بالتواصل المدرسي.',
+    placeholderHeading: 'شروط الاستخدام قيد الإعداد',
     placeholderText: 'تم الاحتفاظ بهذه الصفحة كعنصر نائب لشروط كلاس هيرو هب المحدثة.'
   },
   contact: {
     pageTitle: 'تواصل مع كلاس هيرو هب',
     heading: 'تواصل مع كلاس هيرو هب',
-    intro: 'TODO: استبدال نسخة التواصل المنزلية بنسخة دعم للتواصل المدرسي.',
+    intro: 'يجري إعداد معلومات الدعم الخاصة بالتواصل المدرسي.',
     emailSupport: 'الدعم عبر البريد الإلكتروني',
     emailAddress: 'support@familyherohub.com'
   },
@@ -4177,6 +4514,7 @@ export const ar = {
     emailMagicLink: 'أرسل لي رابط تسجيل الدخول',
     magicSent: 'تحقق من بريدك الإلكتروني للحصول على رابط تسجيل دخول لمرة واحدة.',
     magicError: 'تعذر إرسال رابط تسجيل الدخول',
+    googleError: 'تعذر إكمال تسجيل الدخول باستخدام Google. يُرجى المحاولة مرة أخرى.',
     magicReady: 'أكد لإكمال تسجيل الدخول.',
     continueMagic: 'متابعة تسجيل الدخول',
     magicExchangeError: 'تعذر تسجيل الدخول بهذا الرابط',

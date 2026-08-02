@@ -20,7 +20,7 @@
     school: TeacherClassAssignment['school'] & { id: number; name_ar?: string | null };
     class_section?: (NonNullable<TeacherClassAssignment['class_section']> & { id: number }) | null;
     subject_group?: (NonNullable<TeacherClassAssignment['subject_group']> & { id: number }) | null;
-    academic_year?: { name?: string | null } | null;
+    academic_year?: { name?: string | null; name_ar?: string | null } | null;
     valid_from: string;
   };
   type AnnouncementAttachment = {
@@ -122,15 +122,19 @@
     )
   );
 
+  function displayRefName(ref?: { name?: string | null; name_ar?: string | null } | null) {
+    return presentationLocale === 'ar' && ref?.name_ar ? ref.name_ar : ref?.name || '';
+  }
+
   function titleFor(card: AssignmentCard) {
-    if (card.role === 'homeroom') return card.class_section?.name || card.class_section?.code || $_('teach.homeroom');
-    return card.subject_group?.name || card.subject_group?.code || $_('teach.subject');
+    if (card.role === 'homeroom') return displayRefName(card.class_section) || card.class_section?.code || $_('teach.homeroom');
+    return displayRefName(card.subject_group) || card.subject_group?.code || $_('teach.subject');
   }
 
   function mobileClassAriaLabel(card: AssignmentCard) {
-    const className = classLabel(card) || titleFor(card);
-    const subjectName = subjectLabel(card, $_('teach.roles.homeroom'), $_('teach.subject'));
-    return [className, subjectName, card.branch?.name].filter(Boolean).join(' ');
+    const className = classLabel(card, presentationLocale) || titleFor(card);
+    const subjectName = subjectLabel(card, $_('teach.roles.homeroom'), $_('teach.subject'), presentationLocale);
+    return [className, subjectName, displayRefName(card.branch)].filter(Boolean).join(' ');
   }
 
   function audienceOptions() {
@@ -140,7 +144,7 @@
         if (!targetId) return null;
         return {
           id: String(card.id),
-          label: `${card.school.name} · ${titleFor(card)}`,
+          label: `${displayRefName(card.school)} · ${titleFor(card)}`,
           school_id: card.school.id,
           audience_type: card.target_type === 'subject_group' ? 'subject_group' : 'class_section',
           class_section_id: card.target_type === 'class_section' ? targetId : null,
@@ -663,14 +667,14 @@
                     <span class="h-8 w-1 shrink-0 rounded-full" style={`background-color: ${group.palette.accent}`} aria-hidden="true"></span>
                     <span class="min-w-0 flex-1">
                       <span class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5 leading-snug">
-                        <strong class="text-[0.95rem] font-black text-slate-900" dir="auto">{classLabel(card) || titleFor(card)}</strong>
-                        <span class="text-sm font-bold text-slate-700" dir="auto">{subjectLabel(card, $_('teach.roles.homeroom'), $_('teach.subject'))}</span>
+                        <strong class="text-[0.95rem] font-black text-slate-900" dir="auto">{classLabel(card, presentationLocale) || titleFor(card)}</strong>
+                        <span class="text-sm font-bold text-slate-700" dir="auto">{subjectLabel(card, $_('teach.roles.homeroom'), $_('teach.subject'), presentationLocale)}</span>
                       </span>
                       {#if card.branch?.name || teacherSchools.length > 1}
-                        <span class="mt-1 block truncate text-xs font-semibold text-slate-500" dir="auto">{card.branch?.name || card.school.name}</span>
+                        <span class="mt-1 block truncate text-xs font-semibold text-slate-500" dir="auto">{displayRefName(card.branch) || displayRefName(card.school)}</span>
                       {/if}
                     </span>
-                    <ChevronRight class="class-chevron shrink-0" color={group.palette.accent} size={18} strokeWidth={2.25} aria-hidden="true" />
+                    <ChevronRight class="class-chevron shrink-0 rtl:rotate-180" color={group.palette.accent} size={18} strokeWidth={2.25} aria-hidden="true" />
                   </a>
                 {/each}
               </div>
@@ -692,10 +696,10 @@
 
       {#if searchError}<div class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{searchError}</div>{/if}
       {#if teacherSchools.length > 1}
-        <label class="mt-4 grid gap-1 text-sm font-bold text-slate-700">{$_('teach.studentSearch.school')}<select class="rounded-lg border border-slate-200 px-3 py-2" bind:value={searchSchoolId} onchange={changeSearchSchool}>{#each teacherSchools as school}<option value={school.id}>{school.name}</option>{/each}</select></label>
+        <label class="mt-4 grid gap-1 text-sm font-bold text-slate-700">{$_('teach.studentSearch.school')}<select class="rounded-lg border border-slate-200 px-3 py-2" bind:value={searchSchoolId} onchange={changeSearchSchool}>{#each teacherSchools as school}<option value={school.id}>{displayRefName(school)}</option>{/each}</select></label>
       {/if}
       <label class="mt-4 grid gap-1 text-sm font-bold text-slate-700">{$_('teach.studentSearch.searchLabel')}
-        <div class="relative"><Search class="absolute left-3 top-3 text-slate-400" size={18} aria-hidden="true" /><input class="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-3" maxlength="120" bind:value={searchText} oninput={queueStudentSearch} placeholder={$_('teach.studentSearch.placeholder')} /></div>
+        <div class="relative"><Search class="absolute start-3 top-3 text-slate-400" size={18} aria-hidden="true" /><input class="w-full rounded-xl border border-slate-200 py-2.5 ps-10 pe-3" maxlength="120" bind:value={searchText} oninput={queueStudentSearch} placeholder={$_('teach.studentSearch.placeholder')} /></div>
       </label>
       <p class="mt-1 text-xs font-semibold text-slate-400">{searching ? $_('teach.studentSearch.searching') : searchText.trim().length < 2 ? $_('teach.studentSearch.minimum') : $_('teach.studentSearch.resultCount', { values: { count: searchResults.length } })}</p>
 
@@ -705,7 +709,7 @@
 
       <div class="mt-3 grid max-h-64 gap-2 overflow-y-auto sm:grid-cols-2">
         {#each searchResults as student (student.id)}
-          <button type="button" aria-pressed={selectedStudents.some((row) => row.id === student.id)} class={`flex min-w-0 items-center gap-3 rounded-xl border p-3 text-left ${selectedStudents.some((row) => row.id === student.id) ? 'border-violet-500 bg-violet-50' : 'border-slate-200 hover:border-violet-300'}`} onclick={() => toggleSearchStudent(student)}>
+          <button type="button" aria-pressed={selectedStudents.some((row) => row.id === student.id)} class={`flex min-w-0 items-center gap-3 rounded-xl border p-3 text-start ${selectedStudents.some((row) => row.id === student.id) ? 'border-violet-500 bg-violet-50' : 'border-slate-200 hover:border-violet-300'}`} onclick={() => toggleSearchStudent(student)}>
             <div class="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-gradient-to-b from-violet-50 to-sky-50"><span class="absolute inset-0 flex items-center justify-center font-black text-hero">{initialsFromStudentName(student)}</span>{#if student.avatar_url_256 && !failedSearchImages[student.id]}<img src={student.avatar_url_256} alt="" class="relative h-full w-full object-contain" onerror={() => failedSearchImages = { ...failedSearchImages, [student.id]: true }} />{/if}</div>
             <span class="min-w-0 flex-1"><strong class="block truncate text-sm text-slate-900">{student.display_name}</strong><small class="block truncate font-semibold text-slate-500">{[student.grade_level, student.class_section].filter(Boolean).join(' · ') || $_('teach.studentSearch.noClass')}</small></span>
             <span class={`shrink-0 text-xs font-black ${student.points_total < 0 ? 'text-amber-700' : 'text-emerald-600'}`}>{student.points_total > 0 ? '+' : ''}{student.points_total} {$_('teach.points.pts')}</span>
@@ -821,7 +825,7 @@
         <div class="mt-4 max-h-[60vh] divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-100">
           {#each announcements as announcement}
             <div class="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
-              <button type="button" class="min-w-0 flex-1 text-left" onclick={() => viewAnnouncement(announcement)}>
+              <button type="button" class="min-w-0 flex-1 text-start" onclick={() => viewAnnouncement(announcement)}>
                 <p class="truncate font-bold text-slate-900">{announcement.title}</p>
                 <p class="mt-1 text-sm text-slate-500">{announcementContext(announcement)} · {formatDate(announcement.created_at)} · {$_('teach.announcements.attachments', { values: { count: announcement.attachment_count } })}</p>
               </button>
@@ -858,7 +862,7 @@
           <div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{calendarNotice}</div>
         {/if}
         {#if teacherSchools.length > 1}
-          <label class="mt-4 grid gap-1 text-sm font-bold text-slate-700">{$_('calendar.school')}<select class="rounded-lg border border-slate-200 px-3 py-2" bind:value={calendarSchoolId} onchange={changeCalendarSchool}>{#each teacherSchools as school}<option value={String(school.id)}>{school.name}</option>{/each}</select></label>
+          <label class="mt-4 grid gap-1 text-sm font-bold text-slate-700">{$_('calendar.school')}<select class="rounded-lg border border-slate-200 px-3 py-2" bind:value={calendarSchoolId} onchange={changeCalendarSchool}>{#each teacherSchools as school}<option value={String(school.id)}>{displayRefName(school)}</option>{/each}</select></label>
         {/if}
         {#if calendarAudienceOptions().length > 0}
           <button type="button" class="btn-hero mt-4 rounded-lg px-4 py-2" onclick={openEventCreate}>{$_('calendar.create')}</button>

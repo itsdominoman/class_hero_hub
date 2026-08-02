@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { page } from "$app/stores";
-  import { locale } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import { api } from "$lib/api";
   import { surveyApi, type SurveyMembership } from "$lib/surveys/api";
   import {
@@ -29,53 +29,37 @@
   let reopenInput = $state<HTMLInputElement | null>(null);
   let reopenButton = $state<HTMLButtonElement | null>(null);
   let ar = $derived($locale === "ar");
-  const label: Record<string, Record<string, string>> = {
-    en: {
-      back: "Surveys",
-      results: "Results",
-      questions: "Questions",
-      comments: "Comments / free text",
-      publish: "Publish",
-      close: "Close",
-      reopen: "Reopen",
-      archive: "Archive",
-      remind: "Send reminder",
-      export: "Export CSV",
-      noComments: "No free-text responses.",
-      anonymous: "Anonymous",
-      identified: "Identified",
-      guardian: "One per guardian",
-      household: "One per household",
-      reopenTitle: "Reopen survey",
-      reopenHelp: "Choose a new closing time. Existing responses and results will be kept.",
-      newClosingTime: "New closing time",
-      cancel: "Cancel",
-      reopening: "Reopening...",
-    },
-    ar: {
-      back: "الاستبيانات",
-      results: "النتائج",
-      questions: "الأسئلة",
-      comments: "التعليقات والنصوص",
-      publish: "نشر",
-      close: "إغلاق",
-      reopen: "إعادة فتح",
-      archive: "أرشفة",
-      remind: "إرسال تذكير",
-      export: "تصدير CSV",
-      noComments: "لا توجد إجابات نصية.",
-      anonymous: "مجهول الهوية",
-      identified: "محدد الهوية",
-      guardian: "إجابة لكل ولي أمر",
-      household: "إجابة لكل أسرة",
-      reopenTitle: "إعادة فتح الاستبيان",
-      reopenHelp: "اختر وقت إغلاق جديداً. ستبقى الردود والنتائج الحالية محفوظة.",
-      newClosingTime: "وقت الإغلاق الجديد",
-      cancel: "إلغاء",
-      reopening: "جارٍ إعادة الفتح...",
-    },
-  };
-  let t = $derived(ar ? label.ar : label.en);
+  let t = $derived({
+    back: $_("surveyManagement.back"),
+    results: $_("surveyManagement.results"),
+    comments: $_("surveyManagement.comments"),
+    publish: $_("surveyManagement.publish"),
+    close: $_("surveyManagement.close"),
+    reopen: $_("surveyManagement.reopen"),
+    archive: $_("surveyManagement.archive"),
+    remind: $_("surveyManagement.sendReminder"),
+    export: $_("surveyManagement.exportCsv"),
+    noComments: $_("surveyManagement.noComments"),
+    anonymous: $_("surveyManagement.anonymous"),
+    identified: $_("surveyManagement.identified"),
+    reopenTitle: $_("surveyManagement.reopenTitle"),
+    reopenHelp: $_("surveyManagement.reopenHelp"),
+    newClosingTime: $_("surveyManagement.newClosingTime"),
+    cancel: $_("surveyManagement.cancel"),
+    reopening: $_("surveyManagement.reopening"),
+  });
+
+  function statusLabel(value: string) {
+    return ar ? $_(`surveyManagement.statuses.${value}`) : value;
+  }
+
+  function reminderStatusLabel(value: string) {
+    return ar ? $_(`surveyManagement.reminderStatuses.${value}`) : value;
+  }
+
+  function questionTypePresentation(value: string) {
+    return ar ? $_(`surveyManagement.types.${value}`) : value.replaceAll("_", " ");
+  }
 
   async function resolveMembership() {
     const session = await api.get("/me");
@@ -89,11 +73,7 @@
         (await surveyApi.availability(row)).available
       )
         return row;
-    throw new Error(
-      ar
-        ? "لا تملك صلاحية إدارة الاستبيانات."
-        : "Survey management permission required.",
-    );
+    throw new Error($_("surveyManagement.permissionRequired"));
   }
   async function load() {
     loading = true;
@@ -101,7 +81,7 @@
     try {
       const selected = await resolveMembership();
       const surveyId = $page.params.id;
-      if (!surveyId) throw new Error("Survey not found");
+      if (!surveyId) throw new Error($_("surveyManagement.notFound"));
       membership = selected;
       [survey, results, context] = await Promise.all([
         surveyApi.detail(selected, surveyId),
@@ -200,7 +180,7 @@
     reopenError = "";
     const closesAt = schoolLocalToIso(reopenClosesAt, context.school.timezone);
     if (new Date(closesAt).getTime() <= Date.now()) {
-      reopenError = "Choose a future closing time before reopening.";
+      reopenError = $_("surveyManagement.futureClosingTime");
       return;
     }
     busy = "reopen";
@@ -255,7 +235,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <svelte:head
-  ><title>{survey?.title || t.results} · Class Hero Hub</title></svelte:head
+  ><title>{survey?.title || t.results} · {$_("app.name")}</title></svelte:head
 >
 <div class="mx-auto max-w-7xl px-4 py-8 sm:py-12" dir={ar ? "rtl" : "ltr"}>
   <a
@@ -268,7 +248,7 @@
     >
       {error}
     </div>{/if}
-  {#if loading}<p class="mt-10 font-bold text-slate-500">Loading…</p>
+  {#if loading}<p class="mt-10 font-bold text-slate-500">{$_("surveyManagement.loadingOne")}</p>
   {:else if survey && results}
     <header
       class="mt-6 rounded-[2rem] bg-slate-950 p-6 text-white shadow-xl sm:p-8"
@@ -278,17 +258,17 @@
       >
         <div class="max-w-3xl">
           <div class="flex flex-wrap gap-2">
-            <span class="pill bg-white/10">{survey.status}</span><span
+            <span class="pill bg-white/10">{statusLabel(survey.status)}</span><span
               class="pill bg-white/10"
               >{survey.anonymous ? t.anonymous : t.identified}</span
-            ><span class="pill bg-white/10">{t[survey.response_mode]}</span>
+            ><span class="pill bg-white/10">{$_(`surveyManagement.responseModes.${survey.response_mode}`)}</span>
           </div>
           <h1 class="mt-5 text-3xl font-black sm:text-4xl">{survey.title}</h1>
           <p class="mt-3 text-sm font-semibold leading-6 text-slate-300">
             {survey.introduction}
           </p>
           <p class="mt-4 text-xs font-bold text-slate-400">
-            {fmt(survey.opens_at)} → {fmt(survey.closes_at)}
+            {fmt(survey.opens_at)} <span class="inline-block rtl:-scale-x-100" aria-hidden="true">→</span> {fmt(survey.closes_at)}
           </p>
         </div>
         <div class="flex flex-wrap gap-2 lg:max-w-sm lg:justify-end">
@@ -328,32 +308,32 @@
     </header>
     <section class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <div class="metric">
-        <span>Eligible</span><b>{survey.eligible_count}</b>
+        <span>{$_("surveyManagement.eligible")}</span><b>{survey.eligible_count}</b>
       </div>
       <div class="metric">
-        <span>Responses</span><b>{survey.response_count}</b>
+        <span>{$_("surveyManagement.responses")}</span><b>{survey.response_count}</b>
       </div>
       <div class="metric">
-        <span>Response rate</span><b class="text-hero"
+        <span>{$_("surveyManagement.responseRate")}</span><b class="text-hero"
           >{survey.response_rate}%</b
         >
       </div>
       <div class="metric">
-        <span>Reminder</span><b class="text-lg capitalize"
-          >{survey.reminder_status}</b
+        <span>{$_("surveyManagement.reminder")}</span><b class="text-lg"
+          >{reminderStatusLabel(survey.reminder_status)}</b
         >
       </div>
     </section>
     <section
       class="mt-6 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
     >
-      <h2 class="text-xl font-black text-slate-950">Response rate</h2>
+      <h2 class="text-xl font-black text-slate-950">{$_("surveyManagement.responseRate")}</h2>
       <div class="mt-5 flex h-5 overflow-hidden rounded-full bg-slate-100">
         <div class="bg-hero" style={`width:${survey.response_rate}%`}></div>
       </div>
       <div class="mt-3 flex justify-between text-xs font-black text-slate-500">
-        <span>{results.response_rate.completed} completed</span><span
-          >{results.response_rate.outstanding} outstanding</span
+        <span>{$_("surveyManagement.completed", { values: { count: results.response_rate.completed } })}</span><span
+          >{$_("surveyManagement.outstanding", { values: { count: results.response_rate.outstanding } })}</span
         >
       </div>
     </section>
@@ -364,19 +344,19 @@
             class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm"
           >
             <p class="text-xs font-black uppercase tracking-wider text-hero">
-              {index + 1}. {question.question_type.replaceAll("_", " ")}
+              {index + 1}. {questionTypePresentation(question.question_type)}
             </p>
             <h3 class="mt-2 text-lg font-black text-slate-950">
               {question.prompt}
             </h3>
             <p class="mt-1 text-xs font-bold text-slate-400">
-              {question.answer_count} answers
+              {$_("surveyManagement.answers", { values: { count: question.answer_count } })}
             </p>
             {#if question.average !== undefined && question.average !== null}<div
                 class="mt-4 rounded-2xl bg-hero/5 p-4"
               >
                 <span class="text-xs font-black uppercase text-hero"
-                  >Average</span
+                  >{$_("surveyManagement.average")}</span
                 ><b class="ms-3 text-3xl text-slate-950">{question.average}</b>
               </div>{/if}{#if question.distribution}<div class="mt-5 space-y-3">
                 {#each question.distribution as row}<div>
@@ -395,9 +375,7 @@
                     </div>
                   </div>{/each}
               </div>{:else}<p class="mt-5 text-sm font-semibold text-slate-500">
-                {ar
-                  ? "تعرض الإجابات النصية أدناه."
-                  : "Text answers are listed below."}
+                {$_("surveyManagement.textAnswersBelow")}
               </p>{/if}
           </article>{/each}
       </div>
@@ -411,7 +389,7 @@
         <div>
           <h2 class="text-xl font-black text-slate-950">{t.comments}</h2>
           <p class="mt-1 text-xs font-bold text-slate-400">
-            {results.free_text.total} responses · page {results.free_text.page}
+            {$_("surveyManagement.responsePage", { values: { count: results.free_text.total, page: results.free_text.page } })}
           </p>
         </div>
         <form
@@ -424,10 +402,10 @@
           <input
             class="min-w-0 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm sm:w-56"
             bind:value={search}
-            placeholder="Search"
+            placeholder={$_("surveyManagement.search")}
           /><button
             class="w-full shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white sm:w-auto"
-            >Search</button
+            >{$_("surveyManagement.search")}</button
           >
         </form>
       </div>

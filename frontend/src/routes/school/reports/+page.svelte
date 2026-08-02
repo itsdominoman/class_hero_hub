@@ -744,7 +744,7 @@
         {:else if matrixRows.length}
           <p class="sort-label">{$_('reports.sortedBy', { values: { measure: measureLabel(matrixOrderBy) } })}</p>
           {#if matrixTruncation && (matrixTruncation.rows_truncated || matrixTruncation.columns_truncated)}<p class="mt-2 text-sm text-amber-800">{$_('reports.matrixTruncated', { values: { rows: matrixTruncation.returned_rows, cells: matrixTruncation.returned_cells } })}</p>{/if}
-          <div class="mt-4 overflow-x-auto"><table><thead><tr><th>{$_('reports.label')}</th>{#each matrixColumns as column}<th>{matrixColumnDimension ? matrixValueLabel(matrixColumnDimension as MatrixDimension, column.label) : column.label}</th>{/each}{#if !matrixColumns.length}<th>{measureLabel(matrixOrderBy)}</th>{/if}</tr></thead><tbody>{#each matrixRows as row}<tr><td>{#if canDrillMatrix(matrixRowDimension, row.dimension_key)}<button onclick={() => void openMatrixDrilldown(row)}>{matrixValueLabel(matrixRowDimension, row.label)} <span aria-hidden="true">→</span></button>{:else}<span>{matrixValueLabel(matrixRowDimension, row.label)}</span>{/if}</td>{#if matrixColumns.length}{#each matrixColumns as column}<td>{#if matrixCell(row, column)}{#if matrixColumnDimension && canDrillMatrix(matrixRowDimension, row.dimension_key) && canDrillMatrix(matrixColumnDimension as MatrixDimension, matrixCell(row, column)?.dimension_key)}<button onclick={() => void openMatrixDrilldown(row, matrixCell(row, column))}>{number(measureValue(matrixCell(row, column)))}</button>{:else}<span title={$_('reports.matrixDrilldownUnavailable')}>{number(measureValue(matrixCell(row, column)))}</span>{/if}<small>{$_('reports.total')}: {number(matrixCell(row, column)?.total_events)}</small>{:else}<span class="text-slate-400">—</span>{/if}</td>{/each}{:else}<td>{#if canDrillMatrix(matrixRowDimension, row.dimension_key)}<button onclick={() => void openMatrixDrilldown(row)}>{number(measureValue(row))}</button>{:else}{number(measureValue(row))}{/if}<small>{$_('reports.total')}: {number(row.total_events)}</small></td>{/if}</tr>{/each}</tbody></table></div>
+          <div class="mt-4 overflow-x-auto"><table><thead><tr><th>{$_('reports.label')}</th>{#each matrixColumns as column}<th>{matrixColumnDimension ? matrixValueLabel(matrixColumnDimension as MatrixDimension, column.label) : column.label}</th>{/each}{#if !matrixColumns.length}<th>{measureLabel(matrixOrderBy)}</th>{/if}</tr></thead><tbody>{#each matrixRows as row}<tr><td>{#if canDrillMatrix(matrixRowDimension, row.dimension_key)}<button onclick={() => void openMatrixDrilldown(row)}>{matrixValueLabel(matrixRowDimension, row.label)} <span class="inline-block rtl:-scale-x-100" aria-hidden="true">→</span></button>{:else}<span>{matrixValueLabel(matrixRowDimension, row.label)}</span>{/if}</td>{#if matrixColumns.length}{#each matrixColumns as column}<td>{#if matrixCell(row, column)}{#if matrixColumnDimension && canDrillMatrix(matrixRowDimension, row.dimension_key) && canDrillMatrix(matrixColumnDimension as MatrixDimension, matrixCell(row, column)?.dimension_key)}<button onclick={() => void openMatrixDrilldown(row, matrixCell(row, column))}>{number(measureValue(matrixCell(row, column)))}</button>{:else}<span title={$_('reports.matrixDrilldownUnavailable')}>{number(measureValue(matrixCell(row, column)))}</span>{/if}<small>{$_('reports.total')}: {number(matrixCell(row, column)?.total_events)}</small>{:else}<span class="text-slate-400">—</span>{/if}</td>{/each}{:else}<td>{#if canDrillMatrix(matrixRowDimension, row.dimension_key)}<button onclick={() => void openMatrixDrilldown(row)}>{number(measureValue(row))}</button>{:else}{number(measureValue(row))}{/if}<small>{$_('reports.total')}: {number(row.total_events)}</small></td>{/if}</tr>{/each}</tbody></table></div>
         {/if}
       </section>{/if}
     {/if}
@@ -756,10 +756,10 @@
 {/snippet}
 
 {#snippet Launcher(section: ReportSection, title: string, description: string)}
-  <button type="button" onclick={() => activeSection === section ? closeSection() : openSection(section)} class:active-launcher={activeSection === section} class="report-launcher text-left">
+  <button type="button" onclick={() => activeSection === section ? closeSection() : openSection(section)} class:active-launcher={activeSection === section} class="report-launcher text-start">
     <span class="font-bold text-slate-900">{title}</span>
     <span class="mt-1 block text-sm leading-5 text-slate-600">{description}</span>
-    <span class="mt-3 block text-sm font-bold text-hero">{activeSection === section ? $_('reports.closeSection') : '→'}</span>
+    <span class="mt-3 block text-sm font-bold text-hero">{#if activeSection === section}{$_('reports.closeSection')}{:else}<span class="inline-block rtl:-scale-x-100" aria-hidden="true">→</span>{/if}</span>
   </button>
 {/snippet}
 
@@ -767,13 +767,13 @@
   <section class="report-card overflow-hidden rounded-3xl">
     <div class="border-b px-5 py-4"><h2 class="text-lg font-bold">{title}</h2><p class="sort-label">{$_('reports.sortedByTotal')}</p></div>
     {#if rows.length}
-      <div class="overflow-x-auto"><table><thead><tr><th>{$_('reports.label')}</th><th>{$_('reports.positive')}</th><th>{$_('reports.needsWork')}</th><th>{$_('reports.total')}</th></tr></thead><tbody>{#each rows as row}<tr><td>{#if drilldown && row.dimension_key != null}<button class="row-action" onclick={() => void openDrilldown([{ key: drilldown.key, value: String(row.dimension_key) }], `${drilldown.label}: ${duty ? dutyLabel(row.label) : row.label}`)}>{duty ? dutyLabel(row.label) : row.label}<span aria-hidden="true"> →</span><span class="sr-only">{$_('reports.clickToViewEvents')}</span></button>{:else}{row.label}{/if}{#if row.category_type}<span class:positive-badge={row.category_type === 'positive'} class:needs-work-badge={row.category_type === 'needs_work'} class="badge">{categoryTypeLabel(row.category_type)}</span>{/if}</td><td>{number(row.positive_count)}</td><td>{number(row.needs_work_count)}</td><td class="font-semibold">{number(row.total_events)}</td></tr>{/each}</tbody></table></div>
+      <div class="overflow-x-auto"><table><thead><tr><th>{$_('reports.label')}</th><th>{$_('reports.positive')}</th><th>{$_('reports.needsWork')}</th><th>{$_('reports.total')}</th></tr></thead><tbody>{#each rows as row}<tr><td>{#if drilldown && row.dimension_key != null}<button class="row-action" onclick={() => void openDrilldown([{ key: drilldown.key, value: String(row.dimension_key) }], `${drilldown.label}: ${duty ? dutyLabel(row.label) : row.label}`)}>{duty ? dutyLabel(row.label) : row.label}<span class="inline-block rtl:-scale-x-100" aria-hidden="true"> →</span><span class="sr-only">{$_('reports.clickToViewEvents')}</span></button>{:else}{row.label}{/if}{#if row.category_type}<span class:positive-badge={row.category_type === 'positive'} class:needs-work-badge={row.category_type === 'needs_work'} class="badge">{categoryTypeLabel(row.category_type)}</span>{/if}</td><td>{number(row.positive_count)}</td><td>{number(row.needs_work_count)}</td><td class="font-semibold">{number(row.total_events)}</td></tr>{/each}</tbody></table></div>
     {:else}<p class="p-5 text-sm text-slate-500">{$_('reports.noRows')}</p>{/if}
   </section>
 {/snippet}
 
 {#snippet StudentTable(title: string, rows: StudentRow[], categoryType: CategoryType | null, change: boolean)}
-  <div><h3 class="text-sm font-bold">{title}</h3><p class="sort-label">{change ? $_('reports.changeVsPrevious') : categoryType === 'needs_work' ? $_('reports.sortedByNeedsWork') : $_('reports.sortedByPositive')}</p>{#if rows.length}<ul class="mt-2 space-y-1">{#each rows as row}<li><button onclick={() => void openDrilldown([{ key: 'studentId', value: String(row.dimension_key) }, ...(categoryType ? [{ key: 'categoryType' as FilterKey, value: categoryType }] : [])], `${$_('reports.student')}: ${row.display_name}`)} class="w-full rounded-lg bg-slate-50 px-3 py-2 text-left text-sm hover:bg-hero/10"><span class="font-semibold">{row.display_name}</span><span class="float-right text-slate-600">{change ? number(row.signed_points_change) : number(categoryType === 'needs_work' ? row.needs_work_count : row.positive_count)}</span></button></li>{/each}</ul>{:else}<p class="mt-2 text-sm text-slate-500">{$_('reports.noRows')}</p>{/if}</div>
+  <div><h3 class="text-sm font-bold">{title}</h3><p class="sort-label">{change ? $_('reports.changeVsPrevious') : categoryType === 'needs_work' ? $_('reports.sortedByNeedsWork') : $_('reports.sortedByPositive')}</p>{#if rows.length}<ul class="mt-2 space-y-1">{#each rows as row}<li><button onclick={() => void openDrilldown([{ key: 'studentId', value: String(row.dimension_key) }, ...(categoryType ? [{ key: 'categoryType' as FilterKey, value: categoryType }] : [])], `${$_('reports.student')}: ${row.display_name}`)} class="w-full rounded-lg bg-slate-50 px-3 py-2 text-start text-sm hover:bg-hero/10"><span class="font-semibold">{row.display_name}</span><span class="float-end text-slate-600">{change ? number(row.signed_points_change) : number(categoryType === 'needs_work' ? row.needs_work_count : row.positive_count)}</span></button></li>{/each}</ul>{:else}<p class="mt-2 text-sm text-slate-500">{$_('reports.noRows')}</p>{/if}</div>
 {/snippet}
 
 {#snippet EventsTable()}
@@ -790,13 +790,13 @@
   label { display: flex; flex-direction: column; gap: .3rem; color: #475569; font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
   input, select { width: 100%; border: 1px solid #cbd5e1; border-radius: .75rem; padding: .6rem .7rem; background: #fff; color: #1e293b; font-weight: 500; letter-spacing: normal; text-transform: none; }
   table { width: 100%; min-width: 520px; font-size: .875rem; }
-  th { padding: .7rem 1rem; background: #f8fafc; color: #64748b; font-size: .7rem; text-align: left; text-transform: uppercase; }
+  th { padding: .7rem 1rem; background: #f8fafc; color: #64748b; font-size: .7rem; text-align: start; text-transform: uppercase; }
   td { padding: .7rem 1rem; border-top: 1px solid #f1f5f9; vertical-align: middle; }
   td small { display: block; margin-top: .15rem; color: #64748b; font-size: .7rem; }
   .sort-label { margin-top: .35rem; color: #64748b; font-size: .75rem; }
   .filter-chip { border-radius: 9999px; background: #ecfdf5; color: #0f766e; font-size: .75rem; font-weight: 700; padding: .35rem .65rem; }
-  .row-action, td button { color: #0f766e; font-weight: 600; text-align: left; }
-  .badge { display: inline-flex; margin-left: .45rem; border-radius: 9999px; padding: .12rem .45rem; font-size: .68rem; font-weight: 700; vertical-align: middle; }
+  .row-action, td button { color: #0f766e; font-weight: 600; text-align: start; }
+  .badge { display: inline-flex; margin-inline-start: .45rem; border-radius: 9999px; padding: .12rem .45rem; font-size: .68rem; font-weight: 700; vertical-align: middle; }
   .positive-badge { background: #ecfdf5; color: #047857; }
   .needs-work-badge { background: #fff7ed; color: #c2410c; }
   .positive-card { border-color: rgba(16, 185, 129, .42); background: linear-gradient(145deg, #f0fdf4, #ffffff); }
@@ -804,10 +804,10 @@
   .pagination-button { border-radius: .5rem; padding: .45rem .7rem; font-size: .875rem; font-weight: 700; color: #334155; }
   .student-filter { position: relative; }
   .student-autocomplete { position: relative; }
-  .student-autocomplete input { padding-right: 2.5rem; }
-  .clear-student { position: absolute; right: .55rem; top: .55rem; border-radius: .5rem; color: #64748b; font-size: .8rem; font-weight: 800; line-height: 1; text-transform: none; }
-  .student-suggestions { position: absolute; z-index: 30; top: calc(100% + .4rem); left: 0; right: 0; overflow: hidden; border: 1px solid #cbd5e1; border-radius: .9rem; background: #fff; box-shadow: 0 14px 28px rgba(15, 23, 42, .14); text-transform: none; }
-  .student-suggestion { display: block; width: 100%; padding: .7rem .8rem; border-top: 1px solid #e2e8f0; color: #334155; font-size: .85rem; font-weight: 500; letter-spacing: normal; text-align: left; }
+  .student-autocomplete input { padding-inline-end: 2.5rem; }
+  .clear-student { position: absolute; inset-inline-end: .55rem; top: .55rem; border-radius: .5rem; color: #64748b; font-size: .8rem; font-weight: 800; line-height: 1; text-transform: none; }
+  .student-suggestions { position: absolute; z-index: 30; top: calc(100% + .4rem); inset-inline: 0; overflow: hidden; border: 1px solid #cbd5e1; border-radius: .9rem; background: #fff; box-shadow: 0 14px 28px rgba(15, 23, 42, .14); text-transform: none; }
+  .student-suggestion { display: block; width: 100%; padding: .7rem .8rem; border-top: 1px solid #e2e8f0; color: #334155; font-size: .85rem; font-weight: 500; letter-spacing: normal; text-align: start; }
   .student-suggestion:first-child { border-top: 0; }
   .student-suggestion:hover, .student-suggestion:focus-visible { background: #f0fdf4; color: #0f766e; outline: none; }
   .student-name { font-weight: 700; }

@@ -96,7 +96,7 @@
       <LanguageSelector compact />
     </div>
     <div class="max-w-7xl mx-auto grid gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
-      <div class="relative z-10 text-left">
+      <div class="relative z-10 text-start">
         <div class="inline-flex max-w-full items-center gap-2 rounded-full border border-hero/20 bg-hero/10 px-4 py-2 text-sm font-bold text-hero mb-6">
           <School size={16} />
           <span class="uppercase tracking-wide">{$_('home.eyebrow')}</span>

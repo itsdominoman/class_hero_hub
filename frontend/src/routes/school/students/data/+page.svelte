@@ -5,7 +5,7 @@
   import { api } from '$lib/api';
 
   type Membership = { school_id: number; school_name: string; role: string };
-  type Year = { id: number; name: string; status: string; start_date?: string | null };
+  type Year = { id: number; name: string; name_ar?: string | null; status: string; start_date?: string | null };
   type StudentImport = {
     id: number;
     filename?: string | null;
@@ -103,9 +103,15 @@
   }
 
   function displayWarning(message: string) {
-    return message === 'name_ar contains both Arabic and Latin letters; review that it is the complete Arabic-script student name.'
-      ? $_('school.imports.nameArMixedWarning')
-      : message;
+    if (message === 'name_ar contains both Arabic and Latin letters; review that it is the complete Arabic-script student name.') {
+      return $_('school.imports.nameArMixedWarning');
+    }
+    if ($locale !== 'ar') return message;
+    const slot = message.match(/(?:guardian|Guardian) ([12])|guardian([12])_/)?.slice(1).find(Boolean) || '';
+    if (/name is missing/.test(message)) return $_('school.imports.guardianNameWarning', { values: { slot } });
+    if (/relationship must be one of/.test(message)) return $_('school.imports.guardianRelationshipWarning', { values: { slot } });
+    if (/saved as a draft contact/.test(message)) return $_('school.imports.guardianDraftWarning', { values: { slot } });
+    return $_('school.imports.rowWarning');
   }
 
   function previewWarnings(item: StudentImport | null) {
@@ -327,7 +333,7 @@
 {:else}
   <section class="mx-auto max-w-7xl px-4 py-6 sm:py-8">
     <header class="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
-      <div><a class="text-sm font-bold text-sky-700 hover:underline" href="/school/students">← {$_('school.studentAdmin.backToStudents')}</a><p class="eyebrow mt-3">{schoolName}</p><h1 class="mt-2 text-3xl font-black">{$_('school.studentData.title')}</h1><p class="mt-2 max-w-2xl text-slate-600">{$_('school.studentData.intro')}</p></div>
+      <div><a class="text-sm font-bold text-sky-700 hover:underline" href="/school/students"><span class="inline-block rtl:-scale-x-100" aria-hidden="true">←</span> {$_('school.studentAdmin.backToStudents')}</a><p class="eyebrow mt-3">{schoolName}</p><h1 class="mt-2 text-3xl font-black">{$_('school.studentData.title')}</h1><p class="mt-2 max-w-2xl text-slate-600">{$_('school.studentData.intro')}</p></div>
       <a class="btn-secondary rounded-xl px-4 py-3 text-center" href="/school">{$_('school.studentAdmin.backToAdmin')}</a>
     </header>
 
@@ -341,7 +347,7 @@
         <div class="mt-5 grid gap-4 md:grid-cols-2">
           <label class="text-sm font-bold">{$_('school.imports.mode')}<select class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" bind:value={importMode} disabled={stagedImport?.status === 'staged'}><option value="normal">{$_('school.imports.modeValue.normal')}</option><option value="annual">{$_('school.imports.modeValue.annual')}</option></select></label>
           {#if importMode === 'annual'}
-            <label class="text-sm font-bold">{$_('school.imports.destinationYear')} *<select class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" bind:value={academicYearId} onchange={handleYear} disabled={stagedImport?.status === 'staged'}><option value="">{$_('school.imports.selectYear')}</option>{#each years.filter((year) => year.status !== 'archived') as year}<option value={String(year.id)}>{year.name}</option>{/each}</select></label>
+            <label class="text-sm font-bold">{$_('school.imports.destinationYear')} *<select class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" bind:value={academicYearId} onchange={handleYear} disabled={stagedImport?.status === 'staged'}><option value="">{$_('school.imports.selectYear')}</option>{#each years.filter((year) => year.status !== 'archived') as year}<option value={String(year.id)}>{$locale === 'ar' && year.name_ar ? year.name_ar : year.name}</option>{/each}</select></label>
             <label class="text-sm font-bold">{$_('school.imports.effectiveDate')} *<input type="date" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" bind:value={effectiveDate} disabled={stagedImport?.status === 'staged'} /></label>
           {/if}
           <label class="text-sm font-bold md:col-span-2">{$_('school.studentData.csvFile')} *<input type="file" accept=".csv,text/csv" class="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-normal" onchange={handleFile} disabled={stagedImport?.status === 'staged'} /></label>

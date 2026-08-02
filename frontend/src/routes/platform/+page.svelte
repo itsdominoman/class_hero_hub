@@ -7,6 +7,7 @@
   type SchoolRow = {
     id: number;
     name: string;
+    name_ar?: string | null;
     status: string;
     created_at: string;
     counts: { memberships_by_role: Record<string, number>; students: number };
@@ -29,6 +30,7 @@
 
   const formatDate = (value: string) => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value));
   const roleCount = (school: SchoolRow, role: string) => school.counts?.memberships_by_role?.[role] || 0;
+  const schoolName = (school: SchoolRow) => $locale === 'ar' && school.name_ar ? school.name_ar : school.name;
 
   async function loadSchools() {
     loading = true;
@@ -90,7 +92,7 @@
     {:else}
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
-          <thead class="bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+          <thead class="bg-slate-50 text-start text-xs font-bold uppercase tracking-wide text-slate-500">
             <tr>
               <th class="px-4 py-3">{$_('platform.schoolName')}</th>
               <th class="px-4 py-3">{$_('platform.status')}</th>
@@ -103,14 +105,14 @@
           <tbody class="divide-y divide-slate-100">
             {#each schools as school}
               <tr class="hover:bg-slate-50">
-                <td class="px-4 py-4 font-bold text-slate-900">{school.name}</td>
+                <td class="px-4 py-4 font-bold text-slate-900">{schoolName(school)}</td>
                 <td class="px-4 py-4">
                   <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700">{$_(`platform.statuses.${school.status}`)}</span>
                 </td>
                 <td class="px-4 py-4 text-slate-700">{roleCount(school, 'school_admin')}</td>
                 <td class="px-4 py-4 text-slate-700">{school.counts.students}</td>
                 <td class="px-4 py-4 text-slate-500">{formatDate(school.created_at)}</td>
-                <td class="px-4 py-4 text-right">
+                <td class="px-4 py-4 text-end">
                   <a class="font-bold text-hero hover:text-hero-dark" href={`/platform/${school.id}`}>{$_('platform.open')}</a>
                 </td>
               </tr>

@@ -2,7 +2,7 @@
   import { onMount, tick } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
-  import { locale } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import { api } from "$lib/api";
   import { surveyApi, type SurveyMembership } from "$lib/surveys/api";
   import {
@@ -23,50 +23,34 @@
     scale_max: number | null;
     options: { label: string }[];
   };
-  const copy = {
-    en: {
-      title: "Surveys",
-      sub: "Create, publish and report on targeted parent surveys.",
-      overview: "Overview",
-      create: "Create survey",
-      drafts: "Drafts",
-      open: "Open",
-      closed: "Closed",
-      all: "All",
-      no: "No surveys in this view.",
-      newSurvey: "New survey",
-      basics: "Survey details",
-      audience: "Audience",
-      questions: "Questions",
-      preview: "Preview",
-      save: "Save draft",
-      permission: "Survey administrators",
-      loading: "Loading surveys…",
-      close: "Close",
-    },
-    ar: {
-      title: "الاستبيانات",
-      sub: "إنشاء استبيانات موجهة لأولياء الأمور ونشرها وعرض نتائجها.",
-      overview: "نظرة عامة",
-      create: "إنشاء استبيان",
-      drafts: "المسودات",
-      open: "المفتوحة",
-      closed: "المغلقة",
-      all: "الكل",
-      no: "لا توجد استبيانات في هذا العرض.",
-      newSurvey: "استبيان جديد",
-      basics: "تفاصيل الاستبيان",
-      audience: "الجمهور",
-      questions: "الأسئلة",
-      preview: "معاينة",
-      save: "حفظ المسودة",
-      permission: "مسؤولو الاستبيانات",
-      loading: "جارٍ تحميل الاستبيانات…",
-      close: "إغلاق",
-    },
-  };
   let ar = $derived($locale === "ar");
-  let t = $derived(ar ? copy.ar : copy.en);
+  let t = $derived({
+    title: $_("surveyManagement.title"),
+    sub: $_("surveyManagement.subtitle"),
+    create: $_("surveyManagement.create"),
+    drafts: $_("surveyManagement.drafts"),
+    open: $_("surveyManagement.open"),
+    closed: $_("surveyManagement.closed"),
+    all: $_("surveyManagement.all"),
+    no: $_("surveyManagement.empty"),
+    newSurvey: $_("surveyManagement.newSurvey"),
+    basics: $_("surveyManagement.details"),
+    audience: $_("surveyManagement.audience"),
+    questions: $_("surveyManagement.questions"),
+    preview: $_("surveyManagement.preview"),
+    save: $_("surveyManagement.saveDraft"),
+    permission: $_("surveyManagement.administrators"),
+    loading: $_("surveyManagement.loading"),
+    close: $_("surveyManagement.close"),
+  });
+
+  function statusLabel(value: string) {
+    return ar ? $_(`surveyManagement.statuses.${value}`) : value;
+  }
+
+  function questionTypePresentation(value: string) {
+    return ar ? $_(`surveyManagement.types.${value}`) : value.replaceAll("_", " ");
+  }
   let membership = $state<SurveyMembership | null>(null);
   let context = $state<any>(null);
   let surveys = $state<any[]>([]);
@@ -262,11 +246,7 @@
         available.find(Boolean) ||
         null;
       if (!membership)
-        throw new Error(
-          ar
-            ? "لا تملك صلاحية إدارة الاستبيانات."
-            : "You do not have survey management permission.",
-        );
+        throw new Error($_("surveyManagement.permissionRequired"));
       [context, { items: surveys }, permissions] = await Promise.all([
         surveyApi.context(membership),
         surveyApi.list(membership),
@@ -347,7 +327,7 @@
   });
 </script>
 
-<svelte:head><title>{t.title} · Class Hero Hub</title></svelte:head>
+<svelte:head><title>{t.title} · {$_("app.name")}</title></svelte:head>
 <div class="mx-auto max-w-7xl px-4 py-8 sm:py-12" dir={ar ? "rtl" : "ltr"}>
   <header
     class="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"
@@ -377,7 +357,7 @@
   {#if loading}<p class="mt-10 text-sm font-bold text-slate-500">{t.loading}</p>
   {:else if membership}
     <nav class="mt-8 flex gap-2 overflow-x-auto pb-2" aria-label={t.title}>
-      {#each [["all", t.all], ["draft", t.drafts], ["open", t.open], ["closed", t.closed], ["archived", "Archived"]] as item}<button
+      {#each [["all", t.all], ["draft", t.drafts], ["open", t.open], ["closed", t.closed], ["archived", $_("surveyManagement.archived")]] as item}<button
           class:active-tab={activeView === item[0]}
           class="tab"
           onclick={() => (activeView = item[0])}>{item[1]}</button
@@ -392,7 +372,7 @@
           <div class="flex items-start justify-between gap-3">
             <span
               class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-600"
-              >{survey.status}</span
+              >{statusLabel(survey.status)}</span
             ><ClipboardList class="text-hero" size={22} />
           </div>
           <h2 class="mt-4 text-lg font-black text-slate-950">{survey.title}</h2>
@@ -403,19 +383,19 @@
             <div>
               <b class="block text-xl text-slate-950">{survey.eligible_count}</b
               ><span class="text-[10px] font-bold uppercase text-slate-400"
-                >Eligible</span
+                >{$_("surveyManagement.eligible")}</span
               >
             </div>
             <div>
               <b class="block text-xl text-slate-950">{survey.response_count}</b
               ><span class="text-[10px] font-bold uppercase text-slate-400"
-                >Responses</span
+                >{$_("surveyManagement.responses")}</span
               >
             </div>
             <div>
               <b class="block text-xl text-hero">{survey.response_rate}%</b
               ><span class="text-[10px] font-bold uppercase text-slate-400"
-                >Rate</span
+                >{$_("surveyManagement.rate")}</span
               >
             </div>
           </div>
@@ -440,7 +420,7 @@
             >
               <div>
                 <p class="font-bold text-slate-900">{row.name}</p>
-                <p class="text-xs text-slate-400">{row.status}</p>
+                <p class="text-xs text-slate-400">{statusLabel(row.status)}</p>
               </div>
               <button
                 class="rounded-xl px-4 py-2 text-xs font-black {row.enabled
@@ -448,7 +428,7 @@
                   : 'bg-slate-100 text-slate-600'}"
                 disabled={permissionBusy === row.membership_id}
                 onclick={() => changePermission(row)}
-                >{row.enabled ? "Enabled" : "Disabled"}</button
+                >{row.enabled ? $_("surveyManagement.enabled") : $_("surveyManagement.disabled")}</button
               >
             </div>{/each}
         </div>
@@ -495,7 +475,7 @@
             {t.preview}
           </p>
           <h3 class="mt-3 text-2xl font-black">
-            {form.title || "Survey title"}
+            {form.title || $_("surveyManagement.surveyTitle")}
           </h3>
           <p class="mt-2 text-sm text-slate-600">{form.introduction}</p>
           <div class="mt-6 space-y-4">
@@ -503,12 +483,12 @@
                 class="rounded-2xl bg-white p-4"
               >
                 <p class="font-black">
-                  {index + 1}. {question.prompt || "Question"}
+                  {index + 1}. {question.prompt || $_("surveyManagement.question")}
                   {#if question.required}<span class="text-red-500">*</span
                     >{/if}
                 </p>
                 <p class="mt-2 text-xs text-slate-400">
-                  {question.question_type.replaceAll("_", " ")}
+                  {questionTypePresentation(question.question_type)}
                 </p>
               </div>{/each}
           </div>
@@ -516,30 +496,30 @@
       {:else}
         <div class="mt-6 grid gap-4 sm:grid-cols-2">
           <label class="field-label sm:col-span-2"
-            ><span>Title</span><input
+            ><span>{$_("surveyManagement.titleField")}</span><input
               class="field"
               bind:value={form.title}
               maxlength="200"
             /></label
           ><label class="field-label sm:col-span-2"
-            ><span>Short introduction</span><textarea
+            ><span>{$_("surveyManagement.introduction")}</span><textarea
               class="field min-h-24"
               bind:value={form.introduction}
               maxlength="1000"
             ></textarea></label
           ><label class="field-label sm:col-span-2"
-            ><span>Instructions (optional)</span><textarea
+            ><span>{$_("surveyManagement.instructions")}</span><textarea
               class="field min-h-20"
               bind:value={form.instructions}
             ></textarea></label
           ><label class="field-label"
-            ><span>Opens (school time)</span><input
+            ><span>{$_("surveyManagement.opensAt")}</span><input
               class="field"
               type="datetime-local"
               bind:value={form.opens_at}
             /></label
           ><label class="field-label"
-            ><span>Closes (school time)</span><input
+            ><span>{$_("surveyManagement.closesAt")}</span><input
               class="field"
               type="datetime-local"
               bind:value={form.closes_at}
@@ -550,24 +530,24 @@
           <h3 class="text-lg font-black">{t.audience}</h3>
           <div class="mt-3 grid gap-4 sm:grid-cols-2">
             <label class="field-label"
-              ><span>Audience</span><select
+              ><span>{$_("surveyManagement.audience")}</span><select
                 class="field"
                 bind:value={form.audience_type}
                 onchange={() => (form.target_ids = [])}
-                ><option value="whole_school">Whole school</option><option
-                  value="branch">Branch</option
-                ><option value="grade">Grade / level</option><option
-                  value="class">Class / homeroom</option
+                ><option value="whole_school">{$_("surveyManagement.audiences.whole_school")}</option><option
+                  value="branch">{$_("surveyManagement.audiences.branch")}</option
+                ><option value="grade">{$_("surveyManagement.audiences.grade")}</option><option
+                  value="class">{$_("surveyManagement.audiences.class")}</option
                 ><option value="selected_families"
-                  >Selected linked families</option
+                  >{$_("surveyManagement.audiences.selected_families")}</option
                 ></select
               ></label
             ><label class="field-label"
-              ><span>Response unit</span><select
+              ><span>{$_("surveyManagement.responseUnit")}</span><select
                 class="field"
                 bind:value={form.response_mode}
-                ><option value="guardian">One per guardian</option><option
-                  value="household">One per household</option
+                ><option value="guardian">{$_("surveyManagement.responseModes.guardian")}</option><option
+                  value="household">{$_("surveyManagement.responseModes.household")}</option
                 ></select
               ></label
             >
@@ -592,36 +572,36 @@
           <div class="mt-4 grid gap-2 sm:grid-cols-2">
             <label class="check"
               ><input type="checkbox" bind:checked={form.anonymous} /><span
-                >Anonymous responses</span
+                >{$_("surveyManagement.anonymousResponses")}</span
               ></label
             ><label class="check"
               ><input
                 type="checkbox"
                 bind:checked={form.parent_results_visible}
-              /><span>Parents may see results after closing</span></label
+              /><span>{$_("surveyManagement.parentResults")}</span></label
             ><label class="check"
               ><input type="checkbox" bind:checked={form.push_enabled} /><span
-                >Push notification</span
+                >{$_("surveyManagement.pushNotification")}</span
               ></label
             ><label class="check"
               ><input
                 type="checkbox"
                 bind:checked={form.dashboard_card_enabled}
-              /><span>Dashboard card</span></label
+              /><span>{$_("surveyManagement.dashboardCard")}</span></label
             ><label class="check"
               ><input
                 type="checkbox"
                 bind:checked={form.notices_feed_enabled}
-              /><span>Notices-feed link</span></label
+              /><span>{$_("surveyManagement.noticesFeed")}</span></label
             ><label class="check"
               ><input
                 type="checkbox"
                 bind:checked={form.reminder_enabled}
-              /><span>One reminder</span></label
+              /><span>{$_("surveyManagement.oneReminder")}</span></label
             >
           </div>
           {#if form.reminder_enabled}<label class="field-label mt-3 max-w-sm"
-              ><span>Reminder (school time)</span><input
+              ><span>{$_("surveyManagement.reminderAt")}</span><input
                 class="field"
                 type="datetime-local"
                 bind:value={form.reminder_at}
@@ -637,7 +617,7 @@
                 (form.questions = [
                   ...form.questions,
                   newQuestion("single_choice"),
-                ])}>+ Question</button
+                ])}>{$_("surveyManagement.addQuestion")}</button
             >
           </div>
           <div class="mt-4 space-y-4">
@@ -652,40 +632,40 @@
                   <div class="grid flex-1 gap-3 sm:grid-cols-[1fr_12rem]">
                     <input
                       class="field"
-                      placeholder="Question"
+                      placeholder={$_("surveyManagement.question")}
                       bind:value={question.prompt}
                     /><select
                       class="field"
                       value={question.question_type}
                       onchange={(event) =>
                         setQuestionType(question, event.currentTarget.value)}
-                      ><option value="single_choice">Single choice</option
-                      ><option value="multiple_choice">Multiple choice</option
-                      ><option value="yes_no">Yes / No</option><option
-                        value="rating">Rating</option
-                      ><option value="short_text">Short text</option><option
-                        value="long_text">Long text</option
+                      ><option value="single_choice">{$_("surveyManagement.types.single_choice")}</option
+                      ><option value="multiple_choice">{$_("surveyManagement.types.multiple_choice")}</option
+                      ><option value="yes_no">{$_("surveyManagement.types.yes_no")}</option><option
+                        value="rating">{$_("surveyManagement.types.rating")}</option
+                      ><option value="short_text">{$_("surveyManagement.types.short_text")}</option><option
+                        value="long_text">{$_("surveyManagement.types.long_text")}</option
                       ></select
                     >
                   </div>
                   <div class="flex shrink-0">
                     <button
                       class="icon"
-                      aria-label="Move up"
+                      aria-label={$_("surveyManagement.moveUp")}
                       onclick={() => {
                         const value = move(form.questions, index, index - 1);
                         if (value) form.questions = value;
                       }}><ArrowUp size={15} /></button
                     ><button
                       class="icon"
-                      aria-label="Move down"
+                      aria-label={$_("surveyManagement.moveDown")}
                       onclick={() => {
                         const value = move(form.questions, index, index + 1);
                         if (value) form.questions = value;
                       }}><ArrowDown size={15} /></button
                     ><button
                       class="icon text-red-600"
-                      aria-label="Delete"
+                      aria-label={$_("surveyManagement.delete")}
                       onclick={() =>
                         (form.questions = form.questions.filter(
                           (_, i) => i !== index,
@@ -697,7 +677,7 @@
                   ><input
                     type="checkbox"
                     bind:checked={question.required}
-                  /><span>Required</span></label
+                  /><span>{$_("surveyManagement.required")}</span></label
                 >{#if ["single_choice", "multiple_choice"].includes(question.question_type)}<div
                     class="mt-3 space-y-2"
                   >
@@ -706,10 +686,11 @@
                       >
                         <input
                           class="field flex-1"
-                          placeholder={`Choice ${optionIndex + 1}`}
+                          placeholder={$_("surveyManagement.choice", { values: { number: optionIndex + 1 } })}
                           bind:value={option.label}
                         /><button
                           class="icon"
+                          aria-label={$_("surveyManagement.moveUp")}
                           onclick={() => {
                             const value = move(
                               question.options,
@@ -720,6 +701,7 @@
                           }}><ArrowUp size={14} /></button
                         ><button
                           class="icon"
+                          aria-label={$_("surveyManagement.moveDown")}
                           onclick={() => {
                             const value = move(
                               question.options,
@@ -730,6 +712,7 @@
                           }}><ArrowDown size={14} /></button
                         ><button
                           class="icon text-red-600"
+                          aria-label={$_("surveyManagement.delete")}
                           onclick={() =>
                             (question.options = question.options.filter(
                               (_, i) => i !== optionIndex,
@@ -741,13 +724,13 @@
                         (question.options = [
                           ...question.options,
                           { label: "" },
-                        ])}>+ Choice</button
+                        ])}>{$_("surveyManagement.addChoice")}</button
                     >
                   </div>{:else if question.question_type === "rating"}<div
                     class="mt-3 flex gap-3"
                   >
                     <label class="field-label"
-                      ><span>Minimum</span><input
+                      ><span>{$_("surveyManagement.minimum")}</span><input
                         class="field"
                         type="number"
                         min="0"
@@ -755,7 +738,7 @@
                         bind:value={question.scale_min}
                       /></label
                     ><label class="field-label"
-                      ><span>Maximum</span><input
+                      ><span>{$_("surveyManagement.maximum")}</span><input
                         class="field"
                         type="number"
                         min="1"
@@ -775,12 +758,12 @@
           class="rounded-2xl border border-slate-200 px-5 py-3 font-black text-slate-600"
           onclick={() => (previewOpen = !previewOpen)}
           ><Eye class="inline" size={17} />
-          {previewOpen ? "Edit" : t.preview}</button
+          {previewOpen ? $_("surveyManagement.edit") : t.preview}</button
         ><button
           type="button"
           class="btn-hero rounded-2xl px-6 py-3"
           disabled={saving || previewOpen}
-          onclick={saveDraft}>{saving ? "Saving…" : t.save}</button
+          onclick={saveDraft}>{saving ? $_("surveyManagement.saving") : t.save}</button
         >
       </div>
     </div>

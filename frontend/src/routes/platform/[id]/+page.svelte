@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/state';
-  import { _ } from 'svelte-i18n';
+  import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
 
   type StaffInvite = {
@@ -18,6 +18,7 @@
   type SchoolDetail = {
     id: number;
     name: string;
+    name_ar?: string | null;
     status: string;
     timezone: string;
     locale_default: string;
@@ -113,7 +114,7 @@
     <div class="mt-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <p class="eyebrow">{$_('platform.schoolDetail')}</p>
-        <h1 class="mt-2 text-3xl font-black text-slate-900">{school.name}</h1>
+        <h1 class="mt-2 text-3xl font-black text-slate-900">{$locale === 'ar' && school.name_ar ? school.name_ar : school.name}</h1>
         <p class="mt-2 text-slate-500">{school.timezone} · {school.locale_default}</p>
       </div>
       <span class="w-fit rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700">{$_(`platform.statuses.${school.status}`)}</span>
@@ -156,7 +157,7 @@
               <div class="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div class="min-w-0">
                   <p class="break-all font-bold text-slate-900">{invite.email}</p>
-                  <p class="mt-1 text-sm text-slate-500">{invite.role} · {$_(`platform.inviteStatuses.${invite.status}`)} · {formatDate(invite.created_at)}</p>
+                  <p class="mt-1 text-sm text-slate-500">{$locale === 'ar' ? $_(`platform.roles.${invite.role}`) : invite.role} · {$_(`platform.inviteStatuses.${invite.status}`)} · {formatDate(invite.created_at)}</p>
                 </div>
                 <div class="flex shrink-0 gap-2">
                   <button disabled={saving} class="btn-secondary rounded-lg px-3 py-2 text-sm" onclick={() => createInvite(invite.email)}>{$_('platform.resend')}</button>

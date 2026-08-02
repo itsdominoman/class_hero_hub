@@ -31,7 +31,7 @@
           diagnostic.source ?? 'unknown',
           diagnostic.code ?? diagnostic.status ?? 'unknown'
         );
-        magicError = 'Google sign-in could not be completed. Please try again.';
+        magicError = $_('login.googleError');
       }
       return;
     }
@@ -123,7 +123,7 @@
         {$_('login.continueGoogle')}
       </button>
 
-      <form class="mt-5 text-left" onsubmit={(event) => { event.preventDefault(); requestMagicLink(); }}>
+      <form class="mt-5 text-start" onsubmit={(event) => { event.preventDefault(); requestMagicLink(); }}>
         <label class="block text-sm font-bold text-slate-700">
           {$_('login.emailLabel')}
           <input
@@ -143,13 +143,13 @@
       </form>
 
       {#if magicNotice}
-        <div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-left text-sm font-semibold text-emerald-700">{magicNotice}</div>
+        <div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-start text-sm font-semibold text-emerald-700">{magicNotice}</div>
       {/if}
       {#if magicError}
-        <div class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-left text-sm font-semibold text-red-700">{magicError}</div>
+        <div class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-start text-sm font-semibold text-red-700">{magicError}</div>
       {/if}
 
-      <div class="mt-6 rounded-2xl border-2 border-slate-100 bg-slate-50 p-4 text-left text-sm leading-relaxed text-slate-600">
+      <div class="mt-6 rounded-2xl border-2 border-slate-100 bg-slate-50 p-4 text-start text-sm leading-relaxed text-slate-600">
         <p>
           {$_('login.accountHelp')}
         </p>

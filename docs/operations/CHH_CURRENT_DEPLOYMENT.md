@@ -1,5 +1,45 @@
 # CHH current pilot deployment
 
+## 2026-08-02 Arabic localisation audit release candidate
+
+The CHH-wide Arabic audit found three localisation gaps that ordinary catalogue
+parity could not detect. School setup checklist labels came from English backend
+display strings and were rendered verbatim; survey administration kept much of its
+system copy inline in English; and several school, class, subject, status, role and
+result components displayed API values directly despite an active Arabic locale.
+Unknown English backend error details could also pass through the shared API client.
+
+The release candidate maps the stable School setup checklist keys, invitation and
+plan result values to paired catalogue entries, moves all survey composer/results
+system copy and accessibility labels into the shared catalogue, and prevents an
+English backend error fallback from appearing in Arabic mode. Platform, School
+setup, Students and Import & Export, Behaviour & points, Reports, Recognition,
+Surveys, Messages, Safeguarding, System & compliance and teacher/class surfaces
+were checked for literal visible text and physical-direction CSS. Shared controls
+now use logical start/end positioning; directional arrows and chevrons mirror in
+RTL; and the protected-message photo viewer reverses its visual, keyboard and swipe
+directions in Arabic. English rendering paths retain their previous wording and API
+values.
+
+Arabic display prefers an existing `name_ar` for schools, branches, years, stages,
+grades, classes, subjects and subject groups. If a school has not supplied an
+Arabic value, CHH deliberately shows the exact school-entered name or code instead
+of inventing a translation. Student, guardian, survey, announcement, message,
+recognition and safeguarding content also remains user/school-entered data. The
+controlled educational terms use `السنوات الدراسية`, `المراحل التعليمية`,
+`الصفوف/المستويات الدراسية`, `الشعب` and `مجموعات المواد`; the survey workflow uses
+`الاستجابات`, `معدل الاستجابة`, `وحدة الاستجابة` and `مقياس تقييم`.
+
+Release-candidate validation passes 57 focused localisation, School setup, student,
+teacher, survey, messaging, recognition and navigation tests; English/Arabic parity
+at 2,152 keys per locale; Svelte check with zero errors or warnings; and the
+production static frontend build. No backend, database, route, permission or
+migration change is included. The Android package remains
+`com.classherohub.app`; the candidate increments it from code 13 to code 14 with
+version name `1.12-arabic-localisation-pilot`. Hosted deployment, responsive signed-in
+role checks and physical RMX3997 installation/verification are recorded here after
+completion.
+
 ## 2026-08-02 compact School setup navigation
 
 The compact School setup navigation no longer renders six large accordion groups
