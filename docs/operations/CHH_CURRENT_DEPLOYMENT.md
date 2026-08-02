@@ -1,5 +1,78 @@
 # CHH current pilot deployment
 
+## 2026-08-02 authenticated language switcher pilot release
+
+The Arabic catalogue and RTL shell were already persistent, but the only visible
+language control was on public/login surfaces. Once authenticated, administrators
+and teachers could not change language without leaving their workflow. The global
+layout now reuses the established language selector in both authenticated shells:
+after the existing destinations and before Logout in the desktop navigation, and
+at the top of the compact drawer before its destinations. The control uses a globe,
+shows the native-script choices `English` and `العربية`, exposes a localised
+accessible name and focus indicator, and uses no flags. Existing navigation order,
+routes, query parameters, role gates and permission checks are unchanged.
+
+The selector continues to use the existing `familyHeroHub.language` preference.
+Changing it updates the document `lang` and `dir` immediately without navigation;
+the current path, query context, selected tab and open drawer are retained. The
+preference is not removed on logout, so it survives navigation, refresh, a later
+authenticated browser tab and an Android force-stop/cold launch. English remains
+LTR with its previous wording. Arabic remains RTL and continues to preserve
+school-entered names and content exactly as supplied; no school data is translated
+by this control.
+
+Implementation commit `803ae5f` was deployed by rebuilding and recreating only the
+pilot frontend. Public HTTP returned 200, readiness returned `database=ok` and
+`migration=current`, and every Compose service remained healthy. The backend,
+PostgreSQL, notification scheduler and messaging production worker were neither
+rebuilt nor restarted. There is no schema, migration, data or configuration change.
+
+Validation passed Svelte check with zero errors or warnings, English/Arabic parity
+at 2,153 keys per locale, all 93 Node tests, the production frontend build and a
+92-case serial Playwright matrix. The matrix covers the authenticated selector,
+global navigation/state, School setup, administration, messaging, safeguarding,
+recognition, mobile workspaces and native shell behaviour at 390, 768, 1024, 1280
+and 1440 CSS pixels. A signed-in hosted Chrome check retained
+`/school?tab=years&context=school-7` while switching both directions, confirmed
+immediate `lang`/`dir` and content changes, refresh and fresh-tab persistence,
+drawer retention, correct logical drawer edge and zero horizontal overflow. The
+hosted console contained no error.
+
+### Authenticated language switcher pilot APK
+
+- Package `com.classherohub.app`; version code `15`; version name
+  `1.13-authenticated-language-switcher-pilot`; min SDK 23 and compile/target SDK
+  35.
+- Artifact:
+  `/opt/apps/class_hero_hub/tmp/class-hero-hub-authenticated-language-switcher-v1.13-code15-20260802.apk`;
+  identical Windows and Drive copies at
+  `C:\Users\Dom\Documents\CHH - FHH\class-hero-hub-authenticated-language-switcher-v1.13-code15-20260802.apk`
+  and
+  `G:\My Drive\CHH\Remote\class-hero-hub-authenticated-language-switcher-v1.13-code15-20260802.apk`.
+- Size `96,323,953` bytes; SHA-256
+  `0d21f315daf28fc35947f04073acd4a0ea54f720f481302ac0a824891b6e2afd`.
+- Android Debug signer DN `C=US, O=Android, CN=Android Debug`; certificate SHA-256
+  `e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
+  APK signature schemes v1 and v2 verify; v3/v4 are not used by this debug build.
+- `testDebugUnitTest`, `lintDebug`, `assembleDebug` and
+  `assembleDebugAndroidTest` passed on Temurin 21.0.11 and Android SDK/build tools
+  35. Package/version, signer and source/local/Drive hashes passed. All 356
+  production build files are byte-identical to their Capacitor bundle copies; the
+  installed base APK pulled from the RMX3997 is byte-identical to the delivered
+  file.
+
+`adb install -r` upgraded code 14 in place. The original first-install timestamp
+(`2026-07-18 22:47:59`), app-data inode (`9258`) and notification/microphone grants
+were preserved. On the physical RMX3997, the authenticated Arabic choice survived
+the upgrade, the drawer selector visibly switched Arabic to English and back
+without closing or changing `https://localhost/school`, and the drawer moved to the
+correct logical edge. Native Back closed the drawer while retaining the route.
+Both English/LTR and Arabic/RTL survived separate force-stop/cold launches, restored
+the authenticated School setup workspace, and measured `clientWidth=360` and
+`scrollWidth=360`. No fatal application or WebView error was found. The device was
+left authenticated in Arabic on School setup. No production environment was
+touched. Release tag: `chh-authenticated-language-switcher-pilot-code15-20260802`.
+
 ## 2026-08-02 Arabic localisation audit pilot release
 
 The CHH-wide Arabic audit found three localisation gaps that ordinary catalogue

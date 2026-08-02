@@ -3,6 +3,60 @@
 Status date: 2026-08-02
 Scope: implementation record for the Class Hero Hub (CHH) Capacitor Android app.
 
+## 2026-08-02 authenticated language switcher pilot APK
+
+Authenticated users previously had no visible language control even though CHH's
+shared i18n store already persisted the chosen locale and synchronised document
+direction. Commit `803ae5f` reuses the existing globe selector in the desktop
+authenticated navigation and compact drawer. It keeps the native-script options
+`English` and `العربية`, adds explicit accessible and focus states, and leaves the
+public/login selector, destination order, URLs, query state, roles and permissions
+unchanged. Selection is immediate and route-neutral; the existing
+`familyHeroHub.language` preference survives refresh, future authenticated sessions
+and Android cold launch. School-entered data remains untouched.
+
+The final source passed Svelte check with zero diagnostics, English/Arabic parity at
+2,153 keys, all 93 Node tests, the production build and a 92-case serial Playwright
+matrix at 390, 768, 1024, 1280 and 1440 CSS pixels. Signed-in hosted checks proved
+both directions, exact `/school?tab=years&context=school-7` retention, drawer
+retention and mirroring, refresh/fresh-tab persistence, zero horizontal overflow
+and no browser-console error. Only the pilot frontend was recreated; no backend,
+database, scheduler or worker was restarted and no schema or data changed.
+
+The Android configuration advances package `com.classherohub.app` from code `14`
+to code `15`, version name `1.13-authenticated-language-switcher-pilot`.
+`testDebugUnitTest`, `lintDebug`, `assembleDebug` and
+`assembleDebugAndroidTest` passed on Temurin 21.0.11 and Android SDK/build tools 35.
+All 356 production build files match their copied Capacitor bundle entries.
+Package/version inspection and v1/v2 signature verification passed with the
+established Android Debug signer `C=US, O=Android, CN=Android Debug`, certificate
+SHA-256
+`e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
+
+Final artifact:
+`/opt/apps/class_hero_hub/tmp/class-hero-hub-authenticated-language-switcher-v1.13-code15-20260802.apk`;
+identical Windows copy at
+`C:\Users\Dom\Documents\CHH - FHH\class-hero-hub-authenticated-language-switcher-v1.13-code15-20260802.apk`
+and Drive copy at
+`G:\My Drive\CHH\Remote\class-hero-hub-authenticated-language-switcher-v1.13-code15-20260802.apk`.
+It is `96,323,953` bytes with SHA-256
+`0d21f315daf28fc35947f04073acd4a0ea54f720f481302ac0a824891b6e2afd`.
+The remote build, Windows copy, Drive copy and base APK pulled from the installed
+package are byte-for-byte identical.
+
+`adb install -r` upgraded the connected RMX3997 without uninstalling. Version code
+changed from 14 to 15 while the original first-install timestamp, app-data inode
+and notification/microphone grants remained unchanged. Physical verification used
+the retained authenticated School setup session. Arabic switched to English and
+back inside the open drawer; the selector remained visible, the drawer stayed open
+and mirrored sides, and `https://localhost/school` remained unchanged. Native Back
+closed the drawer without navigation. Separate English and Arabic force-stop/cold
+launches restored the selected `lang`/`dir`, authenticated workspace and zero
+horizontal overflow (`360` CSS pixels for both viewport and document width). No
+fatal application or WebView error was found. The app was left authenticated in
+Arabic on School setup. No older APK was overwritten or relabelled. Release tag:
+`chh-authenticated-language-switcher-pilot-code15-20260802`.
+
 ## 2026-08-02 Arabic localisation pilot APK
 
 The CHH Arabic localisation APK bundles the same production frontend assets
