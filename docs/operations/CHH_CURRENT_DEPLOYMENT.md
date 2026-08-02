@@ -52,8 +52,14 @@ The delivered file is
 bytes, SHA-256
 `c5bdd0c2d5034cb88ea5aa641f7879e305e44e156bccb77afe823b727444fe80`.
 The verified source is `/opt/apps/class_hero_hub/tmp/`; the identical Windows copy
-is in `G:\My Drive\CHH\Remote\`. Real-device interaction checks remain pending
-only because the connected handset's secure keyguard is still locked.
+is in `G:\My Drive\CHH\Remote\`. After unlock, the app reopened directly into the
+authenticated Teach workspace. The global drawer respected the physical status and
+navigation insets, Android Back closed it first, and the 360 CSS pixel WebView
+reported `scrollWidth=360` with zero horizontal overflow. The retained account is
+a teacher/guardian rather than a school administrator: permission-aware navigation
+correctly hides School setup and direct `/school` shows the access-required state.
+Physical execution of the contextual School setup drawer and Arabic RTL therefore
+still requires a school-administrator session on the device.
 
 ## 2026-08-02 multi-school context pilot-scope assessment
 

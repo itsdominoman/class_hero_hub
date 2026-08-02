@@ -25,9 +25,12 @@ entry point and the synchronized Capacitor asset.
 `adb install -r` upgraded the physical package without uninstalling it. The first
 install time, app-data inode, encrypted-preference file set, notification grant and
 microphone grant remained unchanged. Pulling the installed code-12 base APK produced
-the same SHA-256 as the build and Drive copy. The handset's secure keyguard remains
-locked, so authenticated drawer, native Back, safe-area and real-device RTL checks
-are still pending.
+the same SHA-256 as the build and Drive copy. After unlock, the app restored its
+authenticated Teach workspace. The physical global drawer stayed inside the status
+and navigation insets, Android Back closed it first, and WebView inspection measured
+zero horizontal overflow at 360 CSS pixels. The retained teacher/guardian account
+correctly hides School setup and rejects direct `/school`; contextual School setup
+drawer and real-device Arabic RTL checks require a school-administrator session.
 
 Artifact: `class-hero-hub-school-setup-drawer-v1.10-code12-20260802.apk`; size
 `96,318,038` bytes; SHA-256
