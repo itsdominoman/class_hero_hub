@@ -110,6 +110,13 @@ async function mockSchoolSetup(page: Page, mixedRole = false, locale = 'en') {
   });
 }
 
+async function openCompactMenu(page: Page, locale = 'en') {
+  await page.getByRole('button', { name: locale === 'ar' ? 'فتح القائمة' : 'Open menu' }).click();
+  const dialog = page.getByRole('dialog', { name: locale === 'ar' ? 'القائمة' : 'Menu' });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
 test('school administrator sees the grouped desktop hierarchy and one active item', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await mockSchoolSetup(page);
@@ -135,17 +142,25 @@ test('school administrator sees the grouped desktop hierarchy and one active ite
   await expect(navigation.getByRole('link', { name: 'System & compliance Shortcut', exact: true })).toHaveAttribute('href', '/school/administration');
 });
 
-test('mobile School setup uses contained group accordions', async ({ page }) => {
+test('mobile School setup uses the app drawer and reveals selected content immediately', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockSchoolSetup(page);
   await page.goto('/school');
 
-  const navigation = page.locator('nav[aria-label="School setup navigation"]:visible');
-  await expect(navigation).toBeVisible({ timeout: 15_000 });
-  await expect(navigation.locator('details')).toHaveCount(6);
-  await expect(navigation.getByRole('button', { name: 'Checklist', exact: true })).toBeVisible();
-  await navigation.getByText('Behaviour & insights', { exact: true }).click();
+  await expect(page.locator('main nav[aria-label="School setup navigation"]')).toHaveCount(0);
+  const dialog = await openCompactMenu(page);
+  const navigation = dialog.locator('nav[aria-label="School setup navigation"]');
+  await expect(navigation).toBeVisible();
+  await expect(navigation.locator('details')).toHaveCount(0);
+  await expect(navigation.getByRole('heading')).toHaveCount(6);
+  await expect(navigation.getByRole('link', { name: 'Checklist', exact: true })).toHaveAttribute('aria-current', 'page');
   await expect(navigation.getByRole('link', { name: 'Reports Shortcut', exact: true })).toBeVisible();
+  await navigation.getByRole('link', { name: 'Behaviour & points', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page).toHaveURL(/tab=behaviour/);
+  const content = page.getByRole('link', { name: 'Open reports →', exact: true });
+  await expect(content).toBeVisible();
+  expect((await content.boundingBox())?.y ?? 900).toBeLessThan(844);
   await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
@@ -155,12 +170,14 @@ test('Arabic mobile hierarchy preserves RTL labels and destinations', async ({ p
   await mockSchoolSetup(page, false, 'ar');
   await page.goto('/school');
 
-  const navigation = page.locator('nav[aria-label="تنقل إعداد المدرسة"]:visible');
-  await expect(navigation).toBeVisible({ timeout: 15_000 });
+  const dialog = await openCompactMenu(page, 'ar');
+  const navigation = dialog.locator('nav[aria-label="تنقل إعداد المدرسة"]');
+  await expect(navigation).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-  await navigation.getByText('السلوك والرؤى', { exact: true }).click();
   await expect(navigation.getByRole('link', { name: 'التقارير اختصار', exact: true })).toHaveAttribute('href', '/school/reports');
   await expect(navigation.getByRole('link', { name: 'التقدير الإيجابي اختصار', exact: true })).toHaveAttribute('href', '/school/recognition');
+  const drawerBox = await dialog.boundingBox();
+  expect(drawerBox?.x ?? 1).toBeLessThanOrEqual(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 
@@ -169,11 +186,11 @@ test('mixed-role administrator retains the same School setup hierarchy', async (
   await mockSchoolSetup(page, true);
   await page.goto('/school?tab=behaviour');
 
-  const navigation = page.locator('nav[aria-label="School setup navigation"]:visible');
-  await expect(navigation).toBeVisible({ timeout: 15_000 });
-  await expect(navigation.getByRole('button', { name: 'Behaviour & points', exact: true })).toHaveAttribute('aria-current', 'page');
+  const dialog = await openCompactMenu(page);
+  const navigation = dialog.locator('nav[aria-label="School setup navigation"]');
+  await expect(navigation.getByRole('link', { name: 'Behaviour & points', exact: true })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('link', { name: 'Open reports →', exact: true })).toHaveAttribute('href', '/school/reports');
-  await expect(navigation.locator('a')).toHaveCount(5);
+  await expect(navigation.locator('a')).toHaveCount(20);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 
@@ -184,18 +201,28 @@ for (const width of [390, 768, 1024, 1280, 1440]) {
       await mockSchoolSetup(page, true, locale);
       await page.goto('/school?tab=teachers');
 
-      const navigation = page.locator('nav[aria-label]:visible').filter({
+      const compact = width <= 1024;
+      if (compact) await openCompactMenu(page, locale);
+      let navigation = page.locator('nav[aria-label]:visible').filter({
         has: page.getByRole('button', {
           name: locale === 'ar' ? 'الموظفون وتكليفات التدريس' : 'Staff & teaching assignments',
           exact: true
         })
       });
-      await expect(navigation.getByRole('button', {
-        name: locale === 'ar' ? 'الموظفون وتكليفات التدريس' : 'Staff & teaching assignments',
-        exact: true
-      })).toHaveAttribute('aria-current', 'page');
+      const itemName = locale === 'ar' ? 'الموظفون وتكليفات التدريس' : 'Staff & teaching assignments';
+      if (compact) {
+        navigation = page.locator('nav[aria-label]:visible').filter({ has: page.getByRole('link', { name: itemName, exact: true }) });
+        await expect(navigation.getByRole('link', { name: itemName, exact: true })).toHaveAttribute('aria-current', 'page');
+      } else {
+        await expect(navigation.getByRole('button', { name: itemName, exact: true })).toHaveAttribute('aria-current', 'page');
+      }
       await page.reload();
       await expect(page).toHaveURL(/tab=teachers/);
+      if (compact) {
+        await openCompactMenu(page, locale);
+        navigation = page.locator('nav[aria-label]:visible').filter({ has: page.getByRole('link', { name: itemName, exact: true }) });
+        await expect(navigation.getByRole('link', { name: itemName, exact: true })).toHaveAttribute('aria-current', 'page');
+      }
       await expect(page.locator('html')).toHaveAttribute('dir', locale === 'ar' ? 'rtl' : 'ltr');
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
     });
@@ -207,17 +234,33 @@ test('School setup tab changes support browser and Android Back hierarchy', asyn
   await mockSchoolSetup(page, true);
   await page.goto('/school');
 
-  const navigation = page.locator('nav[aria-label="School setup navigation"]:visible');
-  await navigation.getByText('Behaviour & insights', { exact: true }).click();
-  await navigation.getByRole('button', { name: 'Behaviour & points', exact: true }).click();
-  await expect(page).toHaveURL(/tab=behaviour/);
-  await page.goBack();
+  let dialog = await openCompactMenu(page);
+  let navigation = dialog.locator('nav[aria-label="School setup navigation"]');
+
+  let handled = await page.evaluate(() =>
+    !window.dispatchEvent(new CustomEvent('chh:native-back', { cancelable: true }))
+  );
+  expect(handled).toBe(true);
+  await expect(dialog).not.toBeVisible();
   await expect(page).not.toHaveURL(/tab=/);
-  await expect(navigation.getByRole('button', { name: 'Checklist', exact: true })).toHaveAttribute('aria-current', 'page');
-  await page.goForward();
+
+  dialog = await openCompactMenu(page);
+  navigation = dialog.locator('nav[aria-label="School setup navigation"]');
+  await navigation.getByRole('link', { name: 'Behaviour & points', exact: true }).click();
+  await expect(page).toHaveURL(/tab=behaviour/);
+  await expect(dialog).not.toBeVisible();
+
+  dialog = await openCompactMenu(page);
+  navigation = dialog.locator('nav[aria-label="School setup navigation"]');
+  await expect(navigation.getByRole('link', { name: 'Behaviour & points', exact: true })).toHaveAttribute('aria-current', 'page');
+  handled = await page.evaluate(() =>
+    !window.dispatchEvent(new CustomEvent('chh:native-back', { cancelable: true }))
+  );
+  expect(handled).toBe(true);
+  await expect(dialog).not.toBeVisible();
   await expect(page).toHaveURL(/tab=behaviour/);
 
-  const handled = await page.evaluate(() =>
+  handled = await page.evaluate(() =>
     !window.dispatchEvent(new CustomEvent('chh:native-back', { cancelable: true }))
   );
   expect(handled).toBe(true);

@@ -16,6 +16,7 @@
   import type { SafeguardingMembership } from '$lib/safeguarding/types';
   import { clearNativeSession, isNativePlatform } from '$lib/nativeAuth';
   import { defaultLandingPath, hasRole, type SessionUser } from '$lib/roleRouting';
+  import { SCHOOL_MENU_GROUPS, SCHOOL_TABS, type SchoolMenuItem } from '$lib/schoolMenu';
   import { surveyApi, type SurveyMembership } from '$lib/surveys/api';
 
   let { children } = $props();
@@ -213,6 +214,7 @@
     const onKeydown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') closeMobileMenu();
     };
+    const onCloseMobileMenu = () => closeMobileMenu();
     const onNativeBack = (event: Event) => {
       const active = document.activeElement;
       const editable =
@@ -235,6 +237,7 @@
     const badgeTimer = setInterval(() => void refreshMessagingBadge(), 30_000);
     window.addEventListener('keydown', onKeydown);
     window.addEventListener('focus', onFocus);
+    window.addEventListener('chh:close-mobile-menu', onCloseMobileMenu);
     window.addEventListener('chh:native-back', onNativeBack, { capture: true });
     if (nativeApp) {
       void import('$lib/native/platform-bridge').then(async ({ registerNativeBackButtonHandler }) => {
@@ -247,6 +250,7 @@
       disposed = true;
       window.removeEventListener('keydown', onKeydown);
       window.removeEventListener('focus', onFocus);
+      window.removeEventListener('chh:close-mobile-menu', onCloseMobileMenu);
       window.removeEventListener('chh:native-back', onNativeBack, { capture: true });
       clearInterval(badgeTimer);
       document.body.classList.remove('mobile-menu-open');
@@ -301,6 +305,19 @@
     )
   );
   let currentNavigationItem = $derived(activeNavigationItem($page.url.pathname));
+  let schoolSetupNavigationVisible = $derived(
+    hasSchoolAdmin && (
+      $page.url.pathname === '/school'
+      || SCHOOL_MENU_GROUPS.some((group) => group.items.some(
+        (item) => item.type !== 'tab' && item.href === $page.url.pathname
+      ))
+    )
+  );
+  let currentSchoolSetupTab = $derived.by(() => {
+    if ($page.url.pathname !== '/school') return null;
+    const requested = $page.url.searchParams.get('tab');
+    return requested && SCHOOL_TABS.some((tab) => tab.key === requested) ? requested : 'checklist';
+  });
 
   function navigationItemIsCurrent(item: NavigationItem) {
     return item.id === 'dashboard'
@@ -317,9 +334,35 @@
   }
 
   function mobileNavigationClass(item: NavigationItem) {
-    return navigationItemIsCurrent(item)
+    return mobileNavigationItemIsCurrent(item)
       ? 'mobile-nav-link mobile-nav-link-active flex items-center justify-between gap-3'
       : 'mobile-nav-link flex items-center justify-between gap-3';
+  }
+
+  function mobileNavigationItemIsCurrent(item: NavigationItem) {
+    return !schoolSetupNavigationVisible && navigationItemIsCurrent(item);
+  }
+
+  function schoolSetupItemIsCurrent(item: SchoolMenuItem) {
+    return item.type === 'tab'
+      ? currentSchoolSetupTab === item.key
+      : $page.url.pathname === item.href;
+  }
+
+  function schoolSetupTabHref(key: string) {
+    const search = new URLSearchParams(
+      $page.url.pathname === '/school' ? $page.url.searchParams : undefined
+    );
+    if (key === 'checklist') search.delete('tab');
+    else search.set('tab', key);
+    const query = search.toString();
+    return `/school${query ? `?${query}` : ''}`;
+  }
+
+  function mobileSchoolSetupItemClass(item: SchoolMenuItem) {
+    return schoolSetupItemIsCurrent(item)
+      ? 'mobile-school-link mobile-school-link-active flex items-center justify-between gap-3'
+      : 'mobile-school-link flex items-center justify-between gap-3';
   }
   // Messaging already owns a bounded viewport and its single bottom inset at the
   // sticky composer. Every other native route gets the bottom inset from app-main.
@@ -442,7 +485,7 @@
 {#if currentUser && mobileMenuOpen}
   <div class="xl:hidden fixed inset-0 z-[100]" role="presentation">
     <button type="button" class="absolute inset-0 h-full w-full bg-slate-950/45" aria-label={$_('nav.closeMenu')} onclick={closeMobileMenu}></button>
-    <div id="mobile-navigation" class="absolute inset-y-0 right-0 flex w-[min(22rem,88vw)] flex-col overflow-y-auto bg-white px-5 pb-[calc(1.25rem+var(--safe-bottom))] pt-[calc(1.25rem+var(--safe-top))] shadow-2xl" role="dialog" aria-modal="true" aria-label={$_('nav.menu')}>
+    <div id="mobile-navigation" class="absolute inset-y-0 end-0 flex w-[min(22rem,88vw)] flex-col overflow-y-auto overscroll-contain bg-white px-5 pb-[calc(1.25rem+var(--safe-bottom))] pt-[calc(1.25rem+var(--safe-top))] shadow-2xl" role="dialog" aria-modal="true" aria-label={$_('nav.menu')}>
       <div class="flex items-center justify-between border-b border-slate-200 pb-4">
         <span class="text-lg font-bold text-slate-900">{$_('nav.menu')}</span>
         <button type="button" class="rounded-xl p-2 text-slate-700 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero" aria-label={$_('nav.closeMenu')} onclick={closeMobileMenu}><span aria-hidden="true" class="text-2xl leading-none">×</span></button>
@@ -453,7 +496,7 @@
             href={item.href}
             onclick={closeMobileMenu}
             class={mobileNavigationClass(item)}
-            aria-current={navigationItemIsCurrent(item) ? 'page' : undefined}
+            aria-current={mobileNavigationItemIsCurrent(item) ? 'page' : undefined}
           >
             <span>{$_(item.labelKey)}</span>
             {#if item.id === 'messages' && messagingUnread > 0}
@@ -462,6 +505,33 @@
           </a>
         {/each}
       </nav>
+      {#if schoolSetupNavigationVisible}
+        <section class="mt-6 border-t border-slate-200 pt-5" aria-labelledby="mobile-school-setup-title">
+          <h2 id="mobile-school-setup-title" class="text-sm font-black uppercase tracking-wide text-slate-900">{$_('nav.school')}</h2>
+          <nav class="mt-4 space-y-5" aria-label={$_('school.menu.navigationLabel')}>
+            {#each SCHOOL_MENU_GROUPS as group}
+              <section aria-labelledby={`mobile-school-menu-${group.key}`}>
+                <h3 id={`mobile-school-menu-${group.key}`} class="px-3 text-xs font-bold uppercase tracking-wide text-slate-500">{$_(group.label)}</h3>
+                <div class="mt-1 space-y-1">
+                  {#each group.items as item}
+                    <a
+                      href={item.type === 'tab' ? schoolSetupTabHref(item.key) : item.href}
+                      onclick={closeMobileMenu}
+                      class={mobileSchoolSetupItemClass(item)}
+                      aria-current={schoolSetupItemIsCurrent(item) ? 'page' : undefined}
+                    >
+                      <span>{$_(item.label)}</span>
+                      {#if item.type === 'shortcut'}
+                        <span class="shrink-0 rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{$_('school.menu.shortcut')}</span>
+                      {/if}
+                    </a>
+                  {/each}
+                </div>
+              </section>
+            {/each}
+          </nav>
+        </section>
+      {/if}
       {#if nativePushStatus}
         <section class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <p class="text-sm font-black text-slate-900">{$_('pushNotifications.title')}</p>
@@ -487,6 +557,11 @@
   .mobile-nav-link-active,
   .mobile-nav-link-active:hover,
   .mobile-nav-link-active:focus-visible { background: rgb(139 92 246 / .1); color: #7c3aed; box-shadow: inset 0 0 0 1px rgb(139 92 246 / .2); }
+  .mobile-school-link { min-height: 2.5rem; border-radius: .65rem; padding: .55rem .75rem; color: #334155; font-size: .875rem; font-weight: 600; }
+  .mobile-school-link:hover, .mobile-school-link:focus-visible { background: #f8fafc; color: #7c3aed; outline: none; }
+  .mobile-school-link-active,
+  .mobile-school-link-active:hover,
+  .mobile-school-link-active:focus-visible { background: rgb(139 92 246 / .1); color: #7c3aed; box-shadow: inset 0 0 0 1px rgb(139 92 246 / .2); }
   @media (max-width: 420px) {
     .brand-title > span:first-child { font-size: 1rem; }
     .brand-title > span:last-child { display: block; font-size: .6875rem; }

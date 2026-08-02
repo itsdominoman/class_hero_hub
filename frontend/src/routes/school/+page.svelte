@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from '$app/stores';
   import { onMount, tick } from 'svelte';
   import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
@@ -10,7 +11,7 @@
   import TextInput from '$lib/components/school/TextInput.svelte';
   import TimeZoneSelector from '$lib/components/TimeZoneSelector.svelte';
   import { guardianDisplayName } from '$lib/guardianDisplay';
-  import { SCHOOL_MENU_GROUPS, SCHOOL_TABS, type SchoolMenuGroup } from '$lib/schoolMenu';
+  import { SCHOOL_MENU_GROUPS, SCHOOL_TABS } from '$lib/schoolMenu';
   import { CheckCircle2, Circle, Pencil, Plus, Trash2 } from 'lucide-svelte';
   import QRCode from 'qrcode';
 
@@ -1038,10 +1039,6 @@
 
   function schoolMenuItemClass(active = false) {
     return `flex min-h-10 w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-start text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero ${active ? 'border-hero/30 bg-hero/10 text-hero' : 'border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50'}`;
-  }
-
-  function isSchoolMenuGroupActive(group: SchoolMenuGroup) {
-    return group.items.some((item) => item.type === 'tab' && item.key === activeTab);
   }
 
   function requestedSchoolTab() {
@@ -2839,9 +2836,22 @@
     }
   });
 
+  $effect(() => {
+    if ($page.url.pathname !== '/school') return;
+    const requested = $page.url.searchParams.get('tab');
+    const nextTab = requested && SCHOOL_TABS.some((tab) => tab.key === requested) ? requested : 'checklist';
+    if (nextTab !== activeTab) selectTab(nextTab, 'none');
+  });
+
   onMount(() => {
     const onPopState = () => selectTab(requestedSchoolTab(), 'none');
     const onNativeBack = (event: Event) => {
+      if (document.body.classList.contains('mobile-menu-open')) {
+        window.dispatchEvent(new CustomEvent('chh:close-mobile-menu'));
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       if (event.defaultPrevented || activeTab === 'checklist') return;
       if (window.history.state?.chhSchoolTabEntry) window.history.back();
       else selectTab('checklist', 'replace');
@@ -2900,39 +2910,8 @@
       <div class="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">{notice}</div>
     {/if}
 
-    <div class="mt-6 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)]">
-      <nav class="lg:hidden" aria-label={$_('school.menu.navigationLabel')}>
-        <div class="space-y-2">
-          {#each SCHOOL_MENU_GROUPS as group}
-            <details class="rounded-xl border border-slate-200 bg-white" open={isSchoolMenuGroupActive(group)}>
-              <summary class="cursor-pointer px-4 py-3 text-sm font-bold text-slate-900">{$_(group.label)}</summary>
-              <div class="space-y-1 border-t border-slate-100 p-2">
-                {#each group.items as item}
-                  {#if item.type === 'tab'}
-                    <button
-                      type="button"
-                      class={schoolMenuItemClass(activeTab === item.key)}
-                      aria-current={activeTab === item.key ? 'page' : undefined}
-                      onclick={() => selectTab(item.key)}
-                    >
-                      <span>{$_(item.label)}</span>
-                    </button>
-                  {:else}
-                    <a href={item.href} class={schoolMenuItemClass()}>
-                      <span>{$_(item.label)}</span>
-                      {#if item.type === 'shortcut'}
-                        <span class="shrink-0 rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{$_('school.menu.shortcut')}</span>
-                      {/if}
-                    </a>
-                  {/if}
-                {/each}
-              </div>
-            </details>
-          {/each}
-        </div>
-      </nav>
-
-      <nav class="hidden rounded-xl border border-slate-200 bg-white p-3 lg:block" aria-label={$_('school.menu.navigationLabel')}>
+    <div class="mt-6 grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
+      <nav class="hidden rounded-xl border border-slate-200 bg-white p-3 xl:block" aria-label={$_('school.menu.navigationLabel')}>
         <div class="space-y-5">
           {#each SCHOOL_MENU_GROUPS as group}
             <section aria-labelledby={`school-menu-${group.key}`}>
@@ -2963,7 +2942,7 @@
         </div>
       </nav>
 
-      <div class="min-w-0">
+      <div id="school-setup-content" class="min-w-0">
         {#if activeTab === 'checklist'}
           <button type="button" class="mb-4 flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left text-sm hover:bg-slate-50" onclick={openAnnouncements}>
             <span class="font-semibold text-slate-700">{$_('school.announcements.checklistShortcut')}</span>

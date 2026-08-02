@@ -6,6 +6,7 @@ import { en, ar } from '../src/lib/i18n/messages.ts';
 import { SCHOOL_MENU_GROUPS, SCHOOL_TABS } from '../src/lib/schoolMenu.ts';
 
 const schoolSource = readFileSync(new URL('../src/routes/school/+page.svelte', import.meta.url), 'utf8');
+const layoutSource = readFileSync(new URL('../src/routes/+layout.svelte', import.meta.url), 'utf8');
 
 test('School setup uses the agreed workflow groups and item order', () => {
   assert.deepEqual(
@@ -50,6 +51,7 @@ test('existing School setup tabs and destinations retain their behaviour', () =>
   );
   assert.match(schoolSource, /SCHOOL_TABS\.some\(\(tab\) => tab\.key === requestedTab\)/);
   assert.match(schoolSource, /onclick=\{\(\) => selectTab\(item\.key\)\}/);
+  assert.match(layoutSource, /schoolSetupTabHref\(item\.key\)/);
 });
 
 test('ordinary items share one treatment while active state and shortcuts are explicit', () => {
@@ -60,8 +62,8 @@ test('ordinary items share one treatment while active state and shortcuts are ex
     shortcuts.map((item) => item.href),
     ['/school/reports', '/school/recognition', '/school/administration']
   );
-  assert.equal((schoolSource.match(/schoolMenuItemClass\(/g) || []).length, 5);
-  assert.equal((schoolSource.match(/aria-current=/g) || []).length, 2);
+  assert.equal((schoolSource.match(/schoolMenuItemClass\(/g) || []).length, 3);
+  assert.equal((schoolSource.match(/aria-current=/g) || []).length, 1);
   assert.match(schoolSource, /border-hero\/30 bg-hero\/10 text-hero/);
   assert.doesNotMatch(schoolSource, /whitespace-nowrap rounded-lg border border-sky-200/);
   assert.doesNotMatch(schoolSource, /whitespace-nowrap rounded-lg border border-hero/);
@@ -73,11 +75,17 @@ test('Reports remains a contextual shortcut inside Behaviour & points', () => {
   assert.match(schoolSource, /school\.menu\.openReports/);
 });
 
-test('mobile accordions and desktop grouped navigation use the same definition', () => {
-  assert.equal((schoolSource.match(/\{#each SCHOOL_MENU_GROUPS as group\}/g) || []).length, 2);
-  assert.match(schoolSource, /<details[^>]+open=\{isSchoolMenuGroupActive\(group\)\}/);
-  assert.match(schoolSource, /class="lg:hidden" aria-label=/);
-  assert.match(schoolSource, /class="hidden rounded-xl[^\n]+lg:block" aria-label=/);
+test('compact School setup navigation lives in the app drawer while desktop keeps its sidebar', () => {
+  assert.equal((schoolSource.match(/\{#each SCHOOL_MENU_GROUPS as group\}/g) || []).length, 1);
+  assert.equal((layoutSource.match(/\{#each SCHOOL_MENU_GROUPS as group\}/g) || []).length, 1);
+  assert.doesNotMatch(schoolSource, /isSchoolMenuGroupActive/);
+  assert.doesNotMatch(schoolSource, /<nav class="lg:hidden"/);
+  assert.match(schoolSource, /class="hidden rounded-xl[^\n]+xl:block" aria-label=/);
+  assert.match(layoutSource, /\{#if schoolSetupNavigationVisible\}/);
+  assert.match(layoutSource, /id="mobile-navigation"[^\n]+overscroll-contain/);
+  assert.match(layoutSource, /onclick=\{closeMobileMenu\}/);
+  assert.match(layoutSource, /aria-current=\{schoolSetupItemIsCurrent\(item\) \? 'page'/);
+  assert.match(layoutSource, /if \(mobileMenuOpen\) \{[\s\S]+closeMobileMenu\(\);[\s\S]+stopImmediatePropagation/);
 });
 
 test('English and Arabic menu labels describe the hierarchy consistently', () => {
