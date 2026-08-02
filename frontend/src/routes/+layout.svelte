@@ -4,6 +4,7 @@
   import { page } from '$app/stores';
   import { _ } from 'svelte-i18n';
   import { api } from '$lib/api';
+  import LanguageSelector from '$lib/components/LanguageSelector.svelte';
   import { initI18n } from '$lib/i18n';
   import { errorStatus, messagingApi } from '$lib/messaging/api';
   import type { MessagingMembership } from '$lib/messaging/types';
@@ -398,6 +399,7 @@
               {/if}
             </a>
           {/each}
+          <LanguageSelector compact navigation />
           <button onclick={handleLogout} class="btn-hero px-6 py-3 rounded-2xl text-sm uppercase tracking-wide">{$_('nav.logout')}</button>
         {/if}
       </nav>
@@ -489,6 +491,9 @@
       <div class="flex items-center justify-between border-b border-slate-200 pb-4">
         <span class="text-lg font-bold text-slate-900">{$_('nav.menu')}</span>
         <button type="button" class="rounded-xl p-2 text-slate-700 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero" aria-label={$_('nav.closeMenu')} onclick={closeMobileMenu}><span aria-hidden="true" class="text-2xl leading-none">×</span></button>
+      </div>
+      <div class="mt-5">
+        <LanguageSelector />
       </div>
       <nav class="mt-5 flex flex-col gap-2" aria-label={$_('nav.menu')}>
         {#each navigationItems as item (item.id)}

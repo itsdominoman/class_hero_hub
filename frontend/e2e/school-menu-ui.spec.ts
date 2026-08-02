@@ -181,6 +181,31 @@ test('Arabic mobile hierarchy preserves RTL labels and destinations', async ({ p
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 
+test('authenticated language switch preserves the selected School setup tab and query context', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockSchoolSetup(page, false, 'en');
+  await page.goto('/school?tab=years&context=school-7');
+
+  await expect(page.locator('main').getByRole('heading', { name: 'Academic years', exact: true })).toBeVisible();
+  const initialUrl = page.url();
+  let dialog = await openCompactMenu(page);
+  await dialog.getByRole('combobox', { name: 'Language' }).selectOption('ar');
+
+  dialog = page.getByRole('dialog', { name: 'القائمة' });
+  await expect(dialog).toBeVisible();
+  await expect(page).toHaveURL(initialUrl);
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await expect(page.locator('main').getByRole('heading', { name: 'السنوات الدراسية', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('link', { name: 'السنوات الدراسية', exact: true })).toHaveAttribute('aria-current', 'page');
+
+  await dialog.getByRole('combobox', { name: 'اللغة' }).selectOption('en');
+  dialog = page.getByRole('dialog', { name: 'Menu' });
+  await expect(page).toHaveURL(initialUrl);
+  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+  await expect(page.locator('main').getByRole('heading', { name: 'Academic years', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('link', { name: 'Academic years', exact: true })).toHaveAttribute('aria-current', 'page');
+});
+
 test('mixed-role administrator retains the same School setup hierarchy', async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 900 });
   await mockSchoolSetup(page, true);
