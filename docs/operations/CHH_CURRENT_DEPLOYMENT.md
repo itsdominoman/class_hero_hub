@@ -41,6 +41,18 @@ horizontal containment and the native root bypass. Direct visual checks at 390,
 mobile drawer and footer; Arabic RTL was checked at 390 pixels. No database,
 migration, backend, permission, integration protocol or native bundle changed.
 
+CHH implementation commit `df7286d` and the coordinated FHH public-copy commit
+`4d4d59c` were deployed by rebuilding and recreating only each system's frontend.
+Both replacement frontend containers are healthy. The existing CHH and FHH
+backends, PostgreSQL containers, notification/lifecycle workers and CHH messaging
+worker/scheduler retained their prior container IDs and uptimes. All 16 CHH public
+routes and the FHH home return HTTP 200; anonymous `/api/me` remains HTTP 401 on
+both systems; and both readiness endpoints report `database=ok` and
+`migration=current`. The 18-case public-route Playwright suite also passed against
+the deployed CHH origin. A signed-in hosted check retained the role-aware
+`/platform` workspace with no public marketing chrome, and the language preference
+was restored to English after the RTL check.
+
 ## 2026-08-02 authenticated language switcher pilot release
 
 The Arabic catalogue and RTL shell were already persistent, but the only visible
