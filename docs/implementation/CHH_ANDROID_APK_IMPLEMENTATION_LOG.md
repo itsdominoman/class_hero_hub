@@ -3,6 +3,28 @@
 Status date: 2026-08-02
 Scope: implementation record for the Class Hero Hub (CHH) Capacitor Android app.
 
+## 2026-08-02 School setup drawer refresh pending signed APK
+
+Frontend commit `bb742c1` moves the compact School setup hierarchy out of the page
+and into the existing safe-area-aware application drawer at widths through 1024
+CSS pixels. It preserves the six groups, permission gates, labels, routes, query
+state, Arabic RTL and the desktop sidebar, and makes native Back close the drawer
+before the existing School setup history hierarchy. The deployed frontend and its
+responsive English/Arabic test matrix are recorded in
+`docs/operations/CHH_CURRENT_DEPLOYMENT.md`.
+
+The physical pilot device still has package `com.classherohub.app`, version code
+`11`, version name `1.9-current-frontend`, signed by certificate SHA-256
+`e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
+That certificate is the established Android Debug identity. The repository has no
+release `signingConfig`, and the pilot contains no CHH release keystore or other
+approved production signing material. A differently signed APK cannot update the
+installed package in place. Consequently no APK has been built, installed or
+delivered for this navigation change while the requested production-signing and
+in-place-update requirements conflict. The next APK must either continue the
+existing pilot debug identity with an incremented code, or wait for an explicitly
+approved production signing and migration decision.
+
 ## 2026-08-02 current deployed frontend refresh
 
 The APK installed on the physical pilot device was

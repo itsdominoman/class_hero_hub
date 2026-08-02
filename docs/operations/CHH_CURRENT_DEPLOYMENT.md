@@ -1,5 +1,51 @@
 # CHH current pilot deployment
 
+## 2026-08-02 compact School setup navigation
+
+The compact School setup navigation no longer renders six large accordion groups
+inline above the selected page. That duplication was the root cause of the
+Android-like navigation failure: the global layout already owned a safe-area-aware
+hamburger drawer and native Back handling, while the School setup page separately
+owned an inline compact menu. The desktop sidebar also began at 1024 CSS pixels,
+leaving tablet widths outside the compact application pattern.
+
+At widths up to and including 1024 CSS pixels, the existing hamburger drawer now
+contains the same six permission-aware School setup groups and destinations as the
+desktop sidebar. The links retain their existing paths and `?tab=` URLs, expose one
+purple `aria-current=page` state, close the drawer on selection and restore the
+selected section at the top of the School setup workspace. The drawer mirrors to
+the logical start edge in Arabic RTL, owns its safe-area-aware scroll region, and
+contains no accordion elements. Native Back closes the drawer before the existing
+School setup URL/history hierarchy. The grouped desktop sidebar remains unchanged
+from 1280 CSS pixels.
+
+Validation passed Svelte checking with zero errors/warnings, English/Arabic parity
+at 2,007 keys per locale, 14 focused navigation/menu/URL-state source tests, and
+the production frontend build. Fifteen containerised Playwright cases passed in
+English and Arabic/RTL at 390, 768, 1024, 1280 and 1440 CSS pixels, including
+open/close, one current item, destination selection, URL refresh, native Back,
+safe content placement and zero horizontal overflow. A signed-in deployed Chrome
+check at 390, 768 and 1024 CSS pixels confirmed the six-group drawer, selected
+Academic years state, close-on-selection, preserved `/school?tab=years`, no inline
+navigation and zero horizontal overflow.
+
+Implementation commit `bb742c1` was deployed by rebuilding and recreating only the
+CHH pilot frontend. Loopback and public `/school` checks returned HTTP 200,
+readiness returned `database=ok,migration=current`, and all pilot services are
+healthy. Backend, PostgreSQL, the notification scheduler and messaging production
+worker retained their running containers. Configuration, schema and data were
+unchanged; no backup or migration was needed.
+
+The installed physical APK remains code 11/name `1.9-current-frontend` and does not
+yet contain this asset build. It is signed with the established Android Debug
+certificate; the pilot has no release signing configuration or release keystore.
+Because Android requires the installed signer for an in-place update, delivery is
+paused pending an explicit choice between an in-place pilot APK using that existing
+debug identity and provision of approved production signing material. Real-device
+drawer, native Back, keyboard, safe-area and RTL execution therefore remain
+pending; no replacement APK has been built, installed or copied to Drive for this
+change.
+
 ## 2026-08-02 multi-school context pilot-scope assessment
 
 Multi-school switching was assessed and intentionally not implemented. A read-only,
