@@ -1,7 +1,83 @@
 # CHH Android APK implementation log
 
-Status date: 2026-07-17
+Status date: 2026-08-02
 Scope: implementation record for the Class Hero Hub (CHH) Capacitor Android app.
+
+## 2026-08-02 current deployed frontend refresh
+
+The APK installed on the physical pilot device was
+`class-hero-hub-auth001-revocable-sessions-dev-20260728.apk`: package
+`com.classherohub.app`, version code `10`, version name `1.8-surveys-polls`, size
+`96,337,874` bytes and SHA-256
+`8c842eaf32064b83cf1adaf26c96b3b329013e5b3ccfcc900726c3d27eb6eb0d`.
+Its bundled frontend is the `b6023e6` AUTH-001 build state. It is byte-for-byte
+identical to the retained Drive artefact.
+
+The root cause of Android/web drift was build delivery, not the backend or a stale
+hosted response. `capacitor.config.ts` has `webDir: 'build'` and only sets the
+Android scheme; it has no `server.url`. Capacitor therefore serves the static
+frontend copied into `android/app/src/main/assets/public`. The web pilot continued
+to receive frontend deployments after 28 July, but no corresponding CHH APK was
+built or installed. The APK contains no service-worker script, and the device has
+no Service Worker registration/store. Its ordinary WebView HTTP/code cache may
+retain unused content-hashed chunks, but the replaced packaged entry point refers
+to the new hashes and cannot preserve the old UI after an in-place update.
+
+The installed bundle was missing every deployed frontend commit after `b6023e6`
+through deployed source head `e9f9d86`:
+
+- `f735504`: admission-aware native login return paths and invitation/join routing;
+- `c87e2bc`: visible MIS import conflict outcomes;
+- `c720be1`: school-held guardian contact creation, correction, activation and
+  access/link-status presentation;
+- `1cfa31b`: annual student re-import mode, destination year/effective date and
+  explicit active/leaver/inactive outcomes;
+- `40620b7`: paginated import history, row reports and current roster exports;
+- `24941f2`: separate **Students** and **Student Import & Export** workspaces,
+  complete student/placement/guardian creation and record-section navigation;
+- `164c4d7`: bounded success/error toasts and localised mixed-script Arabic-name
+  import warnings;
+- `8a641de`, `71c0051` and `bfc3ecb`: Positive recognition configuration,
+  shortlist/review/certificate flow, staff-only eligibility safeguard, explicit
+  review actions, and configuration/review archive lifecycle;
+- `46e2921`: one role-filtered global navigation order, neutral item styling,
+  consistent English/Arabic labels and one purple active state;
+- `50c04f1`: bounded 25-record student pagination, multi-term search and restorable
+  student list/detail state;
+- `00adc26`: the six grouped School setup workflows, including the canonical
+  **Students**, **Student Import & Export**, **Reports**, **Positive recognition**
+  and **System & compliance** destinations and mobile accordions;
+- `d47d093`: permission-aware Safeguarding navigation and direct-route states;
+- `0cdb7f8`: bounded mobile survey composer, keyboard-first Back handling and the
+  footer-free Messages workspace;
+- `3989aab`: URL, refresh and Back/Forward state for School setup, Reports,
+  Recognition, Students and Messages; and
+- `263cd50`: bounded large/tied Recognition shortlists with a persistent decision
+  summary and LTR/RTL selected state.
+
+The refreshed development/pilot APK was built from that deployed frontend plus
+Android metadata commit `70dca0f`. It keeps package `com.classherohub.app`, raises
+the version to code `11` / name `1.9-current-frontend`, and uses the established
+Android debug certificate SHA-256
+`e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
+The delivered file is
+`class-hero-hub-current-frontend-v1.9-code11-20260802.apk`, size `96,316,942`
+bytes, SHA-256
+`92190fe273237c5676720447d468c6ebbbd6a2dd7c969662fd538fd82d899a79`.
+The verified source is `/opt/apps/class_hero_hub/tmp/`; the identical Windows copy
+is `G:\My Drive\CHH\Remote\`.
+
+Focused validation passed Svelte checking with zero errors/warnings, English/Arabic
+parity at 2,007 keys per locale, 55 navigation/menu/student/recognition/
+safeguarding/survey/messaging/URL-state presentation tests, the production frontend
+build and Capacitor sync. Android `testDebugUnitTest`, `lintDebug`, `assembleDebug`
+and `assembleDebugAndroidTest` passed. ZIP integrity, package/version, current
+content-hashed assets, fixed native API, and v1/v2 signature checks passed. A
+physical `adb install -r` upgraded code 10 to 11 while preserving the original
+install/data inode, encrypted-session preferences and notification/microphone
+permissions. The connected device was locked, so logged-in visual checks for the
+grouped menu, student/Recognition/survey flows, keyboard, safe areas, deep links,
+Back and real-device RTL remain for Dom after unlock.
 
 ## Identity and build output
 
