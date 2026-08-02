@@ -36,15 +36,24 @@ healthy. Backend, PostgreSQL, the notification scheduler and messaging productio
 worker retained their running containers. Configuration, schema and data were
 unchanged; no backup or migration was needed.
 
-The installed physical APK remains code 11/name `1.9-current-frontend` and does not
-yet contain this asset build. It is signed with the established Android Debug
-certificate; the pilot has no release signing configuration or release keystore.
-Because Android requires the installed signer for an in-place update, delivery is
-paused pending an explicit choice between an in-place pilot APK using that existing
-debug identity and provision of approved production signing material. Real-device
-drawer, native Back, keyboard, safe-area and RTL execution therefore remain
-pending; no replacement APK has been built, installed or copied to Drive for this
-change.
+The authorised in-place pilot APK keeps package `com.classherohub.app`, raises the
+version to code `12` / name `1.10-school-setup-drawer`, and uses the exact installed
+Android Debug certificate SHA-256
+`e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
+The build passed app unit tests, lint, debug APK assembly, test-APK assembly, ZIP
+integrity, package/version inspection, v1/v2 signature verification and byte-level
+Capacitor entry-point parity. `adb install -r` succeeded without uninstalling;
+the original install timestamp, app-data inode, encrypted-preference file set,
+notification permission and microphone permission were preserved. The installed
+APK is byte-for-byte identical to the delivered build.
+
+The delivered file is
+`class-hero-hub-school-setup-drawer-v1.10-code12-20260802.apk`, size `96,318,038`
+bytes, SHA-256
+`c5bdd0c2d5034cb88ea5aa641f7879e305e44e156bccb77afe823b727444fe80`.
+The verified source is `/opt/apps/class_hero_hub/tmp/`; the identical Windows copy
+is in `G:\My Drive\CHH\Remote\`. Real-device interaction checks remain pending
+only because the connected handset's secure keyguard is still locked.
 
 ## 2026-08-02 multi-school context pilot-scope assessment
 

@@ -3,7 +3,7 @@
 Status date: 2026-08-02
 Scope: implementation record for the Class Hero Hub (CHH) Capacitor Android app.
 
-## 2026-08-02 School setup drawer refresh pending signed APK
+## 2026-08-02 School setup drawer pilot APK
 
 Frontend commit `bb742c1` moves the compact School setup hierarchy out of the page
 and into the existing safe-area-aware application drawer at widths through 1024
@@ -13,17 +13,27 @@ before the existing School setup history hierarchy. The deployed frontend and it
 responsive English/Arabic test matrix are recorded in
 `docs/operations/CHH_CURRENT_DEPLOYMENT.md`.
 
-The physical pilot device still has package `com.classherohub.app`, version code
-`11`, version name `1.9-current-frontend`, signed by certificate SHA-256
+The authorised pilot build keeps package `com.classherohub.app`, raises the version
+to code `12` / name `1.10-school-setup-drawer`, and uses the exact code-11 Android
+Debug certificate SHA-256
 `e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
-That certificate is the established Android Debug identity. The repository has no
-release `signingConfig`, and the pilot contains no CHH release keystore or other
-approved production signing material. A differently signed APK cannot update the
-installed package in place. Consequently no APK has been built, installed or
-delivered for this navigation change while the requested production-signing and
-in-place-update requirements conflict. The next APK must either continue the
-existing pilot debug identity with an incremented code, or wait for an explicitly
-approved production signing and migration decision.
+No production keystore was created or substituted. The APK passed app unit tests,
+lint, debug APK assembly, test-APK assembly, ZIP integrity, package/version checks,
+v1/v2 signature verification and byte-level parity between the production web
+entry point and the synchronized Capacitor asset.
+
+`adb install -r` upgraded the physical package without uninstalling it. The first
+install time, app-data inode, encrypted-preference file set, notification grant and
+microphone grant remained unchanged. Pulling the installed code-12 base APK produced
+the same SHA-256 as the build and Drive copy. The handset's secure keyguard remains
+locked, so authenticated drawer, native Back, safe-area and real-device RTL checks
+are still pending.
+
+Artifact: `class-hero-hub-school-setup-drawer-v1.10-code12-20260802.apk`; size
+`96,318,038` bytes; SHA-256
+`c5bdd0c2d5034cb88ea5aa641f7879e305e44e156bccb77afe823b727444fe80`.
+The verified source is `/opt/apps/class_hero_hub/tmp/`, and the identical delivered
+copy is `G:\My Drive\CHH\Remote\`.
 
 ## 2026-08-02 current deployed frontend refresh
 
