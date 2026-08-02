@@ -92,8 +92,9 @@ corrected in-place pilot is code `13` / name
 Android unit tests, lint, debug APK assembly, test-APK assembly, ZIP integrity,
 package/version and v1/v2 signature checks passed. `adb install -r` succeeded; the
 original install time, app-data inode and notification/microphone grants remained
-unchanged. The later test-only administrator OAuth session required re-authentication
-after the forced process restart even though app data was retained.
+unchanged. The first post-install launch required one administrator OAuth
+re-authentication even though app data was retained; a subsequent forced cold start
+restored that authenticated session normally.
 
 The code-13 physical Arabic/RTL check used the authorised administrator account.
 The drawer showed the grouped hierarchy and one purple current item, closed on

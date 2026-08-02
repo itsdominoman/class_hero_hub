@@ -61,8 +61,8 @@ App unit tests, lint, debug APK assembly and test-APK assembly passed on Temurin
 and Android SDK 35 after the final Capacitor sync. ZIP, package/version and v1/v2
 signature verification passed. `adb install -r` upgraded code 12 without uninstall;
 first-install time, app-data inode and notification/microphone grants were preserved.
-The later test-only administrator OAuth session required re-authentication after the
-forced process restart despite retained app data.
+The first post-install launch required one administrator OAuth re-authentication;
+a subsequent forced cold start restored that authenticated session normally.
 
 Physical Arabic/RTL validation then confirmed the grouped drawer, one current item,
 close-on-selection, destination content at the top, drawer-first Back and checklist
