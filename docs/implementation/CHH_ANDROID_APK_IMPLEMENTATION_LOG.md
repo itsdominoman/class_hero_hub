@@ -28,9 +28,17 @@ microphone grant remained unchanged. Pulling the installed code-12 base APK prod
 the same SHA-256 as the build and Drive copy. After unlock, the app restored its
 authenticated Teach workspace. The physical global drawer stayed inside the status
 and navigation insets, Android Back closed it first, and WebView inspection measured
-zero horizontal overflow at 360 CSS pixels. The retained teacher/guardian account
-correctly hides School setup and rejects direct `/school`; contextual School setup
-drawer and real-device Arabic RTL checks require a school-administrator session.
+zero horizontal overflow at 360 CSS pixels.
+
+An authorised school-administrator OAuth session completed the English School setup
+check. The compact page had no inline menu; its drawer exposed all six groups and
+the canonical destinations, one current item, close-on-selection, retained tab URL,
+content in the first viewport, safe-area containment and drawer-first Android Back.
+The next Back followed the checklist hierarchy. The native login language selector
+also produced correct Arabic RTL mirroring. The specifically requested administrator
+account was absent from the device's Google account chooser, so it was not replaced
+with another account; Arabic contextual drawer execution remains pending until the
+requested account is available locally.
 
 Artifact: `class-hero-hub-school-setup-drawer-v1.10-code12-20260802.apk`; size
 `96,318,038` bytes; SHA-256

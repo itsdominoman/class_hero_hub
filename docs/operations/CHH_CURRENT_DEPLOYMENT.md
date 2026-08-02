@@ -55,11 +55,23 @@ The verified source is `/opt/apps/class_hero_hub/tmp/`; the identical Windows co
 is in `G:\My Drive\CHH\Remote\`. After unlock, the app reopened directly into the
 authenticated Teach workspace. The global drawer respected the physical status and
 navigation insets, Android Back closed it first, and the 360 CSS pixel WebView
-reported `scrollWidth=360` with zero horizontal overflow. The retained account is
-a teacher/guardian rather than a school administrator: permission-aware navigation
-correctly hides School setup and direct `/school` shows the access-required state.
-Physical execution of the contextual School setup drawer and Arabic RTL therefore
-still requires a school-administrator session on the device.
+reported `scrollWidth=360` with zero horizontal overflow.
+
+An authorised school-administrator OAuth session then completed the English
+physical check. School setup showed no inline navigation; the drawer exposed all
+six groups plus Students, Student Import & Export, Reports, Positive recognition
+and System & compliance. Checklist and Academic years each showed the single
+purple current state. Selecting Academic years closed the drawer, retained
+`/school?tab=years` and put its form in the first viewport. The first Android Back
+closed the reopened drawer while preserving that URL; the next Back returned to
+the checklist hierarchy. The complete drawer remained inside the physical status
+and navigation safe areas with internal scrolling and no horizontal clipping.
+
+The visible language selector switched the physical login screen to Arabic with
+correct RTL mirroring. The specifically requested administrator account was not
+offered by the device's Google account chooser, so no different account was
+substituted. Arabic contextual School setup execution remains pending until that
+account is made available locally.
 
 ## 2026-08-02 multi-school context pilot-scope assessment
 
