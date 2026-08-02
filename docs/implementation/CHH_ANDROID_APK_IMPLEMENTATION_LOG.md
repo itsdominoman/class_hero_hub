@@ -46,6 +46,37 @@ Artifact: `class-hero-hub-school-setup-drawer-v1.10-code12-20260802.apk`; size
 The verified source is `/opt/apps/class_hero_hub/tmp/`, and the identical delivered
 copy is `G:\My Drive\CHH\Remote\`.
 
+The code-12 physical Arabic follow-up, authorised with the available administrator
+account, found that the second native Back changed `/school?tab=years` to `/school`
+without changing the visible Academic years panel. Commit `d50a370` fixes the stale
+router/content synchronisation and `4b48d87` adds the missing content assertion.
+The deployed corrective frontend passed the focused source test, Svelte check,
+English/Arabic parity, production build and all 15 responsive School menu cases.
+
+Code 12 remains retained and was not overwritten. The corrective in-place build is
+code `13`, name `1.11-school-setup-drawer-back`, package
+`com.classherohub.app`, signed by the same Android Debug certificate SHA-256
+`e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
+App unit tests, lint, debug APK assembly and test-APK assembly passed on Temurin 21
+and Android SDK 35 after the final Capacitor sync. ZIP, package/version and v1/v2
+signature verification passed. `adb install -r` upgraded code 12 without uninstall;
+first-install time, app-data inode and notification/microphone grants were preserved.
+The later test-only administrator OAuth session required re-authentication after the
+forced process restart despite retained app data.
+
+Physical Arabic/RTL validation then confirmed the grouped drawer, one current item,
+close-on-selection, destination content at the top, drawer-first Back and checklist
+content after the next Back. The WebView reported `dir=rtl`, `lang=ar`, 360 CSS
+pixels for viewport/document width and zero overflow. The installed APK, server
+artifact and Drive copy have identical SHA-256.
+
+Final artifact:
+`class-hero-hub-school-setup-drawer-back-v1.11-code13-20260802.apk`; size
+`96,318,009` bytes; SHA-256
+`ab76f092f06252a7168225458a15a37e9ab3ec6b168a3cb0bb59fe742863408a`;
+Drive path
+`G:\My Drive\CHH\Remote\class-hero-hub-school-setup-drawer-back-v1.11-code13-20260802.apk`.
+
 ## 2026-08-02 current deployed frontend refresh
 
 The APK installed on the physical pilot device was

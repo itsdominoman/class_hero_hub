@@ -14,7 +14,7 @@ contains the same six permission-aware School setup groups and destinations as t
 desktop sidebar. The links retain their existing paths and `?tab=` URLs, expose one
 purple `aria-current=page` state, close the drawer on selection and restore the
 selected section at the top of the School setup workspace. The drawer mirrors to
-the logical start edge in Arabic RTL, owns its safe-area-aware scroll region, and
+the logical end edge in Arabic RTL, owns its safe-area-aware scroll region, and
 contains no accordion elements. Native Back closes the drawer before the existing
 School setup URL/history hierarchy. The grouped desktop sidebar remains unchanged
 from 1280 CSS pixels.
@@ -68,10 +68,51 @@ the checklist hierarchy. The complete drawer remained inside the physical status
 and navigation safe areas with internal scrolling and no horizontal clipping.
 
 The visible language selector switched the physical login screen to Arabic with
-correct RTL mirroring. The specifically requested administrator account was not
-offered by the device's Google account chooser, so no different account was
-substituted. Arabic contextual School setup execution remains pending until that
-account is made available locally.
+correct RTL mirroring. A subsequent authorised administrator check exposed a
+code-12 Back-state defect: after leaving the Academic years drawer item, the first
+Back closed the drawer correctly and the next Back removed `?tab=years`, but the
+Academic years content remained visible. The page was reading stale router state
+after native history traversal. Commit `d50a370` now synchronises the selected
+School setup content from the current browser URL during Back traversal, and
+commit `4b48d87` strengthens the browser regression to require checklist content,
+not only the checklist URL.
+
+The corrective frontend was deployed and the focused source test, Svelte check,
+2,007-key English/Arabic parity check, production build and 15-case responsive
+Playwright matrix passed. Compose recreated the frontend and its backend dependency;
+no backend source or configuration changed, and backend/frontend readiness returned
+healthy with `database=ok,migration=current`. PostgreSQL, notification scheduler
+and messaging production worker were unchanged.
+
+Because the signed and delivered code-12 APK could not be safely overwritten, the
+corrected in-place pilot is code `13` / name
+`1.11-school-setup-drawer-back`. It retains package
+`com.classherohub.app` and the same installed Android Debug certificate SHA-256
+`e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
+Android unit tests, lint, debug APK assembly, test-APK assembly, ZIP integrity,
+package/version and v1/v2 signature checks passed. `adb install -r` succeeded; the
+original install time, app-data inode and notification/microphone grants remained
+unchanged. The later test-only administrator OAuth session required re-authentication
+after the forced process restart even though app data was retained.
+
+The code-13 physical Arabic/RTL check used the authorised administrator account.
+The drawer showed the grouped hierarchy and one purple current item, closed on
+Academic years selection and kept content clear of status/navigation insets. The
+first Back closed the reopened drawer and retained `/school?tab=years`; the next
+Back restored both `/school` and checklist content. WebView inspection reported
+`dir=rtl`, `lang=ar`, 360 CSS pixels for both viewport and document width, and zero
+horizontal overflow. Login, OAuth return and the Arabic safe-area layout also
+worked. No remaining drawer-specific English/Arabic difference was found.
+
+The final file is
+`class-hero-hub-school-setup-drawer-back-v1.11-code13-20260802.apk`, size
+`96,318,009` bytes, SHA-256
+`ab76f092f06252a7168225458a15a37e9ab3ec6b168a3cb0bb59fe742863408a`.
+The server source, pulled installed APK and Drive copy are byte-for-byte identical.
+The Drive path is
+`G:\My Drive\CHH\Remote\class-hero-hub-school-setup-drawer-back-v1.11-code13-20260802.apk`.
+The code-12 file remains retained as the superseded pilot artifact and was not
+overwritten or relabelled.
 
 ## 2026-08-02 multi-school context pilot-scope assessment
 
