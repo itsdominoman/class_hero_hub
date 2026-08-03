@@ -12,27 +12,29 @@ type PageCase = {
 const PUBLIC_CASES: PageCase[] = [
   {
     path: "/",
-    heading: "Give staff one clear place to keep school life moving.",
+    heading:
+      "Help teachers act, communicate and follow up—without losing the school day to scattered tools.",
     headingLevel: "h1",
     expectedText: "Demonstration school and staff data only.",
     safeClickTarget: "/login",
   },
   {
     path: "/features",
-    heading: "The tools schools need, without the usual maze.",
+    heading: "Practical tools for work that repeats every school day.",
     expectedText: "Everyday teaching workflows",
     safeClickTarget: "/pilot",
   },
   {
     path: "/how-it-works",
-    heading: "A simpler route from school setup to everyday use.",
-    expectedText: "Carry useful information home",
+    heading: "Start with the work that needs doing today.",
+    expectedText: "Carry the right information home",
     safeClickTarget: "/features",
   },
   {
     path: "/schools",
-    heading: "Built around the people who keep a school running.",
-    expectedText: "For school leaders",
+    heading:
+      "A practical workspace for the people who keep the school day moving.",
+    expectedText: "For teachers",
     safeClickTarget: "/pilot",
   },
   {
@@ -58,14 +60,14 @@ const PUBLIC_CASES: PageCase[] = [
     path: "/privacy",
     heading: "Privacy Policy",
     headingLevel: "h1",
-    expectedText: "Necessary service providers",
+    expectedText: "Effective 3 August 2026",
     safeClickTarget: "/terms",
   },
   {
     path: "/terms",
     heading: "Terms of Service",
     headingLevel: "h1",
-    expectedText: "Authorised accounts",
+    expectedText: "Effective 3 August 2026",
     safeClickTarget: "/privacy",
   },
   {
@@ -235,6 +237,45 @@ test.describe("Europe dev public pages", () => {
     });
   }
 
+  test("home page leads from everyday work to families, product proof and supporting setup", async ({
+    page,
+  }) => {
+    await page.route("**/api/me", (route) =>
+      route.fulfill({ status: 401, json: { detail: "Not authenticated" } }),
+    );
+    await page.route("**/api/auth/refresh", (route) =>
+      route.fulfill({ status: 401, json: { detail: "Not authenticated" } }),
+    );
+    await page.goto("/", { waitUntil: "networkidle" });
+
+    const headings = [
+      "Useful actions stay close to the people and classes they belong to.",
+      "From the school team to the family, without another place to check.",
+      "See the product at work.",
+      "Give leaders a clearer view—and teams a reliable starting point.",
+    ];
+    const positions = await Promise.all(
+      headings.map(async (heading) => {
+        const box = await page
+          .getByRole("heading", { name: heading })
+          .boundingBox();
+        expect(box, `${heading} is visible`).not.toBeNull();
+        return box!.y;
+      }),
+    );
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+
+    const proofImages = page
+      .getByRole("heading", { name: "See the product at work." })
+      .locator("xpath=ancestor::section[1]")
+      .locator("img");
+    await expect(proofImages).toHaveCount(2);
+    await expect(proofImages.first()).toHaveAttribute(
+      "src",
+      "/product/teacher-workflow.png",
+    );
+  });
+
   test("public website switches to Arabic RTL without changing the route", async ({
     page,
   }) => {
@@ -253,7 +294,7 @@ test.describe("Europe dev public pages", () => {
     await expect(
       page.getByRole("heading", {
         level: 1,
-        name: "مكان واحد واضح يساعد الموظفين على إبقاء المدرسة في حركة.",
+        name: "أنجزوا عمل اليوم المدرسي بوضوح، من الصف إلى الأسرة.",
       }),
     ).toBeVisible();
     await expect(
@@ -296,7 +337,7 @@ test.describe("Europe dev public pages", () => {
     await expect(
       page.getByRole("heading", {
         level: 1,
-        name: "Give staff one clear place to keep school life moving.",
+        name: "Help teachers act, communicate and follow up—without losing the school day to scattered tools.",
       }),
     ).toHaveCount(0);
   });

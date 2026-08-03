@@ -21,7 +21,8 @@ const STANDARD_VIEWPORTS = [320, 375, 390, 430];
 const CASES: VisualCase[] = [
   {
     path: "/",
-    heading: "Give staff one clear place to keep school life moving.",
+    heading:
+      "Help teachers act, communicate and follow up—without losing the school day to scattered tools.",
     auth: "public",
     screenshotName: "home-public",
     ignoredConsoleErrorSnippets: ["the server responded with a status of 401"],
@@ -70,7 +71,14 @@ async function assertVisualCase(
     tracker.ignoreConsoleErrorSnippet(snippet);
   }
 
-  if (visualCase.auth === "parent") {
+  if (visualCase.auth === "public") {
+    await page.route("**/api/me", (route) =>
+      route.fulfill({ status: 401, json: { detail: "Not authenticated" } }),
+    );
+    await page.route("**/api/auth/refresh", (route) =>
+      route.fulfill({ status: 401, json: { detail: "Not authenticated" } }),
+    );
+  } else {
     await setupQaParentSession(page);
   }
 

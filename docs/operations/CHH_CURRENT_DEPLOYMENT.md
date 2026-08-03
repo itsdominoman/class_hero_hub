@@ -1,5 +1,49 @@
 # CHH current pilot deployment
 
+## 2026-08-03 everyday-workflow public positioning release
+
+The CHH public website now presents Class Hero Hub as a practical workspace for
+teachers, school communication, follow-up and family updates that complements the
+systems a school already uses. The public copy does not position CHH as an MIS or
+SIS replacement and makes no claim of live integration or synchronisation. A
+capability check confirmed that administrators can enter supported student and
+staff details manually or stage, review and apply CSV files; that supporting
+setup appears after the human workflow story rather than leading it.
+
+The homepage now uses the single positioning line `School life, clearly
+connected.` and follows this order: the everyday teacher/staff problem and
+benefit; classroom and communication workflows; the CHH-to-FHH family
+connection; genuine product proof; leader visibility and follow-up; supporting
+setup alongside existing systems; trust, bilingual support, FAQ and pilot call
+to action. The teacher workspace image is the first product view and uses the
+full content width so its class and action labels remain readable. The school
+setup image follows as secondary evidence.
+
+The Product overview now leads with teaching, contextual communication and
+follow-up, with school setup last. How it works now starts from the class or
+message in front of a staff member, carries the appropriate update to Family
+Hero Hub and explains workspace setup last. For schools now leads with teachers,
+then the wider school team, leaders/administrators and bilingual communities.
+The FAQ explains in one concise answer how CHH works alongside existing systems
+and truthfully describes reviewed CSV setup for supported student and staff
+details. English phrasing was tightened throughout these surfaces, while the
+matching Arabic copy was edited as natural Modern Standard Arabic rather than a
+literal structural translation.
+
+The visible highlights on both the Privacy Policy and Terms of Service now show
+`Effective 3 August 2026` and `سارية من 3 أغسطس 2026`. The legal structure,
+pilot enquiry form and mail delivery, staff authentication, role-aware Dashboard
+routing, native startup, existing product images and FHH behaviour are unchanged.
+There is no backend, database, migration, school-data, FHH, native or APK impact.
+
+Focused validation passed the paired public-copy catalogue and positioning/date
+tests, Svelte diagnostics with zero errors or warnings, the production frontend
+build, 21 public-flow browser tests, the 160-combination English/Arabic public
+route and responsive-width matrix, eight 320–430 px public layout checks and 24
+authenticated navigation/language-switcher tests. Direct rendered inspection
+covered the English hierarchy and product-proof order, the Arabic RTL homepage
+and the visible Arabic Privacy Policy effective date.
+
 ## 2026-08-03 public website editorial and pilot-enquiry release
 
 The CHH public website has been rewritten for school leaders, administrators and

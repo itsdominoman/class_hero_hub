@@ -52,6 +52,34 @@ test("public-site copy explains the CHH and FHH relationship in plain language",
   assert.match(arabicText, /يستخدم الموظفون كلاس هيرو هب للعمل المدرسي/);
 });
 
+test("public-site copy positions CHH as an everyday workspace alongside existing systems", () => {
+  const english = getPublicSiteCopy("en");
+  const arabic = getPublicSiteCopy("ar");
+  const englishText = strings(english).join(" ");
+  const arabicText = strings(arabic).join(" ");
+
+  assert.match(
+    englishText,
+    /A practical workspace for teachers, school communication and family updates that can complement the systems the school already uses\./,
+  );
+  assert.match(englishText, /works? alongside|complements? the school/);
+  assert.match(arabicText, /تكمل الأنظمة التي تستخدمها المدرسة/);
+  assert.equal(english.home.proofItems[0].src, "/product/teacher-workflow.png");
+  assert.equal(arabic.home.proofItems[0].src, "/product/teacher-workflow.png");
+});
+
+test("public legal pages show the current effective date in both languages", () => {
+  const english = getPublicSiteCopy("en");
+  const arabic = getPublicSiteCopy("ar");
+
+  for (const page of [english.pages.privacy, english.pages.terms]) {
+    assert.ok(page.highlights?.includes("Effective 3 August 2026"));
+  }
+  for (const page of [arabic.pages.privacy, arabic.pages.terms]) {
+    assert.ok(page.highlights?.includes("سارية من 3 أغسطس 2026"));
+  }
+});
+
 test("public-site copy contains no internal implementation or drafting language", () => {
   const englishText = strings(getPublicSiteCopy("en")).join(" ");
 
