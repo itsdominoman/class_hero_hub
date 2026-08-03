@@ -1,5 +1,74 @@
 # CHH current pilot deployment
 
+## 2026-08-03 canonical school-entitlement release
+
+CHH now has one canonical, fail-closed entitlement authority for optional school
+capabilities. The catalogue covers homework/diary, notices/calendar,
+behaviour/points, positive recognition, surveys/polls, school chats, chat photos,
+voice notes, the Family Hero Hub connection, school-family updates, update photos,
+reports/insights, safeguarding, and student/staff import-export. Foundation identity,
+access, school structure, people/assignments, security/audit and read-only
+entitlement visibility remain available to every school. Dependencies and effective
+date windows are enforced at read time and mutation time. Safeguarding remains
+independent from participant chat availability.
+
+Entitlements determine what a school may use; the existing school-administrator
+messaging, voice-note, receipt, contact-hours and points-notification controls remain
+where they were and continue to determine what the school chooses to enable. When
+the parent entitlement is unavailable, those controls stay visible but disabled,
+their action APIs fail with the stable `capability_not_enabled` response, and their
+stored values are not changed. Pre- and post-deployment row counts and full-row
+fingerprints matched for `school_feature_controls`,
+`school_feature_control_audit_events`, `school_messaging_policies` and
+`school_points_notification_policies`.
+
+Alembic revision `a1e2f3c4d5b6` adds canonical entitlement rows, optimistic
+versions, append-only full-snapshot events and the stored platform authority flag.
+The one existing pilot school was backfilled with all 14 optional capabilities as
+enabled pilot grants, producing 14 initial events. Dom's verified active platform
+account is the sole row with entitlement-management authority; runtime checks use
+that database flag and never compare email addresses. New schools receive no
+optional entitlement rows and therefore start foundation-only. A restored pilot
+database passed upgrade, forced append-only rejection, downgrade to
+`a0b1c2d3e4f5`, object/flag removal, and clean re-upgrade with identical counts.
+
+Before the live migration, encrypted differential backups completed in both
+repositories: local `20260801-221505F_20260803-094522D` and off-host
+`20260801-221522F_20260803-094532D`. Both contained `11,235,248` repository bytes;
+the subsequent backup health check and application readiness were `ok`.
+
+Implementation commits `cf62681` and `22b0cba` were deployed on pilot `main`.
+The second commit advances the readiness revision after the schema upgrade. The
+backend, frontend, messaging production worker and notification scheduler were
+rebuilt and recreated; PostgreSQL was not restarted. Their deployed container IDs
+begin `a14bcbf5`, `9d569064`, `8919cebb` and `2909345e`; all are healthy. Public
+`/` and `/api/health/ready` return HTTP 200, readiness reports
+`database=ok`/`migration=current`, and recent affected-service logs contain no
+fatal, traceback, critical or uncaught error. Live database verification reports
+one school, 14 enabled entitlement rows, 14 append-only events, one authorised
+manager and one school with the complete 14-capability pilot grant.
+
+Focused entitlement, platform-authority, operational-preservation, feature,
+foundation/auth/structure, messaging, worker and prerequisite suites passed,
+alongside Python compilation, Svelte diagnostics with zero errors or warnings,
+English/Arabic parity at 2,204 keys and the production frontend build. A small set
+of unrelated legacy guardian-auth, invitation and dated notification-policy tests
+was reproduced at the unchanged baseline and was not altered in this release.
+
+The bundled Android frontend advances `com.classherohub.app` to code `16`, version
+`1.14-school-entitlements-pilot`. The verified APK is
+`class-hero-hub-school-entitlements-v1.14-code16-20260803.apk`, `96,509,761` bytes,
+SHA-256
+`913e22c84eab3c957e8dee9e04485248f08d668747c7db642e6319387550e18f`.
+The remote build, Windows copy, Google Drive copy and installed RMX3997 base APK are
+byte-identical. `adb install -r` preserved the original first-install time,
+app-data inode, notification and microphone grants, and authenticated school
+session. On-device checks at 360 CSS pixels found 14 entitlement cards, the existing
+operational controls, no horizontal overflow or console error, and equivalent
+Arabic RTL layout. Detailed Android evidence is in
+`docs/implementation/CHH_ANDROID_APK_IMPLEMENTATION_LOG.md`. Release tag:
+`chh-school-entitlements-pilot-code16-20260803`.
+
 ## 2026-08-03 final public editorial and hero-layout release
 
 The English homepage hero now leads with `Help teachers. Keep families

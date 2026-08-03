@@ -1,7 +1,52 @@
 # CHH Android APK implementation log
 
-Status date: 2026-08-02
+Status date: 2026-08-03
 Scope: implementation record for the Class Hero Hub (CHH) Capacitor Android app.
+
+## 2026-08-03 canonical school-entitlement pilot APK
+
+The code-16 APK bundles the canonical school-entitlement frontend deployed to the
+CHH pilot. It gives school administrators a read-only 14-capability catalogue and
+Dom's stored platform-authority account the editable entitlement view. Existing
+school-administrator messaging, voice-note and related operational controls remain
+in their established School settings location. Entitlements restrict whether those
+controls can take effect; disabling an entitlement does not reset or remove their
+saved operational values.
+
+The Android configuration advances package `com.classherohub.app` from code `15`
+to code `16`, version name `1.14-school-entitlements-pilot`. The production build
+and Capacitor copy contain byte-identical versions of all 369 generated web assets,
+apart from the expected Capacitor/Cordova bridge files. App-scoped
+`testDebugUnitTest`, `lintDebug`, `assembleDebug` and
+`assembleDebugAndroidTest` passed on Temurin 21.0.11 with Android SDK/build tools
+35. APK archive, package/version and signature inspection passed. The APK uses v1
+and v2 signing with the established Android Debug signer `C=US, O=Android,
+CN=Android Debug`, certificate SHA-256
+`e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`;
+v3/v4 are not used by this debug build.
+
+Final artifact:
+`/opt/apps/class_hero_hub/tmp/class-hero-hub-school-entitlements-v1.14-code16-20260803.apk`;
+identical Windows copy at
+`C:\Users\Dom\Documents\CHH - FHH\class-hero-hub-school-entitlements-v1.14-code16-20260803.apk`
+and Drive copy at
+`G:\My Drive\CHH\Remote\class-hero-hub-school-entitlements-v1.14-code16-20260803.apk`.
+It is `96,509,761` bytes with SHA-256
+`913e22c84eab3c957e8dee9e04485248f08d668747c7db642e6319387550e18f`.
+The remote build, Windows copy, Drive copy and base APK pulled from the installed
+package are byte-for-byte identical.
+
+`adb install -r` upgraded the connected RMX3997 without uninstalling. Version code
+changed from 15 to 16 while the original `2026-07-18 22:47:59` first-install time,
+app-data inode `11950`, notification grant and microphone grant remained unchanged.
+The app launched into the retained authenticated `https://localhost/school`
+session with no fatal application or WebView console error. On the School settings
+route, the 360-CSS-pixel WebView displayed all 14 capability cards and the existing
+operational-control section with viewport width equal to document width. A
+temporary Arabic selection produced `lang=ar`, `dir=rtl`, the same 14 cards and
+controls, and zero horizontal overflow; the original language preference was then
+restored. Release tag:
+`chh-school-entitlements-pilot-code16-20260803`.
 
 ## 2026-08-02 authenticated language switcher pilot APK
 
