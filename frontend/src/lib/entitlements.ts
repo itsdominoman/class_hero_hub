@@ -139,7 +139,6 @@ export function capabilityForRoute(pathname: string, search: string): Capability
   if (pathname.startsWith('/school/recognition')) return 'positive_recognition';
   if (pathname.startsWith('/school/safeguarding')) return 'safeguarding';
   if (pathname.startsWith('/school/students/data')) return 'student_staff_import_export';
-  if (pathname.startsWith('/parent')) return 'family_connection';
   if (pathname === '/school') {
     const tab = new URLSearchParams(search).get('tab');
     if (tab === 'announcements' || tab === 'calendar') return 'notices_calendar';

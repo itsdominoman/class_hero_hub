@@ -38,7 +38,6 @@ const roleCases: RoleCase[] = [
     platformAdmin: true,
     roles: ["guardian", "school_admin", "teacher"],
     expectedLabels: [
-      "Family",
       "Platform admin",
       "School setup",
       "Teach",
@@ -52,7 +51,6 @@ const roleCases: RoleCase[] = [
 ];
 
 const mixedRoleHrefs = [
-  "/parent",
   "/platform",
   "/school",
   "/teach",
@@ -144,7 +142,7 @@ for (const roleCase of roleCases) {
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockSession(page, roleCase);
-    await page.goto("/parent");
+    await page.goto("/login");
 
     const navigation = await openVisibleNavigation(page, 390);
     for (const label of roleCase.expectedLabels) {
@@ -164,7 +162,7 @@ for (const width of [390, 1280]) {
   }) => {
     await page.setViewportSize({ width, height: 900 });
     await mockSession(page, roleCases[2], "en", []);
-    await page.goto("/parent");
+    await page.goto("/login");
 
     const navigation = await openVisibleNavigation(page, width);
     await expect(
@@ -178,12 +176,23 @@ test("mixed-role navigation selects an actionable safeguarding membership", asyn
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockSession(page, roleCases[3], "en", [103]);
-  await page.goto("/parent");
+  await page.goto("/login");
 
   const navigation = await openVisibleNavigation(page, 390);
   await expect(
     navigation.getByRole("link", { name: "Safeguarding", exact: true }),
   ).toHaveAttribute("href", "/school/safeguarding?membership=103");
+});
+
+test("mixed-role staff cannot open the legacy CHH family dashboard", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockSession(page, roleCases[3], "en", [103]);
+
+  await page.goto("/parent");
+
+  await expect(page).toHaveURL(/\/family-connection$/);
+  await expect(page.getByRole("heading", { name: "School updates for families." })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Family", exact: true })).toHaveCount(0);
 });
 
 for (const width of [390, 768, 1024, 1280, 1440]) {
@@ -193,7 +202,7 @@ for (const width of [390, 768, 1024, 1280, 1440]) {
     }) => {
       await page.setViewportSize({ width, height: 900 });
       await mockSession(page, roleCases[3], locale);
-      await page.goto("/parent");
+      await page.goto("/login");
 
       const navigation = await openVisibleNavigation(page, width);
       await expect(navigation.locator("a")).toHaveCount(mixedRoleHrefs.length);

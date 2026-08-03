@@ -7,6 +7,7 @@ import {
   activeNavigationItem,
   GLOBAL_NAVIGATION_ORDER,
 } from "../src/lib/navigation.ts";
+import { defaultLandingPath } from "../src/lib/roleRouting.ts";
 
 const layoutSource = readFileSync(
   new URL("../src/routes/+layout.svelte", import.meta.url),
@@ -15,7 +16,6 @@ const layoutSource = readFileSync(
 
 test("global navigation has one role-neutral order for desktop and compact menus", () => {
   assert.deepEqual(GLOBAL_NAVIGATION_ORDER, [
-    "family",
     "platform",
     "school",
     "teach",
@@ -68,9 +68,37 @@ test("English and Arabic navigation labels describe the destination", () => {
 });
 
 test("known role workspaces receive a current-page target", () => {
-  assert.equal(activeNavigationItem("/parent"), "family");
+  assert.equal(activeNavigationItem("/parent"), null);
   assert.equal(activeNavigationItem("/platform/7"), "platform");
   assert.equal(activeNavigationItem("/teach/assignments/4"), "teach");
   assert.equal(activeNavigationItem("/messages"), "messages");
   assert.equal(activeNavigationItem("/"), null);
+});
+
+test("the authenticated CHH navigation has no family or parent destination", () => {
+  assert.doesNotMatch(layoutSource, /href:\s*['"]\/parent['"]/);
+  assert.doesNotMatch(layoutSource, /labelKey:\s*['"]nav\.family['"]/);
+});
+
+test("guardian access never becomes a CHH parent landing page", () => {
+  const guardian = {
+    memberships: [{ membership_id: 1, role: "guardian", school_id: 7, school_name: "School", capabilities: ["family_connection"] }],
+  };
+  const dualRoleTeacher = {
+    memberships: [
+      ...guardian.memberships,
+      { membership_id: 2, role: "teacher", school_id: 7, school_name: "School", capabilities: [] },
+    ],
+  };
+
+  assert.equal(defaultLandingPath(guardian), "/family-connection");
+  assert.equal(defaultLandingPath(dualRoleTeacher), "/teach");
+});
+
+test("legacy parent and join pages never request the direct guardian API", () => {
+  for (const path of ["../src/routes/parent/+page.svelte", "../src/routes/join/+page.svelte"]) {
+    const source = readFileSync(new URL(path, import.meta.url), "utf8");
+    assert.doesNotMatch(source, /\/api\/guardian|\/join\/guardian/);
+    assert.match(source, /goto\('\/family-connection'/);
+  }
 });

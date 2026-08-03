@@ -35,9 +35,9 @@ const CASES: VisualCase[] = [
   },
   {
     path: "/parent",
-    heading: "No school role assigned yet",
+    heading: "School updates for families.",
     auth: "parent",
-    screenshotName: "dashboard-placeholder",
+    screenshotName: "legacy-parent-redirect",
   },
 ];
 

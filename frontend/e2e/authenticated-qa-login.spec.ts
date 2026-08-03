@@ -2,13 +2,13 @@ import { expect, test } from '@playwright/test';
 import { setupQaParentSession } from './qa-support';
 
 test.describe('Europe dev authenticated QA login', () => {
-  test('logs in through the dev-only QA helper and loads the placeholder dashboard', async ({ page }) => {
+  test('legacy parent URL sends a signed-in account to the Family Hero Hub explanation', async ({ page }) => {
     await setupQaParentSession(page);
 
     await page.goto('/parent', { waitUntil: 'networkidle' });
 
-    await expect(page.getByRole('heading', { name: 'No school role assigned yet' })).toBeVisible();
-    await expect(page.getByText('You are signed in, but this account does not have a school role yet.')).toBeVisible();
+    await expect(page).toHaveURL(/\/family-connection$/);
+    await expect(page.getByRole('heading', { name: 'School updates for families.' })).toBeVisible();
 
     await page.goto('/');
     const dashboardLink = page.locator('nav.md\\:flex a').filter({ hasText: /Dashboard/i });

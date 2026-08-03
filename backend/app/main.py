@@ -12,7 +12,7 @@ from .entitlement_service import enabled_capabilities
 from .models_school import Membership, PlatformAdmin, School, User
 from .message_media_service import MESSAGE_MEDIA_ARCHIVE_ROOT, MESSAGE_MEDIA_ROOT
 from .safeguarding_service import EXPORT_ROOT
-from .routes import announcements, authentication, behaviour, calendar, dev, entitlements, feature_controls, governance, guardian, homework, integrations_fhh, integrations_fhh_messaging, join, messaging, messaging_operations, messaging_policy, notifications, platform, public_enquiries, recognition, safeguarding, school, school_reports, surveys, teach, updates
+from .routes import announcements, authentication, behaviour, calendar, dev, entitlements, feature_controls, governance, homework, integrations_fhh, integrations_fhh_messaging, messaging, messaging_operations, messaging_policy, notifications, platform, public_enquiries, recognition, safeguarding, school, school_reports, surveys, teach, updates
 from .security import TrustedProxyHeadersMiddleware, parse_csv_values
 from .messaging_metrics import MessagingMetricsMiddleware
 from .operational_health import readiness_payload
@@ -47,9 +47,8 @@ class ProtectedMediaAccessLogFilter(logging.Filter):
             path.startswith("/api/integrations/fhh/links/")
             and "/messaging" in path
         )
-        is_chh_messaging_media = (
-            (path.startswith("/api/messaging/") or path.startswith("/api/guardian/messaging/"))
-            and ("/media/" in path or "/voice-media/" in path)
+        is_chh_messaging_media = path.startswith("/api/messaging/") and (
+            "/media/" in path or "/voice-media/" in path
         )
         is_safeguarding_protected = path.startswith("/api/safeguarding/") and (
             "/media/" in path or "/voice-media/" in path or "/exports/" in path
@@ -183,7 +182,6 @@ def create_app() -> FastAPI:
     app.include_router(platform.router, prefix="/api/platform", tags=["platform"])
     app.include_router(entitlements.platform_router, prefix="/api/platform", tags=["entitlements"])
     app.include_router(platform.invite_router, prefix="/api/invites", tags=["invites"])
-    app.include_router(join.router, prefix="/api/join", tags=["join"])
     app.include_router(public_enquiries.router, prefix="/api/public", tags=["public"])
     app.include_router(announcements.staff_router, prefix="/api/school", tags=["announcements"])
     app.include_router(calendar.staff_router, prefix="/api/school", tags=["calendar"])
@@ -207,17 +205,6 @@ def create_app() -> FastAPI:
     app.include_router(homework.teacher_router, prefix="/api/teach", tags=["homework"])
     app.include_router(updates.teacher_router, prefix="/api/teach", tags=["updates"])
     app.include_router(calendar.teacher_router, prefix="/api/teach", tags=["calendar"])
-    app.include_router(announcements.guardian_router, prefix="/api/guardian", tags=["announcements"])
-    app.include_router(homework.guardian_router, prefix="/api/guardian", tags=["homework"])
-    app.include_router(updates.guardian_router, prefix="/api/guardian", tags=["updates"])
-    app.include_router(calendar.guardian_router, prefix="/api/guardian", tags=["calendar"])
-    app.include_router(guardian.router, prefix="/api/guardian", tags=["guardian"])
-    app.include_router(
-        messaging.guardian_router,
-        prefix="/api/guardian/messaging",
-        tags=["guardian-messaging"],
-    )
-    app.include_router(behaviour.guardian_router, prefix="/api/guardian", tags=["behaviour"])
     app.include_router(integrations_fhh.router, prefix="/api/integrations/fhh", tags=["fhh-integration"])
     app.include_router(
         integrations_fhh_messaging.router,

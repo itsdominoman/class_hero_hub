@@ -141,8 +141,8 @@ test('component uses authenticated blobs for browser and native without raw medi
     new URL('../src/routes/parent/+page.svelte', import.meta.url),
     'utf8'
   );
-  assert.match(parentPageSource, /photos\/\$\{photo\.id\}\/thumbnail/);
-  assert.match(parentPageSource, /photos\/\$\{photo\.id\}\/view/);
+  assert.doesNotMatch(parentPageSource, /\/api\/guardian/);
+  assert.match(parentPageSource, /goto\('\/family-connection'/);
 
   assert.match(apiSource, /const token = await getNativeAccessToken\(\)/);
   assert.match(apiSource, /headers\.set\('Authorization', `Bearer \$\{token\}`\)/);

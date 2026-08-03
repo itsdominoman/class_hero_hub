@@ -273,7 +273,7 @@
     window.addEventListener('chh:native-back', onNativeBack, { capture: true });
     if (nativeApp) {
       void import('$lib/native/platform-bridge').then(async ({ registerNativeBackButtonHandler }) => {
-        const remove = await registerNativeBackButtonHandler(['/', '/login', '/school', '/teach', '/parent']);
+        const remove = await registerNativeBackButtonHandler(['/', '/login', '/school', '/teach']);
         if (disposed) await remove();
         else removeNativeBackHandler = remove;
       }).catch(() => undefined);
@@ -294,14 +294,13 @@
 
   let hasSchoolAdmin = $derived(hasRole(currentUser, 'school_admin'));
   let hasTeacher = $derived(hasRole(currentUser, 'teacher'));
-  let hasGuardian = $derived(hasRole(currentUser, 'guardian'));
   let schoolAdminCapabilities = $derived(Array.from(new Set(
     (currentUser?.memberships || [])
       .filter((membership) => membership.role === 'school_admin')
       .flatMap((membership) => membership.capabilities)
   )));
   let schoolMenuGroups = $derived(visibleSchoolMenuGroups(schoolAdminCapabilities));
-  let hasAnyRole = $derived(hasSchoolAdmin || hasTeacher || hasGuardian || Boolean(currentUser?.is_platform_admin));
+  let hasAnyRole = $derived(hasSchoolAdmin || hasTeacher || Boolean(currentUser?.is_platform_admin));
   let dashboardHref = $derived(defaultLandingPath(currentUser));
   let safeguardingHref = $derived(
     safeguardingMemberships.length
@@ -313,11 +312,6 @@
   );
   let navigationItemConfig = $derived<Record<GlobalNavigationItemId, Omit<NavigationItem, 'id'>>>(
     {
-      family: {
-        href: '/parent',
-        labelKey: 'nav.family',
-        visible: hasGuardian && anyMembershipHasCapability(currentUser?.memberships, 'family_connection', 'guardian')
-      },
       platform: {
         href: '/platform',
         labelKey: 'nav.admin',

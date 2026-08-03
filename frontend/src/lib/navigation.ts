@@ -1,5 +1,4 @@
 export const GLOBAL_NAVIGATION_ORDER = [
-  "family",
   "platform",
   "school",
   "teach",
@@ -34,7 +33,6 @@ export function activeNavigationItem(
     return "system";
   if (matchesPath(pathname, "/messages")) return "messages";
   if (matchesPath(pathname, "/teach")) return "teach";
-  if (matchesPath(pathname, "/parent")) return "family";
   if (matchesPath(pathname, "/platform")) return "platform";
   if (matchesPath(pathname, "/school")) return "school";
   return null;

@@ -236,7 +236,7 @@ test('staff-direct conversations fall back to participant identity', () => {
 });
 
 test('native Back policy avoids accidental exit and preserves non-root fallback', () => {
-  const roots = ['/', '/login', '/school', '/teach', '/parent'];
+  const roots = ['/', '/login', '/school', '/teach'];
   assert.equal(chooseNativeBackAction('/messages', roots, true, false), 'history');
   assert.equal(chooseNativeBackAction('/messages', roots, false, false), 'fallback');
   assert.equal(chooseNativeBackAction('/teach', roots, false, false), 'arm-exit');
@@ -254,7 +254,7 @@ test('native authenticated shell follows the visual viewport and owns one bottom
   assert.match(appCssSource, /\.native-app \{[\s\S]*--safe-bottom: 0px;/);
   assert.match(appCssSource, /\.native-app \.app-main \{[\s\S]*overflow-y: auto;[\s\S]*padding-bottom: 0\.75rem;/);
   assert.match(appCssSource, /\.native-app \.app-main\.viewport-managed \{[\s\S]*padding-bottom: 0;/);
-  assert.match(appCssSource, /\.native-app \[data-testid='messaging-workspace'\] \{[\s\S]*height: 100%;/);
+  assert.match(appCssSource, /\.native-app \[data-testid=["']messaging-workspace["']\] \{[\s\S]*height: 100%;/);
   assert.match(mainActivitySource, /WindowInsetsCompat\.Type\.ime\(\)/);
   assert.match(mainActivitySource, /contentInsets\(systemBars, ime\)/);
   assert.match(mainActivitySource, /Math\.max\(systemBars\.bottom, ime\.bottom\)/);
