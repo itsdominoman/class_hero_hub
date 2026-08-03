@@ -33,6 +33,15 @@ with missing avatars and `unspecified` gender are intentionally withheld; no chi
 name is printed or used for inference. No schema, API response shape, frontend,
 asset, native, or APK change is required.
 
+The disposable PostgreSQL copy and the live pilot produced the same aggregate
+result: 398 missing avatars assigned and 16 retired assignments replaced, split
+across 232 female and 182 male students. Both runs finished with zero retired
+assignments, wrong-gender-pool assignments, or duplicate avatar groups in current
+classes. A repeat dry run returned zero changes. The three withheld `unspecified`
+records remained null. Focused local and deployed-image coverage each passed 47
+tests, including retired replacement, strict pools, unknown-gender withholding,
+single-student class awareness, stable refresh, and guardian reuse.
+
 ## 2026-08-01 — Recognition review and configuration management
 
 The physical-test one-point examples came from older frozen review criteria rather

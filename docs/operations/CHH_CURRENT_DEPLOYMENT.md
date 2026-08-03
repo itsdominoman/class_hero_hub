@@ -1,5 +1,38 @@
 # CHH current pilot deployment
 
+## 2026-08-03 gender-safe avatar assignment release
+
+Avatar IDs `56`, `59`, `67`, `75`, `77`, `89`, and `90` are no longer
+assignable. The artwork remains present and displayable for rollback and stale
+clients; no source or runtime asset was deleted. The remaining assignable pools
+contain 28 boy avatars and 24 girl avatars. Assignment uses only the school's
+recorded `male` or `female` value, never a name-based guess, and now checks every
+current classmate before choosing an avatar.
+
+A fresh encrypted pgBackRest incremental backup completed to both local and
+off-host repositories immediately before the data operation. Labels are
+`20260801-221505F_20260803-123230I` locally and
+`20260801-221522F_20260803-123239I` off-host. A disposable PostgreSQL copy first
+proved the dry run, apply, and idempotent post-apply dry run; its temporary
+database and worktree were then removed.
+
+The live aggregate-only operation assigned 398 previously missing avatars and
+replaced all 16 retired assignments: 232 female and 182 male students changed.
+It finished with zero retired assignments, zero wrong-gender-pool assignments,
+and zero duplicate avatar groups across current active classes. Three active
+students with `unspecified` gender remain intentionally unassigned until the
+school corrects their records. A second live dry run targeted and changed zero
+students.
+
+Focused tests passed 47/47 both locally and inside the deployed backend image.
+The public root and retained avatar 56 asset return HTTP 200, recent backend logs
+contain no traceback, exception, fatal, critical, or uncaught entry, and readiness
+reports `database=ok` and `migration=current`. Only the backend was rebuilt and
+recreated, changing from container `a14bcbf565eb` to `6b472ff2a1a0`. The frontend
+`046fa48792c1`, PostgreSQL `9653df2c5588`, messaging worker `8919cebb3330`, and
+notification scheduler `2909345e8a68` retained their identities. There is no
+schema migration, frontend, worker, scheduler, asset, native, or APK change.
+
 ## 2026-08-03 capability-relationship guidance release
 
 The Dom-only school-capability manager now explains every catalogue relationship
