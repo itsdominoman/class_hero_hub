@@ -91,13 +91,13 @@
 {:else}
   <div class="public-surface overflow-hidden">
     <section
-      class="relative border-b border-slate-200/70 bg-gradient-to-b from-white via-violet-50/45 to-white px-4 py-14 sm:py-18 lg:py-24"
+      class="relative border-b border-slate-200/70 bg-gradient-to-b from-white via-violet-50/45 to-white px-4 py-14 sm:py-18 lg:py-16 xl:py-20"
     >
       <div
         class="absolute left-1/2 top-0 h-[32rem] w-[52rem] -translate-x-1/2 rounded-full bg-violet-200/30 blur-3xl"
       ></div>
       <div
-        class="relative mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.02fr_0.98fr] lg:items-center"
+        class="relative mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.02fr_0.98fr] lg:items-center lg:gap-8 xl:gap-12"
       >
         <div class="text-start">
           <p
@@ -107,17 +107,17 @@
             {copy.eyebrow}
           </p>
           <h1
-            class="mt-7 max-w-3xl text-4xl font-black leading-[0.98] tracking-tight text-slate-950 sm:text-5xl md:text-6xl lg:text-7xl"
+            class="mt-6 max-w-3xl text-4xl font-black leading-[0.98] tracking-tight text-slate-950 sm:text-5xl md:text-6xl xl:text-7xl"
           >
             {copy.heading}
           </h1>
           <p
-            class="mt-7 max-w-2xl text-lg leading-relaxed text-slate-600 sm:text-xl md:text-2xl"
+            class="mt-6 max-w-2xl text-lg leading-relaxed text-slate-600 sm:text-xl md:text-2xl"
           >
             {copy.intro}
           </p>
 
-          <div class="mt-9 flex flex-col gap-3 sm:flex-row">
+          <div class="mt-7 flex flex-col gap-3 sm:flex-row">
             <a
               href={primaryCtaHref}
               class="btn-hero inline-flex min-h-14 items-center justify-center gap-3 rounded-2xl px-7 py-4 text-base sm:text-lg"

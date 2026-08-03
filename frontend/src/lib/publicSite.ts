@@ -201,7 +201,7 @@ const englishFaq: FaqItem[] = [
   {
     question: "Who uses Class Hero Hub?",
     answer:
-      "School staff use Class Hero Hub. Each person sees the schools, classes and tools that match their responsibilities.",
+      "School staff use Class Hero Hub. Each person sees only the schools, classes and tools they need for their job.",
   },
   {
     question: "Do parents sign in to Class Hero Hub?",
@@ -231,17 +231,17 @@ const englishFaq: FaqItem[] = [
   {
     question: "How does behaviour and recognition work?",
     answer:
-      "Staff can record positive and needs-work behaviour in the right class context. Needs-work information stays private, while positive recognition can celebrate effort without turning children into a public ranking.",
+      "Staff can record positive and needs-work behaviour from the relevant class or student record. Needs-work information stays private, while positive recognition can celebrate effort without turning children into a public ranking.",
   },
   {
     question: "How are safeguarding concerns handled?",
     answer:
-      "Safeguarding review has its own restricted workflow and activity history. It is kept separate from ordinary School Chats and their read or delivery status.",
+      "Safeguarding concerns are reviewed in a restricted area where authorised staff can see what changed and when. This stays separate from ordinary School Chats.",
   },
   {
     question: "How can our school try Class Hero Hub?",
     answer:
-      "Request a conversation and tell us what you would most like to improve. We can show the relevant parts of the product and agree whether a focused pilot is the right next step.",
+      "Request a conversation and tell us what you would most like to improve. We can show the parts of Class Hero Hub that could help and discuss a focused pilot.",
   },
 ];
 
@@ -254,7 +254,7 @@ const arabicFaq: FaqItem[] = [
   {
     question: "من يستخدم كلاس هيرو هب؟",
     answer:
-      "يستخدم موظفو المدرسة كلاس هيرو هب، ويرى كل شخص المدارس والصفوف والأدوات التي تناسب مسؤولياته.",
+      "يستخدم موظفو المدرسة كلاس هيرو هب، ويرى كل شخص فقط المدارس والصفوف والأدوات التي يحتاجها في عمله.",
   },
   {
     question: "هل يسجل أولياء الأمور الدخول إلى كلاس هيرو هب؟",
@@ -284,17 +284,17 @@ const arabicFaq: FaqItem[] = [
   {
     question: "كيف يعمل تسجيل السلوك والتقدير؟",
     answer:
-      "يمكن للموظفين تسجيل السلوك الإيجابي والسلوك الذي يحتاج إلى تحسين ضمن الصف المناسب. تبقى المعلومات التي تحتاج إلى تحسين خاصة، بينما يتيح التقدير الإيجابي الاحتفاء بالجهد من دون تحويل الأطفال إلى ترتيب علني.",
+      "يمكن للموظفين تسجيل السلوك الإيجابي والسلوك الذي يحتاج إلى تحسين من سجل الصف أو الطالب المعني. تبقى ملاحظات التحسين خاصة، بينما يتيح التقدير الإيجابي الاحتفاء بالجهد من دون تحويل الأطفال إلى ترتيب علني.",
   },
   {
     question: "كيف تُعالج مخاوف حماية الطلبة؟",
     answer:
-      "لمراجعة مخاوف حماية الطلبة مسار خاص بصلاحيات محدودة وسجل للإجراءات. ويظل منفصلاً عن محادثات المدرسة العادية وحالات القراءة أو التسليم.",
+      "تُراجع مخاوف حماية الطلبة في مساحة مخصصة تتيح للموظفين المخولين معرفة ما تغير ومتى. وتبقى هذه المراجعة منفصلة عن محادثات المدرسة العادية.",
   },
   {
     question: "كيف يمكن لمدرستنا تجربة كلاس هيرو هب؟",
     answer:
-      "اطلبوا محادثة وأخبرونا بما ترغبون في تحسينه أولاً. سنعرض الأجزاء المناسبة من المنتج ونتفق معاً إن كان برنامج تجريبي محدد هو الخطوة التالية المناسبة.",
+      "اطلبوا محادثة وأخبرونا بما ترغبون في تحسينه أولاً. سنعرض الأجزاء التي قد تساعدكم من كلاس هيرو هب ونناقش برنامجاً تجريبياً محدداً.",
   },
 ];
 
@@ -313,8 +313,8 @@ const en: PublicSiteCopy = {
   },
   footer: {
     description:
-      "Class Hero Hub gives teachers and school teams a practical workspace for everyday teaching, communication, follow-up and family updates.",
-    tagline: "School life, clearly connected.",
+      "Class Hero Hub gives teachers and school teams one place for everyday teaching, communication and updates shared with families.",
+    tagline: "Practical tools for the school day.",
     product: "Product",
     support: "Support",
     legal: "Legal",
@@ -338,33 +338,30 @@ const en: PublicSiteCopy = {
   home: {
     pageTitle: "Class Hero Hub | A practical workspace for the school day",
     metaDescription:
-      "A practical workspace for teachers, school communication, follow-up and family updates that complements existing school systems.",
-    eyebrow: "School life, clearly connected.",
-    heading:
-      "Help teachers act, communicate and follow up—without losing the school day to scattered tools.",
+      "One place for teachers, school communication and family updates, alongside the systems the school already uses.",
+    eyebrow: "Practical tools for the school day.",
+    heading: "Help teachers. Keep families informed.",
     intro:
-      "Class Hero Hub gives teachers and school teams a practical place for homework, behaviour, recognition, notices, chats, surveys and family updates. It works alongside the systems your school already uses.",
+      "Class Hero Hub gives school teams one place for homework, behaviour, recognition, notices, chats, surveys and family updates—alongside the systems your school already uses.",
     primaryCta: "Request a pilot",
     secondaryCta: "Explore the product",
     strapline:
       "For school leaders, administrators and teachers · English and Arabic",
     schoolWorkspaceLabel: "Everyday school work",
-    schoolWorkspaceTitle:
-      "Start with the class, message or follow-up in front of you.",
+    schoolWorkspaceTitle: "Start with your class.",
     schoolWorkspaceText:
-      "Move from a class to homework, notices, behaviour, recognition, calendars or messages without losing context.",
+      "Open a class, then go straight to homework, notices, behaviour, recognition, calendars or messages.",
     familyDeliveryLabel: "Family updates",
     familyDeliveryTitle: "Share the right update with home.",
     familyDeliveryText:
       "Parents see the school information shared for their child in Family Hero Hub.",
     boundaryLabel: "Alongside existing systems",
     boundaryText:
-      "Keep your current core systems and use Class Hero Hub for the day-to-day work that connects staff, students and families.",
-    benefitsEyebrow: "Everyday staff workflows",
-    benefitsHeading:
-      "Useful actions stay close to the people and classes they belong to.",
+      "Keep your current core systems and use Class Hero Hub for teachers, communication and family updates.",
+    benefitsEyebrow: "Everyday tools for staff",
+    benefitsHeading: "The tools teachers use most are easy to find.",
     benefitsIntro:
-      "Teachers and school teams can begin with the work in front of them, keep its context and move the next action forward.",
+      "Teachers and school teams can start with the task at hand and pick up where they left off.",
     benefits: [
       {
         title: "Teach from the class in front of you",
@@ -376,7 +373,7 @@ const en: PublicSiteCopy = {
       },
       {
         title: "Recognise and follow up",
-        text: "Celebrate positive effort, keep needs-work behaviour private and return to the right context when action is needed.",
+        text: "Celebrate positive effort, keep needs-work behaviour private and return when follow-up is needed.",
       },
       {
         title: "Hear from families",
@@ -384,18 +381,17 @@ const en: PublicSiteCopy = {
       },
     ],
     featureEyebrow: "Visibility and supporting setup",
-    featureHeading:
-      "Give leaders a clearer view—and teams a reliable starting point.",
+    featureHeading: "Clear information for leaders. Simple setup for teams.",
     featureIntro:
-      "Reports and activity history support follow-up. Simple school setup keeps the everyday workspace connected to the right people and classes.",
+      "Reports show what happened and where follow-up may be needed. School setup keeps staff and classes up to date.",
     featureGroups: [
       {
         title: "See where follow-up is needed",
-        text: "Help leaders understand activity, check what happened and focus the next conversation or action.",
+        text: "Leaders can review school activity, see what changed and decide what to discuss or follow up.",
         items: [
           "Reports and behaviour trends",
-          "Delivery and read information",
-          "Activity history for important actions",
+          "See whether messages have arrived and been read",
+          "See what changed and when",
           "A dedicated safeguarding review area",
         ],
       },
@@ -421,7 +417,7 @@ const en: PublicSiteCopy = {
         alt: "Class Hero Hub teacher screen showing demonstration classes",
         height: 650,
         eyebrow: "Teacher workspace",
-        title: "The teacher’s classes and next actions stay in reach",
+        title: "Classes and common tools stay in reach",
         text: "Teachers can begin with their assigned classes and move to students, notices and the calendar without hunting through menus.",
       },
       {
@@ -430,20 +426,19 @@ const en: PublicSiteCopy = {
         height: 900,
         eyebrow: "Supporting setup",
         title: "A clear view of what is ready",
-        text: "Administrators can check the workspace setup, see what still needs attention and continue from the right place.",
+        text: "Administrators can see what is ready, what still needs attention and pick up where they left off.",
       },
     ],
     familyEyebrow: "Class Hero Hub + Family Hero Hub",
-    familyHeading:
-      "From the school team to the family, without another place to check.",
+    familyHeading: "School updates for families.",
     familyIntro:
-      "School staff work in Class Hero Hub. Parents see the school information shared with them in Family Hero Hub.",
+      "Staff use Class Hero Hub for school work and communication. Parents see the school updates shared with them in Family Hero Hub.",
     schoolSideTitle: "1 · Staff work in Class Hero Hub",
     schoolSideText:
-      "Staff record the everyday work, communication and updates that belong to the school.",
+      "Staff manage homework, notices, messages and other school updates.",
     connectionTitle: "2 · The school shares an update",
     connectionText:
-      "When the school publishes a family update, it is delivered for the linked child.",
+      "When staff share a family update, parents can see it for their child.",
     familySideTitle: "3 · Parents see it in Family Hero Hub",
     familySideText:
       "Homework, notices, calendar items, school points, surveys or chats appear alongside the family’s own tools.",
@@ -451,13 +446,13 @@ const en: PublicSiteCopy = {
       "Parents do not need another school app or a staff login. Their school view stays in Family Hero Hub.",
     familyCta: "See the family connection",
     trustEyebrow: "Trust in everyday use",
-    trustHeading: "Protection that fits the work schools are trusted to do.",
+    trustHeading: "Simple safeguards for everyday school work.",
     trustIntro:
-      "Access follows staff responsibility, sensitive records stay appropriately private and important actions can be understood later.",
+      "Staff see only the information and tools they need. Sensitive records stay private, and schools can check what changed and when.",
     trustItems: [
       {
-        title: "Clear access for each responsibility",
-        text: "Staff see the schools, classes, students and tools connected to their work.",
+        title: "Clear access for staff",
+        text: "Staff see the schools, classes, students and tools they need for their work.",
       },
       {
         title: "Private behaviour records",
@@ -477,13 +472,13 @@ const en: PublicSiteCopy = {
     bilingualPoint2:
       "Responsive layouts support staff working across phones, tablets and desktops.",
     faqEyebrow: "Questions schools ask",
-    faqHeading: "Clear answers before you take the next step.",
+    faqHeading: "Answers to common school questions.",
     faqIntro:
       "Learn who uses Class Hero Hub, how families receive updates and what a pilot can look like.",
     faqCta: "Read all questions",
     finalHeading: "Could Class Hero Hub make your school day easier?",
     finalText:
-      "Tell us what currently takes too much time, falls between systems or leaves families unsure. We will show you the parts that matter most.",
+      "Tell us what takes too much time or leaves families unsure. We will show you the parts of Class Hero Hub that could help.",
     finalPrimary: "Request a pilot",
     finalSecondary: "Contact the team",
   },
@@ -509,7 +504,7 @@ const en: PublicSiteCopy = {
       eyebrow: "How it works",
       heading: "Start with the work that needs doing today.",
       intro:
-        "Teachers and school teams begin with the right class, message or follow-up. Class Hero Hub keeps the next action connected and carries family-facing updates into Family Hero Hub.",
+        "Teachers and school teams start with the class, message or follow-up in front of them. Family updates they share appear in Family Hero Hub.",
       highlights: [
         "Work from the class",
         "Keep communication moving",
@@ -517,29 +512,29 @@ const en: PublicSiteCopy = {
       ],
       sections: [
         {
-          title: "Open the work in context",
+          title: "Start with your class",
           text: "Teachers begin with their assigned classes and move directly to students, homework, notices, behaviour, recognition, calendars or messages.",
           bullets: [
-            "Keep common actions near the class",
-            "Return to follow-up without rebuilding the context",
+            "Keep common tools close to each class",
+            "Pick up where you left off",
           ],
         },
         {
-          title: "Carry the right information home",
+          title: "Share updates with families",
           text: "When the school shares family-facing information, parents see it in Family Hero Hub for their linked child. The school team continues to work in Class Hero Hub.",
           bullets: [
-            "Families use one familiar family experience",
+            "Parents keep using Family Hero Hub",
             "Schools decide which features to introduce",
           ],
         },
         {
           title: "Prepare the supporting workspace",
-          text: "Administrators connect staff and students to the right academic year, classes and subjects. Supported student and staff details can be entered manually or prepared through checked CSV files.",
+          text: "Administrators set up staff, students, academic years, classes and subjects. Supported student and staff details can be entered manually or prepared through checked CSV files.",
         },
       ],
       cta: {
-        heading: "See the flow with your own school in mind.",
-        text: "A short demonstration can focus on the everyday workflows and family communication that matter most to your team.",
+        heading: "See how it could work at your school.",
+        text: "A short demonstration can cover the daily tasks and family communication that matter most to your team.",
         label: "Request a demonstration",
         href: "/pilot",
         secondaryLabel: "Explore the product",
@@ -553,7 +548,7 @@ const en: PublicSiteCopy = {
       eyebrow: "Product overview",
       heading: "Practical tools for work that repeats every school day.",
       intro:
-        "Class Hero Hub keeps teaching, communication and follow-up connected to the people and classes they belong to. It is the everyday workspace alongside the school’s existing systems.",
+        "Teachers can find common tools by class or student. Class Hero Hub works alongside the school’s existing systems.",
       highlights: [
         "Everyday teaching",
         "School communication",
@@ -562,7 +557,7 @@ const en: PublicSiteCopy = {
       ],
       sections: [
         {
-          title: "Everyday teaching workflows",
+          title: "Everyday teaching tools",
           text: "Help teachers move quickly between their classes and the work they do most often.",
           bullets: [
             "Homework, diary items and required items",
@@ -571,29 +566,29 @@ const en: PublicSiteCopy = {
           ],
         },
         {
-          title: "Communication that has context",
-          text: "Keep school communication connected to the right class or student, with clear delivery information and school contact-hour settings.",
+          title: "School communication",
+          text: "Send class or student messages, see whether they have arrived and been read, and set school contact hours.",
           bullets: [
             "School Chats with text, photos and voice notes",
             "Notices, surveys and polls",
-            "Family delivery through Family Hero Hub",
+            "Family updates in Family Hero Hub",
           ],
         },
         {
           title: "Insight for better follow-up",
-          text: "Use reports, trends and activity history to understand what happened, recognise progress and decide what deserves attention next.",
+          text: "Use reports and trends to see what happened, recognise progress and decide what needs attention.",
           bullets: [
             "Behaviour and engagement trends",
-            "Operational and delivery checks",
+            "Message status and school activity checks",
             "A dedicated safeguarding review area",
           ],
         },
         {
           title: "Supporting school setup",
-          text: "Keep the Class Hero Hub workspace connected to academic years, classes, subjects, staff assignments and student rosters while existing core systems remain in place.",
+          text: "Set up academic years, classes, subjects, staff assignments and student rosters while keeping existing core systems in place.",
           bullets: [
             "Checked CSV imports for supported student and staff details",
-            "Annual updates and history",
+            "Annual record updates",
             "Supported record exports",
           ],
         },
@@ -615,7 +610,7 @@ const en: PublicSiteCopy = {
       heading:
         "A practical workspace for the people who keep the school day moving.",
       intro:
-        "Class Hero Hub gives teachers, administrators and leaders clearer everyday workflows while complementing the school systems already in place.",
+        "Class Hero Hub gives teachers and school teams one place for daily tasks, communication and family updates, alongside existing school systems.",
       highlights: [
         "Teachers",
         "School teams",
@@ -629,11 +624,11 @@ const en: PublicSiteCopy = {
         },
         {
           title: "For the wider school team",
-          text: "Publish notices and updates, manage calendars, use School Chats and surveys, and keep the next action connected to the right context.",
+          text: "Publish notices and updates, manage calendars, use School Chats and surveys, and see what needs follow-up.",
         },
         {
           title: "For school leaders and administrators",
-          text: "See communication, behaviour, recognition and engagement more clearly, then support the workspace with appropriate staff, class and student setup.",
+          text: "Review communication, behaviour, recognition and engagement, then keep staff, class and student details up to date.",
         },
         {
           title: "For English and Arabic communities",
@@ -641,8 +636,8 @@ const en: PublicSiteCopy = {
         },
       ],
       cta: {
-        heading: "Show us where the school day feels fragmented.",
-        text: "We will focus the conversation on the people and workflows that would benefit most.",
+        heading: "Tell us which parts of the school day take too much time.",
+        text: "We will focus on the teachers, teams and school tasks that need the most help.",
         label: "Start a conversation",
         href: "/pilot",
         secondaryLabel: "Read the FAQ",
@@ -654,19 +649,18 @@ const en: PublicSiteCopy = {
       metaDescription:
         "See how school staff use Class Hero Hub while parents receive school updates in Family Hero Hub.",
       eyebrow: "The family connection",
-      heading:
-        "School updates meet families where family life already happens.",
+      heading: "School updates for families.",
       intro:
-        "Staff use Class Hero Hub for school work. Parents see the information the school shares for their child in Family Hero Hub.",
+        "Staff use Class Hero Hub for school work and communication. Parents see the school updates shared with them in Family Hero Hub.",
       highlights: [
-        "One staff workspace",
-        "One family experience",
-        "Clear school-to-home updates",
+        "One place for staff",
+        "Family Hero Hub for parents",
+        "Clear school updates",
       ],
       sections: [
         {
           title: "The school works in Class Hero Hub",
-          text: "Staff organise school records, teaching workflows, communication and the information that should be shared with families.",
+          text: "Staff manage homework, notices, chats and other school updates in Class Hero Hub.",
         },
         {
           title: "Parents see school information in Family Hero Hub",
@@ -678,8 +672,8 @@ const en: PublicSiteCopy = {
         },
       ],
       cta: {
-        heading: "Want to explain the connection to your school community?",
-        text: "We can help your team understand what staff use, what families see and how to introduce the experience clearly.",
+        heading: "Need to explain this to families?",
+        text: "We can help your team explain what staff use and where parents see school updates.",
         label: "Talk to the team",
         href: "/contact",
         secondaryLabel: "Open the family guide",
@@ -693,24 +687,24 @@ const en: PublicSiteCopy = {
       eyebrow: "Request a pilot",
       heading: "Let’s start with a conversation about your school.",
       intro:
-        "Tell us what is working, what takes too much effort and where you would most value a clearer experience. We will keep the next step simple and relevant.",
+        "Tell us what is working, what takes too much effort and what you would like to improve. We will keep the conversation focused.",
       highlights: [
         "A focused conversation",
         "A relevant demonstration",
-        "A sensible next step",
+        "A practical pilot",
       ],
       sections: [
         {
-          title: "We understand the school",
-          text: "We begin with your school context, current systems and the work you would most like to improve.",
+          title: "We learn about your school",
+          text: "We ask about your current systems and the school work you would most like to improve.",
         },
         {
           title: "We show what matters",
           text: "Your demonstration focuses on the parts of Class Hero Hub that are relevant to your team and priorities.",
         },
         {
-          title: "We agree the next step",
-          text: "If there is a good fit, we agree a manageable way to explore the product with the right people from your school.",
+          title: "We agree what comes next",
+          text: "If Class Hero Hub looks useful, we agree a manageable pilot with the school staff involved.",
         },
       ],
       form: {
@@ -756,12 +750,12 @@ const en: PublicSiteCopy = {
       eyebrow: "Contact",
       heading: "How can we help?",
       intro:
-        "Whether you are exploring the product or already working with Class Hero Hub, start with a short note and the team will direct it to the right place.",
+        "Whether you are exploring the product or already using Class Hero Hub, send us a short note and we will get it to the right person.",
       highlights: ["Pilot enquiries", "School support", "Family guidance"],
       sections: [
         {
           title: "Product and pilot conversations",
-          text: "Tell us about your school, your role and the workflow you would most like to improve.",
+          text: "Tell us about your school, your role and the task you would most like to improve.",
         },
         {
           title: "Support for an existing school",
@@ -782,7 +776,7 @@ const en: PublicSiteCopy = {
       },
       cta: {
         heading: "Send us a short note.",
-        text: "We will help you find the right next step without asking for sensitive information by email.",
+        text: "We will reply with the right support option without asking for sensitive information by email.",
         label: "Email Class Hero Hub",
         href: supportEmailHref,
         secondaryLabel: "Read the FAQ",
@@ -796,7 +790,7 @@ const en: PublicSiteCopy = {
       eyebrow: "School administrator guide",
       heading: "Build a school workspace people can rely on.",
       intro:
-        "A clear structure at the beginning makes every teacher, student, class and family workflow easier later.",
+        "A clear setup makes daily work easier for teachers, students, classes and families.",
       highlights: ["Set up", "Invite", "Review", "Prepare the next year"],
       sections: [
         {
@@ -808,7 +802,7 @@ const en: PublicSiteCopy = {
           text: "Create staff assignments and bring across student records using checked imports or the school tools provided.",
         },
         {
-          title: "Introduce the workflows you need",
+          title: "Set up the tools your school needs",
           text: "Set up behaviour categories, family features, communication choices and other school settings in a manageable order.",
         },
         {
@@ -816,7 +810,7 @@ const en: PublicSiteCopy = {
           text: "Check the audience, class and timing before publishing notices, updates, calendar events or family information.",
         },
         {
-          title: "Keep the picture current",
+          title: "Keep records up to date",
           text: "Correct records promptly, review activity and exports when needed, and prepare the next academic year without losing useful history.",
         },
       ],
@@ -834,9 +828,9 @@ const en: PublicSiteCopy = {
       metaDescription:
         "A practical introduction to classes, homework, behaviour, recognition and communication in Class Hero Hub.",
       eyebrow: "Teacher guide",
-      heading: "Start with your classes. Keep the next action close.",
+      heading: "Start with your classes.",
       intro:
-        "Class Hero Hub is designed to keep everyday teaching work connected to the class and students you are already thinking about.",
+        "Class Hero Hub keeps common teaching tasks with the class and students you are already working with.",
       highlights: ["Classes", "Homework", "Recognition", "Communication"],
       sections: [
         {
@@ -844,7 +838,7 @@ const en: PublicSiteCopy = {
           text: "Your teacher workspace shows assigned home-room classes and subjects, giving you a clear starting point for the day.",
         },
         {
-          title: "Record and recognise in context",
+          title: "Record behaviour and recognition",
           text: "Add behaviour information from the relevant class or student and use positive recognition to celebrate genuine effort.",
         },
         {
@@ -861,8 +855,8 @@ const en: PublicSiteCopy = {
         },
       ],
       cta: {
-        heading: "Need help with a teacher workflow?",
-        text: "Include your school, class context and the action you were trying to complete.",
+        heading: "Need help with a teacher task?",
+        text: "Include your school, class and what you were trying to do.",
         label: "Contact support",
         href: supportEmailHref,
         secondaryLabel: "Safety and support",
@@ -908,11 +902,11 @@ const en: PublicSiteCopy = {
     safetyPrivacy: {
       pageTitle: "Safety, privacy and support | Class Hero Hub",
       metaDescription:
-        "Plain-language information about access, school records, behaviour, safeguarding, family delivery and support in Class Hero Hub.",
+        "Plain-language information about access, school records, behaviour, safeguarding, family updates and support in Class Hero Hub.",
       eyebrow: "Safety, privacy and support",
       heading: "Practical safeguards for everyday school work.",
       intro:
-        "Class Hero Hub combines careful access, clear activity history and dedicated handling for sensitive school work.",
+        "Class Hero Hub limits access to school information and keeps sensitive work in dedicated areas.",
       highlights: [
         "School-specific records",
         "Private behaviour information",
@@ -920,12 +914,12 @@ const en: PublicSiteCopy = {
       ],
       sections: [
         {
-          title: "Access follows school responsibilities",
-          text: "People sign in as themselves and see the schools, classes, students and tools connected to their current work.",
+          title: "Staff see what they need",
+          text: "People sign in as themselves and see only the schools, classes, students and tools they need for their work.",
         },
         {
           title: "School records stay with the right school",
-          text: "Records and actions are tied to the relevant school, with activity history available for important administrative and staff actions.",
+          text: "Schools can see what changed and when for important staff and administration work.",
         },
         {
           title: "Needs-work behaviour stays private",
@@ -933,7 +927,7 @@ const en: PublicSiteCopy = {
         },
         {
           title: "Safeguarding review is separate",
-          text: "Safeguarding staff use a dedicated review area. Opening a review does not make the reviewer part of an ordinary conversation or change its read status.",
+          text: "Safeguarding staff use a dedicated area that stays separate from ordinary School Chats.",
         },
         {
           title: "Families receive updates through Family Hero Hub",
@@ -1137,8 +1131,8 @@ const ar: PublicSiteCopy = {
   },
   footer: {
     description:
-      "يمنح كلاس هيرو هب المعلمين وفرق المدرسة مساحة عملية للتعليم اليومي والتواصل والمتابعة وتحديثات الأسرة.",
-    tagline: "حياة مدرسية مترابطة بوضوح.",
+      "يمنح كلاس هيرو هب المعلمين وفرق المدرسة مكاناً واحداً للتعليم اليومي والتواصل والتحديثات التي تشاركها المدرسة مع الأسر.",
+    tagline: "أدوات عملية لليوم المدرسي.",
     product: "المنتج",
     support: "الدعم",
     legal: "قانوني",
@@ -1162,29 +1156,29 @@ const ar: PublicSiteCopy = {
   home: {
     pageTitle: "كلاس هيرو هب | مساحة عملية ليوم المدرسة",
     metaDescription:
-      "مساحة عملية للمعلمين والتواصل المدرسي والمتابعة وتحديثات الأسرة، تكمل أنظمة المدرسة الحالية.",
-    eyebrow: "حياة مدرسية مترابطة بوضوح.",
-    heading: "أنجزوا عمل اليوم المدرسي بوضوح، من الصف إلى الأسرة.",
+      "مكان واحد للمعلمين والتواصل المدرسي وتحديثات الأسر، إلى جانب الأنظمة التي تستخدمها المدرسة بالفعل.",
+    eyebrow: "أدوات عملية لليوم المدرسي.",
+    heading: "ندعم المعلمين. ونُبقي الأسر على اطّلاع.",
     intro:
-      "يمنح كلاس هيرو هب المعلمين وفرق المدرسة مساحة عملية للواجبات والسلوك والتقدير والتنبيهات والمحادثات والاستبيانات وتحديثات الأسرة، إلى جانب الأنظمة التي تستخدمها المدرسة بالفعل.",
+      "يجمع كلاس هيرو هب للفرق المدرسية الواجبات والسلوك والتقدير والتنبيهات والمحادثات والاستبيانات وتحديثات الأسر في مكان واحد، إلى جانب الأنظمة التي تستخدمها المدرسة بالفعل.",
     primaryCta: "اطلب برنامجاً تجريبياً",
     secondaryCta: "استكشف المنتج",
     strapline: "لقادة المدارس والمسؤولين والمعلمين · العربية والإنجليزية",
     schoolWorkspaceLabel: "عمل المدرسة اليومي",
-    schoolWorkspaceTitle: "ابدأ بما يحتاجه الصف أو الفريق الآن.",
+    schoolWorkspaceTitle: "ابدأ بصفك.",
     schoolWorkspaceText:
-      "انتقل من الصف إلى الواجبات والتنبيهات والسلوك والتقدير والتقويم أو الرسائل مع بقاء السياق واضحاً.",
+      "افتح الصف وانتقل مباشرة إلى الواجبات والتنبيهات والسلوك والتقدير والتقويم أو الرسائل.",
     familyDeliveryLabel: "تحديثات الأسرة",
     familyDeliveryTitle: "أوصل المعلومة المدرسية إلى الأسرة بوضوح.",
     familyDeliveryText:
       "يرى ولي الأمر ما تشاركه المدرسة عن طفله في Family Hero Hub.",
     boundaryLabel: "يكمل أنظمة المدرسة الحالية",
     boundaryText:
-      "تستمر المدرسة في استخدام أنظمتها الأساسية، ويضيف كلاس هيرو هب مساحة أوضح للعمل اليومي والتواصل مع الأسر.",
-    benefitsEyebrow: "عمل الموظفين اليومي",
-    benefitsHeading: "إجراءات عملية تبقى قريبة من الصف والأشخاص المعنيين.",
+      "واصل استخدام أنظمة مدرستك الأساسية، واستخدم كلاس هيرو هب للمعلمين والتواصل وتحديثات الأسر.",
+    benefitsEyebrow: "أدوات يومية للموظفين",
+    benefitsHeading: "يسهل العثور على الأدوات التي يستخدمها المعلمون أكثر.",
     benefitsIntro:
-      "يبدأ المعلم وفريق المدرسة من المهمة المطلوبة، ويحافظان على سياقها حتى تكتمل الخطوة التالية.",
+      "يبدأ المعلمون وفرق المدرسة بالمهمة الحالية ويواصلون من حيث توقفوا.",
     benefits: [
       {
         title: "ابدأ من الصف الذي تدرّسه",
@@ -1196,7 +1190,7 @@ const ar: PublicSiteCopy = {
       },
       {
         title: "قدّر الجهد وتابع ما يلزم",
-        text: "احتفِ بالسلوك الإيجابي، وأبقِ ملاحظات التحسين خاصة، وعُد إلى السياق الصحيح عند الحاجة إلى متابعة.",
+        text: "احتفِ بالسلوك الإيجابي، وأبقِ ملاحظات التحسين خاصة، وعُد إليها عند الحاجة إلى متابعة.",
       },
       {
         title: "استمع إلى الأسرة",
@@ -1204,17 +1198,17 @@ const ar: PublicSiteCopy = {
       },
     ],
     featureEyebrow: "رؤية أوضح وإعداد مساند",
-    featureHeading: "صورة أوضح للقادة، ونقطة بداية موثوقة للفريق.",
+    featureHeading: "معلومات واضحة للقادة. وإعداد بسيط للفرق.",
     featureIntro:
-      "تدعم التقارير وسجلات النشاط المتابعة، بينما يربط الإعداد البسيط مساحة العمل بالأشخاص والصفوف الصحيحة.",
+      "توضح التقارير ما حدث وأين قد تكون المتابعة مطلوبة، بينما يحافظ إعداد المدرسة على حداثة بيانات الموظفين والصفوف.",
     featureGroups: [
       {
         title: "اعرف أين تبدأ المتابعة",
-        text: "ساعد القادة على فهم النشاط ومراجعة ما حدث وتحديد المحادثة أو الإجراء التالي.",
+        text: "يستطيع القادة مراجعة نشاط المدرسة ومعرفة ما تغير وتحديد ما يحتاج إلى نقاش أو متابعة.",
         items: [
           "التقارير واتجاهات السلوك",
-          "معلومات التسليم والقراءة",
-          "سجل الإجراءات المهمة",
+          "معرفة ما إذا كانت الرسائل قد وصلت وقُرئت",
+          "معرفة ما تغير ومتى",
           "مساحة مستقلة لمراجعة حماية الطلبة",
         ],
       },
@@ -1240,7 +1234,7 @@ const ar: PublicSiteCopy = {
         alt: "شاشة المعلم في كلاس هيرو هب تعرض صفوفاً توضيحية",
         height: 650,
         eyebrow: "مساحة عمل المعلم",
-        title: "صفوف المعلم وإجراءاته التالية في متناول اليد",
+        title: "الصفوف والأدوات الشائعة في متناول اليد",
         text: "يبدأ المعلم من صفوفه المكلف بها وينتقل إلى الطلبة والتنبيهات والتقويم من دون البحث بين قوائم كثيرة.",
       },
       {
@@ -1249,19 +1243,19 @@ const ar: PublicSiteCopy = {
         height: 900,
         eyebrow: "الإعداد المساند",
         title: "صورة واضحة لما أصبح جاهزاً",
-        text: "يراجع المسؤول إعداد مساحة العمل، ويرى ما يزال يحتاج إلى اهتمام، ويواصل من المكان الصحيح.",
+        text: "يرى المسؤول ما أصبح جاهزاً وما يزال يحتاج إلى اهتمام، ويواصل من حيث توقف.",
       },
     ],
     familyEyebrow: "كلاس هيرو هب + Family Hero Hub",
-    familyHeading: "من المدرسة إلى الأسرة، من دون مكان إضافي للمراجعة.",
+    familyHeading: "تحديثات المدرسة للأسر.",
     familyIntro:
-      "يعمل موظفو المدرسة في كلاس هيرو هب. ويرى أولياء الأمور المعلومات التي تشاركها المدرسة معهم في Family Hero Hub.",
+      "يستخدم الموظفون كلاس هيرو هب للعمل المدرسي والتواصل، ويرى أولياء الأمور تحديثات المدرسة التي تشاركها معهم في Family Hero Hub.",
     schoolSideTitle: "1 · يعمل الموظفون في كلاس هيرو هب",
     schoolSideText:
-      "يسجل الموظفون العمل اليومي والتواصل والتحديثات التي تخص المدرسة.",
+      "يدير الموظفون الواجبات والتنبيهات والرسائل وغيرها من تحديثات المدرسة.",
     connectionTitle: "2 · تشارك المدرسة تحديثاً",
     connectionText:
-      "عندما تنشر المدرسة تحديثاً للأسرة، يصل إلى ولي الأمر المرتبط بالطالب.",
+      "عندما يشارك الموظفون تحديثاً للأسرة، يستطيع ولي الأمر رؤيته لطفله.",
     familySideTitle: "3 · يراه ولي الأمر في Family Hero Hub",
     familySideText:
       "تظهر الواجبات والتنبيهات وعناصر التقويم ونقاط المدرسة والاستبيانات أو المحادثات إلى جانب أدوات الأسرة.",
@@ -1269,13 +1263,13 @@ const ar: PublicSiteCopy = {
       "لا يحتاج أولياء الأمور إلى تطبيق مدرسي آخر أو بيانات دخول الموظفين. تبقى تجربتهم المدرسية داخل Family Hero Hub.",
     familyCta: "تعرّف على الربط مع الأسرة",
     trustEyebrow: "الثقة في الاستخدام اليومي",
-    trustHeading: "حماية تناسب طبيعة العمل المدرسي.",
+    trustHeading: "حماية بسيطة للعمل المدرسي اليومي.",
     trustIntro:
-      "ترتبط الصلاحيات بمسؤولية الموظف، وتبقى السجلات الحساسة في نطاقها المناسب، ويمكن الرجوع إلى الإجراءات المهمة عند الحاجة.",
+      "يرى الموظفون المعلومات والأدوات التي يحتاجونها فقط. وتبقى السجلات الحساسة خاصة، ويمكن للمدرسة معرفة ما تغير ومتى.",
     trustItems: [
       {
-        title: "صلاحيات واضحة لكل مسؤولية",
-        text: "يرى الموظف المدارس والصفوف والطلبة والأدوات المرتبطة بعمله.",
+        title: "صلاحيات واضحة للموظفين",
+        text: "يرى الموظف المدارس والصفوف والطلبة والأدوات التي يحتاجها في عمله.",
       },
       {
         title: "سجلات سلوك خاصة",
@@ -1295,13 +1289,13 @@ const ar: PublicSiteCopy = {
     bilingualPoint2:
       "تدعم التصاميم المتجاوبة عمل الموظفين عبر الهواتف والأجهزة اللوحية والحواسيب.",
     faqEyebrow: "أسئلة المدارس",
-    faqHeading: "إجابات واضحة قبل اتخاذ الخطوة التالية.",
+    faqHeading: "إجابات عن أسئلة المدارس الشائعة.",
     faqIntro:
       "تعرّف على من يستخدم كلاس هيرو هب، وكيف تصل التحديثات إلى الأسر، وكيف يمكن أن يبدأ البرنامج التجريبي.",
     faqCta: "اقرأ جميع الأسئلة",
     finalHeading: "هل يمكن لكلاس هيرو هب أن يجعل يوم مدرستك أسهل؟",
     finalText:
-      "أخبرنا بما يستغرق وقتاً أطول من اللازم، أو يتشتت بين الأنظمة، أو يترك الأسر من دون صورة واضحة. سنعرض الأجزاء الأكثر فائدة لكم.",
+      "أخبرنا بما يستغرق وقتاً أطول من اللازم أو يترك الأسر من دون صورة واضحة. سنعرض أجزاء كلاس هيرو هب التي قد تساعدكم.",
     finalPrimary: "اطلب برنامجاً تجريبياً",
     finalSecondary: "تواصل مع الفريق",
   },
@@ -1327,33 +1321,30 @@ const ar: PublicSiteCopy = {
       eyebrow: "كيف يعمل",
       heading: "ابدأ بالعمل المطلوب اليوم.",
       intro:
-        "يبدأ المعلم وفريق المدرسة من الصف أو الرسالة أو المتابعة المناسبة. ويحافظ كلاس هيرو هب على ترابط الخطوات، ثم يوصل التحديثات الموجهة للأسرة إلى Family Hero Hub.",
+        "يبدأ المعلمون وفرق المدرسة بالصف أو الرسالة أو المتابعة المطلوبة. وتظهر تحديثات الأسرة التي يشاركونها في Family Hero Hub.",
       highlights: ["العمل من الصف", "تواصل مستمر", "تحديثات تصل إلى الأسرة"],
       sections: [
         {
-          title: "افتح العمل في سياقه",
+          title: "ابدأ بصفك",
           text: "يبدأ المعلم من صفوفه المكلف بها وينتقل مباشرة إلى الطلبة والواجبات والتنبيهات والسلوك والتقدير والتقويم أو الرسائل.",
-          bullets: [
-            "إجراءات متكررة قريبة من الصف",
-            "عودة سهلة إلى المتابعة من دون فقدان السياق",
-          ],
+          bullets: ["الأدوات الشائعة قريبة من كل صف", "واصل من حيث توقفت"],
         },
         {
-          title: "أوصل المعلومة المناسبة إلى المنزل",
+          title: "شارك التحديثات مع الأسر",
           text: "عندما تشارك المدرسة معلومات موجهة للأسرة، يراها ولي الأمر في Family Hero Hub للطفل المرتبط. ويواصل فريق المدرسة عمله في كلاس هيرو هب.",
           bullets: [
-            "تستخدم الأسرة تجربة واحدة مألوفة",
+            "يواصل أولياء الأمور استخدام Family Hero Hub",
             "تختار المدرسة الميزات التي تبدأ بها",
           ],
         },
         {
           title: "جهّز مساحة العمل المساندة",
-          text: "يربط المسؤولون الموظفين والطلبة بالعام الدراسي والصفوف والمواد المناسبة. ويمكن إدخال بيانات الطلبة والموظفين المدعومة يدوياً أو تجهيزها من ملفات CSV بعد مراجعتها.",
+          text: "يُعد المسؤولون بيانات الموظفين والطلبة والأعوام الدراسية والصفوف والمواد. ويمكن إدخال بيانات الطلبة والموظفين المدعومة يدوياً أو تجهيزها من ملفات CSV بعد مراجعتها.",
         },
       ],
       cta: {
-        heading: "شاهد سير العمل بما يناسب مدرستك.",
-        text: "يمكن للعرض القصير أن يركز على العمل اليومي والتواصل مع الأسر الأكثر أهمية لفريقك.",
+        heading: "شاهد كيف يمكن أن يعمل في مدرستك.",
+        text: "يمكن للعرض القصير أن يغطي المهام اليومية والتواصل مع الأسر الأكثر أهمية لفريقك.",
         label: "اطلب عرضاً توضيحياً",
         href: "/pilot",
         secondaryLabel: "استكشف المنتج",
@@ -1367,7 +1358,7 @@ const ar: PublicSiteCopy = {
       eyebrow: "نظرة عامة على المنتج",
       heading: "أدوات عملية للعمل الذي يتكرر كل يوم مدرسي.",
       intro:
-        "يربط كلاس هيرو هب التعليم والتواصل والمتابعة بالأشخاص والصفوف المعنيين، ويعمل كمساحة يومية إلى جانب أنظمة المدرسة الحالية.",
+        "يجد المعلمون الأدوات الشائعة من خلال الصف أو الطالب، ويعمل كلاس هيرو هب إلى جانب أنظمة المدرسة الحالية.",
       highlights: [
         "عمل المعلم اليومي",
         "التواصل المدرسي",
@@ -1376,7 +1367,7 @@ const ar: PublicSiteCopy = {
       ],
       sections: [
         {
-          title: "عمل المعلم اليومي",
+          title: "أدوات المعلم اليومية",
           text: "ساعد المعلمين على الانتقال بسرعة بين صفوفهم والمهام التي ينفذونها أكثر من غيرها.",
           bullets: [
             "الواجبات وعناصر المفكرة والمتطلبات",
@@ -1385,29 +1376,29 @@ const ar: PublicSiteCopy = {
           ],
         },
         {
-          title: "تواصل يحتفظ بسياقه",
-          text: "اجعل التواصل المدرسي مرتبطاً بالصف أو الطالب المناسب، مع معلومات واضحة عن التسليم وأوقات التواصل التي تحددها المدرسة.",
+          title: "التواصل المدرسي",
+          text: "أرسل الرسائل إلى الصف أو الطالب، واعرف ما إذا كانت قد وصلت وقُرئت، وحدد أوقات التواصل المدرسية.",
           bullets: [
             "محادثات مدرسية بالنص والصور والملاحظات الصوتية",
             "التنبيهات والاستبيانات والتصويتات",
-            "وصول المعلومات إلى الأسرة عبر Family Hero Hub",
+            "تحديثات الأسرة في Family Hero Hub",
           ],
         },
         {
           title: "رؤية أوضح لمتابعة أفضل",
-          text: "استخدم التقارير والاتجاهات وسجل الأنشطة لفهم ما حدث والاحتفاء بالتقدم وتحديد ما يستحق الاهتمام بعد ذلك.",
+          text: "استخدم التقارير والاتجاهات لمعرفة ما حدث والاحتفاء بالتقدم وتحديد ما يحتاج إلى اهتمام.",
           bullets: [
             "اتجاهات السلوك والمشاركة",
-            "فحوصات التشغيل والتسليم",
+            "مراجعة حالة الرسائل ونشاط المدرسة",
             "مساحة مستقلة لمراجعة حماية الطلبة",
           ],
         },
         {
           title: "إعداد مدرسي مساند",
-          text: "اربط مساحة كلاس هيرو هب بالأعوام الدراسية والصفوف والمواد وتكليفات الموظفين وقوائم الطلبة، مع بقاء أنظمة المدرسة الأساسية في مكانها.",
+          text: "أعد الأعوام الدراسية والصفوف والمواد وتكليفات الموظفين وقوائم الطلبة مع إبقاء أنظمة المدرسة الأساسية في مكانها.",
           bullets: [
             "استيراد بيانات الطلبة والموظفين المدعومة من ملفات CSV بعد مراجعتها",
-            "تحديثات سنوية مع حفظ السجل",
+            "تحديث السجلات سنوياً",
             "تصدير السجلات المدعومة",
           ],
         },
@@ -1428,7 +1419,7 @@ const ar: PublicSiteCopy = {
       eyebrow: "للمدارس",
       heading: "مساحة عملية لكل من يشارك في يوم المدرسة.",
       intro:
-        "يمنح كلاس هيرو هب المعلمين والمسؤولين والقادة عملاً يومياً أوضح، ويكمل الأنظمة التي تستخدمها المدرسة بالفعل.",
+        "يمنح كلاس هيرو هب المعلمين وفرق المدرسة مكاناً واحداً للمهام اليومية والتواصل وتحديثات الأسر، إلى جانب أنظمة المدرسة الحالية.",
       highlights: [
         "المعلمون",
         "فريق المدرسة",
@@ -1442,11 +1433,11 @@ const ar: PublicSiteCopy = {
         },
         {
           title: "لفريق المدرسة",
-          text: "انشر التنبيهات والتحديثات، وأدر التقويم، واستخدم المحادثات والاستبيانات، واربط كل خطوة بسياقها الصحيح.",
+          text: "انشر التنبيهات والتحديثات، وأدر التقويم، واستخدم المحادثات والاستبيانات، واعرف ما يحتاج إلى متابعة.",
         },
         {
           title: "للقادة والمسؤولين",
-          text: "تابع التواصل والسلوك والتقدير والمشاركة بصورة أوضح، ثم ادعم مساحة العمل بإعداد الموظفين والصفوف والطلبة المناسب.",
+          text: "راجع التواصل والسلوك والتقدير والمشاركة، ثم حافظ على حداثة بيانات الموظفين والصفوف والطلبة.",
         },
         {
           title: "للمجتمعات العربية والإنجليزية",
@@ -1454,8 +1445,8 @@ const ar: PublicSiteCopy = {
         },
       ],
       cta: {
-        heading: "أرنا أين يتشتت العمل في يومكم المدرسي.",
-        text: "سنركز الحوار على الأشخاص والأعمال التي ستستفيد أكثر.",
+        heading: "أخبرنا بأي أجزاء من اليوم المدرسي تستغرق وقتاً طويلاً.",
+        text: "سنركز على المعلمين والفرق والمهام المدرسية التي تحتاج إلى أكبر قدر من المساعدة.",
         label: "ابدأ محادثة",
         href: "/pilot",
         secondaryLabel: "اقرأ الأسئلة الشائعة",
@@ -1467,19 +1458,18 @@ const ar: PublicSiteCopy = {
       metaDescription:
         "تعرّف على استخدام الموظفين لكلاس هيرو هب ووصول تحديثات المدرسة إلى أولياء الأمور في Family Hero Hub.",
       eyebrow: "الربط مع الأسرة",
-      heading:
-        "تصل تحديثات المدرسة إلى الأسر في المكان الذي يديرون فيه حياتهم العائلية.",
+      heading: "تحديثات المدرسة للأسر.",
       intro:
-        "يستخدم الموظفون كلاس هيرو هب للعمل المدرسي. ويرى أولياء الأمور المعلومات التي تشاركها المدرسة عن طفلهم في Family Hero Hub.",
+        "يستخدم الموظفون كلاس هيرو هب للعمل المدرسي والتواصل، ويرى أولياء الأمور تحديثات المدرسة التي تشاركها معهم في Family Hero Hub.",
       highlights: [
-        "مساحة واحدة للموظفين",
-        "تجربة واحدة للأسرة",
-        "تحديثات واضحة بين المدرسة والمنزل",
+        "مكان واحد للموظفين",
+        "Family Hero Hub لأولياء الأمور",
+        "تحديثات مدرسية واضحة",
       ],
       sections: [
         {
           title: "تعمل المدرسة في كلاس هيرو هب",
-          text: "ينظم الموظفون سجلات المدرسة والعمل التعليمي والتواصل والمعلومات التي ينبغي مشاركتها مع الأسر.",
+          text: "يدير الموظفون الواجبات والتنبيهات والمحادثات وغيرها من تحديثات المدرسة في كلاس هيرو هب.",
         },
         {
           title: "يرى ولي الأمر معلومات المدرسة في Family Hero Hub",
@@ -1491,8 +1481,8 @@ const ar: PublicSiteCopy = {
         },
       ],
       cta: {
-        heading: "هل تريد شرح الربط لمجتمع مدرستك؟",
-        text: "يمكننا مساعدة فريقك على فهم ما يستخدمه الموظفون وما تراه الأسر وكيفية تقديم التجربة بوضوح.",
+        heading: "هل تحتاج إلى شرح ذلك للأسر؟",
+        text: "يمكننا مساعدة فريقك على شرح ما يستخدمه الموظفون وأين يرى أولياء الأمور تحديثات المدرسة.",
         label: "تحدث مع الفريق",
         href: "/contact",
         secondaryLabel: "افتح دليل الأسرة",
@@ -1506,20 +1496,20 @@ const ar: PublicSiteCopy = {
       eyebrow: "اطلب برنامجاً تجريبياً",
       heading: "لنبدأ بمحادثة عن مدرستك.",
       intro:
-        "أخبرنا بما يعمل جيداً، وما يتطلب جهداً أكبر من اللازم، وأين ترغب في تجربة أوضح. سنجعل الخطوة التالية بسيطة وذات صلة.",
-      highlights: ["محادثة مركزة", "عرض مناسب", "خطوة تالية معقولة"],
+        "أخبرنا بما يعمل جيداً، وما يتطلب جهداً أكبر من اللازم، وما ترغب في تحسينه. سنحافظ على تركيز المحادثة.",
+      highlights: ["محادثة مركزة", "عرض مناسب", "برنامج تجريبي عملي"],
       sections: [
         {
-          title: "نفهم المدرسة",
-          text: "نبدأ بسياق مدرستك وأنظمتها الحالية والعمل الذي ترغب في تحسينه أولاً.",
+          title: "نتعرف على مدرستك",
+          text: "نسأل عن أنظمتك الحالية والعمل المدرسي الذي ترغب في تحسينه أكثر.",
         },
         {
           title: "نعرض ما يهم",
           text: "يركز العرض على أجزاء كلاس هيرو هب المرتبطة بفريقك وأولوياتك.",
         },
         {
-          title: "نتفق على الخطوة التالية",
-          text: "إذا كان المنتج مناسباً، نتفق على طريقة عملية لاستكشافه مع الأشخاص المناسبين في المدرسة.",
+          title: "نتفق على ما يلي",
+          text: "إذا بدا كلاس هيرو هب مفيداً، نتفق على برنامج تجريبي محدود يشارك فيه الموظفون المعنيون من المدرسة.",
         },
       ],
       form: {
@@ -1562,12 +1552,12 @@ const ar: PublicSiteCopy = {
       eyebrow: "تواصل معنا",
       heading: "كيف يمكننا مساعدتك؟",
       intro:
-        "سواء كنت تستكشف المنتج أو تعمل حالياً مع كلاس هيرو هب، ابدأ برسالة قصيرة وسيوجهها الفريق إلى المكان المناسب.",
+        "سواء كنت تستكشف المنتج أو تستخدم كلاس هيرو هب حالياً، أرسل لنا رسالة قصيرة وسنوصلها إلى الشخص المناسب.",
       highlights: ["البرامج التجريبية", "دعم المدارس", "إرشاد الأسر"],
       sections: [
         {
           title: "محادثات المنتج والبرامج التجريبية",
-          text: "أخبرنا عن مدرستك ودورك والعمل الذي ترغب في تحسينه أكثر من غيره.",
+          text: "أخبرنا عن مدرستك ودورك والمهمة التي ترغب في تحسينها أكثر من غيرها.",
         },
         {
           title: "دعم مدرسة تستخدم المنتج",
@@ -1588,7 +1578,7 @@ const ar: PublicSiteCopy = {
       },
       cta: {
         heading: "أرسل لنا رسالة قصيرة.",
-        text: "سنساعدك على إيجاد الخطوة التالية من دون طلب معلومات حساسة عبر البريد.",
+        text: "سنرد بخيار الدعم المناسب من دون طلب معلومات حساسة عبر البريد.",
         label: "راسل كلاس هيرو هب",
         href: supportEmailHref,
         secondaryLabel: "اقرأ الأسئلة الشائعة",
@@ -1602,7 +1592,7 @@ const ar: PublicSiteCopy = {
       eyebrow: "دليل مسؤول المدرسة",
       heading: "أنشئ مساحة عمل مدرسية يعتمد عليها الجميع.",
       intro:
-        "يسهّل الهيكل الواضح منذ البداية كل ما يأتي لاحقاً للمعلم والطالب والصف والأسرة.",
+        "يسهّل الإعداد الواضح العمل اليومي للمعلمين والطلبة والصفوف والأسر.",
       highlights: ["الإعداد", "الدعوات", "المراجعة", "التحضير للعام التالي"],
       sections: [
         {
@@ -1614,7 +1604,7 @@ const ar: PublicSiteCopy = {
           text: "أنشئ تكليفات الموظفين وانقل سجلات الطلبة عبر الاستيراد بعد مراجعته أو باستخدام أدوات المدرسة المتاحة.",
         },
         {
-          title: "قدم الأعمال التي تحتاجها المدرسة",
+          title: "أعد الأدوات التي تحتاجها المدرسة",
           text: "جهّز فئات السلوك وميزات الأسرة وخيارات التواصل وإعدادات المدرسة الأخرى بترتيب عملي.",
         },
         {
@@ -1622,7 +1612,7 @@ const ar: PublicSiteCopy = {
           text: "تحقق من الجمهور والصف والتوقيت قبل نشر التنبيهات أو التحديثات أو فعاليات التقويم أو معلومات الأسرة.",
         },
         {
-          title: "حافظ على حداثة الصورة",
+          title: "حافظ على حداثة السجلات",
           text: "صحح السجلات سريعاً، وراجع الأنشطة وعمليات التصدير عند الحاجة، وجهز العام الدراسي التالي من دون فقدان السجل المفيد.",
         },
       ],
@@ -1640,9 +1630,9 @@ const ar: PublicSiteCopy = {
       metaDescription:
         "مقدمة عملية للصفوف والواجبات والسلوك والتقدير والتواصل في كلاس هيرو هب.",
       eyebrow: "دليل المعلم",
-      heading: "ابدأ بصفوفك واجعل الخطوة التالية قريبة.",
+      heading: "ابدأ بصفوفك.",
       intro:
-        "صُمم كلاس هيرو هب ليبقي العمل التعليمي اليومي مرتبطاً بالصف والطلبة الذين تعمل معهم بالفعل.",
+        "يبقي كلاس هيرو هب مهام التعليم الشائعة مع الصف والطلبة الذين تعمل معهم بالفعل.",
       highlights: ["الصفوف", "الواجبات", "التقدير", "التواصل"],
       sections: [
         {
@@ -1650,7 +1640,7 @@ const ar: PublicSiteCopy = {
           text: "تعرض مساحة المعلم صفوفه الأساسية ومواده المكلف بها، لتمنحه نقطة بداية واضحة لليوم.",
         },
         {
-          title: "سجل وقدّر ضمن السياق",
+          title: "سجل السلوك والتقدير",
           text: "أضف معلومات السلوك من الصف أو الطالب المناسب، واستخدم التقدير الإيجابي للاحتفاء بالجهد الحقيقي.",
         },
         {
@@ -1667,8 +1657,8 @@ const ar: PublicSiteCopy = {
         },
       ],
       cta: {
-        heading: "هل تحتاج إلى مساعدة في عمل المعلم؟",
-        text: "اذكر مدرستك وسياق الصف والإجراء الذي كنت تحاول إكماله.",
+        heading: "هل تحتاج إلى مساعدة في مهمة للمعلم؟",
+        text: "اذكر مدرستك وصفك وما كنت تحاول القيام به.",
         label: "تواصل مع الدعم",
         href: supportEmailHref,
         secondaryLabel: "السلامة والدعم",
@@ -1714,11 +1704,11 @@ const ar: PublicSiteCopy = {
     safetyPrivacy: {
       pageTitle: "السلامة والخصوصية والدعم | كلاس هيرو هب",
       metaDescription:
-        "معلومات مبسطة عن الوصول وسجلات المدرسة والسلوك وحماية الطلبة ووصول المعلومات إلى الأسرة والدعم في كلاس هيرو هب.",
+        "معلومات مبسطة عن الوصول وسجلات المدرسة والسلوك وحماية الطلبة وتحديثات الأسر والدعم في كلاس هيرو هب.",
       eyebrow: "السلامة والخصوصية والدعم",
       heading: "وسائل عملية لحماية العمل المدرسي اليومي.",
       intro:
-        "يجمع كلاس هيرو هب بين الوصول المدروس وسجل الإجراءات الواضح والمعالجة المخصصة للعمل المدرسي الحساس.",
+        "يحد كلاس هيرو هب من الوصول إلى معلومات المدرسة، ويحفظ العمل الحساس في مساحات مخصصة.",
       highlights: [
         "سجلات خاصة بكل مدرسة",
         "معلومات سلوك خاصة",
@@ -1726,12 +1716,12 @@ const ar: PublicSiteCopy = {
       ],
       sections: [
         {
-          title: "يتناسب الوصول مع مسؤوليات المدرسة",
-          text: "يسجل كل شخص الدخول بحسابه ويرى المدارس والصفوف والطلبة والأدوات المرتبطة بعمله الحالي.",
+          title: "يرى الموظفون ما يحتاجونه",
+          text: "يسجل كل شخص الدخول بحسابه ويرى فقط المدارس والصفوف والطلبة والأدوات التي يحتاجها في عمله.",
         },
         {
           title: "تبقى سجلات المدرسة مع المدرسة المعنية",
-          text: "ترتبط السجلات والإجراءات بالمدرسة المناسبة، مع توفر سجل للأنشطة الإدارية والمهنية المهمة.",
+          text: "يمكن للمدرسة معرفة ما تغير ومتى في الإجراءات المهمة للموظفين والإدارة.",
         },
         {
           title: "يبقى السلوك الذي يحتاج إلى تحسين خاصاً",
@@ -1739,7 +1729,7 @@ const ar: PublicSiteCopy = {
         },
         {
           title: "مراجعة حماية الطلبة مستقلة",
-          text: "يستخدم موظفو حماية الطلبة مساحة مراجعة مخصصة. ولا يجعل فتح المراجعة صاحبها جزءاً من محادثة عادية ولا يغير حالة قراءتها.",
+          text: "يستخدم موظفو حماية الطلبة مساحة مخصصة تبقى منفصلة عن محادثات المدرسة العادية.",
         },
         {
           title: "تصل تحديثات الأسرة عبر Family Hero Hub",

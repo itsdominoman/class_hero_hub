@@ -12,8 +12,7 @@ type PageCase = {
 const PUBLIC_CASES: PageCase[] = [
   {
     path: "/",
-    heading:
-      "Help teachers act, communicate and follow up—without losing the school day to scattered tools.",
+    heading: "Help teachers. Keep families informed.",
     headingLevel: "h1",
     expectedText: "Demonstration school and staff data only.",
     safeClickTarget: "/login",
@@ -21,13 +20,13 @@ const PUBLIC_CASES: PageCase[] = [
   {
     path: "/features",
     heading: "Practical tools for work that repeats every school day.",
-    expectedText: "Everyday teaching workflows",
+    expectedText: "Everyday teaching tools",
     safeClickTarget: "/pilot",
   },
   {
     path: "/how-it-works",
     heading: "Start with the work that needs doing today.",
-    expectedText: "Carry the right information home",
+    expectedText: "Share updates with families",
     safeClickTarget: "/features",
   },
   {
@@ -39,7 +38,7 @@ const PUBLIC_CASES: PageCase[] = [
   },
   {
     path: "/family-connection",
-    heading: "School updates meet families where family life already happens.",
+    heading: "School updates for families.",
     expectedText: "Parents see school information in Family Hero Hub",
     safeClickTarget: "/guides/families",
   },
@@ -105,7 +104,7 @@ const PUBLIC_CASES: PageCase[] = [
   },
   {
     path: "/guides/teacher",
-    heading: "Start with your classes. Keep the next action close.",
+    heading: "Start with your classes.",
     expectedText: "Share useful updates",
     safeClickTarget: "/safety-privacy",
   },
@@ -249,10 +248,10 @@ test.describe("Europe dev public pages", () => {
     await page.goto("/", { waitUntil: "networkidle" });
 
     const headings = [
-      "Useful actions stay close to the people and classes they belong to.",
-      "From the school team to the family, without another place to check.",
+      "The tools teachers use most are easy to find.",
+      "School updates for families.",
       "See the product at work.",
-      "Give leaders a clearer view—and teams a reliable starting point.",
+      "Clear information for leaders. Simple setup for teams.",
     ];
     const positions = await Promise.all(
       headings.map(async (heading) => {
@@ -294,7 +293,7 @@ test.describe("Europe dev public pages", () => {
     await expect(
       page.getByRole("heading", {
         level: 1,
-        name: "أنجزوا عمل اليوم المدرسي بوضوح، من الصف إلى الأسرة.",
+        name: "ندعم المعلمين. ونُبقي الأسر على اطّلاع.",
       }),
     ).toBeVisible();
     await expect(
@@ -337,7 +336,7 @@ test.describe("Europe dev public pages", () => {
     await expect(
       page.getByRole("heading", {
         level: 1,
-        name: "Help teachers act, communicate and follow up—without losing the school day to scattered tools.",
+        name: "Help teachers. Keep families informed.",
       }),
     ).toHaveCount(0);
   });

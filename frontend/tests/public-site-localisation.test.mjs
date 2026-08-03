@@ -68,6 +68,20 @@ test("public-site copy positions CHH as an everyday workspace alongside existing
   assert.equal(arabic.home.proofItems[0].src, "/product/teacher-workflow.png");
 });
 
+test("public homepage uses the final direct bilingual hero and family wording", () => {
+  const english = getPublicSiteCopy("en");
+  const arabic = getPublicSiteCopy("ar");
+
+  assert.equal(english.home.heading, "Help teachers. Keep families informed.");
+  assert.equal(
+    english.home.intro,
+    "Class Hero Hub gives school teams one place for homework, behaviour, recognition, notices, chats, surveys and family updates—alongside the systems your school already uses.",
+  );
+  assert.equal(english.home.familyHeading, "School updates for families.");
+  assert.match(arabic.home.heading, /المعلمين.*الأسر/);
+  assert.equal(arabic.home.familyHeading, "تحديثات المدرسة للأسر.");
+});
+
 test("public legal pages show the current effective date in both languages", () => {
   const english = getPublicSiteCopy("en");
   const arabic = getPublicSiteCopy("ar");

@@ -21,8 +21,7 @@ const STANDARD_VIEWPORTS = [320, 375, 390, 430];
 const CASES: VisualCase[] = [
   {
     path: "/",
-    heading:
-      "Help teachers act, communicate and follow up—without losing the school day to scattered tools.",
+    heading: "Help teachers. Keep families informed.",
     auth: "public",
     screenshotName: "home-public",
     ignoredConsoleErrorSnippets: ["the server responded with a status of 401"],
