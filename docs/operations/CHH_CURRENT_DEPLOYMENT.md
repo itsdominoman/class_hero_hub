@@ -1,5 +1,39 @@
 # CHH current pilot deployment
 
+## 2026-08-03 direct CHH family-access removal
+
+Class Hero Hub is now exclusively a staff workspace. The authenticated navigation
+contains no Family destination for guardian-only or dual-role accounts, including
+staff members who are also parents. Staff continue to see pupils only through the
+teaching and school-administration workflows authorised for their staff role; their
+own child's school information is available only through Family Hero Hub.
+
+The obsolete CHH parent dashboard and guardian-code page no longer load child data.
+Requests to `/parent` and `/join` are redirected to the bilingual public Family Hero
+Hub explanation. The backend no longer mounts any direct `/api/guardian/*` or
+`/api/join/guardian*` route, so a saved URL or custom client cannot bypass the
+navigation change. The separate authenticated `/api/integrations/fhh/*` service
+surface used by Family Hero Hub remains mounted and unchanged.
+
+Validation passed 24 focused backend tests covering the removed public surface and
+the retained FHH dashboard, messaging and survey integrations; 37 focused frontend
+contract and presentation tests; 2,217-key English/Arabic parity; Svelte diagnostics
+with zero errors and zero warnings; and the production frontend build. A focused
+Playwright test confirmed that a mixed staff/guardian account has no Family link and
+that `/parent` redirects to `/family-connection`. Live HTTPS checks returned 404 for
+the removed guardian dashboard and join routes, 401 rather than 404 for the retained
+protected FHH dashboard route, and `database=ok`, `migration=current`. The existing
+signed-in Chrome workspace was reloaded and contained zero `/parent` navigation
+links; its legacy parent URL redirected to “School updates for families.”
+
+Only the backend and frontend were rebuilt and recreated. The backend changed from
+container `f23aa4b53963` to `db11ff99aa23`; the frontend changed from
+`046fa48792c1` to `6e2abf1e5921`. PostgreSQL `9653df2c5588`, messaging worker
+`8919cebb3330`, and notification scheduler `2909345e8a68` retained their identities.
+There is no schema migration, existing-data mutation, FHH deployment, worker,
+scheduler, Capacitor, Android or APK change. A database backup was not required for
+this route and presentation change. Source implementation commit: `1a864ae`.
+
 ## 2026-08-03 student-import avatar assignment release
 
 Committing a staged student CSV import now assigns avatars for every successful,
