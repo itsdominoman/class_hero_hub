@@ -1,5 +1,36 @@
 # CHH current pilot deployment
 
+## 2026-08-03 student-import avatar assignment release
+
+Committing a staged student CSV import now assigns avatars for every successful,
+active row whose recorded gender is `male` or `female`. Assignment runs once after
+the complete student and enrolment batch is prepared, allowing the existing
+class-aware service to use the correct gender pool, exclude retired artwork, and
+avoid current-class collisions. Preview remains read-only. Blank, `other`, and
+`unspecified` values remain unassigned, inactive/leaver rows are skipped, and a
+later CSV gender correction replaces a wrong-pool avatar.
+
+Avatar assignment uses `commit=False` inside the import transaction. Any assignment
+failure therefore rolls back the students, enrolments, avatar writes, and import
+status together; the import remains staged for correction or retry. No API response
+shape or CSV template changed.
+
+The combined student-import and avatar selection passed 61/61 tests both locally
+and inside the deployed image, including immediate male/female assignment,
+same-class uniqueness, retired-artwork exclusion, unknown-gender withholding,
+gender correction, and deliberate assignment-failure rollback. The live
+aggregate-only avatar audit remains a no-op across all 504 active demo students,
+readiness reports `database=ok` and `migration=current`, and recent backend logs
+contain no relevant error entry.
+
+Only the backend was rebuilt and recreated, changing from container `d60b88ec573f`
+to `f23aa4b53963`. The frontend `046fa48792c1`, PostgreSQL `9653df2c5588`,
+messaging worker `8919cebb3330`, and notification scheduler `2909345e8a68`
+retained their identities. There is no schema migration, existing-data mutation,
+frontend, worker, scheduler, native, or APK change. A new database backup was not
+required for this backend-only transactional change. Source implementation commit:
+`fe52ba0`.
+
 ## 2026-08-03 complete demo avatar coverage follow-up
 
 A full live audit found that the only two active students still missing avatars were
