@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from .. import auth
 from ..database import get_db
+from ..entitlement_service import HOMEWORK_DIARY, require_school_entitlement
 from ..models_school import ClassSection, HomeworkAttachment, HomeworkItem, HomeworkItemCompletion, StaffAssignment, SubjectGroup, User
 from ..school_scope import open_interval_expression, write_audit
 from ..family_notifications import enqueue_family_notifications, material_snapshot
@@ -29,8 +30,8 @@ from .announcements import (
     _validate_upload_filename,
 )
 
-teacher_router = APIRouter()
-guardian_router = APIRouter()
+teacher_router = APIRouter(dependencies=[Depends(require_school_entitlement(HOMEWORK_DIARY))])
+guardian_router = APIRouter(dependencies=[Depends(require_school_entitlement(HOMEWORK_DIARY))])
 UPLOAD_ROOT = Path(os.environ.get("HOMEWORK_UPLOAD_DIR", "/app/data/homework_uploads"))
 
 

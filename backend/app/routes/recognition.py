@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from .. import auth
 from ..database import get_db
+from ..entitlement_service import POSITIVE_RECOGNITION, require_school_entitlement
 from ..models_school import (
     BehaviourCategory,
     BranchCampus,
@@ -36,7 +37,7 @@ from ..recognition_service import (
 from ..school_scope import require_school_role, write_audit
 
 
-router = APIRouter(dependencies=[Depends(require_school_role("school_admin"))])
+router = APIRouter(dependencies=[Depends(require_school_role("school_admin")), Depends(require_school_entitlement(POSITIVE_RECOGNITION))])
 
 
 class RecognitionConfigRequest(BaseModel):

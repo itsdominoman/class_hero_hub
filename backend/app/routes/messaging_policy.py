@@ -8,6 +8,14 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..database import get_db, settings
+from ..entitlement_service import (
+    BEHAVIOUR_POINTS,
+    FAMILY_CONNECTION,
+    SCHOOL_CHATS,
+    capability_enabled,
+    require_school_entitlement,
+    require_school_entitlements,
+)
 from ..models_school import (
     Membership,
     NotificationOutbox,
@@ -89,7 +97,13 @@ def get_points_notification_policy(
     return _points_payload(school, policy)
 
 
-@router.put("/points-notification-policy", response_model=SchoolPointsNotificationPolicyResponse)
+@router.put(
+    "/points-notification-policy",
+    response_model=SchoolPointsNotificationPolicyResponse,
+    dependencies=[
+        Depends(require_school_entitlements(BEHAVIOUR_POINTS, FAMILY_CONNECTION))
+    ],
+)
 def update_points_notification_policy(
     payload: SchoolPointsNotificationPolicyUpdate,
     membership: Membership = Depends(require_school_role("school_admin")),
@@ -142,12 +156,13 @@ def update_points_notification_policy(
     return _points_payload(school, policy)
 
 
-def _payload(policy: SchoolMessagingPolicy) -> dict:
+def _payload(db: Session, policy: SchoolMessagingPolicy) -> dict:
     global_enabled = bool(settings.MESSAGING_ENABLED)
+    entitlement_enabled = capability_enabled(db, policy.school_id, SCHOOL_CHATS)
     return {
         "school_id": policy.school_id,
         "global_enabled": global_enabled,
-        "effective_enabled": global_enabled and bool(policy.enabled),
+        "effective_enabled": global_enabled and entitlement_enabled and bool(policy.enabled),
         "enabled": bool(policy.enabled),
         "guardian_replies_enabled": bool(policy.guardian_replies_enabled),
         "delivery_receipts_visible": bool(policy.delivery_receipts_visible),
@@ -178,7 +193,7 @@ def get_messaging_policy(
         db.add(policy)
         db.commit()
         db.refresh(policy)
-    return _payload(policy)
+    return _payload(db, policy)
 
 
 def _contact_hours_payload(
@@ -258,7 +273,11 @@ def get_messaging_contact_hours(
     return _contact_hours_payload(db, school=school, policy=policy)
 
 
-@router.put("/messaging-contact-hours", response_model=SchoolContactHoursResponse)
+@router.put(
+    "/messaging-contact-hours",
+    response_model=SchoolContactHoursResponse,
+    dependencies=[Depends(require_school_entitlement(SCHOOL_CHATS))],
+)
 def update_messaging_contact_hours(
     payload: SchoolContactHoursUpdate,
     membership: Membership = Depends(require_school_role("school_admin")),
@@ -367,7 +386,11 @@ def get_messaging_notification_outbox_status(
     }
 
 
-@router.put("/messaging-policy", response_model=SchoolMessagingPolicyResponse)
+@router.put(
+    "/messaging-policy",
+    response_model=SchoolMessagingPolicyResponse,
+    dependencies=[Depends(require_school_entitlement(SCHOOL_CHATS))],
+)
 def update_messaging_policy(
     payload: SchoolMessagingPolicyUpdate,
     membership: Membership = Depends(require_school_role("school_admin")),
@@ -389,7 +412,7 @@ def update_messaging_policy(
             detail={"code": "messaging_policy_version_conflict", "current_version": policy.policy_version},
         )
 
-    before = _payload(policy)
+    before = _payload(db, policy)
     for field in (
         "enabled",
         "guardian_replies_enabled",
@@ -405,7 +428,7 @@ def update_messaging_policy(
     policy.policy_version += 1
     policy.updated_by_membership_id = membership.id
     db.flush()
-    after = _payload(policy)
+    after = _payload(db, policy)
     write_audit(
         db,
         membership.user_id,
@@ -428,4 +451,4 @@ def update_messaging_policy(
     )
     db.commit()
     db.refresh(policy)
-    return _payload(policy)
+    return _payload(db, policy)

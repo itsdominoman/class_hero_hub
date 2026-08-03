@@ -12,6 +12,8 @@ import httpx
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
+from .entitlement_service import FAMILY_CONNECTION, SCHOOL_CHATS, capability_enabled
+
 from .database import settings
 from .messaging_notifications import (
     message_notification_direction,
@@ -637,7 +639,25 @@ def dispatch_claimed_rows(
     push_groups: dict[tuple[int, int, str], list[tuple[DispatchContext, NotificationDelivery, DevicePushRegistration]]] = {}
     bridge_contexts: list[DispatchContext] = []
     family_bridge_rows: list[NotificationOutbox] = []
+    chat_enabled: dict[int, bool] = {}
+    family_enabled: dict[int, bool] = {}
     for row in rows:
+        if row.event_category == "chat":
+            chat_enabled.setdefault(
+                row.school_id,
+                capability_enabled(db, row.school_id, SCHOOL_CHATS),
+            )
+            if not chat_enabled[row.school_id]:
+                _cancel_outbox(row, "school_chats_not_enabled", now)
+                continue
+            if row.recipient_kind == "fhh_link":
+                family_enabled.setdefault(
+                    row.school_id,
+                    capability_enabled(db, row.school_id, FAMILY_CONNECTION),
+                )
+                if not family_enabled[row.school_id]:
+                    _cancel_outbox(row, "family_connection_not_enabled", now)
+                    continue
         if row.event_category != "chat":
             if not revalidate_family_notification(db, row):
                 _cancel_outbox(row, "recipient_ineligible", now)

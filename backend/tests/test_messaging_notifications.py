@@ -13,6 +13,7 @@ os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
 
 import pytest
+from entitlement_fixtures import grant_all_capabilities
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -321,6 +322,7 @@ def _world(db):
         ]
     )
     conversation.created_by_participant_id = guardian.id
+    grant_all_capabilities(db, school, admin_user)
     db.commit()
     return SimpleNamespace(
         school=school,
@@ -531,6 +533,7 @@ def _fhh_direction_world(db):
             )
         ]
     )
+    grant_all_capabilities(db, world.school, world.admin_user)
     db.commit()
     return SimpleNamespace(
         school=world.school,

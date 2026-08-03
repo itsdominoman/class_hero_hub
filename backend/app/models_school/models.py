@@ -858,6 +858,93 @@ class SchoolFeatureControlAuditEvent(Base):
     )
 
 
+class SchoolEntitlement(Base):
+    """Canonical school grant for an optional product capability."""
+
+    __tablename__ = "school_entitlements"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    capability = Column(String(50), nullable=False)
+    enabled = Column(Boolean, nullable=False, default=False, server_default="false")
+    source = Column(String(20), nullable=False)
+    effective_from = Column(Date, nullable=False)
+    expires_on = Column(Date, nullable=True)
+    internal_note = Column(Text, nullable=True)
+    entitlement_version = Column(Integer, nullable=False, default=1, server_default="1")
+    updated_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("school_id", "capability", name="uq_school_entitlements_school_capability"),
+        CheckConstraint(
+            "capability IN ('homework_diary', 'notices_calendar', 'behaviour_points', 'positive_recognition', 'surveys_polls', 'school_chats', 'chat_photos', 'voice_notes', 'family_connection', 'school_family_updates', 'update_photos', 'reports_insights', 'safeguarding', 'student_staff_import_export')",
+            name="ck_school_entitlements_capability",
+        ),
+        CheckConstraint(
+            "source IN ('pilot', 'trial', 'paid', 'complimentary')",
+            name="ck_school_entitlements_source",
+        ),
+        CheckConstraint("entitlement_version >= 1", name="ck_school_entitlements_version"),
+        CheckConstraint(
+            "expires_on IS NULL OR expires_on >= effective_from",
+            name="ck_school_entitlements_dates",
+        ),
+        Index("ix_school_entitlements_school_enabled", "school_id", "enabled", "capability"),
+    )
+
+
+class SchoolEntitlementEvent(Base):
+    """Append-only snapshot of every school entitlement decision."""
+
+    __tablename__ = "school_entitlement_events"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    event_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    entitlement_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("school_entitlements.id", ondelete="RESTRICT"), nullable=False)
+    capability = Column(String(50), nullable=False)
+    enabled = Column(Boolean, nullable=False)
+    source = Column(String(20), nullable=False)
+    effective_from = Column(Date, nullable=False)
+    expires_on = Column(Date, nullable=True)
+    internal_note = Column(Text, nullable=True)
+    entitlement_version = Column(Integer, nullable=False)
+    action = Column(String(24), nullable=False)
+    actor_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    occurred_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint(
+            "capability IN ('homework_diary', 'notices_calendar', 'behaviour_points', 'positive_recognition', 'surveys_polls', 'school_chats', 'chat_photos', 'voice_notes', 'family_connection', 'school_family_updates', 'update_photos', 'reports_insights', 'safeguarding', 'student_staff_import_export')",
+            name="ck_school_entitlement_events_capability",
+        ),
+        CheckConstraint(
+            "source IN ('pilot', 'trial', 'paid', 'complimentary')",
+            name="ck_school_entitlement_events_source",
+        ),
+        CheckConstraint(
+            "action IN ('backfilled', 'created', 'updated', 'enabled', 'disabled')",
+            name="ck_school_entitlement_events_action",
+        ),
+        CheckConstraint("entitlement_version >= 1", name="ck_school_entitlement_events_version"),
+        Index(
+            "ix_school_entitlement_events_school_capability_time",
+            "school_id",
+            "capability",
+            "occurred_at",
+            "id",
+        ),
+    )
+
+
+@event.listens_for(SchoolEntitlementEvent, "before_update", propagate=True)
+@event.listens_for(SchoolEntitlementEvent, "before_delete", propagate=True)
+def _prevent_school_entitlement_event_update(mapper, connection, target):
+    raise ValueError("School entitlement events are append-only")
+
+
 class FhhMessagingIdentity(Base):
     """Minimal lifecycle identity synchronized from FHH; not a participant."""
 
@@ -2997,6 +3084,7 @@ class PlatformAdmin(Base):
     granted_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     granted_at = Column(DateTime(timezone=True), server_default=func.now())
     revoked_at = Column(DateTime(timezone=True), nullable=True)
+    manage_school_entitlements = Column(Boolean, nullable=False, default=False, server_default="false")
 
 
 class AuditLog(Base):

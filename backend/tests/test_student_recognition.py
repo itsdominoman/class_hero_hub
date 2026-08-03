@@ -1,6 +1,7 @@
 from datetime import date, datetime, timezone
 
 import pytest
+from entitlement_fixtures import grant_all_capabilities
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -122,6 +123,8 @@ def recognition_world(db):
         BehaviourEvent(school_id=school.id, student_id=students[0].id, category_id=positive.id, actor_user_id=teacher.id, points_delta=50, source="teacher", context_type="general", created_at=datetime(2026, 7, 1, tzinfo=timezone.utc)),
     ])
     db.add_all(events)
+    grant_all_capabilities(db, school, admin)
+    grant_all_capabilities(db, other_school, admin)
     db.commit()
     return {
         "school": school,

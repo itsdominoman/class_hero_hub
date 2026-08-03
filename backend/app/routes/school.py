@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from .. import auth, invite_tokens
 from ..database import get_db, settings
+from ..entitlement_service import FAMILY_CONNECTION, STUDENT_STAFF_IMPORT_EXPORT, require_school_entitlement
 from ..imports_service import (
     CSV_COLUMNS,
     OPTIONAL_STUDENT_CSV_COLUMNS,
@@ -78,6 +79,8 @@ from .platform import _invite_payload, _issue_staff_invite
 from ..school_scope import is_open_interval, open_interval_expression, require_school_role, write_audit
 
 router = APIRouter(dependencies=[Depends(require_school_role("school_admin"))])
+IMPORT_EXPORT_ENTITLEMENT = [Depends(require_school_entitlement(STUDENT_STAFF_IMPORT_EXPORT))]
+FAMILY_CONNECTION_ENTITLEMENT = [Depends(require_school_entitlement(FAMILY_CONNECTION))]
 
 
 class SettingsUpdate(BaseModel):
@@ -2760,7 +2763,7 @@ def _import_detail_payload(db: Session, imp: Import, row_payload_fn=_import_row_
     return {**_import_summary_payload(imp), "rows": [row_payload_fn(row) for row in rows]}
 
 
-@router.get("/students/import-template")
+@router.get("/students/import-template", dependencies=IMPORT_EXPORT_ENTITLEMENT)
 def download_student_import_template(membership: Membership = Depends(require_school_role("school_admin"))):
     csv_text = generate_template_csv(CSV_COLUMNS)
     return Response(
@@ -2770,7 +2773,7 @@ def download_student_import_template(membership: Membership = Depends(require_sc
     )
 
 
-@router.post("/students/imports", status_code=status.HTTP_201_CREATED)
+@router.post("/students/imports", status_code=status.HTTP_201_CREATED, dependencies=IMPORT_EXPORT_ENTITLEMENT)
 async def upload_student_import(
     file: UploadFile = File(...),
     mode: str = Form(default="normal"),
@@ -2920,7 +2923,7 @@ async def upload_student_import(
     return _import_detail_payload(db, imp)
 
 
-@router.get("/students/imports")
+@router.get("/students/imports", dependencies=IMPORT_EXPORT_ENTITLEMENT)
 def list_student_imports(
     import_status: str | None = Query(default=None, alias="status"),
     mode: str | None = Query(default=None),
@@ -2978,7 +2981,7 @@ def list_student_imports(
     }
 
 
-@router.get("/students/export-history")
+@router.get("/students/export-history", dependencies=IMPORT_EXPORT_ENTITLEMENT)
 def list_student_export_history(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -3036,7 +3039,7 @@ def list_student_export_history(
     }
 
 
-@router.get("/students/imports/{import_id}")
+@router.get("/students/imports/{import_id}", dependencies=IMPORT_EXPORT_ENTITLEMENT)
 def get_student_import(
     import_id: int,
     page: int = Query(default=1, ge=1),
@@ -3103,7 +3106,7 @@ def get_student_import(
     return payload
 
 
-@router.get("/students/imports/{import_id}/reports/{report_type}.csv")
+@router.get("/students/imports/{import_id}/reports/{report_type}.csv", dependencies=IMPORT_EXPORT_ENTITLEMENT)
 def download_student_import_report(
     import_id: int,
     report_type: str,
@@ -3164,7 +3167,7 @@ def _student_export_response(
     )
 
 
-@router.get("/students/exports/active-roster.csv")
+@router.get("/students/exports/active-roster.csv", dependencies=IMPORT_EXPORT_ENTITLEMENT)
 def download_active_student_roster(
     membership: Membership = Depends(require_school_role("school_admin")),
     db: Session = Depends(get_db),
@@ -3187,7 +3190,7 @@ def download_active_student_roster(
     )
 
 
-@router.get("/students/exports/guardian-contacts.csv")
+@router.get("/students/exports/guardian-contacts.csv", dependencies=IMPORT_EXPORT_ENTITLEMENT)
 def download_guardian_contact_roster(
     membership: Membership = Depends(require_school_role("school_admin")),
     db: Session = Depends(get_db),
@@ -3203,7 +3206,7 @@ def download_guardian_contact_roster(
     )
 
 
-@router.get("/students/exports/class-enrolments.csv")
+@router.get("/students/exports/class-enrolments.csv", dependencies=IMPORT_EXPORT_ENTITLEMENT)
 def download_current_class_enrolments(
     membership: Membership = Depends(require_school_role("school_admin")),
     db: Session = Depends(get_db),
@@ -3227,7 +3230,7 @@ def download_current_class_enrolments(
     )
 
 
-@router.get("/students/exports/annual-update.csv")
+@router.get("/students/exports/annual-update.csv", dependencies=IMPORT_EXPORT_ENTITLEMENT)
 def download_populated_annual_update(
     membership: Membership = Depends(require_school_role("school_admin")),
     db: Session = Depends(get_db),
@@ -3254,7 +3257,7 @@ def download_populated_annual_update(
     )
 
 
-@router.post("/students/imports/{import_id}/commit")
+@router.post("/students/imports/{import_id}/commit", dependencies=IMPORT_EXPORT_ENTITLEMENT)
 def commit_student_import(import_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     school_id = _school_id(membership)
     imp = (
@@ -3529,7 +3532,7 @@ def commit_student_import(import_id: int, membership: Membership = Depends(requi
     return _import_detail_payload(db, imp)
 
 
-@router.post("/students/imports/{import_id}/discard")
+@router.post("/students/imports/{import_id}/discard", dependencies=IMPORT_EXPORT_ENTITLEMENT)
 def discard_student_import(import_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     school_id = _school_id(membership)
     imp = _get_owned(db, Import, school_id, import_id)
@@ -3558,7 +3561,7 @@ def _teacher_import_row_payload(row: ImportRow) -> dict[str, Any]:
     }
 
 
-@router.get("/teachers/import-template")
+@router.get("/teachers/import-template", dependencies=IMPORT_EXPORT_ENTITLEMENT)
 def download_teacher_import_template(membership: Membership = Depends(require_school_role("school_admin"))):
     csv_text = generate_template_csv(TEACHER_CSV_COLUMNS)
     return Response(
@@ -3568,7 +3571,7 @@ def download_teacher_import_template(membership: Membership = Depends(require_sc
     )
 
 
-@router.post("/teachers/imports", status_code=status.HTTP_201_CREATED)
+@router.post("/teachers/imports", status_code=status.HTTP_201_CREATED, dependencies=IMPORT_EXPORT_ENTITLEMENT)
 async def upload_teacher_import(
     file: UploadFile = File(...),
     membership: Membership = Depends(require_school_role("school_admin")),
@@ -3613,13 +3616,13 @@ async def upload_teacher_import(
     return _import_detail_payload(db, imp, _teacher_import_row_payload)
 
 
-@router.get("/teachers/imports/{import_id}")
+@router.get("/teachers/imports/{import_id}", dependencies=IMPORT_EXPORT_ENTITLEMENT)
 def get_teacher_import(import_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     imp = _get_owned(db, Import, _school_id(membership), import_id)
     return _import_detail_payload(db, imp, _teacher_import_row_payload)
 
 
-@router.post("/teachers/imports/{import_id}/commit")
+@router.post("/teachers/imports/{import_id}/commit", dependencies=IMPORT_EXPORT_ENTITLEMENT)
 def commit_teacher_import(import_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     school_id = _school_id(membership)
     imp = _get_owned(db, Import, school_id, import_id)
@@ -3696,7 +3699,7 @@ def commit_teacher_import(import_id: int, membership: Membership = Depends(requi
     return _import_detail_payload(db, imp, _teacher_import_row_payload)
 
 
-@router.post("/teachers/imports/{import_id}/discard")
+@router.post("/teachers/imports/{import_id}/discard", dependencies=IMPORT_EXPORT_ENTITLEMENT)
 def discard_teacher_import(import_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     school_id = _school_id(membership)
     imp = _get_owned(db, Import, school_id, import_id)
@@ -3998,7 +4001,7 @@ def _fhh_invite_payload(row: FhhLinkInvite) -> dict[str, Any]:
     }
 
 
-@router.get("/students/{student_id}/fhh-invites")
+@router.get("/students/{student_id}/fhh-invites", dependencies=FAMILY_CONNECTION_ENTITLEMENT)
 def list_fhh_invites(student_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     school_id = _school_id(membership)
     student = _get_owned(db, Student, school_id, student_id)
@@ -4034,7 +4037,7 @@ def list_fhh_invites(student_id: int, membership: Membership = Depends(require_s
     }
 
 
-@router.post("/students/{student_id}/fhh-invites", status_code=status.HTTP_201_CREATED)
+@router.post("/students/{student_id}/fhh-invites", status_code=status.HTTP_201_CREATED, dependencies=FAMILY_CONNECTION_ENTITLEMENT)
 def create_fhh_invite(student_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     school_id = _school_id(membership)
     student = _get_owned(db, Student, school_id, student_id)
@@ -4054,7 +4057,7 @@ def create_fhh_invite(student_id: int, membership: Membership = Depends(require_
     return {**_fhh_invite_payload(row), "code": invite_tokens.display_short_code(raw_code)}
 
 
-@router.post("/fhh-invites/{invite_id}/revoke")
+@router.post("/fhh-invites/{invite_id}/revoke", dependencies=FAMILY_CONNECTION_ENTITLEMENT)
 def revoke_fhh_invite(invite_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     school_id = _school_id(membership)
     row = db.query(FhhLinkInvite).filter(FhhLinkInvite.id == invite_id, FhhLinkInvite.school_id == school_id).first()

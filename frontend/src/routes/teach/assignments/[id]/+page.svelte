@@ -37,7 +37,7 @@
       id: number;
       role: 'homeroom' | 'subject';
       target_type: 'class_section' | 'subject_group';
-      school: Ref;
+      school: Ref & { capabilities: string[] };
       class_section?: Ref | null;
       subject_group?: Ref | null;
       subject?: Ref | null;
@@ -161,6 +161,10 @@
   let quickAwardMessagingBusy = $state(false);
   let quickAwardMessagingEpoch = 0;
 
+  function hasCapability(capability: string) {
+    return Boolean(detail?.assignment.school.capabilities?.includes(capability));
+  }
+
   async function loadQuickActions() {
     if (!detail) return;
     quickActionsLoading = true;
@@ -223,12 +227,12 @@
     quickAwardStudent = student;
     quickAwardMode = mode;
     quickAwardError = null;
-    quickAwardMessagingState = 'checking';
+    quickAwardMessagingState = hasCapability('school_chats') && hasCapability('family_connection') ? 'checking' : 'disabled';
     quickAwardMessagingMembership = null;
     quickAwardConversationId = null;
     await tick();
     quickAwardDialog?.focus();
-    void checkGuardianMessaging(student);
+    if (hasCapability('school_chats') && hasCapability('family_connection')) void checkGuardianMessaging(student);
   }
 
   function closeQuickAward() {
@@ -901,11 +905,15 @@
     try {
       const loadedDetail = await api.get(`/teach/assignments/${$page.params.id}`) as Detail;
       detail = loadedDetail;
-      await Promise.all([loadHomeworkItems(), loadQuickActions()]);
+      const initialLoads: Promise<void>[] = [];
+      if (hasCapability('homework_diary')) initialLoads.push(loadHomeworkItems());
+      if (hasCapability('behaviour_points')) initialLoads.push(loadQuickActions());
+      else quickActionsLoading = false;
+      await Promise.all(initialLoads);
       const restoredStudentId = Number($page.url.searchParams.get('quick_award_student'));
       const restoredMode = $page.url.searchParams.get('quick_award_mode');
       const restoredStudent = loadedDetail.students.find((student) => student.id === restoredStudentId);
-      if (restoredStudent) {
+      if (restoredStudent && hasCapability('behaviour_points')) {
         await openQuickAward(
           restoredStudent,
           undefined,
@@ -965,19 +973,26 @@
         </div>
       </header>
 
-      <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div class="mt-5 grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-3">
+        {#if hasCapability('behaviour_points')}
         <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-violet-100 bg-white p-4 text-start shadow-sm hover:border-violet-300" onclick={openPointsModal}>
           <span class="shrink-0 rounded-xl bg-violet-100 p-2 text-violet-700"><Star size={21} aria-hidden="true" /></span>
           <span class="min-w-0 flex-1"><strong class="block break-words text-sm leading-tight text-slate-900">{$_('teach.classDetail.actions.points')}</strong><small class="block break-words text-xs font-semibold text-violet-600">{$_('teach.points.open')}</small></span>
         </button>
+        {/if}
+        {#if hasCapability('school_family_updates')}
         <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-sky-100 bg-white p-4 text-start shadow-sm hover:border-sky-300" onclick={openUpdatesModal}>
           <span class="shrink-0 rounded-xl bg-sky-100 p-2 text-sky-700"><Camera size={21} aria-hidden="true" /></span>
           <span class="min-w-0 flex-1"><strong class="block break-words text-sm leading-tight text-slate-900">{$_('teach.classDetail.actions.updates')}</strong><small class="block break-words text-xs font-semibold text-sky-600">{$_('teach.points.open')}</small></span>
         </button>
+        {/if}
+        {#if hasCapability('homework_diary')}
         <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-amber-100 bg-white p-4 text-start shadow-sm hover:border-amber-300" onclick={openHomeworkModal}>
           <span class="shrink-0 rounded-xl bg-amber-100 p-2 text-amber-700"><BookOpen size={21} aria-hidden="true" /></span>
           <span class="min-w-0 flex-1"><strong class="block break-words text-sm leading-tight text-slate-900">{$_('teach.classDetail.actions.homework')}</strong><small class="block break-words text-xs font-semibold text-amber-700">{$_('teach.points.open')}</small></span>
         </button>
+        {/if}
+        {#if hasCapability('notices_calendar')}
         <button type="button" class="flex min-h-20 min-w-0 items-center gap-3 rounded-2xl border border-indigo-100 bg-white p-4 text-start shadow-sm hover:border-indigo-300" onclick={openCalendarModal}>
           <span class="shrink-0 rounded-xl bg-indigo-100 p-2 text-indigo-700"><CalendarDays size={21} aria-hidden="true" /></span>
           <span class="min-w-0 flex-1"><strong class="block break-words text-sm leading-tight text-slate-900">{$_('calendar.title')}</strong><small class="block break-words text-xs font-semibold text-indigo-600">{$_('teach.points.open')}</small></span>
@@ -986,6 +1001,7 @@
           <span class="shrink-0 rounded-xl bg-emerald-100 p-2 text-emerald-700"><Megaphone size={21} aria-hidden="true" /></span>
           <span class="min-w-0 flex-1"><strong class="block break-words text-sm leading-tight text-slate-900">{$_('teach.classDetail.actions.announcements')}</strong><small class="block break-words text-xs font-semibold text-emerald-600">{$_('teach.points.open')}</small></span>
         </button>
+        {/if}
       </div>
 
       {#if announcementPublished}
@@ -1011,7 +1027,7 @@
       {:else}
         <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {#each detail.students as student (student.id)}
-            <button type="button" class="group min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-300/70 sm:p-4" aria-label={$_('teach.quickAward.openForStudent', { values: { student: student.display_name } })} onclick={(event) => openQuickAward(student, event.currentTarget)}>
+            <button type="button" disabled={!hasCapability('behaviour_points')} class="group min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-sm transition enabled:hover:-translate-y-0.5 enabled:hover:border-violet-300 enabled:hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-300/70 disabled:cursor-default sm:p-4" aria-label={hasCapability('behaviour_points') ? $_('teach.quickAward.openForStudent', { values: { student: student.display_name } }) : student.display_name} onclick={(event) => { if (hasCapability('behaviour_points')) void openQuickAward(student, event.currentTarget); }}>
               <div class="relative mx-auto aspect-square w-full max-w-36 overflow-hidden rounded-2xl bg-gradient-to-b from-violet-50 to-sky-50">
                 <div class="absolute inset-0 flex items-center justify-center text-3xl font-black text-hero">{initialsFromStudentName(student)}</div>
                 {#if student.avatar_url_256 && !failedImages[student.id]}
@@ -1027,9 +1043,11 @@
                 {/if}
               </div>
               <h3 class="mt-3 truncate text-sm font-black text-slate-900 sm:text-base" title={student.display_name}>{student.display_name}</h3>
-              <p class={`mt-1 text-xs font-black ${student.points_total > 0 ? 'text-emerald-600' : student.points_total < 0 ? 'text-amber-700' : 'text-slate-400'}`}>
-                {student.points_total > 0 ? '+' : ''}{student.points_total} {$_('teach.points.pts')}
-              </p>
+              {#if hasCapability('behaviour_points')}
+                <p class={`mt-1 text-xs font-black ${student.points_total > 0 ? 'text-emerald-600' : student.points_total < 0 ? 'text-amber-700' : 'text-slate-400'}`}>
+                  {student.points_total > 0 ? '+' : ''}{student.points_total} {$_('teach.points.pts')}
+                </p>
+              {/if}
               {#if student.name_ar}
                 <p class="mt-0.5 truncate text-xs font-semibold text-slate-400" dir="auto">{student.name_ar}</p>
               {/if}
@@ -1223,6 +1241,7 @@
       <form class="mt-5 grid gap-4" onsubmit={(event) => { event.preventDefault(); publishUpdate(); }}>
         <p class="rounded-xl bg-sky-50 px-4 py-3 text-sm font-semibold text-slate-700">{$_('teach.updates.audience')}: <strong>{classTitle()}</strong></p>
         <label class="grid gap-1 text-sm font-bold text-slate-700">{$_('teach.updates.body')}<textarea class="min-h-32 rounded-lg border border-slate-200 px-3 py-2" required maxlength="10000" bind:value={updateBody}></textarea></label>
+        {#if hasCapability('update_photos')}
         <div class="grid gap-2">
           <span class="text-sm font-bold text-slate-700">{$_('teach.updates.photos')}</span>
           <div class="flex flex-wrap gap-2">
@@ -1246,6 +1265,7 @@
           {/if}
         </div>
         <p class="text-xs text-slate-500">{$_('teach.updates.photoRules')}</p>
+        {/if}
         <div class="flex gap-3"><button class="btn-hero rounded-lg px-4 py-2" type="submit" disabled={updatesSaving || createdUpdateId !== null}>{updatesSaving ? $_('teach.updates.saving') : $_('teach.updates.create')}</button><button class="btn-secondary rounded-lg px-4 py-2" type="button" onclick={closeUpdatesModal}>{updatesSaving ? $_('teach.updates.cancelUpload') : $_('teach.updates.cancel')}</button></div>
       </form>
       {/if}

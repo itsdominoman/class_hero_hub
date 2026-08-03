@@ -7,6 +7,7 @@ os.environ["APP_ENV"] = "test"
 os.environ["DEV_AUTH_ENABLED"] = "false"
 
 import pytest
+from entitlement_fixtures import grant_all_capabilities
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
@@ -174,6 +175,8 @@ def staff_world(db):
         status="archived",
     )
     db.add_all([group, archived_group])
+    grant_all_capabilities(db, alpha, alpha_admin)
+    grant_all_capabilities(db, beta, beta_admin)
     db.commit()
 
     return {

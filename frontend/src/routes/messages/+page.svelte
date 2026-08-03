@@ -860,6 +860,7 @@
       memberships = (user.memberships || []).filter(
         (row): row is MessagingMembership =>
           (row.role === 'teacher' || row.role === 'school_admin') &&
+          row.capabilities.includes('school_chats') &&
           Number.isInteger(row.membership_id)
       );
       const requestedMembership = memberships.find((row) => row.membership_id === requestedMembershipId());

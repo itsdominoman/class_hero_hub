@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..database import get_db, settings
+from ..entitlement_service import FAMILY_CONNECTION, SURVEYS_POLLS, ensure_capabilities, require_school_entitlement
 from ..family_notifications import enqueue_family_notifications
 from ..fhh_messaging_assertions import verify_and_consume_actor_assertion
 from ..models_school import (
@@ -31,7 +32,7 @@ from ..survey_service import aware_utc, eligible_links, link_is_eligible, refres
 from .integrations_fhh import _link, require_fhh_service
 
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_school_entitlement(SURVEYS_POLLS))])
 integration_router = APIRouter(dependencies=[Depends(require_fhh_service)])
 UTC = timezone.utc
 SURVEY_PERMISSION = "surveys.manage"
@@ -885,6 +886,7 @@ def _bind_household_ref(link: FhhLink, household_ref: str) -> None:
 
 def _integration_actor(request: Request, db: Session, link_id: int, token: str | None, assertion: str | None, body: dict[str, Any]):
     link = _link(db, link_id, token)
+    ensure_capabilities(db, link.school_id, FAMILY_CONNECTION, SURVEYS_POLLS)
     identity, identity_link = verify_and_consume_actor_assertion(db, request=request, link=link, assertion=assertion, body=body)
     return link, identity, identity_link
 

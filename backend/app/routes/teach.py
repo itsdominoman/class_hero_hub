@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from .. import auth, invite_tokens
 from ..database import get_db
+from ..entitlement_service import BEHAVIOUR_POINTS, enabled_capabilities, ensure_capability
 from ..models_school import AcademicYear, BehaviourEvent, BranchCampus, ClassSection, Enrolment, GradeLevel, Membership, School, StaffAssignment, Student, Subject, SubjectGroup, User
 from ..rosters import roster_payload
 from ..school_scope import open_interval_expression, require_teacher_of
@@ -51,6 +52,11 @@ def _assignment_cards(db: Session, assignments_with_school: list[tuple[StaffAssi
     levels_by_id = {l.id: l for l in (db.query(GradeLevel).filter(GradeLevel.id.in_(level_ids)).all() if level_ids else [])}
     subjects_by_id = {s.id: s for s in (db.query(Subject).filter(Subject.id.in_(subject_ids)).all() if subject_ids else [])}
 
+    schools = {school.id: school for _assignment, school in assignments_with_school}
+    capabilities_by_school = {
+        school_id: sorted(enabled_capabilities(db, school_id))
+        for school_id in schools
+    }
     cards = []
     for assignment, school in assignments_with_school:
         section = sections_by_id.get(assignment.class_section_id)
@@ -80,7 +86,7 @@ def _assignment_cards(db: Session, assignments_with_school: list[tuple[StaffAssi
                 "target_type": "subject_group" if assignment.subject_group_id is not None else "class_section",
                 "valid_from": assignment.valid_from,
                 "valid_to": assignment.valid_to,
-                "school": {"id": school.id, "name": school.name, "name_ar": school.name_ar},
+                "school": {"id": school.id, "name": school.name, "name_ar": school.name_ar, "capabilities": capabilities_by_school[school.id]},
                 "class_section": _row_ref(section),
                 "subject_group": _row_ref(group),
                 "branch": _row_ref(branch),
@@ -141,7 +147,7 @@ def teacher_dashboard(
 
     return {
         "assignments": _assignment_cards(db, assignments_with_school),
-        "schools": [{"id": school.id, "name": school.name, "name_ar": school.name_ar} for _membership, school in teacher_memberships],
+        "schools": [{"id": school.id, "name": school.name, "name_ar": school.name_ar, "capabilities": sorted(enabled_capabilities(db, school.id))} for _membership, school in teacher_memberships],
     }
 
 
@@ -156,6 +162,7 @@ def search_students(
     from ..behaviour_service import active_teacher_membership
 
     active_teacher_membership(db, current_user.id, school_id)
+    ensure_capability(db, school_id, BEHAVIOUR_POINTS)
     term = q.strip()
     if len(term) < 2:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Enter at least 2 characters")
@@ -291,7 +298,7 @@ def teacher_class_detail(
             .group_by(BehaviourEvent.student_id)
             .all()
         )
-        if student_ids
+        if student_ids and BEHAVIOUR_POINTS in enabled_capabilities(db, school.id)
         else {}
     )
 
@@ -302,7 +309,7 @@ def teacher_class_detail(
             "id": card["id"],
             "role": card["role"],
             "target_type": card["target_type"],
-            "school": {"id": school.id, "name": school.name, "name_ar": school.name_ar},
+            "school": {"id": school.id, "name": school.name, "name_ar": school.name_ar, "capabilities": card["school"]["capabilities"]},
             "class_section": ({"id": card["class_section"]["id"], "name": card["class_section"]["name"], "name_ar": card["class_section"]["name_ar"]} if card["class_section"] else None),
             "subject_group": ({"id": card["subject_group"]["id"], "name": card["subject_group"]["name"], "name_ar": card["subject_group"]["name_ar"]} if card["subject_group"] else None),
             "subject": ({"id": card["subject"]["id"], "name": card["subject"]["name"], "name_ar": card["subject"]["name_ar"]} if card["subject"] else None),

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from .. import auth
 from ..database import get_db
+from ..entitlement_service import NOTICES_CALENDAR, require_school_entitlement
 from ..models_school import CalendarEvent, ClassSection, HomeworkItem, Membership, StaffAssignment, SubjectGroup, User
 from ..school_scope import open_interval_expression, write_audit
 from ..family_notifications import enqueue_family_notifications, material_snapshot
@@ -23,9 +24,9 @@ from .announcements import (
 )
 from .homework import _guardian_query as _guardian_homework_query
 
-staff_router = APIRouter()
-teacher_router = APIRouter()
-guardian_router = APIRouter()
+staff_router = APIRouter(dependencies=[Depends(require_school_entitlement(NOTICES_CALENDAR))])
+teacher_router = APIRouter(dependencies=[Depends(require_school_entitlement(NOTICES_CALENDAR))])
+guardian_router = APIRouter(dependencies=[Depends(require_school_entitlement(NOTICES_CALENDAR))])
 
 EVENT_TYPES = {"event", "test", "reminder", "trip", "civvies", "charity"}
 TEACHER_EVENT_TYPES = {"event", "test", "reminder"}

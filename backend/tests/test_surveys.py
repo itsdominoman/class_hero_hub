@@ -8,6 +8,7 @@ os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
 
 import pytest
+from entitlement_fixtures import grant_all_capabilities
 from fastapi.testclient import TestClient
 from fastapi import HTTPException
 from sqlalchemy import create_engine, event
@@ -104,6 +105,7 @@ def _world(db):
             grant_reason="Focused survey integration test",
         )
     )
+    grant_all_capabilities(db, school, allowed_user)
     db.commit()
     return school, allowed_user, denied_user
 

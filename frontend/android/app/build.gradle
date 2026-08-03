@@ -23,8 +23,8 @@ android {
         applicationId "com.classherohub.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 15
-        versionName "1.13-authenticated-language-switcher-pilot"
+        versionCode 16
+        versionName "1.14-school-entitlements-pilot"
         resValue "string", "google_web_client_id", googleClientId
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

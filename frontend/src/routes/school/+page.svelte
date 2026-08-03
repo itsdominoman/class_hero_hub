@@ -11,11 +11,12 @@
   import TextInput from '$lib/components/school/TextInput.svelte';
   import TimeZoneSelector from '$lib/components/TimeZoneSelector.svelte';
   import { guardianDisplayName } from '$lib/guardianDisplay';
-  import { SCHOOL_MENU_GROUPS, SCHOOL_TABS } from '$lib/schoolMenu';
+  import { entitlementStatus, type CapabilityKey, type SchoolEntitlementPayload } from '$lib/entitlements';
+  import { SCHOOL_TABS, visibleSchoolMenuGroups } from '$lib/schoolMenu';
   import { CheckCircle2, Circle, Pencil, Plus, Trash2 } from 'lucide-svelte';
   import QRCode from 'qrcode';
 
-  type Membership = { school_id: number; school_name: string; role: string };
+  type Membership = { school_id: number; school_name: string; role: string; capabilities: string[] };
   type Row = {
     id: number;
     code: string;
@@ -347,12 +348,15 @@
   type FeatureControl = {
     feature: 'voice_notes';
     enabled: boolean;
+    entitlement_enabled: boolean;
+    effective_enabled: boolean;
     control_version: number;
     disclosure_version: string;
     acknowledgement_items: string[];
     updated_at?: string | null;
   };
   type MessagingPolicy = {
+    effective_enabled: boolean;
     enabled: boolean;
     guardian_replies_enabled: boolean;
     delivery_receipts_visible: boolean;
@@ -419,6 +423,9 @@
   let allowed = $state(false);
   let schoolId = $state<number | null>(null);
   let schoolName = $state('');
+  let schoolCapabilities = $state<string[]>([]);
+  let schoolEntitlements = $state<SchoolEntitlementPayload | null>(null);
+  let schoolMenuGroups = $derived(visibleSchoolMenuGroups(schoolCapabilities));
   let activeTab = $state('checklist');
   let checklist = $state<ChecklistItem[]>([]);
   let setupComplete = $state(false);
@@ -809,7 +816,16 @@
     }
     schoolId = adminMembership.school_id;
     schoolName = adminMembership.school_name;
+    schoolCapabilities = adminMembership.capabilities || [];
     allowed = true;
+  }
+
+  function hasSchoolCapability(capability: CapabilityKey) {
+    return schoolCapabilities.includes(capability);
+  }
+
+  function hasPointsNotificationCapabilities() {
+    return hasSchoolCapability('behaviour_points') && hasSchoolCapability('family_connection');
   }
 
   function studentsPath() {
@@ -828,8 +844,9 @@
   async function loadAll() {
     if (!schoolId) return;
     const options = schoolOptions();
-    const [settings, featureControls, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData, templateRows, announcementData, messagingPolicyData, contactHoursData, pointsNotificationPolicyData] = await Promise.all([
+    const [settings, entitlementData, featureControls, checklistData, branchRows, stageRows, yearRows, levelRows, sectionRows, subjectRows, groupRows, teacherData, templateRows, announcementData, messagingPolicyData, contactHoursData, pointsNotificationPolicyData] = await Promise.all([
       api.get('/school/settings', options),
+      api.get('/school/entitlements', options),
       api.get('/school/feature-controls', options),
       api.get('/school/setup-checklist', options),
       api.get('/school/branches', options),
@@ -841,7 +858,7 @@
       api.get('/school/subject-groups', options),
       api.get('/school/teachers', options),
       api.get('/school/default-subject-templates', options),
-      api.get('/school/announcements', options),
+      hasSchoolCapability('notices_calendar') ? api.get('/school/announcements', options) : Promise.resolve({ announcements: [] }),
       api.get('/school/messaging-policy', options),
       api.get('/school/messaging-contact-hours', options),
       api.get('/school/points-notification-policy', options)
@@ -854,15 +871,16 @@
     gradeLevelLabel = settings.grade_level_label || 'Grade';
     labelChoice = ['Grade', 'Year', 'Form', 'Level'].includes(gradeLevelLabel) ? gradeLevelLabel : 'custom';
     customLabel = labelChoice === 'custom' ? gradeLevelLabel : '';
+    schoolEntitlements = entitlementData;
     voiceNotesControl = featureControls?.voice_notes || null;
     messagingPolicy = messagingPolicyData;
-    pointsNotificationPolicy = {
+    pointsNotificationPolicy = pointsNotificationPolicyData ? {
       ...pointsNotificationPolicyData,
       daily_summary_time: pointsNotificationPolicyData.daily_summary_time.slice(0, 5),
       weekly_summary_time: pointsNotificationPolicyData.weekly_summary_time.slice(0, 5),
       monthly_summary_time: pointsNotificationPolicyData.monthly_summary_time.slice(0, 5)
-    };
-    hydrateContactHours(contactHoursData);
+    } : null;
+    if (contactHoursData) hydrateContactHours(contactHoursData);
     checklist = checklistData.items || [];
     setupComplete = Boolean(checklistData.complete);
     branches = branchRows;
@@ -2197,7 +2215,7 @@
   }
 
   async function saveVoiceNotesControl(enabled: boolean, acknowledged = true) {
-    if (!voiceNotesControl || complianceSaving) return;
+    if (!voiceNotesControl || complianceSaving || !hasSchoolCapability('voice_notes')) return;
     complianceSaving = true;
     error = null;
     try {
@@ -2218,7 +2236,7 @@
   }
 
   function requestVoiceNotesChange() {
-    if (!voiceNotesControl) return;
+    if (!voiceNotesControl || !hasSchoolCapability('voice_notes')) return;
     if (voiceNotesControl.enabled) {
       void saveVoiceNotesControl(false);
       return;
@@ -2274,7 +2292,7 @@
   }
 
   async function saveContactHours() {
-    if (contactHoursSaving) return;
+    if (contactHoursSaving || !hasSchoolCapability('school_chats')) return;
     contactHoursSaving = true;
     error = null;
     try {
@@ -2313,7 +2331,7 @@
     field: 'delivery_receipts_visible' | 'read_receipts_visible',
     enabled: boolean
   ) {
-    if (!messagingPolicy || receiptPolicySaving) return;
+    if (!messagingPolicy || receiptPolicySaving || !hasSchoolCapability('school_chats')) return;
     const current = messagingPolicy;
     receiptPolicySaving = true;
     error = null;
@@ -2342,7 +2360,7 @@
   }
 
   async function savePointsNotificationPolicy() {
-    if (!pointsNotificationPolicy || pointsNotificationSaving || !pointsTimezoneValid) return;
+    if (!pointsNotificationPolicy || pointsNotificationSaving || !pointsTimezoneValid || !hasPointsNotificationCapabilities()) return;
     pointsNotificationSaving = true;
     error = null;
     try {
@@ -2960,7 +2978,7 @@
     <div class="mt-6 grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
       <nav class="hidden rounded-xl border border-slate-200 bg-white p-3 xl:block" aria-label={$_('school.menu.navigationLabel')}>
         <div class="space-y-5">
-          {#each SCHOOL_MENU_GROUPS as group}
+          {#each schoolMenuGroups as group}
             <section aria-labelledby={`school-menu-${group.key}`}>
               <h2 id={`school-menu-${group.key}`} class="px-3 text-xs font-bold uppercase tracking-wide text-slate-500">{$_(group.label)}</h2>
               <div class="mt-1 space-y-1">
@@ -2991,10 +3009,12 @@
 
       <div id="school-setup-content" class="min-w-0">
         {#if activeTab === 'checklist'}
-          <button type="button" class="mb-4 flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-start text-sm hover:bg-slate-50" onclick={openAnnouncements}>
-            <span class="font-semibold text-slate-700">{$_('school.announcements.checklistShortcut')}</span>
-            <span class="font-bold text-violet-700">{$_('school.announcements.bannerButton')} <span class="inline-block rtl:-scale-x-100" aria-hidden="true">→</span></span>
-          </button>
+          {#if hasSchoolCapability('notices_calendar')}
+            <button type="button" class="mb-4 flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-start text-sm hover:bg-slate-50" onclick={openAnnouncements}>
+              <span class="font-semibold text-slate-700">{$_('school.announcements.checklistShortcut')}</span>
+              <span class="font-bold text-violet-700">{$_('school.announcements.bannerButton')} <span class="inline-block rtl:-scale-x-100" aria-hidden="true">→</span></span>
+            </button>
+          {/if}
           <div class="grid gap-3 sm:grid-cols-2">
             {#each checklist as item}
               <div class="rounded-lg border border-slate-200 bg-white p-4">
@@ -3010,7 +3030,7 @@
                     {#if !item.required}
                       <p class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{$_('school.optional')}</p>
                     {/if}
-                    {#if item.key === 'student_import'}
+                    {#if item.key === 'student_import' && hasSchoolCapability('student_staff_import_export')}
                       <a class="mt-3 inline-block text-sm font-bold text-sky-700 hover:underline" href="/school/students/data">
                         {$_('school.studentData.openImport')} <span class="inline-block rtl:-scale-x-100" aria-hidden="true">→</span>
                       </a>
@@ -3021,12 +3041,37 @@
             {/each}
           </div>
         {:else if activeTab === 'settings'}
+          {#if schoolEntitlements}
+            <section class="rounded-2xl border border-slate-200 bg-white p-5" aria-labelledby="school-entitlements-title">
+              <p class="text-xs font-black uppercase tracking-wide text-hero">{$_('entitlements.optionalTitle')}</p>
+              <h2 id="school-entitlements-title" class="mt-1 text-lg font-black text-slate-900">{$_('entitlements.schoolTitle')}</h2>
+              <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{$_('entitlements.schoolIntro')}</p>
+              <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {#each schoolEntitlements.entitlements as entitlement (entitlement.capability)}
+                  <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div class="flex items-start justify-between gap-3">
+                      <h3 class="text-sm font-black text-slate-900">{$_(`entitlements.capabilities.${entitlement.capability}`)}</h3>
+                      <span class={entitlement.effective_enabled ? 'rounded-full bg-emerald-100 px-2 py-1 text-xs font-black text-emerald-800' : 'rounded-full bg-slate-200 px-2 py-1 text-xs font-black text-slate-600'}>
+                        {$_(`entitlements.statuses.${entitlementStatus(entitlement)}`)}
+                      </span>
+                    </div>
+                    <dl class="mt-3 space-y-1 text-xs text-slate-600">
+                      <div><dt class="inline font-bold">{$_('entitlements.source')}: </dt><dd class="inline">{entitlement.source ? $_(`entitlements.sources.${entitlement.source}`) : '-'}</dd></div>
+                      <div><dt class="inline font-bold">{$_('entitlements.effectiveFrom')}: </dt><dd class="inline">{entitlement.effective_from || '-'}</dd></div>
+                      <div><dt class="inline font-bold">{$_('entitlements.expiresOn')}: </dt><dd class="inline">{entitlement.expires_on || $_('entitlements.noExpiry')}</dd></div>
+                    </dl>
+                  </article>
+                {/each}
+              </div>
+            </section>
+          {/if}
+          {#if voiceNotesControl || messagingPolicy}
           <section class="mt-5 rounded-lg border border-slate-200 bg-white p-5" aria-labelledby="compliance-feature-controls-title">
             <p class="text-xs font-black uppercase tracking-wide text-hero">{$_('school.compliance.eyebrow')}</p>
             <h2 id="compliance-feature-controls-title" class="mt-1 text-lg font-black text-slate-900">{$_('school.compliance.title')}</h2>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{$_('school.compliance.intro')}</p>
             {#if voiceNotesControl}
-              <div class="mt-5 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <fieldset disabled={!hasSchoolCapability('voice_notes')} class="mt-5 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 disabled:opacity-70 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div class="flex items-center gap-2">
                     <h3 class="font-black text-slate-900">{$_('school.compliance.voiceNotes')}</h3>
@@ -3035,6 +3080,9 @@
                     </span>
                   </div>
                   <p class="mt-1 max-w-2xl text-sm text-slate-600">{$_('school.compliance.voiceHelp')}</p>
+                  {#if !hasSchoolCapability('voice_notes')}
+                    <p class="mt-2 rounded-lg bg-amber-50 p-3 text-xs font-semibold leading-5 text-amber-900">{$_('school.compliance.entitlementUnavailable')}</p>
+                  {/if}
                 </div>
                 <button
                   type="button"
@@ -3044,12 +3092,15 @@
                 >
                   {voiceNotesControl.enabled ? $_('school.compliance.disableVoice') : $_('school.compliance.enableVoice')}
                 </button>
-              </div>
+              </fieldset>
             {/if}
             {#if messagingPolicy}
-              <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <fieldset disabled={!hasSchoolCapability('school_chats')} class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 disabled:opacity-70">
                 <h3 class="font-black text-slate-900">{$_('school.compliance.receiptTitle')}</h3>
                 <p class="mt-1 max-w-3xl text-sm text-slate-600">{$_('school.compliance.receiptHelp')}</p>
+                {#if !hasSchoolCapability('school_chats')}
+                  <p class="mt-2 rounded-lg bg-amber-50 p-3 text-xs font-semibold leading-5 text-amber-900">{$_('school.compliance.entitlementUnavailable')}</p>
+                {/if}
                 <div class="mt-4 grid gap-3 md:grid-cols-2">
                   <label class="flex min-h-20 cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
                     <input
@@ -3078,11 +3129,14 @@
                     </span>
                   </label>
                 </div>
-              </div>
+              </fieldset>
               {#if pointsNotificationPolicy}
-                <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <fieldset disabled={!hasPointsNotificationCapabilities()} class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 disabled:opacity-70">
                   <h3 class="font-black text-slate-900">{$_('school.compliance.pointsNotificationsTitle')}</h3>
                   <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-600">{$_('school.compliance.pointsNotificationsHelp')}</p>
+                  {#if !hasPointsNotificationCapabilities()}
+                    <p class="mt-2 rounded-lg bg-amber-50 p-3 text-xs font-semibold leading-5 text-amber-900">{$_('school.compliance.entitlementUnavailable')}</p>
+                  {/if}
 
                   <fieldset class="mt-4 grid gap-3 md:grid-cols-3">
                     <legend class="mb-2 text-sm font-black text-slate-900">{$_('school.compliance.notificationMode')}</legend>
@@ -3151,9 +3205,9 @@
                   <button type="button" class="btn-hero mt-4 min-h-11 rounded-xl px-5 py-2 font-black" disabled={pointsNotificationSaving || !pointsTimezoneValid} onclick={() => void savePointsNotificationPolicy()}>
                     {pointsNotificationSaving ? $_('common.loading') : $_('school.compliance.savePointsNotifications')}
                   </button>
-                </div>
+                </fieldset>
               {/if}
-              <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <fieldset disabled={!hasSchoolCapability('school_chats')} class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 disabled:opacity-70">
                 <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
                     <h3 class="font-black text-slate-900">{$_('school.compliance.contactHoursTitle')}</h3>
@@ -3167,6 +3221,9 @@
                     {$_('school.compliance.contactHoursEnabled')}
                   </label>
                 </div>
+                {#if !hasSchoolCapability('school_chats')}
+                  <p class="mt-3 rounded-lg bg-amber-50 p-3 text-xs font-semibold leading-5 text-amber-900">{$_('school.compliance.entitlementUnavailable')}</p>
+                {/if}
 
                 <div class="mt-4 rounded-xl border border-slate-200 bg-white p-4">
                   <p class="text-sm font-black text-slate-900">{$_('school.compliance.notificationDelayMode')}</p>
@@ -3261,9 +3318,10 @@
                 <button type="button" class="btn-hero mt-4 min-h-11 rounded-xl px-5 py-2 font-black" disabled={contactHoursSaving} onclick={() => void saveContactHours()}>
                   {contactHoursSaving ? $_('common.loading') : $_('school.compliance.saveContactHours')}
                 </button>
-              </div>
+              </fieldset>
             {/if}
           </section>
+          {/if}
         {:else if activeTab === 'branches'}
           <CrudBlock title={$_('school.branches.title')} rows={branches} path="branches" bind:form={branchForm} {saving} editing={editingPath === 'branches'} errors={{ code: fieldError('branches', 'code'), name: fieldError('branches', 'name') }} onsubmit={() => saveRow('branches', branchForm)} onedit={(row) => editRow('branches', branchForm, row)} oncancel={cancelEdit} onarchive={archiveRow} />
         {:else if activeTab === 'stages'}

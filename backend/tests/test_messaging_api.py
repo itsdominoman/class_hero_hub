@@ -10,6 +10,7 @@ os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
 
 import pytest
+from entitlement_fixtures import grant_all_capabilities
 from PIL import Image
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
@@ -182,6 +183,7 @@ def _school_world(db, suffix):
         for key in ("guardian", "guardian2")
     ]
     db.add_all([enrolment, assignment, *links])
+    grant_all_capabilities(db, school, users["admin"])
     db.commit()
     return {
         "school": school,
@@ -1107,7 +1109,8 @@ def test_inbox_query_count_is_bounded(db, client):
     # roster lookups; the budget must not grow with conversations.
     # Feature capability and attached-voice metadata each add one fixed,
     # set-based select; the budget remains independent of inbox size.
-    assert len(statements) <= 28
+    # Canonical school/chat/media entitlement reads are fixed per request.
+    assert len(statements) <= 32
 
 
 def test_recipient_search_filters_before_cap_and_searches_guardian_names(db, client):
@@ -1378,7 +1381,8 @@ def test_representative_inbox_unread_and_history_are_bounded_and_fast(db, client
     assert inbox.status_code == 200
     assert len(inbox.json()["items"]) == 50
     inbox_select_count = len(selects)
-    assert inbox_select_count <= 26
+    # Canonical school/chat/media entitlement reads are fixed per request.
+    assert inbox_select_count <= 29
 
     selects.clear()
     event.listen(engine, "before_cursor_execute", count_selects)
@@ -1429,7 +1433,8 @@ def test_representative_inbox_unread_and_history_are_bounded_and_fast(db, client
     # Voice-note metadata adds one fixed set-based select for the page. Slice 9
     # adds one more fixed receipt aggregation select for all 50 messages; the
     # budget remains independent of message and participant counts.
-    assert history_select_count <= 28
+    # Canonical chat and media entitlement reads are also fixed per request.
+    assert history_select_count <= 31
 
     durations_ms = []
     for _ in range(12):

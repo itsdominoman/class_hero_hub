@@ -7,6 +7,7 @@ os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
 
 import pytest
+from entitlement_fixtures import grant_all_capabilities
 from fastapi.testclient import TestClient
 from PIL import Image
 from sqlalchemy import create_engine, event
@@ -66,6 +67,7 @@ def world(db):
     two = Student(school_id=school.id, first_name="Omar", last_name="B", status="active")
     db.add_all([one, two]); db.flush()
     db.add_all([Enrolment(school_id=school.id, student_id=s.id, class_section_id=section.id, kind="member") for s in (one, two)])
+    grant_all_capabilities(db, school, admin)
     db.commit(); return locals()
 
 

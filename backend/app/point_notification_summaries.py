@@ -12,6 +12,8 @@ from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
+from .entitlement_service import BEHAVIOUR_POINTS, FAMILY_CONNECTION, capabilities_enabled
+
 from .models_school import (
     BehaviourEvent,
     FhhLink,
@@ -393,6 +395,8 @@ def generate_due_point_summaries(
     )
     generated = 0
     for policy, school in rows:
+        if not capabilities_enabled(db, school.id, (FAMILY_CONNECTION, BEHAVIOUR_POINTS)):
+            continue
         try:
             for period in due_periods(school, policy, now=now):
                 generated += _aggregate_period(db, school=school, policy=policy, period=period)

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, aliased
 
 from .. import auth
 from ..database import get_db
+from ..entitlement_service import SAFEGUARDING, require_school_entitlement
 from ..message_media_service import media_payload, protected_media_file
 from ..message_voice_service import protected_voice_file, voice_payload
 from ..models_school import (
@@ -82,7 +83,7 @@ from ..legal_hold_service import place_hold, release_hold
 from ..school_scope import write_audit
 
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_school_entitlement(SAFEGUARDING))])
 MAX_SEARCH_RESULTS = 50
 MAX_REVIEW_MESSAGES = 100
 

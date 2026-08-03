@@ -6,6 +6,7 @@ os.environ["APP_ENV"] = "test"
 os.environ["DEV_AUTH_ENABLED"] = "false"
 
 import pytest
+from entitlement_fixtures import grant_all_capabilities
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
@@ -126,6 +127,8 @@ def enrolment_world(db):
     inactive_group = SubjectGroup(school_id=alpha.id, academic_year_id=year.id, class_section_id=section_a.id, subject_id=subject.id, code="KG1A-OLD", name="Old English", status="inactive")
     group_archived_parent = SubjectGroup(school_id=alpha.id, academic_year_id=year.id, class_section_id=inactive_section.id, subject_id=subject.id, code="KG1X-ENG", name="KG 1 X English", status="active")
     db.add_all([group, inactive_group, group_archived_parent])
+    grant_all_capabilities(db, alpha, alpha_admin)
+    grant_all_capabilities(db, beta, beta_admin)
     db.commit()
 
     return {

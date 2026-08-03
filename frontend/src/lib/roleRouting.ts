@@ -3,10 +3,12 @@ export type SessionMembership = {
   role: string;
   school_id: number;
   school_name: string;
+  capabilities: string[];
 };
 
 export type SessionUser = {
   is_platform_admin?: boolean;
+  can_manage_school_entitlements?: boolean;
   memberships?: SessionMembership[];
 };
 

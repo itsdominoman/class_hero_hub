@@ -9,6 +9,7 @@ from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from ..database import get_db
+from ..entitlement_service import REPORTS_INSIGHTS, require_school_entitlement
 from ..models_school import (
     BehaviourCategory,
     BehaviourEvent,
@@ -26,7 +27,7 @@ from ..models_school import (
 from ..school_scope import require_school_role
 
 
-router = APIRouter(dependencies=[Depends(require_school_role("school_admin"))])
+router = APIRouter(dependencies=[Depends(require_school_role("school_admin")), Depends(require_school_entitlement(REPORTS_INSIGHTS))])
 
 DUTY_CONTEXTS = {"break", "lunch", "playground", "hallway", "assembly", "bus", "general_duty"}
 MATRIX_DIMENSIONS = {"student", "class_section", "grade", "subject", "subject_group", "teacher", "duty_context", "category", "category_type", "date_bucket"}

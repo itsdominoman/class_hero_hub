@@ -3,7 +3,7 @@
   import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
 
-  type Membership = { school_id: number; membership_id: number; school_name: string; role: string };
+  type Membership = { school_id: number; membership_id: number; school_name: string; role: string; capabilities: string[] };
 
   let membership = $state<Membership | null>(null);
   let data = $state<any>(null);
@@ -36,8 +36,20 @@
     }
   }
 
-  async function start(path: string, body: any = { reason }) {
-    if (busy || reason.trim().length < 8 || !consequenceConfirmed) return;
+  function hasCapability(capability: 'school_chats' | 'safeguarding') {
+    return Boolean(membership?.capabilities?.includes(capability));
+  }
+
+  function requiredCapabilityForJob(row: any): 'school_chats' | 'safeguarding' {
+    return row.job_type === 'evidence_export' ? 'safeguarding' : 'school_chats';
+  }
+
+  async function start(
+    path: string,
+    body: any = { reason },
+    requiredCapability: 'school_chats' | 'safeguarding' = 'school_chats'
+  ) {
+    if (busy || reason.trim().length < 8 || !consequenceConfirmed || !hasCapability(requiredCapability)) return;
     busy = true;
     error = '';
     notice = '';
@@ -107,8 +119,13 @@
       }));
   }
 
-  let canAct = $derived(reason.trim().length >= 8 && consequenceConfirmed && !busy);
+  let actionFormReady = $derived(reason.trim().length >= 8 && consequenceConfirmed && !busy);
+  let canAct = $derived(actionFormReady && hasCapability('school_chats'));
   let actionableJobs = $derived((data?.jobs || []).filter((row: any) => ['pending', 'failed', 'dead', 'leased'].includes(row.state)));
+
+  function canActForJob(row: any) {
+    return actionFormReady && hasCapability(requiredCapabilityForJob(row));
+  }
 
   onMount(load);
 </script>
@@ -212,6 +229,9 @@
       <summary class="min-h-14 cursor-pointer px-5 py-4 text-lg font-black text-amber-950">{$_('operationsPage.advancedActions')}</summary>
       <div class="border-t border-amber-200 p-5">
         <p class="text-sm leading-6 text-amber-950">{$_('operationsPage.advancedActionsHelp')}</p>
+        {#if !hasCapability('school_chats')}
+          <p class="mt-3 rounded-lg bg-white p-3 text-xs font-semibold leading-5 text-amber-950">{$_('school.compliance.entitlementUnavailable')}</p>
+        {/if}
         <label class="mt-4 block text-sm font-black text-slate-900">
           {$_('operationsPage.operatorReason')}
           <span class="mt-1 block text-xs font-normal text-slate-600">{$_('operationsPage.operatorReasonHelp')}</span>
@@ -240,8 +260,8 @@
               <div class="flex flex-col gap-3 rounded-xl border border-amber-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div class="min-w-0"><p class="break-words font-bold text-slate-900">{jobType(row.job_type)}</p><p class="mt-1 text-xs text-slate-500">{stateLabel(row.state)} · {formatDate(row.created_at)}</p></div>
                 <div class="flex flex-wrap gap-2">
-                  {#if row.state === 'failed' || row.state === 'dead'}<button class="btn-secondary min-h-11 rounded-lg px-3 py-2 text-sm" disabled={!canAct} onclick={() => start(`/school/operations/jobs/${row.id}/retry`)}>{$_('operationsPage.retry')}</button>{/if}
-                  <button class="min-h-11 rounded-lg border border-red-300 px-3 py-2 text-sm font-bold text-red-800" disabled={!canAct} onclick={() => start(`/school/operations/jobs/${row.id}/cancel`)}>{$_('operationsPage.cancel')}</button>
+                  {#if row.state === 'failed' || row.state === 'dead'}<button class="btn-secondary min-h-11 rounded-lg px-3 py-2 text-sm" disabled={!canActForJob(row)} onclick={() => start(`/school/operations/jobs/${row.id}/retry`, { reason }, requiredCapabilityForJob(row))}>{$_('operationsPage.retry')}</button>{/if}
+                  <button class="min-h-11 rounded-lg border border-red-300 px-3 py-2 text-sm font-bold text-red-800" disabled={!canActForJob(row)} onclick={() => start(`/school/operations/jobs/${row.id}/cancel`, { reason }, requiredCapabilityForJob(row))}>{$_('operationsPage.cancel')}</button>
                 </div>
               </div>
             {/each}

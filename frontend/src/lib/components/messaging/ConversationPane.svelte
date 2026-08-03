@@ -365,6 +365,7 @@
       {sending}
       {offline}
       photos={selectedPhotos}
+      photosEnabled={conversation.capabilities.photos_enabled}
       voiceEnabled={conversation.capabilities.voice_notes_enabled}
       canMarkUrgent={conversation.capabilities.can_mark_urgent}
       {onselectphotos}

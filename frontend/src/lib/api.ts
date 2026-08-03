@@ -119,6 +119,11 @@ async function throwForErrorResponse(res: Response): Promise<never> {
 
   if (contentType.includes('application/json')) {
     const error = await res.json().catch(() => ({ detail: 'Request failed' }));
+    if (error?.detail?.code === 'capability_not_enabled') {
+      const requestError = new Error(get(_)('entitlements.unavailable')) as Error & { status?: number };
+      requestError.status = res.status;
+      throw requestError;
+    }
     const normalized = normalizeErrorMessage(error, 'Request failed');
     const message = localizedApiError(normalized);
     const requestError = new Error(message) as Error & { status?: number };

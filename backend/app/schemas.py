@@ -19,11 +19,13 @@ class MeMembership(BaseModel):
     school_name: str
     membership_id: int
     role: str
+    capabilities: list[str] = []
 
 
 class MeResponse(BaseModel):
     user: UserPublic
     is_platform_admin: bool
+    can_manage_school_entitlements: bool = False
     memberships: list[MeMembership]
 
 

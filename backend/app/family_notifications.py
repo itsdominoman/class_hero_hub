@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from .entitlement_service import FAMILY_CATEGORY_CAPABILITY, FAMILY_CONNECTION, capabilities_enabled
 from .models_school import (
     Announcement,
     BehaviourCategory,
@@ -130,6 +131,12 @@ def enqueue_family_notifications(
     """
     if category not in CATEGORIES or not _source_visible(category, source, action):
         return []
+    if not capabilities_enabled(
+        db,
+        source.school_id,
+        (FAMILY_CONNECTION, FAMILY_CATEGORY_CAPABILITY[category]),
+    ):
+        return []
     points_policy = None
     if category == "points":
         points_policy = db.query(SchoolPointsNotificationPolicy).filter(
@@ -226,6 +233,12 @@ def enqueue_family_notifications(
 
 def revalidate_family_notification(db: Session, row: NotificationOutbox) -> bool:
     if row.event_category not in CATEGORIES or row.recipient_kind != "fhh_link":
+        return False
+    if not capabilities_enabled(
+        db,
+        row.school_id,
+        (FAMILY_CONNECTION, FAMILY_CATEGORY_CAPABILITY[row.event_category]),
+    ):
         return False
     school = db.query(School).filter(
         School.id == row.school_id,

@@ -15,6 +15,7 @@ from app import auth, database
 from app.database import Base, get_db
 from app.main import app
 from app.models_school import AcademicYear, BehaviourCategory, BehaviourEvent, BranchCampus, ClassSection, Enrolment, GradeLevel, Membership, School, Student, Subject, SubjectGroup, User
+from entitlement_fixtures import grant_capabilities
 
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -65,6 +66,7 @@ def report_world(db):
         Membership(school_id=school.id, user_id=admin.id, role="school_admin"),
         Membership(school_id=school.id, user_id=teacher.id, role="teacher"),
     ])
+    grant_capabilities(db, school, admin, "reports_insights")
     positive = BehaviourCategory(school_id=school.id, type="positive", label="Helpful", points_value=2)
     needs_work = BehaviourCategory(school_id=school.id, type="needs_work", label="Off task", points_value=-1)
     db.add_all([positive, needs_work])

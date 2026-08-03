@@ -14,6 +14,8 @@ from typing import Any
 from sqlalchemy import func, or_, text
 from sqlalchemy.orm import Session, sessionmaker
 
+from .entitlement_service import SAFEGUARDING, SCHOOL_CHATS, capability_enabled
+
 from .legal_hold_service import held_message_ids
 from .message_media_service import (
     MESSAGE_MEDIA_ARCHIVE_ROOT,
@@ -481,6 +483,9 @@ def process_one_job(SessionFactory: sessionmaker, *, worker_id: str, lease_secon
             _heartbeat(db, worker_id=worker_id, success=False, recovered=recovered)
             return 0
         try:
+            required_capability = SAFEGUARDING if job.job_type == "evidence_export" else SCHOOL_CHATS
+            if not capability_enabled(db, job.school_id, required_capability):
+                raise ProductionJobError("School capability is not enabled")
             if job.cancellation_requested_at is not None:
                 _finish_job(db, job, state="cancelled")
             elif job.job_type == "retention_preview":

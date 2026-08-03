@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from .. import auth
 from ..database import get_db
+from ..entitlement_service import SCHOOL_CHATS, capability_enabled
 from ..messaging_service import participant_sequence_access_map
 from ..models_school import (
     Conversation,
@@ -45,17 +46,18 @@ class UnregisterDeviceRequest(BaseModel):
 
 
 def _active_staff_membership(db: Session, user_id: int) -> bool:
-    return (
-        db.query(Membership.id)
+    school_ids = (
+        db.query(Membership.school_id)
         .filter(
             Membership.user_id == user_id,
             Membership.role.in_(("teacher", "school_admin")),
             Membership.status == "active",
             Membership.revoked_at.is_(None),
         )
-        .first()
-        is not None
+        .distinct()
+        .all()
     )
+    return any(capability_enabled(db, school_id, SCHOOL_CHATS) for school_id, in school_ids)
 
 
 @router.post("/devices/register")
@@ -179,6 +181,8 @@ def notification_target(
         .first()
     )
     if row is None:
+        raise HTTPException(status_code=404, detail="Notification target is unavailable")
+    if not capability_enabled(db, row.school_id, SCHOOL_CHATS):
         raise HTTPException(status_code=404, detail="Notification target is unavailable")
     message = db.query(Message).filter(Message.id == row.message_id, Message.state == "active").first()
     participant = (

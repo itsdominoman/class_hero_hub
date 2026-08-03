@@ -5,6 +5,7 @@ os.environ["APP_ENV"] = "test"
 os.environ["DEV_AUTH_ENABLED"] = "false"
 
 import pytest
+from entitlement_fixtures import grant_all_capabilities
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
@@ -54,7 +55,8 @@ def world(db):
     db.add_all([a,b,admin,teacher,guardian,outsider]); db.flush()
     db.add_all([Membership(school_id=a.id,user_id=admin.id,role="school_admin"), Membership(school_id=a.id,user_id=teacher.id,role="teacher")])
     s1=Student(school_id=a.id,first_name="A",last_name="One",status="active"); s2=Student(school_id=a.id,first_name="A",last_name="Two",status="active"); inactive=Student(school_id=a.id,first_name="Old",last_name="Student",status="inactive"); foreign=Student(school_id=b.id,first_name="B",last_name="One",status="active")
-    db.add_all([s1,s2,inactive,foreign]); db.flush(); db.add(GuardianLink(school_id=a.id,student_id=s1.id,user_id=guardian.id,status="active")); db.commit()
+    db.add_all([s1,s2,inactive,foreign]); db.flush(); db.add(GuardianLink(school_id=a.id,student_id=s1.id,user_id=guardian.id,status="active"))
+    grant_all_capabilities(db, a, admin); grant_all_capabilities(db, b, admin); db.commit()
     return locals()
 
 def add_assignment_context(db, w):

@@ -9,6 +9,7 @@ os.environ["APP_ENV"] = "test"
 os.environ["DEV_AUTH_ENABLED"] = "false"
 
 import pytest
+from entitlement_fixtures import grant_all_capabilities
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
@@ -172,6 +173,8 @@ def import_world(db):
     next_kg1_section_b = ClassSection(school_id=alpha.id, branch_campus_id=branch.id, academic_year_id=next_year.id, grade_level_id=kg1.id, code="B", name="2027 KG 1 B", status="active")
     next_g1_section_a = ClassSection(school_id=alpha.id, branch_campus_id=branch.id, academic_year_id=next_year.id, grade_level_id=g1.id, code="A", name="2027 Grade 1 A", status="active")
     db.add_all([section_a, section_b, g1_section_a, next_kg1_section_a, next_kg1_section_b, next_g1_section_a])
+    grant_all_capabilities(db, alpha, alpha_admin)
+    grant_all_capabilities(db, beta, beta_admin)
     db.commit()
 
     return {
@@ -1868,4 +1871,5 @@ def test_large_import_history_and_exports_have_bounded_query_shape(
         )
     assert active.status_code == 200
     assert len(csv_download_rows(active)) == 40
-    assert export_queries["n"] < 10
+    # The canonical import/export entitlement adds one fixed school-scoped read.
+    assert export_queries["n"] < 11

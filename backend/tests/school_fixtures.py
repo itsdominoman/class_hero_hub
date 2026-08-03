@@ -1,6 +1,8 @@
 import pytest
+from datetime import date
 
-from app.models_school import Membership, PlatformAdmin, School, User
+from app.entitlement_service import CAPABILITY_REGISTRY
+from app.models_school import Membership, PlatformAdmin, School, SchoolEntitlement, User
 
 
 def _create_user(db, email: str, name: str) -> User:
@@ -52,6 +54,18 @@ def seeded_schools(db):
             ),
             PlatformAdmin(user_id=platform_user.id, granted_by_user_id=None),
         ]
+    )
+    db.add_all(
+        SchoolEntitlement(
+            school_id=school.id,
+            capability=definition.key,
+            enabled=True,
+            source="pilot",
+            effective_from=date.today(),
+            updated_by_user_id=platform_user.id,
+        )
+        for school in (alpha, beta)
+        for definition in CAPABILITY_REGISTRY
     )
     db.commit()
 

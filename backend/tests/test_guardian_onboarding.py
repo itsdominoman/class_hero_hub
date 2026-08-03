@@ -6,6 +6,7 @@ os.environ["APP_ENV"] = "test"
 os.environ["DEV_AUTH_ENABLED"] = "false"
 
 import pytest
+from entitlement_fixtures import grant_all_capabilities
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 from sqlalchemy import create_engine
@@ -174,6 +175,8 @@ def world(db):
         status="draft",
     )
     db.add_all([contact, contact2])
+    grant_all_capabilities(db, alpha, alpha_admin)
+    grant_all_capabilities(db, beta, beta_admin)
     db.commit()
     return locals()
 

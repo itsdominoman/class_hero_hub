@@ -17,7 +17,7 @@
 
   type AssignmentCard = TeacherClassAssignment & {
     target_type?: 'class_section' | 'subject_group';
-    school: TeacherClassAssignment['school'] & { id: number; name_ar?: string | null };
+    school: TeacherClassAssignment['school'] & { id: number; name_ar?: string | null; capabilities: string[] };
     class_section?: (NonNullable<TeacherClassAssignment['class_section']> & { id: number }) | null;
     subject_group?: (NonNullable<TeacherClassAssignment['subject_group']> & { id: number }) | null;
     academic_year?: { name?: string | null; name_ar?: string | null } | null;
@@ -59,7 +59,7 @@
     all_day: boolean;
     can_manage?: boolean;
   };
-  type SchoolRef = { id: number; name: string; name_ar?: string | null };
+  type SchoolRef = { id: number; name: string; name_ar?: string | null; capabilities: string[] };
   type Category = { id: number; type: 'positive' | 'needs_work'; label: string; points_value: number };
   type SearchStudent = {
     id: number; display_name: string; first_name: string; last_name: string; preferred_name?: string | null;
@@ -121,6 +121,8 @@
       $_('teach.subject')
     )
   );
+  let behaviourSchools = $derived(teacherSchools.filter((school) => school.capabilities.includes('behaviour_points')));
+  let noticeSchools = $derived(teacherSchools.filter((school) => school.capabilities.includes('notices_calendar')));
 
   function displayRefName(ref?: { name?: string | null; name_ar?: string | null } | null) {
     return presentationLocale === 'ar' && ref?.name_ar ? ref.name_ar : ref?.name || '';
@@ -139,6 +141,7 @@
 
   function audienceOptions() {
     return assignments
+      .filter((card) => card.school.capabilities.includes('notices_calendar'))
       .map((card) => {
         const targetId = card.target_type === 'subject_group' ? card.subject_group?.id : card.class_section?.id;
         if (!targetId) return null;
@@ -173,7 +176,7 @@
     studentModal = 'open';
     searchError = null;
     pointsSuccess = null;
-    if (!searchSchoolId && teacherSchools.length) searchSchoolId = String(teacherSchools[0].id);
+    if (!searchSchoolId && behaviourSchools.length) searchSchoolId = String(behaviourSchools[0].id);
     try {
       const data = await api.get(`/teach/behaviour/categories?school_id=${searchSchoolId}`);
       categories = data?.categories || [];
@@ -452,7 +455,7 @@
     calendarError = null;
     calendarNotice = null;
     editingEvent = null;
-    if (!calendarSchoolId) calendarSchoolId = String(teacherSchools[0]?.id || '');
+    if (!calendarSchoolId) calendarSchoolId = String(noticeSchools[0]?.id || '');
     calendarModal = 'list';
     await loadCalendar();
   }
@@ -570,7 +573,7 @@
       const data = await api.get('/teach/dashboard');
       assignments = data.assignments || [];
       teacherSchools = data.schools || [];
-      searchSchoolId = String(teacherSchools[0]?.id || '');
+      searchSchoolId = String(behaviourSchools[0]?.id || '');
       if (audienceOptions().length) {
         announcementAudience = audienceOptions()[0].id;
         await loadAnnouncements();
@@ -610,11 +613,14 @@
       <p class="eyebrow">{$_('teach.eyebrow')}</p>
       <h1 class="mt-1 text-2xl font-black leading-tight text-slate-900 md:mt-2 md:text-3xl">{$_('teach.heading')}</h1>
 
-      <div data-testid="teach-utility-actions" class="mt-3 grid grid-cols-3 gap-2">
+      <div data-testid="teach-utility-actions" class="mt-3 grid grid-cols-[repeat(auto-fit,minmax(5rem,1fr))] gap-2">
+        {#if behaviourSchools.length > 0}
         <button type="button" class="flex h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-violet-200 bg-violet-50/80 px-1.5 py-2 text-[0.7rem] font-bold leading-tight text-slate-700 shadow-sm transition hover:border-violet-300 hover:bg-violet-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500" onclick={openStudentModal}>
           <Search class="text-violet-600" size={18} strokeWidth={2.25} aria-hidden="true" />
           <span class="block w-full truncate text-center">{$_('teach.studentSearch.find')}</span>
         </button>
+        {/if}
+        {#if noticeSchools.length > 0}
         <button type="button" class="flex h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-cyan-200 bg-cyan-50/80 px-1.5 py-2 text-[0.7rem] font-bold leading-tight text-slate-700 shadow-sm transition hover:border-cyan-300 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600" aria-label={$_('teach.announcements.utilityLabel')} onclick={openManageMode}>
           <Megaphone class="text-cyan-700" size={18} strokeWidth={2.25} aria-hidden="true" />
           <span class="block w-full truncate text-center">{$_('teach.announcements.utilityLabel')}</span>
@@ -623,6 +629,7 @@
           <CalendarDays class="text-amber-700" size={18} strokeWidth={2.25} aria-hidden="true" />
           <span class="block w-full truncate text-center">{$_('calendar.title')}</span>
         </button>
+        {/if}
       </div>
     </div>
 
@@ -695,8 +702,8 @@
       </div>
 
       {#if searchError}<div class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{searchError}</div>{/if}
-      {#if teacherSchools.length > 1}
-        <label class="mt-4 grid gap-1 text-sm font-bold text-slate-700">{$_('teach.studentSearch.school')}<select class="rounded-lg border border-slate-200 px-3 py-2" bind:value={searchSchoolId} onchange={changeSearchSchool}>{#each teacherSchools as school}<option value={school.id}>{displayRefName(school)}</option>{/each}</select></label>
+      {#if behaviourSchools.length > 1}
+        <label class="mt-4 grid gap-1 text-sm font-bold text-slate-700">{$_('teach.studentSearch.school')}<select class="rounded-lg border border-slate-200 px-3 py-2" bind:value={searchSchoolId} onchange={changeSearchSchool}>{#each behaviourSchools as school}<option value={school.id}>{displayRefName(school)}</option>{/each}</select></label>
       {/if}
       <label class="mt-4 grid gap-1 text-sm font-bold text-slate-700">{$_('teach.studentSearch.searchLabel')}
         <div class="relative"><Search class="absolute start-3 top-3 text-slate-400" size={18} aria-hidden="true" /><input class="w-full rounded-xl border border-slate-200 py-2.5 ps-10 pe-3" maxlength="120" bind:value={searchText} oninput={queueStudentSearch} placeholder={$_('teach.studentSearch.placeholder')} /></div>

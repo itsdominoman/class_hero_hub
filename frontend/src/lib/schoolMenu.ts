@@ -1,13 +1,17 @@
+import type { CapabilityKey } from '$lib/entitlements';
+
 export type SchoolMenuTab = {
   type: 'tab';
   key: string;
   label: string;
+  capability?: CapabilityKey;
 };
 
 export type SchoolMenuLink = {
   type: 'link' | 'shortcut';
   href: string;
   label: string;
+  capability?: CapabilityKey;
 };
 
 export type SchoolMenuItem = SchoolMenuTab | SchoolMenuLink;
@@ -48,24 +52,24 @@ export const SCHOOL_MENU_GROUPS: SchoolMenuGroup[] = [
     label: 'school.menu.groups.students',
     items: [
       { type: 'link', href: '/school/students', label: 'school.tabs.students' },
-      { type: 'link', href: '/school/students/data', label: 'school.studentData.title' }
+      { type: 'link', href: '/school/students/data', label: 'school.studentData.title', capability: 'student_staff_import_export' }
     ]
   },
   {
     key: 'communication',
     label: 'school.menu.groups.communication',
     items: [
-      { type: 'tab', key: 'announcements', label: 'school.tabs.announcements' },
-      { type: 'tab', key: 'calendar', label: 'school.tabs.calendar' }
+      { type: 'tab', key: 'announcements', label: 'school.tabs.announcements', capability: 'notices_calendar' },
+      { type: 'tab', key: 'calendar', label: 'school.tabs.calendar', capability: 'notices_calendar' }
     ]
   },
   {
     key: 'behaviour',
     label: 'school.menu.groups.behaviour',
     items: [
-      { type: 'tab', key: 'behaviour', label: 'school.tabs.behaviour' },
-      { type: 'shortcut', href: '/school/reports', label: 'nav.reports' },
-      { type: 'shortcut', href: '/school/recognition', label: 'school.menu.positiveRecognition' }
+      { type: 'tab', key: 'behaviour', label: 'school.tabs.behaviour', capability: 'behaviour_points' },
+      { type: 'shortcut', href: '/school/reports', label: 'nav.reports', capability: 'reports_insights' },
+      { type: 'shortcut', href: '/school/recognition', label: 'school.menu.positiveRecognition', capability: 'positive_recognition' }
     ]
   },
   {
@@ -80,3 +84,10 @@ export const SCHOOL_MENU_GROUPS: SchoolMenuGroup[] = [
 export const SCHOOL_TABS = SCHOOL_MENU_GROUPS.flatMap((group) =>
   group.items.filter((item): item is SchoolMenuTab => item.type === 'tab')
 );
+
+export function visibleSchoolMenuGroups(capabilities: string[]): SchoolMenuGroup[] {
+  return SCHOOL_MENU_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !item.capability || capabilities.includes(item.capability))
+  })).filter((group) => group.items.length > 0);
+}

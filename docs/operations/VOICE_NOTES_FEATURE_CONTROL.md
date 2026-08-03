@@ -1,6 +1,13 @@
 # Voice notes: Compliance / Feature Controls
 
-Voice notes are default-off per school even when Messaging v1 is globally enabled.
+Voice notes have two independent gates. The canonical `voice_notes` school
+entitlement must be effective and its `school_chats` dependency must also be
+effective. The school compliance control is then default-off even when Messaging
+v1 is globally enabled. The operational control can restrict an owned capability;
+it cannot grant one. The existing school-administrator control stays in its current
+Compliance / Feature Controls location when the entitlement is unavailable. Its saved
+value is shown read-only, is never reset by an entitlement change, and becomes effective
+again if the entitlement and its dependency are restored.
 Only an active `school_admin` may change the control. Enabling requires the current
 disclosure version `voice-notes-2026-07-v1`, an explicit acknowledgement and the
 expected control version, preventing stale concurrent updates. Disabling is immediate.
@@ -33,6 +40,8 @@ Operational rules:
 4. Verify only the approved school is enabled. Absence of a row means disabled.
 5. To halt new voice notes, disable the switch. Existing notes remain available only
    to currently authorized conversation participants so records are not stranded.
+   Disabling the canonical entitlement additionally blocks voice-note metadata and
+   protected playback until the entitlement is restored; it does not delete media.
 6. A disclosure revision requires a new disclosure constant and re-acknowledgement
    design; do not rewrite historical events.
 

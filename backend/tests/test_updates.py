@@ -7,6 +7,7 @@ os.environ["APP_ENV"] = "test"
 os.environ["DEV_AUTH_ENABLED"] = "false"
 
 import pytest
+from entitlement_fixtures import grant_all_capabilities
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from PIL import Image
@@ -167,6 +168,8 @@ def world(db):
             GuardianLink(school_id=alpha.id, student_id=other_student.id, user_id=other_guardian.id, relationship="father", status="active"),
         ]
     )
+    grant_all_capabilities(db, alpha, teacher)
+    grant_all_capabilities(db, beta, teacher)
     db.commit()
     return locals()
 

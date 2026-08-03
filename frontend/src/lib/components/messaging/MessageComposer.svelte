@@ -9,6 +9,7 @@
     disabled = false,
     sending = false,
     offline = false,
+    photosEnabled = false,
     voiceEnabled = false,
     canMarkUrgent = false,
     urgent = $bindable(false),
@@ -23,6 +24,7 @@
     disabled?: boolean;
     sending?: boolean;
     offline?: boolean;
+    photosEnabled?: boolean;
     voiceEnabled?: boolean;
     canMarkUrgent?: boolean;
     urgent?: boolean;
@@ -95,6 +97,7 @@
     {#if !voiceActive}
       <label class="sr-only" for="message-body">{$_('messaging.messageLabel')}</label>
       <div class="flex min-w-0 flex-1 items-end rounded-[1.4rem] border border-slate-200 bg-slate-50 shadow-sm transition focus-within:border-hero focus-within:bg-white focus-within:ring-2 focus-within:ring-hero/15">
+      {#if photosEnabled}
       <div class="flex h-11 shrink-0 items-center ps-1">
         <label class="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full text-slate-600 transition hover:bg-slate-200/70 focus-within:outline focus-within:outline-2 focus-within:outline-offset-[-2px] focus-within:outline-hero" aria-label={$_('messaging.choosePhotos')}>
           <ImagePlus size={18} aria-hidden="true" />
@@ -105,6 +108,7 @@
           <input class="sr-only" type="file" accept="image/*" capture="environment" disabled={disabled || sending || photos.length >= 5} onchange={selected} />
         </label>
       </div>
+      {/if}
       <textarea
         id="message-body"
         bind:value={draft}

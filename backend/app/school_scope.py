@@ -67,6 +67,27 @@ def require_platform_admin(
     return current_user
 
 
+def require_manage_school_entitlements(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    authority = (
+        db.query(PlatformAdmin)
+        .filter(
+            PlatformAdmin.user_id == current_user.id,
+            PlatformAdmin.revoked_at.is_(None),
+            PlatformAdmin.manage_school_entitlements.is_(True),
+        )
+        .first()
+    )
+    if authority is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="School entitlement management authority required",
+        )
+    return current_user
+
+
 def _school_id_from_request(request: Request) -> int:
     raw_school_id = request.path_params.get("school_id") or request.headers.get("X-School-Id")
     if raw_school_id is None:

@@ -7,6 +7,7 @@ os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
 
 import pytest
+from entitlement_fixtures import grant_all_capabilities
 from fastapi.testclient import TestClient
 from fastapi import HTTPException
 from jose import jwt
@@ -296,6 +297,7 @@ def _world(db):
                 sync_version=1,
             )
         )
+    grant_all_capabilities(db, school, admin_user)
     db.commit()
     return {
         "school": school,
@@ -949,7 +951,8 @@ def test_external_inbox_guardian_resolution_uses_bounded_selects(db, client):
     assert steady_state.status_code == 200
     assert len(steady_state.json()["items"]) == 20
     # Assignment-derived context uses fixed set-based roster/subject queries.
-    assert len(statements) <= 28
+    # Canonical entitlement checks add three fixed, school-scoped selects.
+    assert len(statements) <= 31
 
 
 def test_runtime_requires_separate_assertion_secret_only_for_fhh_messaging():

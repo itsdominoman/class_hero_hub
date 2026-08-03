@@ -6,6 +6,7 @@ os.environ["APP_ENV"] = "test"
 os.environ["DEV_AUTH_ENABLED"] = "false"
 
 import pytest
+from entitlement_fixtures import grant_all_capabilities
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
@@ -109,6 +110,8 @@ def teacher_import_world(db):
             Membership(school_id=beta.id, user_id=beta_teacher.id, role="teacher"),
         ]
     )
+    grant_all_capabilities(db, alpha, alpha_admin)
+    grant_all_capabilities(db, beta, beta_admin)
     db.commit()
 
     return {

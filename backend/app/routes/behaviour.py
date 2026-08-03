@@ -8,14 +8,15 @@ from sqlalchemy.orm import Session
 from .. import auth
 from ..behaviour_service import category_payload, create_events, guardian_points_payload, quick_actions_payload, reverse_event, seed_default_categories, visible_categories
 from ..database import get_db
+from ..entitlement_service import BEHAVIOUR_POINTS, require_school_entitlement
 from ..models_school import BehaviourCategory, Membership, User
 from ..school_scope import require_school_role, write_audit
 from ..family_notifications import cancel_reversed_behaviour_event_notifications, enqueue_family_notifications
 from ..point_notification_summaries import late_summary_periods, refresh_undelivered_point_summaries
 
-school_router = APIRouter(dependencies=[Depends(require_school_role("school_admin"))])
-teacher_router = APIRouter()
-guardian_router = APIRouter()
+school_router = APIRouter(dependencies=[Depends(require_school_role("school_admin")), Depends(require_school_entitlement(BEHAVIOUR_POINTS))])
+teacher_router = APIRouter(dependencies=[Depends(require_school_entitlement(BEHAVIOUR_POINTS))])
+guardian_router = APIRouter(dependencies=[Depends(require_school_entitlement(BEHAVIOUR_POINTS))])
 
 
 class CategoryRequest(BaseModel):

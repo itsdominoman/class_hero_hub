@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
+from entitlement_fixtures import grant_all_capabilities
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -62,6 +63,7 @@ def _world(db):
             link_token_hash=f"link-{index}", fhh_child_ref=f"child-{index}", status="active",
         )
         db.add(link); db.flush(); links.append(link)
+    grant_all_capabilities(db, school, user)
     db.commit()
     return school, user, section, sara, bob, links
 

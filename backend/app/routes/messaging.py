@@ -16,6 +16,14 @@ from sqlalchemy.orm import Session
 
 from .. import auth
 from ..database import get_db, settings
+from ..entitlement_service import (
+    CHAT_PHOTOS,
+    SCHOOL_CHATS,
+    VOICE_NOTES,
+    enabled_capabilities,
+    ensure_capability,
+    require_school_entitlement,
+)
 from ..feature_control_service import voice_notes_enabled
 from ..messaging_service import (
     MessageReceiptAggregate,
@@ -90,8 +98,8 @@ from ..rosters import resolve_rosters_for_students
 from ..school_scope import open_interval_expression, write_audit
 
 
-staff_router = APIRouter()
-guardian_router = APIRouter()
+staff_router = APIRouter(dependencies=[Depends(require_school_entitlement(SCHOOL_CHATS))])
+guardian_router = APIRouter(dependencies=[Depends(require_school_entitlement(SCHOOL_CHATS))])
 
 CURSOR_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
 MAX_INBOX_CANDIDATES = 2000
@@ -1275,8 +1283,19 @@ def _conversation_payloads(
     )
     latest_by_conversation = {row.conversation_id: row for row in latest_messages}
     latest_media = attached_media_map(db, [row.id for row in latest_messages])
-    latest_voice = attached_voice_map(db, [row.id for row in latest_messages])
-    voice_enabled = voice_notes_enabled(db, actor.school.id)
+    effective_capabilities = enabled_capabilities(db, actor.school.id)
+    voice_media_enabled = VOICE_NOTES in effective_capabilities
+    latest_voice = (
+        attached_voice_map(db, [row.id for row in latest_messages])
+        if voice_media_enabled
+        else {}
+    )
+    voice_enabled = voice_notes_enabled(
+        db,
+        actor.school.id,
+        entitlement_enabled=voice_media_enabled,
+    )
+    photos_enabled = CHAT_PHOTOS in effective_capabilities
     payloads = []
     for conversation in rows:
         current = _participant_for_actor(conversation, participants, actor)
@@ -1337,10 +1356,12 @@ def _conversation_payloads(
                         "message_type": latest.message_type,
                         "body": latest.body if latest.state == "active" else None,
                         "photo_count": len(latest_media.get(latest.id, []))
-                        if latest.state == "active"
+                        if latest.state == "active" and photos_enabled
                         else 0,
                         "voice_note": voice_payload(latest_voice[latest.id])
-                        if latest.id in latest_voice and latest.state == "active"
+                        if latest.id in latest_voice
+                        and latest.state == "active"
+                        and voice_media_enabled
                         else None,
                         "state": latest.state,
                         "created_at": latest.created_at,
@@ -1373,6 +1394,7 @@ def _conversation_payloads(
                     "delivery_receipts_visible": actor.policy.delivery_receipts_visible,
                     "read_receipts_visible": actor.policy.read_receipts_visible,
                     "voice_notes_enabled": voice_enabled,
+                    "photos_enabled": photos_enabled,
                 },
             }
         )
@@ -1690,8 +1712,17 @@ def _message_page(
             if row.participant_kind == "chh_guardian"
         },
     )
-    media_by_message = attached_media_map(db, [row.id for row in rows])
-    voice_by_message = attached_voice_map(db, [row.id for row in rows])
+    effective_capabilities = enabled_capabilities(db, conversation.school_id)
+    media_by_message = (
+        attached_media_map(db, [row.id for row in rows])
+        if CHAT_PHOTOS in effective_capabilities
+        else {}
+    )
+    voice_by_message = (
+        attached_voice_map(db, [row.id for row in rows])
+        if VOICE_NOTES in effective_capabilities
+        else {}
+    )
     items = [
         {
             "id": str(row.public_id),
@@ -2888,6 +2919,8 @@ def _send(
     response: Response,
 ) -> dict[str, Any]:
     _private(response)
+    if body.staged_media_ids:
+        ensure_capability(db, conversation.school_id, CHAT_PHOTOS)
     if body.staged_voice_id is not None and not voice_notes_enabled(
         db, conversation.school_id
     ):
@@ -2975,6 +3008,7 @@ async def _upload_media(
     expected_size: int | None = None,
 ) -> dict[str, Any]:
     _private(response)
+    ensure_capability(db, conversation.school_id, CHAT_PHOTOS)
     try:
         assert_participant_can_send(
             db, conversation=conversation, participant=participant
@@ -3021,6 +3055,7 @@ def _media_for_participant(
     participant: ConversationParticipant,
     media_public_id: UUID,
 ) -> MessageMedia:
+    ensure_capability(db, conversation.school_id, CHAT_PHOTOS)
     row = (
         db.query(MessageMedia)
         .filter(
@@ -3133,6 +3168,7 @@ def _voice_for_participant(
     participant: ConversationParticipant,
     media_public_id: UUID,
 ) -> MessageVoiceMedia:
+    ensure_capability(db, conversation.school_id, VOICE_NOTES)
     row = (
         db.query(MessageVoiceMedia)
         .filter(

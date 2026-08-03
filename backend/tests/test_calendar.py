@@ -7,6 +7,7 @@ os.environ["APP_ENV"] = "test"
 os.environ["DEV_AUTH_ENABLED"] = "false"
 
 import pytest
+from entitlement_fixtures import grant_all_capabilities
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -153,6 +154,8 @@ def world(db):
             GuardianLink(school_id=alpha.id, student_id=other_student.id, user_id=other_guardian.id, relationship="father", status="active"),
         ]
     )
+    grant_all_capabilities(db, alpha, admin)
+    grant_all_capabilities(db, beta, admin)
     db.commit()
     return locals()
 

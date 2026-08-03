@@ -6,6 +6,7 @@ os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
 
 import pytest
+from entitlement_fixtures import grant_all_capabilities
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -123,6 +124,8 @@ def _school_world(db):
         db.flush()
         links.append(link)
         raw_tokens.append(raw_token)
+    grant_all_capabilities(db, school_one, admin_one)
+    grant_all_capabilities(db, school_two, admin_two)
     db.commit()
     return locals()
 

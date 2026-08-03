@@ -16,6 +16,7 @@ from sqlalchemy.pool import StaticPool
 from app import auth, database, invite_tokens
 from app.admission import NOT_AUTHORISED_DETAIL
 from app.database import Base, get_db
+from app.entitlement_service import CAPABILITIES
 from app.main import app
 from app.models_school import (
     AuditLog,
@@ -681,6 +682,7 @@ def test_cookie_auth_resolves_user_for_me_v2(db, client, seeded_schools):
             "school_name": "Alpha Academy",
             "membership_id": membership.id,
             "role": "teacher",
+            "capabilities": sorted(CAPABILITIES),
         }
     ]
 

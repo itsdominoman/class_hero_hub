@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..entitlement_service import VOICE_NOTES, capability_enabled, require_school_entitlement
 from ..feature_control_service import (
     VOICE_NOTES_DISCLOSURE_VERSION,
     VOICE_NOTES_FEATURE,
@@ -29,10 +30,12 @@ class FeatureControlUpdate(BaseModel):
     acknowledged: bool
 
 
-def _payload(row: SchoolFeatureControl) -> dict:
+def _payload(row: SchoolFeatureControl, *, entitlement_enabled: bool) -> dict:
     return {
         "feature": row.feature,
         "enabled": bool(row.enabled),
+        "entitlement_enabled": entitlement_enabled,
+        "effective_enabled": entitlement_enabled and bool(row.enabled),
         "control_version": row.control_version,
         "disclosure_version": VOICE_NOTES_DISCLOSURE_VERSION,
         "updated_at": row.updated_at,
@@ -86,10 +89,18 @@ def get_feature_controls(
     membership: Membership = Depends(require_school_role("school_admin")),
     db: Session = Depends(get_db),
 ):
-    return {"voice_notes": _payload(_ensure_voice_control(db, membership))}
+    return {
+        "voice_notes": _payload(
+            _ensure_voice_control(db, membership),
+            entitlement_enabled=capability_enabled(db, membership.school_id, VOICE_NOTES),
+        )
+    }
 
 
-@router.put("/feature-controls/voice-notes")
+@router.put(
+    "/feature-controls/voice-notes",
+    dependencies=[Depends(require_school_entitlement(VOICE_NOTES))],
+)
 def update_voice_notes_control(
     body: FeatureControlUpdate,
     membership: Membership = Depends(require_school_role("school_admin")),
@@ -124,7 +135,7 @@ def update_voice_notes_control(
             },
         )
     if bool(row.enabled) == body.enabled:
-        return _payload(row)
+        return _payload(row, entitlement_enabled=True)
 
     row.enabled = body.enabled
     row.control_version += 1
@@ -158,4 +169,4 @@ def update_voice_notes_control(
     )
     db.commit()
     db.refresh(row)
-    return _payload(row)
+    return _payload(row, entitlement_enabled=True)

@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from .. import auth
 from ..database import get_db
+from ..entitlement_service import SCHOOL_FAMILY_UPDATES, UPDATE_PHOTOS, capability_enabled, ensure_capability, require_school_entitlement
 from ..models_school import ClassSection, StaffAssignment, SubjectGroup, UpdatePhoto, UpdatePost, User
 from ..school_scope import open_interval_expression, write_audit
 from ..family_notifications import enqueue_family_notifications
@@ -31,8 +32,8 @@ from ..update_image_service import (
     optimise_update_photo,
 )
 
-teacher_router = APIRouter()
-guardian_router = APIRouter()
+teacher_router = APIRouter(dependencies=[Depends(require_school_entitlement(SCHOOL_FAMILY_UPDATES))])
+guardian_router = APIRouter(dependencies=[Depends(require_school_entitlement(SCHOOL_FAMILY_UPDATES))])
 logger = logging.getLogger(__name__)
 UPLOAD_ROOT = Path(os.environ.get("UPDATE_UPLOAD_DIR", "/app/data/update_uploads"))
 MAX_PHOTOS_PER_POST = 5
@@ -129,7 +130,11 @@ def _context(db: Session, posts: list[UpdatePost]):
     sections = {row.id: row for row in db.query(ClassSection).filter(ClassSection.id.in_(section_ids)).all()} if section_ids else {}
     groups = {row.id: row for row in db.query(SubjectGroup).filter(SubjectGroup.id.in_(group_ids)).all()} if group_ids else {}
     authors = {row.id: row for row in db.query(User).filter(User.id.in_(author_ids)).all()} if author_ids else {}
-    post_ids = {row.id for row in posts}
+    photo_school_ids = {
+        school_id for school_id in {row.school_id for row in posts}
+        if capability_enabled(db, school_id, UPDATE_PHOTOS)
+    }
+    post_ids = {row.id for row in posts if row.school_id in photo_school_ids}
     photos: dict[int, list[UpdatePhoto]] = {}
     if post_ids:
         for row in db.query(UpdatePhoto).filter(UpdatePhoto.post_id.in_(post_ids)).order_by(UpdatePhoto.id).all():
@@ -276,6 +281,7 @@ def create_update(payload: UpdateCreateRequest, request: Request, current_user: 
 @teacher_router.post("/updates/{post_id}/photos", status_code=status.HTTP_201_CREATED)
 async def upload_photo(post_id: int, request: Request, file: UploadFile = File(...), current_user: User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
     school_id = _school_id_from_header(request.headers)
+    ensure_capability(db, school_id, UPDATE_PHOTOS)
     post = _teacher_post(db, current_user, school_id, post_id)
     if post.status != "active":
         raise HTTPException(status_code=409, detail="Archived updates cannot be changed")
@@ -357,6 +363,7 @@ def teacher_detail(post_id: int, request: Request, current_user: User = Depends(
 @teacher_router.get("/updates/{post_id}/photos/{photo_id}/view")
 def teacher_view_photo(post_id: int, photo_id: int, request: Request, current_user: User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
     school_id = _school_id_from_header(request.headers)
+    ensure_capability(db, school_id, UPDATE_PHOTOS)
     post = _teacher_post(db, current_user, school_id, post_id)
     photo = db.query(UpdatePhoto).filter(UpdatePhoto.id == photo_id, UpdatePhoto.post_id == post.id, UpdatePhoto.school_id == school_id).first()
     if not photo:
@@ -367,6 +374,7 @@ def teacher_view_photo(post_id: int, photo_id: int, request: Request, current_us
 @teacher_router.get("/updates/{post_id}/photos/{photo_id}/thumbnail")
 def teacher_view_photo_thumbnail(post_id: int, photo_id: int, request: Request, current_user: User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
     school_id = _school_id_from_header(request.headers)
+    ensure_capability(db, school_id, UPDATE_PHOTOS)
     post = _teacher_post(db, current_user, school_id, post_id)
     photo = db.query(UpdatePhoto).filter(UpdatePhoto.id == photo_id, UpdatePhoto.post_id == post.id, UpdatePhoto.school_id == school_id).first()
     if not photo:
@@ -392,6 +400,7 @@ def guardian_detail(post_id: int, current_user: User = Depends(auth.get_current_
 @guardian_router.get("/updates/{post_id}/photos/{photo_id}/view")
 def guardian_view_photo(post_id: int, photo_id: int, current_user: User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
     post = _guardian_post(db, current_user, post_id)
+    ensure_capability(db, post.school_id, UPDATE_PHOTOS)
     photo = db.query(UpdatePhoto).filter(UpdatePhoto.id == photo_id, UpdatePhoto.post_id == post.id, UpdatePhoto.school_id == post.school_id).first()
     if not photo:
         raise HTTPException(status_code=404, detail="Photo not found")
@@ -401,6 +410,7 @@ def guardian_view_photo(post_id: int, photo_id: int, current_user: User = Depend
 @guardian_router.get("/updates/{post_id}/photos/{photo_id}/thumbnail")
 def guardian_view_photo_thumbnail(post_id: int, photo_id: int, current_user: User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
     post = _guardian_post(db, current_user, post_id)
+    ensure_capability(db, post.school_id, UPDATE_PHOTOS)
     photo = db.query(UpdatePhoto).filter(UpdatePhoto.id == photo_id, UpdatePhoto.post_id == post.id, UpdatePhoto.school_id == post.school_id).first()
     if not photo:
         raise HTTPException(status_code=404, detail="Photo not found")

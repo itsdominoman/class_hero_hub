@@ -13,6 +13,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from ..database import get_db, settings
+from ..entitlement_service import FAMILY_CONNECTION, SCHOOL_CHATS, ensure_capabilities
 from ..fhh_messaging_assertions import verify_and_consume_actor_assertion
 from ..models_school import (
     FhhLink,
@@ -136,6 +137,7 @@ def _actor(
     )
     if school is None:
         raise HTTPException(status_code=404, detail="Messaging is unavailable")
+    ensure_capabilities(db, school.id, FAMILY_CONNECTION, SCHOOL_CHATS)
     policy = _enabled_policy(db, school.id)
     identity, identity_link = verify_and_consume_actor_assertion(
         db,

@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from .. import auth
 from ..database import get_db
+from ..entitlement_service import NOTICES_CALENDAR, require_school_entitlement
 from ..models_school import (
     Announcement,
     AnnouncementAttachment,
@@ -31,9 +32,9 @@ from ..rosters import resolve_rosters_for_students
 from ..school_scope import open_interval_expression, write_audit
 from ..family_notifications import enqueue_family_notifications, material_snapshot
 
-staff_router = APIRouter()
-teacher_router = APIRouter()
-guardian_router = APIRouter()
+staff_router = APIRouter(dependencies=[Depends(require_school_entitlement(NOTICES_CALENDAR))])
+teacher_router = APIRouter(dependencies=[Depends(require_school_entitlement(NOTICES_CALENDAR))])
+guardian_router = APIRouter(dependencies=[Depends(require_school_entitlement(NOTICES_CALENDAR))])
 
 MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
 MAX_ATTACHMENTS_PER_POST = 5

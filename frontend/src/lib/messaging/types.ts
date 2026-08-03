@@ -32,6 +32,7 @@ export type MessagingCapabilities = {
   can_mark_urgent: boolean;
   delivery_receipts_visible: boolean;
   read_receipts_visible: boolean;
+  photos_enabled: boolean;
   voice_notes_enabled: boolean;
 };
 

@@ -10,6 +10,12 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..entitlement_service import (
+    SAFEGUARDING,
+    SCHOOL_CHATS,
+    ensure_capability,
+    require_school_entitlement,
+)
 from ..messaging_production import (
     DEFAULT_RETENTION_RULES,
     ProductionJobError,
@@ -158,7 +164,11 @@ def policies(
     return {"defaults": DEFAULT_RETENTION_RULES, "policies": [_policy_payload(row) for row in rows]}
 
 
-@router.post("/operations/retention-policies", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/operations/retention-policies",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_school_entitlement(SCHOOL_CHATS))],
+)
 def add_policy(
     payload: PolicyRequest,
     membership: Membership = Depends(require_school_role("school_admin")),
@@ -187,7 +197,11 @@ def _policy_or_409(db: Session, school_id: int) -> MessagingRetentionPolicy:
     return row
 
 
-@router.post("/operations/retention/preview", status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/operations/retention/preview",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_school_entitlement(SCHOOL_CHATS))],
+)
 def preview_retention(
     payload: JobRequest,
     membership: Membership = Depends(require_school_role("school_admin")),
@@ -206,7 +220,11 @@ def preview_retention(
     ))
 
 
-@router.post("/operations/retention/execute", status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/operations/retention/execute",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_school_entitlement(SCHOOL_CHATS))],
+)
 def execute_retention(
     payload: ExecuteRequest,
     membership: Membership = Depends(require_school_role("school_admin")),
@@ -234,7 +252,11 @@ def execute_retention(
     ))
 
 
-@router.post("/operations/archive", status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/operations/archive",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_school_entitlement(SCHOOL_CHATS))],
+)
 def start_archive(
     payload: JobRequest,
     membership: Membership = Depends(require_school_role("school_admin")),
@@ -266,6 +288,11 @@ def cancel_job(
     ).with_for_update().first()
     if row is None:
         raise HTTPException(status_code=404, detail="Job not found")
+    ensure_capability(
+        db,
+        membership.school_id,
+        SAFEGUARDING if row.job_type == "evidence_export" else SCHOOL_CHATS,
+    )
     if row.state in ("succeeded", "cancelled"):
         raise HTTPException(status_code=409, detail="Job is already terminal")
     if row.state in ("pending", "failed", "dead"):
@@ -301,6 +328,11 @@ def retry_job(
     ).with_for_update().first()
     if row is None:
         raise HTTPException(status_code=409, detail="Only failed or dead jobs can be retried")
+    ensure_capability(
+        db,
+        membership.school_id,
+        SAFEGUARDING if row.job_type == "evidence_export" else SCHOOL_CHATS,
+    )
     if row.job_type == "evidence_export":
         export = db.query(MessagingEvidenceExport).filter(MessagingEvidenceExport.id == row.export_id).first()
         if export is None or export.expires_at <= now_utc():
@@ -380,7 +412,10 @@ def _notification_action(
     return changed
 
 
-@router.post("/operations/notifications/retry")
+@router.post(
+    "/operations/notifications/retry",
+    dependencies=[Depends(require_school_entitlement(SCHOOL_CHATS))],
+)
 def retry_notifications(
     payload: NotificationActionRequest,
     membership: Membership = Depends(require_school_role("school_admin")),
@@ -390,7 +425,10 @@ def retry_notifications(
     return {"updated": _notification_action(db, school_id=membership.school_id, membership_id=membership.id, target_ids=payload.target_ids, action="retry", reason=payload.reason)}
 
 
-@router.post("/operations/notifications/cancel")
+@router.post(
+    "/operations/notifications/cancel",
+    dependencies=[Depends(require_school_entitlement(SCHOOL_CHATS))],
+)
 def cancel_notifications(
     payload: NotificationActionRequest,
     membership: Membership = Depends(require_school_role("school_admin")),

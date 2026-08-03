@@ -1,6 +1,7 @@
 from datetime import date, datetime, time, timezone
 
 import pytest
+from entitlement_fixtures import grant_all_capabilities
 from sqlalchemy import create_engine, event as sqlalchemy_event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -77,6 +78,7 @@ def _world(db, *, timezone_name="Asia/Muscat", week_start=7, week_end=4, weekly_
             link_token_hash=f"link-{school.id}-{index}", fhh_child_ref=f"child-{index}", status="active",
         )
         db.add(link); db.flush(); links.append(link)
+    grant_all_capabilities(db, school, user)
     db.commit()
     return school, policy, user, positive, needs_work, alice, bob, links
 

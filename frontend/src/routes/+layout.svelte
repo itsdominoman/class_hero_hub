@@ -16,8 +16,9 @@
   import { safeguardingApi } from '$lib/safeguarding/api';
   import type { SafeguardingMembership } from '$lib/safeguarding/types';
   import { clearNativeSession, isNativePlatform } from '$lib/nativeAuth';
+  import { anyMembershipHasCapability, capabilityForRoute } from '$lib/entitlements';
   import { defaultLandingPath, hasRole, type SessionUser } from '$lib/roleRouting';
-  import { SCHOOL_MENU_GROUPS, SCHOOL_TABS, type SchoolMenuItem } from '$lib/schoolMenu';
+  import { SCHOOL_TABS, visibleSchoolMenuGroups, type SchoolMenuItem } from '$lib/schoolMenu';
   import { surveyApi, type SurveyMembership } from '$lib/surveys/api';
   import { getPublicSiteCopy } from '$lib/publicSite';
 
@@ -42,6 +43,7 @@
 
   let { children } = $props();
   let currentUser = $state<SessionUser | null>(null);
+  let sessionLoaded = $state(false);
   let mobileMenuOpen = $state(false);
   let messagingMemberships = $state<MessagingMembership[]>([]);
   let messagingAvailable = $state(false);
@@ -77,10 +79,13 @@
       messagingMemberships = (currentUser?.memberships || []).filter(
         (row): row is MessagingMembership =>
           (row.role === 'teacher' || row.role === 'school_admin') &&
+          row.capabilities.includes('school_chats') &&
           Number.isInteger(row.membership_id)
       );
       const safeguardingChecks = await Promise.all(
-        (currentUser?.memberships || []).map(async (row) => {
+        (currentUser?.memberships || [])
+          .filter((row) => row.capabilities.includes('safeguarding'))
+          .map(async (row) => {
           try {
             const availability = await safeguardingApi.availability(row);
             return availability.available ? row : null;
@@ -94,7 +99,7 @@
       );
       const surveyChecks = await Promise.all(
         (currentUser?.memberships || [])
-          .filter((row) => row.role === 'school_admin')
+          .filter((row) => row.role === 'school_admin' && row.capabilities.includes('surveys_polls'))
           .map(async (row) => {
             try {
               return (await surveyApi.availability(row)).available ? row : null;
@@ -119,6 +124,8 @@
       surveyMemberships = [];
       messagingAvailable = false;
       messagingUnread = 0;
+    } finally {
+      sessionLoaded = true;
     }
   }
 
@@ -288,6 +295,12 @@
   let hasSchoolAdmin = $derived(hasRole(currentUser, 'school_admin'));
   let hasTeacher = $derived(hasRole(currentUser, 'teacher'));
   let hasGuardian = $derived(hasRole(currentUser, 'guardian'));
+  let schoolAdminCapabilities = $derived(Array.from(new Set(
+    (currentUser?.memberships || [])
+      .filter((membership) => membership.role === 'school_admin')
+      .flatMap((membership) => membership.capabilities)
+  )));
+  let schoolMenuGroups = $derived(visibleSchoolMenuGroups(schoolAdminCapabilities));
   let hasAnyRole = $derived(hasSchoolAdmin || hasTeacher || hasGuardian || Boolean(currentUser?.is_platform_admin));
   let dashboardHref = $derived(defaultLandingPath(currentUser));
   let safeguardingHref = $derived(
@@ -300,7 +313,11 @@
   );
   let navigationItemConfig = $derived<Record<GlobalNavigationItemId, Omit<NavigationItem, 'id'>>>(
     {
-      family: { href: '/parent', labelKey: 'nav.family', visible: hasGuardian },
+      family: {
+        href: '/parent',
+        labelKey: 'nav.family',
+        visible: hasGuardian && anyMembershipHasCapability(currentUser?.memberships, 'family_connection', 'guardian')
+      },
       platform: {
         href: '/platform',
         labelKey: 'nav.admin',
@@ -310,7 +327,11 @@
       teach: { href: '/teach', labelKey: 'nav.teach', visible: hasTeacher },
       messages: { href: '/messages', labelKey: 'nav.messages', visible: messagingAvailable },
       surveys: { href: surveysHref, labelKey: 'nav.surveys', visible: surveyMemberships.length > 0 },
-      reports: { href: '/school/reports', labelKey: 'nav.reports', visible: hasSchoolAdmin },
+      reports: {
+        href: '/school/reports',
+        labelKey: 'nav.reports',
+        visible: anyMembershipHasCapability(currentUser?.memberships, 'reports_insights', 'school_admin')
+      },
       system: {
         href: '/school/administration',
         labelKey: 'nav.administration',
@@ -333,7 +354,7 @@
   let schoolSetupNavigationVisible = $derived(
     hasSchoolAdmin && (
       $page.url.pathname === '/school'
-      || SCHOOL_MENU_GROUPS.some((group) => group.items.some(
+      || schoolMenuGroups.some((group) => group.items.some(
         (item) => item.type !== 'tab' && item.href === $page.url.pathname
       ))
     )
@@ -343,6 +364,12 @@
     const requested = $page.url.searchParams.get('tab');
     return requested && SCHOOL_TABS.some((tab) => tab.key === requested) ? requested : 'checklist';
   });
+  let requiredRouteCapability = $derived(capabilityForRoute($page.url.pathname, $page.url.search));
+  let routeEntitled = $derived(
+    !requiredRouteCapability
+    || !currentUser
+    || anyMembershipHasCapability(currentUser.memberships, requiredRouteCapability)
+  );
 
   function navigationItemIsCurrent(item: NavigationItem) {
     return item.id === 'dashboard'
@@ -503,7 +530,17 @@
   {/if}
 
   <main class:viewport-managed={nativeApp && messagingRoute} class="app-main flex-1 max-w-full overflow-x-hidden">
-    {@render children()}
+    {#if sessionLoaded && !routeEntitled}
+      <section class="mx-auto max-w-3xl px-4 py-12 sm:py-16" aria-labelledby="entitlement-unavailable-title">
+        <div class="rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm sm:p-8">
+          <h1 id="entitlement-unavailable-title" class="text-2xl font-black text-slate-950">{$_('entitlements.unavailableTitle')}</h1>
+          <p class="mt-3 text-base leading-7 text-slate-700">{$_('entitlements.unavailable')}</p>
+          <a class="btn-hero mt-6 inline-flex rounded-xl px-5 py-3" href={dashboardHref}>{$_('common.back')}</a>
+        </div>
+      </section>
+    {:else}
+      {@render children()}
+    {/if}
   </main>
 
   {#if !nativeApp && !messagingRoute}
@@ -652,7 +689,7 @@
         <section class="mt-6 border-t border-slate-200 pt-5" aria-labelledby="mobile-school-setup-title">
           <h2 id="mobile-school-setup-title" class="text-sm font-black uppercase tracking-wide text-slate-900">{$_('nav.school')}</h2>
           <nav class="mt-4 space-y-5" aria-label={$_('school.menu.navigationLabel')}>
-            {#each SCHOOL_MENU_GROUPS as group}
+            {#each schoolMenuGroups as group}
               <section aria-labelledby={`mobile-school-menu-${group.key}`}>
                 <h3 id={`mobile-school-menu-${group.key}`} class="px-3 text-xs font-bold uppercase tracking-wide text-slate-500">{$_(group.label)}</h3>
                 <div class="mt-1 space-y-1">

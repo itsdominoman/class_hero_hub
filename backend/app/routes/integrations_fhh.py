@@ -14,6 +14,18 @@ from sqlalchemy.orm import Session
 
 from .. import invite_tokens
 from ..database import get_db, settings
+from ..entitlement_service import (
+    BEHAVIOUR_POINTS,
+    FAMILY_CONNECTION,
+    HOMEWORK_DIARY,
+    NOTICES_CALENDAR,
+    SCHOOL_FAMILY_UPDATES,
+    SURVEYS_POLLS,
+    UPDATE_PHOTOS,
+    enabled_capabilities,
+    ensure_capabilities,
+    ensure_capability,
+)
 from ..models_school import (
     Announcement, AnnouncementAttachment, BehaviourCategory, BehaviourEvent, CalendarEvent,
     ClassSection, Enrolment, FhhLink, FhhLinkInvite, GradeLevel, HomeworkAttachment,
@@ -502,20 +514,22 @@ def apply_messaging_lifecycle(
 @router.get("/links/{link_id}/dashboard", dependencies=[Depends(require_fhh_service)])
 def dashboard(link_id: int, x_fhh_link_token: str | None = Header(default=None), db: Session = Depends(get_db)):
     link = _link(db, link_id, x_fhh_link_token); sections, groups = _scope(db, link)
+    ensure_capability(db, link.school_id, FAMILY_CONNECTION)
+    capabilities = enabled_capabilities(db, link.school_id)
     snap = _snapshot(db, link.school_id, link.student_id)
-    total = db.query(func.coalesce(func.sum(BehaviourEvent.points_delta), 0)).filter(BehaviourEvent.student_id == link.student_id, BehaviourEvent.reversed_at.is_(None)).scalar()
-    events = db.query(BehaviourEvent, BehaviourCategory, User).join(BehaviourCategory, BehaviourCategory.id == BehaviourEvent.category_id).outerjoin(User, User.id == BehaviourEvent.actor_user_id).filter(BehaviourEvent.student_id == link.student_id, BehaviourEvent.reversed_at.is_(None)).order_by(BehaviourEvent.created_at.desc(), BehaviourEvent.id.desc()).limit(10).all()
+    total = db.query(func.coalesce(func.sum(BehaviourEvent.points_delta), 0)).filter(BehaviourEvent.student_id == link.student_id, BehaviourEvent.reversed_at.is_(None)).scalar() if BEHAVIOUR_POINTS in capabilities else 0
+    events = db.query(BehaviourEvent, BehaviourCategory, User).join(BehaviourCategory, BehaviourCategory.id == BehaviourEvent.category_id).outerjoin(User, User.id == BehaviourEvent.actor_user_id).filter(BehaviourEvent.student_id == link.student_id, BehaviourEvent.reversed_at.is_(None)).order_by(BehaviourEvent.created_at.desc(), BehaviourEvent.id.desc()).limit(10).all() if BEHAVIOUR_POINTS in capabilities else []
     point_contexts = event_context_payloads(db, [event for event, _category, _actor in events])
-    homework = db.query(HomeworkItem).filter(*_audience(HomeworkItem, link.school_id, sections, groups, school_wide=False), HomeworkItem.status == "active").order_by(HomeworkItem.created_at.desc()).limit(100).all()
+    homework = db.query(HomeworkItem).filter(*_audience(HomeworkItem, link.school_id, sections, groups, school_wide=False), HomeworkItem.status == "active").order_by(HomeworkItem.created_at.desc()).limit(100).all() if HOMEWORK_DIARY in capabilities else []
     hids = [x.id for x in homework]; hats = db.query(HomeworkAttachment).filter(HomeworkAttachment.homework_item_id.in_(hids)).all() if hids else []
     hats_by = {i: [a for a in hats if a.homework_item_id == i] for i in hids}
-    announcements = db.query(Announcement).filter(*_audience(Announcement, link.school_id, sections, groups, school_wide=True), Announcement.status == "published").order_by(Announcement.created_at.desc()).limit(20).all()
+    announcements = db.query(Announcement).filter(*_audience(Announcement, link.school_id, sections, groups, school_wide=True), Announcement.status == "published").order_by(Announcement.created_at.desc()).limit(20).all() if NOTICES_CALENDAR in capabilities else []
     aids = [x.id for x in announcements]; aatts = db.query(AnnouncementAttachment).filter(AnnouncementAttachment.post_id.in_(aids)).all() if aids else []
-    updates = db.query(UpdatePost).filter(*_audience(UpdatePost, link.school_id, sections, groups, school_wide=False), UpdatePost.status == "active").order_by(UpdatePost.created_at.desc()).limit(50).all()
-    uids = [x.id for x in updates]; photos = db.query(UpdatePhoto).filter(UpdatePhoto.post_id.in_(uids)).all() if uids else []
+    updates = db.query(UpdatePost).filter(*_audience(UpdatePost, link.school_id, sections, groups, school_wide=False), UpdatePost.status == "active").order_by(UpdatePost.created_at.desc()).limit(50).all() if SCHOOL_FAMILY_UPDATES in capabilities else []
+    uids = [x.id for x in updates]; photos = db.query(UpdatePhoto).filter(UpdatePhoto.post_id.in_(uids)).all() if uids and UPDATE_PHOTOS in capabilities else []
     now = datetime.now(timezone.utc); end = now + timedelta(days=30)
-    calendar = db.query(CalendarEvent).filter(*_audience(CalendarEvent, link.school_id, sections, groups, school_wide=True), CalendarEvent.status == "active", CalendarEvent.starts_at >= now, CalendarEvent.starts_at <= end).order_by(CalendarEvent.starts_at).limit(100).all()
-    surveys = db.query(Survey).filter(Survey.school_id == link.school_id, Survey.notices_feed_enabled.is_(True), Survey.status.in_(("scheduled", "open"))).order_by(Survey.closes_at).limit(50).all()
+    calendar = db.query(CalendarEvent).filter(*_audience(CalendarEvent, link.school_id, sections, groups, school_wide=True), CalendarEvent.status == "active", CalendarEvent.starts_at >= now, CalendarEvent.starts_at <= end).order_by(CalendarEvent.starts_at).limit(100).all() if NOTICES_CALENDAR in capabilities else []
+    surveys = db.query(Survey).filter(Survey.school_id == link.school_id, Survey.notices_feed_enabled.is_(True), Survey.status.in_(("scheduled", "open"))).order_by(Survey.closes_at).limit(50).all() if SURVEYS_POLLS in capabilities else []
     for survey in surveys:
         refresh_survey_state(survey)
     surveys = [survey for survey in surveys if survey.status == "open" and link_is_eligible(db, survey, link)]
@@ -537,6 +551,7 @@ def dashboard(link_id: int, x_fhh_link_token: str | None = Header(default=None),
 @router.get("/links/{link_id}/announcements/{announcement_id}/attachments/{attachment_id}/download", dependencies=[Depends(require_fhh_service)])
 def download_announcement_attachment(link_id: int, announcement_id: int, attachment_id: int, x_fhh_link_token: str | None = Header(default=None), db: Session = Depends(get_db)):
     link = _link(db, link_id, x_fhh_link_token)
+    ensure_capabilities(db, link.school_id, FAMILY_CONNECTION, NOTICES_CALENDAR)
     announcement = _linked_announcement(db, link, announcement_id)
     if not announcement:
         raise HTTPException(status_code=404, detail="Not found")
@@ -556,6 +571,7 @@ def download_announcement_attachment(link_id: int, announcement_id: int, attachm
 @router.get("/links/{link_id}/homework/{homework_id}/attachments/{attachment_id}/download", dependencies=[Depends(require_fhh_service)])
 def download_homework_attachment(link_id: int, homework_id: int, attachment_id: int, x_fhh_link_token: str | None = Header(default=None), db: Session = Depends(get_db)):
     link = _link(db, link_id, x_fhh_link_token)
+    ensure_capabilities(db, link.school_id, FAMILY_CONNECTION, HOMEWORK_DIARY)
     homework = _linked_homework(db, link, homework_id)
     if not homework:
         raise HTTPException(status_code=404, detail="Not found")
@@ -575,6 +591,7 @@ def view_update_photo(link_id: int, update_id: int, photo_id: int, x_fhh_link_to
     update = _linked_update(db, link, update_id)
     if not update:
         raise HTTPException(status_code=404, detail="Not found")
+    ensure_capabilities(db, link.school_id, FAMILY_CONNECTION, SCHOOL_FAMILY_UPDATES, UPDATE_PHOTOS)
     photo = db.query(UpdatePhoto).filter(
         UpdatePhoto.id == photo_id,
         UpdatePhoto.post_id == update.id,
@@ -591,6 +608,7 @@ def view_update_photo_thumbnail(link_id: int, update_id: int, photo_id: int, x_f
     update = _linked_update(db, link, update_id)
     if not update:
         raise HTTPException(status_code=404, detail="Not found")
+    ensure_capabilities(db, link.school_id, FAMILY_CONNECTION, SCHOOL_FAMILY_UPDATES, UPDATE_PHOTOS)
     photo = db.query(UpdatePhoto).filter(
         UpdatePhoto.id == photo_id,
         UpdatePhoto.post_id == update.id,
