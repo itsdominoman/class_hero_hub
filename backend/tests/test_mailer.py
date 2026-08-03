@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from app.mailer import StaffInviteEmail, send_staff_invite
+from app.mailer import PilotEnquiryEmail, StaffInviteEmail, send_pilot_enquiry, send_staff_invite
 
 
 def _invite() -> StaffInviteEmail:
@@ -73,3 +73,33 @@ def test_send_staff_invite_uses_ssl_on_465(monkeypatch):
     smtp_ssl_cls.assert_called_once_with("mail.familyherohub.com", 465, timeout=10)
     smtp_cls.assert_not_called()
     smtp_instance.starttls.assert_not_called()
+
+
+def test_send_pilot_enquiry_uses_support_recipient_and_visitor_reply_to(monkeypatch):
+    monkeypatch.setattr("app.mailer.settings.SMTP_HOST", "mail.familyherohub.com")
+    monkeypatch.setattr("app.mailer.settings.SMTP_PORT", 587)
+    monkeypatch.setattr("app.mailer.settings.SMTP_USERNAME", "sender@example.com")
+    monkeypatch.setattr("app.mailer.settings.SMTP_PASSWORD", "secret")
+    monkeypatch.setattr("app.mailer.settings.SMTP_FROM_EMAIL", "sender@example.com")
+    monkeypatch.setattr("app.mailer.settings.SMTP_FROM_NAME", "Class Hero Hub")
+    monkeypatch.setattr("app.mailer.settings.SMTP_USE_TLS", True)
+
+    smtp_instance = MagicMock()
+    smtp_instance.__enter__.return_value = smtp_instance
+    monkeypatch.setattr("smtplib.SMTP", MagicMock(return_value=smtp_instance))
+
+    enquiry = PilotEnquiryEmail(
+        name="Amina Patel",
+        school="Riverside Demonstration School",
+        role="Deputy principal",
+        region="Oman",
+        reply_to="amina@example.com",
+        message="We would like to make family communication easier.",
+    )
+    send_pilot_enquiry(enquiry)
+
+    sent_message = smtp_instance.send_message.call_args[0][0]
+    assert sent_message["To"] == "support@classherohub.com"
+    assert sent_message["Reply-To"] == enquiry.reply_to
+    assert enquiry.school in sent_message["Subject"]
+    assert enquiry.message in sent_message.get_content()

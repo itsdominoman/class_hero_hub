@@ -1,5 +1,64 @@
 # CHH current pilot deployment
 
+## 2026-08-03 public website editorial and pilot-enquiry release
+
+The CHH public website has been rewritten for school leaders, administrators and
+teachers while retaining the established brand, responsive layouts, public route
+map, English/Arabic switching, RTL behaviour, staff login, authenticated
+Dashboard routing and Capacitor/native startup behaviour. The new copy leads with
+the practical outcomes for a school: less switching, quicker teacher workflows,
+clearer family updates and more useful follow-up. Repetitive implementation and
+procurement-style checklists were consolidated into shorter page narratives.
+
+The home page now includes two genuine CHH interface views captured from the
+current product with a synthetic `Riverside Demonstration School`, synthetic staff
+and synthetic class data. The static assets are
+`frontend/static/product/school-overview.png` and
+`frontend/static/product/teacher-workflow.png`; they contain no deployed school,
+student, message, survey or safeguarding information.
+
+The family explanation is intentionally simple: school staff work in Class Hero
+Hub and parents see the school information shared for their linked child in Family
+Hero Hub. The public website no longer describes integration internals, identifier
+handling or the special case of a staff member who is also a parent. FHH source and
+deployment are unchanged.
+
+The pilot page now offers three steps—understand the school, show the relevant
+product and agree the next step—plus a minimal enquiry form. `POST
+/api/public/pilot-enquiries` validates and bounds name, school, role, country or
+region, email and message fields, rejects line breaks in email-header fields, and
+allows five submissions per client IP in ten minutes. It stores no enquiry in the
+CHH database. The backend sends the message to the published CHH support address
+using the existing SMTP service, sets the visitor address as `Reply-To`, records no
+message content in application logs and returns success only after the configured
+mail server accepts the email. Missing SMTP configuration or a delivery exception
+returns HTTP 503; the page then keeps the direct
+`support@classherohub.com` alternative visible. Existing `SMTP_HOST` and
+`SMTP_FROM_EMAIL` settings are the only required delivery configuration.
+
+The Privacy Policy and Terms of Service now provide plain-language pilot baselines
+without public drafting notes, personal references or unsupported claims. They
+cover the service, information and uses, school and service responsibilities,
+authorised use, necessary providers, retention and security principles, requests,
+pilot limitations and contact. They state neutrally that applicable law and a
+signed school agreement may add local terms. Outstanding decisions for qualified
+counsel are kept only in
+`docs/planning/CHH_PILOT_LEGAL_COUNSEL_CHECKLIST.md`.
+
+There is no database schema, migration, school-data, FHH, native or APK change.
+Deployment requires rebuilding and recreating only the CHH backend and frontend;
+PostgreSQL and workers are unaffected.
+
+Pre-deployment validation passed the public-copy catalogue tests, English/Arabic
+parity at 2,153 keys, Svelte diagnostics with zero errors or warnings, the
+production frontend build, eight focused enquiry/mailer tests, 20 public-flow
+browser tests, the 10-case public route matrix covering 160 route/language/width
+combinations, 17 authenticated role-navigation tests and seven authenticated
+language-switcher tests. The rendered English and Arabic home, product-proof and
+pilot-form surfaces were also inspected directly. Form success and failure were
+tested with controlled mail transport substitutes; no unsolicited live enquiry
+email was sent during pre-deployment validation.
+
 ## 2026-08-02 bilingual public website pilot release
 
 The CHH root now presents the complete Class Hero Hub public website rather than

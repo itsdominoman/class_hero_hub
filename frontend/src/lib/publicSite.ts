@@ -6,6 +6,28 @@ export type PublicSection = {
   bullets?: string[];
 };
 
+export type PilotFormCopy = {
+  heading: string;
+  intro: string;
+  nameLabel: string;
+  schoolLabel: string;
+  roleLabel: string;
+  regionLabel: string;
+  emailLabel: string;
+  messageLabel: string;
+  messageHint: string;
+  submitLabel: string;
+  submittingLabel: string;
+  successHeading: string;
+  successText: string;
+  rateLimitError: string;
+  unavailableError: string;
+  generalError: string;
+  directHeading: string;
+  directText: string;
+  directLabel: string;
+};
+
 export type PublicPageCopy = {
   pageTitle: string;
   metaDescription: string;
@@ -18,6 +40,7 @@ export type PublicPageCopy = {
     title: string;
     text: string;
   };
+  form?: PilotFormCopy;
   cta: {
     heading: string;
     text: string;
@@ -31,6 +54,14 @@ export type PublicPageCopy = {
 export type FaqItem = {
   question: string;
   answer: string;
+};
+
+type ProductVisual = {
+  src: string;
+  alt: string;
+  eyebrow: string;
+  title: string;
+  text: string;
 };
 
 type PublicSiteCopy = {
@@ -98,6 +129,11 @@ type PublicSiteCopy = {
     featureHeading: string;
     featureIntro: string;
     featureGroups: Array<{ title: string; text: string; items: string[] }>;
+    proofEyebrow: string;
+    proofHeading: string;
+    proofIntro: string;
+    proofDataNote: string;
+    proofItems: ProductVisual[];
     familyEyebrow: string;
     familyHeading: string;
     familyIntro: string;
@@ -163,125 +199,105 @@ const englishFaq: FaqItem[] = [
   {
     question: "What is Class Hero Hub?",
     answer:
-      "Class Hero Hub is a school-facing workspace for authorised staff. It brings school setup, rosters, behaviour, learning updates, communication, family engagement, reporting and safeguarding workflows into one connected product.",
+      "Class Hero Hub is a shared workspace for school leaders, administrators and teachers. It brings school organisation, classroom workflows, communication, family updates and reporting into one place.",
   },
   {
     question: "Who uses Class Hero Hub?",
     answer:
-      "School leaders, administrators, teachers and other authorised school roles use CHH according to their permissions. Students are school records, not independent CHH account holders.",
+      "School staff use Class Hero Hub. Each person sees the schools, classes and tools that match their responsibilities.",
   },
   {
-    question: "Do parents log in to Class Hero Hub?",
+    question: "Do parents sign in to Class Hero Hub?",
     answer:
-      "No. Parents and guardians view their child’s linked school information through Family Hero Hub. They do not sign in to CHH and there is no Class Hero Hub parent app.",
-  },
-  {
-    question: "What if a teacher is also a parent?",
-    answer:
-      "They use CHH for their staff role and Family Hero Hub for their parent or family role. The two roles and their data access stay separate.",
+      "No. Parents and guardians see the school information shared with them through Family Hero Hub. There is no separate Class Hero Hub parent app.",
   },
   {
     question: "What can families see in Family Hero Hub?",
     answer:
-      "Depending on the school’s enabled features and the child’s active link, families may see homework, notices, updates, protected photos, school points, calendar items, surveys and School Chats.",
+      "Depending on what the school uses, families may see homework, notices, updates, school points, calendar items, surveys and School Chats for their linked child.",
   },
   {
-    question: "Does CHH support behaviour points?",
+    question: "Can we bring across records from our current system?",
     answer:
-      "Yes. Schools can use positive and needs-work categories. Negative behaviour remains private, and CHH does not create public rankings or shaming features. Positive recognition can be supported by recorded evidence and staff review.",
+      "Yes. Class Hero Hub supports checked CSV imports for core school records. We can look at your current export format as part of a demonstration or pilot conversation.",
   },
   {
-    question: "How is safeguarding review handled?",
+    question: "Does Class Hero Hub support English and Arabic?",
     answer:
-      "Safeguarding review is kept separate from ordinary participation, receipts and notifications. Access is explicitly authorised, reason-gated and audited, with protected evidence handled in dedicated workflows.",
+      "Yes. The website and staff experience support English and Arabic, including right-to-left layouts. Names and school-written content stay exactly as the school enters them.",
   },
   {
-    question: "Does CHH support English and Arabic?",
+    question: "Can staff communicate with families?",
     answer:
-      "Yes. The product supports English and Arabic, including right-to-left presentation. School-entered names and content remain exactly as supplied unless the school provides both language versions.",
+      "Schools can share notices, updates, homework, calendar information and School Chats. Available features and who may use them are set for each school.",
   },
   {
-    question: "Can a school import existing records?",
+    question: "How does behaviour and recognition work?",
     answer:
-      "CHH supports staged CSV imports from existing MIS or SMS exports, with preview, validation and commit steps. Annual updates, history and authorised exports help schools keep records usable over time.",
+      "Staff can record positive and needs-work behaviour in the right class context. Needs-work information stays private, while positive recognition can celebrate effort without turning children into a public ranking.",
   },
   {
-    question: "Can schools export their data?",
+    question: "How are safeguarding concerns handled?",
     answer:
-      "Authorised roles can use available exports for supported records and reports. Schools can contact support for questions about portability or an account and data request.",
+      "Safeguarding review has its own restricted workflow and activity history. It is kept separate from ordinary School Chats and their read or delivery status.",
   },
   {
-    question: "What does Class Hero Hub cost?",
+    question: "How can our school try Class Hero Hub?",
     answer:
-      "A public commercial price has not been set. Schools can request a demonstration or discuss pilot access while the commercial model is being defined.",
-  },
-  {
-    question: "Is CHH available for general production use?",
-    answer:
-      "CHH is currently presented for demonstrations and carefully scoped pilot access. Availability and enabled features are agreed with each participating school.",
+      "Request a conversation and tell us what you would most like to improve. We can show the relevant parts of the product and agree whether a focused pilot is the right next step.",
   },
 ];
 
 const arabicFaq: FaqItem[] = [
   {
-    question: "ما منصة كلاس هيرو هب؟",
+    question: "ما كلاس هيرو هب؟",
     answer:
-      "كلاس هيرو هب مساحة عمل مدرسية للموظفين المصرح لهم. تجمع إعداد المدرسة والقوائم والسلوك وتحديثات التعلم والتواصل ومشاركة الأسرة والتقارير وإجراءات الحماية في منتج مترابط واحد.",
+      "كلاس هيرو هب مساحة عمل مشتركة لقادة المدارس والمسؤولين والمعلمين. تجمع تنظيم المدرسة والعمل اليومي في الصف والتواصل مع الأسر والتقارير في مكان واحد.",
   },
   {
     question: "من يستخدم كلاس هيرو هب؟",
     answer:
-      "يستخدمها قادة المدارس والمسؤولون والمعلمون والأدوار المدرسية المصرح لها وفق صلاحياتها. يُسجل الطلاب كسجلات مدرسية، وليس كأصحاب حسابات مستقلة في كلاس هيرو هب.",
+      "يستخدم موظفو المدرسة كلاس هيرو هب، ويرى كل شخص المدارس والصفوف والأدوات التي تناسب مسؤولياته.",
   },
   {
     question: "هل يسجل أولياء الأمور الدخول إلى كلاس هيرو هب؟",
     answer:
-      "لا. يعرض أولياء الأمور والأوصياء معلومات المدرسة المرتبطة بأبنائهم من خلال Family Hero Hub. ولا يسجلون الدخول إلى كلاس هيرو هب، ولا يوجد تطبيق مستقل لأولياء الأمور باسم كلاس هيرو هب.",
+      "لا. يرى أولياء الأمور والأوصياء المعلومات التي تشاركها المدرسة معهم عبر Family Hero Hub. ولا يوجد تطبيق منفصل لأولياء الأمور باسم كلاس هيرو هب.",
   },
   {
-    question: "ماذا لو كان المعلم ولي أمر أيضا؟",
+    question: "ما الذي يمكن أن تراه الأسرة في Family Hero Hub؟",
     answer:
-      "يستخدم كلاس هيرو هب في دوره الوظيفي، ويستخدم Family Hero Hub في دوره الأسري. وتبقى صلاحيات الدورين وبياناتهما منفصلة.",
+      "بحسب ما تستخدمه المدرسة، قد ترى الأسرة الواجبات والتنبيهات والتحديثات ونقاط المدرسة وعناصر التقويم والاستبيانات ومحادثات المدرسة الخاصة بالطفل المرتبط.",
   },
   {
-    question: "ما الذي يمكن للأسرة رؤيته في Family Hero Hub؟",
+    question: "هل يمكننا نقل السجلات من نظامنا الحالي؟",
     answer:
-      "بحسب الميزات التي تفعلها المدرسة والرابط النشط للطفل، قد ترى الأسرة الواجبات والتنبيهات والتحديثات والصور المحمية ونقاط المدرسة وعناصر التقويم والاستبيانات ومحادثات المدرسة.",
+      "نعم. يدعم كلاس هيرو هب استيراد السجلات المدرسية الأساسية من ملفات CSV بعد مراجعتها. ويمكننا الاطلاع على صيغة التصدير الحالية لديكم خلال العرض أو مناقشة البرنامج التجريبي.",
   },
   {
-    question: "هل تدعم المنصة نقاط السلوك؟",
+    question: "هل يدعم كلاس هيرو هب العربية والإنجليزية؟",
     answer:
-      "نعم. يمكن للمدرسة استخدام فئات إيجابية وفئات تحتاج إلى تحسين. يبقى السلوك السلبي خاصا، ولا تنشئ المنصة تصنيفات علنية أو أدوات للتشهير. ويمكن أن يستند التقدير الإيجابي إلى أدلة مسجلة ومراجعة الموظفين.",
+      "نعم. يدعم الموقع وتجربة الموظفين العربية والإنجليزية، بما في ذلك العرض من اليمين إلى اليسار. وتبقى الأسماء والمحتويات التي تكتبها المدرسة كما أدخلتها تماماً.",
   },
   {
-    question: "كيف تتم مراجعة مسائل الحماية؟",
+    question: "هل يمكن للموظفين التواصل مع الأسر؟",
     answer:
-      "تبقى مراجعة الحماية منفصلة عن المشاركة العادية وإيصالات التسليم والقراءة والإشعارات. ويتطلب الوصول تفويضا صريحا وسببا مسجلا، مع تدقيق الإجراءات ومعالجة الأدلة المحمية في مسارات مخصصة.",
+      "يمكن للمدرسة مشاركة التنبيهات والتحديثات والواجبات ومعلومات التقويم ومحادثات المدرسة. وتُحدد الميزات المتاحة ومن يستخدمها بحسب احتياجات كل مدرسة.",
   },
   {
-    question: "هل تدعم كلاس هيرو هب الإنجليزية والعربية؟",
+    question: "كيف يعمل تسجيل السلوك والتقدير؟",
     answer:
-      "نعم. تدعم المنصة الإنجليزية والعربية، بما في ذلك العرض من اليمين إلى اليسار. وتبقى الأسماء والمحتويات التي تدخلها المدرسة كما هي ما لم توفر المدرسة نسختين لغويتين.",
+      "يمكن للموظفين تسجيل السلوك الإيجابي والسلوك الذي يحتاج إلى تحسين ضمن الصف المناسب. تبقى المعلومات التي تحتاج إلى تحسين خاصة، بينما يتيح التقدير الإيجابي الاحتفاء بالجهد من دون تحويل الأطفال إلى ترتيب علني.",
   },
   {
-    question: "هل يمكن للمدرسة استيراد سجلاتها الحالية؟",
+    question: "كيف تُعالج مخاوف حماية الطلبة؟",
     answer:
-      "تدعم المنصة استيراد ملفات CSV المرحلي من صادرات أنظمة معلومات أو إدارة المدارس، مع المعاينة والتحقق والاعتماد. كما تساعد التحديثات السنوية والسجل والصادرات المصرح بها على إبقاء البيانات قابلة للاستخدام بمرور الوقت.",
+      "لمراجعة مخاوف حماية الطلبة مسار خاص بصلاحيات محدودة وسجل للإجراءات. ويظل منفصلاً عن محادثات المدرسة العادية وحالات القراءة أو التسليم.",
   },
   {
-    question: "هل يمكن للمدرسة تصدير بياناتها؟",
+    question: "كيف يمكن لمدرستنا تجربة كلاس هيرو هب؟",
     answer:
-      "يمكن للأدوار المصرح لها استخدام الصادرات المتاحة للسجلات والتقارير المدعومة. ويمكن للمدرسة التواصل مع الدعم بشأن قابلية نقل البيانات أو طلبات الحساب والبيانات.",
-  },
-  {
-    question: "ما تكلفة كلاس هيرو هب؟",
-    answer:
-      "لم يُحدد سعر تجاري معلن بعد. يمكن للمدارس طلب عرض توضيحي أو مناقشة الوصول التجريبي ريثما يكتمل تحديد النموذج التجاري.",
-  },
-  {
-    question: "هل المنصة متاحة للاستخدام العام؟",
-    answer:
-      "تُقدم كلاس هيرو هب حاليا للعروض التوضيحية وبرامج تجريبية محددة النطاق بعناية. ويُتفق مع كل مدرسة مشاركة على التوفر والميزات المفعلة.",
+      "اطلبوا محادثة وأخبرونا بما ترغبون في تحسينه أولاً. سنعرض الأجزاء المناسبة من المنتج ونتفق معاً إن كان برنامج تجريبي محدد هو الخطوة التالية المناسبة.",
   },
 ];
 
@@ -295,12 +311,12 @@ const en: PublicSiteCopy = {
     staffLogin: "Staff login",
     dashboard: "Dashboard",
     menu: "Explore Class Hero Hub",
-    openMenu: "Open public website menu",
-    closeMenu: "Close public website menu",
+    openMenu: "Open website menu",
+    closeMenu: "Close website menu",
   },
   footer: {
     description:
-      "Class Hero Hub is the school-facing workspace for communication, learning updates, behaviour, family engagement and school operations.",
+      "Class Hero Hub brings school organisation, teaching workflows, communication and family updates together in one staff workspace.",
     tagline: "School life, clearly connected.",
     product: "Product",
     support: "Support",
@@ -309,13 +325,13 @@ const en: PublicSiteCopy = {
     features: "Product overview",
     howItWorks: "How it works",
     schools: "For schools",
-    familyConnection: "Family Hero Hub connection",
+    familyConnection: "Family connection",
     faq: "FAQ",
     requestPilot: "Request a pilot",
     contact: "Contact",
     administratorGuide: "School administrator guide",
     teacherGuide: "Teacher guide",
-    familyGuide: "Parent / FHH guide",
+    familyGuide: "Family guide",
     safetyPrivacy: "Safety, privacy & support",
     privacy: "Privacy Policy",
     terms: "Terms of Service",
@@ -323,753 +339,637 @@ const en: PublicSiteCopy = {
     emailLabel: "Support and pilot enquiries",
   },
   home: {
-    pageTitle: "Class Hero Hub | School life, clearly connected",
+    pageTitle: "Class Hero Hub | A clearer way to run the school day",
     metaDescription:
-      "A connected school workspace for communication, behaviour, learning updates, reporting and protected family engagement through Family Hero Hub.",
-    eyebrow: "School life, clearly connected",
-    heading: "One clear place for the work that keeps a school moving.",
+      "One connected workspace for school teams, teaching, communication, family updates and insight.",
+    eyebrow: "School life, made simpler",
+    heading: "Give staff one clear place to keep school life moving.",
     intro:
-      "Class Hero Hub brings school operations, teaching workflows, communication and family engagement together — without making staff fight a traditional school-management maze.",
+      "Class Hero Hub brings the everyday work of a school together, so staff spend less time switching systems and more time supporting students, colleagues and families.",
     primaryCta: "Request a pilot",
     secondaryCta: "Explore the product",
     strapline:
-      "For authorised school staff · Parents use Family Hero Hub · English and Arabic",
-    schoolWorkspaceLabel: "School workspace",
-    schoolWorkspaceTitle: "Set up once. Work clearly every day.",
+      "For school leaders, administrators and teachers · English and Arabic",
+    schoolWorkspaceLabel: "Your school workspace",
+    schoolWorkspaceTitle: "Start the day knowing what needs attention.",
     schoolWorkspaceText:
-      "Organise years, classes, rosters and staff, then manage teaching, communication, reporting and review from the same school-scoped workspace.",
-    familyDeliveryLabel: "Family delivery",
-    familyDeliveryTitle: "The right information reaches home.",
+      "Keep classes, staff, learning updates, communication and reporting close at hand.",
+    familyDeliveryLabel: "Family updates",
+    familyDeliveryTitle: "Keep families in the picture.",
     familyDeliveryText:
-      "Linked parents see enabled school information in Family Hero Hub — never by signing in to the staff system.",
-    boundaryLabel: "Clear role boundary",
+      "Share the information families need through Family Hero Hub.",
+    boundaryLabel: "Made for school teams",
     boundaryText:
-      "CHH is for school staff and authorised school roles. Family Hero Hub is for parents, guardians and family identity.",
+      "Leaders, administrators and teachers see the tools that fit their work.",
     benefitsEyebrow: "Built around the school day",
-    benefitsHeading:
-      "Less switching. Better visibility. Clearer responsibility.",
+    benefitsHeading: "Less chasing. Fewer gaps. A calmer way to work.",
     benefitsIntro:
-      "CHH organises the work schools already do, while keeping access, evidence and family delivery tied to the right school and role.",
+      "The useful part is not having more software. It is having the right school work connected in ways people can understand.",
     benefits: [
       {
-        title: "Organise the foundations",
-        text: "Keep branches, academic years, grades, classes, subjects, rosters and records structured and ready for the year.",
+        title: "Keep the school organised",
+        text: "Bring years, classes, rosters, staff and student records into a dependable shared structure.",
       },
       {
-        title: "Support everyday teaching",
-        text: "Record behaviour, recognise positive effort, set homework and share timely class information without leaving the teacher workflow.",
+        title: "Make teacher tasks quicker",
+        text: "Move from a class to homework, notices, behaviour, recognition or messages without losing context.",
       },
       {
-        title: "Keep families informed",
-        text: "Deliver enabled homework, notices, updates, points, calendar items, surveys and School Chats through Family Hero Hub.",
+        title: "Help families stay informed",
+        text: "Send useful school information to the family experience in Family Hero Hub.",
       },
       {
-        title: "Lead with evidence",
-        text: "Use reports, trends, receipts, audit trails and dedicated safeguarding review to understand what happened and what needs attention.",
+        title: "See what needs attention",
+        text: "Use reports, activity history and clear follow-up tools to spot patterns and respond sooner.",
       },
     ],
     workflowEyebrow: "How it works",
-    workflowHeading: "From school setup to a better-informed family.",
+    workflowHeading: "Start with the essentials. Grow from there.",
     workflowIntro:
-      "Each step stays within the correct role and data boundary, from the school record to the family-facing view.",
+      "Set up the school once, give staff a workspace that follows their day, then share the right updates with families.",
     workflow: [
       {
-        title: "Build the school structure",
-        text: "School administrators configure the school, current academic year, classes, subjects, staff and rosters, manually or through staged CSV imports.",
+        title: "Set up the school",
+        text: "Bring together the academic year, classes, subjects, staff and student lists your team needs.",
       },
       {
-        title: "Staff work in context",
-        text: "Authorised staff see the classes, students and workflows their role permits — from homework and recognition to notices, messages and reports.",
+        title: "Work from the right context",
+        text: "Staff open their assigned school or class and get straight to the work in front of them.",
       },
       {
-        title: "CHH protects and delivers",
-        text: "School data remains scoped to the school. Enabled family information passes through the protected server-side integration boundary.",
-      },
-      {
-        title: "Parents use Family Hero Hub",
-        text: "Parents and guardians see their linked child’s school information in FHH alongside their family tools. They never use CHH directly.",
+        title: "Keep families up to date",
+        text: "Parents see the school information shared for their child in Family Hero Hub.",
       },
     ],
-    featureEyebrow: "Connected capability",
-    featureHeading:
-      "A complete view of the product — organised by the work it supports.",
+    featureEyebrow: "What schools can do",
+    featureHeading: "Useful tools, connected around real school work.",
     featureIntro:
-      "Start with the essentials a school needs now. Enable additional communication, engagement and governance workflows when the school is ready.",
+      "Choose the parts that solve a current problem. A school does not need to introduce everything at once.",
     featureGroups: [
       {
-        title: "School foundations",
-        text: "Create a dependable structure for every authorised workflow.",
+        title: "Organise the school",
+        text: "Create a reliable base for the year and keep it usable as people and classes change.",
         items: [
-          "Schools, branches and academic years",
-          "Grades, classes, subjects and staff assignments",
-          "Student and guardian records",
-          "MIS / SMS CSV imports, annual updates, history and exports",
+          "Academic years, grades, classes and subjects",
+          "Staff assignments and student rosters",
+          "Checked CSV imports and annual updates",
+          "School records and supported exports",
         ],
       },
       {
-        title: "Teaching and learning",
-        text: "Keep everyday classroom actions quick, visible and connected.",
+        title: "Support teaching and communication",
+        text: "Give staff quicker ways to record, share and follow up from the class they are working with.",
         items: [
-          "Positive and needs-work behaviour points",
-          "Evidence-based positive recognition and certificates",
-          "Homework, diary and required items",
-          "Notices, calendar events, school updates and protected photos",
+          "Homework, diary items and calendar events",
+          "Notices, updates and school photos",
+          "Positive recognition and private behaviour records",
+          "School Chats, surveys and polls",
         ],
       },
       {
-        title: "Communication and engagement",
-        text: "Give the right people a clear channel without opening unnecessary access.",
-        items: [
-          "Text, protected photo and voice messaging",
-          "Delivery and read receipts",
-          "School contact-hour controls",
-          "Surveys, polls and Family Hero Hub delivery",
-        ],
-      },
-      {
-        title: "Insight and governance",
-        text: "Support school decisions and protected review with traceable records.",
+        title: "Lead with a clearer picture",
+        text: "Help school teams understand activity, check what happened and focus their next action.",
         items: [
           "Reports and behaviour trends",
-          "Dedicated safeguarding review and evidence handling",
-          "Operational health and audit records",
-          "English / Arabic presentation and data portability tools",
+          "Delivery and read information",
+          "Activity history for important actions",
+          "A dedicated safeguarding review area",
         ],
       },
     ],
-    familyEyebrow: "CHH + Family Hero Hub",
-    familyHeading: "The school stays in control. Families see what matters.",
+    proofEyebrow: "Inside Class Hero Hub",
+    proofHeading: "See the product at work.",
+    proofIntro:
+      "These are real Class Hero Hub screens, shown with demonstration data created for this website.",
+    proofDataNote: "Demonstration school and staff data only.",
+    proofItems: [
+      {
+        src: "/product/school-overview.png",
+        alt: "Class Hero Hub school setup screen for a demonstration school",
+        eyebrow: "School overview",
+        title: "A shared view of school setup",
+        text: "Administrators can see what is ready, what still needs attention and where to continue.",
+      },
+      {
+        src: "/product/teacher-workflow.png",
+        alt: "Class Hero Hub teacher screen showing demonstration classes",
+        eyebrow: "Teacher workspace",
+        title: "Classes and everyday actions in reach",
+        text: "Teachers can move from their classes to students, notices and the calendar without hunting through menus.",
+      },
+    ],
+    familyEyebrow: "Class Hero Hub + Family Hero Hub",
+    familyHeading: "One school experience, carried through to home.",
     familyIntro:
-      "The two products have distinct responsibilities and a protected connection between them.",
-    schoolSideTitle: "1 · School staff use CHH",
+      "School staff work in Class Hero Hub. Parents see the school information shared with them in Family Hero Hub.",
+    schoolSideTitle: "1 · Staff work in Class Hero Hub",
     schoolSideText:
-      "Authorised staff create and manage school records, teaching information, communications and enabled family-facing content.",
-    connectionTitle: "2 · A protected server connection",
+      "The school organises its records, teaching workflows, communication and family updates.",
+    connectionTitle: "2 · The school shares an update",
     connectionText:
-      "FHH requests linked school information through its server-side CHH proxy using opaque, scoped identifiers. Family devices never call CHH directly.",
-    familySideTitle: "3 · Parents use FHH",
+      "Enabled information is made available to the family linked to the student.",
+    familySideTitle: "3 · Parents see it in Family Hero Hub",
     familySideText:
-      "Parents and guardians view the enabled information for their linked child in Family Hero Hub. FHH keeps family, household and device identity on the family side.",
+      "Homework, notices, calendar items, school points, surveys or chats appear alongside the family’s own tools.",
     familyBoundary:
-      "A teacher who is also a parent uses CHH in their staff role and FHH in their family role. The roles are not merged.",
+      "Parents do not need another school app or a staff login. Their school view stays in Family Hero Hub.",
     familyCta: "See the family connection",
-    trustEyebrow: "Privacy and safeguarding",
-    trustHeading: "Designed for school trust, without oversized promises.",
+    trustEyebrow: "Trust in everyday use",
+    trustHeading: "Thoughtful where school work needs care.",
     trustIntro:
-      "CHH uses clear access boundaries and dedicated protected workflows. No online service can promise perfect security; the product is designed to reduce unnecessary exposure and keep authority explicit.",
+      "Class Hero Hub is designed to help schools give people appropriate access, keep sensitive work private and understand important actions later.",
     trustItems: [
       {
-        title: "School and role scope",
-        text: "Authorised users see only the schools, classes, students and tools allowed by their active roles and assignments.",
+        title: "Access that follows responsibility",
+        text: "Staff see the schools, classes, students and tools connected to their work.",
       },
       {
         title: "Private behaviour records",
-        text: "Needs-work behaviour is not turned into public rankings or shaming. Positive recognition remains evidence-led and staff-reviewed.",
+        text: "Needs-work behaviour is not turned into public rankings or student-shaming features.",
       },
       {
-        title: "Separate safeguarding review",
-        text: "Protected review does not make a reviewer a conversation participant or change receipts, unread counts or notifications.",
-      },
-      {
-        title: "Traceable operations",
-        text: "Audit records, operational health checks, authorised exports and controlled evidence workflows support accountable administration.",
+        title: "A separate safeguarding area",
+        text: "Safeguarding review is kept apart from ordinary conversations and everyday messaging activity.",
       },
     ],
     bilingualEyebrow: "English + العربية",
-    bilingualHeading: "One product, ready for bilingual school communities.",
+    bilingualHeading: "Ready for bilingual school communities.",
     bilingualText:
-      "CHH supports English and professional Arabic throughout the public website and product interface, including right-to-left layouts.",
+      "Staff can use Class Hero Hub in English or Arabic, with right-to-left layouts throughout the Arabic experience.",
     bilingualPoint1:
-      "Interface language can change without altering school-entered names or content.",
+      "Changing the interface language does not alter names or content entered by the school.",
     bilingualPoint2:
-      "Responsive layouts are designed for staff working across phones, tablets and desktops.",
-    faqEyebrow: "FAQ",
-    faqHeading: "The questions schools and families ask first.",
+      "Responsive layouts support staff working across phones, tablets and desktops.",
+    faqEyebrow: "Questions schools ask",
+    faqHeading: "Clear answers before you take the next step.",
     faqIntro:
-      "Clear answers about roles, family access, product scope, safety and pilot availability.",
+      "Learn who uses Class Hero Hub, how families receive updates and what a pilot can look like.",
     faqCta: "Read all questions",
-    finalHeading: "Ready to see how CHH fits your school?",
+    finalHeading: "Could Class Hero Hub make your school day easier?",
     finalText:
-      "Tell us about your school, current systems and the workflows you want to improve. We will respond with the most relevant next step for a demonstration or pilot discussion.",
+      "Tell us what currently takes too much time, falls between systems or leaves families unsure. We will show you the parts that matter most.",
     finalPrimary: "Request a pilot",
     finalSecondary: "Contact the team",
   },
   faq: {
     pageTitle: "Frequently asked questions | Class Hero Hub",
     metaDescription:
-      "Answers about Class Hero Hub, school staff access, Family Hero Hub parent delivery, privacy, safeguarding, imports, exports and pilot access.",
-    eyebrow: "Straight answers",
-    heading: "Frequently asked questions",
+      "Answers about Class Hero Hub, school use, family updates, languages and pilot conversations.",
+    eyebrow: "Frequently asked questions",
+    heading: "The practical questions schools ask first.",
     intro:
-      "CHH has a deliberately clear school-and-family boundary. These answers explain who uses each product and how the main workflows fit together.",
+      "A straightforward introduction to the product, who it is for and how it connects school staff with families.",
     items: englishFaq,
-    ctaHeading: "Have a question that is specific to your school?",
+    ctaHeading: "Have a question about your school?",
     ctaText:
-      "Send a short enquiry without including sensitive student or safeguarding information.",
-    ctaLabel: "Contact Class Hero Hub",
+      "Tell us what you are trying to improve and we will point you to the most useful answer or demonstration.",
+    ctaLabel: "Contact the team",
   },
   pages: {
     howItWorks: {
       pageTitle: "How Class Hero Hub works",
       metaDescription:
-        "See how schools configure CHH, how staff use role-scoped workflows and how linked parents receive enabled school information through Family Hero Hub.",
+        "See how a school moves from setup to everyday staff work and family updates.",
       eyebrow: "How it works",
-      heading: "A clear path from school setup to family understanding.",
+      heading: "A simpler route from school setup to everyday use.",
       intro:
-        "CHH connects the work of school administrators and teachers without blurring who owns school data, family identity or protected review.",
+        "Class Hero Hub starts with the school structure your team already understands, then keeps daily work and family communication connected to it.",
       highlights: [
-        "School-scoped",
-        "Role-aware",
-        "Family delivery through FHH",
+        "Set up once",
+        "Work from the class",
+        "Share through Family Hero Hub",
       ],
       sections: [
         {
-          title: "1. Configure the school",
-          text: "School administrators create the operational structure that every later workflow relies on.",
+          title: "Bring the school together",
+          text: "Create the academic year, classes, subjects and staff assignments, then add or import the student records needed for the term.",
           bullets: [
-            "School and branch details",
-            "Academic years, grades, classes and subjects",
-            "Staff roles and assignments",
-            "Behaviour categories and enabled features",
+            "Review imports before they are applied",
+            "Keep class and subject assignments easy to update",
           ],
         },
         {
-          title: "2. Bring records across carefully",
-          text: "Existing student, guardian and roster data can be prepared through staged CSV import rather than an uncontrolled one-step upload.",
+          title: "Give staff a clear starting point",
+          text: "Administrators open the area they manage. Teachers begin with their classes and move directly to students, homework, notices, behaviour, recognition, calendars or messages.",
+        },
+        {
+          title: "Carry useful information home",
+          text: "When the school shares family-facing information, parents see it in Family Hero Hub for their linked child. The school team continues to work in Class Hero Hub.",
           bullets: [
-            "Preview and validation before commit",
-            "External MIS / SMS references where available",
-            "Historical enrolment and annual-update support",
-            "Authorised exports for portability",
+            "Families use one familiar family experience",
+            "Schools decide which features to introduce",
           ],
-        },
-        {
-          title: "3. Give staff the right workspace",
-          text: "Teachers and school leaders sign in to CHH and see workflows appropriate to their current school roles, classes and assignments.",
-          bullets: [
-            "Class and student context",
-            "Homework, diary and calendar",
-            "Behaviour and positive recognition",
-            "Notices, updates, messaging, surveys and reports",
-          ],
-        },
-        {
-          title: "4. Keep communication accountable",
-          text: "School communications stay attached to the correct audience and school context, with delivery state and policy controls where supported.",
-          bullets: [
-            "Text, protected photo and voice messages",
-            "Delivery and read receipts",
-            "Contact-hour controls",
-            "Protected updates and school calendar items",
-          ],
-        },
-        {
-          title: "5. Deliver to families through FHH",
-          text: "Parents do not enter the staff system. Family Hero Hub displays enabled school information only for a child with an active, verified school link.",
-        },
-        {
-          title: "6. Review, report and improve",
-          text: "Authorised leaders can use reports, trends, audits and exports. Safeguarding review stays a separate, reason-gated and audited workflow.",
         },
       ],
-      notice: {
-        title: "The boundary matters",
-        text: "CHH owns school data and school-side access. FHH owns family, parent, child, household and device identity. Family clients never call CHH directly.",
-      },
       cta: {
-        heading:
-          "Walk through the workflow with your own school structure in mind.",
-        text: "Request a demonstration or pilot conversation with the Class Hero Hub team.",
-        label: "Request a pilot",
+        heading: "See the flow with your own school in mind.",
+        text: "A short demonstration can focus on the setup and workflows that matter most to your team.",
+        label: "Request a demonstration",
         href: "/pilot",
-        secondaryLabel: "Explore all features",
+        secondaryLabel: "Explore the product",
         secondaryHref: "/features",
       },
     },
     features: {
-      pageTitle: "Class Hero Hub product overview and features",
+      pageTitle: "Class Hero Hub product overview",
       metaDescription:
-        "Explore CHH school setup, rosters, behaviour, learning updates, messaging, surveys, reporting, safeguarding, bilingual support and Family Hero Hub integration.",
+        "Explore the school organisation, teaching, communication, reporting and family features in Class Hero Hub.",
       eyebrow: "Product overview",
-      heading: "The connected school workflows that matter now.",
+      heading: "The tools schools need, without the usual maze.",
       intro:
-        "CHH is organised around how schools actually work: set up the structure, support staff, communicate clearly, include families and keep protected work governed.",
+        "Class Hero Hub connects core school work around the people, classes and moments it belongs to. Start with a focused need and add more when the school is ready.",
       highlights: [
-        "School operations",
-        "Teaching workflows",
-        "Family engagement",
-        "Governance",
+        "School organisation",
+        "Teaching and communication",
+        "Family updates",
+        "Reports and follow-up",
       ],
       sections: [
         {
-          title: "School structure and administration",
-          text: "Set up schools, branches, academic years, grade levels, classes, subjects, assignments and rosters. Manage student and guardian records with school-scoped history.",
+          title: "A dependable school foundation",
+          text: "Keep academic years, campuses, grades, classes, subjects, staff assignments and student rosters organised in one shared structure.",
           bullets: [
-            "Manual setup and guided school onboarding",
-            "MIS / SMS CSV imports with staged review",
-            "Annual updates, history and supported exports",
-            "Role and membership administration",
+            "Checked CSV imports",
+            "Annual updates and history",
+            "Supported record exports",
           ],
         },
         {
-          title: "Behaviour and positive recognition",
-          text: "Record school-defined positive and needs-work events in context. Use positive evidence to support staff-reviewed recognition and printable certificates.",
+          title: "Everyday teaching workflows",
+          text: "Help teachers move quickly between their classes and the work they do most often.",
           bullets: [
-            "Quick classroom award flows",
-            "Corrections without silently rewriting history",
-            "Private needs-work information",
-            "No public rankings or shaming",
+            "Homework, diary items and required items",
+            "Private behaviour records and positive recognition",
+            "Notices, updates, calendars and photos",
           ],
         },
         {
-          title: "Homework, diary and calendar",
-          text: "Keep due work, tests, reminders, required items and calendar events connected to the right school, class, group or student audience.",
-        },
-        {
-          title: "Notices, updates and protected media",
-          text: "Publish school or class information with appropriate audiences, including protected school update photos where enabled.",
-        },
-        {
-          title: "School messaging",
-          text: "Support text, protected photo and voice communication with delivery and read receipts, contact-hour controls and school-defined availability.",
+          title: "Communication that has context",
+          text: "Keep school communication connected to the right class or student, with clear delivery information and school contact-hour settings.",
           bullets: [
-            "School-to-family and staff contexts",
-            "Protected media access",
-            "Voice notes",
-            "Separate safeguarding review",
+            "School Chats with text, photos and voice notes",
+            "Notices, surveys and polls",
+            "Family delivery through Family Hero Hub",
           ],
         },
         {
-          title: "Surveys and polls",
-          text: "Create targeted parent surveys, manage availability and reminders, and review response progress and results according to school permissions.",
-        },
-        {
-          title: "Reports, trends and operations",
-          text: "Give authorised leaders behaviour reports and trends, supported exports, audit information and operational health visibility without exposing protected content to unrelated roles.",
-        },
-        {
-          title: "Bilingual and family-connected",
-          text: "Use CHH in English or Arabic, with responsive RTL layouts, while linked parents receive enabled school information in Family Hero Hub.",
+          title: "Insight for better follow-up",
+          text: "Use reports, trends and activity history to understand what happened, recognise progress and decide what deserves attention next.",
+          bullets: [
+            "Behaviour and engagement trends",
+            "Operational and delivery checks",
+            "A dedicated safeguarding review area",
+          ],
         },
       ],
       cta: {
-        heading: "Choose the workflows your pilot needs.",
-        text: "We can focus a demonstration on school setup, teaching, family communication, reporting or protected review.",
-        label: "Discuss a pilot",
+        heading: "Which part would make the biggest difference first?",
+        text: "We can shape a demonstration around one real school problem rather than asking you to sit through every feature.",
+        label: "Request a pilot",
         href: "/pilot",
-        secondaryLabel: "See how it works",
+        secondaryLabel: "How it works",
         secondaryHref: "/how-it-works",
       },
     },
     schools: {
-      pageTitle: "Class Hero Hub for school leaders and staff",
+      pageTitle: "Class Hero Hub for schools",
       metaDescription:
-        "See how Class Hero Hub supports school leaders, administrators and teachers with connected, role-scoped school workflows.",
+        "A practical school workspace for leaders, administrators, teachers and bilingual communities.",
       eyebrow: "For schools",
-      heading:
-        "A school platform people can understand before they have to master it.",
+      heading: "Built around the people who keep a school running.",
       intro:
-        "CHH gives each authorised role a clearer starting point, while keeping the underlying school structure, evidence and permissions consistent.",
-      highlights: ["For leaders", "For administrators", "For teachers"],
+        "A useful school platform should make daily work clearer for the whole team, not create another layer of administration.",
+      highlights: [
+        "School leaders",
+        "Administrators",
+        "Teachers",
+        "Bilingual teams",
+      ],
       sections: [
         {
           title: "For school leaders",
-          text: "See patterns, delivery state and operational context without turning every leadership question into a spreadsheet request.",
-          bullets: [
-            "Reports and trends",
-            "Family-engagement visibility",
-            "Operational health and audit context",
-            "Clear governance boundaries",
-          ],
+          text: "See how communication, behaviour, recognition and engagement are moving across the school, with enough detail to ask better questions.",
         },
         {
-          title: "For school administrators",
-          text: "Manage the school structure and year-to-year records that make every staff workflow reliable.",
-          bullets: [
-            "Academic years, grades, classes and subjects",
-            "Staff, student and guardian records",
-            "CSV imports, annual updates and exports",
-            "Feature, messaging and contact-hour controls",
-          ],
+          title: "For administrators",
+          text: "Keep school structure, rosters, staff assignments, family links and year-to-year updates organised without rebuilding the picture in separate files.",
         },
         {
           title: "For teachers",
-          text: "Move from class context to the next useful action quickly: recognise effort, record behaviour, set homework, publish an update or communicate with a family.",
+          text: "Begin with assigned classes and keep common actions nearby, so recording and sharing useful information takes less time.",
         },
         {
-          title: "For bilingual communities",
-          text: "Staff can use English or Arabic with right-to-left layouts. School-entered names and content remain under school control.",
-        },
-        {
-          title: "For a controlled rollout",
-          text: "Start with a defined school, branch or workflow, agree enabled features and roles, then widen the pilot only when the operational foundation is ready.",
-        },
-        {
-          title: "For schools with existing systems",
-          text: "CHH can use staged CSV imports from existing MIS or SMS exports. It does not require schools to trust an opaque, all-or-nothing data migration.",
+          title: "For English and Arabic communities",
+          text: "Use the interface in English or Arabic while keeping the school’s own names and written content exactly as entered.",
         },
       ],
       cta: {
-        heading: "Show us where school work is currently fragmented.",
-        text: "We will focus the conversation on the workflows that matter to your staff and families.",
-        label: "Request a school conversation",
+        heading: "Show us where the school day feels fragmented.",
+        text: "We will focus the conversation on the people and workflows that would benefit most.",
+        label: "Start a conversation",
         href: "/pilot",
-        secondaryLabel: "Read the administrator guide",
-        secondaryHref: "/guides/administrator",
+        secondaryLabel: "Read the FAQ",
+        secondaryHref: "/faq",
       },
     },
     familyConnection: {
-      pageTitle: "Class Hero Hub and Family Hero Hub parent connection",
+      pageTitle: "Class Hero Hub and Family Hero Hub",
       metaDescription:
-        "Understand how CHH school data reaches linked parents through Family Hero Hub while staff, family identity and device data stay on the correct side.",
-      eyebrow: "Family connection",
+        "See how school staff use Class Hero Hub while parents receive school updates in Family Hero Hub.",
+      eyebrow: "The family connection",
       heading:
-        "School information reaches parents without giving parents staff-system access.",
+        "School updates meet families where family life already happens.",
       intro:
-        "CHH and FHH are related products with separate responsibilities. The boundary is intentional, visible and part of how access stays understandable.",
+        "Staff use Class Hero Hub for school work. Parents see the information the school shares for their child in Family Hero Hub.",
       highlights: [
-        "Staff use CHH",
-        "Parents use FHH",
-        "Server-side connection",
+        "One staff workspace",
+        "One family experience",
+        "Clear school-to-home updates",
       ],
       sections: [
         {
-          title: "CHH is the school authority",
-          text: "Schools and authorised staff manage school structures, student records, learning information, behaviour, communications, surveys, reports and safeguarding workflows in CHH.",
+          title: "The school works in Class Hero Hub",
+          text: "Staff organise school records, teaching workflows, communication and the information that should be shared with families.",
         },
         {
-          title: "FHH is the family authority",
-          text: "Family Hero Hub manages parent, child, household and device identity. It presents school information alongside family tools without moving family device identity into CHH.",
+          title: "Parents see school information in Family Hero Hub",
+          text: "For a linked child, this may include homework, notices, updates, school points, calendar items, surveys and School Chats, depending on what the school uses.",
         },
         {
-          title: "Parents never call CHH directly",
-          text: "FHH requests protected school data through its server-side CHH proxy. The connection uses opaque, scoped identifiers and an active child-school link.",
-        },
-        {
-          title: "What a linked family may see",
-          text: "Depending on the school’s enabled features, a parent may see homework, notices, school updates, protected photos, school points, calendar items, surveys and School Chats.",
-        },
-        {
-          title: "Home and school stay separate",
-          text: "Family points, rewards, household routines and family-device information remain in FHH. They are not sent to CHH merely because a school link exists.",
-        },
-        {
-          title: "One person can hold two distinct roles",
-          text: "A teacher who is also a parent uses CHH for authorised staff work and FHH for their own family. Staff permissions never become parent access, and parent access never becomes staff access.",
+          title: "Families have one familiar place to look",
+          text: "Parents do not sign in to Class Hero Hub. Their school information appears alongside their family tools in Family Hero Hub, with the school remaining the right first contact for school-record questions.",
         },
       ],
-      notice: {
-        title: "There is no CHH parent app",
-        text: "Parents and guardians should use Family Hero Hub. Any school information they can see depends on the school’s enabled features and their child’s active link.",
-      },
       cta: {
-        heading: "Need to explain the connection to your school community?",
-        text: "Use the parent / FHH guide for a concise, role-accurate explanation.",
-        label: "Read the parent / FHH guide",
-        href: "/guides/families",
-        secondaryLabel: "Visit Family Hero Hub",
-        secondaryHref: "https://familyherohub.com",
+        heading: "Want to explain the connection to your school community?",
+        text: "We can help your team understand what staff use, what families see and how to introduce the experience clearly.",
+        label: "Talk to the team",
+        href: "/contact",
+        secondaryLabel: "Open the family guide",
+        secondaryHref: "/guides/families",
       },
     },
     pilot: {
-      pageTitle: "Request a Class Hero Hub pilot or demonstration",
+      pageTitle: "Request a Class Hero Hub pilot",
       metaDescription:
-        "Contact Class Hero Hub to discuss a school demonstration, a carefully scoped pilot or product information.",
-      eyebrow: "Pilot and demonstrations",
-      heading: "Start with the school problem you want to solve.",
+        "Tell us about your school and arrange a relevant Class Hero Hub demonstration or pilot conversation.",
+      eyebrow: "Request a pilot",
+      heading: "Let’s start with a conversation about your school.",
       intro:
-        "There is no invented package or price list here. Tell us what your school is trying to improve, and we will decide together whether a demonstration or scoped pilot is the right next step.",
+        "Tell us what is working, what takes too much effort and where you would most value a clearer experience. We will keep the next step simple and relevant.",
       highlights: [
-        "No published pricing yet",
-        "Scoped pilots",
-        "School-led rollout",
+        "A focused conversation",
+        "A relevant demonstration",
+        "A sensible next step",
       ],
       sections: [
         {
-          title: "Tell us about the school",
-          text: "A useful enquiry includes the school or group name, country or timezone, approximate scale, languages and the staff role of the person contacting us.",
+          title: "We understand the school",
+          text: "We begin with your school context, current systems and the work you would most like to improve.",
         },
         {
-          title: "Name the workflow",
-          text: "Explain whether the priority is school setup, imports, behaviour and recognition, homework, notices and updates, messaging, surveys, reporting, safeguarding, or the FHH family connection.",
+          title: "We show what matters",
+          text: "Your demonstration focuses on the parts of Class Hero Hub that are relevant to your team and priorities.",
         },
         {
-          title: "Define a safe scope",
-          text: "A pilot may start with one school, branch, year group or operational workflow. Enabled features, roles and review responsibilities should be agreed before real school data is introduced.",
-        },
-        {
-          title: "Prepare the right people",
-          text: "Include a school leader or sponsor, an operational administrator and representative teachers. Add safeguarding or data leads when those workflows are in scope.",
-        },
-        {
-          title: "Keep sensitive data out of the first email",
-          text: "Do not send student records, private messages, survey answers, safeguarding evidence, credentials or tokens in an enquiry. We will agree an appropriate next step if data review becomes necessary.",
-        },
-        {
-          title: "Commercial terms come later",
-          text: "A public pricing model has not been defined. Any pilot scope, support expectations and future commercial terms must be agreed explicitly.",
+          title: "We agree the next step",
+          text: "If there is a good fit, we agree a manageable way to explore the product with the right people from your school.",
         },
       ],
+      form: {
+        heading: "Tell us about your school",
+        intro: "A few details will help us make the first conversation useful.",
+        nameLabel: "Your name",
+        schoolLabel: "School",
+        roleLabel: "Your role",
+        regionLabel: "Country or region",
+        emailLabel: "Work email",
+        messageLabel: "What would you like to improve?",
+        messageHint:
+          "A short overview is perfect. Please do not include confidential student information.",
+        submitLabel: "Send pilot enquiry",
+        submittingLabel: "Sending enquiry…",
+        successHeading: "Thank you — your enquiry has been sent.",
+        successText:
+          "We will read it and get back to you at the email address provided.",
+        rateLimitError:
+          "We have received several enquiries from this connection. Please wait a little and try again.",
+        unavailableError:
+          "Email delivery is temporarily unavailable. Please use the direct email option below.",
+        generalError:
+          "We could not send your enquiry just now. Please try again or email us directly.",
+        directHeading: "Prefer email?",
+        directText:
+          "You can contact the team directly at support@classherohub.com.",
+        directLabel: "Email the team",
+      },
       cta: {
-        heading: "Request a pilot conversation",
-        text: "Email the team with a short, non-sensitive description of your school and priority workflow.",
-        label: "Email a pilot enquiry",
+        heading: "Would you rather begin by email?",
+        text: "Send a short note about your school and the area you would like to discuss.",
+        label: "Email the team",
         href: pilotEmailHref,
-        secondaryLabel: "View product features",
+        secondaryLabel: "Explore the product",
         secondaryHref: "/features",
       },
     },
     contact: {
       pageTitle: "Contact Class Hero Hub",
       metaDescription:
-        "Contact Class Hero Hub for school product information, pilot enquiries, support, privacy questions or account and data requests.",
+        "Contact Class Hero Hub about product demonstrations, pilots, school support or privacy questions.",
       eyebrow: "Contact",
-      heading: "Talk to the Class Hero Hub team.",
+      heading: "How can we help?",
       intro:
-        "Use the same support address for school product questions, pilot enquiries, operational support, privacy questions and account or data-request guidance.",
-      highlights: [
-        "Product enquiries",
-        "School support",
-        "Privacy and data requests",
-      ],
+        "Whether you are exploring the product or already working with Class Hero Hub, start with a short note and the team will direct it to the right place.",
+      highlights: ["Pilot enquiries", "School support", "Family guidance"],
       sections: [
         {
-          title: "Product and pilot enquiries",
-          text: "Tell us your school, role, country or timezone and the workflows you would like to explore. Do not include sensitive student information.",
+          title: "Product and pilot conversations",
+          text: "Tell us about your school, your role and the workflow you would most like to improve.",
         },
         {
-          title: "Existing school support",
-          text: "Include the school name, the affected area and a concise description of what you expected and what happened. Never email passwords, tokens, private messages or safeguarding evidence.",
+          title: "Support for an existing school",
+          text: "Include your school name, your role and a short description of the issue. Screenshots are helpful when they do not contain private school information.",
         },
         {
-          title: "Parents and guardians",
-          text: "Parents use Family Hero Hub for linked school information. For a school-record question, contact the school first. For an FHH family-account question, use Family Hero Hub support.",
+          title: "Questions from families",
+          text: "For a question about school information, contact the school first. For help with the Family Hero Hub account or family experience, use Family Hero Hub support.",
         },
         {
-          title: "Privacy, access and data requests",
-          text: "The school normally handles requests about school records. Contact CHH support for platform-account questions or help identifying the correct route.",
+          title: "Privacy and data questions",
+          text: "Use the data-request guide to find the best starting point for a school record, staff account or family account request.",
         },
       ],
       notice: {
         title: "Support email",
-        text: "support@classherohub.com",
+        text: "Email support@classherohub.com. Please leave passwords, sign-in links and confidential student information out of the message.",
       },
       cta: {
-        heading: "Send a concise, non-sensitive enquiry.",
-        text: "We will route it to the appropriate product, support or privacy next step.",
-        label: "Email support@classherohub.com",
+        heading: "Send us a short note.",
+        text: "We will help you find the right next step without asking for sensitive information by email.",
+        label: "Email Class Hero Hub",
         href: supportEmailHref,
-        secondaryLabel: "Data and account requests",
-        secondaryHref: "/data-requests",
+        secondaryLabel: "Read the FAQ",
+        secondaryHref: "/faq",
       },
     },
     administratorGuide: {
-      pageTitle: "Class Hero Hub school administrator guide",
+      pageTitle: "School administrator guide | Class Hero Hub",
       metaDescription:
-        "A concise guide for school administrators setting up structures, staff, rosters, imports, features, communication and governance in CHH.",
+        "A practical introduction to setting up and maintaining a school in Class Hero Hub.",
       eyebrow: "School administrator guide",
-      heading:
-        "Build a reliable school foundation before the busy work begins.",
+      heading: "Build a school workspace people can rely on.",
       intro:
-        "School administrators control the structure, people and settings that determine what authorised staff and linked families can see and do.",
+        "A clear structure at the beginning makes every teacher, student, class and family workflow easier later.",
+      highlights: ["Set up", "Invite", "Review", "Prepare the next year"],
       sections: [
         {
-          title: "1. Confirm school identity and scope",
-          text: "Check the school and branch names, timezone, default language and current authorised administrators before adding operational records.",
+          title: "Start with the academic structure",
+          text: "Confirm the school profile, current academic year, campuses, grades, sections, subjects and the terms your school uses.",
         },
         {
-          title: "2. Create the academic structure",
-          text: "Set the current academic year, grade levels, class sections, subjects and optional subject groups. Assign staff only after the structure is correct.",
+          title: "Add staff and students carefully",
+          text: "Create staff assignments and bring across student records using checked imports or the school tools provided.",
         },
         {
-          title: "3. Add staff, students and guardians",
-          text: "Invite staff into the correct roles and assignments. Add students manually or use a staged CSV import, then review guardian records and links.",
+          title: "Introduce the workflows you need",
+          text: "Set up behaviour categories, family features, communication choices and other school settings in a manageable order.",
         },
         {
-          title: "4. Configure school workflows",
-          text: "Review behaviour categories, points policy, family-facing features, messaging availability, contact hours, surveys and other controls before broad use.",
+          title: "Review before sharing",
+          text: "Check the audience, class and timing before publishing notices, updates, calendar events or family information.",
         },
         {
-          title: "5. Publish with the correct audience",
-          text: "Check whether each homework item, notice, update, calendar event, survey or message is intended for the school, a class, a group or selected families.",
-        },
-        {
-          title: "6. Monitor, correct and export",
-          text: "Use reports, delivery state, audit information and supported exports. Correct records through the intended workflow rather than silently rewriting history.",
-        },
-        {
-          title: "7. Keep safeguarding separate",
-          text: "Grant protected review only to explicitly authorised people. Reviews require a reason and do not turn reviewers into message participants.",
-        },
-        {
-          title: "8. Prepare the next academic year",
-          text: "Use annual-update and history-aware processes so prior enrolments and records remain meaningful. Validate staged changes before they become current.",
+          title: "Keep the picture current",
+          text: "Correct records promptly, review activity and exports when needed, and prepare the next academic year without losing useful history.",
         },
       ],
       cta: {
-        heading: "Need help with a school setup decision?",
-        text: "Contact support without sending student records or credentials by email.",
+        heading: "Need help with a setup decision?",
+        text: "Tell us the school area you are working on and what you are trying to achieve.",
         label: "Contact support",
         href: supportEmailHref,
-        secondaryLabel: "Read the teacher guide",
+        secondaryLabel: "Teacher guide",
         secondaryHref: "/guides/teacher",
       },
     },
     teacherGuide: {
-      pageTitle: "Class Hero Hub teacher guide",
+      pageTitle: "Teacher guide | Class Hero Hub",
       metaDescription:
-        "A concise CHH guide for teachers using classes, behaviour, homework, updates, messaging, receipts and bilingual presentation.",
+        "A practical introduction to classes, homework, behaviour, recognition and communication in Class Hero Hub.",
       eyebrow: "Teacher guide",
-      heading:
-        "Work from the class context, with the next action close at hand.",
+      heading: "Start with your classes. Keep the next action close.",
       intro:
-        "Teachers use CHH only for the schools, classes and students covered by their active assignments and permissions.",
+        "Class Hero Hub is designed to keep everyday teaching work connected to the class and students you are already thinking about.",
+      highlights: ["Classes", "Homework", "Recognition", "Communication"],
       sections: [
         {
-          title: "Start from your assigned classes",
-          text: "After signing in, choose the relevant class or subject group. If an expected class is missing, ask the school administrator to review your assignment.",
+          title: "Open the class you are working with",
+          text: "Your teacher workspace shows assigned home-room classes and subjects, giving you a clear starting point for the day.",
         },
         {
-          title: "Record behaviour in context",
-          text: "Choose the student or authorised group and the school-defined category. Add a useful note only when needed. Needs-work information remains private.",
+          title: "Record and recognise in context",
+          text: "Add behaviour information from the relevant class or student and use positive recognition to celebrate genuine effort.",
         },
         {
-          title: "Recognise positive effort",
-          text: "Positive recognition should be supported by recorded evidence and staff judgement. CHH does not use negative behaviour to create public rankings.",
+          title: "Set work and reminders",
+          text: "Create homework, diary items, required items and calendar events with dates and instructions families can understand.",
         },
         {
-          title: "Set homework and diary items",
-          text: "Use a clear title, audience, date or due date and only the information families need. Confirm the class or group before publishing.",
+          title: "Share useful updates",
+          text: "Use notices, school updates, photos and School Chats for clear, purposeful communication.",
         },
         {
-          title: "Share notices, updates and photos",
-          text: "Choose the correct audience and use protected photo workflows where available. Do not reuse protected media outside its intended school context.",
-        },
-        {
-          title: "Use School Chats responsibly",
-          text: "Text, photo and voice messaging may show delivery and read state and may be limited by school contact hours. Keep communication professional and within school policy.",
-        },
-        {
-          title: "Switch language when needed",
-          text: "The interface supports English and Arabic. Changing the interface language does not translate or alter names and content entered by the school.",
-        },
-        {
-          title: "Remember the parent boundary",
-          text: "Parents reply or view enabled school information through Family Hero Hub. A teacher who is also a parent uses FHH separately for their own family.",
+          title: "Ask when something looks wrong",
+          text: "If a class, student or tool does not match your assignment, contact the school administrator before working around the issue.",
         },
       ],
       cta: {
-        heading: "Something does not match your assignment or school policy?",
-        text: "Start with your school administrator, then contact support if platform help is needed.",
+        heading: "Need help with a teacher workflow?",
+        text: "Include your school, class context and the action you were trying to complete.",
         label: "Contact support",
         href: supportEmailHref,
-        secondaryLabel: "Read the safety guidance",
+        secondaryLabel: "Safety and support",
         secondaryHref: "/safety-privacy",
       },
     },
     familyGuide: {
-      pageTitle: "Parent and Family Hero Hub guide for linked schools",
+      pageTitle: "Family guide | Class Hero Hub",
       metaDescription:
-        "A clear guide explaining that parents use Family Hero Hub — not CHH — to view enabled information from a linked school.",
-      eyebrow: "Parent / FHH guide",
-      heading: "Parents use Family Hero Hub for linked school information.",
+        "Learn where parents see school information shared from Class Hero Hub.",
+      eyebrow: "Family guide",
+      heading: "Parents see school information in Family Hero Hub.",
       intro:
-        "Class Hero Hub is the school staff system. Family Hero Hub is the family app. Parents and guardians do not sign in to CHH.",
+        "If your child’s school uses Class Hero Hub, the school will explain how to connect and which information is available.",
       highlights: [
-        "No CHH parent login",
-        "School link required",
-        "Features depend on the school",
+        "Follow the school’s steps",
+        "Use Family Hero Hub",
+        "Ask the right support team",
       ],
       sections: [
         {
-          title: "Connect through the school’s process",
-          text: "A school provides its approved linking route or code. Complete the link in Family Hero Hub and confirm the child and school information shown there.",
+          title: "Connect through the school",
+          text: "Follow the invitation or linking steps provided by your child’s school. Contact the school if a child, class or school record does not look right.",
         },
         {
-          title: "View enabled school information in FHH",
-          text: "A linked school may make homework, notices, updates, protected photos, school points, calendar items, surveys and School Chats available.",
+          title: "View school updates in Family Hero Hub",
+          text: "Depending on the school, you may see homework, notices, updates, school points, calendar items, surveys and School Chats for your linked child.",
         },
         {
-          title: "Your school decides what is available",
-          text: "The visible information depends on the school’s enabled features, the child’s active link and the current school records. Not every school uses every feature.",
-        },
-        {
-          title: "School and home information stay separate",
-          text: "Family points, rewards, routines and household settings stay in FHH. They are not shared with the school simply because the child has a school link.",
-        },
-        {
-          title: "Use the correct support route",
-          text: "Ask the school about the accuracy or availability of school records. Contact Family Hero Hub support for family-account, household or device access questions.",
-        },
-        {
-          title: "If you are also school staff",
-          text: "Use CHH only for your authorised staff responsibilities. Use FHH for your own family. The two roles remain separate even when the same person holds both.",
+          title: "Use the right place for help",
+          text: "The school is the first contact for school information. Family Hero Hub support can help with your family account and family experience.",
         },
       ],
-      notice: {
-        title: "No Class Hero Hub parent app",
-        text: "Do not look for or install a separate CHH parent app. The family-facing experience is provided through Family Hero Hub.",
-      },
       cta: {
-        heading: "Open the family-facing product",
-        text: "Visit Family Hero Hub to learn about the parent-led family space and linked school information.",
-        label: "Visit Family Hero Hub",
-        href: "https://familyherohub.com",
-        secondaryLabel: "Read the family connection",
+        heading: "Looking for the family experience?",
+        text: "Open Family Hero Hub to use family tools and view school information shared for your child.",
+        label: "Open Family Hero Hub",
+        href: "https://familyherohub.com/",
+        secondaryLabel: "How the connection works",
         secondaryHref: "/family-connection",
       },
     },
     safetyPrivacy: {
-      pageTitle: "Class Hero Hub safety, privacy and support information",
+      pageTitle: "Safety, privacy and support | Class Hero Hub",
       metaDescription:
-        "Learn about CHH school and role scoping, private behaviour records, dedicated safeguarding review, protected media, audit and the FHH data boundary.",
+        "Plain-language information about access, school records, behaviour, safeguarding, family delivery and support in Class Hero Hub.",
       eyebrow: "Safety, privacy and support",
-      heading:
-        "Clear authority for school data. Deliberate boundaries for protected work.",
+      heading: "Practical safeguards for everyday school work.",
       intro:
-        "CHH is designed to help schools limit access to the people, records and workflows that their current roles require. This page describes the product approach, not a legal or security guarantee.",
+        "Class Hero Hub combines careful access, clear activity history and dedicated handling for sensitive school work.",
       highlights: [
-        "Role-scoped access",
-        "Private needs-work records",
+        "School-specific records",
+        "Private behaviour information",
         "Dedicated safeguarding review",
       ],
       sections: [
         {
-          title: "School, tenancy and role scope",
-          text: "School records remain tied to the school. Staff access depends on active memberships, roles and assignments; links and identifiers used across system boundaries are intentionally scoped and opaque.",
+          title: "Access follows school responsibilities",
+          text: "People sign in as themselves and see the schools, classes, students and tools connected to their current work.",
         },
         {
-          title: "Private behaviour information",
-          text: "Positive and needs-work behaviour may be recorded, but negative behaviour is not used for public rankings or shaming. Positive recognition can use transparent evidence and staff review.",
+          title: "School records stay with the right school",
+          text: "Records and actions are tied to the relevant school, with activity history available for important administrative and staff actions.",
         },
         {
-          title: "Safeguarding is a separate mode",
-          text: "Safeguarding access is explicitly granted, reason-gated, time-aware and audited. A reviewer does not become a participant and does not change receipts, unread counts or notifications.",
+          title: "Needs-work behaviour stays private",
+          text: "Class Hero Hub does not create public negative rankings or student-shaming features. Positive recognition is reviewed by school staff.",
         },
         {
-          title: "Protected messages and media",
-          text: "Text, protected photos and voice notes use school-scoped access paths. Evidence and protected media should be handled only through authorised product workflows.",
+          title: "Safeguarding review is separate",
+          text: "Safeguarding staff use a dedicated review area. Opening a review does not make the reviewer part of an ordinary conversation or change its read status.",
         },
         {
-          title: "Family data stays on the family side",
-          text: "Parents use FHH. CHH does not need FHH device tokens or unnecessary family identifiers, and family clients do not call CHH directly.",
-        },
-        {
-          title: "Audit, health and portability",
-          text: "Authorised operational views, audit records and supported exports help schools understand service state and retain accountable records.",
-        },
-        {
-          title: "Report a concern safely",
-          text: "For an immediate child-safety concern, follow the school’s safeguarding and emergency procedures first. For a platform issue, contact support without emailing protected evidence.",
-        },
-        {
-          title: "No absolute guarantee",
-          text: "No online service can promise perfect security or uninterrupted availability. CHH is designed to reduce unnecessary exposure, preserve boundaries and support controlled response when something needs review.",
+          title: "Families receive updates through Family Hero Hub",
+          text: "Parents see school information shared for their linked child in Family Hero Hub. Questions about the school record should begin with the school.",
         },
       ],
+      notice: {
+        title: "Report an urgent concern through the correct local route",
+        text: "Class Hero Hub support is not an emergency service. Follow your school’s safeguarding policy and contact the appropriate local emergency or child-protection service when someone may be at immediate risk.",
+      },
       cta: {
-        heading: "Need help with access, privacy or a product safety question?",
-        text: "Contact support with a non-sensitive summary. Do not email private messages, survey answers or safeguarding evidence.",
+        heading: "Need help with access, privacy or product safety?",
+        text: "Send a short, non-sensitive description and we will help you find the right support route.",
         label: "Contact support",
         href: supportEmailHref,
         secondaryLabel: "Read the Privacy Policy",
@@ -1079,60 +979,57 @@ const en: PublicSiteCopy = {
     privacy: {
       pageTitle: "Privacy Policy | Class Hero Hub",
       metaDescription:
-        "Class Hero Hub public privacy information for school staff accounts, school records, protected content, Family Hero Hub integration, retention, requests and support.",
-      eyebrow: "Legal information",
+        "The baseline privacy policy for the Class Hero Hub pilot service.",
+      eyebrow: "Privacy Policy",
       heading: "Privacy Policy",
       intro:
-        "Last updated: 2 August 2026. This policy explains the information CHH uses to provide its school-facing service and the choices available to schools and users.",
+        "This policy explains, in general terms, how Class Hero Hub uses information while providing the current pilot-stage service to schools.",
+      highlights: [
+        "Pilot-stage service",
+        "School and staff information",
+        "Questions welcomed",
+      ],
       sections: [
         {
-          title: "1. Scope and roles",
-          text: "CHH is for schools and authorised school users. A participating school controls the school records, purposes and people it places in the service. The precise legal controller and processor roles must be confirmed in the applicable school agreement and jurisdiction.",
+          title: "1. What the service is",
+          text: "Class Hero Hub is a school workspace used by authorised staff for school organisation, teaching workflows, communication, family updates, reporting and related administration. Schools decide how they use the service under their own policies and agreements.",
         },
         {
-          title: "2. Information used by CHH",
-          text: "CHH may process authorised staff account details; school, branch and academic structures; staff assignments; student and guardian records; imports and exports; behaviour, homework, diary, notice, update, calendar, survey, message and report information; protected media; safeguarding records; and technical, session, audit and operational information needed to run and protect the service.",
+          title: "2. Information the service uses",
+          text: "This may include school and class information, staff account details, student and guardian records supplied by a school, learning and behaviour information, messages and media, survey responses, sign-in and device information, and records of actions taken in the service.",
         },
         {
-          title: "3. How information is used",
-          text: "Information is used to authenticate users, apply school and role scope, provide enabled school workflows, deliver linked school information through FHH, maintain records and history, support authorised reports and exports, protect the service, investigate operational issues and respond to support or legal obligations.",
+          title: "3. Why information is used",
+          text: "Information is used to provide requested features, keep accounts and school records working, deliver school information to linked families, support users, maintain service security, investigate problems and meet obligations agreed with participating schools.",
         },
         {
-          title: "4. Students, guardians and family access",
-          text: "Students and guardians do not receive CHH staff accounts merely because the school stores their records. Parents view enabled information through FHH after an active school link. Family clients do not call CHH directly.",
+          title: "4. Schools and Class Hero Hub",
+          text: "Schools are responsible for the information they provide, the people they authorise and the school policies that apply to their use. Class Hero Hub provides and supports the service in line with the applicable school agreement.",
         },
         {
-          title: "5. CHH and FHH data boundary",
-          text: "CHH remains the authority for school records. FHH owns family, parent, child, household and device identity and accesses protected school information through its server-side proxy. CHH does not require FHH device tokens or unnecessary family identifiers.",
+          title: "5. Necessary service providers",
+          text: "Information may be handled by service providers that help operate hosting, email, monitoring, backups or other necessary functions. They should receive only what is needed for their work and be subject to suitable confidentiality and security commitments.",
         },
         {
-          title: "6. Sharing and service providers",
-          text: "Information may be handled by providers used to host, operate, secure, deliver or support the service and by FHH only for the linked-school workflows described above. CHH does not make school records public. Any further disclosures must follow the applicable school arrangement or legal requirement.",
+          title: "6. Retention and security",
+          text: "Information is kept only for as long as needed for the service, school instructions, safety, record-keeping and applicable obligations. Class Hero Hub uses technical and organisational measures intended to reduce unauthorised access, loss and misuse, but no online service can remove every risk.",
         },
         {
-          title: "7. Retention and records",
-          text: "School information is retained while needed for the service, school recordkeeping, audit, security, support, safeguarding or legal obligations. Some records are historical or append-only by design. Deleted information may remain in protected backups until normal rotation completes, subject to the applicable operational and legal requirements.",
+          title: "7. Requests, corrections and deletion",
+          text: "Requests about school records should usually begin with the school. Staff account or service questions can be sent to Class Hero Hub support. A request may require identity and permission checks, and some records may need to be retained for school, safety, backup or legal reasons.",
         },
         {
-          title: "8. Security and access",
-          text: "CHH uses school and role scoping, controlled sessions, opaque integration identifiers, audit records and protected workflows to reduce unnecessary exposure. No online service can promise perfect security.",
-        },
-        {
-          title: "9. Requests and corrections",
-          text: "Requests about a student or school record should normally be made to the school that controls it. Authorised school users may correct records or use supported exports according to their permissions. Platform-account and routing questions can be sent to CHH support.",
-        },
-        {
-          title: "10. Changes and contact",
-          text: "This policy may be updated as the service, school agreements or legal requirements develop. Material wording and jurisdiction-specific obligations require review before general commercial launch. Contact support@classherohub.com with privacy questions without including sensitive school data.",
+          title: "8. Changes and contact",
+          text: "This policy may be updated as the pilot service develops or agreements change. Material updates will be communicated through an appropriate service or school channel. Questions can be sent to support@classherohub.com.",
         },
       ],
       notice: {
-        title: "Legal review required",
-        text: "Controller/processor roles, jurisdiction, retention periods, subprocessor disclosures, cross-border transfer wording and statutory rights must be confirmed by Dom and appropriate legal counsel before general commercial use.",
+        title: "School agreements and local law",
+        text: "Applicable law and signed school agreements may provide additional or country-specific terms. Those terms take priority where they apply.",
       },
       cta: {
-        heading: "Need the correct route for a privacy or data question?",
-        text: "Start with the school for school records, or contact CHH support for platform-account and routing help.",
+        heading: "Have a privacy or data question?",
+        text: "Use the data-request guide to find the right first contact, or email support for help.",
         label: "Data and account requests",
         href: "/data-requests",
         secondaryLabel: "Contact support",
@@ -1142,119 +1039,104 @@ const en: PublicSiteCopy = {
     terms: {
       pageTitle: "Terms of Service | Class Hero Hub",
       metaDescription:
-        "Pilot-stage terms for authorised school use of Class Hero Hub, including role boundaries, acceptable use, school responsibilities and service limitations.",
-      eyebrow: "Legal information",
+        "The baseline terms for authorised use of the Class Hero Hub pilot service.",
+      eyebrow: "Terms of Service",
       heading: "Terms of Service",
       intro:
-        "Last updated: 2 August 2026. These public terms describe the intended conditions for demonstration and pilot use. A signed school agreement takes precedence where applicable.",
+        "These baseline terms describe authorised use of the current Class Hero Hub pilot service. A signed school agreement may add or replace terms for a participating school.",
+      highlights: [
+        "Authorised school use",
+        "Pilot availability",
+        "Respectful and lawful use",
+      ],
       sections: [
         {
-          title: "1. Purpose of the service",
-          text: "CHH is a school-facing product for authorised school administration, teaching, communication, family engagement, reporting and protected review. It is not an emergency service, a substitute for professional safeguarding judgement or a parent app.",
+          title: "1. The service",
+          text: "Class Hero Hub provides school organisation, teaching, communication, family-update, reporting and related features for participating schools and their authorised staff.",
         },
         {
-          title: "2. Authorised users and roles",
-          text: "Users must access CHH only through an account and school role they are authorised to use. Schools are responsible for assigning and reviewing staff roles, class assignments and specialist permissions.",
+          title: "2. Authorised accounts",
+          text: "Users must sign in with their own account, provide accurate information, keep access details secure and use only the schools, classes, students and features they are permitted to use. Accounts must not be shared.",
         },
         {
-          title: "3. School responsibility",
-          text: "The school is responsible for the accuracy, lawfulness and appropriateness of the records, audiences, communications, policies and instructions it places in CHH, and for deciding which features are enabled for its community.",
+          title: "3. School responsibilities",
+          text: "A school is responsible for deciding who may use the service, keeping staff and student information accurate, setting suitable policies, obtaining any permissions it needs and responding to its community about school records and decisions.",
         },
         {
-          title: "4. Parents and Family Hero Hub",
-          text: "Parents and guardians do not use CHH directly. They may view enabled information through FHH after an active school link. A staff role in CHH does not grant family access, and family access does not grant staff permissions.",
+          title: "4. Acceptable use",
+          text: "The service must not be used to break the law, harm or harass others, access information without permission, bypass security, upload malicious material, disrupt the service or create public negative rankings of students.",
         },
         {
-          title: "5. Acceptable use",
-          text: "Do not attempt unauthorised access, bypass school or role scope, share credentials, interfere with security, upload unlawful or harmful content, misuse protected information, or use the product to rank, shame or publicly expose negative student behaviour.",
+          title: "5. Content and communication",
+          text: "Schools and users remain responsible for the information and material they add or share. They should use respectful, accurate communication and follow school policy for student information, photos, messaging and safeguarding matters.",
         },
         {
-          title: "6. Safeguarding and emergencies",
-          text: "Schools remain responsible for safeguarding decisions, mandatory procedures and emergency response. CHH’s safeguarding workflow supports controlled review but does not replace school policy, designated professionals or emergency services.",
+          title: "6. Pilot availability",
+          text: "Pilot features may change, be limited or occasionally be unavailable while the service is evaluated and improved. We aim to communicate material changes and restore service issues reasonably, but uninterrupted availability is not promised.",
         },
         {
-          title: "7. Imports, exports and integrations",
-          text: "Schools are responsible for checking staged imports, authorised exports and integration results. FHH integration is limited to linked-school workflows and does not merge the two products’ identity authorities.",
+          title: "7. Suspension and ending access",
+          text: "Access may be limited or removed when needed to protect people or the service, respond to misuse, follow a school instruction, address non-payment under an applicable agreement or end a pilot. Relevant school agreements may describe additional steps.",
         },
         {
-          title: "8. Pilot availability and change",
-          text: "Demonstration and pilot access may be limited, changed, suspended or ended while the product is evaluated and improved. Enabled features and support arrangements are agreed with the participating school.",
-        },
-        {
-          title: "9. Service limitations",
-          text: "CHH is provided as a school workflow tool. It cannot be guaranteed to be uninterrupted, error-free or suitable for every school situation. Schools remain responsible for operational continuity and professional decisions.",
-        },
-        {
-          title: "10. Commercial and jurisdiction terms",
-          text: "Public pricing, payment terms, governing law, liability limits, service levels, data-protection terms and termination provisions are not defined by this page and must be agreed in the applicable school contract before commercial use.",
-        },
-        {
-          title: "11. Contact",
-          text: "Contact support@classherohub.com with a non-sensitive summary of any question about these terms or pilot access.",
+          title: "8. Changes and contact",
+          text: "These terms may be updated as the service develops. Material changes will be communicated appropriately. Questions about these terms can be sent to support@classherohub.com.",
         },
       ],
       notice: {
-        title: "Legal review required",
-        text: "These pilot-stage terms require Dom and professional legal review before general commercial launch. They do not invent governing law, pricing, service levels or liability terms.",
+        title: "Additional school terms",
+        text: "Applicable law and a signed school agreement may add jurisdiction-specific, commercial, service or liability terms. Those terms take priority where they apply.",
       },
       cta: {
-        heading: "Questions about pilot conditions?",
-        text: "Contact the team before introducing real school data or relying on a workflow outside the agreed scope.",
+        heading: "Have a question about use of the pilot service?",
+        text: "Contact the team or review the Privacy Policy for more information about data use.",
         label: "Contact support",
         href: supportEmailHref,
-        secondaryLabel: "Read the Privacy Policy",
+        secondaryLabel: "Privacy Policy",
         secondaryHref: "/privacy",
       },
     },
     dataRequests: {
-      pageTitle: "Class Hero Hub data and account requests",
+      pageTitle: "Data and account requests | Class Hero Hub",
       metaDescription:
-        "Find the correct route for CHH school-record, staff-account, access, correction, export and deletion enquiries.",
+        "Find the right first contact for school records, Class Hero Hub staff accounts and Family Hero Hub family accounts.",
       eyebrow: "Data and account requests",
-      heading: "Start with the organisation that controls the record.",
+      heading: "Start with the team that knows the record.",
       intro:
-        "School records, CHH staff accounts and FHH family accounts have different authorities. Using the correct route helps protect identity and avoids exposing sensitive information in email.",
+        "The quickest route depends on whether your question is about a school record, a staff account or a Family Hero Hub family account.",
       highlights: [
-        "School records → the school",
-        "CHH account → school admin or CHH support",
-        "FHH family account → FHH support",
+        "School record → your school",
+        "Staff account → school administrator",
+        "Family account → Family Hero Hub",
       ],
       sections: [
         {
-          title: "Student, guardian or school-record requests",
-          text: "Contact the school that created or manages the record. The school is normally best placed to verify identity, correct school information and decide how the request should be handled.",
+          title: "Student, guardian or school records",
+          text: "Contact the school that created or manages the record. The school can check your identity, correct its information and decide how the request should be handled.",
         },
         {
-          title: "CHH staff account or access",
-          text: "Ask the school administrator to review your staff role, assignment or membership. Contact CHH support if the school confirms the role is correct but platform access still fails.",
+          title: "Class Hero Hub staff accounts",
+          text: "Ask your school administrator to check your staff role, class assignment or account status. Contact Class Hero Hub support if the school confirms the details and you still cannot use the service.",
         },
         {
-          title: "Exports and portability",
-          text: "Authorised school roles can use supported exports for available records and reports. A school can contact CHH support for help identifying an appropriate export route.",
-        },
-        {
-          title: "Correction, restriction or deletion",
-          text: "School records may be subject to historical, audit, safeguarding, legal-hold or backup requirements. Requests are assessed by the school and service according to the applicable authority and agreement; deletion is not always the correct or immediately available action.",
+          title: "Copies, corrections or deletion",
+          text: "Describe the record and the outcome you are requesting. Identity and permission checks may be required. Some information may need to remain for school history, safety, backups or applicable obligations.",
         },
         {
           title: "Family Hero Hub accounts",
-          text: "FHH owns family, household and device identity. Use Family Hero Hub support for family-account, caregiver, child-dashboard or linked-device requests. A CHH school link does not move that identity into CHH.",
-        },
-        {
-          title: "What to include",
-          text: "Provide your name, school, role, a safe contact address and the type of request. Do not send passwords, tokens, full student datasets, private messages, survey answers or safeguarding evidence by email.",
+          text: "Use Family Hero Hub support for a parent, caregiver, child dashboard or linked-device account question. The school remains the right contact for the school information shown there.",
         },
       ],
       notice: {
-        title: "Identity checks may be required",
-        text: "Support may ask the school or requester to verify authority before disclosing, changing or exporting protected information.",
+        title: "Keep the first message simple",
+        text: "Include your name, school, role, a safe contact address and the type of request. Do not email passwords, sign-in links, complete student files, private messages, survey answers or safeguarding material.",
       },
       cta: {
-        heading: "Not sure which route applies?",
-        text: "Send a minimal, non-sensitive summary and we will help identify the correct next step.",
-        label: "Email CHH support",
+        heading: "Not sure where to begin?",
+        text: "Send a short, non-sensitive summary and support will help you identify the right route.",
+        label: "Email Class Hero Hub",
         href: supportEmailHref,
-        secondaryLabel: "Read the Privacy Policy",
+        secondaryLabel: "Privacy Policy",
         secondaryHref: "/privacy",
       },
     },
@@ -1267,766 +1149,659 @@ const ar: PublicSiteCopy = {
     howItWorks: "كيف يعمل",
     schools: "للمدارس",
     familyConnection: "الربط مع الأسرة",
-    requestPilot: "اطلب تجربة",
+    requestPilot: "اطلب برنامجاً تجريبياً",
     staffLogin: "دخول الموظفين",
-    dashboard: "لوحة المعلومات",
+    dashboard: "لوحة التحكم",
     menu: "استكشف كلاس هيرو هب",
-    openMenu: "فتح قائمة الموقع العام",
-    closeMenu: "إغلاق قائمة الموقع العام",
+    openMenu: "فتح قائمة الموقع",
+    closeMenu: "إغلاق قائمة الموقع",
   },
   footer: {
     description:
-      "كلاس هيرو هب مساحة العمل المدرسية للتواصل وتحديثات التعلم والسلوك ومشاركة الأسرة والعمليات المدرسية.",
+      "يجمع كلاس هيرو هب تنظيم المدرسة والعمل التعليمي والتواصل وتحديثات الأسرة في مساحة عمل واحدة للموظفين.",
     tagline: "حياة مدرسية مترابطة بوضوح.",
     product: "المنتج",
     support: "الدعم",
-    legal: "المعلومات القانونية",
+    legal: "قانوني",
     home: "الرئيسية",
     features: "نظرة عامة على المنتج",
     howItWorks: "كيف يعمل",
     schools: "للمدارس",
-    familyConnection: "الربط مع Family Hero Hub",
+    familyConnection: "الربط مع الأسرة",
     faq: "الأسئلة الشائعة",
-    requestPilot: "طلب تجربة",
+    requestPilot: "اطلب برنامجاً تجريبياً",
     contact: "تواصل معنا",
     administratorGuide: "دليل مسؤول المدرسة",
     teacherGuide: "دليل المعلم",
-    familyGuide: "دليل ولي الأمر وFHH",
+    familyGuide: "دليل الأسرة",
     safetyPrivacy: "السلامة والخصوصية والدعم",
     privacy: "سياسة الخصوصية",
     terms: "شروط الخدمة",
     dataRequests: "طلبات البيانات والحساب",
-    emailLabel: "الدعم والاستفسار عن التجربة",
+    emailLabel: "الدعم وطلبات البرامج التجريبية",
   },
   home: {
-    pageTitle: "كلاس هيرو هب | حياة مدرسية مترابطة بوضوح",
+    pageTitle: "كلاس هيرو هب | طريقة أوضح لإدارة اليوم المدرسي",
     metaDescription:
-      "مساحة عمل مدرسية مترابطة للتواصل والسلوك وتحديثات التعلم والتقارير ومشاركة الأسرة المحمية من خلال Family Hero Hub.",
-    eyebrow: "حياة مدرسية مترابطة بوضوح",
-    heading: "مكان واحد واضح للعمل الذي يحافظ على سير المدرسة.",
+      "مساحة عمل واحدة مترابطة لفرق المدرسة والتعليم والتواصل وتحديثات الأسرة والرؤى.",
+    eyebrow: "حياة مدرسية أكثر سهولة",
+    heading: "مكان واحد واضح يساعد الموظفين على إبقاء المدرسة في حركة.",
     intro:
-      "تجمع كلاس هيرو هب العمليات المدرسية ومسارات التدريس والتواصل ومشاركة الأسرة، من دون تعقيد منصات الإدارة المدرسية التقليدية.",
-    primaryCta: "اطلب تجربة",
+      "يجمع كلاس هيرو هب العمل اليومي في المدرسة، ليقضي الموظفون وقتاً أقل في التنقل بين الأنظمة ووقتاً أطول في دعم الطلبة والزملاء والأسر.",
+    primaryCta: "اطلب برنامجاً تجريبياً",
     secondaryCta: "استكشف المنتج",
-    strapline:
-      "للموظفين المصرح لهم · يستخدم أولياء الأمور Family Hero Hub · بالعربية والإنجليزية",
-    schoolWorkspaceLabel: "مساحة عمل المدرسة",
-    schoolWorkspaceTitle: "أعدها مرة، واعمل بوضوح كل يوم.",
+    strapline: "لقادة المدارس والمسؤولين والمعلمين · العربية والإنجليزية",
+    schoolWorkspaceLabel: "مساحة عمل مدرستك",
+    schoolWorkspaceTitle: "ابدأ يومك وأنت تعرف ما يحتاج إلى اهتمام.",
     schoolWorkspaceText:
-      "نظّم السنوات والصفوف والقوائم والموظفين، ثم أدر التدريس والتواصل والتقارير والمراجعة من مساحة واحدة مقيدة بالمدرسة.",
-    familyDeliveryLabel: "إيصال المعلومات للأسرة",
-    familyDeliveryTitle: "تصل المعلومات المناسبة إلى المنزل.",
+      "اجعل الصفوف والموظفين وتحديثات التعلم والتواصل والتقارير في متناول يدك.",
+    familyDeliveryLabel: "تحديثات الأسرة",
+    familyDeliveryTitle: "أبقِ الأسر على اطلاع.",
     familyDeliveryText:
-      "يرى أولياء الأمور المرتبطون معلومات المدرسة المفعلة في Family Hero Hub، ولا يسجلون الدخول إلى نظام الموظفين.",
-    boundaryLabel: "فصل واضح بين الأدوار",
-    boundaryText:
-      "كلاس هيرو هب لموظفي المدرسة والأدوار المدرسية المصرح لها. وFamily Hero Hub لهوية الأسرة وأولياء الأمور والأوصياء.",
-    benefitsEyebrow: "مصممة حول اليوم المدرسي",
-    benefitsHeading: "تنقل أقل. رؤية أفضل. مسؤولية أوضح.",
+      "شارك المعلومات التي تحتاج إليها الأسر عبر Family Hero Hub.",
+    boundaryLabel: "صُمم لفرق المدارس",
+    boundaryText: "يرى القادة والمسؤولون والمعلمون الأدوات التي تناسب عملهم.",
+    benefitsEyebrow: "مصمم حول اليوم المدرسي",
+    benefitsHeading: "متابعة أقل. فجوات أقل. طريقة عمل أكثر هدوءاً.",
     benefitsIntro:
-      "تنظم كلاس هيرو هب العمل الذي تقوم به المدارس أصلا، مع إبقاء الوصول والأدلة وإيصال المعلومات للأسر مرتبطا بالمدرسة والدور الصحيحين.",
+      "القيمة ليست في إضافة برنامج جديد، بل في ربط العمل المدرسي المناسب بطريقة يفهمها الجميع.",
     benefits: [
       {
-        title: "نظّم الأساس",
-        text: "حافظ على الفروع والسنوات الدراسية والصفوف والمواد والقوائم والسجلات منظمة وجاهزة للسنة.",
+        title: "حافظ على تنظيم المدرسة",
+        text: "اجمع السنوات والصفوف والقوائم والموظفين وسجلات الطلبة ضمن هيكل مشترك يمكن الاعتماد عليه.",
       },
       {
-        title: "ادعم التدريس اليومي",
-        text: "سجّل السلوك وقدّر الجهد الإيجابي وحدد الواجبات وشارك معلومات الصف في الوقت المناسب من مسار المعلم نفسه.",
+        title: "سهّل مهام المعلم اليومية",
+        text: "انتقل من الصف إلى الواجبات والتنبيهات والسلوك والتقدير والرسائل من دون فقدان السياق.",
       },
       {
-        title: "أبق الأسر على اطلاع",
-        text: "أوصل الواجبات والتنبيهات والتحديثات والنقاط والتقويم والاستبيانات ومحادثات المدرسة المفعلة من خلال Family Hero Hub.",
+        title: "ساعد الأسر على البقاء على اطلاع",
+        text: "أرسل المعلومات المدرسية المفيدة إلى تجربة الأسرة في Family Hero Hub.",
       },
       {
-        title: "قد المدرسة بالأدلة",
-        text: "استخدم التقارير والاتجاهات والإيصالات وسجلات التدقيق ومراجعة الحماية المخصصة لفهم ما حدث وما يحتاج إلى اهتمام.",
+        title: "اعرف ما يحتاج إلى اهتمام",
+        text: "استخدم التقارير وسجل الأنشطة وأدوات المتابعة الواضحة لاكتشاف الأنماط والاستجابة مبكراً.",
       },
     ],
-    workflowEyebrow: "كيف تعمل",
-    workflowHeading: "من إعداد المدرسة إلى أسرة أوضح اطلاعا.",
+    workflowEyebrow: "كيف يعمل",
+    workflowHeading: "ابدأ بالأساسيات، ثم توسع عندما تكون المدرسة مستعدة.",
     workflowIntro:
-      "تبقى كل خطوة ضمن الدور وحدود البيانات الصحيحة، من سجل المدرسة إلى العرض المخصص للأسرة.",
+      "أنشئ هيكل المدرسة مرة واحدة، وامنح الموظفين مساحة تناسب يومهم، ثم شارك التحديثات المناسبة مع الأسر.",
     workflow: [
       {
-        title: "ابن الهيكل المدرسي",
-        text: "يضبط مسؤولو المدرسة بيانات المدرسة والسنة الحالية والصفوف والمواد والموظفين والقوائم يدويا أو عبر استيراد CSV مرحلي.",
+        title: "جهّز المدرسة",
+        text: "اجمع العام الدراسي والصفوف والمواد والموظفين وقوائم الطلبة التي يحتاج إليها فريقك.",
       },
       {
-        title: "يعمل الموظفون في سياقهم",
-        text: "يرى الموظفون المصرح لهم الصفوف والطلاب والمسارات التي يسمح بها دورهم، من الواجبات والتقدير إلى التنبيهات والرسائل والتقارير.",
+        title: "اعمل ضمن المكان المناسب",
+        text: "يفتح الموظف المدرسة أو الصف المكلف به ويبدأ مباشرة بالعمل المطلوب.",
       },
       {
-        title: "تحمي المنصة المعلومات وتوصلها",
-        text: "تبقى بيانات المدرسة مقيدة بها، وتعبر معلومات الأسرة المفعلة حدود التكامل المحمية من خادم إلى خادم.",
-      },
-      {
-        title: "يستخدم أولياء الأمور Family Hero Hub",
-        text: "يرى أولياء الأمور معلومات مدرسة طفلهم المرتبط في FHH إلى جانب أدوات الأسرة، ولا يستخدمون كلاس هيرو هب مباشرة.",
+        title: "أبقِ الأسر على اطلاع",
+        text: "يرى أولياء الأمور المعلومات التي تشاركها المدرسة عن طفلهم في Family Hero Hub.",
       },
     ],
-    featureEyebrow: "قدرات مترابطة",
-    featureHeading: "صورة كاملة للمنتج، منظمة بحسب العمل الذي تدعمه.",
+    featureEyebrow: "ما الذي تستطيع المدارس إنجازه",
+    featureHeading: "أدوات مفيدة مترابطة حول العمل المدرسي الحقيقي.",
     featureIntro:
-      "ابدأ بالأساسيات التي تحتاجها المدرسة الآن، ثم فعّل مسارات تواصل ومشاركة وحوكمة إضافية عندما تكون المدرسة جاهزة.",
+      "اختر الأجزاء التي تحل مشكلة حالية. لا تحتاج المدرسة إلى تقديم كل شيء دفعة واحدة.",
     featureGroups: [
       {
-        title: "أساس المدرسة",
-        text: "أنشئ هيكلا موثوقا لكل مسار عمل مصرح به.",
+        title: "نظّم المدرسة",
+        text: "أنشئ أساساً موثوقاً للعام الدراسي وحافظ على سهولة تحديثه مع تغير الأشخاص والصفوف.",
         items: [
-          "المدارس والفروع والسنوات الدراسية",
-          "الصفوف والمواد وتكليفات الموظفين",
-          "سجلات الطلاب وأولياء الأمور",
-          "استيراد CSV من MIS أو SMS والتحديثات السنوية والسجل والصادرات",
+          "الأعوام الدراسية والصفوف والمواد",
+          "تكليفات الموظفين وقوائم الطلبة",
+          "استيراد ملفات CSV بعد مراجعتها والتحديثات السنوية",
+          "السجلات المدرسية وعمليات التصدير المدعومة",
         ],
       },
       {
-        title: "التدريس والتعلم",
-        text: "اجعل إجراءات الصف اليومية سريعة وواضحة ومترابطة.",
+        title: "ادعم التعليم والتواصل",
+        text: "امنح الموظفين طرقاً أسرع للتسجيل والمشاركة والمتابعة من الصف الذي يعملون معه.",
         items: [
-          "نقاط السلوك الإيجابي وما يحتاج إلى تحسين",
-          "تقدير إيجابي قائم على الأدلة وشهادات",
-          "الواجبات والمفكرة والأغراض المطلوبة",
-          "التنبيهات والتقويم وتحديثات المدرسة والصور المحمية",
+          "الواجبات وعناصر المفكرة وفعاليات التقويم",
+          "التنبيهات والتحديثات والصور المدرسية",
+          "التقدير الإيجابي وسجلات السلوك الخاصة",
+          "محادثات المدرسة والاستبيانات والتصويتات",
         ],
       },
       {
-        title: "التواصل والمشاركة",
-        text: "امنح الأشخاص المناسبين قناة واضحة من دون فتح وصول غير ضروري.",
-        items: [
-          "رسائل نصية وصور محمية ورسائل صوتية",
-          "إيصالات التسليم والقراءة",
-          "ضوابط ساعات التواصل المدرسي",
-          "الاستبيانات والتصويت والربط مع Family Hero Hub",
-        ],
-      },
-      {
-        title: "الرؤى والحوكمة",
-        text: "ادعم قرارات المدرسة والمراجعة المحمية بسجلات قابلة للتتبع.",
+        title: "قد المدرسة بصورة أوضح",
+        text: "ساعد فرق المدرسة على فهم النشاط ومراجعة ما حدث وتحديد الخطوة التالية.",
         items: [
           "التقارير واتجاهات السلوك",
-          "مراجعة الحماية ومعالجة الأدلة في مسار مخصص",
-          "الصحة التشغيلية وسجلات التدقيق",
-          "العربية والإنجليزية وأدوات قابلية نقل البيانات",
+          "معلومات التسليم والقراءة",
+          "سجل الإجراءات المهمة",
+          "مساحة مستقلة لمراجعة حماية الطلبة",
         ],
+      },
+    ],
+    proofEyebrow: "داخل كلاس هيرو هب",
+    proofHeading: "شاهد المنتج أثناء العمل.",
+    proofIntro:
+      "هذه شاشات حقيقية من كلاس هيرو هب، مع بيانات توضيحية أُنشئت خصيصاً لهذا الموقع.",
+    proofDataNote: "بيانات توضيحية للمدرسة والموظفين فقط.",
+    proofItems: [
+      {
+        src: "/product/school-overview.png",
+        alt: "شاشة إعداد المدرسة في كلاس هيرو هب لمدرسة توضيحية",
+        eyebrow: "نظرة عامة على المدرسة",
+        title: "صورة مشتركة لإعداد المدرسة",
+        text: "يرى المسؤولون ما اكتمل وما يزال يحتاج إلى اهتمام ومن أين يواصلون العمل.",
+      },
+      {
+        src: "/product/teacher-workflow.png",
+        alt: "شاشة المعلم في كلاس هيرو هب تعرض صفوفاً توضيحية",
+        eyebrow: "مساحة عمل المعلم",
+        title: "الصفوف والإجراءات اليومية في متناول اليد",
+        text: "ينتقل المعلم من صفوفه إلى الطلبة والتنبيهات والتقويم من دون البحث بين قوائم كثيرة.",
       },
     ],
     familyEyebrow: "كلاس هيرو هب + Family Hero Hub",
-    familyHeading: "تبقى المدرسة مسيطرة، وترى الأسر ما يهم.",
-    familyIntro: "للمنتجين مسؤوليات منفصلة وبينهما اتصال محمي.",
-    schoolSideTitle: "١ · يستخدم موظفو المدرسة كلاس هيرو هب",
+    familyHeading: "تجربة مدرسية واحدة تمتد بوضوح إلى المنزل.",
+    familyIntro:
+      "يعمل موظفو المدرسة في كلاس هيرو هب. ويرى أولياء الأمور المعلومات التي تشاركها المدرسة معهم في Family Hero Hub.",
+    schoolSideTitle: "1 · يعمل الموظفون في كلاس هيرو هب",
     schoolSideText:
-      "ينشئ الموظفون المصرح لهم سجلات المدرسة ومعلومات التدريس والتواصل والمحتوى المفعّل الموجه للأسر ويديرونها.",
-    connectionTitle: "٢ · اتصال محمي بين الخوادم",
-    connectionText:
-      "يطلب FHH معلومات المدرسة المرتبطة عبر وسيط CHH في الخادم باستخدام معرفات مبهمة ومقيدة. ولا تتصل أجهزة الأسرة بـ CHH مباشرة.",
-    familySideTitle: "٣ · يستخدم أولياء الأمور FHH",
+      "تنظم المدرسة سجلاتها وعملها التعليمي وتواصلها وتحديثات الأسرة.",
+    connectionTitle: "2 · تشارك المدرسة تحديثاً",
+    connectionText: "تصبح المعلومات المفعلة متاحة للأسرة المرتبطة بالطالب.",
+    familySideTitle: "3 · يراه ولي الأمر في Family Hero Hub",
     familySideText:
-      "يرى أولياء الأمور والأوصياء المعلومات المفعلة للطفل المرتبط في Family Hero Hub. وتبقى هوية الأسرة والمنزل والجهاز على جانب الأسرة.",
+      "تظهر الواجبات والتنبيهات وعناصر التقويم ونقاط المدرسة والاستبيانات أو المحادثات إلى جانب أدوات الأسرة.",
     familyBoundary:
-      "المعلم الذي يكون ولي أمر أيضا يستخدم CHH في دوره الوظيفي وFHH في دوره الأسري. ولا يندمج الدوران.",
-    familyCta: "تعرف على الربط مع الأسرة",
-    trustEyebrow: "الخصوصية والحماية",
-    trustHeading: "مصممة لثقة المدرسة من دون وعود مبالغ فيها.",
+      "لا يحتاج أولياء الأمور إلى تطبيق مدرسي آخر أو بيانات دخول الموظفين. تبقى تجربتهم المدرسية داخل Family Hero Hub.",
+    familyCta: "تعرّف على الربط مع الأسرة",
+    trustEyebrow: "الثقة في الاستخدام اليومي",
+    trustHeading: "عناية خاصة حيث يحتاج العمل المدرسي إلى ذلك.",
     trustIntro:
-      "تستخدم كلاس هيرو هب حدود وصول واضحة ومسارات مخصصة للعمل المحمي. لا يمكن لأي خدمة إلكترونية أن تضمن أمانا مثاليا، لكن المنتج مصمم لتقليل التعرض غير الضروري وإبقاء السلطة صريحة.",
+      "صُمم كلاس هيرو هب ليساعد المدارس على منح الوصول المناسب، والحفاظ على خصوصية العمل الحساس، وفهم الإجراءات المهمة لاحقاً.",
     trustItems: [
       {
-        title: "تقييد الوصول بالمدرسة والدور",
-        text: "يرى المستخدمون المصرح لهم المدارس والصفوف والطلاب والأدوات التي تسمح بها أدوارهم وتكليفاتهم النشطة فقط.",
+        title: "وصول يناسب المسؤولية",
+        text: "يرى الموظف المدارس والصفوف والطلبة والأدوات المرتبطة بعمله.",
       },
       {
         title: "سجلات سلوك خاصة",
-        text: "لا تتحول معلومات ما يحتاج إلى تحسين إلى تصنيفات علنية أو تشهير. ويبقى التقدير الإيجابي قائما على الأدلة ومراجعة الموظفين.",
+        text: "لا يتحول السلوك الذي يحتاج إلى تحسين إلى ترتيب علني أو وسيلة لإحراج الطلبة.",
       },
       {
-        title: "مراجعة حماية منفصلة",
-        text: "لا تجعل المراجعة المحمية المراجع مشاركا في المحادثة، ولا تغير الإيصالات أو غير المقروء أو الإشعارات.",
-      },
-      {
-        title: "عمليات قابلة للتتبع",
-        text: "تدعم سجلات التدقيق وفحوص الصحة التشغيلية والصادرات المصرح بها ومسارات الأدلة المضبوطة إدارة مسؤولة.",
+        title: "مساحة مستقلة لحماية الطلبة",
+        text: "تظل مراجعة حماية الطلبة منفصلة عن المحادثات العادية ونشاط الرسائل اليومي.",
       },
     ],
     bilingualEyebrow: "العربية + English",
-    bilingualHeading: "منتج واحد جاهز للمجتمعات المدرسية ثنائية اللغة.",
+    bilingualHeading: "جاهز للمجتمعات المدرسية ثنائية اللغة.",
     bilingualText:
-      "تدعم كلاس هيرو هب العربية المهنية والإنجليزية في الموقع العام وواجهة المنتج، بما في ذلك التخطيطات من اليمين إلى اليسار.",
+      "يمكن للموظفين استخدام كلاس هيرو هب بالعربية أو الإنجليزية، مع تصميم كامل من اليمين إلى اليسار في التجربة العربية.",
     bilingualPoint1:
-      "يمكن تغيير لغة الواجهة من دون تعديل الأسماء أو المحتوى الذي أدخلته المدرسة.",
+      "لا يغيّر تبديل لغة الواجهة الأسماء أو المحتوى الذي أدخلته المدرسة.",
     bilingualPoint2:
-      "صُممت التخطيطات المتجاوبة للموظفين على الهواتف والأجهزة اللوحية وأجهزة سطح المكتب.",
-    faqEyebrow: "الأسئلة الشائعة",
-    faqHeading: "الأسئلة التي تطرحها المدارس والأسر أولا.",
+      "تدعم التصاميم المتجاوبة عمل الموظفين عبر الهواتف والأجهزة اللوحية والحواسيب.",
+    faqEyebrow: "أسئلة المدارس",
+    faqHeading: "إجابات واضحة قبل اتخاذ الخطوة التالية.",
     faqIntro:
-      "إجابات واضحة عن الأدوار ووصول الأسرة ونطاق المنتج والسلامة والتوفر التجريبي.",
+      "تعرّف على من يستخدم كلاس هيرو هب، وكيف تصل التحديثات إلى الأسر، وكيف يمكن أن يبدأ البرنامج التجريبي.",
     faqCta: "اقرأ جميع الأسئلة",
-    finalHeading: "هل أنت مستعد لمعرفة كيف تناسب CHH مدرستك؟",
+    finalHeading: "هل يمكن لكلاس هيرو هب أن يجعل يوم مدرستك أسهل؟",
     finalText:
-      "أخبرنا عن مدرستك وأنظمتك الحالية والمسارات التي تريد تحسينها، وسنرد بالخطوة التالية الأنسب لعرض توضيحي أو مناقشة تجربة.",
-    finalPrimary: "اطلب تجربة",
+      "أخبرنا بما يستغرق وقتاً أطول من اللازم، أو يتشتت بين الأنظمة، أو يترك الأسر من دون صورة واضحة. سنعرض الأجزاء الأكثر فائدة لكم.",
+    finalPrimary: "اطلب برنامجاً تجريبياً",
     finalSecondary: "تواصل مع الفريق",
   },
   faq: {
     pageTitle: "الأسئلة الشائعة | كلاس هيرو هب",
     metaDescription:
-      "إجابات عن كلاس هيرو هب ووصول موظفي المدرسة وإيصال المعلومات للأهل عبر Family Hero Hub والخصوصية والحماية والاستيراد والتصدير والوصول التجريبي.",
-    eyebrow: "إجابات مباشرة",
-    heading: "الأسئلة الشائعة",
+      "إجابات عن كلاس هيرو هب واستخدام المدارس وتحديثات الأسر واللغات والبرامج التجريبية.",
+    eyebrow: "الأسئلة الشائعة",
+    heading: "الأسئلة العملية التي تطرحها المدارس أولاً.",
     intro:
-      "تضع CHH حدا واضحا ومقصودا بين المدرسة والأسرة. توضح هذه الإجابات من يستخدم كل منتج وكيف تترابط المسارات الرئيسية.",
+      "مقدمة مباشرة عن المنتج والفئات التي يخدمها وكيف يربط موظفي المدرسة بالأسر.",
     items: arabicFaq,
     ctaHeading: "هل لديك سؤال خاص بمدرستك؟",
-    ctaText: "أرسل استفسارا موجزا من دون معلومات حساسة عن الطلاب أو الحماية.",
-    ctaLabel: "تواصل مع كلاس هيرو هب",
+    ctaText:
+      "أخبرنا بما تحاول تحسينه وسنوجهك إلى الإجابة أو العرض الأكثر فائدة.",
+    ctaLabel: "تواصل مع الفريق",
   },
   pages: {
     howItWorks: {
-      pageTitle: "كيف تعمل كلاس هيرو هب",
+      pageTitle: "كيف يعمل كلاس هيرو هب",
       metaDescription:
-        "تعرف على إعداد المدرسة في CHH ومسارات الموظفين المقيدة بالأدوار وكيف يتلقى أولياء الأمور المرتبطون معلومات المدرسة المفعلة عبر Family Hero Hub.",
-      eyebrow: "كيف تعمل",
-      heading: "مسار واضح من إعداد المدرسة إلى فهم الأسرة.",
+        "تعرّف على انتقال المدرسة من الإعداد إلى عمل الموظفين اليومي وتحديثات الأسرة.",
+      eyebrow: "كيف يعمل",
+      heading: "طريق أبسط من إعداد المدرسة إلى الاستخدام اليومي.",
       intro:
-        "تربط CHH عمل مسؤولي المدرسة والمعلمين من دون خلط ملكية بيانات المدرسة أو هوية الأسرة أو المراجعة المحمية.",
-      highlights: ["مقيدة بالمدرسة", "مراعية للأدوار", "إيصال الأسرة عبر FHH"],
+        "يبدأ كلاس هيرو هب من هيكل المدرسة الذي يعرفه فريقك، ثم يربط به العمل اليومي والتواصل مع الأسر.",
+      highlights: [
+        "إعداد واحد",
+        "العمل من الصف",
+        "المشاركة عبر Family Hero Hub",
+      ],
       sections: [
         {
-          title: "١. إعداد المدرسة",
-          text: "ينشئ مسؤولو المدرسة الهيكل التشغيلي الذي تعتمد عليه جميع المسارات اللاحقة.",
+          title: "اجمع عناصر المدرسة",
+          text: "أنشئ العام الدراسي والصفوف والمواد وتكليفات الموظفين، ثم أضف أو استورد سجلات الطلبة المطلوبة للفصل الدراسي.",
           bullets: [
-            "بيانات المدرسة والفروع",
-            "السنوات الدراسية والصفوف والمواد",
-            "أدوار الموظفين وتكليفاتهم",
-            "فئات السلوك والميزات المفعلة",
+            "راجع الملفات قبل تطبيق الاستيراد",
+            "حدّث تكليفات الصفوف والمواد بسهولة",
           ],
         },
         {
-          title: "٢. نقل السجلات بعناية",
-          text: "يمكن إعداد بيانات الطلاب وأولياء الأمور والقوائم الحالية عبر استيراد CSV مرحلي بدلا من رفع غير مضبوط بخطوة واحدة.",
+          title: "امنح الموظفين نقطة بداية واضحة",
+          text: "يفتح المسؤول القسم الذي يديره. ويبدأ المعلم من صفوفه وينتقل مباشرة إلى الطلبة والواجبات والتنبيهات والسلوك والتقدير والتقويم أو الرسائل.",
+        },
+        {
+          title: "انقل المعلومات المفيدة إلى المنزل",
+          text: "عندما تشارك المدرسة معلومات موجهة للأسرة، يراها ولي الأمر في Family Hero Hub للطفل المرتبط. ويواصل فريق المدرسة عمله في كلاس هيرو هب.",
           bullets: [
-            "المعاينة والتحقق قبل الاعتماد",
-            "مراجع MIS أو SMS الخارجية عند توفرها",
-            "دعم السجل والتحديث السنوي",
-            "صادرات مصرح بها لقابلية النقل",
+            "تستخدم الأسرة تجربة واحدة مألوفة",
+            "تختار المدرسة الميزات التي تبدأ بها",
           ],
-        },
-        {
-          title: "٣. منح الموظفين مساحة العمل الصحيحة",
-          text: "يسجل المعلمون وقادة المدرسة الدخول إلى CHH ويرون المسارات المناسبة لأدوارهم وصفوفهم وتكليفاتهم الحالية.",
-          bullets: [
-            "سياق الصف والطالب",
-            "الواجبات والمفكرة والتقويم",
-            "السلوك والتقدير الإيجابي",
-            "التنبيهات والتحديثات والرسائل والاستبيانات والتقارير",
-          ],
-        },
-        {
-          title: "٤. تواصل يمكن متابعته",
-          text: "تبقى اتصالات المدرسة مرتبطة بالجمهور والسياق المدرسي الصحيحين، مع حالة التسليم وضوابط السياسة عند دعمها.",
-          bullets: [
-            "النصوص والصور المحمية والرسائل الصوتية",
-            "إيصالات التسليم والقراءة",
-            "ضوابط ساعات التواصل",
-            "التحديثات المحمية وعناصر تقويم المدرسة",
-          ],
-        },
-        {
-          title: "٥. إيصال المعلومات للأسر عبر FHH",
-          text: "لا يدخل أولياء الأمور نظام الموظفين. يعرض Family Hero Hub معلومات المدرسة المفعلة فقط لطفل لديه رابط مدرسي نشط ومتحقق.",
-        },
-        {
-          title: "٦. المراجعة والتقرير والتحسين",
-          text: "يمكن للقادة المصرح لهم استخدام التقارير والاتجاهات والتدقيق والصادرات. وتبقى مراجعة الحماية مسارا منفصلا مرتبطا بسبب وخاضعا للتدقيق.",
         },
       ],
-      notice: {
-        title: "الحد الفاصل مهم",
-        text: "تملك CHH بيانات المدرسة ووصولها. ويملك FHH هوية الأسرة وولي الأمر والطفل والمنزل والجهاز. ولا تتصل تطبيقات الأسرة بـ CHH مباشرة.",
-      },
       cta: {
-        heading: "راجع المسار مع وضع هيكل مدرستك في الاعتبار.",
-        text: "اطلب عرضا توضيحيا أو مناقشة تجربة مع فريق كلاس هيرو هب.",
-        label: "اطلب تجربة",
+        heading: "شاهد سير العمل بما يناسب مدرستك.",
+        text: "يمكن للعرض القصير أن يركز على الإعداد والعمل الأكثر أهمية لفريقك.",
+        label: "اطلب عرضاً توضيحياً",
         href: "/pilot",
-        secondaryLabel: "استكشف جميع الميزات",
+        secondaryLabel: "استكشف المنتج",
         secondaryHref: "/features",
       },
     },
     features: {
-      pageTitle: "نظرة عامة وميزات كلاس هيرو هب",
+      pageTitle: "نظرة عامة على كلاس هيرو هب",
       metaDescription:
-        "استكشف إعداد المدرسة والقوائم والسلوك وتحديثات التعلم والرسائل والاستبيانات والتقارير والحماية ودعم اللغتين والربط مع Family Hero Hub.",
+        "استكشف ميزات تنظيم المدرسة والتعليم والتواصل والتقارير وربط الأسرة في كلاس هيرو هب.",
       eyebrow: "نظرة عامة على المنتج",
-      heading: "مسارات المدرسة المترابطة التي تهم الآن.",
+      heading: "الأدوات التي تحتاجها المدارس، من دون متاهة الأنظمة المعتادة.",
       intro:
-        "نُظمت CHH حول طريقة عمل المدارس: إعداد الهيكل ودعم الموظفين والتواصل بوضوح وإشراك الأسر وحوكمة العمل المحمي.",
+        "يربط كلاس هيرو هب العمل المدرسي الأساسي بالأشخاص والصفوف والمواقف التي تخصه. ابدأ بحاجة محددة ثم أضف المزيد عندما تكون المدرسة مستعدة.",
       highlights: [
-        "العمليات المدرسية",
-        "مسارات التدريس",
-        "مشاركة الأسرة",
-        "الحوكمة",
+        "تنظيم المدرسة",
+        "التعليم والتواصل",
+        "تحديثات الأسرة",
+        "التقارير والمتابعة",
       ],
       sections: [
         {
-          title: "هيكل المدرسة وإدارتها",
-          text: "أعد المدارس والفروع والسنوات الدراسية والمراحل والصفوف والمواد والتكليفات والقوائم. وأدر سجلات الطلاب وأولياء الأمور مع سجل مقيد بالمدرسة.",
+          title: "أساس مدرسي يمكن الاعتماد عليه",
+          text: "حافظ على تنظيم الأعوام الدراسية والفروع والصفوف والمواد وتكليفات الموظفين وقوائم الطلبة ضمن هيكل مشترك.",
           bullets: [
-            "إعداد يدوي وتهيئة مدرسية موجهة",
-            "استيراد CSV من MIS أو SMS مع مراجعة مرحلية",
-            "تحديثات سنوية وسجل وصادرات مدعومة",
-            "إدارة الأدوار والعضويات",
+            "استيراد ملفات CSV بعد مراجعتها",
+            "تحديثات سنوية مع حفظ السجل",
+            "تصدير السجلات المدعومة",
           ],
         },
         {
-          title: "السلوك والتقدير الإيجابي",
-          text: "سجّل الأحداث الإيجابية وما يحتاج إلى تحسين وفق فئات المدرسة وفي سياقها. واستخدم الأدلة الإيجابية لدعم تقدير يراجعه الموظفون وشهادات قابلة للطباعة.",
+          title: "عمل المعلم اليومي",
+          text: "ساعد المعلمين على الانتقال بسرعة بين صفوفهم والمهام التي ينفذونها أكثر من غيرها.",
           bullets: [
-            "إجراءات سريعة داخل الصف",
-            "تصحيحات لا تعيد كتابة السجل بصمت",
-            "خصوصية معلومات ما يحتاج إلى تحسين",
-            "لا تصنيفات علنية ولا تشهير",
+            "الواجبات وعناصر المفكرة والمتطلبات",
+            "سجلات السلوك الخاصة والتقدير الإيجابي",
+            "التنبيهات والتحديثات والتقويم والصور",
           ],
         },
         {
-          title: "الواجبات والمفكرة والتقويم",
-          text: "اربط الواجبات والاختبارات والتذكيرات والأغراض المطلوبة وأحداث التقويم بالمدرسة أو الصف أو المجموعة أو الطالب الصحيح.",
-        },
-        {
-          title: "التنبيهات والتحديثات والوسائط المحمية",
-          text: "انشر معلومات المدرسة أو الصف للجمهور المناسب، بما في ذلك صور تحديثات المدرسة المحمية عند تفعيلها.",
-        },
-        {
-          title: "الرسائل المدرسية",
-          text: "ادعم النصوص والصور المحمية والرسائل الصوتية مع إيصالات التسليم والقراءة وضوابط ساعات التواصل والتوفر الذي تحدده المدرسة.",
+          title: "تواصل يحتفظ بسياقه",
+          text: "اجعل التواصل المدرسي مرتبطاً بالصف أو الطالب المناسب، مع معلومات واضحة عن التسليم وأوقات التواصل التي تحددها المدرسة.",
           bullets: [
-            "سياقات المدرسة والأسرة والموظفين",
-            "وصول محمي للوسائط",
-            "رسائل صوتية",
-            "مراجعة حماية منفصلة",
+            "محادثات مدرسية بالنص والصور والملاحظات الصوتية",
+            "التنبيهات والاستبيانات والتصويتات",
+            "وصول المعلومات إلى الأسرة عبر Family Hero Hub",
           ],
         },
         {
-          title: "الاستبيانات والتصويت",
-          text: "أنشئ استبيانات موجهة لأولياء الأمور، وأدر التوفر والتذكيرات، وراجع تقدم الاستجابة والنتائج بحسب صلاحيات المدرسة.",
-        },
-        {
-          title: "التقارير والاتجاهات والعمليات",
-          text: "امنح القادة المصرح لهم تقارير السلوك واتجاهاته والصادرات المدعومة وسياق التدقيق والصحة التشغيلية من دون كشف المحتوى المحمي لأدوار غير معنية.",
-        },
-        {
-          title: "ثنائية اللغة ومتصلة بالأسرة",
-          text: "استخدم CHH بالعربية أو الإنجليزية مع تخطيط RTL متجاوب، بينما يتلقى أولياء الأمور المرتبطون معلومات المدرسة المفعلة في Family Hero Hub.",
+          title: "رؤية أوضح لمتابعة أفضل",
+          text: "استخدم التقارير والاتجاهات وسجل الأنشطة لفهم ما حدث والاحتفاء بالتقدم وتحديد ما يستحق الاهتمام بعد ذلك.",
+          bullets: [
+            "اتجاهات السلوك والمشاركة",
+            "فحوصات التشغيل والتسليم",
+            "مساحة مستقلة لمراجعة حماية الطلبة",
+          ],
         },
       ],
       cta: {
-        heading: "اختر المسارات التي تحتاجها تجربتك.",
-        text: "يمكننا تركيز العرض على إعداد المدرسة أو التدريس أو التواصل مع الأسر أو التقارير أو المراجعة المحمية.",
-        label: "ناقش تجربة",
+        heading: "أي جزء سيصنع الفرق الأكبر أولاً؟",
+        text: "يمكننا تصميم العرض حول مشكلة مدرسية حقيقية بدلاً من عرض كل ميزة بلا تمييز.",
+        label: "اطلب برنامجاً تجريبياً",
         href: "/pilot",
-        secondaryLabel: "شاهد كيف تعمل",
+        secondaryLabel: "كيف يعمل",
         secondaryHref: "/how-it-works",
       },
     },
     schools: {
-      pageTitle: "كلاس هيرو هب لقادة المدارس وموظفيها",
+      pageTitle: "كلاس هيرو هب للمدارس",
       metaDescription:
-        "تعرف على دعم كلاس هيرو هب لقادة المدارس والمسؤولين والمعلمين عبر مسارات مدرسية مترابطة ومقيدة بالأدوار.",
+        "مساحة عمل مدرسية عملية للقادة والمسؤولين والمعلمين والمجتمعات ثنائية اللغة.",
       eyebrow: "للمدارس",
-      heading: "منصة مدرسية يمكن فهمها قبل الحاجة إلى إتقانها.",
+      heading: "مصمم حول الأشخاص الذين يحافظون على سير المدرسة.",
       intro:
-        "تمنح CHH كل دور مصرح له نقطة بداية أوضح، مع إبقاء هيكل المدرسة والأدلة والصلاحيات متسقة.",
-      highlights: ["للقادة", "للمسؤولين", "للمعلمين"],
+        "ينبغي للمنصة المدرسية المفيدة أن توضح العمل اليومي للفريق كله، لا أن تضيف طبقة جديدة من الإدارة.",
+      highlights: [
+        "قادة المدارس",
+        "المسؤولون",
+        "المعلمون",
+        "الفرق ثنائية اللغة",
+      ],
       sections: [
         {
           title: "لقادة المدارس",
-          text: "شاهد الأنماط وحالة التسليم والسياق التشغيلي من دون تحويل كل سؤال قيادي إلى طلب جدول بيانات.",
-          bullets: [
-            "التقارير والاتجاهات",
-            "رؤية مشاركة الأسرة",
-            "سياق الصحة التشغيلية والتدقيق",
-            "حدود حوكمة واضحة",
-          ],
+          text: "تابع حركة التواصل والسلوك والتقدير والمشاركة في المدرسة بتفاصيل كافية لطرح أسئلة أفضل.",
         },
         {
-          title: "لمسؤولي المدارس",
-          text: "أدر هيكل المدرسة وسجلاتها السنوية التي تجعل كل مسار للموظفين موثوقا.",
-          bullets: [
-            "السنوات الدراسية والصفوف والمواد",
-            "سجلات الموظفين والطلاب وأولياء الأمور",
-            "استيراد CSV والتحديثات السنوية والصادرات",
-            "ضوابط الميزات والرسائل وساعات التواصل",
-          ],
+          title: "للمسؤولين",
+          text: "حافظ على تنظيم هيكل المدرسة والقوائم وتكليفات الموظفين وروابط الأسر والتحديثات السنوية من دون إعادة بناء الصورة في ملفات منفصلة.",
         },
         {
           title: "للمعلمين",
-          text: "انتقل من سياق الصف إلى الإجراء المفيد التالي بسرعة: تقدير الجهد أو تسجيل السلوك أو تحديد واجب أو نشر تحديث أو التواصل مع أسرة.",
+          text: "ابدأ من الصفوف المكلف بها واجعل الإجراءات المتكررة قريبة، ليستغرق تسجيل المعلومات المفيدة ومشاركتها وقتاً أقل.",
         },
         {
-          title: "للمجتمعات ثنائية اللغة",
-          text: "يمكن للموظفين استخدام العربية أو الإنجليزية مع تخطيط من اليمين إلى اليسار. وتبقى الأسماء والمحتوى المدخلان تحت سيطرة المدرسة.",
-        },
-        {
-          title: "لإطلاق مضبوط",
-          text: "ابدأ بمدرسة أو فرع أو مرحلة أو مسار محدد، واتفق على الميزات والأدوار المفعلة، ثم وسع التجربة عندما يصبح الأساس التشغيلي جاهزا.",
-        },
-        {
-          title: "للمدارس ذات الأنظمة الحالية",
-          text: "يمكن لـ CHH استخدام استيراد CSV مرحلي من صادرات MIS أو SMS الحالية. ولا تجبر المدرسة على هجرة بيانات مبهمة لا رجعة فيها.",
+          title: "للمجتمعات العربية والإنجليزية",
+          text: "استخدم الواجهة بالعربية أو الإنجليزية مع إبقاء أسماء المدرسة ومحتواها المكتوب كما أُدخل تماماً.",
         },
       ],
       cta: {
-        heading: "أرنا أين يتشتت العمل المدرسي حاليا.",
-        text: "سنركز الحديث على المسارات التي تهم موظفيك وأسرك.",
-        label: "اطلب مناقشة مدرسية",
+        heading: "أرنا أين يتشتت العمل في يومكم المدرسي.",
+        text: "سنركز الحوار على الأشخاص والأعمال التي ستستفيد أكثر.",
+        label: "ابدأ محادثة",
         href: "/pilot",
-        secondaryLabel: "اقرأ دليل المسؤول",
-        secondaryHref: "/guides/administrator",
+        secondaryLabel: "اقرأ الأسئلة الشائعة",
+        secondaryHref: "/faq",
       },
     },
     familyConnection: {
-      pageTitle: "ربط كلاس هيرو هب مع Family Hero Hub للأهل",
+      pageTitle: "كلاس هيرو هب وFamily Hero Hub",
       metaDescription:
-        "افهم كيف تصل بيانات مدرسة CHH إلى أولياء الأمور المرتبطين عبر Family Hero Hub مع بقاء هوية الموظفين والأسرة والجهاز في الجانب الصحيح.",
+        "تعرّف على استخدام الموظفين لكلاس هيرو هب ووصول تحديثات المدرسة إلى أولياء الأمور في Family Hero Hub.",
       eyebrow: "الربط مع الأسرة",
       heading:
-        "تصل معلومات المدرسة إلى الأهل من دون منحهم وصولا إلى نظام الموظفين.",
+        "تصل تحديثات المدرسة إلى الأسر في المكان الذي يديرون فيه حياتهم العائلية.",
       intro:
-        "CHH وFHH منتجان مترابطان بمسؤوليات منفصلة. والحد بينهما مقصود وواضح وجزء من سهولة فهم الوصول.",
+        "يستخدم الموظفون كلاس هيرو هب للعمل المدرسي. ويرى أولياء الأمور المعلومات التي تشاركها المدرسة عن طفلهم في Family Hero Hub.",
       highlights: [
-        "الموظفون يستخدمون CHH",
-        "الأهل يستخدمون FHH",
-        "اتصال بين الخوادم",
+        "مساحة واحدة للموظفين",
+        "تجربة واحدة للأسرة",
+        "تحديثات واضحة بين المدرسة والمنزل",
       ],
       sections: [
         {
-          title: "CHH هي مرجع المدرسة",
-          text: "تدير المدارس وموظفوها المصرح لهم الهياكل المدرسية وسجلات الطلاب ومعلومات التعلم والسلوك والتواصل والاستبيانات والتقارير ومسارات الحماية في CHH.",
+          title: "تعمل المدرسة في كلاس هيرو هب",
+          text: "ينظم الموظفون سجلات المدرسة والعمل التعليمي والتواصل والمعلومات التي ينبغي مشاركتها مع الأسر.",
         },
         {
-          title: "FHH هي مرجع الأسرة",
-          text: "يدير Family Hero Hub هوية ولي الأمر والطفل والمنزل والجهاز، ويعرض معلومات المدرسة إلى جانب أدوات الأسرة من دون نقل هوية أجهزة الأسرة إلى CHH.",
+          title: "يرى ولي الأمر معلومات المدرسة في Family Hero Hub",
+          text: "قد تشمل المعلومات الخاصة بالطفل المرتبط الواجبات والتنبيهات والتحديثات ونقاط المدرسة وعناصر التقويم والاستبيانات ومحادثات المدرسة، بحسب ما تستخدمه المدرسة.",
         },
         {
-          title: "لا يتصل الأهل بـ CHH مباشرة",
-          text: "يطلب FHH بيانات المدرسة المحمية عبر وسيط CHH في خادمه. ويستخدم الاتصال معرفات مبهمة ومقيدة ورابطا نشطا بين الطفل والمدرسة.",
-        },
-        {
-          title: "ما قد تراه الأسرة المرتبطة",
-          text: "بحسب الميزات التي تفعلها المدرسة، قد يرى ولي الأمر الواجبات والتنبيهات والتحديثات والصور المحمية ونقاط المدرسة والتقويم والاستبيانات ومحادثات المدرسة.",
-        },
-        {
-          title: "تبقى بيانات المنزل والمدرسة منفصلة",
-          text: "تبقى نقاط الأسرة ومكافآتها وروتين المنزل ومعلومات أجهزته في FHH، ولا تُرسل إلى CHH لمجرد وجود رابط مدرسي.",
-        },
-        {
-          title: "يمكن للشخص أن يحمل دورين منفصلين",
-          text: "يستخدم المعلم الذي يكون ولي أمر CHH لعمله المصرح به وFHH لأسرته. ولا تتحول صلاحيات الموظف إلى وصول أسري ولا العكس.",
+          title: "مكان واحد مألوف للأسرة",
+          text: "لا يسجل أولياء الأمور الدخول إلى كلاس هيرو هب. تظهر معلومات المدرسة إلى جانب أدوات الأسرة في Family Hero Hub، وتبقى المدرسة جهة الاتصال الأولى بشأن السجلات المدرسية.",
         },
       ],
-      notice: {
-        title: "لا يوجد تطبيق CHH للأهل",
-        text: "يستخدم أولياء الأمور والأوصياء Family Hero Hub. وتتوقف معلومات المدرسة التي يمكنهم رؤيتها على ميزات المدرسة المفعلة والرابط النشط لطفلهم.",
-      },
       cta: {
-        heading: "هل تحتاج إلى شرح الاتصال لمجتمع مدرستك؟",
-        text: "استخدم دليل ولي الأمر وFHH لشرح موجز ودقيق للأدوار.",
-        label: "اقرأ دليل ولي الأمر وFHH",
-        href: "/guides/families",
-        secondaryLabel: "زر Family Hero Hub",
-        secondaryHref: "https://familyherohub.com",
+        heading: "هل تريد شرح الربط لمجتمع مدرستك؟",
+        text: "يمكننا مساعدة فريقك على فهم ما يستخدمه الموظفون وما تراه الأسر وكيفية تقديم التجربة بوضوح.",
+        label: "تحدث مع الفريق",
+        href: "/contact",
+        secondaryLabel: "افتح دليل الأسرة",
+        secondaryHref: "/guides/families",
       },
     },
     pilot: {
-      pageTitle: "طلب تجربة أو عرض كلاس هيرو هب",
+      pageTitle: "اطلب برنامجاً تجريبياً لكلاس هيرو هب",
       metaDescription:
-        "تواصل مع كلاس هيرو هب لمناقشة عرض مدرسي أو تجربة محددة بعناية أو معلومات المنتج.",
-      eyebrow: "التجارب والعروض",
-      heading: "ابدأ بالمشكلة المدرسية التي تريد حلها.",
+        "أخبرنا عن مدرستك ورتب عرضاً أو محادثة تجريبية مناسبة لكلاس هيرو هب.",
+      eyebrow: "اطلب برنامجاً تجريبياً",
+      heading: "لنبدأ بمحادثة عن مدرستك.",
       intro:
-        "لا توجد هنا باقة أو قائمة أسعار مختلقة. أخبرنا بما تريد مدرستك تحسينه، وسنقرر معا إن كان العرض أو التجربة المحددة هو الخطوة المناسبة.",
-      highlights: ["لا أسعار معلنة بعد", "تجارب محددة", "إطلاق تقوده المدرسة"],
+        "أخبرنا بما يعمل جيداً، وما يتطلب جهداً أكبر من اللازم، وأين ترغب في تجربة أوضح. سنجعل الخطوة التالية بسيطة وذات صلة.",
+      highlights: ["محادثة مركزة", "عرض مناسب", "خطوة تالية معقولة"],
       sections: [
         {
-          title: "عرّفنا بالمدرسة",
-          text: "يتضمن الاستفسار المفيد اسم المدرسة أو المجموعة والبلد أو المنطقة الزمنية والحجم التقريبي واللغات ودور الشخص المتواصل.",
+          title: "نفهم المدرسة",
+          text: "نبدأ بسياق مدرستك وأنظمتها الحالية والعمل الذي ترغب في تحسينه أولاً.",
         },
         {
-          title: "حدد مسار العمل",
-          text: "وضح إن كانت الأولوية إعداد المدرسة أو الاستيراد أو السلوك والتقدير أو الواجبات أو التنبيهات والتحديثات أو الرسائل أو الاستبيانات أو التقارير أو الحماية أو الربط مع FHH.",
+          title: "نعرض ما يهم",
+          text: "يركز العرض على أجزاء كلاس هيرو هب المرتبطة بفريقك وأولوياتك.",
         },
         {
-          title: "حدد نطاقا آمنا",
-          text: "يمكن أن تبدأ التجربة بمدرسة أو فرع أو مرحلة أو مسار واحد. ويجب الاتفاق على الميزات والأدوار ومسؤوليات المراجعة قبل إدخال بيانات مدرسية حقيقية.",
-        },
-        {
-          title: "جهز الأشخاص المناسبين",
-          text: "أشرك قائدا أو راعيا مدرسيا ومسؤولا تشغيليا ومعلمين ممثلين. وأضف مسؤولي الحماية أو البيانات عندما تكون هذه المسارات ضمن النطاق.",
-        },
-        {
-          title: "لا ترسل بيانات حساسة في الرسالة الأولى",
-          text: "لا ترسل سجلات الطلاب أو الرسائل الخاصة أو إجابات الاستبيانات أو أدلة الحماية أو بيانات الدخول أو الرموز في الاستفسار.",
-        },
-        {
-          title: "تأتي الشروط التجارية لاحقا",
-          text: "لم يُحدد نموذج أسعار عام. ويجب الاتفاق صراحة على نطاق التجربة وتوقعات الدعم وأي شروط تجارية مستقبلية.",
+          title: "نتفق على الخطوة التالية",
+          text: "إذا كان المنتج مناسباً، نتفق على طريقة عملية لاستكشافه مع الأشخاص المناسبين في المدرسة.",
         },
       ],
+      form: {
+        heading: "أخبرنا عن مدرستك",
+        intro: "ستساعدنا بعض التفاصيل على جعل المحادثة الأولى مفيدة.",
+        nameLabel: "اسمك",
+        schoolLabel: "المدرسة",
+        roleLabel: "دورك الوظيفي",
+        regionLabel: "الدولة أو المنطقة",
+        emailLabel: "البريد الإلكتروني للعمل",
+        messageLabel: "ما الذي ترغب في تحسينه؟",
+        messageHint: "تكفي نبذة قصيرة. يرجى عدم تضمين معلومات سرية عن الطلبة.",
+        submitLabel: "إرسال طلب البرنامج التجريبي",
+        submittingLabel: "جارٍ إرسال الطلب…",
+        successHeading: "شكراً لك — تم إرسال طلبك.",
+        successText: "سنقرأه ونتواصل معك عبر البريد الإلكتروني الذي قدمته.",
+        rateLimitError:
+          "وصلتنا عدة طلبات من هذا الاتصال. يرجى الانتظار قليلاً ثم المحاولة مرة أخرى.",
+        unavailableError:
+          "إرسال البريد غير متاح مؤقتاً. يرجى استخدام خيار البريد المباشر أدناه.",
+        generalError: "تعذر إرسال طلبك الآن. حاول مرة أخرى أو راسلنا مباشرة.",
+        directHeading: "تفضل البريد الإلكتروني؟",
+        directText:
+          "يمكنك التواصل مع الفريق مباشرة عبر support@classherohub.com.",
+        directLabel: "راسل الفريق",
+      },
       cta: {
-        heading: "اطلب مناقشة تجربة",
-        text: "راسل الفريق بوصف موجز وغير حساس لمدرستك ومسار العمل ذي الأولوية.",
-        label: "أرسل استفسار تجربة",
+        heading: "هل تفضل البدء عبر البريد الإلكتروني؟",
+        text: "أرسل ملاحظة قصيرة عن مدرستك والموضوع الذي ترغب في مناقشته.",
+        label: "راسل الفريق",
         href: pilotEmailHref,
-        secondaryLabel: "اعرض ميزات المنتج",
+        secondaryLabel: "استكشف المنتج",
         secondaryHref: "/features",
       },
     },
     contact: {
       pageTitle: "تواصل مع كلاس هيرو هب",
       metaDescription:
-        "تواصل مع كلاس هيرو هب لمعلومات المنتج المدرسي أو التجارب أو الدعم أو أسئلة الخصوصية أو طلبات الحساب والبيانات.",
+        "تواصل مع كلاس هيرو هب بشأن العروض والبرامج التجريبية ودعم المدارس وأسئلة الخصوصية.",
       eyebrow: "تواصل معنا",
-      heading: "تحدث مع فريق كلاس هيرو هب.",
+      heading: "كيف يمكننا مساعدتك؟",
       intro:
-        "استخدم عنوان الدعم نفسه لأسئلة المنتج والتجارب والدعم التشغيلي والخصوصية وإرشاد طلبات الحساب أو البيانات.",
-      highlights: [
-        "استفسارات المنتج",
-        "دعم المدرسة",
-        "الخصوصية وطلبات البيانات",
-      ],
+        "سواء كنت تستكشف المنتج أو تعمل حالياً مع كلاس هيرو هب، ابدأ برسالة قصيرة وسيوجهها الفريق إلى المكان المناسب.",
+      highlights: ["البرامج التجريبية", "دعم المدارس", "إرشاد الأسر"],
       sections: [
         {
-          title: "استفسارات المنتج والتجربة",
-          text: "أخبرنا عن مدرستك ودورك وبلدك أو منطقتك الزمنية والمسارات التي تريد استكشافها. لا ترفق معلومات حساسة عن الطلاب.",
+          title: "محادثات المنتج والبرامج التجريبية",
+          text: "أخبرنا عن مدرستك ودورك والعمل الذي ترغب في تحسينه أكثر من غيره.",
         },
         {
-          title: "دعم المدارس الحالية",
-          text: "اذكر اسم المدرسة والجزء المتأثر ووصفا موجزا لما توقعته وما حدث. لا ترسل كلمات مرور أو رموزا أو رسائل خاصة أو أدلة حماية.",
+          title: "دعم مدرسة تستخدم المنتج",
+          text: "اذكر اسم المدرسة ودورك ووصفاً قصيراً للمشكلة. تفيد الصور عندما لا تتضمن معلومات مدرسية خاصة.",
         },
         {
-          title: "أولياء الأمور والأوصياء",
-          text: "يستخدم الأهل Family Hero Hub لمعلومات المدرسة المرتبطة. اسأل المدرسة أولا عن سجلاتها، واستخدم دعم FHH لأسئلة حساب الأسرة.",
+          title: "أسئلة الأسر",
+          text: "ابدأ بالمدرسة إذا كان السؤال عن معلومات مدرسية. واستخدم دعم Family Hero Hub للمساعدة في حساب الأسرة أو تجربتها.",
         },
         {
-          title: "الخصوصية والوصول والبيانات",
-          text: "تتولى المدرسة عادة طلبات السجلات المدرسية. تواصل مع دعم CHH لأسئلة حساب المنصة أو للمساعدة في تحديد المسار الصحيح.",
+          title: "أسئلة الخصوصية والبيانات",
+          text: "استخدم دليل طلبات البيانات لمعرفة نقطة البداية المناسبة لسجل مدرسي أو حساب موظف أو حساب أسرة.",
         },
       ],
-      notice: { title: "بريد الدعم", text: "support@classherohub.com" },
+      notice: {
+        title: "بريد الدعم",
+        text: "راسل support@classherohub.com. يرجى عدم إرسال كلمات المرور أو روابط الدخول أو معلومات سرية عن الطلبة.",
+      },
       cta: {
-        heading: "أرسل استفسارا موجزا وغير حساس.",
-        text: "سنوجهه إلى الخطوة المناسبة للمنتج أو الدعم أو الخصوصية.",
-        label: "راسل support@classherohub.com",
+        heading: "أرسل لنا رسالة قصيرة.",
+        text: "سنساعدك على إيجاد الخطوة التالية من دون طلب معلومات حساسة عبر البريد.",
+        label: "راسل كلاس هيرو هب",
         href: supportEmailHref,
-        secondaryLabel: "طلبات البيانات والحساب",
-        secondaryHref: "/data-requests",
+        secondaryLabel: "اقرأ الأسئلة الشائعة",
+        secondaryHref: "/faq",
       },
     },
     administratorGuide: {
-      pageTitle: "دليل مسؤول المدرسة في كلاس هيرو هب",
+      pageTitle: "دليل مسؤول المدرسة | كلاس هيرو هب",
       metaDescription:
-        "دليل موجز لمسؤولي المدارس لإعداد الهيكل والموظفين والقوائم والاستيراد والميزات والتواصل والحوكمة في CHH.",
+        "مقدمة عملية لإعداد المدرسة والمحافظة على سجلاتها في كلاس هيرو هب.",
       eyebrow: "دليل مسؤول المدرسة",
-      heading: "ابن أساسا مدرسيا موثوقا قبل بدء ضغط العمل.",
+      heading: "أنشئ مساحة عمل مدرسية يعتمد عليها الجميع.",
       intro:
-        "يتحكم مسؤولو المدرسة في الهيكل والأشخاص والإعدادات التي تحدد ما يمكن للموظفين المصرح لهم والأسر المرتبطة رؤيته وفعله.",
+        "يسهّل الهيكل الواضح منذ البداية كل ما يأتي لاحقاً للمعلم والطالب والصف والأسرة.",
+      highlights: ["الإعداد", "الدعوات", "المراجعة", "التحضير للعام التالي"],
       sections: [
         {
-          title: "١. تأكد من هوية المدرسة ونطاقها",
-          text: "راجع أسماء المدرسة والفروع والمنطقة الزمنية واللغة الافتراضية والمسؤولين الحاليين قبل إضافة السجلات التشغيلية.",
+          title: "ابدأ بالهيكل الأكاديمي",
+          text: "أكد ملف المدرسة والعام الدراسي الحالي والفروع والصفوف والمواد والمصطلحات التي تستخدمها مدرستك.",
         },
         {
-          title: "٢. أنشئ الهيكل الدراسي",
-          text: "حدد السنة الحالية والمراحل والصفوف والمواد ومجموعات المواد الاختيارية، ثم عيّن الموظفين بعد التأكد من الهيكل.",
+          title: "أضف الموظفين والطلبة بعناية",
+          text: "أنشئ تكليفات الموظفين وانقل سجلات الطلبة عبر الاستيراد بعد مراجعته أو باستخدام أدوات المدرسة المتاحة.",
         },
         {
-          title: "٣. أضف الموظفين والطلاب وأولياء الأمور",
-          text: "ادع الموظفين إلى الأدوار والتكليفات الصحيحة. أضف الطلاب يدويا أو باستيراد CSV مرحلي، ثم راجع سجلات وروابط أولياء الأمور.",
+          title: "قدم الأعمال التي تحتاجها المدرسة",
+          text: "جهّز فئات السلوك وميزات الأسرة وخيارات التواصل وإعدادات المدرسة الأخرى بترتيب عملي.",
         },
         {
-          title: "٤. اضبط مسارات المدرسة",
-          text: "راجع فئات السلوك وسياسة النقاط والميزات الموجهة للأسر وتوفر الرسائل وساعات التواصل والاستبيانات قبل الاستخدام الواسع.",
+          title: "راجع قبل المشاركة",
+          text: "تحقق من الجمهور والصف والتوقيت قبل نشر التنبيهات أو التحديثات أو فعاليات التقويم أو معلومات الأسرة.",
         },
         {
-          title: "٥. انشر للجمهور الصحيح",
-          text: "تأكد مما إذا كان كل واجب أو تنبيه أو تحديث أو حدث تقويم أو استبيان أو رسالة موجها للمدرسة أو صف أو مجموعة أو أسر محددة.",
-        },
-        {
-          title: "٦. راقب وصحح وصدّر",
-          text: "استخدم التقارير وحالة التسليم والتدقيق والصادرات المدعومة. صحح السجلات عبر المسار المخصص بدلا من إعادة كتابة التاريخ بصمت.",
-        },
-        {
-          title: "٧. أبق الحماية منفصلة",
-          text: "امنح الوصول المحمي فقط للمصرح لهم صراحة. تتطلب المراجعات سببا ولا تجعل المراجعين مشاركين في الرسائل.",
-        },
-        {
-          title: "٨. استعد للسنة التالية",
-          text: "استخدم إجراءات تحديث سنوية تحفظ السجل لكي تبقى القوائم السابقة ذات معنى، وتحقق من التغييرات المرحلية قبل اعتمادها.",
+          title: "حافظ على حداثة الصورة",
+          text: "صحح السجلات سريعاً، وراجع الأنشطة وعمليات التصدير عند الحاجة، وجهز العام الدراسي التالي من دون فقدان السجل المفيد.",
         },
       ],
       cta: {
         heading: "هل تحتاج إلى مساعدة في قرار إعداد؟",
-        text: "تواصل مع الدعم من دون إرسال سجلات الطلاب أو بيانات الدخول بالبريد.",
+        text: "أخبرنا عن القسم الذي تعمل عليه في المدرسة والنتيجة التي تريد تحقيقها.",
         label: "تواصل مع الدعم",
         href: supportEmailHref,
-        secondaryLabel: "اقرأ دليل المعلم",
+        secondaryLabel: "دليل المعلم",
         secondaryHref: "/guides/teacher",
       },
     },
     teacherGuide: {
-      pageTitle: "دليل المعلم في كلاس هيرو هب",
+      pageTitle: "دليل المعلم | كلاس هيرو هب",
       metaDescription:
-        "دليل موجز للمعلمين لاستخدام الصفوف والسلوك والواجبات والتحديثات والرسائل والإيصالات والعرض ثنائي اللغة في CHH.",
+        "مقدمة عملية للصفوف والواجبات والسلوك والتقدير والتواصل في كلاس هيرو هب.",
       eyebrow: "دليل المعلم",
-      heading: "اعمل من سياق الصف، واجعل الإجراء التالي قريبا.",
+      heading: "ابدأ بصفوفك واجعل الخطوة التالية قريبة.",
       intro:
-        "يستخدم المعلمون CHH فقط للمدارس والصفوف والطلاب المشمولين بتكليفاتهم وصلاحياتهم النشطة.",
+        "صُمم كلاس هيرو هب ليبقي العمل التعليمي اليومي مرتبطاً بالصف والطلبة الذين تعمل معهم بالفعل.",
+      highlights: ["الصفوف", "الواجبات", "التقدير", "التواصل"],
       sections: [
         {
-          title: "ابدأ من صفوفك المكلف بها",
-          text: "بعد الدخول اختر الصف أو مجموعة المادة الصحيحة. إذا غاب صف متوقع، اطلب من مسؤول المدرسة مراجعة تكليفك.",
+          title: "افتح الصف الذي تعمل معه",
+          text: "تعرض مساحة المعلم صفوفه الأساسية ومواده المكلف بها، لتمنحه نقطة بداية واضحة لليوم.",
         },
         {
-          title: "سجّل السلوك في سياقه",
-          text: "اختر الطالب أو المجموعة المصرح بها وفئة المدرسة. أضف ملاحظة مفيدة عند الحاجة فقط. وتبقى معلومات ما يحتاج إلى تحسين خاصة.",
+          title: "سجل وقدّر ضمن السياق",
+          text: "أضف معلومات السلوك من الصف أو الطالب المناسب، واستخدم التقدير الإيجابي للاحتفاء بالجهد الحقيقي.",
         },
         {
-          title: "قدّر الجهد الإيجابي",
-          text: "ينبغي أن يستند التقدير الإيجابي إلى أدلة مسجلة وحكم الموظف. ولا تستخدم CHH السلوك السلبي لإنشاء تصنيفات علنية.",
+          title: "حدد العمل والتذكيرات",
+          text: "أنشئ الواجبات وعناصر المفكرة والمتطلبات وفعاليات التقويم بتواريخ وتعليمات تفهمها الأسر.",
         },
         {
-          title: "حدد الواجبات وعناصر المفكرة",
-          text: "استخدم عنوانا وجمهورا وتاريخا أو موعد تسليم واضحا، وأدرج المعلومات التي تحتاجها الأسرة فقط. تأكد من الصف أو المجموعة قبل النشر.",
+          title: "شارك تحديثات مفيدة",
+          text: "استخدم التنبيهات والتحديثات المدرسية والصور ومحادثات المدرسة لتواصل واضح وهادف.",
         },
         {
-          title: "شارك التنبيهات والتحديثات والصور",
-          text: "اختر الجمهور الصحيح واستخدم مسارات الصور المحمية عند توفرها. لا تعِد استخدام الوسائط المحمية خارج سياقها المدرسي.",
-        },
-        {
-          title: "استخدم محادثات المدرسة بمسؤولية",
-          text: "قد تعرض الرسائل النصية والصور والصوت حالة التسليم والقراءة وقد تقيدها ساعات تواصل المدرسة. حافظ على المهنية وسياسة المدرسة.",
-        },
-        {
-          title: "غيّر اللغة عند الحاجة",
-          text: "تدعم الواجهة العربية والإنجليزية. ولا يترجم تغيير لغة الواجهة الأسماء والمحتوى المدخل من المدرسة ولا يعدله.",
-        },
-        {
-          title: "تذكر حد ولي الأمر",
-          text: "يرد أولياء الأمور أو يرون المعلومات المفعلة عبر Family Hero Hub. ويستخدم المعلم الذي يكون ولي أمر FHH منفصلا لأسرته.",
+          title: "اسأل عندما لا تبدو المعلومات صحيحة",
+          text: "إذا لم يطابق صف أو طالب أو أداة تكليفك، فتواصل مع مسؤول المدرسة قبل محاولة تجاوز المشكلة.",
         },
       ],
       cta: {
-        heading: "هل هناك ما لا يطابق تكليفك أو سياسة مدرستك؟",
-        text: "ابدأ بمسؤول المدرسة، ثم تواصل مع الدعم إذا لزم دعم المنصة.",
+        heading: "هل تحتاج إلى مساعدة في عمل المعلم؟",
+        text: "اذكر مدرستك وسياق الصف والإجراء الذي كنت تحاول إكماله.",
         label: "تواصل مع الدعم",
         href: supportEmailHref,
-        secondaryLabel: "اقرأ إرشادات السلامة",
+        secondaryLabel: "السلامة والدعم",
         secondaryHref: "/safety-privacy",
       },
     },
     familyGuide: {
-      pageTitle: "دليل الأهل وFamily Hero Hub للمدارس المرتبطة",
+      pageTitle: "دليل الأسرة | كلاس هيرو هب",
       metaDescription:
-        "دليل واضح يشرح أن الأهل يستخدمون Family Hero Hub وليس CHH لعرض المعلومات المفعلة من مدرسة مرتبطة.",
-      eyebrow: "دليل ولي الأمر وFHH",
-      heading:
-        "يستخدم أولياء الأمور Family Hero Hub لمعلومات المدرسة المرتبطة.",
+        "تعرّف على المكان الذي يرى فيه أولياء الأمور معلومات المدرسة المشتركة من كلاس هيرو هب.",
+      eyebrow: "دليل الأسرة",
+      heading: "يرى أولياء الأمور معلومات المدرسة في Family Hero Hub.",
       intro:
-        "كلاس هيرو هب نظام موظفي المدرسة، وFamily Hero Hub تطبيق الأسرة. لا يسجل أولياء الأمور والأوصياء الدخول إلى CHH.",
+        "إذا كانت مدرسة طفلك تستخدم كلاس هيرو هب، فستشرح المدرسة طريقة الربط والمعلومات المتاحة.",
       highlights: [
-        "لا دخول للأهل إلى CHH",
-        "يلزم رابط مدرسي",
-        "الميزات بحسب المدرسة",
+        "اتبع خطوات المدرسة",
+        "استخدم Family Hero Hub",
+        "اسأل فريق الدعم المناسب",
       ],
       sections: [
         {
-          title: "اربط عبر إجراء المدرسة",
-          text: "توفر المدرسة طريقة الربط أو الرمز المعتمد. أكمل الربط في Family Hero Hub وتأكد من معلومات الطفل والمدرسة المعروضة هناك.",
+          title: "اربط الحساب من خلال المدرسة",
+          text: "اتبع خطوات الدعوة أو الربط التي تقدمها مدرسة طفلك. تواصل مع المدرسة إذا لم يبدُ سجل الطفل أو الصف أو المدرسة صحيحاً.",
         },
         {
-          title: "اعرض المعلومات المفعلة في FHH",
-          text: "قد تتيح المدرسة المرتبطة الواجبات والتنبيهات والتحديثات والصور المحمية ونقاط المدرسة والتقويم والاستبيانات ومحادثات المدرسة.",
+          title: "شاهد تحديثات المدرسة في Family Hero Hub",
+          text: "بحسب المدرسة، قد ترى الواجبات والتنبيهات والتحديثات ونقاط المدرسة وعناصر التقويم والاستبيانات ومحادثات المدرسة للطفل المرتبط.",
         },
         {
-          title: "تقرر المدرسة ما يتوفر",
-          text: "تعتمد المعلومات الظاهرة على ميزات المدرسة المفعلة والرابط النشط للطفل والسجلات الحالية. ولا تستخدم كل مدرسة جميع الميزات.",
-        },
-        {
-          title: "تبقى معلومات المدرسة والمنزل منفصلة",
-          text: "تبقى نقاط الأسرة ومكافآتها وروتينها وإعداداتها المنزلية في FHH، ولا تُشارك مع المدرسة لمجرد وجود رابط.",
-        },
-        {
-          title: "استخدم مسار الدعم الصحيح",
-          text: "اسأل المدرسة عن دقة السجلات المدرسية أو توفرها. وتواصل مع دعم Family Hero Hub لأسئلة حساب الأسرة أو المنزل أو الجهاز.",
-        },
-        {
-          title: "إذا كنت موظفا في المدرسة أيضا",
-          text: "استخدم CHH فقط لمسؤولياتك الوظيفية المصرح بها وFHH لأسرتك. ويبقى الدوران منفصلين.",
+          title: "استخدم المكان المناسب للمساعدة",
+          text: "المدرسة هي جهة الاتصال الأولى بشأن معلومات المدرسة. ويمكن لدعم Family Hero Hub المساعدة في حساب الأسرة وتجربتها.",
         },
       ],
-      notice: {
-        title: "لا يوجد تطبيق للأهل باسم كلاس هيرو هب",
-        text: "لا تبحث عن تطبيق مستقل للأهل باسم CHH ولا تثبته. تُقدم تجربة الأسرة من خلال Family Hero Hub.",
-      },
       cta: {
-        heading: "افتح المنتج المخصص للأسرة",
-        text: "زر Family Hero Hub للتعرف على مساحة الأسرة والمعلومات المدرسية المرتبطة.",
-        label: "زر Family Hero Hub",
-        href: "https://familyherohub.com",
-        secondaryLabel: "اقرأ عن الربط مع الأسرة",
+        heading: "هل تبحث عن تجربة الأسرة؟",
+        text: "افتح Family Hero Hub لاستخدام أدوات الأسرة ورؤية معلومات المدرسة المشتركة عن طفلك.",
+        label: "افتح Family Hero Hub",
+        href: "https://familyherohub.com/",
+        secondaryLabel: "كيف يعمل الربط",
         secondaryHref: "/family-connection",
       },
     },
     safetyPrivacy: {
       pageTitle: "السلامة والخصوصية والدعم | كلاس هيرو هب",
       metaDescription:
-        "تعرف على تقييد CHH بالمدرسة والدور وخصوصية السلوك ومراجعة الحماية المخصصة والوسائط المحمية والتدقيق وحد البيانات مع FHH.",
+        "معلومات مبسطة عن الوصول وسجلات المدرسة والسلوك وحماية الطلبة ووصول المعلومات إلى الأسرة والدعم في كلاس هيرو هب.",
       eyebrow: "السلامة والخصوصية والدعم",
-      heading: "سلطة واضحة لبيانات المدرسة وحدود مقصودة للعمل المحمي.",
+      heading: "وسائل عملية لحماية العمل المدرسي اليومي.",
       intro:
-        "صُممت CHH لمساعدة المدارس على قصر الوصول على الأشخاص والسجلات والمسارات التي تتطلبها أدوارهم الحالية. تصف هذه الصفحة نهج المنتج وليست ضمانا قانونيا أو أمنيا.",
+        "يجمع كلاس هيرو هب بين الوصول المدروس وسجل الإجراءات الواضح والمعالجة المخصصة للعمل المدرسي الحساس.",
       highlights: [
-        "وصول مقيد بالدور",
-        "خصوصية ما يحتاج إلى تحسين",
-        "مراجعة حماية مخصصة",
+        "سجلات خاصة بكل مدرسة",
+        "معلومات سلوك خاصة",
+        "مراجعة مخصصة لحماية الطلبة",
       ],
       sections: [
         {
-          title: "تقييد المدرسة والجهة والدور",
-          text: "تبقى سجلات المدرسة مرتبطة بها. ويعتمد وصول الموظف على العضويات والأدوار والتكليفات النشطة، كما تكون الروابط والمعرفات عبر حدود الأنظمة مبهمة ومقيدة.",
+          title: "يتناسب الوصول مع مسؤوليات المدرسة",
+          text: "يسجل كل شخص الدخول بحسابه ويرى المدارس والصفوف والطلبة والأدوات المرتبطة بعمله الحالي.",
         },
         {
-          title: "معلومات سلوك خاصة",
-          text: "يمكن تسجيل السلوك الإيجابي وما يحتاج إلى تحسين، لكن لا يُستخدم السلوك السلبي لتصنيفات علنية أو تشهير. ويمكن للتقدير الإيجابي استخدام أدلة شفافة ومراجعة الموظفين.",
+          title: "تبقى سجلات المدرسة مع المدرسة المعنية",
+          text: "ترتبط السجلات والإجراءات بالمدرسة المناسبة، مع توفر سجل للأنشطة الإدارية والمهنية المهمة.",
         },
         {
-          title: "الحماية وضع منفصل",
-          text: "يُمنح وصول الحماية صراحة ويُربط بسبب ومدة ويخضع للتدقيق. ولا يصبح المراجع مشاركا ولا يغير الإيصالات أو غير المقروء أو الإشعارات.",
+          title: "يبقى السلوك الذي يحتاج إلى تحسين خاصاً",
+          text: "لا ينشئ كلاس هيرو هب ترتيبات سلبية علنية أو أدوات لإحراج الطلبة. ويراجع موظفو المدرسة التقدير الإيجابي.",
         },
         {
-          title: "الرسائل والوسائط المحمية",
-          text: "تستخدم النصوص والصور المحمية والرسائل الصوتية مسارات وصول مقيدة بالمدرسة. ويجب التعامل مع الأدلة والوسائط المحمية عبر المسارات المصرح بها فقط.",
+          title: "مراجعة حماية الطلبة مستقلة",
+          text: "يستخدم موظفو حماية الطلبة مساحة مراجعة مخصصة. ولا يجعل فتح المراجعة صاحبها جزءاً من محادثة عادية ولا يغير حالة قراءتها.",
         },
         {
-          title: "تبقى بيانات الأسرة على جانب الأسرة",
-          text: "يستخدم الأهل FHH. ولا تحتاج CHH رموز أجهزة FHH أو معرفات أسرية غير ضرورية، ولا تتصل تطبيقات الأسرة بـ CHH مباشرة.",
-        },
-        {
-          title: "التدقيق والصحة وقابلية النقل",
-          text: "تساعد العروض التشغيلية المصرح بها وسجلات التدقيق والصادرات المدعومة المدرسة على فهم حالة الخدمة والاحتفاظ بسجلات مسؤولة.",
-        },
-        {
-          title: "أبلغ عن القلق بأمان",
-          text: "عند وجود قلق فوري على سلامة طفل، اتبع إجراءات الحماية والطوارئ في المدرسة أولا. ولمشكلة في المنصة تواصل مع الدعم من دون إرسال أدلة محمية بالبريد.",
-        },
-        {
-          title: "لا ضمان مطلق",
-          text: "لا يمكن لأي خدمة إلكترونية أن تضمن الأمان المثالي أو التوفر دون انقطاع. صُممت CHH لتقليل التعرض غير الضروري وحفظ الحدود ودعم الاستجابة المضبوطة.",
+          title: "تصل تحديثات الأسرة عبر Family Hero Hub",
+          text: "يرى أولياء الأمور معلومات المدرسة المشتركة للطفل المرتبط في Family Hero Hub. وتبدأ الأسئلة عن السجل المدرسي مع المدرسة.",
         },
       ],
+      notice: {
+        title: "أبلغ عن المخاوف العاجلة عبر المسار المحلي الصحيح",
+        text: "دعم كلاس هيرو هب ليس خدمة طوارئ. اتبع سياسة حماية الطلبة في مدرستك وتواصل مع خدمة الطوارئ أو حماية الطفل المحلية المناسبة إذا كان شخص ما معرضاً لخطر فوري.",
+      },
       cta: {
         heading: "هل تحتاج إلى مساعدة في الوصول أو الخصوصية أو سلامة المنتج؟",
-        text: "أرسل ملخصا غير حساس. لا ترسل الرسائل الخاصة أو إجابات الاستبيانات أو أدلة الحماية بالبريد.",
+        text: "أرسل وصفاً قصيراً وغير حساس وسنساعدك على الوصول إلى جهة الدعم المناسبة.",
         label: "تواصل مع الدعم",
         href: supportEmailHref,
         secondaryLabel: "اقرأ سياسة الخصوصية",
@@ -2036,60 +1811,57 @@ const ar: PublicSiteCopy = {
     privacy: {
       pageTitle: "سياسة الخصوصية | كلاس هيرو هب",
       metaDescription:
-        "معلومات خصوصية كلاس هيرو هب العامة لحسابات موظفي المدرسة والسجلات والمحتوى المحمي والربط مع Family Hero Hub والاحتفاظ والطلبات والدعم.",
-      eyebrow: "معلومات قانونية",
+        "سياسة الخصوصية الأساسية لخدمة كلاس هيرو هب في مرحلتها التجريبية.",
+      eyebrow: "سياسة الخصوصية",
       heading: "سياسة الخصوصية",
       intro:
-        "آخر تحديث: ٢ أغسطس ٢٠٢٦. توضح هذه السياسة المعلومات التي تستخدمها CHH لتقديم خدمتها المدرسية والخيارات المتاحة للمدارس والمستخدمين.",
+        "توضح هذه السياسة بصورة عامة كيفية استخدام كلاس هيرو هب للمعلومات أثناء تقديم الخدمة التجريبية الحالية للمدارس.",
+      highlights: [
+        "خدمة تجريبية",
+        "معلومات المدرسة والموظفين",
+        "نرحب بالأسئلة",
+      ],
       sections: [
         {
-          title: "١. النطاق والأدوار",
-          text: "CHH مخصصة للمدارس والمستخدمين المدرسيين المصرح لهم. تتحكم المدرسة المشاركة في سجلات المدرسة والأغراض والأشخاص الذين تضعهم في الخدمة. ويجب تأكيد أدوار المتحكم والمعالج القانونية بدقة في اتفاق المدرسة والولاية القضائية المعمول بها.",
+          title: "1. ما الخدمة",
+          text: "كلاس هيرو هب مساحة عمل مدرسية يستخدمها الموظفون المصرح لهم لتنظيم المدرسة والعمل التعليمي والتواصل وتحديثات الأسر والتقارير والإدارة ذات الصلة. وتقرر المدارس كيفية استخدام الخدمة وفق سياساتها واتفاقياتها.",
         },
         {
-          title: "٢. المعلومات التي تستخدمها CHH",
-          text: "قد تعالج CHH بيانات حسابات الموظفين المصرح لهم، وهياكل المدارس والفروع والسنوات، وتكليفات الموظفين، وسجلات الطلاب وأولياء الأمور، والاستيراد والتصدير، ومعلومات السلوك والواجبات والمفكرة والتنبيهات والتحديثات والتقويم والاستبيانات والرسائل والتقارير، والوسائط المحمية، وسجلات الحماية، والمعلومات التقنية ومعلومات الجلسة والتدقيق والتشغيل اللازمة لتشغيل الخدمة وحمايتها.",
+          title: "2. المعلومات التي تستخدمها الخدمة",
+          text: "قد تشمل معلومات المدرسة والصفوف، وتفاصيل حسابات الموظفين، وسجلات الطلبة وأولياء الأمور التي تقدمها المدرسة، ومعلومات التعلم والسلوك، والرسائل والوسائط، وإجابات الاستبيانات، ومعلومات تسجيل الدخول والأجهزة، وسجلات الإجراءات المنفذة في الخدمة.",
         },
         {
-          title: "٣. كيفية استخدام المعلومات",
-          text: "تُستخدم المعلومات للتحقق من المستخدمين وتطبيق نطاق المدرسة والدور وتقديم المسارات المفعلة وإيصال معلومات المدرسة المرتبطة عبر FHH وحفظ السجلات والتاريخ ودعم التقارير والصادرات المصرح بها وحماية الخدمة والتحقيق في المشكلات التشغيلية والاستجابة للدعم أو الالتزامات القانونية.",
+          title: "3. أسباب استخدام المعلومات",
+          text: "تُستخدم المعلومات لتقديم الميزات المطلوبة، وتشغيل الحسابات والسجلات المدرسية، وإيصال معلومات المدرسة إلى الأسر المرتبطة، ودعم المستخدمين، والمحافظة على أمان الخدمة، والتحقيق في المشكلات، والوفاء بالالتزامات المتفق عليها مع المدارس المشاركة.",
         },
         {
-          title: "٤. الطلاب وأولياء الأمور ووصول الأسرة",
-          text: "لا يحصل الطلاب أو أولياء الأمور على حسابات موظفين في CHH لمجرد تخزين المدرسة لسجلاتهم. يعرض الأهل المعلومات المفعلة عبر FHH بعد رابط مدرسي نشط، ولا تتصل تطبيقات الأسرة بـ CHH مباشرة.",
+          title: "4. المدارس وكلاس هيرو هب",
+          text: "تتحمل المدرسة مسؤولية المعلومات التي تقدمها والأشخاص الذين تسمح لهم بالاستخدام والسياسات المدرسية التي تطبقها. ويقدم كلاس هيرو هب الخدمة ويدعمها وفق اتفاق المدرسة المعمول به.",
         },
         {
-          title: "٥. حد البيانات بين CHH وFHH",
-          text: "تبقى CHH مرجع سجلات المدرسة. ويملك FHH هوية الأسرة وولي الأمر والطفل والمنزل والجهاز ويصل إلى معلومات المدرسة المحمية عبر وسيطه في الخادم. ولا تحتاج CHH رموز أجهزة FHH أو معرفات أسرية غير ضرورية.",
+          title: "5. مقدمو الخدمات الضروريون",
+          text: "قد يعالج المعلومات مقدمو خدمات يساعدون في الاستضافة والبريد والمراقبة والنسخ الاحتياطي أو وظائف ضرورية أخرى. وينبغي ألا يتلقوا إلا ما يحتاجون إليه لعملهم وأن يخضعوا لالتزامات مناسبة بالسرية والأمان.",
         },
         {
-          title: "٦. المشاركة ومقدمو الخدمة",
-          text: "قد يتعامل مع المعلومات مقدمو الخدمات المستخدمون لاستضافة الخدمة وتشغيلها وتأمينها وتسليمها ودعمها، وFHH فقط لمسارات المدرسة المرتبطة المذكورة. لا تجعل CHH سجلات المدرسة عامة، ويجب أن تتبع أي إفصاحات أخرى اتفاق المدرسة أو المتطلب القانوني.",
+          title: "6. الاحتفاظ والأمان",
+          text: "تُحفظ المعلومات للمدة اللازمة للخدمة وتعليمات المدرسة والسلامة وحفظ السجلات والالتزامات المعمول بها. يستخدم كلاس هيرو هب إجراءات تقنية وتنظيمية تهدف إلى تقليل الوصول غير المصرح به والفقد وسوء الاستخدام، لكن لا تستطيع أي خدمة إلكترونية إزالة كل المخاطر.",
         },
         {
-          title: "٧. الاحتفاظ والسجلات",
-          text: "تُحفظ معلومات المدرسة ما دامت لازمة للخدمة أو حفظ سجلات المدرسة أو التدقيق أو الأمن أو الدعم أو الحماية أو الالتزامات القانونية. بعض السجلات تاريخية أو غير قابلة للاستبدال بطبيعتها. وقد تبقى المعلومات المحذوفة في نسخ احتياطية محمية حتى اكتمال دورة التدوير المعتادة.",
+          title: "7. الطلبات والتصحيح والحذف",
+          text: "تبدأ طلبات السجلات المدرسية عادة مع المدرسة. ويمكن إرسال أسئلة حسابات الموظفين أو الخدمة إلى دعم كلاس هيرو هب. قد يتطلب الطلب التحقق من الهوية والصلاحية، وقد يلزم الاحتفاظ ببعض السجلات لأسباب مدرسية أو تتعلق بالسلامة أو النسخ الاحتياطي أو المتطلبات القانونية.",
         },
         {
-          title: "٨. الأمان والوصول",
-          text: "تستخدم CHH تقييد المدرسة والدور والجلسات المضبوطة ومعرفات التكامل المبهمة وسجلات التدقيق والمسارات المحمية لتقليل التعرض غير الضروري. ولا يمكن لأي خدمة إلكترونية أن تضمن أمانا مثاليا.",
-        },
-        {
-          title: "٩. الطلبات والتصحيحات",
-          text: "يُقدم طلب سجل الطالب أو المدرسة عادة إلى المدرسة التي تتحكم فيه. ويمكن للمستخدمين المدرسيين المصرح لهم تصحيح السجلات أو استخدام الصادرات المدعومة بحسب صلاحياتهم. ويمكن إرسال أسئلة حساب المنصة وتوجيه الطلب إلى دعم CHH.",
-        },
-        {
-          title: "١٠. التغييرات والتواصل",
-          text: "قد تُحدث هذه السياسة مع تطور الخدمة واتفاقات المدارس والمتطلبات القانونية. وتتطلب الصياغة الجوهرية والالتزامات الخاصة بالولاية مراجعة قبل الإطلاق التجاري العام. تواصل مع support@classherohub.com من دون تضمين بيانات مدرسية حساسة.",
+          title: "8. التغييرات والتواصل",
+          text: "قد تُحدث هذه السياسة مع تطور الخدمة التجريبية أو تغير الاتفاقيات. وسيتم إبلاغ التغييرات المهمة عبر قناة مناسبة في الخدمة أو المدرسة. يمكن إرسال الأسئلة إلى support@classherohub.com.",
         },
       ],
       notice: {
-        title: "تلزم مراجعة قانونية",
-        text: "يجب على Dom والمستشار القانوني المناسب تأكيد أدوار المتحكم والمعالج والولاية وفترات الاحتفاظ والإفصاح عن المعالجين الفرعيين وصياغة نقل البيانات عبر الحدود والحقوق النظامية قبل الاستخدام التجاري العام.",
+        title: "اتفاقيات المدارس والقانون المحلي",
+        text: "قد يضيف القانون المعمول به واتفاق المدرسة الموقع شروطاً أخرى أو شروطاً خاصة بالدولة. وتسري تلك الشروط بالأولوية حيث تنطبق.",
       },
       cta: {
-        heading: "هل تحتاج إلى المسار الصحيح لسؤال خصوصية أو بيانات؟",
-        text: "ابدأ بالمدرسة للسجلات المدرسية، أو بدعم CHH لأسئلة حساب المنصة وتوجيه الطلب.",
+        heading: "هل لديك سؤال عن الخصوصية أو البيانات؟",
+        text: "استخدم دليل طلبات البيانات لمعرفة جهة الاتصال الأولى، أو راسل الدعم للمساعدة.",
         label: "طلبات البيانات والحساب",
         href: "/data-requests",
         secondaryLabel: "تواصل مع الدعم",
@@ -2099,119 +1871,104 @@ const ar: PublicSiteCopy = {
     terms: {
       pageTitle: "شروط الخدمة | كلاس هيرو هب",
       metaDescription:
-        "شروط المرحلة التجريبية للاستخدام المدرسي المصرح به لكلاس هيرو هب، بما في ذلك حدود الأدوار والاستخدام المقبول ومسؤوليات المدرسة وحدود الخدمة.",
-      eyebrow: "معلومات قانونية",
+        "الشروط الأساسية للاستخدام المصرح به لخدمة كلاس هيرو هب التجريبية.",
+      eyebrow: "شروط الخدمة",
       heading: "شروط الخدمة",
       intro:
-        "آخر تحديث: ٢ أغسطس ٢٠٢٦. تصف هذه الشروط العامة الظروف المقصودة للعرض والاستخدام التجريبي. وتسود اتفاقية المدرسة الموقعة عند انطباقها.",
+        "تصف هذه الشروط الأساسية الاستخدام المصرح به لخدمة كلاس هيرو هب التجريبية الحالية. وقد يضيف اتفاق مدرسي موقع شروطاً أخرى أو يستبدل بعض هذه الشروط للمدرسة المشاركة.",
+      highlights: [
+        "استخدام مدرسي مصرح به",
+        "خدمة تجريبية",
+        "استخدام محترم ومشروع",
+      ],
       sections: [
         {
-          title: "١. غرض الخدمة",
-          text: "CHH منتج مدرسي للإدارة والتدريس والتواصل ومشاركة الأسرة والتقارير والمراجعة المحمية للمستخدمين المصرح لهم. وليست خدمة طوارئ أو بديلا للحكم المهني في الحماية أو تطبيقا للأهل.",
+          title: "1. الخدمة",
+          text: "يقدم كلاس هيرو هب ميزات تنظيم المدرسة والتعليم والتواصل وتحديثات الأسرة والتقارير وما يرتبط بها للمدارس المشاركة وموظفيها المصرح لهم.",
         },
         {
-          title: "٢. المستخدمون والأدوار المصرح بها",
-          text: "يجب على المستخدم الوصول إلى CHH فقط عبر حساب ودور مدرسي مصرح بهما. والمدارس مسؤولة عن تعيين أدوار الموظفين وتكليفات الصف والصلاحيات المتخصصة ومراجعتها.",
+          title: "2. الحسابات المصرح بها",
+          text: "يجب على المستخدم تسجيل الدخول بحسابه، وتقديم معلومات صحيحة، والمحافظة على أمان بيانات الدخول، واستخدام المدارس والصفوف والطلبة والميزات المسموح له بها فقط. ولا يجوز مشاركة الحسابات.",
         },
         {
-          title: "٣. مسؤولية المدرسة",
-          text: "المدرسة مسؤولة عن دقة السجلات ومشروعيتها وملاءمتها، والجماهير والاتصالات والسياسات والتعليمات التي تضعها في CHH، وتحديد الميزات المفعلة لمجتمعها.",
+          title: "3. مسؤوليات المدرسة",
+          text: "تتحمل المدرسة مسؤولية تحديد من يستخدم الخدمة، والمحافظة على دقة معلومات الموظفين والطلبة، ووضع السياسات المناسبة، والحصول على الموافقات اللازمة، والرد على مجتمعها بشأن السجلات والقرارات المدرسية.",
         },
         {
-          title: "٤. أولياء الأمور وFamily Hero Hub",
-          text: "لا يستخدم أولياء الأمور والأوصياء CHH مباشرة. وقد يرون المعلومات المفعلة عبر FHH بعد رابط مدرسي نشط. ولا يمنح دور الموظف وصولا للأسرة ولا يمنح وصول الأسرة صلاحيات الموظف.",
+          title: "4. الاستخدام المقبول",
+          text: "لا يجوز استخدام الخدمة لمخالفة القانون أو إيذاء الآخرين أو مضايقتهم أو الوصول إلى معلومات من دون إذن أو تجاوز الأمان أو تحميل مواد ضارة أو تعطيل الخدمة أو إنشاء ترتيبات سلبية علنية للطلبة.",
         },
         {
-          title: "٥. الاستخدام المقبول",
-          text: "لا تحاول الوصول غير المصرح به أو تجاوز نطاق المدرسة أو الدور أو مشاركة بيانات الدخول أو التدخل في الأمان أو رفع محتوى غير قانوني أو ضار أو إساءة استخدام المعلومات المحمية أو استخدام المنتج لتصنيف السلوك السلبي أو التشهير به علنا.",
+          title: "5. المحتوى والتواصل",
+          text: "تبقى المدرسة والمستخدمون مسؤولين عن المعلومات والمواد التي يضيفونها أو يشاركونها. وينبغي استخدام تواصل محترم ودقيق واتباع سياسة المدرسة بشأن معلومات الطلبة والصور والرسائل ومسائل حماية الطلبة.",
         },
         {
-          title: "٦. الحماية والطوارئ",
-          text: "تبقى المدارس مسؤولة عن قرارات الحماية والإجراءات الإلزامية والاستجابة للطوارئ. يدعم مسار الحماية في CHH المراجعة المضبوطة لكنه لا يحل محل سياسة المدرسة أو المختصين أو خدمات الطوارئ.",
+          title: "6. توفر الخدمة التجريبية",
+          text: "قد تتغير ميزات البرنامج التجريبي أو تكون محدودة أو غير متاحة أحياناً أثناء تقييم الخدمة وتحسينها. نهدف إلى إبلاغ التغييرات المهمة ومعالجة أعطال الخدمة بصورة معقولة، لكننا لا نعد بتوفر متواصل بلا انقطاع.",
         },
         {
-          title: "٧. الاستيراد والتصدير والتكامل",
-          text: "المدارس مسؤولة عن التحقق من الاستيراد المرحلي والصادرات المصرح بها ونتائج التكامل. ويقتصر تكامل FHH على مسارات المدرسة المرتبطة ولا يدمج سلطات الهوية في المنتجين.",
+          title: "7. تعليق الوصول أو إنهاؤه",
+          text: "قد يحد الوصول أو ينهى عند الحاجة إلى حماية الأشخاص أو الخدمة، أو الاستجابة لسوء الاستخدام، أو اتباع تعليمات المدرسة، أو معالجة عدم السداد بموجب اتفاق سارٍ، أو إنهاء برنامج تجريبي. وقد توضح اتفاقية المدرسة خطوات إضافية.",
         },
         {
-          title: "٨. التوفر والتغيير التجريبي",
-          text: "قد يكون وصول العرض أو التجربة محدودا أو يتغير أو يعلق أو ينتهي أثناء تقييم المنتج وتحسينه. ويُتفق مع المدرسة المشاركة على الميزات المفعلة وترتيبات الدعم.",
-        },
-        {
-          title: "٩. حدود الخدمة",
-          text: "تُقدم CHH كأداة لمسارات المدرسة. ولا يمكن ضمان استمرارها دون انقطاع أو خلوها من الأخطاء أو ملاءمتها لكل حالة. وتبقى المدرسة مسؤولة عن الاستمرارية التشغيلية والقرارات المهنية.",
-        },
-        {
-          title: "١٠. الشروط التجارية والولاية",
-          text: "لا تحدد هذه الصفحة الأسعار أو شروط الدفع أو القانون الحاكم أو حدود المسؤولية أو مستويات الخدمة أو شروط حماية البيانات أو الإنهاء، ويجب الاتفاق عليها في عقد المدرسة قبل الاستخدام التجاري.",
-        },
-        {
-          title: "١١. التواصل",
-          text: "تواصل مع support@classherohub.com بملخص غير حساس لأي سؤال عن هذه الشروط أو الوصول التجريبي.",
+          title: "8. التغييرات والتواصل",
+          text: "قد تُحدث هذه الشروط مع تطور الخدمة، وسيتم إبلاغ التغييرات المهمة بطريقة مناسبة. يمكن إرسال الأسئلة عن الشروط إلى support@classherohub.com.",
         },
       ],
       notice: {
-        title: "تلزم مراجعة قانونية",
-        text: "تتطلب هذه الشروط التجريبية مراجعة Dom ومستشار قانوني قبل الإطلاق التجاري العام. ولا تخترع قانونا حاكما أو أسعارا أو مستويات خدمة أو شروط مسؤولية.",
+        title: "شروط مدرسية إضافية",
+        text: "قد يضيف القانون المعمول به أو اتفاق المدرسة الموقع شروطاً خاصة بالدولة أو التجارة أو مستوى الخدمة أو المسؤولية. وتسري تلك الشروط بالأولوية حيث تنطبق.",
       },
       cta: {
-        heading: "هل لديك سؤال عن شروط التجربة؟",
-        text: "تواصل مع الفريق قبل إدخال بيانات مدرسية حقيقية أو الاعتماد على مسار خارج النطاق المتفق عليه.",
+        heading: "هل لديك سؤال عن استخدام الخدمة التجريبية؟",
+        text: "تواصل مع الفريق أو راجع سياسة الخصوصية لمزيد من المعلومات عن استخدام البيانات.",
         label: "تواصل مع الدعم",
         href: supportEmailHref,
-        secondaryLabel: "اقرأ سياسة الخصوصية",
+        secondaryLabel: "سياسة الخصوصية",
         secondaryHref: "/privacy",
       },
     },
     dataRequests: {
       pageTitle: "طلبات البيانات والحساب | كلاس هيرو هب",
       metaDescription:
-        "اعثر على المسار الصحيح لطلبات سجلات المدرسة وحساب الموظف والوصول والتصحيح والتصدير والحذف في CHH.",
+        "اعثر على جهة الاتصال الأولى للسجلات المدرسية وحسابات موظفي كلاس هيرو هب وحسابات الأسرة في Family Hero Hub.",
       eyebrow: "طلبات البيانات والحساب",
-      heading: "ابدأ بالجهة التي تتحكم في السجل.",
+      heading: "ابدأ بالفريق الذي يعرف السجل.",
       intro:
-        "لسجلات المدرسة وحسابات موظفي CHH وحسابات أسر FHH سلطات مختلفة. يساعد المسار الصحيح على حماية الهوية وتجنب كشف معلومات حساسة في البريد.",
+        "يعتمد الطريق الأسرع على ما إذا كان سؤالك عن سجل مدرسي أو حساب موظف أو حساب أسرة في Family Hero Hub.",
       highlights: [
-        "السجل المدرسي ← المدرسة",
-        "حساب CHH ← مسؤول المدرسة أو دعم CHH",
-        "حساب أسرة FHH ← دعم FHH",
+        "سجل مدرسي ← المدرسة",
+        "حساب موظف ← مسؤول المدرسة",
+        "حساب أسرة ← Family Hero Hub",
       ],
       sections: [
         {
-          title: "طلبات سجلات الطلاب أو أولياء الأمور أو المدرسة",
-          text: "تواصل مع المدرسة التي أنشأت السجل أو تديره. فهي الأقدر عادة على التحقق من الهوية وتصحيح معلومات المدرسة وتحديد كيفية معالجة الطلب.",
+          title: "سجلات الطلبة أو أولياء الأمور أو المدرسة",
+          text: "تواصل مع المدرسة التي أنشأت السجل أو تديره. تستطيع المدرسة التحقق من هويتك وتصحيح معلوماتها وتحديد كيفية معالجة الطلب.",
         },
         {
-          title: "حساب موظف CHH أو الوصول",
-          text: "اطلب من مسؤول المدرسة مراجعة دورك الوظيفي أو تكليفك أو عضويتك. وتواصل مع دعم CHH إذا أكدت المدرسة صحة الدور واستمر تعذر الوصول.",
+          title: "حسابات موظفي كلاس هيرو هب",
+          text: "اطلب من مسؤول المدرسة التحقق من دورك وتكليفك بالصف أو حالة حسابك. تواصل مع دعم كلاس هيرو هب إذا أكدت المدرسة التفاصيل وما زلت لا تستطيع استخدام الخدمة.",
         },
         {
-          title: "الصادرات وقابلية النقل",
-          text: "يمكن للأدوار المدرسية المصرح لها استخدام الصادرات المدعومة للسجلات والتقارير المتاحة. ويمكن للمدرسة التواصل مع دعم CHH لتحديد مسار التصدير المناسب.",
-        },
-        {
-          title: "التصحيح أو التقييد أو الحذف",
-          text: "قد تخضع السجلات المدرسية لمتطلبات التاريخ أو التدقيق أو الحماية أو الحجز القانوني أو النسخ الاحتياطية. وتقيم المدرسة والخدمة الطلب بحسب السلطة والاتفاق المعمول به؛ فالحذف ليس دائما الإجراء الصحيح أو الفوري.",
+          title: "النسخ أو التصحيح أو الحذف",
+          text: "صف السجل والنتيجة التي تطلبها. قد يلزم التحقق من الهوية والصلاحية. وقد يلزم الاحتفاظ ببعض المعلومات لأسباب تتعلق بتاريخ المدرسة أو السلامة أو النسخ الاحتياطي أو الالتزامات المعمول بها.",
         },
         {
           title: "حسابات Family Hero Hub",
-          text: "يملك FHH هوية الأسرة والمنزل والجهاز. استخدم دعم Family Hero Hub لطلبات حساب الأسرة أو مقدم الرعاية أو لوحة الطفل أو الجهاز المرتبط. ولا ينقل الرابط المدرسي هذه الهوية إلى CHH.",
-        },
-        {
-          title: "ما ينبغي تضمينه",
-          text: "قدم اسمك ومدرستك ودورك وعنوان تواصل آمنا ونوع الطلب. لا ترسل كلمات مرور أو رموزا أو مجموعات بيانات كاملة للطلاب أو رسائل خاصة أو إجابات استبيانات أو أدلة حماية بالبريد.",
+          text: "استخدم دعم Family Hero Hub لأسئلة حساب ولي الأمر أو مقدم الرعاية أو لوحة الطفل أو الجهاز المرتبط. وتبقى المدرسة جهة الاتصال المناسبة بشأن المعلومات المدرسية المعروضة هناك.",
         },
       ],
       notice: {
-        title: "قد يلزم التحقق من الهوية",
-        text: "قد يطلب الدعم من المدرسة أو صاحب الطلب التحقق من السلطة قبل كشف المعلومات المحمية أو تغييرها أو تصديرها.",
+        title: "اجعل الرسالة الأولى بسيطة",
+        text: "اذكر اسمك ومدرستك ودورك وعنوان تواصل آمناً ونوع الطلب. لا ترسل كلمات المرور أو روابط الدخول أو ملفات الطلبة الكاملة أو الرسائل الخاصة أو إجابات الاستبيانات أو مواد حماية الطلبة عبر البريد.",
       },
       cta: {
-        heading: "ألست متأكدا من المسار الصحيح؟",
-        text: "أرسل ملخصا محدودا وغير حساس وسنساعدك على تحديد الخطوة التالية.",
-        label: "راسل دعم CHH",
+        heading: "لست متأكداً من نقطة البداية؟",
+        text: "أرسل ملخصاً قصيراً وغير حساس وسيساعدك الدعم على تحديد الطريق المناسب.",
+        label: "راسل كلاس هيرو هب",
         href: supportEmailHref,
-        secondaryLabel: "اقرأ سياسة الخصوصية",
+        secondaryLabel: "سياسة الخصوصية",
         secondaryHref: "/privacy",
       },
     },

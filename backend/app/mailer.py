@@ -24,6 +24,16 @@ class MagicLoginEmail:
     login_url: str
 
 
+@dataclass(frozen=True)
+class PilotEnquiryEmail:
+    name: str
+    school: str
+    role: str
+    region: str
+    reply_to: str
+    message: str
+
+
 def _address_from_settings() -> str:
     from_name = settings.SMTP_FROM_NAME
     from_email = settings.SMTP_FROM_EMAIL
@@ -52,6 +62,25 @@ def _build_magic_login_message(email: MagicLoginEmail) -> EmailMessage:
         "Use this one-time link to sign in to Class Hero Hub.\n\n"
         f"Sign in: {email.login_url}\n\n"
         "This link expires soon and can only be used once.\n"
+    )
+    return message
+
+
+def _build_pilot_enquiry_message(enquiry: PilotEnquiryEmail) -> EmailMessage:
+    message = EmailMessage()
+    message["Subject"] = f"Class Hero Hub pilot enquiry — {enquiry.school}"
+    message["From"] = _address_from_settings()
+    message["To"] = "support@classherohub.com"
+    message["Reply-To"] = enquiry.reply_to
+    message.set_content(
+        "A new Class Hero Hub pilot enquiry was submitted.\n\n"
+        f"Name: {enquiry.name}\n"
+        f"School: {enquiry.school}\n"
+        f"Role: {enquiry.role}\n"
+        f"Country or region: {enquiry.region}\n"
+        f"Email: {enquiry.reply_to}\n\n"
+        "What they would like to improve:\n"
+        f"{enquiry.message}\n"
     )
     return message
 
@@ -96,3 +125,11 @@ def send_magic_login(email: MagicLoginEmail) -> None:
 
     _send_message(_build_magic_login_message(email))
     logger.info("Magic login email sent to %s", email.to_email)
+
+
+def send_pilot_enquiry(enquiry: PilotEnquiryEmail) -> None:
+    if not settings.SMTP_HOST or not settings.SMTP_FROM_EMAIL:
+        raise RuntimeError("SMTP is not configured for pilot enquiries")
+
+    _send_message(_build_pilot_enquiry_message(enquiry))
+    logger.info("Pilot enquiry email accepted by the configured mail server")
