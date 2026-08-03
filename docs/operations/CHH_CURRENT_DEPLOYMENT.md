@@ -46,8 +46,10 @@ counsel are kept only in
 `docs/planning/CHH_PILOT_LEGAL_COUNSEL_CHECKLIST.md`.
 
 There is no database schema, migration, school-data, FHH, native or APK change.
-Deployment requires rebuilding and recreating only the CHH backend and frontend;
-PostgreSQL and workers are unaffected.
+The release was deployed to the CHH pilot host from commit `8c061911` by
+rebuilding and recreating only the CHH backend and frontend. PostgreSQL was not
+recreated, and the messaging-production worker and notification scheduler kept
+their existing container identities.
 
 Pre-deployment validation passed the public-copy catalogue tests, English/Arabic
 parity at 2,153 keys, Svelte diagnostics with zero errors or warnings, the
@@ -58,6 +60,18 @@ language-switcher tests. The rendered English and Arabic home, product-proof and
 pilot-form surfaces were also inspected directly. Form success and failure were
 tested with controlled mail transport substitutes; no unsolicited live enquiry
 email was sent during pre-deployment validation.
+
+Post-deployment readiness reported `database=ok` and `migration=current`; the
+frontend, backend, PostgreSQL and both workers were healthy. The home page, pilot
+page and both product images returned HTTP 200 over the public HTTPS route, while
+an empty enquiry returned HTTP 422 without invoking mail delivery. All 54 live
+Playwright cases passed, including the 160 route/language/width combinations,
+public and login routes, native signed-out routing, mocked enquiry acceptance and
+failure, and separate authenticated navigation/language checks. Direct live
+inspection covered the English hero and product visuals plus the Arabic RTL pilot
+form and legal routes. Fresh frontend/backend logs showed normal successful asset,
+health and expected signed-out authentication responses, with no application
+exception or traceback.
 
 ## 2026-08-02 bilingual public website pilot release
 
