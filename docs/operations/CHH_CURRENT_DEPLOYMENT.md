@@ -1,5 +1,39 @@
 # CHH current pilot deployment
 
+## 2026-08-03 capability-relationship guidance release
+
+The Dom-only school-capability manager now explains every catalogue relationship
+in both directions. A capability card states what it requires, while a capability
+used by another feature states which features use it. For example, Behaviour and
+points shows that it is used by Positive recognition, and Positive recognition
+shows that it requires Behaviour and points.
+
+Trying to turn off a capability that an enabled feature still uses now opens a
+plain-language English or Arabic dialog naming the blocker and linking directly to
+its card. The same treatment covers attempts to turn on a feature before its
+required feature and availability dates that do not fit within the required
+feature's dates. The manager never switches related capabilities off
+automatically. Existing server validation remains the final protection and its
+structured relationship response is retained by the frontend for the same friendly
+handling if the page is stale.
+
+Implementation commit `2ed2aa3` passed five focused relationship cases, the six
+existing backend entitlement tests, English/Arabic parity at 2,217 keys, Svelte
+diagnostics with zero errors or warnings and the production frontend build. Direct
+rendered inspection covered English and Arabic/RTL desktop layouts and the Arabic
+dialog at 390 x 844, with no horizontal overflow. The Review action closed the
+dialog, scrolled to the named capability and focused its card.
+
+Only the CHH frontend was rebuilt and recreated. The replacement container is
+`046fa48792c1` with image `0d907e1c49a4`; it is healthy. The backend
+`a14bcbf565eb`, PostgreSQL `9653df2c5588`, messaging worker `8919cebb3330` and
+notification scheduler `2909345e8a68` retained their existing identities and were
+not restarted. Public readiness reports `database=ok` and `migration=current`, the
+frontend root returns HTTP 200, both new English and Arabic messages are present in
+the deployed bundle, and recent frontend logs contain no error, fatal, critical,
+uncaught or traceback entry. There is no database, migration, backend, worker,
+native application or APK change.
+
 ## 2026-08-03 canonical school-entitlement release
 
 CHH now has one canonical, fail-closed entitlement authority for optional school
