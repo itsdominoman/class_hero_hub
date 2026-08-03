@@ -119,6 +119,14 @@ def ensure_student_avatars(
         .order_by(Student.id.asc())
         .all()
     )
+    without_recorded_gender = [
+        student
+        for student in students
+        if not _pool_for_gender(student.gender) and student.avatar_id is not None
+    ]
+    for student in without_recorded_gender:
+        student.avatar_id = None
+
     candidates = [
         student
         for student in students
@@ -132,7 +140,7 @@ def ensure_student_avatars(
         for class_section_id in class_ids
     }
     used_by_class = _used_avatars_by_class(db, class_section_ids, candidate_ids)
-    changed = False
+    changed = bool(without_recorded_gender)
     rng = secrets.SystemRandom()
 
     for student in sorted(candidates, key=lambda row: (-len(class_ids_by_student.get(row.id, set())), row.id)):

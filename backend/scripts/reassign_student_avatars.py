@@ -83,7 +83,10 @@ def run(*, apply: bool) -> dict[str, object]:
         targets = [
             student
             for student in students
-            if (pool := _pool_for_gender(student.gender)) and student.avatar_id not in pool
+            if (
+                ((pool := _pool_for_gender(student.gender)) and student.avatar_id not in pool)
+                or (not pool and student.avatar_id is not None)
+            )
         ]
         duplicate_groups_before = _class_duplicate_groups(db)
 
@@ -101,6 +104,10 @@ def run(*, apply: bool) -> dict[str, object]:
             student.avatar_id is None and not _pool_for_gender(student.gender)
             for student in students
         )
+        assigned_without_gender = sum(
+            student.avatar_id is not None and not _pool_for_gender(student.gender)
+            for student in students
+        )
         duplicate_groups_after = _class_duplicate_groups(db)
 
         report: dict[str, object] = {
@@ -112,19 +119,27 @@ def run(*, apply: bool) -> dict[str, object]:
             "retired_reassigned": sum(before[student.id] in RETIRED_AVATAR_IDS for student in changed),
             "wrong_pool_reassigned": sum(
                 before[student.id] is not None
+                and bool(_pool_for_gender(student.gender))
                 and before[student.id] not in RETIRED_AVATAR_IDS
                 and before[student.id] not in _pool_for_gender(student.gender)
                 for student in changed
             ),
+            "without_recorded_gender_cleared": sum(
+                before[student.id] is not None
+                and not _pool_for_gender(student.gender)
+                and student.avatar_id is None
+                for student in changed
+            ),
             "changed_by_gender": dict(sorted(changed_by_gender.items())),
             "missing_without_male_or_female_gender": missing_without_gender,
+            "assigned_without_male_or_female_gender": assigned_without_gender,
             "remaining_retired_assignments": remaining_retired,
             "remaining_wrong_gender_pool_assignments": wrong_pool,
             "class_duplicate_avatar_groups_before": duplicate_groups_before,
             "class_duplicate_avatar_groups_after": duplicate_groups_after,
         }
 
-        if remaining_retired or wrong_pool or duplicate_groups_after > duplicate_groups_before:
+        if remaining_retired or wrong_pool or assigned_without_gender or duplicate_groups_after > duplicate_groups_before:
             db.rollback()
             raise RuntimeError(f"avatar assignment validation failed: {json.dumps(report, sort_keys=True)}")
 
