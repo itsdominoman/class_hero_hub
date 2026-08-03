@@ -44,6 +44,24 @@ authenticated navigation/language-switcher tests. Direct rendered inspection
 covered the English hierarchy and product-proof order, the Arabic RTL homepage
 and the visible Arabic Privacy Policy effective date.
 
+Implementation commit `7a646df` was deployed by rebuilding and recreating only
+the CHH frontend. The replacement frontend container is `a7a28c885229` with image
+ID `710ba359190b`; it is healthy. The backend (`c551b9d2c6da`), PostgreSQL
+(`9653df2c5588`), messaging production worker (`bf724969582b`) and notification
+scheduler (`52c145d59912`) retained their existing container identities and were
+not restarted. Readiness reports `database=ok` and `migration=current`, and the
+home, Product, How it works, Schools, Privacy Policy and Terms routes return HTTP
+200 over the deployed origin.
+
+Post-deployment browser validation passed all 16 public routes in both languages
+at 390 px, including RTL direction, accessible navigation, image loading and
+horizontal containment. Direct live desktop inspection confirmed the English and
+Arabic heroes, the homepage story and teacher-first proof order, and the visible
+effective date on both legal pages in both languages. The wider live matrix used
+the suite's 30-second per-case budget and timed out only during later
+`networkidle` waits; the identical five-width matrix had already passed locally,
+and the bounded live bilingual run passed with a realistic remote timeout.
+
 ## 2026-08-03 public website editorial and pilot-enquiry release
 
 The CHH public website has been rewritten for school leaders, administrators and
