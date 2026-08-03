@@ -1,10 +1,15 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { page } from '$app/state';
   import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
   import {
+    capabilityDependents,
+    entitlementRelationshipBlock,
     entitlementStatus,
+    isCapabilityKey,
+    type CapabilityKey,
+    type EntitlementRelationshipBlock,
     type EntitlementSource,
     type SchoolEntitlement,
     type SchoolEntitlementPayload
@@ -48,12 +53,94 @@
   let savingCapability = $state<string | null>(null);
   let entitlementMessage = $state<string | null>(null);
   let entitlementError = $state<string | null>(null);
+  let relationshipBlock = $state<EntitlementRelationshipBlock | null>(null);
+  let relationshipDialog = $state<HTMLDivElement | null>(null);
 
   const entitlementSources: EntitlementSource[] = ['pilot', 'trial', 'paid', 'complimentary'];
   const today = () => new Date().toISOString().slice(0, 10);
 
   const formatDate = (value?: string | null) => value ? new Intl.DateTimeFormat($locale === 'ar' ? 'ar' : undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '-';
   const roleCount = (role: string) => school?.counts?.memberships_by_role?.[role] || 0;
+
+  function capabilityLabel(capability: CapabilityKey): string {
+    return String($_(`entitlements.capabilities.${capability}`));
+  }
+
+  function capabilityList(capabilities: CapabilityKey[]): string {
+    return new Intl.ListFormat($locale === 'ar' ? 'ar' : 'en', { style: 'long', type: 'conjunction' })
+      .format(capabilities.map(capabilityLabel));
+  }
+
+  function showRelationshipBlock(block: EntitlementRelationshipBlock) {
+    relationshipBlock = block;
+    void tick().then(() => relationshipDialog?.focus());
+  }
+
+  function closeRelationshipBlock() {
+    relationshipBlock = null;
+  }
+
+  function reviewCapability(capability: CapabilityKey) {
+    relationshipBlock = null;
+    void tick().then(() => {
+      const card = document.getElementById(`entitlement-${capability}`);
+      card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card?.focus({ preventScroll: true });
+    });
+  }
+
+  function relationshipTitle(block: EntitlementRelationshipBlock): string {
+    if (block.reason === 'enabled_dependents') {
+      return String($_('entitlements.blockedDisableTitle', { values: { feature: capabilityLabel(block.capability) } }));
+    }
+    if (block.reason === 'missing_dependencies') {
+      return String($_('entitlements.blockedEnableTitle', { values: { feature: capabilityLabel(block.capability) } }));
+    }
+    return String($_('entitlements.blockedDatesTitle'));
+  }
+
+  function relationshipBody(block: EntitlementRelationshipBlock): string {
+    if (block.reason === 'enabled_dependents') {
+      const key = block.related.length === 1 ? 'entitlements.blockedDisableBodyOne' : 'entitlements.blockedDisableBodyMany';
+      return String($_(key, { values: { dependents: capabilityList(block.related), dependent: capabilityList(block.related) } }));
+    }
+    if (block.reason === 'missing_dependencies') {
+      const key = block.related.length === 1 ? 'entitlements.blockedEnableBodyOne' : 'entitlements.blockedEnableBodyMany';
+      return String($_(key, {
+        values: {
+          feature: capabilityLabel(block.capability),
+          dependencies: capabilityList(block.related),
+          dependency: capabilityList(block.related)
+        }
+      }));
+    }
+    const key = block.related.length === 1 ? 'entitlements.blockedDatesBodyOne' : 'entitlements.blockedDatesBodyMany';
+    return String($_(key, {
+      values: {
+        feature: capabilityLabel(block.capability),
+        dependencies: capabilityList(block.related),
+        dependency: capabilityList(block.related)
+      }
+    }));
+  }
+
+  function relationshipTargets(block: EntitlementRelationshipBlock): CapabilityKey[] {
+    return block.reason === 'dependency_window'
+      ? [...new Set([block.capability, ...block.related])]
+      : block.related;
+  }
+
+  function relationshipBlockFromError(err: any): EntitlementRelationshipBlock | null {
+    const detail = err?.detail;
+    if (!detail || !isCapabilityKey(detail.capability) || !isCapabilityKey(detail.dependency)) return null;
+    if (detail.code === 'entitlement_dependency_window') {
+      return { reason: 'dependency_window', capability: detail.capability, related: [detail.dependency] };
+    }
+    if (detail.code !== 'entitlement_dependency_required') return null;
+    return detail.dependency === savingCapability
+      ? { reason: 'enabled_dependents', capability: detail.dependency, related: [detail.capability] }
+      : { reason: 'missing_dependencies', capability: detail.capability, related: [detail.dependency] };
+  }
 
   async function loadSchool() {
     loading = true;
@@ -85,6 +172,11 @@
 
   async function saveEntitlement(entitlement: SchoolEntitlement) {
     if (!entitlements || !entitlement.source || !entitlement.effective_from) return;
+    const block = entitlementRelationshipBlock(entitlements.entitlements, entitlement);
+    if (block) {
+      showRelationshipBlock(block);
+      return;
+    }
     savingCapability = entitlement.capability;
     entitlementMessage = null;
     entitlementError = null;
@@ -105,7 +197,9 @@
       );
       entitlementMessage = $_('entitlements.saved');
     } catch (err: any) {
-      entitlementError = err?.message || $_('entitlements.saveError');
+      const serverBlock = relationshipBlockFromError(err);
+      if (serverBlock) showRelationshipBlock(serverBlock);
+      else entitlementError = err?.message || $_('entitlements.saveError');
     } finally {
       savingCapability = null;
     }
@@ -204,6 +298,7 @@
           <p class="eyebrow">{$_('entitlements.optionalTitle')}</p>
           <h2 id="school-entitlements-title" class="mt-2 text-2xl font-black text-slate-950">{$_('entitlements.managerTitle')}</h2>
           <p class="mt-2 leading-7 text-slate-600">{$_('entitlements.managerIntro')}</p>
+          <p class="mt-2 text-sm font-semibold leading-6 text-slate-500">{$_('entitlements.relationshipIntro')}</p>
         </div>
 
         <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
@@ -225,7 +320,8 @@
 
         <div class="mt-5 grid gap-5 xl:grid-cols-2">
           {#each entitlements.entitlements as entitlement (entitlement.capability)}
-            <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            {@const dependents = capabilityDependents(entitlements.entitlements, entitlement.capability)}
+            <article id={`entitlement-${entitlement.capability}`} tabindex="-1" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm outline-none focus-visible:ring-4 focus-visible:ring-violet-300/70">
               <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h3 class="font-black text-slate-950">{$_(`entitlements.capabilities.${entitlement.capability}`)}</h3>
@@ -263,14 +359,18 @@
               </div>
 
               <dl class="mt-4 space-y-2 text-sm text-slate-600">
-                <div>
-                  <dt class="inline font-bold text-slate-800">{$_('entitlements.dependencies')}: </dt>
-                  <dd class="inline">
-                    {entitlement.dependencies.length
-                      ? entitlement.dependencies.map((key) => $_(`entitlements.capabilities.${key}`)).join(', ')
-                      : $_('entitlements.none')}
-                  </dd>
-                </div>
+                {#if entitlement.dependencies.length}
+                  <div>
+                    <dt class="inline font-bold text-slate-800">{$_('entitlements.dependencies')}: </dt>
+                    <dd class="inline">{capabilityList(entitlement.dependencies)}</dd>
+                  </div>
+                {/if}
+                {#if dependents.length}
+                  <div>
+                    <dt class="inline font-bold text-slate-800">{$_('entitlements.usedBy')}: </dt>
+                    <dd class="inline">{capabilityList(dependents)}</dd>
+                  </div>
+                {/if}
                 <div>
                   <dt class="inline font-bold text-slate-800">{$_('entitlements.lastChange')}: </dt>
                   <dd class="inline">
@@ -344,3 +444,33 @@
     </div>
   {/if}
 </section>
+
+{#if relationshipBlock}
+  <div
+    class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/55 p-0 sm:items-center sm:p-4"
+    role="presentation"
+    onclick={(event) => { if (event.target === event.currentTarget) closeRelationshipBlock(); }}
+  >
+    <div
+      bind:this={relationshipDialog}
+      class="w-full max-w-lg rounded-t-3xl bg-white p-6 shadow-2xl outline-none sm:rounded-3xl"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="entitlement-relationship-title"
+      aria-describedby="entitlement-relationship-body"
+      tabindex="-1"
+      onkeydown={(event) => { if (event.key === 'Escape') closeRelationshipBlock(); }}
+    >
+      <h2 id="entitlement-relationship-title" class="text-2xl font-black text-slate-950">{relationshipTitle(relationshipBlock)}</h2>
+      <p id="entitlement-relationship-body" class="mt-3 leading-7 text-slate-600">{relationshipBody(relationshipBlock)}</p>
+      <div class="mt-6 grid gap-2 sm:grid-cols-2">
+        {#each relationshipTargets(relationshipBlock) as capability}
+          <button type="button" class="btn-hero rounded-xl px-4 py-3" onclick={() => reviewCapability(capability)}>
+            {$_('entitlements.reviewFeature', { values: { feature: capabilityLabel(capability) } })}
+          </button>
+        {/each}
+        <button type="button" class="btn-secondary rounded-xl px-4 py-3" onclick={closeRelationshipBlock}>{$_('entitlements.closeRelationship')}</button>
+      </div>
+    </div>
+  </div>
+{/if}

@@ -40,6 +40,73 @@ export type SchoolEntitlementPayload = {
   entitlements: SchoolEntitlement[];
 };
 
+export type EntitlementRelationshipBlock = {
+  reason: 'enabled_dependents' | 'missing_dependencies' | 'dependency_window';
+  capability: CapabilityKey;
+  related: CapabilityKey[];
+};
+
+export function isCapabilityKey(value: unknown): value is CapabilityKey {
+  return typeof value === 'string' && OPTIONAL_CAPABILITIES.includes(value as CapabilityKey);
+}
+
+export function capabilityDependents(
+  entitlements: SchoolEntitlement[],
+  capability: CapabilityKey
+): CapabilityKey[] {
+  return entitlements
+    .filter((entitlement) => entitlement.dependencies.includes(capability))
+    .map((entitlement) => entitlement.capability);
+}
+
+function windowContains(parent: SchoolEntitlement, child: SchoolEntitlement): boolean {
+  if (!parent.effective_from || !child.effective_from) return true;
+  if (parent.effective_from > child.effective_from) return false;
+  if (!child.expires_on) return !parent.expires_on;
+  return !parent.expires_on || parent.expires_on >= child.expires_on;
+}
+
+export function entitlementRelationshipBlock(
+  entitlements: SchoolEntitlement[],
+  draft: SchoolEntitlement
+): EntitlementRelationshipBlock | null {
+  const byCapability = new Map(entitlements.map((entitlement) => [entitlement.capability, entitlement]));
+  byCapability.set(draft.capability, draft);
+
+  if (!draft.enabled) {
+    const enabledDependents = capabilityDependents(entitlements, draft.capability).filter(
+      (capability) => byCapability.get(capability)?.enabled
+    );
+    return enabledDependents.length
+      ? { reason: 'enabled_dependents', capability: draft.capability, related: enabledDependents }
+      : null;
+  }
+
+  const missingDependencies = draft.dependencies.filter(
+    (capability) => !byCapability.get(capability)?.enabled
+  );
+  if (missingDependencies.length) {
+    return { reason: 'missing_dependencies', capability: draft.capability, related: missingDependencies };
+  }
+
+  const invalidDependencies = draft.dependencies.filter((capability) => {
+    const dependency = byCapability.get(capability);
+    return Boolean(dependency && !windowContains(dependency, draft));
+  });
+  if (invalidDependencies.length) {
+    return { reason: 'dependency_window', capability: draft.capability, related: invalidDependencies };
+  }
+
+  for (const dependentKey of capabilityDependents(entitlements, draft.capability)) {
+    const dependent = byCapability.get(dependentKey);
+    if (dependent?.enabled && !windowContains(draft, dependent)) {
+      return { reason: 'dependency_window', capability: dependentKey, related: [draft.capability] };
+    }
+  }
+
+  return null;
+}
+
 export function entitlementStatus(entitlement: SchoolEntitlement): 'enabled' | 'disabled' | 'scheduled' | 'expired' {
   if (entitlement.effective_enabled) return 'enabled';
   if (!entitlement.enabled) return 'disabled';
