@@ -1,5 +1,50 @@
 # CHH current pilot deployment
 
+## 2026-08-03 school staff and family onboarding invitations
+
+CHH can now deliver staff invitations through the dedicated
+`classherohub@familyherohub.com` Mailcow identity. Missing SMTP configuration
+fails closed instead of reporting a false success. The requested teacher invitation
+for `jason@myeduzone.org` was created for United International School as invite
+`4`; Mailcow accepted it and CHH recorded `send_status=sent` with no warning.
+The one-time plaintext credential transfer file was securely removed after that
+proof. The mailbox secret remains only in CHH's mode-0600 runtime environment and
+Mailcow's password hash.
+
+School administrators can send or resend a Family Hero Hub invitation for an
+active guardian email from the student administration page when the Family
+Connection entitlement is enabled. The email is deliberately generic and does not
+name the child. Its 14-day token is placed in the URL fragment, so it is not sent in
+the initial web request or proxy logs. CHH records delivery state and revokes
+unconsumed invitations when they are superseded or when the guardian contact is
+deactivated or ignored. There is no bulk-send operation in this release.
+
+FHH verification receives only an environment-specific HMAC digest of the
+normalised guardian email; CHH does not send the raw email to FHH. Development and
+production use their distinct integration credentials. Link consumption, school
+authority and the existing CHH-to-FHH data boundary are unchanged. No invitation
+was sent to `johnsmith@familyherohub.com` and no child was assigned to that
+identity because the corresponding CHH guardian relationship has not yet been
+identified.
+
+Alembic revision `a2b3c4d5e6f7` adds guardian-contact, recipient and delivery
+metadata to `fhh_link_invites`. A disposable clone of the pilot database passed
+upgrade, one-step downgrade, re-upgrade and application smoke validation, then was
+removed. Fresh encrypted full recovery points are `20260803-185042F` locally and
+`20260803-185057F` off-host. The live database upgraded transactionally from
+`a1e2f3c4d5b6`; readiness now reports `database=ok`,
+`migration=current`.
+
+Focused validation passed the 18 invitation/mailer/integration tests, 22 current
+staff/platform tests, 32 user-authentication tests and 5 operational-health tests.
+The frontend passed Svelte diagnostics with zero errors/warnings, 2,223-key
+English/Arabic parity, six public-site copy tests and the production build. Only
+backend and frontend were rebuilt/recreated: backend `df16c9168804` using image
+`sha256:96d327419689`, and frontend `660331f4f9e5` using image
+`sha256:ade99bd14452`. PostgreSQL, messaging worker, notification scheduler,
+native routing and the APK were not changed. Source implementation commit:
+`639f0be44f78cace1d52c2f275caa05a30031fcb`.
+
 ## 2026-08-03 direct CHH family-access removal
 
 Class Hero Hub is now exclusively a staff workspace. The authenticated navigation
