@@ -1,5 +1,53 @@
 # CHH current pilot deployment
 
+## 2026-08-03 final public editorial and hero-layout release
+
+The English homepage hero now leads with `Help teachers. Keep families
+informed.` and explains in direct language that Class Hero Hub brings homework,
+behaviour, recognition, notices, chats, surveys and family updates together
+alongside the systems a school already uses. The matching Arabic copy was
+written for the same meaning in natural Modern Standard Arabic. The main family
+section now leads with `School updates for families.` and states simply that
+staff use Class Hero Hub while parents see the school updates shared with them in
+Family Hero Hub.
+
+Public marketing sentences that read like internal product or implementation
+language were rewritten in plain English and natural Arabic. Examples now say
+`Start with your class`, `Pick up where you left off`, `See whether messages have
+arrived and been read`, `See what changed and when`, and `The tools teachers use
+most are easy to find`. The existing teacher, communication and family-update
+positioning is unchanged: CHH works alongside existing school systems, is not
+presented as an MIS or SIS replacement, and setup, imports and reporting remain
+secondary. Parents continue to use Family Hero Hub rather than signing in to
+CHH.
+
+The homepage hero spacing and desktop type breakpoint were tightened without
+reducing the normal body or button text sizes. At 1366 x 768, the full English
+headline, introduction and primary pilot button are visible without scrolling.
+Rendered English and Arabic inspection also passed at 390 x 844 with no
+horizontal overflow and correct RTL presentation.
+
+Focused validation passed the six public-copy catalogue tests, Svelte diagnostics
+with zero errors or warnings, the production frontend build, all 21 public-page
+browser tests, the ten-case responsive route matrix covering all 16 public routes
+in both languages at five widths, and all eight public 320-430 px visual-layout
+checks. Live route probes returned HTTP 200 for the home, Product, How it works,
+Schools, Family connection, Pilot, Privacy Policy and Terms pages. Direct live
+inspection covered both homepage languages at 1366 x 768 and 390 x 844, plus the
+Arabic family-connection page. The four authenticated dashboard cases in the
+broader visual-layout file were not applicable because the local QA login token
+was not supplied; authenticated routing and application code were not changed.
+
+Implementation commit `20c328b` was deployed by rebuilding and recreating only
+the CHH frontend. The replacement frontend container is `859bfff01dda` with image
+ID `7cab51f720f3`; it is healthy. The backend (`c551b9d2c6da`), PostgreSQL
+(`9653df2c5588`), messaging production worker (`bf724969582b`) and notification
+scheduler (`52c145d59912`) retained their existing container identities and were
+not restarted. Readiness reports `database=ok` and `migration=current`. The
+Privacy Policy, Terms, effective dates, pilot-enquiry behaviour, routes,
+authentication, product images, FHH, database, migrations and native application
+are unchanged; no APK was built.
+
 ## 2026-08-03 everyday-workflow public positioning release
 
 The CHH public website now presents Class Hero Hub as a practical workspace for
