@@ -1038,7 +1038,7 @@ def test_avatar_assignment_replaces_retired_and_wrong_gender_pool_values(db, enr
     students, _assignment = _add_classroom_students(db, world)
     students[0].avatar_id = 56
     students[1].avatar_id = 61
-    students[2].avatar_id = 67
+    students[2].avatar_id = 83
     students[3].avatar_id = BOY_AVATAR_IDS[0]
     db.commit()
 
@@ -1052,6 +1052,7 @@ def test_avatar_assignment_replaces_retired_and_wrong_gender_pool_values(db, enr
     assert not (set(assigned.values()) & RETIRED_AVATAR_IDS)
     assert len(set(assigned.values())) == 3
     assert avatar_urls(56)["avatar_url_256"] == "/avatars/256/56-256.webp"
+    assert avatar_urls(83)["avatar_url_256"] == "/avatars/256/83-256.webp"
 
 
 def test_single_student_assignment_avoids_current_classmate_avatar(db, enrolment_world):
