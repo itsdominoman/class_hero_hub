@@ -1,5 +1,26 @@
 # Class Hero Hub Implementation Log
 
+## 2026-08-03 - Avatar assignment during student CSV commit
+
+Committing a staged student CSV import now assigns avatars immediately after all
+successful student and enrolment rows have been prepared. The existing assignment
+service runs once for the complete batch with `commit=False`, so it sees the full
+current class membership, avoids class collisions, excludes retired artwork, and
+keeps every avatar write inside the import's transaction. CSV preview remains
+read-only and does not allocate avatars.
+
+Active students recorded `male` receive only boy-pool avatars and active students
+recorded `female` receive only girl-pool avatars. Blank, `other`, and `unspecified`
+values remain unassigned. Re-importing a changed male/female value replaces an
+existing wrong-pool avatar during the same commit. Inactive/leaver rows are not
+assigned. This closes the earlier gap where CHH/FHH could briefly receive a null
+avatar until a teacher opened the classroom roster.
+
+Focused coverage verifies immediate male/female assignment, same-class uniqueness,
+retired-artwork exclusion, unknown-gender withholding, gender-correction
+replacement, and full rollback when assignment fails. The combined student-import
+and avatar test selection passes 61 cases.
+
 ## 2026-08-03 - Complete demo avatar coverage
 
 The final aggregate audit identified exactly two active students without avatars,

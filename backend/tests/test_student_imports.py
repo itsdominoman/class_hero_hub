@@ -39,6 +39,7 @@ from app.models_school import (
     User,
 )
 from app.student_exports import AnnualGuardianContact, guardian_contacts_for_annual_export
+from app.student_avatars import BOY_AVATAR_IDS, GIRL_AVATAR_IDS, RETIRED_AVATAR_IDS
 
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -520,10 +521,73 @@ def test_import_creates_new_students_and_section_enrolments(client, import_world
 
     student = db.query(Student).filter(Student.school_id == world["alpha"].id, Student.external_ref == "S-060").first()
     assert student is not None
-    assert student.avatar_id is None  # assigned lazily on first classroom/guardian display
+    assert student.avatar_id is None  # blank gender is intentionally not assigned
     enrolment = db.query(Enrolment).filter(Enrolment.student_id == student.id, Enrolment.class_section_id == world["section_a"].id).first()
     assert enrolment is not None
     assert enrolment.valid_to is None
+
+
+def test_import_commit_assigns_gender_safe_unique_avatars(client, import_world, db):
+    world = import_world
+    staged = upload(
+        client,
+        world,
+        [
+            csv_row(student_id="AV-M1", first_name="Adam", last_name="One", gender="male"),
+            csv_row(student_id="AV-M2", first_name="Basil", last_name="Two", gender="male"),
+            csv_row(student_id="AV-F1", first_name="Clara", last_name="Three", gender="female"),
+            csv_row(student_id="AV-U1", first_name="Dana", last_name="Four", gender="unspecified"),
+        ],
+    )
+    committed = commit(client, world, staged.json()["id"])
+    assert committed.status_code == 200
+
+    students = {
+        student.external_ref: student
+        for student in db.query(Student)
+        .filter(Student.school_id == world["alpha"].id)
+        .all()
+    }
+    assert students["AV-M1"].avatar_id in BOY_AVATAR_IDS
+    assert students["AV-M2"].avatar_id in BOY_AVATAR_IDS
+    assert students["AV-F1"].avatar_id in GIRL_AVATAR_IDS
+    assert students["AV-U1"].avatar_id is None
+    assigned = {students[ref].avatar_id for ref in ("AV-M1", "AV-M2", "AV-F1")}
+    assert len(assigned) == 3
+    assert not (assigned & RETIRED_AVATAR_IDS)
+
+    original_female_avatar = students["AV-F1"].avatar_id
+    correction = upload(
+        client,
+        world,
+        [csv_row(student_id="AV-F1", first_name="Clara", last_name="Three", gender="male")],
+    )
+    corrected = commit(client, world, correction.json()["id"])
+    assert corrected.status_code == 200
+    db.refresh(students["AV-F1"])
+    assert students["AV-F1"].avatar_id in BOY_AVATAR_IDS
+    assert students["AV-F1"].avatar_id != original_female_avatar
+
+
+def test_import_avatar_assignment_failure_rolls_back_commit(client, import_world, db, monkeypatch):
+    world = import_world
+    staged = upload(
+        client,
+        world,
+        [csv_row(student_id="AV-ROLLBACK", first_name="Rollback", last_name="Student", gender="female")],
+    )
+    import_id = staged.json()["id"]
+
+    def fail_assignment(*_args, **_kwargs):
+        raise RuntimeError("avatar assignment failed")
+
+    monkeypatch.setattr("app.routes.school.ensure_student_avatars", fail_assignment)
+    with pytest.raises(RuntimeError, match="avatar assignment failed"):
+        commit(client, world, import_id)
+
+    db.expire_all()
+    assert db.query(Student).filter(Student.external_ref == "AV-ROLLBACK").count() == 0
+    assert db.query(Import).filter(Import.id == import_id).one().status == "staged"
 
 
 def test_existing_student_external_ref_updates_instead_of_duplicating(client, import_world, db):

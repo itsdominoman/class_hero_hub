@@ -75,6 +75,7 @@ from ..student_exports import (
     stream_utf8_csv,
     student_roster_rows,
 )
+from ..student_avatars import ensure_student_avatars
 from .platform import _invite_payload, _issue_staff_invite
 from ..school_scope import is_open_interval, open_interval_expression, require_school_role, write_audit
 
@@ -3326,6 +3327,7 @@ def commit_student_import(import_id: int, membership: Membership = Depends(requi
     existing_guardian_contacts_by_id = {
         contact.id: contact for contact in existing_guardian_contacts.values()
     }
+    avatar_candidate_ids: set[int] = set()
 
     for plan, row in zip(plans, rows):
         row.action = plan.action
@@ -3410,6 +3412,9 @@ def commit_student_import(import_id: int, membership: Membership = Depends(requi
                     created_by_user_id=membership.user_id,
                 )
                 db.add(resulting_enrolment)
+
+        if student.status == "active" and (student.gender or "").strip().lower() in {"male", "female"}:
+            avatar_candidate_ids.add(student.id)
 
         # School-held guardian contacts never create a login, guardian link,
         # invite or message. They are upserted regardless of the
@@ -3509,6 +3514,12 @@ def commit_student_import(import_id: int, membership: Membership = Depends(requi
                 },
                 school_id=school_id,
             )
+
+    # Assign once, after every student and enrolment row is present, so the
+    # class-aware service can avoid collisions across the complete import.
+    # commit=False keeps avatar writes inside the import's transaction.
+    db.flush()
+    ensure_student_avatars(db, avatar_candidate_ids, commit=False)
 
     summary = summarize_plans(plans)
     imp.status = "committed"
