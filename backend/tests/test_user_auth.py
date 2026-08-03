@@ -611,7 +611,10 @@ def test_magic_link_can_complete_valid_staff_invitation(db, client, monkeypatch)
     assert exchanged.status_code == 200
     assert exchanged.json()["return_to"] == return_to
     access_token = client.cookies.get("access_token")
-    headers = {"Authorization": f"Bearer {access_token}"}
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "X-CSRF-Token": client.cookies.get("csrf_token"),
+    }
     assert client.get("/api/me", headers=headers).status_code == 403
 
     accepted = client.post(

@@ -1,5 +1,7 @@
 import os
 import logging
+import hashlib
+import hmac
 from io import BytesIO
 from datetime import timedelta
 
@@ -17,7 +19,7 @@ from sqlalchemy.pool import StaticPool
 from app import auth, database, invite_tokens
 from app.database import Base, get_db
 from app.main import app, protected_media_access_log_filter
-from app.models_school import AcademicYear, BehaviourCategory, BehaviourEvent, BranchCampus, ClassSection, Enrolment, FhhLink, FhhLinkInvite, GradeLevel, Membership, School, Student, Subject, SubjectGroup, UpdatePhoto, UpdatePost, User
+from app.models_school import AcademicYear, BehaviourCategory, BehaviourEvent, BranchCampus, ClassSection, Enrolment, FhhLink, FhhLinkInvite, GradeLevel, Membership, School, Student, StudentGuardianContact, Subject, SubjectGroup, UpdatePhoto, UpdatePost, User
 from app.routes import integrations_fhh, updates
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -166,6 +168,55 @@ def test_admin_issue_list_and_same_school_active_rules(db, client, world):
     assert "code" not in listed.json()["invites"][0] and "token_hash" not in listed.json()["invites"][0]
     world["two"].status = "archived"; db.commit()
     assert issue(client, world, world["two"]).status_code == 400
+
+
+def test_school_admin_can_email_fhh_invite_with_email_bound_admission_digest(
+    db, client, world, monkeypatch
+):
+    contact = StudentGuardianContact(
+        school_id=world["school"].id,
+        student_id=world["one"].id,
+        name="Sara Parent",
+        email="parent@example.com",
+        relationship="mother",
+        is_active=True,
+        source="manual",
+        status="draft",
+    )
+    db.add(contact)
+    db.commit()
+    sent = []
+    monkeypatch.setattr("app.routes.school.send_fhh_guardian_invite", sent.append)
+
+    created = client.post(
+        f"/api/school/students/{world['one'].id}/fhh-invites/email",
+        headers=admin(world),
+        json={"contact_id": contact.id},
+    )
+
+    assert created.status_code == 201
+    assert created.json()["send_status"] == "sent"
+    assert created.json()["recipient_email"] == "parent@example.com"
+    assert len(sent) == 1
+    assert sent[0].to_email == "parent@example.com"
+    assert "Sara" not in sent[0].invite_url
+
+    verified = client.post(
+        "/api/integrations/fhh/link/verify",
+        headers=service(),
+        json={"code": created.json()["code"]},
+    )
+    assert verified.status_code == 200
+    expected = hmac.new(
+        ("s" * 40).encode(),
+        b"fhh-school-guardian-admission:v1:parent@example.com",
+        hashlib.sha256,
+    ).hexdigest()
+    assert verified.json()["admission"] == {
+        "kind": "school_guardian",
+        "email_digest": expected,
+    }
+    assert "parent@example.com" not in verified.text
 
 
 def test_verify_expired_revoked_and_consume_single_use(db, client, world):

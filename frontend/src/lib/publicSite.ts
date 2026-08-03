@@ -968,7 +968,7 @@ const en: PublicSiteCopy = {
         },
         {
           title: "2. Information the service uses",
-          text: "This may include school and class information, staff account details, student and guardian records supplied by a school, learning and behaviour information, messages and media, survey responses, sign-in and device information, and records of actions taken in the service.",
+          text: "This may include school and class information, staff account details, student and guardian records supplied by a school, family-invitation and delivery records, learning and behaviour information, messages and media, survey responses, sign-in and device information, and records of actions taken in the service.",
         },
         {
           title: "3. Why information is used",
@@ -1770,7 +1770,7 @@ const ar: PublicSiteCopy = {
         },
         {
           title: "2. المعلومات التي تستخدمها الخدمة",
-          text: "قد تشمل معلومات المدرسة والصفوف، وتفاصيل حسابات الموظفين، وسجلات الطلبة وأولياء الأمور التي تقدمها المدرسة، ومعلومات التعلم والسلوك، والرسائل والوسائط، وإجابات الاستبيانات، ومعلومات تسجيل الدخول والأجهزة، وسجلات الإجراءات المنفذة في الخدمة.",
+          text: "قد تشمل معلومات المدرسة والصفوف، وتفاصيل حسابات الموظفين، وسجلات الطلبة وأولياء الأمور التي تقدمها المدرسة، وسجلات دعوات الأسر وتسليمها، ومعلومات التعلم والسلوك، والرسائل والوسائط، وإجابات الاستبيانات، ومعلومات تسجيل الدخول والأجهزة، وسجلات الإجراءات المنفذة في الخدمة.",
         },
         {
           title: "3. أسباب استخدام المعلومات",

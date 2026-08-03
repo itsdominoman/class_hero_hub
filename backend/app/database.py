@@ -582,6 +582,7 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str = ""
     GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/auth/google/callback"
     PUBLIC_APP_URL: str = "http://localhost:5173"
+    FHH_PARENT_APP_URL: str = "https://familyherohub.com"
     API_BASE_URL: str = "http://localhost:8000"
     APP_ENV: str = ""
     ENVIRONMENT: str = ""

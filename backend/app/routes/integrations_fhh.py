@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -162,6 +163,18 @@ def _rate_link(request: Request) -> None:
         raise HTTPException(status_code=429, detail=GENERIC_LINK_ERROR)
 
 
+def _integration_service_token(environment: str) -> str:
+    if environment == "production":
+        return settings.FHH_PRODUCTION_INTEGRATION_SERVICE_TOKEN
+    return settings.FHH_INTEGRATION_SERVICE_TOKEN
+
+
+def _guardian_email_digest(email: str, environment: str) -> str:
+    key = _integration_service_token(environment).encode("utf-8")
+    message = f"fhh-school-guardian-admission:v1:{email.strip().lower()}".encode("utf-8")
+    return hmac.new(key, message, hashlib.sha256).hexdigest()
+
+
 def _invite(db: Session, code: str, *, lock: bool = False) -> FhhLinkInvite:
     normalized = invite_tokens.normalize_short_code(code)
     query = db.query(FhhLinkInvite).filter(FhhLinkInvite.token_hash == invite_tokens.hash_token(normalized))
@@ -253,10 +266,27 @@ def _revoke_link_messaging_access(db: Session, link: FhhLink, now: datetime, syn
         _refresh_identity_status(db, identity, now)
 
 
-@router.post("/link/verify", dependencies=[Depends(require_fhh_service)])
-def verify(body: CodeRequest, request: Request, db: Session = Depends(get_db)):
+@router.post("/link/verify")
+def verify(
+    body: CodeRequest,
+    request: Request,
+    integration_environment: str = Depends(require_fhh_service),
+    db: Session = Depends(get_db),
+):
     _rate_link(request); row = _invite(db, body.code)
-    return {**_snapshot(db, row.school_id, row.student_id), "expires_at": row.expires_at}
+    admission = (
+        {
+            "kind": "school_guardian",
+            "email_digest": _guardian_email_digest(row.recipient_email, integration_environment),
+        }
+        if row.recipient_email
+        else None
+    )
+    return {
+        **_snapshot(db, row.school_id, row.student_id),
+        "expires_at": row.expires_at,
+        "admission": admission,
+    }
 
 
 @router.post("/link/consume")

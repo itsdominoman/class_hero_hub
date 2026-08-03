@@ -8,13 +8,13 @@ os.environ["DEV_AUTH_ENABLED"] = "false"
 
 import pytest
 from entitlement_fixtures import grant_all_capabilities
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app import auth, database, invite_tokens
+from app import admission, auth, database, invite_tokens
 from app.database import Base, get_db
 from app.main import app
 from app.models_school import (
@@ -88,6 +88,24 @@ def bearer(email: str, school_id: int | None = None) -> dict[str, str]:
     if school_id is not None:
         headers["X-School-Id"] = str(school_id)
     return headers
+
+
+def staff_invite_bearer(db, user: User, raw_token: str) -> dict[str, str]:
+    invite = db.query(StaffInvite).filter(
+        StaffInvite.token_hash == invite_tokens.hash_token(raw_token)
+    ).one()
+    access_token, _ = auth.create_refresh_session(
+        db,
+        user,
+        Request({"type": "http", "headers": []}),
+        client_type="browser",
+        admission_context=admission.AdmissionContext(
+            kind=admission.PENDING_STAFF_INVITE,
+            token_hash=invite.token_hash,
+            expires_at=invite_tokens.as_utc_aware(invite.expires_at),
+        ),
+    )
+    return {"Authorization": f"Bearer {access_token}"}
 
 
 def token_from_url(url: str) -> str:
@@ -218,7 +236,11 @@ def test_school_admin_invites_teacher_and_exchange_creates_teacher_membership(db
     assert mismatch.status_code == 403
 
     invited = create_user(db, "new-teacher@example.com", "New Teacher")
-    accepted = client.post("/api/invites/exchange", headers=bearer(invited.email), json={"token": token})
+    accepted = client.post(
+        "/api/invites/exchange",
+        headers=staff_invite_bearer(db, invited, token),
+        json={"token": token},
+    )
     assert accepted.status_code == 200
     assert accepted.json()["membership"]["role"] == "teacher"
     assert accepted.json()["landing_path"] == "/teach"
@@ -243,22 +265,19 @@ def test_teacher_invite_duplicate_revoke_expired_and_suspended_school_behaviour(
 
     revoke = client.delete(f"/api/school/teachers/invites/{second.json()['id']}", headers=bearer(admin.email, alpha.id))
     assert revoke.status_code == 204
-    revoked_user = create_user(db, "dup@example.com", "Dup")
-    revoked_exchange = client.post("/api/invites/exchange", headers=bearer(revoked_user.email), json={"token": token_from_url(sent[-1].accept_url)})
+    revoked_exchange = client.post("/api/invites/exchange", headers=bearer(staff_world["platform"].email), json={"token": token_from_url(sent[-1].accept_url)})
     assert revoked_exchange.status_code == 410
 
     expired = client.post("/api/school/teachers/invites", headers=bearer(admin.email, alpha.id), json={"email": "expired@example.com"})
     expired_invite = db.query(StaffInvite).filter_by(id=expired.json()["id"]).one()
     expired_invite.expires_at = invite_tokens.now_utc() - timedelta(minutes=1)
     db.commit()
-    expired_user = create_user(db, "expired@example.com", "Expired")
-    assert client.post("/api/invites/exchange", headers=bearer(expired_user.email), json={"token": token_from_url(sent[-1].accept_url)}).status_code == 410
+    assert client.post("/api/invites/exchange", headers=bearer(staff_world["platform"].email), json={"token": token_from_url(sent[-1].accept_url)}).status_code == 410
 
     suspended = client.post("/api/school/teachers/invites", headers=bearer(admin.email, alpha.id), json={"email": "suspended@example.com"})
     alpha.status = "suspended"
     db.commit()
-    suspended_user = create_user(db, "suspended@example.com", "Suspended")
-    assert client.post("/api/invites/exchange", headers=bearer(suspended_user.email), json={"token": token_from_url(sent[-1].accept_url)}).status_code == 403
+    assert client.post("/api/invites/exchange", headers=bearer(staff_world["platform"].email), json={"token": token_from_url(sent[-1].accept_url)}).status_code == 403
     alpha.status = "active"
     db.commit()
 

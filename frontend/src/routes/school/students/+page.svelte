@@ -82,12 +82,17 @@
   type Guardians = { contacts: GuardianContact[]; invites: GuardianInvite[]; links: GuardianLink[] };
   type FhhInvite = {
     id: number;
+    student_guardian_contact_id?: number | null;
+    recipient_email?: string | null;
     display_code_last4?: string | null;
     expires_at?: string | null;
     consumed_at?: string | null;
     revoked_at?: string | null;
     created_at?: string | null;
+    send_status?: 'not_requested' | 'pending' | 'sent' | 'failed';
+    sent_at?: string | null;
     code?: string;
+    warning?: string | null;
   };
   type FhhState = {
     invites: FhhInvite[];
@@ -761,6 +766,37 @@
     return 'active';
   }
 
+  function currentFhhGuardianInvite(contactId: number) {
+    return fhh?.invites.find(
+      (invite) =>
+        invite.student_guardian_contact_id === contactId &&
+        fhhInviteStatus(invite) === 'active'
+    );
+  }
+
+  async function emailFhhGuardianInvite(contact: GuardianContact) {
+    if (!selectedStudent || !contact.email) return;
+    saving = true;
+    try {
+      const result: FhhInvite = await api.post(
+        `/school/students/${selectedStudent.id}/fhh-invites/email`,
+        { contact_id: contact.id },
+        schoolOptions()
+      );
+      generatedFhhInvite = result;
+      await loadFhh();
+      if (result.warning || result.send_status === 'failed') {
+        showError(result.warning || $_('school.fhhLink.emailInviteFailed'));
+      } else {
+        showNotice($_('school.fhhLink.emailInviteSent', { values: { email: contact.email } }));
+      }
+    } catch (err: any) {
+      showError(err?.message || $_('school.fhhLink.emailInviteFailed'));
+    } finally {
+      saving = false;
+    }
+  }
+
   async function generateFhhCode() {
     if (!selectedStudent) return;
     try {
@@ -1026,12 +1062,31 @@
               </form>
               <div class="mt-4 space-y-3">
                 {#each guardians?.contacts || [] as contact (contact.id)}
-                  <article class={`rounded-xl border p-4 ${contact.is_active ? 'border-slate-200' : 'border-slate-200 bg-slate-50'}`}><div class="flex flex-col gap-3 sm:flex-row sm:justify-between"><div><p class="font-black">{contact.name}</p><p class="mt-1 text-sm text-slate-600">{[relationshipLabel(contact.relationship), contact.email, contact.phone].filter(Boolean).join(' · ') || '—'}</p><p class="mt-2 text-xs font-bold text-slate-500">{contact.source === 'import' ? $_('school.guardians.imported') : $_('school.guardians.manual')} · {guardianStatus(contact.access_status)}</p></div><div class="flex flex-wrap gap-2"><button class="btn-secondary rounded-lg px-3 py-2 text-sm" type="button" onclick={() => editGuardian(contact)}>{$_('school.edit')}</button><button class="btn-secondary rounded-lg px-3 py-2 text-sm" type="button" onclick={() => toggleGuardian(contact)}>{contact.is_active ? $_('school.guardians.inactivate') : $_('school.guardians.activate')}</button>{#if activeInvite(contact.id)}<button class="btn-secondary rounded-lg px-3 py-2 text-sm" type="button" onclick={() => revokeGuardianInvite(activeInvite(contact.id)!.id)}>{$_('school.guardians.revoke')}</button>{:else if contact.is_active}<button class="btn-hero rounded-lg px-3 py-2 text-sm" type="button" onclick={() => generateGuardianCode(contact.id)}>{$_('school.guardians.generate')}</button>{/if}</div></div></article>
+                  <article class={`rounded-xl border p-4 ${contact.is_active ? 'border-slate-200' : 'border-slate-200 bg-slate-50'}`}>
+                    <div class="flex flex-col gap-3 sm:flex-row sm:justify-between">
+                      <div>
+                        <p class="font-black">{contact.name}</p>
+                        <p class="mt-1 text-sm text-slate-600">{[relationshipLabel(contact.relationship), contact.email, contact.phone].filter(Boolean).join(' · ') || '—'}</p>
+                        <p class="mt-2 text-xs font-bold text-slate-500">{contact.source === 'import' ? $_('school.guardians.imported') : $_('school.guardians.manual')} · {guardianStatus(contact.access_status)}</p>
+                        {#if currentFhhGuardianInvite(contact.id)?.send_status === 'sent'}
+                          <p class="mt-2 text-xs font-bold text-emerald-700">{$_('school.fhhLink.invitationSent')}</p>
+                        {:else if currentFhhGuardianInvite(contact.id)?.send_status === 'failed'}
+                          <p class="mt-2 text-xs font-bold text-red-700">{$_('school.fhhLink.invitationFailed')}</p>
+                        {/if}
+                      </div>
+                      <div class="flex flex-wrap gap-2">
+                        <button class="btn-secondary rounded-lg px-3 py-2 text-sm" type="button" onclick={() => editGuardian(contact)}>{$_('school.edit')}</button>
+                        <button class="btn-secondary rounded-lg px-3 py-2 text-sm" type="button" onclick={() => toggleGuardian(contact)}>{contact.is_active ? $_('school.guardians.inactivate') : $_('school.guardians.activate')}</button>
+                        {#if contact.is_active && contact.email}
+                          <button class="btn-hero rounded-lg px-3 py-2 text-sm" type="button" disabled={saving} onclick={() => emailFhhGuardianInvite(contact)}>{currentFhhGuardianInvite(contact.id) ? $_('school.fhhLink.resendEmailInvite') : $_('school.fhhLink.emailInvite')}</button>
+                        {/if}
+                      </div>
+                    </div>
+                  </article>
                 {:else}
                   <p class="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">{$_('school.guardians.noContacts')}</p>
                 {/each}
               </div>
-              {#if generatedGuardianInvite?.code}<div class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4"><p class="font-black">{$_('school.guardians.generatedCode')}</p><p class="mt-2 font-mono text-xl font-black tracking-wider">{generatedGuardianInvite.code}</p><p class="mt-2 text-xs text-emerald-800">{$_('school.guardians.immediateOnly')}</p></div>{/if}
             </div>
           {:else if activeDetailTab === 'placement'}
             <div class="mt-5"><h3 class="font-black">{$_('school.studentAdmin.currentPlacement')}</h3><p class="mt-2 text-slate-700">{currentClass(selectedStudent)}</p><div class="mt-5 max-w-xl rounded-xl border border-slate-200 p-4"><label class="text-sm font-bold">{$_('school.students.moveClass')}<select data-field="move" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" bind:value={moveSectionId}><option value="">{$_('school.select')}</option>{#each sections.filter((row) => row.status !== 'archived') as section}<option value={String(section.id)}>{sectionContext(section)}</option>{/each}</select>{#if fieldErrors.move}<span class="mt-1 block text-xs text-red-700">{fieldErrors.move}</span>{/if}</label><p class="mt-2 text-xs text-slate-500">{$_('school.students.moveHelp')}</p><button type="button" class="btn-hero mt-4 rounded-xl px-4 py-2.5" disabled={saving} onclick={moveStudent}>{$_('school.students.move')}</button></div></div>

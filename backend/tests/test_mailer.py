@@ -1,6 +1,15 @@
 from unittest.mock import MagicMock
 
-from app.mailer import PilotEnquiryEmail, StaffInviteEmail, send_pilot_enquiry, send_staff_invite
+import pytest
+
+from app.mailer import (
+    FhhGuardianInviteEmail,
+    PilotEnquiryEmail,
+    StaffInviteEmail,
+    send_fhh_guardian_invite,
+    send_pilot_enquiry,
+    send_staff_invite,
+)
 
 
 def _invite() -> StaffInviteEmail:
@@ -11,17 +20,16 @@ def _invite() -> StaffInviteEmail:
     )
 
 
-def test_send_staff_invite_skips_when_smtp_not_configured(monkeypatch, caplog):
+def test_send_staff_invite_fails_when_smtp_not_configured(monkeypatch):
     monkeypatch.setattr("app.mailer.settings.SMTP_HOST", "")
     monkeypatch.setattr("app.mailer.settings.SMTP_FROM_EMAIL", "")
     smtp_cls = MagicMock()
     monkeypatch.setattr("smtplib.SMTP", smtp_cls)
 
-    with caplog.at_level("WARNING"):
+    with pytest.raises(RuntimeError, match="SMTP is not configured"):
         send_staff_invite(_invite())
 
     smtp_cls.assert_not_called()
-    assert "SMTP not configured" in caplog.text
 
 
 def test_send_staff_invite_sends_via_starttls_on_587(monkeypatch):
@@ -103,3 +111,31 @@ def test_send_pilot_enquiry_uses_support_recipient_and_visitor_reply_to(monkeypa
     assert sent_message["Reply-To"] == enquiry.reply_to
     assert enquiry.school in sent_message["Subject"]
     assert enquiry.message in sent_message.get_content()
+
+
+def test_send_fhh_guardian_invite_omits_child_identity(monkeypatch):
+    monkeypatch.setattr("app.mailer.settings.SMTP_HOST", "mail.familyherohub.com")
+    monkeypatch.setattr("app.mailer.settings.SMTP_PORT", 587)
+    monkeypatch.setattr("app.mailer.settings.SMTP_USERNAME", "sender@example.com")
+    monkeypatch.setattr("app.mailer.settings.SMTP_PASSWORD", "secret")
+    monkeypatch.setattr("app.mailer.settings.SMTP_FROM_EMAIL", "sender@example.com")
+    monkeypatch.setattr("app.mailer.settings.SMTP_FROM_NAME", "Class Hero Hub")
+    monkeypatch.setattr("app.mailer.settings.SMTP_USE_TLS", True)
+
+    smtp_instance = MagicMock()
+    smtp_instance.__enter__.return_value = smtp_instance
+    monkeypatch.setattr("smtplib.SMTP", MagicMock(return_value=smtp_instance))
+
+    invite = FhhGuardianInviteEmail(
+        to_email="parent@example.com",
+        school_name="Example School",
+        invite_url="https://familyherohub.com/school-invite/CHH-1234-5678",
+    )
+    send_fhh_guardian_invite(invite)
+
+    sent_message = smtp_instance.send_message.call_args[0][0]
+    content = sent_message.get_content()
+    assert sent_message["To"] == invite.to_email
+    assert invite.school_name in sent_message["Subject"]
+    assert invite.invite_url in content
+    assert "child's name" in content

@@ -636,6 +636,13 @@ class FhhLinkInvite(Base):
     id = Column(Integer, primary_key=True, index=True)
     school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
     student_id = Column(Integer, ForeignKey("students.id"), nullable=False, index=True)
+    student_guardian_contact_id = Column(
+        Integer,
+        ForeignKey("student_guardian_contacts.id"),
+        nullable=True,
+        index=True,
+    )
+    recipient_email = Column(String, nullable=True)
     token_hash = Column(String, unique=True, nullable=False, index=True)
     display_code_last4 = Column(String, nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False, default=_default_fhh_invite_expires_at)
@@ -644,9 +651,23 @@ class FhhLinkInvite(Base):
     revoked_at = Column(DateTime(timezone=True), nullable=True)
     revoked_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    send_status = Column(String, nullable=False, default="not_requested", server_default="not_requested")
+    last_send_error = Column(String, nullable=True)
+    sent_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    __table_args__ = (Index("ix_fhh_link_invites_school_student", "school_id", "student_id"),)
+    __table_args__ = (
+        CheckConstraint(
+            "send_status IN ('not_requested', 'pending', 'sent', 'failed')",
+            name="ck_fhh_link_invites_send_status",
+        ),
+        Index("ix_fhh_link_invites_school_student", "school_id", "student_id"),
+        Index(
+            "ix_fhh_link_invites_school_contact",
+            "school_id",
+            "student_guardian_contact_id",
+        ),
+    )
 
 
 class FhhLink(Base):

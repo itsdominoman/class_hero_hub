@@ -56,6 +56,7 @@ from ..models_school import (
     SubjectGroup,
     User,
 )
+from ..mailer import FhhGuardianInviteEmail, send_fhh_guardian_invite
 from ..rosters import resolve_rosters_for_students, roster_payload
 from ..student_exports import (
     CLASS_ENROLMENT_COLUMNS,
@@ -300,6 +301,10 @@ class GuardianContactRequest(BaseModel):
         if cleaned not in {"mother", "father", "guardian", "other"}:
             raise ValueError("relationship must be mother, father, guardian, or other")
         return cleaned
+
+
+class FhhGuardianInviteRequest(BaseModel):
+    contact_id: int
 
 
 class StudentOnboardingRequest(BaseModel):
@@ -3871,6 +3876,18 @@ def update_guardian_contact(
             invite.revoked_at = invite_tokens.now_utc()
             invite.revoked_by_user_id = membership.user_id
             revoked_invite_ids.append(invite.id)
+        for invite in (
+            db.query(FhhLinkInvite)
+            .filter(
+                FhhLinkInvite.school_id == school_id,
+                FhhLinkInvite.student_guardian_contact_id == contact.id,
+                FhhLinkInvite.revoked_at.is_(None),
+                FhhLinkInvite.consumed_at.is_(None),
+            )
+            .all()
+        ):
+            invite.revoked_at = invite_tokens.now_utc()
+            invite.revoked_by_user_id = membership.user_id
     try:
         db.flush()
     except IntegrityError:
@@ -4004,10 +4021,14 @@ def _fhh_invite_payload(row: FhhLinkInvite) -> dict[str, Any]:
     return {
         "id": row.id,
         "student_id": row.student_id,
+        "student_guardian_contact_id": row.student_guardian_contact_id,
+        "recipient_email": row.recipient_email,
         "display_code_last4": row.display_code_last4,
         "expires_at": row.expires_at,
         "consumed_at": row.consumed_at,
         "revoked_at": row.revoked_at,
+        "send_status": row.send_status,
+        "sent_at": row.sent_at,
         "created_at": row.created_at,
     }
 
@@ -4068,6 +4089,104 @@ def create_fhh_invite(student_id: int, membership: Membership = Depends(require_
     return {**_fhh_invite_payload(row), "code": invite_tokens.display_short_code(raw_code)}
 
 
+@router.post(
+    "/students/{student_id}/fhh-invites/email",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=FAMILY_CONNECTION_ENTITLEMENT,
+)
+def email_fhh_guardian_invite(
+    student_id: int,
+    payload: FhhGuardianInviteRequest,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    student = _get_owned(db, Student, school_id, student_id)
+    if student.status != "active":
+        raise HTTPException(status_code=400, detail="Family invitations require an active student")
+    contact = (
+        db.query(StudentGuardianContact)
+        .filter(
+            StudentGuardianContact.id == payload.contact_id,
+            StudentGuardianContact.school_id == school_id,
+            StudentGuardianContact.student_id == student.id,
+        )
+        .first()
+    )
+    if not contact or not contact.is_active or contact.status == "ignored":
+        raise HTTPException(status_code=400, detail="An active guardian contact is required")
+    recipient_email = auth.normalize_email(contact.email)
+    if not recipient_email:
+        raise HTTPException(status_code=400, detail="Add the guardian's email address before sending an invitation")
+
+    now = invite_tokens.now_utc()
+    for previous in (
+        db.query(FhhLinkInvite)
+        .filter(
+            FhhLinkInvite.school_id == school_id,
+            FhhLinkInvite.student_id == student.id,
+            FhhLinkInvite.student_guardian_contact_id == contact.id,
+            FhhLinkInvite.revoked_at.is_(None),
+            FhhLinkInvite.consumed_at.is_(None),
+        )
+        .all()
+    ):
+        previous.revoked_at = now
+        previous.revoked_by_user_id = membership.user_id
+
+    raw_code = invite_tokens.generate_short_code()
+    normalized = invite_tokens.normalize_short_code(raw_code)
+    row = FhhLinkInvite(
+        school_id=school_id,
+        student_id=student.id,
+        student_guardian_contact_id=contact.id,
+        recipient_email=recipient_email,
+        token_hash=invite_tokens.hash_token(normalized),
+        display_code_last4=normalized[-4:],
+        expires_at=now + timedelta(days=14),
+        created_by_user_id=membership.user_id,
+        send_status="pending",
+    )
+    db.add(row)
+    db.flush()
+    write_audit(
+        db,
+        membership.user_id,
+        "school.fhh_guardian_invite.created",
+        row,
+        {"student_id": student.id, "contact_id": contact.id},
+        school_id=school_id,
+    )
+    db.commit()
+    db.refresh(row)
+
+    warning = None
+    invite_url = f"{settings.FHH_PARENT_APP_URL.rstrip('/')}/school-invite#code={raw_code}"
+    school = db.query(School).filter(School.id == school_id).one()
+    try:
+        send_fhh_guardian_invite(
+            FhhGuardianInviteEmail(
+                to_email=recipient_email,
+                school_name=school.name,
+                invite_url=invite_url,
+            )
+        )
+        row.send_status = "sent"
+        row.sent_at = invite_tokens.now_utc()
+        row.last_send_error = None
+    except Exception as exc:  # pragma: no cover - provider behaviour
+        row.send_status = "failed"
+        row.last_send_error = type(exc).__name__[:80]
+        warning = "The invitation was created, but the email could not be sent. Try again after checking email delivery."
+    db.commit()
+    db.refresh(row)
+    return {
+        **_fhh_invite_payload(row),
+        "code": invite_tokens.display_short_code(raw_code),
+        "warning": warning,
+    }
+
+
 @router.post("/fhh-invites/{invite_id}/revoke", dependencies=FAMILY_CONNECTION_ENTITLEMENT)
 def revoke_fhh_invite(invite_id: int, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
     school_id = _school_id(membership)
@@ -4106,6 +4225,18 @@ def ignore_guardian_contact(contact_id: int, membership: Membership = Depends(re
         invite.revoked_at = invite_tokens.now_utc()
         invite.revoked_by_user_id = membership.user_id
         revoked_ids.append(invite.id)
+    for invite in (
+        db.query(FhhLinkInvite)
+        .filter(
+            FhhLinkInvite.school_id == school_id,
+            FhhLinkInvite.student_guardian_contact_id == contact.id,
+            FhhLinkInvite.revoked_at.is_(None),
+            FhhLinkInvite.consumed_at.is_(None),
+        )
+        .all()
+    ):
+        invite.revoked_at = invite_tokens.now_utc()
+        invite.revoked_by_user_id = membership.user_id
     write_audit(db, membership.user_id, "school.guardian_contact.ignored", contact, {"revoked_invite_ids": revoked_ids}, school_id=school_id)
     db.commit()
     db.refresh(contact)
