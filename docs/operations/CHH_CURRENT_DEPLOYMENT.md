@@ -1,5 +1,32 @@
 # CHH current pilot deployment
 
+## 2026-08-03 avatar 83 retirement follow-up
+
+Avatar ID `83` is now also retired from assignment, leaving 23 assignable girl
+avatars. Its artwork remains present and displayable for rollback and stale clients;
+no asset was deleted. The guarded live operation replaced all 10 active assignments
+of avatar 83 and assigned four previously missing avatars after an explicit manual
+correction of invalid or unspecified gender values on unmistakable synthetic pilot
+records. This was a one-off data correction, not name-inference logic in the product.
+Two genuinely ambiguous records remain unspecified and intentionally avatarless.
+
+The completed state has zero retired assignments, zero wrong-gender-pool
+assignments, zero assignments without a valid recorded gender, and zero duplicate
+avatar groups in current active classes. A repeat dry run targeted and changed zero
+students. The pre-change encrypted incremental backups are
+`20260801-221505F_20260803-130323I` locally and
+`20260801-221522F_20260803-130328I` off-host; repository, WAL and application
+readiness checks passed.
+
+Focused avatar coverage passed 3/3 locally and 3/3 inside the deployed backend
+image. Both replacement assets return HTTP 200, readiness reports `database=ok`
+and `migration=current`, and recent backend logs contain no relevant error entry.
+Only the backend was rebuilt and recreated, changing from container `4e09017b0358`
+to `85098ce32fd3`; the frontend `046fa48792c1`, PostgreSQL `9653df2c5588`,
+messaging worker `8919cebb3330`, and notification scheduler `2909345e8a68`
+retained their identities. There is no schema migration, frontend, asset, native,
+or APK change. Source implementation commit: `890a5b5`.
+
 ## 2026-08-03 gender-safe avatar assignment release
 
 Avatar IDs `56`, `59`, `67`, `75`, `77`, `89`, and `90` are no longer

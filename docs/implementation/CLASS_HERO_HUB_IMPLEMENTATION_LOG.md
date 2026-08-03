@@ -1,5 +1,21 @@
 # Class Hero Hub Implementation Log
 
+## 2026-08-03 - Avatar 83 retirement follow-up
+
+Avatar ID `83` joins the retired assignment set. It remains a valid displayable
+historical value and its image files remain intact, but it is excluded from the
+girl assignment pool. Focused coverage now exercises replacement of avatar 83 and
+confirms its historical URL remains available.
+
+The owner-directed pilot cleanup also corrected four unmistakable synthetic/demo
+records whose gender values were invalid or unspecified, then reused the existing
+class-aware assignment service to give those records gender-pool-safe avatars.
+This was a guarded, one-off data correction; production code still never infers a
+student's gender from their name. The two ambiguous records were not changed and
+remain avatarless. The same transaction reassigned all 10 active uses of avatar 83.
+Post-apply validation found no retired, wrong-pool, invalid-gender, or current-class
+duplicate assignment, and the repeat aggregate-only dry run was a no-op.
+
 ## 2026-08-03 - Gender-safe avatar retirement and class-aware assignment
 
 Avatar IDs `56`, `59`, `67`, `75`, `77`, `89`, and `90` are retired from
