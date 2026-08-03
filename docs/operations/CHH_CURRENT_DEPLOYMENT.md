@@ -1,14 +1,17 @@
 # CHH current pilot deployment
 
-## 2026-08-03 avatar 83 retirement follow-up
+## 2026-08-03 avatar 83 and 87 retirement follow-up
 
-Avatar ID `83` is now also retired from assignment, leaving 23 assignable girl
-avatars. Its artwork remains present and displayable for rollback and stale clients;
-no asset was deleted. The guarded live operation replaced all 10 active assignments
-of avatar 83 and assigned four previously missing avatars after an explicit manual
-correction of invalid or unspecified gender values on unmistakable synthetic pilot
-records. This was a one-off data correction, not name-inference logic in the product.
-Two genuinely ambiguous records remain unspecified and intentionally avatarless.
+Avatar IDs `83` and `87` are now also retired from assignment, leaving 22
+assignable girl avatars. Their artwork remains present and displayable for rollback
+and stale clients; no asset was deleted. The first guarded live operation replaced
+all 10 active assignments of avatar 83 and assigned four previously missing avatars
+after an explicit manual correction of invalid or unspecified gender values on
+unmistakable synthetic pilot records. Visual QA then caught that one random
+replacement and existing assignments used the similarly prismatic avatar 87, so a
+second guarded pass replaced all 13 active assignments of avatar 87. This was a
+one-off data correction, not name-inference logic in the product. Two genuinely
+ambiguous records remain unspecified and intentionally avatarless.
 
 The completed state has zero retired assignments, zero wrong-gender-pool
 assignments, zero assignments without a valid recorded gender, and zero duplicate
@@ -21,11 +24,12 @@ readiness checks passed.
 Focused avatar coverage passed 3/3 locally and 3/3 inside the deployed backend
 image. Both replacement assets return HTTP 200, readiness reports `database=ok`
 and `migration=current`, and recent backend logs contain no relevant error entry.
-Only the backend was rebuilt and recreated, changing from container `4e09017b0358`
-to `85098ce32fd3`; the frontend `046fa48792c1`, PostgreSQL `9653df2c5588`,
+Only the backend was rebuilt and recreated, first from `4e09017b0358` to
+`85098ce32fd3` and then to final container `d60b88ec573f` after visual QA retired
+avatar 87. The frontend `046fa48792c1`, PostgreSQL `9653df2c5588`,
 messaging worker `8919cebb3330`, and notification scheduler `2909345e8a68`
 retained their identities. There is no schema migration, frontend, asset, native,
-or APK change. Source implementation commit: `890a5b5`.
+or APK change. Source implementation commits: `890a5b5` and `1e57c4f`.
 
 ## 2026-08-03 gender-safe avatar assignment release
 
