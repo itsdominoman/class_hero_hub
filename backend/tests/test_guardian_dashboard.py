@@ -28,6 +28,7 @@ from app.models_school import (
     Student,
     User,
 )
+from app.student_avatars import GIRL_AVATAR_IDS
 
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -123,10 +124,10 @@ def world(db):
     db.add_all([alpha_section, beta_section])
     db.flush()
 
-    sara = Student(school_id=alpha.id, external_ref="S1", first_name="Sara", last_name="Ahmed", status="active")
-    omar = Student(school_id=alpha.id, external_ref="S2", first_name="Omar", last_name="Ahmed", status="active")
-    layla = Student(school_id=beta.id, external_ref="B1", first_name="Layla", last_name="Beta", status="active")
-    other_child = Student(school_id=alpha.id, external_ref="S3", first_name="Zayd", last_name="Other", status="active")
+    sara = Student(school_id=alpha.id, external_ref="S1", first_name="Sara", last_name="Ahmed", gender="female", status="active")
+    omar = Student(school_id=alpha.id, external_ref="S2", first_name="Omar", last_name="Ahmed", gender="male", status="active")
+    layla = Student(school_id=beta.id, external_ref="B1", first_name="Layla", last_name="Beta", gender="female", status="active")
+    other_child = Student(school_id=alpha.id, external_ref="S3", first_name="Zayd", last_name="Other", gender="male", status="active")
     db.add_all([sara, omar, layla, other_child])
     db.flush()
 
@@ -191,7 +192,7 @@ def test_guardian_with_one_active_link_sees_only_that_child(db, client, world):
     assert child["last_name"] == "Ahmed"
     assert child["display_name"] == "Sara Ahmed"
     assert child["initials"] == "SA"
-    assert child["avatar_id"] in {*range(31, 74), *range(75, 91)}
+    assert child["avatar_id"] in GIRL_AVATAR_IDS
     assert child["avatar_url_128"] == f"/avatars/128/{child['avatar_id']}-128.webp"
     assert child["avatar_url_256"] == f"/avatars/256/{child['avatar_id']}-256.webp"
     assert child["school_name"] == "Alpha Academy"

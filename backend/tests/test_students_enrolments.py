@@ -35,6 +35,7 @@ from app.models_school import (
     SubjectGroup,
     User,
 )
+from app.student_avatars import BOY_AVATAR_IDS, GIRL_AVATAR_IDS, RETIRED_AVATAR_IDS, avatar_urls, ensure_student_avatars
 
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -1008,16 +1009,19 @@ def test_teacher_class_detail_assigns_stable_gender_aware_unique_avatars(db, cli
     assert students[4].id not in {row["id"] for row in body["students"]}
 
     by_id = {row["id"]: row for row in body["students"]}
-    assert 31 <= by_id[students[0].id]["avatar_id"] <= 60
-    assert 31 <= by_id[students[1].id]["avatar_id"] <= 60
-    assert by_id[students[2].id]["avatar_id"] in {*range(61, 74), *range(75, 91)}
-    assert by_id[students[3].id]["avatar_id"] in {*range(31, 74), *range(75, 91)}
-    assert 74 not in {row["avatar_id"] for row in body["students"]}
-    assert len({row["avatar_id"] for row in body["students"]}) == 4
-    for row in body["students"]:
+    assert by_id[students[0].id]["avatar_id"] in BOY_AVATAR_IDS
+    assert by_id[students[1].id]["avatar_id"] in BOY_AVATAR_IDS
+    assert by_id[students[2].id]["avatar_id"] in GIRL_AVATAR_IDS
+    assert by_id[students[3].id]["avatar_id"] is None
+    assert by_id[students[3].id]["avatar_url_128"] is None
+    assert by_id[students[3].id]["avatar_url_256"] is None
+    assert not ({row["avatar_id"] for row in body["students"] if row["avatar_id"]} & RETIRED_AVATAR_IDS)
+    assert len({row["avatar_id"] for row in body["students"] if row["avatar_id"]}) == 3
+    for row in (row for row in body["students"] if row["avatar_id"] is not None):
         assert row["points_total"] == 0
         assert row["avatar_url_128"] == f"/avatars/128/{row['avatar_id']}-128.webp"
         assert row["avatar_url_256"] == f"/avatars/256/{row['avatar_id']}-256.webp"
+    assert all(row["points_total"] == 0 for row in body["students"])
 
     second = client.get(f"/api/teach/assignments/{assignment.id}", headers=bearer(world["alpha_teacher"].email))
     assert {row["id"]: row["avatar_id"] for row in second.json()["students"]} == {
@@ -1027,6 +1031,37 @@ def test_teacher_class_detail_assigns_stable_gender_aware_unique_avatars(db, cli
     serialized = str(body).lower()
     for forbidden in ("guardian", "email", "phone", "invite", "token", "hash", "external_ref", "date_of_birth", "gender"):
         assert forbidden not in serialized
+
+
+def test_avatar_assignment_replaces_retired_and_wrong_gender_pool_values(db, enrolment_world):
+    world = enrolment_world
+    students, _assignment = _add_classroom_students(db, world)
+    students[0].avatar_id = 56
+    students[1].avatar_id = 61
+    students[2].avatar_id = 67
+    db.commit()
+
+    assigned = ensure_student_avatars(db, [student.id for student in students[:4]])
+
+    assert assigned[students[0].id] in BOY_AVATAR_IDS
+    assert assigned[students[1].id] in BOY_AVATAR_IDS
+    assert assigned[students[2].id] in GIRL_AVATAR_IDS
+    assert students[3].id not in assigned
+    assert not (set(assigned.values()) & RETIRED_AVATAR_IDS)
+    assert len(set(assigned.values())) == 3
+    assert avatar_urls(56)["avatar_url_256"] == "/avatars/256/56-256.webp"
+
+
+def test_single_student_assignment_avoids_current_classmate_avatar(db, enrolment_world):
+    world = enrolment_world
+    students, _assignment = _add_classroom_students(db, world)
+    students[0].avatar_id = BOY_AVATAR_IDS[0]
+    db.commit()
+
+    assigned = ensure_student_avatars(db, [students[1].id])
+
+    assert assigned[students[1].id] in BOY_AVATAR_IDS
+    assert assigned[students[1].id] != students[0].avatar_id
 
 
 def test_teacher_class_detail_batches_persisted_point_totals_and_excludes_reversals(db, client, enrolment_world):

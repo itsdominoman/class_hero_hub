@@ -1,5 +1,38 @@
 # Class Hero Hub Implementation Log
 
+## 2026-08-03 - Gender-safe avatar retirement and class-aware assignment
+
+Avatar IDs `56`, `59`, `67`, `75`, `77`, `89`, and `90` are retired from
+assignment. Their 128px, 256px, 512px, and transparent-master files remain in
+source and continue to resolve for rollback and stale-client safety; no artwork is
+deleted or repurposed. The assignable boy pool is now 31-60 excluding 56 and 59
+(28 choices), and the assignable girl pool is 61-73 and 75-90 excluding 67, 75,
+77, 89, and 90 (24 choices). The database check constraint remains deliberately
+unchanged because retired IDs are still displayable historical values.
+
+Assignment now requires the school's recorded gender value to normalise to
+`male` or `female`. Male students receive only boy-pool avatars and female
+students receive only girl-pool avatars. Missing, `unspecified`, `other`, null,
+or invalid values are not inferred from a child's name and remain unassigned
+until the school corrects the record. A retired avatar, missing avatar, or avatar
+from the wrong gender pool is replaced when the student is processed.
+
+The reusable assignment service now loads every current active class containing a
+student who needs an avatar and avoids avatars already used by any current
+classmate, even when the caller requested only one child through a guardian view.
+Students in several current classes are checked against all of them. If a pool is
+ever exhausted, the service chooses among the avatars producing the fewest class
+collisions. Existing safe assignments remain stable.
+
+`backend/scripts/reassign_student_avatars.py` provides an aggregate-only,
+read-only dry run by default and requires `--apply` to commit. It validates that
+no retired or wrong-pool assignment remains and refuses to increase current class
+duplicate groups. The pilot preflight found 414 active male/female students with
+missing or retired assignments that can be safely updated. Three active students
+with missing avatars and `unspecified` gender are intentionally withheld; no child
+name is printed or used for inference. No schema, API response shape, frontend,
+asset, native, or APK change is required.
+
 ## 2026-08-01 — Recognition review and configuration management
 
 The physical-test one-point examples came from older frozen review criteria rather
