@@ -1,5 +1,20 @@
 # Class Hero Hub Implementation Log
 
+## 2026-08-03 - Complete demo avatar coverage
+
+The final aggregate audit identified exactly two active students without avatars,
+both synthetic Nour records left `unspecified` by the earlier strict-gender pass.
+All three other active Nour records in the same generated demo dataset are recorded
+female. That seed consistency, together with the owner's explicit instruction to
+complete demo coverage, allowed a guarded data correction without introducing
+runtime name inference.
+
+The two demo records were corrected to `female` and the existing assignment service
+selected girl-pool avatars 65 and 68 without current-class collisions. All 504
+active demo students now have avatars. Post-change validation and a no-op dry run
+found zero missing, retired, wrong-pool, invalid-gender, or current-class duplicate
+assignments. This was data-only and required no source or service change.
+
 ## 2026-08-03 - Avatar 83 and 87 retirement follow-up
 
 Avatar IDs `83` and `87` join the retired assignment set. They remain valid
@@ -13,11 +28,12 @@ The owner-directed pilot cleanup also corrected four unmistakable synthetic/demo
 records whose gender values were invalid or unspecified, then reused the existing
 class-aware assignment service to give those records gender-pool-safe avatars.
 This was a guarded, one-off data correction; production code still never infers a
-student's gender from their name. The two ambiguous records were not changed and
-remain avatarless. The first transaction reassigned all 10 active uses of avatar 83;
-the follow-up reassigned all 13 active uses of avatar 87. Post-apply validation found
-no retired, wrong-pool, invalid-gender, or current-class duplicate assignment, and
-the repeat aggregate-only dry run was a no-op.
+student's gender from their name. The two then-ambiguous records were initially left
+avatarless and were later resolved from the demo seed evidence documented above.
+The first transaction reassigned all 10 active uses of avatar 83; the follow-up
+reassigned all 13 active uses of avatar 87. Post-apply validation found no retired,
+wrong-pool, invalid-gender, or current-class duplicate assignment, and the repeat
+aggregate-only dry run was a no-op.
 
 ## 2026-08-03 - Gender-safe avatar retirement and class-aware assignment
 

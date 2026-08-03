@@ -1,5 +1,28 @@
 # CHH current pilot deployment
 
+## 2026-08-03 complete demo avatar coverage follow-up
+
+A full live audit found that the only two active students still missing avatars were
+the remaining synthetic Nour records. The three other active students generated
+with the same demo first name are all recorded female, which established the seed's
+intended demo value without adding name-inference behaviour to the product. The two
+remaining demo records were corrected from `unspecified` to `female` and received
+girl-pool avatars 65 and 68 through the existing class-aware assignment service.
+
+All 504 active demo students now have avatars. The final aggregate audit reports
+zero missing avatars, retired assignments, wrong-gender-pool assignments,
+assignments without a valid recorded gender, and duplicate avatar groups in current
+active classes. A repeat dry run targeted and changed zero students. Both assigned
+artworks were visually inspected.
+
+Fresh pre-change encrypted incremental backups are
+`20260801-221505F_20260803-131858I` locally and
+`20260801-221522F_20260803-131904I` off-host; repository, WAL, and application
+readiness checks passed. This was a guarded data-only correction. No source,
+container, schema, migration, frontend, worker, scheduler, native, or APK changed;
+backend container `d60b88ec573f` remained healthy and readiness reports
+`database=ok` and `migration=current`.
+
 ## 2026-08-03 avatar 83 and 87 retirement follow-up
 
 Avatar IDs `83` and `87` are now also retired from assignment, leaving 22
@@ -10,8 +33,9 @@ after an explicit manual correction of invalid or unspecified gender values on
 unmistakable synthetic pilot records. Visual QA then caught that one random
 replacement and existing assignments used the similarly prismatic avatar 87, so a
 second guarded pass replaced all 13 active assignments of avatar 87. This was a
-one-off data correction, not name-inference logic in the product. Two genuinely
-ambiguous records remain unspecified and intentionally avatarless.
+one-off data correction, not name-inference logic in the product. At that point two
+records remained unspecified and avatarless; the complete-demo follow-up above
+resolved their intended seed value and assigned them.
 
 The completed state has zero retired assignments, zero wrong-gender-pool
 assignments, zero assignments without a valid recorded gender, and zero duplicate
