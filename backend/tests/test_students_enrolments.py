@@ -1053,6 +1053,7 @@ def test_avatar_assignment_replaces_retired_and_wrong_gender_pool_values(db, enr
     assert len(set(assigned.values())) == 3
     assert avatar_urls(56)["avatar_url_256"] == "/avatars/256/56-256.webp"
     assert avatar_urls(83)["avatar_url_256"] == "/avatars/256/83-256.webp"
+    assert avatar_urls(87)["avatar_url_256"] == "/avatars/256/87-256.webp"
 
 
 def test_single_student_assignment_avoids_current_classmate_avatar(db, enrolment_world):

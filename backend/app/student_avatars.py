@@ -10,7 +10,7 @@ from .models_school import ClassSection, Enrolment, Student
 from .school_scope import open_interval_expression
 
 
-RETIRED_AVATAR_IDS = frozenset({56, 59, 67, 75, 77, 83, 89, 90})
+RETIRED_AVATAR_IDS = frozenset({56, 59, 67, 75, 77, 83, 87, 89, 90})
 DISPLAYABLE_BOY_AVATAR_IDS = tuple(range(31, 61))
 DISPLAYABLE_GIRL_AVATAR_IDS = tuple((*range(61, 74), *range(75, 91)))
 DISPLAYABLE_AVATAR_IDS = DISPLAYABLE_BOY_AVATAR_IDS + DISPLAYABLE_GIRL_AVATAR_IDS
