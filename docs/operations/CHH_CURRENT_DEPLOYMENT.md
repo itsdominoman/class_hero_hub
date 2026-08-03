@@ -12,23 +12,27 @@ current classmate before choosing an avatar.
 A fresh encrypted pgBackRest incremental backup completed to both local and
 off-host repositories immediately before the data operation. Labels are
 `20260801-221505F_20260803-123230I` locally and
-`20260801-221522F_20260803-123239I` off-host. A disposable PostgreSQL copy first
-proved the dry run, apply, and idempotent post-apply dry run; its temporary
-database and worktree were then removed.
+`20260801-221522F_20260803-123239I` off-host. Disposable PostgreSQL copies proved
+both the main backfill and final strict-gender clearing through dry run, apply,
+and idempotent post-apply dry run; their temporary databases and worktrees were
+then removed.
 
 The live aggregate-only operation assigned 398 previously missing avatars and
-replaced all 16 retired assignments: 232 female and 182 male students changed.
-It finished with zero retired assignments, zero wrong-gender-pool assignments,
-and zero duplicate avatar groups across current active classes. Three active
-students with `unspecified` gender remain intentionally unassigned until the
-school corrects their records. A second live dry run targeted and changed zero
-students.
+replaced all 16 retired assignments: 232 female and 182 male students received
+gender-pool-safe avatars. A final strict-gender pass cleared three legacy
+assignments whose records lacked a valid `male` or `female` value. In total, 417
+records changed. All six active records without valid recorded gender are now
+intentionally avatarless until the school corrects them. The final state has zero
+retired assignments, zero wrong-gender-pool assignments, zero assignments without
+valid recorded gender, and zero duplicate avatar groups across current active
+classes. A repeat live dry run targeted and changed zero students.
 
 Focused tests passed 47/47 both locally and inside the deployed backend image.
 The public root and retained avatar 56 asset return HTTP 200, recent backend logs
 contain no traceback, exception, fatal, critical, or uncaught entry, and readiness
 reports `database=ok` and `migration=current`. Only the backend was rebuilt and
-recreated, changing from container `a14bcbf565eb` to `6b472ff2a1a0`. The frontend
+recreated, changing from container `a14bcbf565eb` to final container
+`4e09017b0358`. The frontend
 `046fa48792c1`, PostgreSQL `9653df2c5588`, messaging worker `8919cebb3330`, and
 notification scheduler `2909345e8a68` retained their identities. There is no
 schema migration, frontend, worker, scheduler, asset, native, or APK change.

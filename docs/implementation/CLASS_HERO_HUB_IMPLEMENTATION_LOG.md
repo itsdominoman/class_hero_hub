@@ -28,18 +28,23 @@ collisions. Existing safe assignments remain stable.
 read-only dry run by default and requires `--apply` to commit. It validates that
 no retired or wrong-pool assignment remains and refuses to increase current class
 duplicate groups. The pilot preflight found 414 active male/female students with
-missing or retired assignments that can be safely updated. Three active students
-with missing avatars and `unspecified` gender are intentionally withheld; no child
-name is printed or used for inference. No schema, API response shape, frontend,
-asset, native, or APK change is required.
+missing or retired assignments that can be safely updated. Six active records do
+not contain a valid `male` or `female` value; three were already null and three
+held legacy assignments from the old combined fallback. All six are intentionally
+left avatarless until the school corrects the record. No child name is printed or
+used for inference. No schema, API response shape, frontend, asset, native, or APK
+change is required.
 
 The disposable PostgreSQL copy and the live pilot produced the same aggregate
 result: 398 missing avatars assigned and 16 retired assignments replaced, split
-across 232 female and 182 male students. Both runs finished with zero retired
-assignments, wrong-gender-pool assignments, or duplicate avatar groups in current
-classes. A repeat dry run returned zero changes. The three withheld `unspecified`
-records remained null. Focused local and deployed-image coverage each passed 47
-tests, including retired replacement, strict pools, unknown-gender withholding,
+across 232 female and 182 male students. A final strict-gender pass also cleared
+the three legacy assignments without valid recorded gender. The completed change
+therefore updated 417 records and left all six invalid/unspecified records null.
+Both rehearsals and live passes finished with zero retired assignments,
+wrong-gender-pool assignments, avatar assignments without valid recorded gender,
+or duplicate avatar groups in current classes. Repeat dry runs returned zero
+changes. Focused local and final deployed-image coverage each passed 47 tests,
+including retired replacement, strict pools, unknown-gender withholding,
 single-student class awareness, stable refresh, and guardian reuse.
 
 ## 2026-08-01 — Recognition review and configuration management
