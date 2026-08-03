@@ -26,13 +26,40 @@ protected FHH dashboard route, and `database=ok`, `migration=current`. The exist
 signed-in Chrome workspace was reloaded and contained zero `/parent` navigation
 links; its legacy parent URL redirected to “School updates for families.”
 
-Only the backend and frontend were rebuilt and recreated. The backend changed from
-container `f23aa4b53963` to `db11ff99aa23`; the frontend changed from
+Physical-device verification found that the installed code-16 APK still displayed
+the old bundled Family item even though the hosted web application was corrected.
+The final web assets were therefore synchronised into Capacitor and Android advanced
+to code `17`, version `1.15-staff-only-pilot`. `testDebugUnitTest`, `lintDebug`,
+`assembleDebug` and `assembleDebugAndroidTest` passed on Temurin 21.0.11 and Android
+SDK/build tools 35. All 369 production web files are byte-identical to their APK
+bundle copies; the only additional public files are the expected Cordova bridges.
+
+The debug APK is `96,499,293` bytes with SHA-256
+`3f125419153475884d11ab51660f4e81028ff5283beb6f0ade0e9bdece32e441`.
+Package, SDK, archive and v1/v2 signature checks passed with the established debug
+certificate SHA-256
+`e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`.
+The verified server artifact is
+`/opt/apps/class_hero_hub/tmp/class-hero-hub-staff-only-v1.15-code17-20260803.apk`;
+the byte-identical Drive copy is
+`G:\My Drive\CHH\Remote\class-hero-hub-staff-only-v1.15-code17-20260803.apk`.
+
+`adb install -r` upgraded the connected teacher test phone from code 16 without
+uninstalling. Its original `2026-07-18 22:47:59` first-install time, authenticated
+teacher session and notification preference were preserved. Before installation,
+the physical menu visibly contained Family, Teach and Messages. After installation,
+the same account reopened at My classes and the menu contained only Teach and
+Messages. The APK pulled back from the installed package is byte-identical to the
+server and Drive artifact.
+
+Only the backend and frontend containers were rebuilt and recreated. The backend
+changed from `f23aa4b53963` to `db11ff99aa23`; the frontend changed from
 `046fa48792c1` to `6e2abf1e5921`. PostgreSQL `9653df2c5588`, messaging worker
 `8919cebb3330`, and notification scheduler `2909345e8a68` retained their identities.
-There is no schema migration, existing-data mutation, FHH deployment, worker,
-scheduler, Capacitor, Android or APK change. A database backup was not required for
-this route and presentation change. Source implementation commit: `1a864ae`.
+There is no schema migration, existing-data mutation, FHH deployment, worker or
+scheduler change. No native plugin, permission, Java or Kotlin behaviour changed;
+Android changes are limited to the bundled frontend and release version metadata.
+A database backup was not required. Source commits: `1a864ae` and `56fcafd`.
 
 ## 2026-08-03 student-import avatar assignment release
 

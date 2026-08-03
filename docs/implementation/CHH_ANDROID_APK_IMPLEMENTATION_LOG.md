@@ -3,6 +3,45 @@
 Status date: 2026-08-03
 Scope: implementation record for the Class Hero Hub (CHH) Capacitor Android app.
 
+## 2026-08-03 staff-only CHH pilot APK
+
+The code-17 APK removes the obsolete Family destination from the authenticated CHH
+menu. This applies equally to teacher-only and dual staff/guardian accounts. The
+legacy `/parent` and `/join` pages in the bundled frontend redirect to the public
+Family Hero Hub explanation, while the hosted API no longer mounts any direct
+guardian endpoint. Staff pupil access through authorised teaching and school
+administration workflows is unchanged.
+
+Physical inspection of the connected teacher test phone before rebuilding was the
+decisive native check: code 16 still showed Family because Capacitor bundles the web
+frontend. Android therefore advances package `com.classherohub.app` from code `16`
+to code `17`, version name `1.15-staff-only-pilot`. There is no plugin, permission,
+Java or Kotlin behaviour change.
+
+The final production build contains 369 web files. Capacitor copied every file
+byte-for-byte into Android's public assets and added only `cordova.js` and
+`cordova_plugins.js`. App-scoped `testDebugUnitTest`, `lintDebug`, `assembleDebug`
+and `assembleDebugAndroidTest` passed on Temurin 21.0.11 and Android SDK/build tools
+35. The APK archive and package/version checks passed, and the built assets contain
+no `/api/guardian` or `/join/guardian` string.
+
+Final artifact:
+`/opt/apps/class_hero_hub/tmp/class-hero-hub-staff-only-v1.15-code17-20260803.apk`;
+identical Drive copy at
+`G:\My Drive\CHH\Remote\class-hero-hub-staff-only-v1.15-code17-20260803.apk`.
+It is `96,499,293` bytes with SHA-256
+`3f125419153475884d11ab51660f4e81028ff5283beb6f0ade0e9bdece32e441`.
+The APK verifies with v1 and v2 signing and the established Android Debug signer
+certificate SHA-256
+`e9506dfc7f53388bb6cc5c8fefdd16804f740745167b602efb725e173033060b`;
+v3/v4 are not used by this debug build.
+
+`adb install -r` upgraded the connected phone without uninstalling and preserved
+the original `2026-07-18 22:47:59` first-install time. The authenticated teacher
+session and notification setting remained present. The app reopened at My classes;
+the post-install menu displayed Teach and Messages with no Family item. The base APK
+pulled from the installed package is byte-identical to the server and Drive copies.
+
 ## 2026-08-03 canonical school-entitlement pilot APK
 
 The code-16 APK bundles the canonical school-entitlement frontend deployed to the
