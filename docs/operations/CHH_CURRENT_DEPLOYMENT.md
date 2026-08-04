@@ -1,5 +1,33 @@
 # CHH current pilot deployment
 
+## 2026-08-04 Jason Green dual-role family demonstration
+
+The accepted `jason@myeduzone.org` account remains an active CHH teacher and has
+no CHH guardian link or parent-facing access. For the FHH family-connection
+demonstration, two previously unlinked synthetic pupils were assigned to Jason as
+their primary father contact: student `123`, renamed from Hamza Anand to Hamza
+Green in KG1A, and student `306`, renamed from Amina Bautista to Amina Green in
+Grade 2B. Their first names, classes, enrolments and existing avatars were not
+changed.
+
+CHH created guardian contacts `7` and `8` and separate FHH invitations `11` and
+`12`. Mail delivery recorded `send_status=sent`, a populated send time and no
+delivery warning for each invitation. Both invitations remain unconsumed and the
+students have no active FHH link until Jason accepts them. The student updates,
+guardian-contact creation and invitation creation each have append-only school
+audit records.
+
+Encrypted pre-change incremental recovery points are
+`20260803-185042F_20260804-163047I` locally and
+`20260803-185057F_20260804-163054I` off-host; both repositories passed their
+integrity checks. Post-change verification confirmed one active Jason teacher
+membership, zero Jason CHH guardian links, the two expected class enrolments,
+clean invitation state and complete audit coverage. Live readiness reports
+`database=ok`, `migration=current`, all CHH containers are healthy and the recent
+backend log contains no mail error, exception or traceback. This was a documented
+pilot-data change only: no source behaviour, schema, container, native bundle or
+APK changed.
+
 ## 2026-08-03 school staff and family onboarding invitations
 
 CHH can now deliver staff invitations through the dedicated
