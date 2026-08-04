@@ -92,6 +92,7 @@
     send_status?: 'not_requested' | 'pending' | 'sent' | 'failed';
     sent_at?: string | null;
     code?: string;
+    related_student_count?: number;
     warning?: string | null;
   };
   type FhhState = {
@@ -787,6 +788,10 @@
       await loadFhh();
       if (result.warning || result.send_status === 'failed') {
         showError(result.warning || $_('school.fhhLink.emailInviteFailed'));
+      } else if ((result.related_student_count || 1) > 1) {
+        showNotice($_('school.fhhLink.emailBundleInviteSent', {
+          values: { email: contact.email, count: result.related_student_count }
+        }));
       } else {
         showNotice($_('school.fhhLink.emailInviteSent', { values: { email: contact.email } }));
       }

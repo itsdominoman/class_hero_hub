@@ -183,7 +183,17 @@ def test_school_admin_can_email_fhh_invite_with_email_bound_admission_digest(
         source="manual",
         status="draft",
     )
-    db.add(contact)
+    sibling_contact = StudentGuardianContact(
+        school_id=world["school"].id,
+        student_id=world["two"].id,
+        name="Omar Parent",
+        email=" PARENT@example.com ",
+        relationship="mother",
+        is_active=True,
+        source="manual",
+        status="draft",
+    )
+    db.add_all([contact, sibling_contact])
     db.commit()
     sent = []
     monkeypatch.setattr("app.routes.school.send_fhh_guardian_invite", sent.append)
@@ -197,6 +207,9 @@ def test_school_admin_can_email_fhh_invite_with_email_bound_admission_digest(
     assert created.status_code == 201
     assert created.json()["send_status"] == "sent"
     assert created.json()["recipient_email"] == "parent@example.com"
+    assert created.json()["related_student_count"] == 2
+    assert db.query(FhhLinkInvite).count() == 2
+    assert {row.send_status for row in db.query(FhhLinkInvite).all()} == {"sent"}
     assert len(sent) == 1
     assert sent[0].to_email == "parent@example.com"
     assert "Sara" not in sent[0].invite_url
@@ -216,7 +229,81 @@ def test_school_admin_can_email_fhh_invite_with_email_bound_admission_digest(
         "kind": "school_guardian",
         "email_digest": expected,
     }
+    assert verified.json()["student_count"] == 2
+    assert {row["display_name"] for row in verified.json()["students"]} == {
+        "Sara A",
+        "Omar B",
+    }
+    assert all(len(row["invite_ref"]) == 64 for row in verified.json()["students"])
     assert "parent@example.com" not in verified.text
+
+
+def test_guardian_bundle_consumes_all_matching_children_once(db, client, world, monkeypatch):
+    contacts = [
+        StudentGuardianContact(
+            school_id=world["school"].id,
+            student_id=student.id,
+            name="Shared Parent",
+            email="shared@example.com",
+            relationship="father",
+            is_active=True,
+            source="manual",
+            status="draft",
+        )
+        for student in (world["one"], world["two"])
+    ]
+    db.add_all(contacts)
+    db.commit()
+    monkeypatch.setattr("app.routes.school.send_fhh_guardian_invite", lambda _message: None)
+
+    issued = client.post(
+        f"/api/school/students/{world['one'].id}/fhh-invites/email",
+        headers=admin(world),
+        json={"contact_id": contacts[0].id},
+    )
+    preview = client.post(
+        "/api/integrations/fhh/link/verify",
+        headers=service(),
+        json={"code": issued.json()["code"]},
+    ).json()
+    children = [
+        {"invite_ref": row["invite_ref"], "fhh_child_ref": f"fhh-child:{index}"}
+        for index, row in enumerate(preview["students"], start=101)
+    ]
+
+    incomplete = client.post(
+        "/api/integrations/fhh/link/consume",
+        headers=service(),
+        json={"code": issued.json()["code"], "children": children[:1]},
+    )
+    assert incomplete.status_code == 404
+
+    consumed = client.post(
+        "/api/integrations/fhh/link/consume",
+        headers=service(),
+        json={
+            "code": issued.json()["code"],
+            "children": children,
+            "fhh_household_ref": "a" * 64,
+        },
+    )
+
+    assert consumed.status_code == 200
+    assert consumed.json()["connected_count"] == 2
+    assert {row["invite_ref"] for row in consumed.json()["links"]} == {
+        row["invite_ref"] for row in preview["students"]
+    }
+    assert db.query(FhhLink).count() == 2
+    assert {row.fhh_child_ref for row in db.query(FhhLink).all()} == {
+        "fhh-child:101",
+        "fhh-child:102",
+    }
+    assert all(row.consumed_at is not None for row in db.query(FhhLinkInvite).all())
+    assert client.post(
+        "/api/integrations/fhh/link/consume",
+        headers=service(),
+        json={"code": issued.json()["code"], "children": children},
+    ).status_code == 404
 
 
 def test_verify_expired_revoked_and_consume_single_use(db, client, world):

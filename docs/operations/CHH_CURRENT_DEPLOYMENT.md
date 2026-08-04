@@ -1,5 +1,29 @@
 # CHH current pilot deployment
 
+## 2026-08-04 one guardian invitation for all matching children
+
+When a school administrator sends a Family Hero Hub invitation from one active
+guardian contact, CHH now finds the other active pupils at that school with the
+same normalised guardian email. It creates protected invitation records for the
+unlinked pupils but sends only one email and one usable link. Already linked
+pupils are excluded. The administrator sees whether the invitation covers one or
+more children in natural English or Arabic wording.
+
+FHH verifies the delivered token and receives a list of the matching pupils with
+opaque HMAC references. It must return the complete reference set with a distinct
+FHH child profile for every pupil. CHH locks and consumes the set together, creates
+all links in one database transaction, and rejects partial, altered or replayed
+requests with the existing generic error. Bundles are restricted to one school,
+one verified guardian email, active guardian contacts and active pupils, with a
+20-pupil safety limit. Raw guardian emails and the undelivered child tokens are
+not exposed to FHH.
+
+The previous single-child verify and consume contract remains available during
+the coordinated rollout. Focused validation passed 24 integration, mail and
+operational-health tests, Svelte diagnostics with zero errors or warnings,
+2,224-key English/Arabic parity, and the production frontend build. There is no
+schema migration or native application change.
+
 ## 2026-08-04 Jason Green dual-role family demonstration
 
 The accepted `jason@myeduzone.org` account remains an active CHH teacher and has

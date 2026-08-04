@@ -4119,13 +4119,65 @@ def email_fhh_guardian_invite(
     if not recipient_email:
         raise HTTPException(status_code=400, detail="Add the guardian's email address before sending an invitation")
 
+    matching_contacts = (
+        db.query(StudentGuardianContact, Student)
+        .join(Student, Student.id == StudentGuardianContact.student_id)
+        .filter(
+            StudentGuardianContact.school_id == school_id,
+            StudentGuardianContact.is_active.is_(True),
+            StudentGuardianContact.status != "ignored",
+            func.lower(func.trim(StudentGuardianContact.email)) == recipient_email,
+            Student.school_id == school_id,
+            Student.status == "active",
+        )
+        .order_by(
+            StudentGuardianContact.is_primary.desc(),
+            StudentGuardianContact.id,
+        )
+        .all()
+    )
+    contact_by_student: dict[int, tuple[StudentGuardianContact, Student]] = {}
+    for matching_contact, matching_student in matching_contacts:
+        existing = contact_by_student.get(matching_student.id)
+        if existing is None or matching_contact.id == contact.id:
+            contact_by_student[matching_student.id] = (matching_contact, matching_student)
+    contact_by_student[student.id] = (contact, student)
+
+    if len(contact_by_student) > 20:
+        raise HTTPException(
+            status_code=409,
+            detail="More than 20 active students share this guardian email. Review the school records before inviting.",
+        )
+
+    linked_student_ids = {
+        linked_student_id
+        for (linked_student_id,) in (
+            db.query(FhhLink.student_id)
+            .filter(
+                FhhLink.school_id == school_id,
+                FhhLink.student_id.in_(list(contact_by_student)),
+                FhhLink.status == "active",
+                FhhLink.revoked_at.is_(None),
+            )
+            .all()
+        )
+    }
+    if student.id in linked_student_ids:
+        raise HTTPException(status_code=409, detail="This student already has an active Family Hero Hub connection")
+
+    bundle_contacts = [
+        pair
+        for student_id, pair in contact_by_student.items()
+        if student_id not in linked_student_ids
+    ]
+    bundle_contacts.sort(key=lambda pair: (pair[1].id != student.id, pair[1].id))
+
     now = invite_tokens.now_utc()
     for previous in (
         db.query(FhhLinkInvite)
         .filter(
             FhhLinkInvite.school_id == school_id,
-            FhhLinkInvite.student_id == student.id,
-            FhhLinkInvite.student_guardian_contact_id == contact.id,
+            func.lower(func.trim(FhhLinkInvite.recipient_email)) == recipient_email,
             FhhLinkInvite.revoked_at.is_(None),
             FhhLinkInvite.consumed_at.is_(None),
         )
@@ -4134,34 +4186,49 @@ def email_fhh_guardian_invite(
         previous.revoked_at = now
         previous.revoked_by_user_id = membership.user_id
 
-    raw_code = invite_tokens.generate_short_code()
-    normalized = invite_tokens.normalize_short_code(raw_code)
-    row = FhhLinkInvite(
-        school_id=school_id,
-        student_id=student.id,
-        student_guardian_contact_id=contact.id,
-        recipient_email=recipient_email,
-        token_hash=invite_tokens.hash_token(normalized),
-        display_code_last4=normalized[-4:],
-        expires_at=now + timedelta(days=14),
-        created_by_user_id=membership.user_id,
-        send_status="pending",
-    )
-    db.add(row)
-    db.flush()
-    write_audit(
-        db,
-        membership.user_id,
-        "school.fhh_guardian_invite.created",
-        row,
-        {"student_id": student.id, "contact_id": contact.id},
-        school_id=school_id,
-    )
+    rows: list[FhhLinkInvite] = []
+    primary_raw_code = ""
+    for bundle_contact, bundle_student in bundle_contacts:
+        raw_code = invite_tokens.generate_short_code()
+        normalized = invite_tokens.normalize_short_code(raw_code)
+        row = FhhLinkInvite(
+            school_id=school_id,
+            student_id=bundle_student.id,
+            student_guardian_contact_id=bundle_contact.id,
+            recipient_email=recipient_email,
+            token_hash=invite_tokens.hash_token(normalized),
+            display_code_last4=normalized[-4:],
+            expires_at=now + timedelta(days=14),
+            created_by_user_id=membership.user_id,
+            send_status="pending",
+        )
+        db.add(row)
+        db.flush()
+        write_audit(
+            db,
+            membership.user_id,
+            "school.fhh_guardian_invite.created",
+            row,
+            {
+                "student_id": bundle_student.id,
+                "contact_id": bundle_contact.id,
+                "guardian_bundle_size": len(bundle_contacts),
+            },
+            school_id=school_id,
+        )
+        rows.append(row)
+        if bundle_student.id == student.id:
+            primary_raw_code = raw_code
+
+    if not rows or not primary_raw_code:
+        raise HTTPException(status_code=409, detail="No unlinked students are available for this guardian invitation")
     db.commit()
-    db.refresh(row)
+    for row in rows:
+        db.refresh(row)
+    primary_row = next(row for row in rows if row.student_id == student.id)
 
     warning = None
-    invite_url = f"{settings.FHH_PARENT_APP_URL.rstrip('/')}/school-invite#code={raw_code}"
+    invite_url = f"{settings.FHH_PARENT_APP_URL.rstrip('/')}/school-invite#code={primary_raw_code}"
     school = db.query(School).filter(School.id == school_id).one()
     try:
         send_fhh_guardian_invite(
@@ -4171,18 +4238,22 @@ def email_fhh_guardian_invite(
                 invite_url=invite_url,
             )
         )
-        row.send_status = "sent"
-        row.sent_at = invite_tokens.now_utc()
-        row.last_send_error = None
+        sent_at = invite_tokens.now_utc()
+        for row in rows:
+            row.send_status = "sent"
+            row.sent_at = sent_at
+            row.last_send_error = None
     except Exception as exc:  # pragma: no cover - provider behaviour
-        row.send_status = "failed"
-        row.last_send_error = type(exc).__name__[:80]
+        for row in rows:
+            row.send_status = "failed"
+            row.last_send_error = type(exc).__name__[:80]
         warning = "The invitation was created, but the email could not be sent. Try again after checking email delivery."
     db.commit()
-    db.refresh(row)
+    db.refresh(primary_row)
     return {
-        **_fhh_invite_payload(row),
-        "code": invite_tokens.display_short_code(raw_code),
+        **_fhh_invite_payload(primary_row),
+        "code": invite_tokens.display_short_code(primary_raw_code),
+        "related_student_count": len(rows),
         "warning": warning,
     }
 

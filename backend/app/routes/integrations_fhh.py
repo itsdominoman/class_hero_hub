@@ -31,7 +31,7 @@ from ..models_school import (
     Announcement, AnnouncementAttachment, BehaviourCategory, BehaviourEvent, CalendarEvent,
     ClassSection, Enrolment, FhhLink, FhhLinkInvite, GradeLevel, HomeworkAttachment,
     FhhMessagingIdentity, FhhMessagingIdentityLink, FhhMessagingLifecycleEvent,
-    HomeworkItem, School, Student, Survey, UpdatePhoto, UpdatePost, User,
+    HomeworkItem, School, Student, StudentGuardianContact, Survey, UpdatePhoto, UpdatePost, User,
 )
 from ..survey_service import link_is_eligible, refresh_survey_state
 from ..behaviour_service import event_context_payloads
@@ -49,20 +49,47 @@ AUTH_LIMITER = BoundedInMemoryRateLimiter(60, 120)
 LINK_LIMITER = BoundedInMemoryRateLimiter(60, 30)
 GENERIC_LINK_ERROR = "Link code is unavailable"
 GENERIC_ACCESS_ERROR = "Integration access denied"
+MAX_GUARDIAN_BUNDLE_STUDENTS = 20
 
 
 class CodeRequest(BaseModel):
     code: str = Field(min_length=8, max_length=200)
 
 
-class ConsumeRequest(CodeRequest):
+class BundleChildRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    invite_ref: str = Field(pattern=r"^[0-9a-f]{64}$")
     fhh_child_ref: str = Field(min_length=1, max_length=200)
-    fhh_household_ref: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
     @field_validator("fhh_child_ref")
     @classmethod
     def clean_ref(cls, value: str) -> str:
         return value.strip()
+
+
+class ConsumeRequest(CodeRequest):
+    fhh_child_ref: str | None = Field(default=None, min_length=1, max_length=200)
+    children: list[BundleChildRequest] | None = Field(default=None, min_length=1, max_length=20)
+    fhh_household_ref: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @field_validator("fhh_child_ref")
+    @classmethod
+    def clean_ref(cls, value: str | None) -> str | None:
+        return value.strip() if value is not None else None
+
+    @model_validator(mode="after")
+    def validate_shape(self):
+        if bool(self.fhh_child_ref) == bool(self.children):
+            raise ValueError("provide either fhh_child_ref or children")
+        if self.children:
+            invite_refs = [row.invite_ref for row in self.children]
+            child_refs = [row.fhh_child_ref for row in self.children]
+            if len(set(invite_refs)) != len(invite_refs):
+                raise ValueError("invite_ref values must be unique")
+            if len(set(child_refs)) != len(child_refs):
+                raise ValueError("fhh_child_ref values must be unique")
+        return self
 
 
 LIFECYCLE_ACTIONS = {
@@ -192,6 +219,105 @@ def _invite(db: Session, code: str, *, lock: bool = False) -> FhhLinkInvite:
     return row
 
 
+def _bundle_invites(
+    db: Session,
+    primary: FhhLinkInvite,
+    *,
+    lock: bool = False,
+) -> list[FhhLinkInvite]:
+    """Return current same-school invitations for the same verified guardian email."""
+
+    recipient_email = (primary.recipient_email or "").strip().lower()
+    if not recipient_email:
+        return [primary]
+
+    now = invite_tokens.now_utc()
+    query = (
+        db.query(FhhLinkInvite)
+        .filter(
+            FhhLinkInvite.school_id == primary.school_id,
+            func.lower(func.trim(FhhLinkInvite.recipient_email)) == recipient_email,
+            FhhLinkInvite.revoked_at.is_(None),
+            FhhLinkInvite.consumed_at.is_(None),
+            FhhLinkInvite.expires_at > now,
+        )
+        .order_by(FhhLinkInvite.id.desc())
+    )
+    if lock:
+        query = query.with_for_update()
+
+    by_student: dict[int, FhhLinkInvite] = {primary.student_id: primary}
+    for row in query.all():
+        if row.student_id in by_student:
+            continue
+        student = (
+            db.query(Student.id)
+            .filter(
+                Student.id == row.student_id,
+                Student.school_id == primary.school_id,
+                Student.status == "active",
+            )
+            .first()
+        )
+        if student is None:
+            continue
+        if row.student_guardian_contact_id is not None:
+            contact = (
+                db.query(StudentGuardianContact)
+                .filter(
+                    StudentGuardianContact.id == row.student_guardian_contact_id,
+                    StudentGuardianContact.school_id == primary.school_id,
+                    StudentGuardianContact.student_id == row.student_id,
+                    StudentGuardianContact.is_active.is_(True),
+                    StudentGuardianContact.status != "ignored",
+                    func.lower(func.trim(StudentGuardianContact.email)) == recipient_email,
+                )
+                .first()
+            )
+            if contact is None:
+                continue
+        by_student[row.student_id] = row
+
+    rows = [primary] + [
+        row
+        for student_id, row in sorted(by_student.items())
+        if student_id != primary.student_id
+    ]
+    if len(rows) > MAX_GUARDIAN_BUNDLE_STUDENTS:
+        raise HTTPException(status_code=409, detail=GENERIC_LINK_ERROR)
+    return rows
+
+
+def _bundle_invite_ref(
+    primary: FhhLinkInvite,
+    row: FhhLinkInvite,
+    integration_environment: str,
+) -> str:
+    key = _integration_service_token(integration_environment).encode("utf-8")
+    message = (
+        f"fhh-school-guardian-bundle:v1:{primary.id}:{row.id}:{primary.token_hash}"
+    ).encode("utf-8")
+    return hmac.new(key, message, hashlib.sha256).hexdigest()
+
+
+def _bundle_preview(
+    db: Session,
+    primary: FhhLinkInvite,
+    integration_environment: str,
+) -> tuple[list[FhhLinkInvite], list[dict[str, Any]]]:
+    rows = _bundle_invites(db, primary)
+    students = []
+    for row in rows:
+        snapshot = _snapshot(db, row.school_id, row.student_id)
+        students.append(
+            {
+                "invite_ref": _bundle_invite_ref(primary, row, integration_environment),
+                **snapshot["student"],
+            }
+        )
+    return rows, students
+
+
 def _snapshot(db: Session, school_id: int, student_id: int) -> dict[str, Any]:
     school = db.query(School).filter(School.id == school_id).one()
     student = db.query(Student).filter(Student.id == student_id).one()
@@ -273,7 +399,10 @@ def verify(
     integration_environment: str = Depends(require_fhh_service),
     db: Session = Depends(get_db),
 ):
-    _rate_link(request); row = _invite(db, body.code)
+    _rate_link(request)
+    row = _invite(db, body.code)
+    rows, students = _bundle_preview(db, row, integration_environment)
+    primary_snapshot = _snapshot(db, row.school_id, row.student_id)
     admission = (
         {
             "kind": "school_guardian",
@@ -283,8 +412,10 @@ def verify(
         else None
     )
     return {
-        **_snapshot(db, row.school_id, row.student_id),
-        "expires_at": row.expires_at,
+        **primary_snapshot,
+        "students": students,
+        "student_count": len(students),
+        "expires_at": min(bundle_row.expires_at for bundle_row in rows),
         "admission": admission,
     }
 
@@ -298,24 +429,74 @@ def consume(
 ):
     _rate_link(request)
     try:
-        row = _invite(db, body.code, lock=True)
-        raw_token = secrets.token_urlsafe(32)
-        link = FhhLink(
-            school_id=row.school_id,
-            student_id=row.student_id,
-            source_invite_id=row.id,
-            link_token_hash=invite_tokens.hash_token(raw_token),
-            fhh_child_ref=body.fhh_child_ref,
-            fhh_household_ref=body.fhh_household_ref,
-            integration_environment=integration_environment,
-        )
-        db.add(link); db.flush()
-        row.consumed_at = invite_tokens.now_utc(); row.consumed_by = body.fhh_child_ref
-        write_audit(db, None, "integration.fhh_link.created", link, {"student_id": row.student_id, "source_invite_id": row.id}, school_id=row.school_id)
-        db.commit(); db.refresh(link)
+        primary = _invite(db, body.code, lock=True)
+        if body.children:
+            rows = _bundle_invites(db, primary, lock=True)
+            expected = {
+                _bundle_invite_ref(primary, row, integration_environment): row
+                for row in rows
+            }
+            supplied = {item.invite_ref: item.fhh_child_ref for item in body.children}
+            if supplied.keys() != expected.keys():
+                raise HTTPException(status_code=404, detail=GENERIC_LINK_ERROR)
+            requested = [
+                (row, invite_ref, supplied[invite_ref])
+                for invite_ref, row in expected.items()
+            ]
+        else:
+            requested = [(primary, None, body.fhh_child_ref)]
+
+        created: list[tuple[FhhLink, str, str | None]] = []
+        for row, invite_ref, fhh_child_ref in requested:
+            if not fhh_child_ref:
+                raise HTTPException(status_code=404, detail=GENERIC_LINK_ERROR)
+            raw_token = secrets.token_urlsafe(32)
+            link = FhhLink(
+                school_id=row.school_id,
+                student_id=row.student_id,
+                source_invite_id=row.id,
+                link_token_hash=invite_tokens.hash_token(raw_token),
+                fhh_child_ref=fhh_child_ref,
+                fhh_household_ref=body.fhh_household_ref,
+                integration_environment=integration_environment,
+            )
+            db.add(link)
+            db.flush()
+            row.consumed_at = invite_tokens.now_utc()
+            row.consumed_by = fhh_child_ref
+            write_audit(
+                db,
+                None,
+                "integration.fhh_link.created",
+                link,
+                {
+                    "student_id": row.student_id,
+                    "source_invite_id": row.id,
+                    "guardian_bundle_size": len(requested),
+                },
+                school_id=row.school_id,
+            )
+            created.append((link, raw_token, invite_ref))
+        db.commit()
+        for link, _, _ in created:
+            db.refresh(link)
     except IntegrityError:
-        db.rollback(); raise HTTPException(status_code=404, detail=GENERIC_LINK_ERROR)
-    return {"link_id": link.id, "link_token": raw_token, **_snapshot(db, link.school_id, link.student_id), "created_at": link.created_at}
+        db.rollback()
+        raise HTTPException(status_code=404, detail=GENERIC_LINK_ERROR)
+
+    links = [
+        {
+            "invite_ref": invite_ref,
+            "link_id": link.id,
+            "link_token": raw_token,
+            **_snapshot(db, link.school_id, link.student_id),
+            "created_at": link.created_at,
+        }
+        for link, raw_token, invite_ref in created
+    ]
+    if body.children:
+        return {"links": links, "connected_count": len(links)}
+    return {key: value for key, value in links[0].items() if key != "invite_ref"}
 
 
 def _scope(db: Session, link: FhhLink):
