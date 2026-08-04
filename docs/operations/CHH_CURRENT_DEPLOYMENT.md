@@ -24,6 +24,16 @@ operational-health tests, Svelte diagnostics with zero errors or warnings,
 2,224-key English/Arabic parity, and the production frontend build. There is no
 schema migration or native application change.
 
+Encrypted incremental recovery points completed before deployment as
+`20260803-185042F_20260804-173728I` locally and
+`20260803-185057F_20260804-173734I` off-host. Deployment recreated only backend
+`faaa6fbb74c8` using image `sha256:e74fb2b16c15` and frontend
+`7d7332dbe2af` using image `sha256:2407f8511eb1`. PostgreSQL, the messaging
+worker and notification scheduler retained their existing uptime. Live readiness
+reports `database=ok`, `migration=current`; the staff administration route
+returns HTTP 200; unauthenticated integration verification remains HTTP 401; and
+the new Docker backend image passed all 24 focused tests.
+
 ## 2026-08-04 Jason Green dual-role family demonstration
 
 The accepted `jason@myeduzone.org` account remains an active CHH teacher and has
