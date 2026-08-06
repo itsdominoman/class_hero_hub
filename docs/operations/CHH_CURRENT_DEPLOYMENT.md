@@ -1,5 +1,27 @@
 # CHH current pilot deployment
 
+## 2026-08-07 pre-CEO development acceptance checkpoint
+
+CHH pilot currently serves source `ea8507523c8b6dfc397f88b84289e8aedc95b186`
+with database revision `d8e9f0a1b2c3`. Backend, frontend, PostgreSQL,
+notification scheduler and messaging worker are healthy; the public root and
+health endpoint return HTTP 200.
+
+The deployed release includes the school leadership/HOD permission model,
+department administration, Communication Oversight, management reports and
+exports, protected generated-document sharing, certificate branding, long-list
+search/sorting and the final exact numeric student-search/stale-response fixes.
+Live read-only acceptance confirmed `G12B` returns nine Subject Groups, numeric
+student query `1` returns exactly one student, report/navigation surfaces load,
+and EN/AR switching preserves the current route and changes RTL/LTR correctly.
+
+FHH production and the Google Play release were not changed by this checkpoint.
+Final completion still requires approved Principal/Deputy/HOD identities,
+department/demo-family provisioning through supported workflows, role-scoped
+physical journeys, protected download/share acceptance and device checks. The
+authoritative requirement state is in `PRE_CEO_DEMO_COMPLETION_AUDIT.md` and the
+ordered implementation evidence is in `PRE_CEO_DEMO_RESULT.md`.
+
 ## 2026-08-06 Phase 1 CHH pilot release
 
 The audited CHH release candidate was deployed to the CHH pilot only. The

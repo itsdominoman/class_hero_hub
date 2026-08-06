@@ -21,8 +21,8 @@ The following remaining actions require explicit user input or authorisation:
 
 ## Frozen source checkpoints
 
-- CHH pilot source: `931eef68cd9566c9f7eed8d97a9474d4006f11ed`.
-- FHH development source: `97003047bb5d06a58d50658056b98aef15ce33be`.
+- CHH pilot source: `ea8507523c8b6dfc397f88b84289e8aedc95b186`.
+- FHH development source: `d0121b7014f7442560ddea15ded278f04187118f`.
 - Original baselines: CHH `37f5201` and FHH `85616ee`, both tagged `pre-ceo-demo-baseline-2026-08-06` locally.
 - Final completion tags have not been created because UAT is incomplete.
 
@@ -35,6 +35,23 @@ The following remaining actions require explicit user input or authorisation:
 5. Both public development homes/readiness endpoints return HTTP 200 and all
    relevant containers are healthy.
 6. FHH production and the Play Store release were not changed.
+
+## Observed development acceptance
+
+The following checks were observed against the deployed development systems on
+2026-08-07:
+
+- The user accepted the FHH development mobile header: the logo/title render
+  correctly, only Logout remains in the global header, and Surveys/School Chats
+  do not crowd or duplicate the header.
+- The user accepted the unlinked-parent boundary: an unlinked parent has no
+  Survey card and cannot use the direct Surveys destination.
+- The user accepted the CHH Subject Groups result for `G12B`: nine expected
+  groups are shown.
+- CHH exact numeric student search was verified live after deployment: query
+  `1` returns only student ID `1` (`Showing 1–1 of 1 students`).
+- CHH and FHH development link counts reconcile at one active development link;
+  both lifecycle and notification workers report healthy with no current error.
 
 ## Demo identity provisioning
 
@@ -65,20 +82,42 @@ Provision identities only through the normal application/administrative paths af
 - English and Arabic direction, mobile header, Android Back, keyboard resize and protected download work on a physical device.
 - No school role can access infrastructure telemetry or platform operations.
 
-## Known live-browser risk outside this local release proof
+## Final UAT gates before production promotion
 
-A live FHH mobile-browser screenshot supplied after the audit showed the full Surveys Hub and School Chats controls crowded into the global header, colliding with the logo/title and duplicating School Chats on the dashboard. The reporter also observed that a parent without a linked school child could see the Survey entry.
+Run these in order so failures remain easy to isolate and no broad retest is
+needed:
 
-Treat this as a separate Priority 0 release check:
+1. **Device-only regression:** open the existing production Google Play app and
+   confirm its pre-CHH functions still load and save normally. No messaging entry
+   is expected in that old production build.
+2. **FHH linked parent:** on development, open the linked child's School workspace
+   in EN and AR, then verify notices, Survey eligibility and School Chats. Repeat
+   the header, Android Back and keyboard behaviour in the development Android shell.
+3. **CHH narrow layout:** on the pilot site, switch EN/AR on School Setup, Students
+   and Reports; confirm the menu hierarchy, search keyboard, empty state and RTL
+   layout at phone width.
+4. **Approved identities:** supply/select the Principal, Deputy Principal and HOD
+   invitation identities, then create the department and dated HOD/Jason
+   assignments through the supported Staff & Departments UI.
+5. **Role and denial matrix:** verify Principal/Deputy school scope, HOD department
+   scope, teacher assignment scope, unauthorised direct identifiers, unrelated
+   departments and cross-school denial.
+6. **State-changing messaging journey:** with the approved demo accounts, accept
+   the safeguarding warning once, reload to prove persistence, send one staff
+   message/attachment, generate one report/certificate, share it to the exact linked
+   parent and verify protected download. Confirm no acknowledgement re-prompt for
+   the unchanged policy version.
+7. **Promotion decision:** review the resulting evidence and only then promote the
+   accepted FHH development commit to production/build a release APK. Production is
+   not part of the current authority.
 
-- Hide school Survey navigation unless an active linked child/school relationship authorises it.
-- Reject the direct Survey route and API with no metadata disclosure when that relationship is absent.
-- Restore a bounded mobile-web header without changing the intended APK navigation.
-- Keep School Chats in the approved information architecture and avoid duplicate entry points.
+## Resolved development release check
 
-The older browser harness did not include the reporter's exact unlinked-parent
-state. Reproduce this in FHH development during UAT; if it remains present, it is
-a development blocker and must be fixed before production promotion.
+The reported FHH mobile-header collision, duplicated School Chats destination
+and unlinked-parent Survey exposure were fixed in development at `d0121b7`.
+Focused automated checks passed and the user physically accepted the mobile
+header and unlinked-parent behaviour on 2026-08-07. The Android shell and a
+linked-parent EN/AR pass remain part of final UAT before production promotion.
 
 ## Rollback
 
