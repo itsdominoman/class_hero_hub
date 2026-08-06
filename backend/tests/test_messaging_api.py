@@ -3,7 +3,7 @@ import io
 import shutil
 import subprocess
 from time import perf_counter
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
@@ -20,6 +20,7 @@ from sqlalchemy.pool import StaticPool
 
 from app import auth, database
 from app.database import Base, get_db
+from app.entitlement_service import utc_today
 from legacy_guardian_app import create_legacy_guardian_test_app
 from app.models_school import (
     AcademicYear,
@@ -168,14 +169,14 @@ def _school_world(db, suffix):
         student_id=student.id,
         class_section_id=section.id,
         kind="member",
-        valid_from=date.today() - timedelta(days=10),
+        valid_from=utc_today() - timedelta(days=10),
     )
     assignment = StaffAssignment(
         school_id=school.id,
         membership_id=teacher.id,
         class_section_id=section.id,
         role="homeroom",
-        valid_from=date.today() - timedelta(days=10),
+        valid_from=utc_today() - timedelta(days=10),
     )
     links = [
         GuardianLink(
@@ -809,7 +810,7 @@ def test_guardian_can_create_and_reply_only_for_explicit_link_and_assignment(db,
     )
     assert swapped.status_code == 404
 
-    one["assignment"].valid_to = date.today() - timedelta(days=1)
+    one["assignment"].valid_to = utc_today() - timedelta(days=1)
     db.commit()
     closed_reply = client.post(
         f"/api/guardian/messaging/conversations/{conversation_id}/messages",
@@ -822,7 +823,7 @@ def test_guardian_can_create_and_reply_only_for_explicit_link_and_assignment(db,
 def test_teacher_family_scope_covers_multiple_classes_subject_and_temporary_assignments(db, client):
     world = _school_world(db, "teacher-family-scope")
     other_school = _school_world(db, "teacher-family-scope-other")
-    today = date.today()
+    today = utc_today()
     second_branch = BranchCampus(
         school_id=world["school"].id,
         code="SECOND",
@@ -1089,7 +1090,7 @@ def test_dual_role_receipts_use_exact_membership_participant_cursor(db, client):
             membership_id=dual_teacher.id,
             class_section_id=world["section"].id,
             role="homeroom",
-            valid_from=date.today() - timedelta(days=1),
+            valid_from=utc_today() - timedelta(days=1),
         )
     )
     db.commit()
@@ -1459,10 +1460,10 @@ def test_assignment_replacement_archive_school_suspension_and_dual_role(db, clie
             membership_id=replacement.id,
             class_section_id=world["assignment"].class_section_id,
             role="homeroom",
-            valid_from=date.today(),
+            valid_from=utc_today(),
         )
     )
-    world["assignment"].valid_to = date.today()
+    world["assignment"].valid_to = utc_today()
     db.commit()
 
     # Former staff lose participant access; the guardian retains read-only history.
@@ -1581,7 +1582,7 @@ def test_representative_inbox_unread_and_history_are_bounded_and_fast(db, client
                 student_id=student.id,
                 class_section_id=section_id,
                 kind="member",
-                valid_from=date.today() - timedelta(days=1),
+                valid_from=utc_today() - timedelta(days=1),
             )
             for student in students
         ]
@@ -2024,7 +2025,7 @@ def test_voice_feature_control_upload_attach_playback_scope_retry_and_cleanup(
             student_id=other_student.id,
             class_section_id=one["section"].id,
             kind="member",
-            valid_from=date.today() - timedelta(days=1),
+            valid_from=utc_today() - timedelta(days=1),
         )
     )
     db.add(
