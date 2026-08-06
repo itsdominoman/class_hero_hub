@@ -35,6 +35,25 @@ multi-class/subject/temporary scope, expired/unrelated and cross-school/revoked
 denial, and replacement/archive lifecycle. This is test-only and likewise
 requires no service rebuild.
 
+The shared school fixture and entitlement boundary tests now use that same UTC
+clock as well. All six entitlement tests pass independently during the former
+Oman-midnight failure window, including dependency enforcement and separation of
+platform entitlement authority from school read-only visibility.
+
+The complete ten-test school-report file also passes on current source. It covers
+scope and cross-school denial, filter validation, CSV/PDF and staged message
+documents, rollback safety, matrix limits, own-baseline sample safeguards,
+event-time enrolment and school-local-day bucketing. Live file download/share
+remains deliberately deferred to the approved state-changing UAT journey.
+
+All nineteen current survey tests pass as well, including scoped publication and
+responses, aggregate-only survey-summary generation/sharing and privacy-safe
+export behaviour.
+
+All eleven current student-recognition tests pass, including positive-only
+safeguards, role/school scope and certificate branding/generation. Physical EN/AR
+print and protected-download acceptance remains in UAT.
+
 ## 2026-08-06 Phase 1 CHH pilot release
 
 The audited CHH release candidate was deployed to the CHH pilot only. The
