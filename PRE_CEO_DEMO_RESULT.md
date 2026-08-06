@@ -36,6 +36,7 @@ This ordered list is updated after each completed implementation checkpoint.
 | 15 | CHH | `b9c57e2` | Checkpoint immediately before seeded-content deletion with the authoritative zero-ambiguity dry-run, guarded production invocation, verified point-in-time backup and cleanup report | 3 focused cleanup/guard tests passed; backup catalogue and SHA-256 verified | No deletion had occurred at this checkpoint |
 | 16 | CHH | `1856f00` | Record the completed manifest-only seeded-content cleanup and post-operation evidence | Zero-repeat dry-run, 1,041 tombstones, one audit event, preserved table counts, container health and affected logs verified | Recovery requires restoring the recorded pre-operation dump; no service restart occurred |
 | 17 | CHH | `cc50980` | Add explicit teacher-to-family assignment-scope regression coverage across homeroom, subject, multi-class, cross-branch cover, expired, unrelated and cross-school targets plus direct conversation/message manipulation | 4 focused staff-side messaging tests passed | Guardian-route companion tests remain unavailable in the local Windows harness because those routers are disabled there; existing authoritative integration coverage is retained |
+| 18 | CHH | `bf9967a` | Add shared school certificate logo/accent branding, extend positive-recognition management to Principal and Deputy Principal, and keep recognition in the Behaviour & recognition workspace | 10 focused backend tests, Svelte check with 0 errors/warnings, 8 recognition presentation tests, 2,257-key English/Arabic parity and guarded PostgreSQL upgrade/downgrade SQL passed | Source only: revision `c6d7e8f9a0b1` is not applied; physical EN/AR browser print/PDF output remains in the final checklist |
 
 ## Backups and migrations
 
@@ -46,6 +47,7 @@ This ordered list is updated after each completed implementation checkpoint.
 - Immediately before the planned CHH manifest-only content cleanup, custom-format dump `/opt/apps/class_hero_hub/backups/pre-ceo-demo/chh-pre-seed-cleanup-20260806T132931Z.dump` was created: 1,390,351 bytes; SHA-256 `0666777ebcf3bb3df41db81a48d0174120666522b8e87cd59a9030de754dafd6`; `pg_restore --list` verified the catalogue. The authoritative dry-run found 1,041 unambiguous manifest-proven rows and preserved every unmanifested survey, conversation, message and content row.
 - The normal FHH pgBackRest command was attempted first and failed before backup because the existing encrypted local `backup.info` could not be decoded and repository `2` was rejected. The fallback dump above is valid; repairing pgBackRest is an operations follow-up and was not mixed into this product task.
 - Acknowledgement revisions `f0e1d2c3b4a5` (CHH) and `d2e3f4a5b6c7` (FHH) were validated with offline upgrade and downgrade SQL. Neither has been applied.
+- Certificate-branding revision `c6d7e8f9a0b1` was validated with guarded PostgreSQL upgrade and downgrade SQL. It has not been applied.
 
 ## Runtime/deployment impact
 
@@ -63,7 +65,7 @@ This ordered list is updated after each completed implementation checkpoint.
 - Jason Green's active UIS teacher membership and three active teaching assignments verified.
 - Seed manifest namespaces/entity counts inspected without reading private content.
 - Manifest-only seeded-content cleanup removed 166 announcements, 208 calendar events, 512 homework/diary items and 155 update posts; its retained tombstones, audit event, preserved counts and zero-repeat dry-run were verified.
-- Same-school staff messaging, shared CHH/FHH language selection, FHH parent/student School dashboard boundaries, leadership/HOD reporting scope, department administration, audited communication-oversight scope, scoped teacher search, cross-school search isolation, natural setup ordering and responsive school-menu hierarchy have focused automated coverage.
+- Same-school staff messaging, shared CHH/FHH language selection, FHH parent/student School dashboard boundaries, leadership/HOD reporting scope, department administration, audited communication-oversight scope, scoped teacher search, cross-school search isolation, natural setup ordering, responsive school-menu hierarchy and leadership-managed school certificate branding have focused automated coverage.
 
 ## Remaining work
 
