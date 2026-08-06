@@ -16,6 +16,7 @@ from app.models_school import (
     MessagingOperationsJob,
     MessagingPermissionGrant,
     MessagingRetentionPolicy,
+    PlatformAdmin,
     SchoolSystemOwner,
 )
 from app.safeguarding_service import resolve_actor
@@ -74,9 +75,9 @@ def test_system_owner_is_explicit_transfer_is_confirmed_and_non_owner_is_denied(
         headers=_owner_headers(world),
         json={"reason": "Former owner should not retain authority"},
     )
-    assert denied.status_code == 403
+    assert denied.status_code == 404
     advanced_denied = client.get("/api/school/operations/advanced", headers=_owner_headers(world))
-    assert advanced_denied.status_code == 403
+    assert advanced_denied.status_code == 404
 
 
 def test_legal_hold_excludes_retention_preview_then_release_is_append_only(db, client):
@@ -172,13 +173,22 @@ def test_expired_lease_is_recovered_and_operations_health_contains_no_payload_co
     process_one_job(Session, worker_id="replacement-worker")
     db.refresh(job)
     assert job.state == "succeeded"
-    summary = client.get("/api/school/operations", headers=_owner_headers(world))
+    assert client.get("/api/school/operations", headers=_owner_headers(world)).status_code == 404
+    assert client.get("/api/school/operations/advanced", headers=_owner_headers(world)).status_code == 404
+    platform_denied = client.get("/api/platform/messaging-operations", headers=_owner_headers(world))
+    assert platform_denied.status_code == 403
+    db.add(PlatformAdmin(user_id=world["users"]["admin"].id))
+    db.commit()
+    summary = client.get(
+        "/api/platform/messaging-operations",
+        headers={"Authorization": _owner_headers(world)["Authorization"]},
+    )
     assert summary.status_code == 200
     assert "Preserved legal evidence" not in summary.text
-    assert set(summary.json()) == {"health"}
-    heartbeat = summary.json()["health"]["worker_heartbeats"][0]
+    school_health = next(
+        row["health"]
+        for row in summary.json()["schools"]
+        if row["school_id"] == world["school"].id
+    )
+    heartbeat = school_health["worker_heartbeats"][0]
     assert heartbeat["recovered_leases_total"] >= 1
-    advanced = client.get("/api/school/operations/advanced", headers=_owner_headers(world))
-    assert advanced.status_code == 200
-    assert advanced.json()["jobs"][0]["id"] == str(job.public_id)
-    assert advanced.json()["active_retention_policy"]["version"] == policy.policy_version

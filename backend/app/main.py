@@ -187,7 +187,6 @@ def create_app() -> FastAPI:
     app.include_router(calendar.staff_router, prefix="/api/school", tags=["calendar"])
     app.include_router(school.router, prefix="/api/school", tags=["school"])
     app.include_router(governance.router, prefix="/api/school", tags=["school-governance"])
-    app.include_router(messaging_operations.router, prefix="/api/school", tags=["messaging-operations"])
     app.include_router(messaging_operations.platform_router, prefix="/api/platform", tags=["messaging-operations"])
     app.include_router(messaging_policy.router, prefix="/api/school", tags=["messaging-policy"])
     app.include_router(feature_controls.router, prefix="/api/school", tags=["feature-controls"])

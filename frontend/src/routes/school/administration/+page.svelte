@@ -58,13 +58,6 @@
       </a>
       {/if}
 
-      <a href="/school/operations" class="card group flex min-h-44 flex-col p-6 transition hover:-translate-y-0.5 hover:border-hero/40 hover:shadow-xl">
-        <span class="text-xs font-black uppercase tracking-wide text-emerald-700">{$_('operationsPage.overallStatus')}</span>
-        <h2 class="mt-2 text-xl font-black text-slate-900">{$_('administration.systemStatus')}</h2>
-        <p class="mt-2 flex-1 text-sm leading-6 text-slate-600">{$_('administration.systemStatusHelp')}</p>
-        <span class="mt-5 font-black text-hero">{$_('administration.open')} <span class="inline-block rtl:-scale-x-100" aria-hidden="true">→</span></span>
-      </a>
-
       <a href="/school?tab=settings#compliance-feature-controls-title" class="card group flex min-h-44 flex-col p-6 transition hover:-translate-y-0.5 hover:border-hero/40 hover:shadow-xl">
         <span class="text-xs font-black uppercase tracking-wide text-slate-500">{$_('administration.restricted')}</span>
         <h2 class="mt-2 text-xl font-black text-slate-900">{$_('administration.compliance')}</h2>
@@ -80,12 +73,6 @@
           <span class="mt-5 font-black text-hero">{$_('administration.open')} <span class="inline-block rtl:-scale-x-100" aria-hidden="true">→</span></span>
         </a>
 
-        <a href="/school/operations/advanced" class="card group flex min-h-44 flex-col border-amber-200 p-6 transition hover:-translate-y-0.5 hover:border-amber-400 hover:shadow-xl">
-          <span class="text-xs font-black uppercase tracking-wide text-amber-700">{$_('administration.restricted')}</span>
-          <h2 class="mt-2 text-xl font-black text-slate-900">{$_('administration.advancedOperations')}</h2>
-          <p class="mt-2 flex-1 text-sm leading-6 text-slate-600">{$_('administration.advancedOperationsHelp')}</p>
-          <span class="mt-5 font-black text-amber-800">{$_('administration.open')} <span class="inline-block rtl:-scale-x-100" aria-hidden="true">→</span></span>
-        </a>
       {/if}
     </div>
     <p class="mt-5 text-sm text-slate-500">{$_('administration.restrictedHelp')}</p>

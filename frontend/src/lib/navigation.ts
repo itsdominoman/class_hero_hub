@@ -27,7 +27,6 @@ export function activeNavigationItem(
       "/school/administration",
       "/school/recognition",
       "/school/governance",
-      "/school/operations",
     ].some((route) => matchesPath(pathname, route))
   )
     return "system";
