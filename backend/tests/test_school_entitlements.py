@@ -1,5 +1,5 @@
 import os
-from datetime import date, timedelta
+from datetime import timedelta
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
@@ -19,6 +19,7 @@ from app.entitlement_service import (
     SCHOOL_CHATS,
     VOICE_NOTES,
     enabled_capabilities,
+    utc_today,
 )
 from app.feature_control_service import VOICE_NOTES_DISCLOSURE_VERSION
 from app.main import app
@@ -81,7 +82,7 @@ def school_headers(user, school) -> dict[str, str]:
 
 def test_effective_dates_and_dependencies_remove_incomplete_child_grants(db, seeded_schools):
     school = seeded_schools["schools"]["alpha"]
-    today = date.today()
+    today = utc_today()
     behaviour = db.query(SchoolEntitlement).filter_by(
         school_id=school.id,
         capability=BEHAVIOUR_POINTS,
@@ -153,7 +154,7 @@ def test_update_is_versioned_append_only_audited_and_dependency_safe(db, client,
     payload = {
         "enabled": False,
         "source": "pilot",
-        "effective_from": date.today().isoformat(),
+        "effective_from": utc_today().isoformat(),
         "expires_on": None,
         "internal_note": "Commercial grant changed after pilot review",
         "expected_entitlement_version": behaviour.entitlement_version,

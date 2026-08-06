@@ -1,7 +1,6 @@
 import pytest
-from datetime import date
 
-from app.entitlement_service import CAPABILITY_REGISTRY
+from app.entitlement_service import CAPABILITY_REGISTRY, utc_today
 from app.models_school import Membership, PlatformAdmin, School, SchoolEntitlement, User
 
 
@@ -61,7 +60,7 @@ def seeded_schools(db):
             capability=definition.key,
             enabled=True,
             source="pilot",
-            effective_from=date.today(),
+            effective_from=utc_today(),
             updated_by_user_id=platform_user.id,
         )
         for school in (alpha, beta)
