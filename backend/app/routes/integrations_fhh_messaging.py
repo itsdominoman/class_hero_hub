@@ -38,11 +38,13 @@ from .messaging import (
     _create_for_external_guardian,
     _enabled_policy,
     _external_guardian_access,
+    _document_for_participant,
     _inbox,
     _media_for_participant,
     _message_page,
     _private,
     _protected_media_response,
+    _protected_document_response,
     _protected_voice_response,
     _search_pattern,
     _send,
@@ -52,6 +54,7 @@ from .messaging import (
     _unread_count,
     _voice_for_participant,
 )
+from ..messaging_service import record_messaging_audit
 from ..message_media_service import MAX_RAW_IMAGE_BYTES
 from ..message_voice_service import MAX_RAW_AUDIO_BYTES
 
@@ -708,6 +711,47 @@ def view_voice(
             media_public_id=media_id,
         )
     )
+
+
+@router.get(
+    "/links/{link_id}/messaging/conversations/{conversation_id}/documents/{document_id}"
+)
+def view_document(
+    link_id: int,
+    conversation_id: UUID,
+    document_id: UUID,
+    request: Request,
+    x_fhh_link_token: str | None = Header(default=None),
+    x_fhh_messaging_actor: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    actor = _actor(
+        request=request,
+        db=db,
+        link_id=link_id,
+        link_token=x_fhh_link_token,
+        assertion=x_fhh_messaging_actor,
+    )
+    conversation, participant = _external_guardian_access(
+        db, actor=actor, public_id=conversation_id
+    )
+    row = _document_for_participant(
+        db,
+        conversation=conversation,
+        participant=participant,
+        document_public_id=document_id,
+    )
+    record_messaging_audit(
+        db,
+        school_id=conversation.school_id,
+        event_type="message.document.downloaded",
+        participant=participant,
+        conversation_id=conversation.id,
+        message_id=row.message_id,
+        detail={"document_id": str(row.public_id), "document_type": row.document_type},
+    )
+    db.commit()
+    return _protected_document_response(row)
 
 
 @router.post(

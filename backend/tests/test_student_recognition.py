@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app import auth, database
+from app import auth, database, generated_document_service
 from app.database import Base, get_db
 from app.main import app
 from app.models_school import (
@@ -20,6 +20,7 @@ from app.models_school import (
     Enrolment,
     GradeLevel,
     Membership,
+    MessageDocument,
     School,
     Student,
     StudentRecognitionCandidate,
@@ -254,6 +255,64 @@ def test_certificate_branding_is_school_scoped_audited_and_available_to_leadersh
         json=config_body(world, name="Leadership recognition"),
     )
     assert leadership_config.status_code == 201, leadership_config.text
+
+
+def test_confirmed_certificate_pdf_and_staged_message_document_are_private_and_audited(
+    client, db, recognition_world, monkeypatch, tmp_path
+):
+    monkeypatch.setattr(generated_document_service, "GENERATED_DOCUMENT_ROOT", tmp_path)
+    world = recognition_world
+    request_headers = headers(world["admin"], world["school"])
+    config = create_config(client, world)
+    draft = client.post(
+        "/api/school/recognition/reviews",
+        headers=request_headers,
+        json={"config_id": config["id"], "period_end": "2026-08-01"},
+    )
+    assert draft.status_code == 201, draft.text
+    review_id = draft.json()["id"]
+    assert client.get(
+        f"/api/school/recognition/reviews/{review_id}/certificate.pdf",
+        headers=request_headers,
+    ).status_code == 409
+    selected = draft.json()["candidates"][0]
+    confirmed = client.post(
+        f"/api/school/recognition/reviews/{review_id}/confirm",
+        headers=request_headers,
+        json={"student_id": selected["student_id"], "citation": "Consistent positive leadership"},
+    )
+    assert confirmed.status_code == 200, confirmed.text
+
+    direct = client.get(
+        f"/api/school/recognition/reviews/{review_id}/certificate.pdf?language=en",
+        headers=request_headers,
+    )
+    assert direct.status_code == 200, direct.text
+    assert direct.content.startswith(b"%PDF")
+    assert direct.headers["cache-control"] == "private, no-store, max-age=0"
+    assert len(direct.content) > 1_000
+    assert b"internal evidence must not reach certificates" not in direct.content
+
+    staged = client.post(
+        f"/api/school/recognition/reviews/{review_id}/generated-document",
+        headers=request_headers,
+        json={"language": "en"},
+    )
+    assert staged.status_code == 201, staged.text
+    assert staged.json()["document_type"] == "recognition_certificate"
+    row = db.query(MessageDocument).one()
+    assert row.school_id == world["school"].id and row.message_id is None
+    assert (tmp_path / row.storage_key).read_bytes().startswith(b"%PDF")
+    assert client.post(
+        f"/api/school/recognition/reviews/{review_id}/generated-document",
+        headers=headers(world["teacher"], world["school"]),
+        json={"language": "en"},
+    ).status_code == 403
+    actions = {row.action for row in db.query(AuditLog).all()}
+    assert {
+        "recognition.certificate.exported",
+        "recognition.certificate.generated_document.created",
+    } <= actions
 
 
 def test_shortlist_uses_only_unreversed_positive_scoped_period_evidence_and_shows_ties(client, db, recognition_world):

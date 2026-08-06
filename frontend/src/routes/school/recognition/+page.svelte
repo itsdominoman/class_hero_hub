@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import { goto } from '$app/navigation';
   import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
 
@@ -550,6 +551,50 @@
     window.print();
   }
 
+  function saveCertificate(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+  }
+
+  async function downloadCertificate() {
+    if (!currentReview || saving) return;
+    saving = true;
+    error = '';
+    try {
+      const blob = await api.download(
+        `/school/recognition/reviews/${currentReview.id}/certificate.pdf?language=${$locale === 'ar' ? 'ar' : 'en'}`,
+        schoolOptions()
+      );
+      saveCertificate(blob, `recognition-certificate-${currentReview.id}.pdf`);
+    } catch (caught: any) {
+      error = caught?.message || $_('recognitionPage.certificateExportError');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function shareCertificate() {
+    if (!currentReview || !membership || saving) return;
+    saving = true;
+    error = '';
+    try {
+      const document = await api.post(
+        `/school/recognition/reviews/${currentReview.id}/generated-document`,
+        { language: $locale === 'ar' ? 'ar' : 'en' },
+        schoolOptions()
+      ) as { id: string };
+      await goto(`/messages?membership=${membership.membership_id}&document=${encodeURIComponent(document.id)}`);
+    } catch (caught: any) {
+      error = caught?.message || $_('recognitionPage.certificateShareError');
+    } finally {
+      saving = false;
+    }
+  }
+
   onMount(() => {
     const onPopState = () => {
       const requested = requestedReviewId();
@@ -845,7 +890,14 @@
       <p class="mt-8 text-sm font-semibold text-slate-600">{$_('recognitionPage.awardPeriod')}: {currentReview.period_start} – {currentReview.period_end}</p>
       <div class="mx-auto mt-12 w-64 border-t border-slate-400 pt-3 text-sm font-bold text-slate-700">{currentReview.criteria.signatory_text}</div>
     </section>
-    <div class="no-print mt-4 text-center"><button class="btn-hero rounded-xl px-6 py-3" type="button" onclick={printCertificate}>{$_('recognitionPage.printCertificate')}</button><p class="mt-2 text-xs text-slate-500">{$_('recognitionPage.notPublished')}</p></div>
+    <div class="no-print mt-4 text-center">
+      <div class="flex flex-wrap justify-center gap-2">
+        <button class="btn-secondary rounded-xl px-6 py-3" type="button" disabled={saving} onclick={printCertificate}>{$_('recognitionPage.printCertificate')}</button>
+        <button class="btn-secondary rounded-xl px-6 py-3" type="button" disabled={saving} onclick={downloadCertificate}>{$_('recognitionPage.downloadCertificate')}</button>
+        <button class="btn-hero rounded-xl px-6 py-3" type="button" disabled={saving} onclick={shareCertificate}>{$_('recognitionPage.shareCertificate')}</button>
+      </div>
+      <p class="mt-2 text-xs text-slate-500">{$_('recognitionPage.notPublished')}</p>
+    </div>
   {/if}
 </section>
 

@@ -1,5 +1,26 @@
 # CHH reporting scope and gaps
 
+## Pre-CEO export and messaging-share extension (2026-08-06)
+
+- The filtered School Behaviour Overview now has audited English/Arabic PDF and
+  UTF-8 CSV exports. Both reuse the existing school/department permission scope,
+  preserve the active date and dimension filters, exclude private behaviour notes,
+  and cap the export at 25,000 events. The human-readable PDF includes up to 200
+  matching event rows alongside the complete summary; CSV contains the complete
+  bounded event set and neutralises spreadsheet-formula cells.
+- Authorised management can stage a filtered report PDF and confirmed recognition
+  certificate, enter the existing School Messages workflow, choose recipients under
+  normal messaging scope, add text, and send the immutable protected document.
+- Direct and staged generation are audit-logged. Staged documents expire after 24
+  hours if unused; attached documents inherit messaging retention and participant
+  access. No public links or second messaging system were added.
+- Server-generated certificates use the configured school name and approved accent
+  colour in English or Arabic. The existing browser print/PDF certificate continues
+  to include the configured HTTPS school logo. Remote logo retrieval was deliberately
+  not added to backend PDF generation because doing so without a managed upload would
+  introduce an SSRF boundary; a managed school-logo asset can be considered from
+  pilot feedback.
+
 ## Answer-first position
 
 CHH already has a reusable, school-scoped behaviour reporting foundation. The pre-demo objective is to make it reliable and available to the correct management roles, add useful exports, and keep language neutral and supportive. This project will not turn CHH into generic BI, an MIS, HR/appraisal, finance, attendance or academic-performance system.

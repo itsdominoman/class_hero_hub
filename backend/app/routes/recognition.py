@@ -11,7 +11,13 @@ from sqlalchemy.orm import Session
 
 from .. import auth
 from ..database import get_db
+from ..document_rendering import render_recognition_certificate_pdf
 from ..entitlement_service import POSITIVE_RECOGNITION, require_school_entitlement
+from ..generated_document_service import (
+    GeneratedDocumentValidationError,
+    create_generated_document,
+    document_payload,
+)
 from ..models_school import (
     BehaviourCategory,
     BranchCampus,
@@ -60,6 +66,12 @@ class CertificateBrandingRequest(BaseModel):
         if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
             raise ValueError("Logo URL must be an HTTPS URL without embedded credentials")
         return value
+
+
+class CertificateDocumentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    language: Literal["en", "ar"] = "en"
 
 
 def _branding_payload(school: School) -> dict[str, str | None]:
@@ -507,6 +519,98 @@ def get_review(
     payload = review_payload(db, review)
     payload["school"] = {"name": school.name, "name_ar": school.name_ar, **_branding_payload(school)}
     return payload
+
+
+def _certificate_bundle(db: Session, membership: Membership, review_id: int) -> tuple[StudentRecognitionReview, dict]:
+    review = _review(db, membership.school_id, review_id)
+    if review.status != "confirmed":
+        raise HTTPException(409, "Only a confirmed recognition can produce a certificate")
+    payload = review_payload(db, review)
+    candidate = payload.get("selected_candidate")
+    if not candidate:
+        raise HTTPException(409, "Confirmed recognition recipient is unavailable")
+    school = db.query(School).filter(School.id == membership.school_id).one()
+    criteria = payload.get("criteria") or {}
+    return review, {
+        "school_name": school.name,
+        "school_name_ar": school.name_ar,
+        "accent_color": _branding_payload(school)["accent_color"],
+        "student_name": candidate["student_name"],
+        "student_name_ar": candidate.get("student_name_ar"),
+        "certificate_title": criteria.get("certificate_title"),
+        "signatory_text": criteria.get("signatory_text"),
+        "citation": payload.get("citation"),
+        "period_start": str(payload["period_start"]),
+        "period_end": str(payload["period_end"]),
+    }
+
+
+@router.get("/recognition/reviews/{review_id}/certificate.pdf")
+def download_certificate_pdf(
+    review_id: int,
+    language: Literal["en", "ar"] = "en",
+    membership: Membership = Depends(require_school_role(*RECOGNITION_MANAGEMENT_ROLES)),
+    user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    review, bundle = _certificate_bundle(db, membership, review_id)
+    content = render_recognition_certificate_pdf(bundle, language)
+    write_audit(
+        db,
+        user,
+        "recognition.certificate.exported",
+        review,
+        {"format": "pdf", "language": language},
+        membership.school_id,
+    )
+    db.commit()
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="recognition-certificate-{review.id}.pdf"',
+            "Cache-Control": "private, no-store, max-age=0",
+            "Pragma": "no-cache",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.post("/recognition/reviews/{review_id}/generated-document", status_code=201)
+def generate_certificate_document(
+    review_id: int,
+    body: CertificateDocumentRequest,
+    membership: Membership = Depends(require_school_role(*RECOGNITION_MANAGEMENT_ROLES)),
+    user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    review, bundle = _certificate_bundle(db, membership, review_id)
+    content = render_recognition_certificate_pdf(bundle, body.language)
+    try:
+        row = create_generated_document(
+            db,
+            school_id=membership.school_id,
+            membership_id=membership.id,
+            document_type="recognition_certificate",
+            source_ref=f"recognition-review:{review.id}",
+            filename=f"recognition-certificate-{review.id}.pdf",
+            content_type="application/pdf",
+            content=content,
+        )
+    except GeneratedDocumentValidationError as exc:
+        db.rollback()
+        raise HTTPException(422, str(exc))
+    write_audit(
+        db,
+        user,
+        "recognition.certificate.generated_document.created",
+        row,
+        {"review_id": review.id, "language": body.language},
+        membership.school_id,
+    )
+    db.commit()
+    db.refresh(row)
+    return document_payload(row)
 
 
 @router.post("/recognition/reviews/{review_id}/archive")

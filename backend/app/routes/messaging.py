@@ -65,6 +65,13 @@ from ..message_voice_service import (
     stage_message_voice,
     voice_payload,
 )
+from ..generated_document_service import (
+    GeneratedDocumentValidationError,
+    attached_document_map,
+    document_payload,
+    protected_document_file,
+    staged_document_for_membership,
+)
 from ..models_school import (
     ClassSection,
     Conversation,
@@ -78,6 +85,7 @@ from ..models_school import (
     GradeLevel,
     Membership,
     Message,
+    MessageDocument,
     MessageMedia,
     MessageVoiceMedia,
     MessagingPolicyAcknowledgement,
@@ -307,6 +315,7 @@ class MessageSendRequest(BaseModel):
     body: str | None = Field(default=None, max_length=10_000)
     staged_media_ids: list[UUID] = Field(default_factory=list, max_length=5)
     staged_voice_id: UUID | None = None
+    staged_document_id: UUID | None = None
     urgent: bool = False
 
 
@@ -1294,6 +1303,7 @@ def _conversation_payloads(
     )
     latest_by_conversation = {row.conversation_id: row for row in latest_messages}
     latest_media = attached_media_map(db, [row.id for row in latest_messages])
+    latest_documents = attached_document_map(db, [row.id for row in latest_messages])
     effective_capabilities = enabled_capabilities(db, actor.school.id)
     voice_media_enabled = VOICE_NOTES in effective_capabilities
     latest_voice = (
@@ -1373,6 +1383,9 @@ def _conversation_payloads(
                         if latest.id in latest_voice
                         and latest.state == "active"
                         and voice_media_enabled
+                        else None,
+                        "document": document_payload(latest_documents[latest.id])
+                        if latest.id in latest_documents and latest.state == "active"
                         else None,
                         "state": latest.state,
                         "created_at": latest.created_at,
@@ -1734,6 +1747,7 @@ def _message_page(
         if VOICE_NOTES in effective_capabilities
         else {}
     )
+    documents_by_message = attached_document_map(db, [row.id for row in rows])
     items = [
         {
             "id": str(row.public_id),
@@ -1755,6 +1769,9 @@ def _message_page(
             ),
             "voice_note": voice_payload(voice_by_message[row.id])
             if row.id in voice_by_message and row.state == "active"
+            else None,
+            "document": document_payload(documents_by_message[row.id])
+            if row.id in documents_by_message and row.state == "active"
             else None,
             "state": row.state,
             "urgent": row.urgent,
@@ -3027,6 +3044,7 @@ def _send(
             body=body.body,
             staged_media_ids=body.staged_media_ids,
             staged_voice_id=body.staged_voice_id,
+            staged_document_id=body.staged_document_id,
             urgent=body.urgent,
         )
         if not duplicate:
@@ -3051,6 +3069,7 @@ def _send(
         raise HTTPException(status_code=409, detail=str(exc))
     photos = attached_media_map(db, [message.id]).get(message.id, [])
     voice = attached_voice_map(db, [message.id]).get(message.id)
+    document = attached_document_map(db, [message.id]).get(message.id)
     receipt = aggregate_message_receipts(
         db,
         conversation=conversation,
@@ -3069,6 +3088,7 @@ def _send(
         "body": message.body,
         "photos": [media_payload(media) for media in photos],
         "voice_note": voice_payload(voice) if voice else None,
+        "document": document_payload(document) if document else None,
         "state": message.state,
         "urgent": message.urgent,
         "created_at": message.created_at,
@@ -3308,6 +3328,84 @@ def _protected_voice_response(row: MessageVoiceMedia) -> FileResponse:
     )
 
 
+def _document_for_participant(
+    db: Session,
+    *,
+    conversation: Conversation,
+    participant: ConversationParticipant,
+    document_public_id: UUID,
+) -> MessageDocument:
+    row = (
+        db.query(MessageDocument)
+        .filter(
+            MessageDocument.public_id == document_public_id,
+            MessageDocument.school_id == conversation.school_id,
+            MessageDocument.message_id.is_not(None),
+            MessageDocument.state == "attached",
+        )
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    message = (
+        db.query(Message)
+        .filter(
+            Message.id == row.message_id,
+            Message.conversation_id == conversation.id,
+        )
+        .first()
+    )
+    access = participant_sequence_access(
+        db, conversation=conversation, participant=participant
+    )
+    if (
+        message is None
+        or message.state != "active"
+        or not access.includes(int(message.sequence))
+    ):
+        raise HTTPException(status_code=404, detail="Document not found")
+    return row
+
+
+def _protected_document_response(row: MessageDocument) -> FileResponse:
+    try:
+        path, content_type, filename = protected_document_file(row)
+    except GeneratedDocumentValidationError:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return FileResponse(
+        path,
+        media_type=content_type,
+        filename=filename,
+        content_disposition_type="attachment",
+        headers={
+            "Cache-Control": "private, no-store, max-age=0",
+            "Pragma": "no-cache",
+            "X-Content-Type-Options": "nosniff",
+            "Cross-Origin-Resource-Policy": "same-origin",
+        },
+    )
+
+
+@staff_router.get("/generated-documents/{document_id}")
+def staff_generated_document(
+    document_id: UUID,
+    response: Response,
+    actor: StaffActor = Depends(require_staff_actor),
+    db: Session = Depends(get_db),
+):
+    _private(response)
+    try:
+        row = staged_document_for_membership(
+            db,
+            school_id=actor.school.id,
+            membership_id=actor.membership.id,
+            public_id=document_id,
+        )
+    except GeneratedDocumentValidationError:
+        raise HTTPException(status_code=404, detail="Generated document not found")
+    return document_payload(row)
+
+
 @staff_router.post(
     "/conversations/{conversation_id}/media",
     status_code=status.HTTP_201_CREATED,
@@ -3510,6 +3608,68 @@ def guardian_view_voice(
             media_public_id=media_id,
         )
     )
+
+
+@staff_router.get(
+    "/conversations/{conversation_id}/documents/{document_id}"
+)
+def staff_view_document(
+    conversation_id: UUID,
+    document_id: UUID,
+    actor: StaffActor = Depends(require_staff_actor),
+    db: Session = Depends(get_db),
+):
+    conversation, participant = _staff_access(
+        db, actor=actor, public_id=conversation_id
+    )
+    row = _document_for_participant(
+        db,
+        conversation=conversation,
+        participant=participant,
+        document_public_id=document_id,
+    )
+    record_messaging_audit(
+        db,
+        school_id=conversation.school_id,
+        event_type="message.document.downloaded",
+        participant=participant,
+        conversation_id=conversation.id,
+        message_id=row.message_id,
+        detail={"document_id": str(row.public_id), "document_type": row.document_type},
+    )
+    db.commit()
+    return _protected_document_response(row)
+
+
+@guardian_router.get(
+    "/conversations/{conversation_id}/documents/{document_id}"
+)
+def guardian_view_document(
+    conversation_id: UUID,
+    document_id: UUID,
+    actor: GuardianActor = Depends(require_guardian_actor),
+    db: Session = Depends(get_db),
+):
+    conversation, participant = _guardian_access(
+        db, actor=actor, public_id=conversation_id
+    )
+    row = _document_for_participant(
+        db,
+        conversation=conversation,
+        participant=participant,
+        document_public_id=document_id,
+    )
+    record_messaging_audit(
+        db,
+        school_id=conversation.school_id,
+        event_type="message.document.downloaded",
+        participant=participant,
+        conversation_id=conversation.id,
+        message_id=row.message_id,
+        detail={"document_id": str(row.public_id), "document_type": row.document_type},
+    )
+    db.commit()
+    return _protected_document_response(row)
 
 
 @staff_router.post("/conversations/{conversation_id}/messages")

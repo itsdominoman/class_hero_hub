@@ -1687,8 +1687,9 @@ def test_representative_inbox_unread_and_history_are_bounded_and_fast(db, client
     # Voice-note metadata adds one fixed set-based select for the page. Slice 9
     # adds one more fixed receipt aggregation select for all 50 messages; the
     # budget remains independent of message and participant counts.
+    # Generated-document metadata adds one fixed set-based select for the page.
     # Canonical chat and media entitlement reads are also fixed per request.
-    assert history_select_count <= 31
+    assert history_select_count <= 32
 
     durations_ms = []
     for _ in range(12):

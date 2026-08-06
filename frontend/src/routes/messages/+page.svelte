@@ -13,6 +13,7 @@
   import type {
     ConversationDetail,
     ConversationSummary,
+    MessageDocument,
     MessagingMembership,
     MessagePhoto,
     MessageVoiceNote,
@@ -69,6 +70,7 @@
   let activeUrgent = $state(false);
   let conversationDrafts = $state<Record<string, string>>({});
   let selectedPhotos = $state<SelectedMessagePhoto[]>([]);
+  let selectedDocument = $state<MessageDocument | null>(null);
   let conversationPhotoDrafts = $state<Record<string, SelectedMessagePhoto[]>>({});
   let noticeAcknowledged = $state(false);
   let noticePolicyVersion = $state<string | null>(null);
@@ -115,6 +117,39 @@
   function requestedMembershipId(): number | null {
     const value = Number(new URL(window.location.href).searchParams.get('membership'));
     return Number.isInteger(value) && value > 0 ? value : null;
+  }
+
+  function requestedDocumentId(): string | null {
+    const value = new URL(window.location.href).searchParams.get('document');
+    return value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+      ? value
+      : null;
+  }
+
+  function clearDocumentQuery() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('document');
+    window.history.replaceState(window.history.state || {}, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+
+  function removeSelectedDocument() {
+    selectedDocument = null;
+    clearDocumentQuery();
+  }
+
+  async function loadRequestedDocument() {
+    const documentId = requestedDocumentId();
+    if (!membership || !documentId) return;
+    try {
+      const document = await messagingApi.generatedDocument(membership, documentId);
+      for (const photo of selectedPhotos) URL.revokeObjectURL(photo.preview_url);
+      selectedPhotos = [];
+      selectedDocument = document;
+    } catch (cause) {
+      selectedDocument = null;
+      clearDocumentQuery();
+      error = cause instanceof Error ? cause.message : $_('messaging.documentLoadError');
+    }
   }
 
   function requestedShortcutReturnPath(): string | null {
@@ -576,11 +611,18 @@
     return messagingApi.voice(membership, selectedId, voice.id);
   }
 
+  function loadMessageDocument(document: MessageDocument) {
+    if (!membership || !selectedId) return Promise.reject(new Error($_('messaging.conversationUnavailable')));
+    return messagingApi.document(membership, selectedId, document.id);
+  }
+
   async function dispatchMessage(
     clientMessageId: string,
     body: string | null,
     stagedMediaIds: string[] = [],
     localPhotoUrls: string[] = [],
+    stagedDocumentId: string | null = null,
+    localDocument: MessageDocument | null = null,
     urgent = false
   ): Promise<boolean> {
     if (!membership || !selectedId || !selectedConversation) return false;
@@ -594,11 +636,13 @@
       body,
       photos: [],
       voice_note: null,
+      document: localDocument,
       state: 'active',
       urgent,
       created_at: new Date().toISOString(),
       local_state: 'sending',
       staged_media_ids: stagedMediaIds,
+      staged_document_id: stagedDocumentId || undefined,
       local_photo_urls: localPhotoUrls
     };
     const existingIndex = messages.findIndex((row) => row.client_message_id === clientMessageId);
@@ -618,6 +662,7 @@
         body,
         stagedMediaIds,
         null,
+        stagedDocumentId,
         urgent
       );
       for (const url of localPhotoUrls) URL.revokeObjectURL(url);
@@ -638,6 +683,7 @@
           body: saved.body,
           photo_count: saved.photos?.length || 0,
           voice_note: saved.voice_note,
+          document: saved.document,
           state: saved.state,
           created_at: saved.created_at
         },
@@ -657,6 +703,7 @@
                 body: saved.body,
                 photo_count: saved.photos?.length || 0,
                 voice_note: saved.voice_note,
+                document: saved.document,
                 state: saved.state,
                 created_at: saved.created_at
               },
@@ -683,18 +730,23 @@
 
   async function sendMessage(body: string, urgent: boolean) {
     const ready = selectedPhotos.filter((photo) => photo.state === 'ready' && photo.staged_id);
-    if ((!body.trim() && ready.length === 0) || ready.length !== selectedPhotos.length) return false;
+    if ((!body.trim() && ready.length === 0 && !selectedDocument) || ready.length !== selectedPhotos.length) return false;
     const photos = selectedPhotos;
+    const document = selectedDocument;
     const accepted = await dispatchMessage(
       crypto.randomUUID(),
       body.trim() || null,
       ready.map((photo) => photo.staged_id!),
       photos.map((photo) => photo.preview_url),
+      document?.id || null,
+      document,
       urgent
     );
     if (accepted) {
       const key = selectedId ? draftKey(selectedId) : null;
       selectedPhotos = [];
+      selectedDocument = null;
+      clearDocumentQuery();
       if (key) conversationPhotoDrafts = { ...conversationPhotoDrafts, [key]: [] };
     }
     return accepted;
@@ -736,6 +788,7 @@
         body: saved.body,
         photo_count: 0,
         voice_note: saved.voice_note,
+        document: saved.document,
         state: saved.state,
         created_at: saved.created_at
       };
@@ -754,7 +807,7 @@
     if (
       !membership || !selectedId || !selectedConversation || sending || offline ||
       !selectedConversation.capabilities.voice_notes_enabled ||
-      activeDraft.trim() || selectedPhotos.length
+      activeDraft.trim() || selectedPhotos.length || selectedDocument
     ) return false;
     const clientMessageId = crypto.randomUUID();
     const localVoiceUrl = URL.createObjectURL(recording.blob);
@@ -768,6 +821,7 @@
       body: null,
       photos: [],
       voice_note: null,
+      document: null,
       state: 'active',
       urgent: false,
       created_at: new Date().toISOString(),
@@ -787,12 +841,14 @@
       void sendVoicePending(message);
       return;
     }
-    if (message.client_message_id && (message.body || message.staged_media_ids?.length)) {
+    if (message.client_message_id && (message.body || message.staged_media_ids?.length || message.staged_document_id)) {
       void dispatchMessage(
         message.client_message_id,
         message.body,
         message.staged_media_ids || [],
         message.local_photo_urls || [],
+        message.staged_document_id || null,
+        message.document,
         message.urgent
       );
     }
@@ -858,6 +914,8 @@
     if (!next || next.membership_id === membership?.membership_id) return;
     saveActiveDraft();
     membership = next;
+    selectedDocument = null;
+    clearDocumentQuery();
     notificationPreference = null;
     available = true;
     conversations = [];
@@ -895,6 +953,7 @@
       if (membership) {
         updateConversationQuery(requestedConversationId(), 'replace');
         await loadPolicyAcknowledgement();
+        await loadRequestedDocument();
         await Promise.all([
           loadInbox({ openRequested: true }),
           loadNotificationPreference()
@@ -1083,6 +1142,13 @@
         {#if offline}
           <p class="bg-amber-50 px-4 py-2 text-center text-xs font-semibold text-amber-800" role="status">{$_('messaging.offlineBanner')}</p>
         {/if}
+        {#if selectedDocument}
+          <div class="border-b border-violet-100 bg-violet-50 px-4 py-3 text-xs text-violet-950" role="status">
+            <p class="font-extrabold">{$_('messaging.documentReady')}</p>
+            <p dir="auto" class="mt-1 truncate font-semibold">{selectedDocument.filename}</p>
+            <div class="mt-2 flex items-center justify-between gap-3"><span>{$_('messaging.selectConversationForDocument')}</span><button type="button" class="shrink-0 font-extrabold underline" onclick={removeSelectedDocument}>{$_('messaging.removeDocument')}</button></div>
+          </div>
+        {/if}
         {#if error}
           <div class="m-3 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
             <p>{error}</p>
@@ -1116,6 +1182,7 @@
           persistentBack={Boolean(shortcutReturnPath)}
           backLabel={shortcutReturnPath ? $_('messaging.returnToQuickAward') : undefined}
           {selectedPhotos}
+          {selectedDocument}
           onback={closeOrReturnConversation}
           onloadolder={() => void loadOlderMessages()}
           onsend={sendMessage}
@@ -1123,9 +1190,11 @@
           onselectphotos={selectPhotos}
           onremovephoto={removePhoto}
           onretryphoto={retryPhoto}
+          onremovedocument={removeSelectedDocument}
           onvoice={sendVoiceRecording}
           loadphoto={loadMessagePhoto}
           loadvoice={loadMessageVoice}
+          loaddocument={loadMessageDocument}
           ontogglenotice={() => noticeOpen = !noticeOpen}
           onacknowledgenotice={acknowledgeConversationNotice}
           onclosenotice={() => noticeOpen = false}

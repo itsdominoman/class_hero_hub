@@ -1,7 +1,7 @@
 import type { SessionMembership } from '$lib/roleRouting';
 
 export type MessagingMembership = SessionMembership & {
-  role: 'teacher' | 'school_admin';
+  role: 'teacher' | 'school_admin' | 'principal' | 'deputy_principal' | 'head_of_department' | 'support_staff';
 };
 
 export type StaffNotificationPreference = {
@@ -52,6 +52,7 @@ export type InboxMessage = {
   body: string | null;
   photo_count: number;
   voice_note: MessageVoiceNote | null;
+  document: MessageDocument | null;
   state: string;
   created_at: string;
 };
@@ -97,6 +98,7 @@ export type MessageItem = {
   body: string | null;
   photos: MessagePhoto[];
   voice_note: MessageVoiceNote | null;
+  document: MessageDocument | null;
   state: string;
   urgent: boolean;
   created_at: string;
@@ -143,6 +145,15 @@ export type MessageVoiceNote = {
   transcription: { available: false; state: 'not_requested' };
 };
 
+export type MessageDocument = {
+  id: string;
+  document_type: 'behaviour_report' | 'recognition_certificate';
+  filename: string;
+  content_type: 'application/pdf' | 'text/csv';
+  size_bytes: number;
+  available: boolean;
+};
+
 export type SelectedMessagePhoto = {
   client_upload_id: string;
   file: File;
@@ -157,6 +168,7 @@ export type OptimisticMessage = MessageItem & {
   staged_media_ids?: string[];
   local_photo_urls?: string[];
   staged_voice_id?: string;
+  staged_document_id?: string;
   voice_upload_id?: string;
   voice_blob?: Blob;
   local_voice_url?: string;
@@ -194,7 +206,7 @@ export type RecipientStaff = {
   membership_id: number;
   display_name: string;
   name_ar?: string | null;
-  role: 'teacher' | 'school_admin';
+  role: MessagingMembership['role'];
 };
 
 export type RecipientResults = {

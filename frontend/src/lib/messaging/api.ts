@@ -3,6 +3,7 @@ import type {
   ConversationDetail,
   InboxPage,
   MessageItem,
+  MessageDocument,
   MessagePage,
   MessagingMembership,
   MessagingPolicyAcknowledgement,
@@ -166,11 +167,12 @@ export const messagingApi = {
     body: string | null,
     stagedMediaIds: string[] = [],
     stagedVoiceId: string | null = null,
+    stagedDocumentId: string | null = null,
     urgent = false
   ): Promise<MessageItem & { duplicate: boolean }> {
     return api.post(
       `/messaging/conversations/${conversationId}/messages`,
-      { client_message_id: clientMessageId, body, staged_media_ids: stagedMediaIds, staged_voice_id: stagedVoiceId, urgent },
+      { client_message_id: clientMessageId, body, staged_media_ids: stagedMediaIds, staged_voice_id: stagedVoiceId, staged_document_id: stagedDocumentId, urgent },
       { headers: contextHeaders(membership) }
     ) as Promise<MessageItem & { duplicate: boolean }>;
   },
@@ -220,6 +222,27 @@ export const messagingApi = {
   ): Promise<Blob> {
     return api.download(
       `/messaging/conversations/${conversationId}/voice-media/${mediaId}`,
+      { headers: contextHeaders(membership), cache: 'no-store' }
+    );
+  },
+
+  generatedDocument(
+    membership: MessagingMembership,
+    documentId: string
+  ): Promise<MessageDocument> {
+    return api.get(`/messaging/generated-documents/${documentId}`, {
+      headers: contextHeaders(membership),
+      cache: 'no-store'
+    });
+  },
+
+  document(
+    membership: MessagingMembership,
+    conversationId: string,
+    documentId: string
+  ): Promise<Blob> {
+    return api.download(
+      `/messaging/conversations/${conversationId}/documents/${documentId}`,
       { headers: contextHeaders(membership), cache: 'no-store' }
     );
   },

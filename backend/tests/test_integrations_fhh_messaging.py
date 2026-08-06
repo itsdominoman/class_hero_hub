@@ -16,7 +16,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app import auth, database, invite_tokens
+from app import auth, database, generated_document_service, invite_tokens
 from app.database import Base, get_db
 from app.fhh_messaging_assertions import (
     canonical_body_hash,
@@ -38,6 +38,7 @@ from app.models_school import (
     GradeLevel,
     Membership,
     Message,
+    MessageDocument,
     School,
     SchoolMessagingPolicy,
     StaffAssignment,
@@ -633,6 +634,119 @@ def test_fhh_parent_and_named_admin_receipts_advance_both_directions(db, client)
         )
         assert update["receipt"]["state"] == expected_state
 
+
+def test_staff_generated_document_is_idempotent_and_downloadable_only_by_participants(
+    db, client, monkeypatch, tmp_path
+):
+    monkeypatch.setattr(generated_document_service, "GENERATED_DOCUMENT_ROOT", tmp_path)
+    world = _world(db)
+    parent = world["identities"][0]
+    recipients = _request(client, world, parent, "GET", "/recipients")
+    admin_recipient = next(
+        row for row in recipients.json()["staff"]
+        if row["staff_context"]["relationship"] == "school_administration"
+    )
+    created = _request(
+        client,
+        world,
+        parent,
+        "POST",
+        "/conversations",
+        body={"kind": "student_staff", "recipient_ref": admin_recipient["recipient_ref"]},
+    )
+    assert created.status_code == 200, created.text
+    conversation_id = created.json()["conversation_id"]
+    document = generated_document_service.create_generated_document(
+        db,
+        school_id=world["school"].id,
+        membership_id=world["school_admin"].id,
+        document_type="behaviour_report",
+        source_ref="test:participant-scope",
+        filename="private-behaviour-report.pdf",
+        content_type="application/pdf",
+        content=b"%PDF-1.7 participant-scoped-test",
+    )
+    db.commit()
+    document_id = str(document.public_id)
+    admin_headers = {
+        "Authorization": f"Bearer {auth.create_access_token({'sub': world['admin_user'].email})}",
+        "X-School-Id": str(world["school"].id),
+        "X-Membership-Id": str(world["school_admin"].id),
+    }
+    client_message_id = str(uuid4())
+    payload = {
+        "client_message_id": client_message_id,
+        "body": "Attached leadership report",
+        "staged_document_id": document_id,
+    }
+    sent = client.post(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=admin_headers,
+        json=payload,
+    )
+    assert sent.status_code == 200, sent.text
+    assert sent.json()["document"] == {
+        "id": document_id,
+        "document_type": "behaviour_report",
+        "filename": "private-behaviour-report.pdf",
+        "content_type": "application/pdf",
+        "size_bytes": len(b"%PDF-1.7 participant-scoped-test"),
+        "available": True,
+    }
+    repeated = client.post(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=admin_headers,
+        json=payload,
+    )
+    assert repeated.status_code == 200 and repeated.json()["duplicate"] is True
+    assert db.query(Message).count() == 1
+
+    forged = _request(
+        client,
+        world,
+        parent,
+        "POST",
+        f"/conversations/{conversation_id}/messages",
+        body={
+            "client_message_id": str(uuid4()),
+            "body": "Parent cannot attach staff output",
+            "staged_document_id": document_id,
+        },
+    )
+    assert forged.status_code == 422
+
+    history = _request(
+        client, world, parent, "GET", f"/conversations/{conversation_id}/messages"
+    )
+    assert history.status_code == 200, history.text
+    attached = history.json()["items"][0]["document"]
+    assert attached["id"] == document_id and attached["available"] is True
+    assert "storage" not in history.text.lower()
+    assert "checksum" not in history.text.lower()
+
+    downloaded = _request(
+        client,
+        world,
+        parent,
+        "GET",
+        f"/conversations/{conversation_id}/documents/{document_id}",
+    )
+    assert downloaded.status_code == 200, downloaded.text
+    assert downloaded.content == b"%PDF-1.7 participant-scoped-test"
+    assert downloaded.headers["cache-control"] == "private, no-store, max-age=0"
+    assert downloaded.headers["content-disposition"] == 'attachment; filename="private-behaviour-report.pdf"'
+
+    teacher_headers = {
+        "Authorization": f"Bearer {auth.create_access_token({'sub': 'assertion-teacher@test'})}",
+        "X-School-Id": str(world["school"].id),
+        "X-Membership-Id": str(world["teacher"].id),
+    }
+    assert client.get(
+        f"/api/messaging/generated-documents/{document_id}", headers=teacher_headers
+    ).status_code == 404
+    db.expire_all()
+    row = db.query(MessageDocument).filter_by(public_id=document.public_id).one()
+    assert row.message_id is not None and row.state == "attached"
 
 def test_recipients_expose_current_assignment_context_without_raw_membership_ids(db, client):
     world = _world(db)

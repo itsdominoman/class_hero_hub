@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["APP_ENV"] = "test"
@@ -12,9 +12,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app import auth, database
+from app import generated_document_service
 from app.database import Base, get_db
 from app.main import app
-from app.models_school import AcademicYear, BehaviourCategory, BehaviourEvent, BranchCampus, ClassSection, Enrolment, GradeLevel, Membership, School, Student, Subject, SubjectGroup, User
+from app.models_school import AcademicYear, BehaviourCategory, BehaviourEvent, BranchCampus, ClassSection, Enrolment, GradeLevel, Membership, MessageDocument, School, Student, Subject, SubjectGroup, User
 from entitlement_fixtures import grant_capabilities
 
 
@@ -145,6 +146,110 @@ def test_reports_reject_non_admin_cross_school_and_invalid_filters(client, repor
     assert client.get(path, headers=headers(world["admin"], world["other_school"])).status_code == 403
     assert client.get(f"{path}?student_id={world['other_student'].id}", headers=headers(world["admin"], world["school"])).status_code == 422
     assert client.get(f"{path}?date_from=2026-02-01&date_to=2025-01-01", headers=headers(world["admin"], world["school"])).status_code == 422
+
+
+def test_report_pdf_csv_and_staged_message_document_are_safe_and_filter_scoped(
+    client, db, report_world, monkeypatch, tmp_path
+):
+    monkeypatch.setattr(generated_document_service, "GENERATED_DOCUMENT_ROOT", tmp_path)
+    world = report_world
+    request_headers = headers(world["admin"], world["school"])
+
+    pdf = client.get(
+        "/api/school/reports/behaviour/export.pdf?language=en&category_type=positive",
+        headers=request_headers,
+    )
+    assert pdf.status_code == 200, pdf.text
+    assert pdf.headers["content-type"].startswith("application/pdf")
+    assert pdf.headers["cache-control"] == "private, no-store, max-age=0"
+    assert pdf.content.startswith(b"%PDF")
+    assert len(pdf.content) > 1_000
+    assert b"private note" not in pdf.content
+
+    needs_work = db.query(BehaviourCategory).filter_by(
+        school_id=world["school"].id,
+        type="needs_work",
+    ).one()
+    needs_work.label = "=WEBSERVICE(\"https://example.invalid\")"
+    db.commit()
+    csv = client.get(
+        "/api/school/reports/behaviour/export.csv?language=en&category_type=needs_work",
+        headers=request_headers,
+    )
+    assert csv.status_code == 200, csv.text
+    assert csv.headers["content-type"].startswith("text/csv")
+    csv_text = csv.content.decode("utf-8-sig")
+    assert "'=WEBSERVICE" in csv_text
+    assert "\r\n=WEBSERVICE" not in csv_text
+    assert "Helpful" not in csv_text
+    assert "private note" not in csv_text
+
+    staged = client.post(
+        "/api/school/reports/behaviour/generated-document",
+        headers=request_headers,
+        json={"format": "pdf", "language": "ar", "category_type": "positive"},
+    )
+    assert staged.status_code == 201, staged.text
+    assert set(staged.json()) == {
+        "id", "document_type", "filename", "content_type", "size_bytes", "available"
+    }
+    row = db.query(MessageDocument).one()
+    assert row.school_id == world["school"].id
+    assert db.get(Membership, row.generated_by_membership_id).user_id == world["admin"].id
+    assert row.message_id is None and row.state == "ready"
+    stored = tmp_path / row.storage_key
+    assert stored.is_file() and stored.read_bytes().startswith(b"%PDF")
+    assert "storage" not in staged.text.lower()
+    assert "checksum" not in staged.text.lower()
+
+
+def test_generated_document_files_follow_database_commit_and_rollback(
+    db, report_world, monkeypatch, tmp_path
+):
+    monkeypatch.setattr(generated_document_service, "GENERATED_DOCUMENT_ROOT", tmp_path)
+    membership = db.query(Membership).filter_by(
+        school_id=report_world["school"].id,
+        user_id=report_world["admin"].id,
+    ).one()
+    rolled_back = generated_document_service.create_generated_document(
+        db,
+        school_id=report_world["school"].id,
+        membership_id=membership.id,
+        document_type="behaviour_report",
+        source_ref="test:rollback",
+        filename="rollback.pdf",
+        content_type="application/pdf",
+        content=b"%PDF rollback",
+    )
+    rolled_back_path = tmp_path / rolled_back.storage_key
+    assert rolled_back_path.is_file()
+    db.rollback()
+    assert not rolled_back_path.exists()
+    assert db.query(MessageDocument).count() == 0
+
+    expired = generated_document_service.create_generated_document(
+        db,
+        school_id=report_world["school"].id,
+        membership_id=membership.id,
+        document_type="behaviour_report",
+        source_ref="test:expiry",
+        filename="expiry.pdf",
+        content_type="application/pdf",
+        content=b"%PDF expiry",
+    )
+    db.commit()
+    expired_path = tmp_path / expired.storage_key
+    expired.expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+    db.commit()
+    assert generated_document_service.cleanup_expired_staged_documents(db) == 1
+    assert expired_path.is_file()
+    db.rollback()
+    assert expired_path.is_file()
+    assert generated_document_service.cleanup_expired_staged_documents(db) == 1
+    db.commit()
+    assert not expired_path.exists()
+    db.refresh(expired)
+    assert expired.state == "expired" and expired.storage_key is None
 
 
 def test_matrix_validation_and_single_dimension(client, report_world):

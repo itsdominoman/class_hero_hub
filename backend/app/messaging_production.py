@@ -22,9 +22,14 @@ from .message_media_service import (
     archive_media_path,
     media_path,
 )
+from .generated_document_service import (
+    mark_attached_documents_disposed,
+    unlink_disposed_document_keys,
+)
 from .models_school import (
     Conversation,
     Message,
+    MessageDocument,
     MessageMedia,
     MessageVoiceMedia,
     MessagingEvidenceExport,
@@ -250,6 +255,16 @@ def retention_preview(db: Session, job: MessagingOperationsJob) -> dict[str, Any
         MessageVoiceMedia.created_at <= media_cutoff,
         Conversation.status != "active",
     ).one()
+    document_count, document_bytes = db.query(
+        func.count(MessageDocument.id), func.coalesce(func.sum(MessageDocument.size_bytes), 0)
+    ).join(Message, Message.id == MessageDocument.message_id).join(
+        Conversation, Conversation.id == Message.conversation_id
+    ).filter(
+        MessageDocument.school_id == job.school_id,
+        MessageDocument.state == "attached",
+        MessageDocument.created_at <= media_cutoff,
+        Conversation.status != "active",
+    ).one()
     result = {
         "policy_id": str(policy.public_id),
         "policy_version": policy.policy_version,
@@ -261,6 +276,8 @@ def retention_preview(db: Session, job: MessagingOperationsJob) -> dict[str, Any
         "photo_bytes": int(photo_bytes or 0),
         "voice_notes": int(voice_count or 0),
         "voice_bytes": int(voice_bytes or 0),
+        "generated_documents": int(document_count or 0),
+        "generated_document_bytes": int(document_bytes or 0),
     }
     result["preview_sha256"] = canonical_hash(result)
     return result
@@ -304,6 +321,11 @@ def retention_execute(db: Session, job: MessagingOperationsJob) -> dict[str, Any
         candidates = [row for row in rows if int(row.id) not in held]
         if db.bind and db.bind.dialect.name == "postgresql":
             db.execute(text("SET LOCAL chh.retention_worker = 'on'"))
+        disposed_document_keys = mark_attached_documents_disposed(
+            db,
+            message_ids=[int(row.id) for row in candidates],
+            now=now_utc(),
+        )
         for row in candidates:
             digest = hashlib.sha256((row.body or "").encode("utf-8")).hexdigest()
             db.execute(text(
@@ -314,6 +336,7 @@ def retention_execute(db: Session, job: MessagingOperationsJob) -> dict[str, Any
         job.last_cursor = str(cursor)
         job.progress = {**(job.progress or {}), "messages_disposed": disposed, "last_message_id": cursor}
         db.commit()
+        unlink_disposed_document_keys(disposed_document_keys)
     return {**(job.progress or {}), "messages_disposed": disposed, "preview_sha256": supplied_hash}
 
 

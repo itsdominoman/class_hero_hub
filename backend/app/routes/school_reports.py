@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from datetime import date, datetime, time, timedelta, timezone
+from typing import Literal
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import String, and_, case, cast, exists, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
@@ -20,13 +22,20 @@ from ..models_school import (
     Enrolment,
     GradeLevel,
     Membership,
+    MessageDocument,
     School,
     Student,
     Subject,
     SubjectGroup,
     User,
 )
-from ..school_scope import require_school_role
+from ..document_rendering import render_behaviour_report_csv, render_behaviour_report_pdf
+from ..generated_document_service import (
+    GeneratedDocumentValidationError,
+    create_generated_document,
+    document_payload,
+)
+from ..school_scope import require_school_role, write_audit
 from ..school_roles import HEAD_OF_DEPARTMENT, REPORTING_ROLES, STAFF_ROLES
 
 
@@ -38,10 +47,30 @@ MATRIX_ORDER_BY = {"total_events", "positive_count", "needs_work_count", "signed
 MAX_RANGE_DAYS = 366
 MAX_MATRIX_ROWS = 100
 MAX_MATRIX_CELLS = 2_500
+MAX_EXPORT_EVENTS = 25_000
 INCOMPATIBLE_MATRIX_PAIRS = {
     frozenset(("subject", "duty_context")),
     frozenset(("subject_group", "duty_context")),
 }
+
+
+class BehaviourDocumentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    format: Literal["pdf", "csv"] = "pdf"
+    language: Literal["en", "ar"] = "en"
+    date_from: date | None = None
+    date_to: date | None = None
+    branch_campus_id: int | None = None
+    grade_level_id: int | None = None
+    class_section_id: int | None = None
+    subject_id: int | None = None
+    subject_group_id: int | None = None
+    duty_context: str | None = None
+    category_id: int | None = None
+    actor_user_id: int | None = None
+    student_id: int | None = None
+    category_type: Literal["positive", "needs_work"] | None = None
 
 
 @dataclass
@@ -626,3 +655,213 @@ def events(offset: int = Query(default=0, ge=0), limit: int = Query(default=50, 
     for event, category, student, actor, section, group, subject, *_ in rows:
         events_payload.append({"id": event.id, "created_at": event.created_at, "student_display_name": _display_student(student), "staff_display_name": actor.name if actor else None, "category_label": category.label, "category_type": category.type, "points_delta": event.points_delta, "context_type": event.context_type, "class_section_name": section.name if section else None, "subject_name": subject.name if subject else None, "duty_context": event.duty_context})
     return {"filters": filters.payload(), "pagination": {"limit": limit, "offset": offset, "total": int(total)}, "events": events_payload}
+
+
+def _export_query(
+    date_from: date | None = None,
+    date_to: date | None = None,
+    branch_campus_id: int | None = None,
+    grade_level_id: int | None = None,
+    class_section_id: int | None = None,
+    subject_id: int | None = None,
+    subject_group_id: int | None = None,
+    duty_context: str | None = None,
+    category_id: int | None = None,
+    actor_user_id: int | None = None,
+    student_id: int | None = None,
+    category_type: Literal["positive", "needs_work"] | None = None,
+) -> dict:
+    return _report_params(
+        date_from,
+        date_to,
+        branch_campus_id,
+        grade_level_id,
+        class_section_id,
+        subject_id,
+        subject_group_id,
+        duty_context,
+        category_id,
+        actor_user_id,
+        student_id,
+        category_type,
+    )
+
+
+def _localized(value, language: str, *, primary: str = "name", arabic: str = "name_ar") -> str:
+    if value is None:
+        return ""
+    return getattr(value, arabic, None) if language == "ar" and getattr(value, arabic, None) else getattr(value, primary, "")
+
+
+def _export_filter_labels(db: Session, membership: Membership, params: dict, language: str) -> list[str]:
+    school_id = membership.school_id
+    lookups = (
+        ("branch_campus_id", BranchCampus, "Branch", "الفرع"),
+        ("grade_level_id", GradeLevel, "Grade", "الصف"),
+        ("class_section_id", ClassSection, "Class", "الفصل"),
+        ("subject_id", Subject, "Subject", "المادة"),
+        ("subject_group_id", SubjectGroup, "Subject group", "مجموعة المادة"),
+        ("category_id", BehaviourCategory, "Category", "الفئة"),
+        ("student_id", Student, "Student", "الطالب"),
+    )
+    labels = []
+    for key, model, english_label, arabic_label in lookups:
+        value = params.get(key)
+        if value is None:
+            continue
+        row = db.query(model).filter(model.id == value, model.school_id == school_id).first()
+        if row is None:
+            continue
+        if model is Student:
+            display = row.name_ar if language == "ar" and row.name_ar else _display_student(row)
+        elif model is BehaviourCategory:
+            display = row.label
+        else:
+            display = _localized(row, language)
+        labels.append(f"{arabic_label if language == 'ar' else english_label}: {display}")
+    if params.get("actor_user_id") is not None:
+        user = db.query(User).filter(User.id == params["actor_user_id"]).first()
+        if user:
+            name = user.name_ar if language == "ar" and user.name_ar else user.name
+            labels.append(f"{'الموظف' if language == 'ar' else 'Staff'}: {name}")
+    if params.get("duty_context"):
+        labels.append(f"{'سياق المناوبة' if language == 'ar' else 'Duty context'}: {params['duty_context']}")
+    if params.get("category_type"):
+        type_label = (
+            "إيجابي" if params["category_type"] == "positive" else "يحتاج إلى تحسين"
+        ) if language == "ar" else params["category_type"].replace("_", " ").title()
+        labels.append(f"{'نوع الفئة' if language == 'ar' else 'Category type'}: {type_label}")
+    return labels
+
+
+def _export_bundle(
+    db: Session,
+    membership: Membership,
+    *,
+    params: dict,
+    language: Literal["en", "ar"],
+) -> dict:
+    validated_filters = _filters(db, membership, **params)
+    base = _query(db, membership, validated_filters)
+    total = int(base.with_entities(func.count(func.distinct(BehaviourEvent.id))).scalar() or 0)
+    if total > MAX_EXPORT_EVENTS:
+        raise HTTPException(422, f"Export contains more than {MAX_EXPORT_EVENTS} matching events; narrow the filters")
+    overview_payload = overview(**params, membership=membership, db=db)
+    trends_payload = trends(**params, membership=membership, db=db)
+    breakdown_payload = breakdowns(**params, membership=membership, db=db)
+    event_payload = events(offset=0, limit=MAX_EXPORT_EVENTS, **params, membership=membership, db=db)
+    school = db.query(School).filter(School.id == membership.school_id).one()
+    context = report_context(membership=membership, db=db)
+    if context["scope"]["type"] == "department":
+        department_names = [
+            row.get("name_ar") if language == "ar" and row.get("name_ar") else row["name"]
+            for row in context["scope"]["departments"]
+        ]
+        scope_label = f"{'القسم' if language == 'ar' else 'Department'}: {', '.join(department_names)}"
+    else:
+        scope_label = "المدرسة" if language == "ar" else "School"
+    return {
+        "school_name": school.name,
+        "school_name_ar": school.name_ar,
+        "scope_label": scope_label,
+        "filters": overview_payload["filters"],
+        "filter_labels": _export_filter_labels(db, membership, params, language),
+        "metrics": overview_payload["metrics"],
+        "trends": trends_payload["series"],
+        "breakdowns": breakdown_payload,
+        "events": event_payload["events"],
+        "event_total": total,
+    }
+
+
+def _render_export(bundle: dict, *, format: Literal["pdf", "csv"], language: Literal["en", "ar"]) -> tuple[bytes, str, str]:
+    suffix = f"{bundle['filters']['date_from']}-to-{bundle['filters']['date_to']}"
+    if format == "pdf":
+        pdf_bundle = {**bundle, "events": bundle["events"][:200]}
+        return render_behaviour_report_pdf(pdf_bundle, language), "application/pdf", f"behaviour-overview-{suffix}.pdf"
+    return render_behaviour_report_csv(bundle, language), "text/csv", f"behaviour-events-{suffix}.csv"
+
+
+def _audit_export(db: Session, membership: Membership, *, format: str, bundle: dict, action: str, entity) -> None:
+    write_audit(
+        db,
+        membership.user_id,
+        action,
+        entity,
+        {
+            "format": format,
+            "filters": bundle["filters"],
+            "event_count": bundle["event_total"],
+            "scope": "department" if membership.role == HEAD_OF_DEPARTMENT else "school",
+        },
+        school_id=membership.school_id,
+    )
+
+
+@router.get("/reports/behaviour/export.{format}")
+def export_behaviour_report(
+    format: Literal["pdf", "csv"],
+    language: Literal["en", "ar"] = "en",
+    params: dict = Depends(_export_query),
+    membership: Membership = Depends(require_school_role(*REPORTING_ROLES)),
+    db: Session = Depends(get_db),
+):
+    bundle = _export_bundle(db, membership, params=params, language=language)
+    content, content_type, filename = _render_export(bundle, format=format, language=language)
+    _audit_export(
+        db,
+        membership,
+        format=format,
+        bundle=bundle,
+        action="reports.behaviour.exported",
+        entity=("behaviour_reports", None),
+    )
+    db.commit()
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "private, no-store, max-age=0",
+            "Pragma": "no-cache",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.post("/reports/behaviour/generated-document", status_code=201)
+def generate_behaviour_document(
+    body: BehaviourDocumentRequest,
+    membership: Membership = Depends(require_school_role(*REPORTING_ROLES)),
+    db: Session = Depends(get_db),
+):
+    values = body.model_dump()
+    format = values.pop("format")
+    language = values.pop("language")
+    bundle = _export_bundle(db, membership, params=values, language=language)
+    content, content_type, filename = _render_export(bundle, format=format, language=language)
+    try:
+        row = create_generated_document(
+            db,
+            school_id=membership.school_id,
+            membership_id=membership.id,
+            document_type="behaviour_report",
+            source_ref=f"behaviour:{bundle['filters']['date_from']}:{bundle['filters']['date_to']}",
+            filename=filename,
+            content_type=content_type,
+            content=content,
+        )
+    except GeneratedDocumentValidationError as exc:
+        db.rollback()
+        raise HTTPException(422, str(exc))
+    _audit_export(
+        db,
+        membership,
+        format=format,
+        bundle=bundle,
+        action="reports.behaviour.generated_document.created",
+        entity=row,
+    )
+    db.commit()
+    db.refresh(row)
+    return document_payload(row)

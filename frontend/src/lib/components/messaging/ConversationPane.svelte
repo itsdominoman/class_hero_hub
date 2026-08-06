@@ -2,7 +2,7 @@
   import { tick } from 'svelte';
   import { _, locale } from 'svelte-i18n';
   import { ShieldCheck } from 'lucide-svelte';
-  import type { ConversationDetail, MessagePhoto, MessageVoiceNote, OptimisticMessage, SelectedMessagePhoto } from '$lib/messaging/types';
+  import type { ConversationDetail, MessageDocument, MessagePhoto, MessageVoiceNote, OptimisticMessage, SelectedMessagePhoto } from '$lib/messaging/types';
   import {
     activeGuardianCount,
     conversationTitle,
@@ -11,6 +11,7 @@
   import { highestServerSequence } from '$lib/messaging/state';
   import MessageComposer from './MessageComposer.svelte';
   import MessageReceiptTicks from './MessageReceiptTicks.svelte';
+  import ProtectedMessageDocument from './ProtectedMessageDocument.svelte';
   import ProtectedMessagePhoto from './ProtectedMessagePhoto.svelte';
   import ProtectedPhotoViewer from './ProtectedPhotoViewer.svelte';
   import ProtectedVoiceNote from './ProtectedVoiceNote.svelte';
@@ -31,6 +32,7 @@
     draft = $bindable(''),
     urgent = $bindable(false),
     selectedPhotos = [],
+    selectedDocument = null,
     onback,
     onloadolder,
     onsend,
@@ -38,9 +40,11 @@
     onselectphotos,
     onremovephoto,
     onretryphoto,
+    onremovedocument,
     onvoice,
     loadphoto,
     loadvoice,
+    loaddocument,
     ontogglenotice,
     onacknowledgenotice,
     onclosenotice
@@ -60,6 +64,7 @@
     draft?: string;
     urgent?: boolean;
     selectedPhotos?: SelectedMessagePhoto[];
+    selectedDocument?: MessageDocument | null;
     onback: () => void;
     onloadolder: () => void;
     onsend: (body: string, urgent: boolean) => Promise<boolean>;
@@ -67,9 +72,11 @@
     onselectphotos: (files: File[]) => void;
     onremovephoto: (photo: SelectedMessagePhoto) => void;
     onretryphoto: (photo: SelectedMessagePhoto) => void;
+    onremovedocument: () => void;
     onvoice: (recording: { blob: Blob; duration_ms: number; mime_type: string }) => Promise<boolean>;
     loadphoto: (photo: MessagePhoto, variant: 'thumbnail' | 'full') => Promise<Blob>;
     loadvoice: (voice: MessageVoiceNote) => Promise<Blob>;
+    loaddocument: (document: MessageDocument) => Promise<Blob>;
     ontogglenotice: () => void;
     onacknowledgenotice: () => void;
     onclosenotice: () => void;
@@ -333,6 +340,9 @@
                   {#if message.voice_note}
                     <div class="mt-1"><ProtectedVoiceNote voice={message.voice_note} messageId={message.id} load={() => loadvoice(message.voice_note!)} /></div>
                   {/if}
+                  {#if message.document}
+                    <ProtectedMessageDocument document={message.document} load={() => loaddocument(message.document!)} />
+                  {/if}
                   {#if message.local_voice_url}
                     <audio class="mt-1 h-10 w-full min-w-[15rem]" src={message.local_voice_url} controls preload="metadata" aria-label={$_('messaging.voiceNote')}></audio>
                   {/if}
@@ -383,12 +393,14 @@
       {sending}
       {offline}
       photos={selectedPhotos}
+      document={selectedDocument}
       photosEnabled={conversation.capabilities.photos_enabled}
       voiceEnabled={conversation.capabilities.voice_notes_enabled}
       canMarkUrgent={conversation.capabilities.can_mark_urgent}
       {onselectphotos}
       {onremovephoto}
       {onretryphoto}
+      {onremovedocument}
       {onvoice}
       {onsend}
     />

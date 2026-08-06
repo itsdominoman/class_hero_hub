@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import { goto } from '$app/navigation';
   import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
 
@@ -106,6 +107,8 @@
   let matrixOrderBy = $state<MatrixOrderBy>('total_events');
   let matrixLimit = $state('25');
   let activeSection = $state<ReportSection | null>(null);
+  let exportingFormat = $state<'pdf' | 'csv' | null>(null);
+  let sharingReport = $state(false);
 
   let hasActivity = $derived(Boolean(overview?.metrics.total_events));
   let visibleCategories = $derived(categories.filter((category) => !filters.categoryType || category.type === filters.categoryType));
@@ -231,6 +234,69 @@
       if (value !== '' && value != null) params.set(key, String(value));
     });
     return params.toString() ? `?${params}` : '';
+  }
+
+  function exportPayload(format: 'pdf' | 'csv') {
+    return {
+      format,
+      language: $locale === 'ar' ? 'ar' : 'en',
+      date_from: filters.dateFrom || null,
+      date_to: filters.dateTo || null,
+      category_type: filters.categoryType || null,
+      grade_level_id: filters.gradeLevelId ? Number(filters.gradeLevelId) : null,
+      class_section_id: filters.classSectionId ? Number(filters.classSectionId) : null,
+      subject_id: filters.subjectId ? Number(filters.subjectId) : null,
+      duty_context: filters.dutyContext || null,
+      category_id: filters.categoryId ? Number(filters.categoryId) : null,
+      actor_user_id: filters.actorUserId ? Number(filters.actorUserId) : null,
+      student_id: filters.studentId ? Number(filters.studentId) : null
+    };
+  }
+
+  function saveBlob(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+  }
+
+  async function downloadReport(format: 'pdf' | 'csv') {
+    if (!schoolId || !membershipId || exportingFormat || sharingReport) return;
+    exportingFormat = format;
+    error = '';
+    try {
+      const blob = await api.download(
+        `/school/reports/behaviour/export.${format}${query({ language: $locale === 'ar' ? 'ar' : 'en' })}`,
+        options()
+      );
+      const from = effectiveFilters?.date_from || filters.dateFrom || 'current';
+      const to = effectiveFilters?.date_to || filters.dateTo || 'period';
+      saveBlob(blob, `behaviour-${from}-to-${to}.${format}`);
+    } catch (caught: unknown) {
+      error = caught instanceof Error ? caught.message : $_('reports.exportError');
+    } finally {
+      exportingFormat = null;
+    }
+  }
+
+  async function shareReport() {
+    if (!schoolId || !membershipId || exportingFormat || sharingReport) return;
+    sharingReport = true;
+    error = '';
+    try {
+      const document = await api.post(
+        '/school/reports/behaviour/generated-document',
+        exportPayload('pdf'),
+        options()
+      ) as { id: string };
+      await goto(`/messages?membership=${membershipId}&document=${encodeURIComponent(document.id)}`);
+    } catch (caught: unknown) {
+      error = caught instanceof Error ? caught.message : $_('reports.shareError');
+    } finally {
+      sharingReport = false;
+    }
   }
 
   const number = (value: number | undefined) => new Intl.NumberFormat($locale === 'ar' ? 'ar' : undefined).format(value || 0);
@@ -616,7 +682,14 @@
         {#if reportPeriod()}<p class="mt-2 text-sm font-semibold text-slate-700">{reportPeriod()}</p>{/if}
         {#if reportScopeLabel}<p class="mt-2 inline-flex rounded-full bg-violet-50 px-3 py-1 text-sm font-bold text-violet-800">{$_('reports.scopeLabel')}: {reportScopeLabel}</p>{/if}
       </div>
-      <p class="max-w-xs rounded-2xl bg-slate-100 px-4 py-3 text-xs text-slate-600">{$_('reports.teacherUsageGuardrail')}</p>
+      <div class="flex max-w-xl flex-col items-start gap-3 sm:items-end">
+        <div class="flex flex-wrap gap-2 sm:justify-end">
+          <button class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 disabled:opacity-50" type="button" disabled={Boolean(exportingFormat || sharingReport)} onclick={() => downloadReport('pdf')}>{exportingFormat === 'pdf' ? $_('reports.preparingExport') : $_('reports.downloadPdf')}</button>
+          <button class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 disabled:opacity-50" type="button" disabled={Boolean(exportingFormat || sharingReport)} onclick={() => downloadReport('csv')}>{exportingFormat === 'csv' ? $_('reports.preparingExport') : $_('reports.exportCsv')}</button>
+          <button class="rounded-xl bg-hero px-4 py-2 text-sm font-bold text-white disabled:opacity-50" type="button" disabled={Boolean(exportingFormat || sharingReport)} onclick={shareReport}>{sharingReport ? $_('reports.preparingExport') : $_('reports.sharePdf')}</button>
+        </div>
+        <p class="max-w-xs rounded-2xl bg-slate-100 px-4 py-3 text-xs text-slate-600">{$_('reports.teacherUsageGuardrail')}</p>
+      </div>
     </header>
 
     <form class="report-card mb-5 rounded-3xl p-5" onsubmit={(event) => { event.preventDefault(); void applyReportState(); }}>

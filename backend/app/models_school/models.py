@@ -1766,6 +1766,72 @@ class MessageVoiceMedia(Base):
     )
 
 
+class MessageDocument(Base):
+    __tablename__ = "message_documents"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    public_id = Column(Uuid(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    generated_by_membership_id = Column(
+        Integer,
+        ForeignKey("memberships.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    message_id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        ForeignKey("messages.id", ondelete="RESTRICT"),
+        nullable=True,
+        unique=True,
+        index=True,
+    )
+    document_type = Column(String(40), nullable=False)
+    source_ref = Column(String(120), nullable=False)
+    original_filename_safe = Column(String(180), nullable=False)
+    content_type = Column(String(80), nullable=False)
+    storage_key = Column(String(500), nullable=True)
+    size_bytes = Column(Integer, nullable=False)
+    checksum_sha256 = Column(String(64), nullable=False)
+    state = Column(String(24), nullable=False, default="ready", server_default="ready")
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    expires_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc) + timedelta(hours=24),
+    )
+    attached_at = Column(DateTime(timezone=True), nullable=True)
+    disposed_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "document_type IN ('behaviour_report', 'recognition_certificate')",
+            name="ck_message_documents_type",
+        ),
+        CheckConstraint(
+            "content_type IN ('application/pdf', 'text/csv')",
+            name="ck_message_documents_content_type",
+        ),
+        CheckConstraint(
+            "state IN ('ready', 'attached', 'expired', 'retention_deleted')",
+            name="ck_message_documents_state",
+        ),
+        CheckConstraint("size_bytes BETWEEN 1 AND 10485760", name="ck_message_documents_size"),
+        CheckConstraint("length(checksum_sha256) = 64", name="ck_message_documents_checksum"),
+        CheckConstraint(
+            "(state = 'ready' AND message_id IS NULL AND attached_at IS NULL "
+            "AND disposed_at IS NULL AND storage_key IS NOT NULL) OR "
+            "(state = 'attached' AND message_id IS NOT NULL AND attached_at IS NOT NULL "
+            "AND disposed_at IS NULL AND storage_key IS NOT NULL) OR "
+            "(state = 'expired' AND message_id IS NULL AND attached_at IS NULL "
+            "AND disposed_at IS NOT NULL AND storage_key IS NULL) OR "
+            "(state = 'retention_deleted' AND message_id IS NOT NULL AND attached_at IS NOT NULL "
+            "AND disposed_at IS NOT NULL AND storage_key IS NULL)",
+            name="ck_message_documents_lifecycle",
+        ),
+        Index("ix_message_documents_school_state_expiry", "school_id", "state", "expires_at", "id"),
+    )
+
+
 class MessageReceiptEvent(Base):
     __tablename__ = "message_receipt_events"
 

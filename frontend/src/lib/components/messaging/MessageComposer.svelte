@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import { Camera, ImagePlus, RefreshCw, SendHorizontal, X } from 'lucide-svelte';
-  import type { SelectedMessagePhoto } from '$lib/messaging/types';
+  import { Camera, FileText, ImagePlus, RefreshCw, SendHorizontal, X } from 'lucide-svelte';
+  import type { MessageDocument, SelectedMessagePhoto } from '$lib/messaging/types';
   import VoiceRecorder from './VoiceRecorder.svelte';
 
   let {
@@ -14,9 +14,11 @@
     canMarkUrgent = false,
     urgent = $bindable(false),
     photos = [],
+    document = null,
     onselectphotos,
     onremovephoto,
     onretryphoto,
+    onremovedocument,
     onvoice,
     onsend
   }: {
@@ -29,9 +31,11 @@
     canMarkUrgent?: boolean;
     urgent?: boolean;
     photos?: SelectedMessagePhoto[];
+    document?: MessageDocument | null;
     onselectphotos: (files: File[]) => void;
     onremovephoto: (photo: SelectedMessagePhoto) => void;
     onretryphoto: (photo: SelectedMessagePhoto) => void;
+    onremovedocument: () => void;
     onvoice: (recording: { blob: Blob; duration_ms: number; mime_type: string }) => Promise<boolean>;
     onsend: (body: string, urgent: boolean) => Promise<boolean>;
   } = $props();
@@ -41,7 +45,7 @@
   async function submit() {
     const value = draft.trim();
     const readyPhotos = photos.filter((photo) => photo.state === 'ready');
-    if ((!value && readyPhotos.length === 0) || disabled || sending || offline || photos.some((photo) => photo.state !== 'ready')) return;
+    if ((!value && readyPhotos.length === 0 && !document) || disabled || sending || offline || photos.some((photo) => photo.state !== 'ready')) return;
     const accepted = await onsend(value, urgent);
     if (accepted) {
       draft = '';
@@ -87,6 +91,13 @@
       {/each}
     </div>
   {/if}
+  {#if document && !voiceActive}
+    <div class="mb-2 flex items-center gap-3 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-slate-800">
+      <FileText size={20} class="shrink-0 text-hero" aria-hidden="true" />
+      <span class="min-w-0 flex-1"><span dir="auto" class="block truncate text-xs font-extrabold">{document.filename}</span><span class="block text-[0.65rem] font-semibold text-slate-500">{$_('messaging.documentReady')}</span></span>
+      <button type="button" class="grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-600 hover:bg-white" disabled={sending} onclick={onremovedocument} aria-label={$_('messaging.removeDocument')}><X size={15} aria-hidden="true" /></button>
+    </div>
+  {/if}
   {#if canMarkUrgent && !voiceActive}
     <label class="mb-2 inline-flex min-h-9 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-extrabold text-amber-900">
       <input class="h-4 w-4 accent-amber-600" type="checkbox" bind:checked={urgent} disabled={disabled || sending || offline} />
@@ -97,7 +108,7 @@
     {#if !voiceActive}
       <label class="sr-only" for="message-body">{$_('messaging.messageLabel')}</label>
       <div class="flex min-w-0 flex-1 items-end rounded-[1.4rem] border border-slate-200 bg-slate-50 shadow-sm transition focus-within:border-hero focus-within:bg-white focus-within:ring-2 focus-within:ring-hero/15">
-      {#if photosEnabled}
+      {#if photosEnabled && !document}
       <div class="flex h-11 shrink-0 items-center ps-1">
         <label class="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full text-slate-600 transition hover:bg-slate-200/70 focus-within:outline focus-within:outline-2 focus-within:outline-offset-[-2px] focus-within:outline-hero" aria-label={$_('messaging.choosePhotos')}>
           <ImagePlus size={18} aria-hidden="true" />
@@ -122,18 +133,18 @@
       ></textarea>
       </div>
     {/if}
-    {#if !voiceActive && (draft.trim() || photos.length)}
+    {#if !voiceActive && (draft.trim() || photos.length || document)}
       <button
         type="submit"
         data-testid="message-send"
-        disabled={disabled || sending || offline || (!draft.trim() && !photos.some((photo) => photo.state === 'ready')) || photos.some((photo) => photo.state !== 'ready')}
+        disabled={disabled || sending || offline || (!draft.trim() && !photos.some((photo) => photo.state === 'ready') && !document) || photos.some((photo) => photo.state !== 'ready')}
         class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-hero text-white shadow-sm transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero disabled:cursor-not-allowed disabled:opacity-40"
         aria-label={sending ? $_('messaging.sending') : $_('messaging.send')}
       >
         {#if sending}…{:else}<SendHorizontal size={19} class="rtl:-scale-x-100" aria-hidden="true" />{/if}
       </button>
     {/if}
-    {#if voiceEnabled}
+    {#if voiceEnabled && !document}
       <div class="shrink-0" class:hidden={!voiceActive && Boolean(draft.trim() || photos.length)} class:min-w-0={voiceActive} class:w-full={voiceActive} class:flex-1={voiceActive}>
         <VoiceRecorder disabled={disabled || offline} {sending} {onvoice} onactivechange={(active) => { voiceActive = active; }} />
       </div>

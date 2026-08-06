@@ -17,3 +17,6 @@ google-auth[requests]
 firebase-admin
 Pillow>=10.3.0
 pillow-heif>=0.18.0
+reportlab>=4.2.0
+arabic-reshaper>=3.0.0
+python-bidi>=0.6.0

@@ -1,5 +1,22 @@
 # FHH Messaging Integration Operations
 
+## Generated report/certificate document boundary (2026-08-06)
+
+CHH now supports one immutable school-generated behaviour report or confirmed
+recognition certificate on a message. Only the active staff membership that
+generated the 24-hour stage may attach it; FHH parent sends cannot supply a staged
+document identifier. Attachment is mutually exclusive with photos and voice notes,
+and the normal stable client-message UUID preserves idempotent retry.
+
+Downloads require current conversation participation and exact message-sequence
+access on every request. CHH validates the stored size and SHA-256 before returning
+PDF/CSV bytes with private/no-store/nosniff/same-origin headers. The FHH projection
+contains only opaque ID, approved type, safe filename, content type, size and
+availability; it never contains a storage key, checksum, generator identity, source
+reference or direct URL. Abandoned stages expire after 24 hours. Once attached, the
+document follows message retention and legal-hold candidate selection; bytes are
+unlinked only after the disposal transaction commits.
+
 ## Production assertion boundary and protected-destination gate (2026-07-27)
 
 Production School Chats and surveys are enabled. CHH must select the assertion
