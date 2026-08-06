@@ -50,6 +50,7 @@ from app.models_school import (  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = ROOT / "scripts" / "seed_realistic_demo_school.py"
+CLEANUP_SCRIPT_PATH = ROOT / "scripts" / "cleanup_seeded_demo_content.py"
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -68,6 +69,18 @@ def load_module():
 
 
 module = load_module()
+
+
+def load_cleanup_script_module():
+    spec = util.spec_from_file_location("cleanup_seeded_demo_content", CLEANUP_SCRIPT_PATH)
+    cleanup_module = util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[spec.name] = cleanup_module
+    spec.loader.exec_module(cleanup_module)
+    return cleanup_module
+
+
+cleanup_script = load_cleanup_script_module()
 
 
 @pytest.fixture
@@ -678,6 +691,23 @@ def test_seeded_content_cleanup_dry_run_is_manifest_only_and_read_only(db, world
     assert summary.preserved_counts["announcement:not_selected"] == 1
     assert summary.ambiguous_counts == {}
     assert current_counts(db) == before
+
+
+def test_seeded_content_cleanup_apply_guard_requires_exact_environment_confirmations(monkeypatch):
+    school_slug = "united-international-school"
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.delenv("DEMO_CLEANUP_CONFIRM", raising=False)
+    monkeypatch.delenv("DEMO_CLEANUP_PRODUCTION_CONFIRM", raising=False)
+    assert cleanup_script.apply_guard_error(school_slug)
+
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("DEMO_CLEANUP_CONFIRM", school_slug)
+    assert cleanup_script.apply_guard_error(school_slug) is None
+
+    monkeypatch.setenv("APP_ENV", "production")
+    assert cleanup_script.apply_guard_error(school_slug)
+    monkeypatch.setenv("DEMO_CLEANUP_PRODUCTION_CONFIRM", f"manifest-content-cleanup:{school_slug}")
+    assert cleanup_script.apply_guard_error(school_slug) is None
 
 
 def test_seeded_content_cleanup_removes_dependencies_preserves_manual_data_and_tombstones(db, world, monkeypatch, tmp_path):

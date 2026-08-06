@@ -22,14 +22,26 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def apply_guard_error(school_slug: str) -> str | None:
+    app_env = os.environ.get("APP_ENV", "").strip().lower()
+    if os.environ.get("DEMO_CLEANUP_CONFIRM") != school_slug:
+        return "DEMO_CLEANUP_CONFIRM must equal the exact school slug."
+    if app_env == "development":
+        return None
+    if app_env == "production":
+        expected = f"manifest-content-cleanup:{school_slug}"
+        if os.environ.get("DEMO_CLEANUP_PRODUCTION_CONFIRM") == expected:
+            return None
+        return f"DEMO_CLEANUP_PRODUCTION_CONFIRM must equal {expected!r}."
+    return "APP_ENV must be development or production."
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.apply:
-        if os.environ.get("APP_ENV", "").strip().lower() != "development":
-            print("Refusing --apply outside APP_ENV=development.", file=sys.stderr)
-            return 1
-        if os.environ.get("DEMO_CLEANUP_CONFIRM") != args.school_slug:
-            print("Refusing --apply without DEMO_CLEANUP_CONFIRM set to the exact school slug.", file=sys.stderr)
+        guard_error = apply_guard_error(args.school_slug)
+        if guard_error:
+            print(f"Refusing --apply: {guard_error}", file=sys.stderr)
             return 1
 
     db = SessionLocal()
