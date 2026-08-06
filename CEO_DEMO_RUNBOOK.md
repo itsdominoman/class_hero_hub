@@ -2,37 +2,39 @@
 
 Prepared: 2026-08-06
 
-Current authority: local source and validation only; no push, deployment, migration or APK build
+Current authority: CHH pilot and FHH development deployment/UAT only; no FHH
+production promotion or APK publication
 Detailed evidence: `PRE_CEO_DEMO_RESULT.md`
 
 ## Release decision
 
-The local CHH and FHH development implementations are ready for a controlled release review. They are not the code currently serving the live demo environments. Do not present leadership/HOD identities, certificate branding, generated-document sharing or the aligned avatar experience as live until the deployment and post-deployment gates below pass.
+The paired implementation now serves CHH pilot and FHH development. Health and
+migration gates passed. It is ready for bounded user acceptance, but the project
+is not complete until the role identities/relationships are provisioned and the
+full physical journey passes.
 
-The following actions require explicit authorisation:
+The following remaining actions require explicit user input or authorisation:
 
-1. Push the local CHH `main` and FHH `develop` checkpoints.
-2. Take fresh release-window backups and verify their catalogues/checksums.
-3. Apply the pending CHH and FHH migrations.
-4. Rebuild/restart the paired services in the controlled order.
-5. Provision or change live demo identities and relationships.
+1. Select the real invitation identities for Principal, Deputy Principal and HOD.
+2. Provision those identities and the demo family relationships through supported UI.
+3. Promote any accepted work to FHH production or publish a new APK.
 
 ## Frozen source checkpoints
 
-- CHH local source: `caac5ac` plus the documentation checkpoint containing this runbook.
-- FHH development local source: `413e960`.
+- CHH pilot source: `931eef68cd9566c9f7eed8d97a9474d4006f11ed`.
+- FHH development source: `97003047bb5d06a58d50658056b98aef15ce33be`.
 - Original baselines: CHH `37f5201` and FHH `85616ee`, both tagged `pre-ceo-demo-baseline-2026-08-06` locally.
-- No current checkpoint has been pushed or deployed by this audit.
+- Final completion tags have not been created because UAT is incomplete.
 
-## Pre-release gates
+## Completed deployment gates
 
-1. Review both worktree histories and confirm only the intended checkpoints will be released.
-2. Confirm the existing verified backups listed in `PRE_CEO_DEMO_RESULT.md`, then take fresh release-window backups before applying migrations.
-3. Confirm CHH migration history reaches the role/department, messaging acknowledgement, certificate-branding and generated-document revisions without a branch conflict.
-4. Confirm FHH migration history reaches the parent acknowledgement revision without a branch conflict.
-5. Deploy CHH before enabling dependent FHH behaviour, because CHH owns the authoritative messaging policy, school scope and protected document endpoints.
-6. Deploy FHH development after CHH health and private integration authentication pass.
-7. Do not deploy this work to FHH production as part of this runbook.
+1. Intended histories were reviewed and fresh verified backups were taken.
+2. CHH migrations reached `d8e9f0a1b2c3`; readiness reports current.
+3. FHH development migrations reached `d3e4f5a6b7c8`; readiness reports current.
+4. CHH was deployed before the dependent FHH development work.
+5. Both public development homes/readiness endpoints return HTTP 200 and all
+   relevant containers are healthy.
+6. FHH production and the Play Store release were not changed.
 
 ## Demo identity provisioning
 
@@ -74,7 +76,9 @@ Treat this as a separate Priority 0 release check:
 - Restore a bounded mobile-web header without changing the intended APK navigation.
 - Keep School Chats in the approved information architecture and avoid duplicate entry points.
 
-The local browser harness passing does not prove this live issue is fixed; current audit changes were not deployed and the reported unlinked-parent state was not part of the final local fixture.
+The older browser harness did not include the reporter's exact unlinked-parent
+state. Reproduce this in FHH development during UAT; if it remains present, it is
+a development blocker and must be fixed before production promotion.
 
 ## Rollback
 

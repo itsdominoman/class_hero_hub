@@ -1,8 +1,8 @@
 # CHH/FHH pre-CEO-demo result
 
-Status: locally complete; release and live demo identities require deployment authorisation
+Status: deployed to CHH pilot and FHH development; UAT and demo identities incomplete
 Started: 2026-08-06  
-Push/deployment authorisation: none
+Production authority: none; do not promote FHH production or publish an APK
 
 ## Baselines
 
@@ -15,7 +15,9 @@ Both baselines were clean, on the required branch and equal to their origin trac
 
 ## Checkpoints
 
-This ordered list is updated after each completed implementation checkpoint.
+This ordered list is updated after each completed implementation checkpoint. A
+row's limitation records what was true at that checkpoint; the current deployed
+truth is in the runtime section and the completion audit.
 
 | Order | Repository | Commit | Purpose | Focused validation | Limitation/follow-up |
 |---:|---|---|---|---|---|
@@ -43,25 +45,34 @@ This ordered list is updated after each completed implementation checkpoint.
 | 22 | CHH | `5c64802` | Restore deterministic backend coverage while preserving the production CHH/FHH guardian boundary | Full CHH backend collection passed: 621 tests with 19 explicit environment skips | FFmpeg-dependent audio processing remains for the Linux/container gate |
 | 23 | FHH development | `413e960` | Harden deterministic parent/child browser acceptance coverage | 74/74 Chromium cases, 200 unit tests, Svelte 0/0, 1,574-key EN/AR parity and production build passed | Test-harness only; this did not deploy or change the live browser header |
 | 24 | CHH | `caac5ac` | Align browser fixtures with hardened role, entitlement, acknowledgement and native-shell contracts; fail messaging closed when no candidate membership is authorised | Svelte 0/0; 16/17 bounded messaging/mobile cases passed together, with the sole cold-start timeout passing immediately in isolation | Deliberately stopped short of another full browser matrix; release-device checks remain in the runbook |
+| 25 | CHH | `e13dc07` | Add the school-admin Staff and Departments UI for staff search, leadership/support invitations, department lifecycle and dated assignments | Svelte check passed; 11 focused UI tests, 6 backend role tests and 2,339-key EN/AR parity passed | Deployed to CHH pilot; live provisioning and role acceptance remain |
+| 26 | CHH | `4c764a5` | Add neutral own-baseline staff reporting indicators with equal-period and minimum-sample safeguards | 10 focused report backend tests, 24 UI/navigation/localisation tests and Svelte check passed | Deployed to CHH pilot; real-data role acceptance remains |
+| 27 | CHH | `33d0d6d` | Add audited, aggregate-only survey-summary sharing through protected School Messages | 19 focused survey tests, 8 UI/i18n tests and Svelte check passed | Deployed to CHH pilot; exact-child physical journey remains |
+| 28 | FHH development | `550ccd3` | Preserve the Play Store app's legacy avatar contract while adding the shared CHH avatar catalogue and survey-summary receiver | 30 focused backend tests, 4 frontend avatar tests and full Svelte check passed | Deployed to development only; old-APK physical regression remains |
+| 29 | CHH | `931eef6` | Track the deployed survey-document migration in readiness | 5 focused health tests passed | Deployed; database/current readiness is healthy |
+| 30 | FHH development | `9700304` | Track the deployed additive avatar migration in readiness | 6 focused health tests passed | Deployed; database/current readiness is healthy |
 
 ## Backups and migrations
 
-- No migration has been applied. One explicitly scoped CHH data mutation removed 1,041 manifest-proven seeded content rows after a verified backup and dry-run; all manual/unproven content was preserved and 1,041 seed manifests remain as reseed-blocking tombstones.
+- Current CHH pilot database head is `d8e9f0a1b2c3`; current FHH development head is `d3e4f5a6b7c8`. Readiness reports both as current.
+- Fresh pre-deployment CHH dump `/opt/apps/class_hero_hub/backups/pre-ceo-demo/chh-pre-full-dev-20260806T192350Z.dump` was verified: 1,400,006 bytes; SHA-256 `b4c4eb10d15daf2bb08300c18af75bd3e47d548e051992003ee85903c2b0cf0c`; 1,355 catalogue lines.
+- Fresh pre-deployment FHH development dump `/opt/apps/family-hero-hub/backups/pre-ceo-demo/fhh-dev-pre-full-20260806T192350Z.dump` was verified: 195,868 bytes; SHA-256 `e0395d39233ddfcdba12cf55862cc46efd0399f501ae3fbaccd20784fce8afa9`; 380 catalogue lines.
+- One explicitly scoped CHH data mutation removed 1,041 manifest-proven seeded content rows after a verified backup and dry-run; all manual/unproven content was preserved and 1,041 seed manifests remain as reseed-blocking tombstones.
 - Before the role/department schema work, CHH PostgreSQL backup `/opt/apps/class_hero_hub/backups/pre-ceo-demo/chh-pre-role-expansion-20260806T115820Z.dump` was created on the pilot server: 1,390,354 bytes; SHA-256 `fcda2c0fa2d4296f9332e25aa6be93c6fbe897e9b412270965bbc5c5840d17be`; `pg_restore --list` verified the catalogue.
-- Alembic revision `b3c4d5e6f7a8` was validated with offline upgrade and downgrade SQL. Applying it remains a separately authorised deployment step.
+- Alembic revision `b3c4d5e6f7a8` was validated with offline upgrade and downgrade SQL and is now included in the applied CHH migration chain.
 - Before the FHH acknowledgement-schema work, development dump `/opt/apps/family-hero-hub/backups/pre-ceo-demo/fhh-dev-pre-messaging-ack-20260806T124500Z.dump` was created: 195,871 bytes; SHA-256 `cbf1d4e7aeb42e321ef69571f25c14424837aff7faec2876301fc28b055107e1`; its `pg_restore --list` catalogue was verified inside the healthy PostgreSQL container.
 - Immediately before the planned CHH manifest-only content cleanup, custom-format dump `/opt/apps/class_hero_hub/backups/pre-ceo-demo/chh-pre-seed-cleanup-20260806T132931Z.dump` was created: 1,390,351 bytes; SHA-256 `0666777ebcf3bb3df41db81a48d0174120666522b8e87cd59a9030de754dafd6`; `pg_restore --list` verified the catalogue. The authoritative dry-run found 1,041 unambiguous manifest-proven rows and preserved every unmanifested survey, conversation, message and content row.
 - The normal FHH pgBackRest command was attempted first and failed before backup because the existing encrypted local `backup.info` could not be decoded and repository `2` was rejected. The fallback dump above is valid; repairing pgBackRest is an operations follow-up and was not mixed into this product task.
-- Acknowledgement revisions `f0e1d2c3b4a5` (CHH) and `d2e3f4a5b6c7` (FHH) were validated with offline upgrade and downgrade SQL. Neither has been applied.
-- Certificate-branding revision `c6d7e8f9a0b1` was validated with guarded PostgreSQL upgrade and downgrade SQL. It has not been applied.
-- Generated-message-document revision `c7d8e9f0a1b2` was validated against PostgreSQL with guarded offline upgrade and downgrade SQL. It has not been applied.
+- Acknowledgement revisions `f0e1d2c3b4a5` (CHH) and `d2e3f4a5b6c7` (FHH) were validated and are now applied in their respective development migration chains.
+- Certificate-branding revision `c6d7e8f9a0b1` was validated with guarded PostgreSQL upgrade/downgrade SQL and is now applied on CHH pilot.
+- Generated-message-document revisions through `d8e9f0a1b2c3` were validated and are now applied on CHH pilot.
 
 ## Runtime/deployment impact
 
-- No service was rebuilt or restarted.
-- CHH source through `7ef053e` and FHH development source through `02d6965` are present in their authoritative server worktrees without rebuilding or restarting services. Later checkpoints remain local.
-- No deployment, push, APK build or Android package change occurred.
-- The guarded manifest-only cleanup ran as a temporary operator command against CHH, then its temporary files were removed. Post-operation CHH readiness and all containers remained healthy.
+- CHH pilot is deployed at `931eef68cd9566c9f7eed8d97a9474d4006f11ed`, with database head `d8e9f0a1b2c3`; backend/frontend/database/workers are healthy and public home/readiness return HTTP 200.
+- FHH development is deployed at `97003047bb5d06a58d50658056b98aef15ce33be`, with database head `d3e4f5a6b7c8`; all five services are healthy and public home/readiness return HTTP 200.
+- FHH production, the Google Play release and the installed production APK were not changed.
+- Only affected backend/frontend services were rebuilt; no worker behaviour changed.
 
 ## Validation completed so far
 
@@ -78,7 +89,7 @@ This ordered list is updated after each completed implementation checkpoint.
 
 ## Deployment and physical-device handoff
 
-- The implementation and local evidence are complete enough for handoff. No push, deployment, migration or APK build was authorised or performed.
-- Leadership/HOD demo identities and the deterministic linked demo family cannot be made usable on the live demo until the paired CHH/FHH source and migrations are released in a controlled window.
-- Physical Android/WebView, download, keyboard, touch and final EN/AR device checks remain release gates, not unfinished local implementation.
-- The authorised release order, demo journeys, rollback points and known live-browser risks are recorded in `CEO_DEMO_RUNBOOK.md`.
+- The paired implementation and migrations are deployed to CHH pilot and FHH development only. No FHH production promotion or APK build occurred.
+- Leadership/HOD demo identities and the deterministic linked demo family still require user-approved identities and supported UI provisioning.
+- Physical Android/WebView, old-APK compatibility, download, keyboard, touch and final EN/AR checks remain UAT gates.
+- The project is not complete until the original 20-point table contains observed acceptance evidence and the complete CEO journey passes.
