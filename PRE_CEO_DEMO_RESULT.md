@@ -36,7 +36,7 @@ This ordered list is updated after each completed implementation checkpoint.
 
 ## Backups and migrations
 
-- No migration, deletion or database mutation has occurred during the audit.
+- No migration has been applied. One explicitly scoped CHH data mutation removed 1,041 manifest-proven seeded content rows after a verified backup and dry-run; all manual/unproven content was preserved and 1,041 seed manifests remain as reseed-blocking tombstones.
 - Before the role/department schema work, CHH PostgreSQL backup `/opt/apps/class_hero_hub/backups/pre-ceo-demo/chh-pre-role-expansion-20260806T115820Z.dump` was created on the pilot server: 1,390,354 bytes; SHA-256 `fcda2c0fa2d4296f9332e25aa6be93c6fbe897e9b412270965bbc5c5840d17be`; `pg_restore --list` verified the catalogue.
 - Alembic revision `b3c4d5e6f7a8` was validated with offline upgrade and downgrade SQL. Applying it remains a separately authorised deployment step.
 - Before the FHH acknowledgement-schema work, development dump `/opt/apps/family-hero-hub/backups/pre-ceo-demo/fhh-dev-pre-messaging-ack-20260806T124500Z.dump` was created: 195,871 bytes; SHA-256 `cbf1d4e7aeb42e321ef69571f25c14424837aff7faec2876301fc28b055107e1`; its `pg_restore --list` catalogue was verified inside the healthy PostgreSQL container.
@@ -49,6 +49,7 @@ This ordered list is updated after each completed implementation checkpoint.
 - No service was rebuilt or restarted.
 - CHH source through `7ef053e` and FHH development source through `02d6965` are present in their authoritative server worktrees without rebuilding or restarting services. Later checkpoints remain local.
 - No deployment, push, APK build or Android package change occurred.
+- The guarded manifest-only cleanup ran as a temporary operator command against CHH, then its temporary files were removed. Post-operation CHH readiness and all containers remained healthy.
 
 ## Validation completed so far
 
@@ -58,8 +59,9 @@ This ordered list is updated after each completed implementation checkpoint.
 - UIS entitlement, feature-control and messaging-policy state inspected.
 - Jason Green's active UIS teacher membership and three active teaching assignments verified.
 - Seed manifest namespaces/entity counts inspected without reading private content.
+- Manifest-only seeded-content cleanup removed 166 announcements, 208 calendar events, 512 homework/diary items and 155 update posts; its retained tombstones, audit event, preserved counts and zero-repeat dry-run were verified.
 - Same-school staff messaging, shared CHH/FHH language selection, FHH parent/student School dashboard boundaries, leadership/HOD reporting scope, department administration, audited communication-oversight scope, scoped teacher search, cross-school search isolation, natural setup ordering and responsive school-menu hierarchy have focused automated coverage.
 
 ## Remaining work
 
-Remaining Priority 0-3 implementation, backups, cleanup, broader test suites, manual browser/mobile/RTL checks, demo relationship completion, runbook and final tags remain active.
+Remaining Priority 0-3 implementation, broader test suites, manual browser/mobile/RTL checks, demo relationship completion, runbook and final tags remain active.

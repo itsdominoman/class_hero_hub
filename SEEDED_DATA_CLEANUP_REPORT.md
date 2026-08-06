@@ -1,6 +1,6 @@
 # Seeded data cleanup report
 
-Status: authoritative dry-run complete; deletion not yet applied  
+Status: applied and post-operation verification complete  
 Target: CHH pilot/public, United International School (`united-international-school`)  
 Cleanup version: `manifest-content-cleanup-v1`  
 Dry-run date: 2026-08-06
@@ -46,4 +46,27 @@ No dependent records were found in the selected set: zero announcement attachmen
 
 ## Apply result
 
-Not yet applied at this checkpoint. Deleted counts remain zero until the separately checkpointed operation succeeds and post-operation counts are verified.
+The cleanup was applied once through the guarded operator command after the verified backup and pre-operation Git checkpoint.
+
+| Data type | Deleted | Post-operation rows preserved |
+|---|---:|---:|
+| Notices/announcements | 166 | 21 |
+| Calendar events | 208 | 4 |
+| Homework/diary items | 512 | 18 |
+| Family updates | 155 | 33 |
+| Update photos | 0 | 47 |
+| **Total** | **1,041** | **123** |
+
+Post-operation verification established:
+
+- all 1,041 selected manifests now carry the retained `removed` cleanup tombstone;
+- a second dry-run proposed zero deletions and reported all 1,041 rows as already removed;
+- exactly one `demo_seed.content_cleanup` audit event records the operation;
+- all 10 surveys, 11 conversations and 132 messages remain present;
+- 10,334 behaviour events remain present, including all 10,138 manifest-proven reporting events;
+- there were no attachment, read, completion, photo or file dependencies to remove;
+- all CHH containers remained healthy and the affected backend log contained readiness `200` entries with no cleanup error or traceback;
+- no service was rebuilt or restarted;
+- the temporary operator scripts were removed from both the host and running container after verification.
+
+Recovery is possible by restoring the verified pre-operation custom-format dump. No manually created row was selected by this cleanup, and the backup is required to recover the intentionally deleted seeded rows.
