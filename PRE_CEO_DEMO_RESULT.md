@@ -30,6 +30,7 @@ This ordered list is updated after each completed implementation checkpoint.
 | 9 | FHH development | `bdda9d4` | Persist the matching one-time parent school-messaging acknowledgement | All 23 school-messaging proxy tests, Svelte check, 1,571-key language parity, compileall and offline migration upgrade/downgrade SQL passed | Source only: revision `d2e3f4a5b6c7` is not applied; physical Android-shell flow remains |
 | 10 | CHH | `329051b` | Publish the canonical messaging-warning version through the authenticated private FHH integration | Focused service-authentication and no-store response test passed | Source only; depends on controlled CHH/FHH rollout order |
 | 11 | FHH development | `35964c4` | Source the warning version from authoritative CHH while retaining FHH-owned parent acknowledgement identity | Focused parent versioning/user-scope test passed | Source only; a CHH outage intentionally prevents accepting an unverified policy version |
+| 12 | CHH | `9ce5619` | Remove infrastructure telemetry and operations controls from school routes/navigation while retaining platform-admin monitoring APIs | 3 production-hardening backend tests, 19 messaging presentation tests, Svelte check and language parity passed | Platform monitoring remains API-backed; no school-facing operations page remains |
 
 ## Backups and migrations
 
