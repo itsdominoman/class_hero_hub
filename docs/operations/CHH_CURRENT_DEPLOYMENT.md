@@ -22,6 +22,19 @@ physical journeys, protected download/share acceptance and device checks. The
 authoritative requirement state is in `PRE_CEO_DEMO_COMPLETION_AUDIT.md` and the
 ordered implementation evidence is in `PRE_CEO_DEMO_RESULT.md`.
 
+The independent role-suite acceptance run on 2026-08-07 also corrected a
+test-only timezone defect: entitlement fixture grants used the workstation's
+local date while enforcement uses UTC. The fixture now uses the production UTC
+clock. All six management-role tests plus the isolated platform-operations test
+pass independently. This changed no runtime code, schema, data, service or APK,
+so no rebuild was required.
+
+The related messaging lifecycle fixtures now also use UTC. Four isolated
+current-source tests pass for staff discovery and school isolation, teacher
+multi-class/subject/temporary scope, expired/unrelated and cross-school/revoked
+denial, and replacement/archive lifecycle. This is test-only and likewise
+requires no service rebuild.
+
 ## 2026-08-06 Phase 1 CHH pilot release
 
 The audited CHH release candidate was deployed to the CHH pilot only. The
