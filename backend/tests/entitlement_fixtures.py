@@ -1,6 +1,4 @@
-from datetime import date
-
-from app.entitlement_service import CAPABILITIES
+from app.entitlement_service import CAPABILITIES, utc_today
 from app.models_school import SchoolEntitlement
 
 
@@ -31,7 +29,7 @@ def grant_capabilities(db, school, actor, *capabilities: str) -> None:
             capability=capability,
             enabled=True,
             source="pilot",
-            effective_from=date.today(),
+            effective_from=utc_today(),
             updated_by_user_id=actor.id,
         )
         for capability in required - existing
