@@ -53,6 +53,12 @@ The following checks were observed against the deployed development systems on
 - CHH and FHH development link counts reconcile at one active development link;
   both lifecycle and notification workers report healthy with no current error.
 
+The existing active development link is not suitable as the named CEO-demo
+family. It came from a consumed legacy invitation with no guardian-contact
+reference or recipient identity and is not the Jason/Green relationship. It was
+left intact because its history may be legitimate; do not repurpose or revoke it
+without item-level approval.
+
 ## Demo identity provisioning
 
 Provision identities only through the normal application/administrative paths after the migrations are live. Do not add hard-coded email, title or permission exceptions.

@@ -69,4 +69,13 @@ Post-operation verification established:
 - no service was rebuilt or restarted;
 - the temporary operator scripts were removed from both the host and running container after verification.
 
+## Later reconciliation
+
+A read-only reconciliation on 2026-08-07 found 133 messages. The cleanup audit
+occurred at 2026-08-06 13:33:49 UTC; exactly one message was created later, at
+19:45:03 UTC. The cleanup-time figure of 132 above is therefore historically
+correct, and the current extra message is ordinary post-cleanup activity rather
+than a cleanup discrepancy or reseeded fixture. The current survey and
+conversation totals remain 10 and 11 respectively.
+
 Recovery is possible by restoring the verified pre-operation custom-format dump. No manually created row was selected by this cleanup, and the backup is required to recover the intentionally deleted seeded rows.
