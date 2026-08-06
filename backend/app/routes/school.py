@@ -2991,7 +2991,19 @@ def list_students(
     query = db.query(Student).filter(Student.school_id == school_id)
     if not include_archived:
         query = query.filter(Student.status != "archived")
-    for search_part in (search or "").split():
+    normalized_search = (search or "").strip()
+    if normalized_search.isdigit():
+        # The shared search control deliberately runs numeric identifiers
+        # immediately. Keep that contract exact: a one-digit student ID must
+        # not become a wildcard match against every external/guardian/class
+        # reference containing that digit.
+        query = query.filter(
+            or_(
+                Student.id == int(normalized_search),
+                func.lower(func.coalesce(Student.external_ref, "")) == normalized_search.casefold(),
+            )
+        )
+    for search_part in (() if normalized_search.isdigit() else normalized_search.split()):
         escaped = search_part.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         term = f"%{escaped}%"
         exact_identifier = or_(

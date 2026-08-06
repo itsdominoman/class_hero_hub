@@ -187,6 +187,14 @@ def test_student_list_search_covers_arabic_guardian_identity_placement_and_exact
     )
     db.add_all([student, hidden])
     db.flush()
+    numeric_distractor = Student(
+        school_id=world["alpha"].id,
+        external_ref=f"REFERENCE-CONTAINING-{student.id}",
+        first_name="Numeric",
+        last_name="Distractor",
+        status="active",
+    )
+    db.add(numeric_distractor)
     db.add_all([
         Enrolment(
             school_id=world["alpha"].id,
