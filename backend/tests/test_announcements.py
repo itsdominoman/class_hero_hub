@@ -14,7 +14,7 @@ from sqlalchemy.pool import StaticPool
 
 from app import auth, database, invite_tokens
 from app.database import Base, get_db
-from app.main import app
+from legacy_guardian_app import create_legacy_guardian_test_app
 from app.models_school import (
     AcademicYear,
     Announcement,
@@ -40,6 +40,9 @@ from app.models_school import (
     User,
 )
 from app.routes import announcements, homework
+
+
+app = create_legacy_guardian_test_app()
 
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -255,7 +258,7 @@ def test_guardian_homework_visibility_archive_revoke_and_allowlist(db, client, w
     for link in db.query(GuardianLink).filter(GuardianLink.user_id == world["guardian"].id).all():
         link.status = "revoked"; link.revoked_at = invite_tokens.now_utc()
     db.commit()
-    assert client.get("/api/guardian/homework", headers=headers).json()["items"] == []
+    assert client.get("/api/guardian/homework", headers=headers).status_code == 403
 
 
 def test_unrelated_guardian_cannot_download_homework_attachment(client, world):
@@ -344,9 +347,9 @@ def test_guardian_completed_hidden_after_link_revoked(db, client, world):
     for link in db.query(GuardianLink).filter(GuardianLink.user_id == world["guardian"].id).all():
         link.status = "revoked"; link.revoked_at = invite_tokens.now_utc()
     db.commit()
-    assert client.get("/api/guardian/homework?status=completed", headers=guardian).json()["items"] == []
-    assert client.get(f'/api/guardian/homework/{item["id"]}', headers=guardian).status_code == 404
-    assert client.delete(f'/api/guardian/homework/{item["id"]}/done', headers=guardian).status_code == 404
+    assert client.get("/api/guardian/homework?status=completed", headers=guardian).status_code == 403
+    assert client.get(f'/api/guardian/homework/{item["id"]}', headers=guardian).status_code == 403
+    assert client.delete(f'/api/guardian/homework/{item["id"]}/done', headers=guardian).status_code == 403
 
 
 def test_teacher_can_edit_homework_fields_and_guardian_sees_update(db, client, world):
@@ -654,7 +657,7 @@ def test_revoked_link_loses_access_and_archived_hidden(db, client, world):
     sibling_link.revoked_at = invite_tokens.now_utc()
     db.commit()
     revoked = client.get("/api/guardian/announcements", headers=bearer(world["guardian"].email))
-    assert revoked.json()["announcements"] == []
+    assert revoked.status_code == 403
 
     admin_archive = client.delete(f"/api/school/announcements/{created['id']}", headers=bearer(world["admin"].email, world["alpha"].id))
     assert admin_archive.status_code == 200

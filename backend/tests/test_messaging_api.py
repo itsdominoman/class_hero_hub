@@ -1,5 +1,6 @@
 import os
 import io
+import shutil
 import subprocess
 from time import perf_counter
 from datetime import date, datetime, time, timedelta, timezone
@@ -19,7 +20,7 @@ from sqlalchemy.pool import StaticPool
 
 from app import auth, database
 from app.database import Base, get_db
-from app.main import app
+from legacy_guardian_app import create_legacy_guardian_test_app
 from app.models_school import (
     AcademicYear,
     AuditLog,
@@ -54,6 +55,9 @@ from app.models_school import (
     User,
 )
 from app import message_media_service, message_voice_service
+
+
+app = create_legacy_guardian_test_app()
 
 
 engine = create_engine(
@@ -1905,6 +1909,7 @@ def _voice_tone_bytes(tmp_path, *, duration=1.1, frequency=523):
     return target.read_bytes()
 
 
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="FFmpeg is not installed in this test environment")
 def test_voice_feature_control_upload_attach_playback_scope_retry_and_cleanup(
     db, client, monkeypatch, tmp_path
 ):

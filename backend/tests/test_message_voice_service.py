@@ -1,8 +1,15 @@
 import subprocess
+import shutil
 
 import pytest
 
 from app import message_voice_service as voice
+
+
+pytestmark = pytest.mark.skipif(
+    shutil.which("ffmpeg") is None,
+    reason="FFmpeg is not installed in this test environment",
+)
 
 
 def _audio_bytes(tmp_path, *, duration: float = 1.2, extension: str = "wav") -> bytes:

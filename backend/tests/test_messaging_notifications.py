@@ -310,6 +310,7 @@ def _world(db):
                 participant_id=staff.id,
                 source_type="school_admin_membership",
                 membership_id=membership.id,
+                valid_from=datetime(2026, 1, 1, tzinfo=UTC),
                 grant_reason="conversation_created",
             ),
             ConversationAccessGrant(
@@ -317,6 +318,7 @@ def _world(db):
                 participant_id=guardian.id,
                 source_type="guardian_link",
                 guardian_link_id=guardian_link.id,
+                valid_from=datetime(2026, 1, 1, tzinfo=UTC),
                 grant_reason="conversation_created",
             ),
         ]

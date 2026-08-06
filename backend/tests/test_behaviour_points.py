@@ -14,13 +14,15 @@ from sqlalchemy.pool import StaticPool
 
 from app import auth, database
 from app.database import Base, get_db
-from app.main import app
+from legacy_guardian_app import create_legacy_guardian_test_app
 from app.models_school import (
     AcademicYear, AuditLog, BehaviourAwardRequest, BehaviourCategory, BehaviourEvent,
     BranchCampus, ClassSection, Enrolment, FhhLink, FhhLinkInvite, GradeLevel,
     GuardianLink, Membership, NotificationOutbox, School, StaffAssignment, Student,
     Subject, SubjectGroup, User,
 )
+
+app = create_legacy_guardian_test_app()
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
 Session = sessionmaker(bind=engine)
@@ -119,8 +121,8 @@ def test_teacher_same_school_events_are_auditable_and_cross_school_blocked(db, c
 def test_guardian_summary_is_link_scoped_and_revocation_removes_access(db, client, world):
     w=world; category=BehaviourCategory(school_id=w["a"].id,type="needs_work",label="Not listening",points_value=-2,active=True); db.add(category); db.flush(); db.add(BehaviourEvent(school_id=w["a"].id,student_id=w["s1"].id,category_id=category.id,actor_user_id=w["teacher"].id,points_delta=-2,note="Reminder",source="teacher")); db.commit()
     payload=client.get("/api/guardian/points",headers=headers(w["guardian"])).json(); assert payload["children"][0]["total"]==-2; assert payload["children"][0]["recent_events"][0]["category_id"]==category.id; assert "email" not in str(payload).lower() and "token" not in str(payload).lower()
-    assert client.get("/api/guardian/points",headers=headers(w["outsider"])).json()=={"children":[]}
-    link=db.query(GuardianLink).one(); link.status="revoked"; db.commit(); assert client.get("/api/guardian/points",headers=headers(w["guardian"])).json()=={"children":[]}
+    assert client.get("/api/guardian/points",headers=headers(w["outsider"])).status_code==403
+    link=db.query(GuardianLink).one(); link.status="revoked"; db.commit(); assert client.get("/api/guardian/points",headers=headers(w["guardian"])).status_code==403
 
 def test_teacher_student_search_is_auth_role_school_status_scoped_and_allow_listed(db, client, world):
     w=world; w["s1"].first_name="Alice"; w["s1"].preferred_name="Ali"; w["s1"].external_ref="SAFE-22"; w["s1"].avatar_id=31
@@ -153,7 +155,7 @@ def test_duty_award_outside_assignments_rejects_inactive_category_and_is_guardia
     result=client.post("/api/teach/behaviour/events",headers=headers(w["teacher"]),json={"school_id":w["a"].id,"student_ids":[w["s1"].id],"category_id":active.id}); assert result.status_code==201
     assert client.post("/api/teach/behaviour/events",headers=headers(w["teacher"]),json={"school_id":w["a"].id,"student_ids":[w["s1"].id],"category_id":inactive.id}).status_code==400
     linked=client.get("/api/guardian/points",headers=headers(w["guardian"])).json(); assert linked["children"][0]["recent_events"][0]["category_label"]=="Safe play"
-    assert client.get("/api/guardian/points",headers=headers(w["outsider"])).json()=={"children":[]}
+    assert client.get("/api/guardian/points",headers=headers(w["outsider"])).status_code==403
 
 def test_assignment_context_is_authorized_roster_scoped_and_applied_to_batch(db, client, world):
     w=world; section, subject, group=add_assignment_context(db,w)

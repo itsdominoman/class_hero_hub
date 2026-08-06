@@ -1,5 +1,6 @@
 import hashlib
 import json
+import shutil
 import zipfile
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
@@ -432,6 +433,7 @@ def test_permission_management_is_school_scoped_audited_and_revocable(db, client
     }
 
 
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="FFmpeg is not installed in this test environment")
 def test_voice_evidence_uses_review_authorisation_and_survives_participant_tombstone(db, client, monkeypatch, tmp_path):
     media_root = tmp_path / "protected-message-media"
     monkeypatch.setattr(message_media_service, "MESSAGE_MEDIA_ROOT", media_root)

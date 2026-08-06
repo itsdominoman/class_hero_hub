@@ -15,7 +15,7 @@ from sqlalchemy.pool import StaticPool
 
 from app import admission, auth, database, invite_tokens
 from app.database import Base, get_db
-from app.main import app
+from legacy_guardian_app import create_legacy_guardian_test_app
 from app.routes.join import JOIN_RATE_LIMITER
 from app.models_school import (
     AcademicYear,
@@ -37,6 +37,9 @@ from app.models_school import (
     StudentGuardianContact,
     User,
 )
+
+
+app = create_legacy_guardian_test_app()
 
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)

@@ -18,7 +18,7 @@ from sqlalchemy.pool import StaticPool
 
 from app import auth, database, invite_tokens
 from app.database import Base, get_db
-from app.main import app
+from legacy_guardian_app import create_legacy_guardian_test_app
 from app.models_school import (
     AcademicYear,
     BranchCampus,
@@ -49,6 +49,8 @@ from app.update_image_service import (
     create_update_thumbnail,
     optimise_update_photo,
 )
+
+app = create_legacy_guardian_test_app()
 
 register_heif_opener()
 
@@ -330,8 +332,8 @@ def test_revoked_link_and_ended_enrolment_remove_access(db, client, world):
     for link in db.query(GuardianLink).filter(GuardianLink.user_id == world["guardian"].id).all():
         link.status = "revoked"; link.revoked_at = invite_tokens.now_utc()
     db.commit()
-    assert client.get("/api/guardian/updates", headers=headers).json()["items"] == []
-    assert client.get(f'/api/guardian/updates/{post["id"]}', headers=headers).status_code == 404
+    assert client.get("/api/guardian/updates", headers=headers).status_code == 403
+    assert client.get(f'/api/guardian/updates/{post["id"]}', headers=headers).status_code == 403
 
 
 def test_storage_keys_are_safe_and_traversal_is_blocked(db, client, world):

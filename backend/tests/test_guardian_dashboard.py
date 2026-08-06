@@ -13,7 +13,7 @@ from sqlalchemy.pool import StaticPool
 
 from app import auth, database, invite_tokens
 from app.database import Base, get_db
-from app.main import app
+from legacy_guardian_app import create_legacy_guardian_test_app
 from app.models_school import (
     AcademicYear,
     BranchCampus,
@@ -29,6 +29,9 @@ from app.models_school import (
     User,
 )
 from app.student_avatars import GIRL_AVATAR_IDS
+
+
+app = create_legacy_guardian_test_app()
 
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
