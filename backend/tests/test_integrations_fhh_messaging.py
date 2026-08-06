@@ -363,6 +363,23 @@ def _request(client, world, identity, method, suffix, *, body=None, link_index=0
     return client.request(method, path, headers=headers, json=body)
 
 
+def test_fhh_messaging_policy_version_is_service_authenticated(db, client):
+    assert client.get("/api/integrations/fhh/messaging/policy").status_code == 401
+    response = client.get(
+        "/api/integrations/fhh/messaging/policy",
+        headers={"Authorization": f"Bearer {SERVICE_TOKEN}"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json() == {
+        "policy_version": "school-messaging-visibility-2026-08-v1",
+        "acknowledgement_items": [
+            "conversation_visibility",
+            "authorised_management_oversight",
+        ],
+    }
+    assert response.headers["cache-control"] == "private, no-store, max-age=0"
+
+
 def test_two_fhh_parents_have_distinct_attribution_and_read_state(db, client):
     world = _world(db)
     parent_one, parent_two = world["identities"]

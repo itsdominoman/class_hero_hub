@@ -31,6 +31,7 @@ from .messaging import (
     ExternalGuardianActor,
     MessageAckRequest,
     MessageSendRequest,
+    MESSAGING_POLICY_VERSION,
     _ack,
     _actor_ref,
     _conversation_detail,
@@ -64,6 +65,18 @@ class ExternalConversationCreate(BaseModel):
 
     kind: Literal["student_staff"] = "student_staff"
     recipient_ref: str = Field(min_length=16, max_length=1000)
+
+
+@router.get("/messaging/policy")
+def messaging_policy(response: Response):
+    _private(response)
+    return {
+        "policy_version": MESSAGING_POLICY_VERSION,
+        "acknowledgement_items": [
+            "conversation_visibility",
+            "authorised_management_oversight",
+        ],
+    }
 
 
 def _recipient_cipher() -> Fernet:
