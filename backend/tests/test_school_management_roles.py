@@ -103,6 +103,26 @@ def test_staff_messaging_includes_support_and_new_management_roles_but_not_other
     assert denied.status_code == 404
 
 
+def test_teacher_roster_search_is_scoped_and_covers_identity_assignment_and_department(db, client):
+    world = _school_world(db, "teacher-search")
+    other = _school_world(db, "teacher-search-other")
+    roles = _add_management_roles(db, world)
+    admin_headers = _headers(world["users"]["admin"], world["school"], world["admin"])
+
+    def found(query: str) -> set[int]:
+        response = client.get("/api/school/teachers", params={"search": query}, headers=admin_headers)
+        assert response.status_code == 200, response.text
+        return {row["membership_id"] for row in response.json()["teachers"]}
+
+    assert found(world["users"]["teacher"].name_ar) == {world["teacher"].id}
+    assert found(world["section"].name) == {world["teacher"].id}
+    assert found(roles["department"].name) == {world["teacher"].id}
+    assert found(str(world["teacher"].id)) == {world["teacher"].id}
+    assert found(world["users"]["teacher"].email.upper()) == {world["teacher"].id}
+    assert found("T") == set()
+    assert found(other["users"]["teacher"].name) == set()
+
+
 def test_staff_messaging_policy_acknowledgement_is_versioned_and_user_scoped(db, client):
     world = _school_world(db, "messaging-policy-ack")
     admin_headers = _headers(world["users"]["admin"], world["school"], world["admin"])

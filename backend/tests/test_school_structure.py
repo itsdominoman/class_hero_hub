@@ -13,7 +13,7 @@ from sqlalchemy.pool import StaticPool
 from app import auth, database
 from app.database import Base, get_db
 from app.main import app
-from app.models_school import AcademicYear, BranchCampus, ClassSection, Membership, PlatformAdmin, School, Subject, SubjectGroup, User
+from app.models_school import AcademicYear, BranchCampus, ClassSection, GradeLevel, Membership, PlatformAdmin, School, Subject, SubjectGroup, User
 from school_fixtures import seeded_schools  # noqa: F401
 
 
@@ -906,3 +906,96 @@ def test_wrong_role_user_cannot_restore_archived_record(db, client, seeded_schoo
     blocked = client.post("/api/school/subjects", headers=bearer(teacher.email, alpha.id), json=_base("ART", "Art"))
     assert blocked.status_code == 403
     assert db.query(Subject).filter_by(id=subject["id"]).one().status == "archived"
+
+
+def test_setup_lists_use_natural_education_and_context_ordering(db, client, seeded_schools):
+    alpha = seeded_schools["schools"]["alpha"]
+    admin = seeded_schools["users"]["alpha_admin"]
+
+    year = _post(client, "/api/school/academic-years", admin.email, alpha.id, _base("NAT-2026", "Natural order year")).json()
+    grade_specs = [
+        ("NAT-G10", "Grade 10"),
+        ("NAT-KG1", "KG 1"),
+        ("NAT-G2", "Grade 2"),
+        ("NAT-G1", "Grade 1"),
+    ]
+    grades = {
+        code: _post(
+            client,
+            "/api/school/grade-levels",
+            admin.email,
+            alpha.id,
+            {**_base(code, name), "education_stage_id": None},
+        ).json()
+        for code, name in grade_specs
+    }
+    listed_grades = client.get("/api/school/grade-levels", headers=bearer(admin.email, alpha.id)).json()
+    relevant_grade_ids = {row["id"] for row in grades.values()}
+    assert [row["name"] for row in listed_grades if row["id"] in relevant_grade_ids] == [
+        "KG 1",
+        "Grade 1",
+        "Grade 2",
+        "Grade 10",
+    ]
+
+    subjects = {
+        name: _post(client, "/api/school/subjects", admin.email, alpha.id, _base(f"NAT-{name.upper()}", name)).json()
+        for name in ("Zulu", "Arabic", "Biology")
+    }
+    listed_subjects = client.get("/api/school/subjects", headers=bearer(admin.email, alpha.id)).json()
+    relevant_subject_ids = {row["id"] for row in subjects.values()}
+    assert [row["name"] for row in listed_subjects if row["id"] in relevant_subject_ids] == [
+        "Arabic",
+        "Biology",
+        "Zulu",
+    ]
+
+    sections = {}
+    for code in ("NAT-G2", "NAT-KG1", "NAT-G1"):
+        sections[code] = _post(
+            client,
+            "/api/school/class-sections",
+            admin.email,
+            alpha.id,
+            {
+                **_base(f"{code}-A", "Section A"),
+                "academic_year_id": year["id"],
+                "grade_level_id": grades[code]["id"],
+            },
+        ).json()
+    listed_sections = client.get("/api/school/class-sections", headers=bearer(admin.email, alpha.id)).json()
+    relevant_section_ids = {row["id"] for row in sections.values()}
+    assert [row["grade_level_id"] for row in listed_sections if row["id"] in relevant_section_ids] == [
+        grades["NAT-KG1"]["id"],
+        grades["NAT-G1"]["id"],
+        grades["NAT-G2"]["id"],
+    ]
+
+    group_specs = [
+        ("NAT-G1-ZULU", "NAT-G1", "Zulu"),
+        ("NAT-KG1-ARABIC", "NAT-KG1", "Arabic"),
+        ("NAT-G1-ARABIC", "NAT-G1", "Arabic"),
+    ]
+    groups = []
+    for code, section_code, subject_name in group_specs:
+        groups.append(
+            _post(
+                client,
+                "/api/school/subject-groups",
+                admin.email,
+                alpha.id,
+                {
+                    **_base(code, "Group A"),
+                    "academic_year_id": year["id"],
+                    "class_section_id": sections[section_code]["id"],
+                    "subject_id": subjects[subject_name]["id"],
+                },
+            ).json()
+        )
+    listed_groups = client.get("/api/school/subject-groups", headers=bearer(admin.email, alpha.id)).json()
+    relevant_group_ids = {row["id"] for row in groups}
+    assert [row["code"] for row in listed_groups if row["id"] in relevant_group_ids] == [
+        "NAT-KG1-ARABIC",
+        "NAT-G1-ARABIC",
+        "NAT-G1-ZULU",
+    ]

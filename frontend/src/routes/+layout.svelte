@@ -697,8 +697,8 @@
           <nav class="mt-4 space-y-5" aria-label={$_('school.menu.navigationLabel')}>
             {#each schoolMenuGroups as group}
               <section aria-labelledby={`mobile-school-menu-${group.key}`}>
-                <h3 id={`mobile-school-menu-${group.key}`} class="px-3 text-xs font-bold uppercase tracking-wide text-slate-500">{$_(group.label)}</h3>
-                <div class="mt-1 space-y-1">
+                <h3 id={`mobile-school-menu-${group.key}`} class="rounded-md border-s-4 border-hero/50 bg-violet-50 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-hero">{$_(group.label)}</h3>
+                <div class="mt-2 space-y-1 ps-2">
                   {#each group.items as item}
                     <a
                       href={item.type === 'tab' ? schoolSetupTabHref(item.key) : item.href}

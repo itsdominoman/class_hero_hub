@@ -25,7 +25,6 @@ export function activeNavigationItem(
   if (
     [
       "/school/administration",
-      "/school/recognition",
       "/school/governance",
     ].some((route) => matchesPath(pathname, route))
   )

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+import re
 from typing import Any, Type
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -449,11 +450,102 @@ def _payload(row: Any) -> dict[str, Any]:
     return data
 
 
+def _natural_tokens(*values: Any) -> tuple[tuple[int, Any], ...]:
+    text = " ".join(str(value or "").strip() for value in values).casefold()
+    return tuple(
+        (0, int(part)) if part.isdigit() else (1, part)
+        for part in re.split(r"(\d+)", text)
+        if part
+    )
+
+
+def _education_order(*values: Any) -> tuple[Any, ...]:
+    text = " ".join(str(value or "").strip() for value in values).casefold()
+    if re.search(r"\b(nursery|pre[- ]?k|kindergarten|kg|reception|foundation stage|fs)\s*\d*\b", text):
+        phase = 0
+    elif re.search(r"\b(grade|year|form|level)\s*\d+\b", text):
+        phase = 1
+    else:
+        phase = 2
+    return (phase, _natural_tokens(text))
+
+
 def _list_rows(db: Session, model: Type[Any], school_id: int, *, include_archived: bool = False):
     query = db.query(model).filter(model.school_id == school_id)
     if not include_archived:
         query = query.filter(model.status != "archived")
-    rows = query.order_by(model.sort_order.asc(), model.id.asc()).all()
+    rows = query.order_by(model.id.asc()).all()
+
+    def manual_order(row: Any) -> int:
+        return int(getattr(row, "sort_order", 0) or 0)
+
+    if model is ClassSection:
+        grade_ids = {row.grade_level_id for row in rows}
+        grades = {
+            row.id: row
+            for row in db.query(GradeLevel)
+            .filter(GradeLevel.school_id == school_id, GradeLevel.id.in_(grade_ids))
+            .all()
+        } if grade_ids else {}
+        rows.sort(
+            key=lambda row: (
+                manual_order(row),
+                _education_order(
+                    getattr(grades.get(row.grade_level_id), "name", ""),
+                    getattr(grades.get(row.grade_level_id), "code", ""),
+                ),
+                _natural_tokens(row.name, row.code),
+                row.id,
+            )
+        )
+    elif model is SubjectGroup:
+        section_ids = {row.class_section_id for row in rows if row.class_section_id is not None}
+        sections = {
+            row.id: row
+            for row in db.query(ClassSection)
+            .filter(ClassSection.school_id == school_id, ClassSection.id.in_(section_ids))
+            .all()
+        } if section_ids else {}
+        grade_ids = {
+            row.grade_level_id or getattr(sections.get(row.class_section_id), "grade_level_id", None)
+            for row in rows
+        } - {None}
+        grades = {
+            row.id: row
+            for row in db.query(GradeLevel)
+            .filter(GradeLevel.school_id == school_id, GradeLevel.id.in_(grade_ids))
+            .all()
+        } if grade_ids else {}
+        subject_ids = {row.subject_id for row in rows}
+        subjects = {
+            row.id: row
+            for row in db.query(Subject)
+            .filter(Subject.school_id == school_id, Subject.id.in_(subject_ids))
+            .all()
+        } if subject_ids else {}
+
+        def group_key(row: SubjectGroup):
+            section = sections.get(row.class_section_id)
+            grade = grades.get(row.grade_level_id or getattr(section, "grade_level_id", None))
+            subject = subjects.get(row.subject_id)
+            return (
+                manual_order(row),
+                _education_order(getattr(grade, "name", ""), getattr(grade, "code", "")),
+                _natural_tokens(getattr(section, "name", ""), getattr(section, "code", "")),
+                _natural_tokens(getattr(subject, "name", ""), getattr(subject, "code", "")),
+                _natural_tokens(row.name, row.code),
+                row.id,
+            )
+
+        rows.sort(key=group_key)
+    else:
+        rows.sort(
+            key=lambda row: (
+                manual_order(row),
+                _education_order(row.name, row.code) if model is GradeLevel else _natural_tokens(row.name, row.code),
+                row.id,
+            )
+        )
     return [_payload(row) for row in rows]
 
 
@@ -1215,11 +1307,21 @@ def _class_roster_setup_payload(db: Session, school_id: int, class_section_id: i
     }
 
 
-def _assignment_counts(db: Session, school_id: int) -> dict[int, int]:
-    counts: dict[int, int] = {}
-    for row in _open_assignments_query(db, school_id).all():
-        counts[row.membership_id] = counts.get(row.membership_id, 0) + 1
-    return counts
+def _assignment_counts(db: Session, school_id: int, membership_ids: set[int] | None = None) -> dict[int, int]:
+    if membership_ids == set():
+        return {}
+    query = _open_assignments_query(db, school_id)
+    if membership_ids is not None:
+        query = query.filter(StaffAssignment.membership_id.in_(membership_ids))
+    return {
+        membership_id: count
+        for membership_id, count in query.with_entities(
+            StaffAssignment.membership_id,
+            func.count(StaffAssignment.id),
+        )
+        .group_by(StaffAssignment.membership_id)
+        .all()
+    }
 
 
 def _checklist_item(key: str, label: str, complete: bool, count: int, required: bool = True) -> dict[str, Any]:
@@ -2369,9 +2471,13 @@ def close_department_assignment(
 
 
 @router.get("/teachers")
-def list_teachers(include_deactivated: bool = False, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+def list_teachers(
+    search: str | None = Query(default=None, max_length=120),
+    include_deactivated: bool = False,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
     school_id = _school_id(membership)
-    counts = _assignment_counts(db, school_id)
     teacher_query = (
         db.query(Membership, User)
         .join(User, Membership.user_id == User.id)
@@ -2382,7 +2488,93 @@ def list_teachers(include_deactivated: bool = False, membership: Membership = De
     )
     if not include_deactivated:
         teacher_query = teacher_query.filter(Membership.status == "active", Membership.revoked_at.is_(None))
-    teacher_rows = teacher_query.order_by(User.email.asc(), Membership.id.asc()).all()
+    term = (search or "").strip()
+    if term:
+        exact_identifier = or_(
+            Membership.id == int(term) if term.isdigit() else False,
+            func.lower(func.coalesce(User.email, "")) == term.casefold(),
+        )
+        if len(term) < 2:
+            teacher_query = teacher_query.filter(exact_identifier)
+        else:
+            escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            pattern = f"%{escaped}%"
+            assignment_match = (
+                select(StaffAssignment.id)
+                .outerjoin(
+                    ClassSection,
+                    and_(
+                        ClassSection.id == StaffAssignment.class_section_id,
+                        ClassSection.school_id == school_id,
+                    ),
+                )
+                .outerjoin(
+                    SubjectGroup,
+                    and_(
+                        SubjectGroup.id == StaffAssignment.subject_group_id,
+                        SubjectGroup.school_id == school_id,
+                    ),
+                )
+                .outerjoin(
+                    Subject,
+                    and_(
+                        Subject.id == SubjectGroup.subject_id,
+                        Subject.school_id == school_id,
+                    ),
+                )
+                .where(
+                    StaffAssignment.school_id == school_id,
+                    StaffAssignment.membership_id == Membership.id,
+                    *open_interval_expression(StaffAssignment, _today()),
+                    or_(
+                        func.coalesce(ClassSection.name, "").ilike(pattern, escape="\\"),
+                        func.coalesce(ClassSection.name_ar, "").ilike(pattern, escape="\\"),
+                        func.coalesce(SubjectGroup.name, "").ilike(pattern, escape="\\"),
+                        func.coalesce(SubjectGroup.name_ar, "").ilike(pattern, escape="\\"),
+                        func.coalesce(Subject.name, "").ilike(pattern, escape="\\"),
+                        func.coalesce(Subject.name_ar, "").ilike(pattern, escape="\\"),
+                    ),
+                )
+                .exists()
+            )
+            department_match = (
+                select(StaffDepartmentAssignment.id)
+                .join(
+                    Department,
+                    and_(
+                        Department.id == StaffDepartmentAssignment.department_id,
+                        Department.school_id == school_id,
+                    ),
+                )
+                .where(
+                    StaffDepartmentAssignment.school_id == school_id,
+                    StaffDepartmentAssignment.membership_id == Membership.id,
+                    *open_interval_expression(StaffDepartmentAssignment, _today()),
+                    Department.status == "active",
+                    or_(
+                        Department.name.ilike(pattern, escape="\\"),
+                        func.coalesce(Department.name_ar, "").ilike(pattern, escape="\\"),
+                        Department.code.ilike(pattern, escape="\\"),
+                    ),
+                )
+                .exists()
+            )
+            teacher_query = teacher_query.filter(
+                or_(
+                    exact_identifier,
+                    func.coalesce(User.name, "").ilike(pattern, escape="\\"),
+                    func.coalesce(User.name_ar, "").ilike(pattern, escape="\\"),
+                    func.coalesce(User.email, "").ilike(pattern, escape="\\"),
+                    assignment_match,
+                    department_match,
+                )
+            )
+    teacher_rows = teacher_query.order_by(
+        func.lower(func.coalesce(User.name, "")),
+        func.lower(User.email),
+        Membership.id,
+    ).limit(200).all()
+    counts = _assignment_counts(db, school_id, {row.id for row, _user in teacher_rows})
     pending_invites = (
         db.query(StaffInvite)
         .filter(

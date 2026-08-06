@@ -76,8 +76,8 @@ test('Reports remains a contextual shortcut inside Behaviour & points', () => {
 });
 
 test('compact School setup navigation lives in the app drawer while desktop keeps its sidebar', () => {
-  assert.equal((schoolSource.match(/\{#each SCHOOL_MENU_GROUPS as group\}/g) || []).length, 1);
-  assert.equal((layoutSource.match(/\{#each SCHOOL_MENU_GROUPS as group\}/g) || []).length, 1);
+  assert.equal((schoolSource.match(/\{#each schoolMenuGroups as group\}/g) || []).length, 1);
+  assert.equal((layoutSource.match(/\{#each schoolMenuGroups as group\}/g) || []).length, 1);
   assert.doesNotMatch(schoolSource, /isSchoolMenuGroupActive/);
   assert.doesNotMatch(schoolSource, /<nav class="lg:hidden"/);
   assert.match(schoolSource, /class="hidden rounded-xl[^\n]+xl:block" aria-label=/);

@@ -4,6 +4,7 @@
   import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
   import CrudBlock from '$lib/components/school/CrudBlock.svelte';
+  import EntitySearch from '$lib/components/EntitySearch.svelte';
   import NumberInput from '$lib/components/school/NumberInput.svelte';
   import RowsTable from '$lib/components/school/RowsTable.svelte';
   import SelectInput from '$lib/components/school/SelectInput.svelte';
@@ -39,7 +40,7 @@
   type Teacher = {
     membership_id: number;
     assignment_count: number;
-    user: { id: number; email: string; name?: string | null };
+    user: { id: number; email: string; name?: string | null; name_ar?: string | null };
   };
   type StaffInvite = {
     id: number;
@@ -467,6 +468,9 @@
   let students = $state<Student[]>([]);
   let studentsLoaded = $state(false);
   let teachers = $state<Teacher[]>([]);
+  let teacherSearch = $state('');
+  let teacherSearching = $state(false);
+  let teacherSearchRequest = 0;
   let pendingTeacherInvites = $state<StaffInvite[]>([]);
   let teacherAssignments = $state<Record<number, StaffAssignment[]>>({});
   let teacherInviteEmail = $state('');
@@ -901,9 +905,7 @@
       groupSelections[teacher.membership_id] ??= '';
     }
     const assignmentsByTeacher = await api.get('/school/teachers/assignments', options);
-    teacherAssignments = Object.fromEntries(
-      teachers.map((teacher) => [teacher.membership_id, assignmentsByTeacher?.[teacher.membership_id] || []])
-    );
+    teacherAssignments = assignmentsByTeacher || {};
     const defaultYear = defaultYearValue();
     if (!sectionForm.academic_year_id) sectionForm.academic_year_id = defaultYear;
     if (!groupForm.academic_year_id) groupForm.academic_year_id = defaultYear;
@@ -926,6 +928,28 @@
     if (classRoster && rosterSectionId) await loadClassRoster(false);
     if (groupRoster && groupRosterId) await loadGroupRoster(false);
     applyNewSortDefaults();
+  }
+
+  async function searchTeachers(query: string) {
+    if (!schoolId) return;
+    const request = ++teacherSearchRequest;
+    teacherSearching = true;
+    error = null;
+    try {
+      const params = new URLSearchParams();
+      if (query) params.set('search', query);
+      const data = await api.get(`/school/teachers${params.size ? `?${params}` : ''}`, schoolOptions());
+      if (request !== teacherSearchRequest) return;
+      teachers = data.teachers || [];
+      for (const teacher of teachers) {
+        homeroomSelections[teacher.membership_id] ??= '';
+        groupSelections[teacher.membership_id] ??= '';
+      }
+    } catch (err: any) {
+      if (request === teacherSearchRequest) error = err?.message || $_('school.teachers.searchError');
+    } finally {
+      if (request === teacherSearchRequest) teacherSearching = false;
+    }
   }
 
   async function refresh() {
@@ -2980,8 +3004,8 @@
         <div class="space-y-5">
           {#each schoolMenuGroups as group}
             <section aria-labelledby={`school-menu-${group.key}`}>
-              <h2 id={`school-menu-${group.key}`} class="px-3 text-xs font-bold uppercase tracking-wide text-slate-500">{$_(group.label)}</h2>
-              <div class="mt-1 space-y-1">
+              <h2 id={`school-menu-${group.key}`} class="rounded-md border-s-4 border-hero/50 bg-violet-50 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-hero">{$_(group.label)}</h2>
+              <div class="mt-2 space-y-1 ps-2">
                 {#each group.items as item}
                   {#if item.type === 'tab'}
                     <button
@@ -3633,8 +3657,22 @@
 
             <div class="rounded-lg border border-slate-200 bg-white p-5">
               <h2 class="text-lg font-black text-slate-900">{$_('school.teachers.active')}</h2>
+              <div class="mt-4 max-w-2xl">
+                <EntitySearch
+                  id="teacher-search"
+                  label={$_('school.teachers.searchLabel')}
+                  placeholder={$_('school.teachers.searchPlaceholder')}
+                  help={$_('school.teachers.searchHelp')}
+                  clearLabel={$_('school.teachers.clearSearch')}
+                  bind:value={teacherSearch}
+                  onquery={searchTeachers}
+                />
+                <p class="mt-2 text-xs font-semibold text-slate-500" aria-live="polite">
+                  {teacherSearching ? $_('school.teachers.searching') : $_('school.teachers.results', { values: { count: teachers.length } })}
+                </p>
+              </div>
               {#if teachers.length === 0}
-                <p class="mt-3 text-sm text-slate-500">{$_('school.teachers.empty')}</p>
+                <p class="mt-3 text-sm text-slate-500">{teacherSearch.trim() ? $_('school.teachers.noMatches') : $_('school.teachers.empty')}</p>
               {:else}
                 <div class="mt-4 space-y-4">
                   {#each teachers as teacher}

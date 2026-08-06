@@ -45,14 +45,11 @@ test("specific school areas win over the general school active state", () => {
     activeNavigationItem("/school/safeguarding/message-reviews/12"),
     "safeguarding",
   );
-  for (const path of [
-    "/school/administration",
-    "/school/recognition",
-    "/school/governance",
-    "/school/operations",
-  ]) {
+  for (const path of ["/school/administration", "/school/governance"]) {
     assert.equal(activeNavigationItem(path), "system");
   }
+  assert.equal(activeNavigationItem("/school/recognition"), "school");
+  assert.equal(activeNavigationItem("/school/operations"), "school");
   assert.equal(activeNavigationItem("/school/reporting"), "school");
 });
 
