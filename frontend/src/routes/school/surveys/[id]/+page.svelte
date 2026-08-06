@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { page } from "$app/stores";
+  import { goto } from "$app/navigation";
   import { _, locale } from "svelte-i18n";
   import { api } from "$lib/api";
   import { surveyApi, type SurveyMembership } from "$lib/surveys/api";
@@ -13,6 +14,7 @@
     XCircle,
     Archive,
     CheckCircle2,
+    Share2,
   } from "lucide-svelte";
 
   let membership = $state<SurveyMembership | null>(null);
@@ -39,6 +41,7 @@
     archive: $_("surveyManagement.archive"),
     remind: $_("surveyManagement.sendReminder"),
     export: $_("surveyManagement.exportCsv"),
+    shareSummary: $_("surveyManagement.shareSummary"),
     noComments: $_("surveyManagement.noComments"),
     anonymous: $_("surveyManagement.anonymous"),
     identified: $_("surveyManagement.identified"),
@@ -219,6 +222,19 @@
       busy = "";
     }
   }
+  async function shareSummary() {
+    if (!membership || busy) return;
+    busy = "share";
+    error = "";
+    try {
+      const document = await surveyApi.generatedSummary(membership, survey.id, ar ? "ar" : "en") as { id: string };
+      await goto(`/messages?membership=${membership.membership_id}&document=${encodeURIComponent(document.id)}`);
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : $_("surveyManagement.shareSummaryError");
+    } finally {
+      busy = "";
+    }
+  }
   function percent(count: number, rows: any[]) {
     const max = Math.max(1, ...rows.map((row) => row.count));
     return Math.max(count ? 4 : 0, Math.round((count / max) * 100));
@@ -302,6 +318,10 @@
             class="action bg-white/10"
             disabled={busy !== ""}
             onclick={exportCsv}><Download size={16} />{t.export}</button
+          ><button
+            class="action bg-hero text-white"
+            disabled={busy !== ""}
+            onclick={shareSummary}><Share2 size={16} />{t.shareSummary}</button
           >
         </div>
       </div>

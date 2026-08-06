@@ -147,7 +147,7 @@ export type MessageVoiceNote = {
 
 export type MessageDocument = {
   id: string;
-  document_type: 'behaviour_report' | 'recognition_certificate';
+  document_type: 'behaviour_report' | 'recognition_certificate' | 'survey_summary';
   filename: string;
   content_type: 'application/pdf' | 'text/csv';
   size_bytes: number;

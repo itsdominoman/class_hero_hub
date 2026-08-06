@@ -44,6 +44,10 @@ export const surveyApi = {
       headers: headers(membership),
       cache: "no-store",
     }),
+  generatedSummary: (membership: SurveyMembership, id: string, language: "en" | "ar") =>
+    api.post(`/school/surveys/${id}/generated-summary`, { language }, {
+      headers: headers(membership),
+    }),
   permissions: (membership: SurveyMembership) =>
     api.get("/school/surveys/permissions", { headers: headers(membership) }),
   setPermission: (membership: SurveyMembership, body: any) =>

@@ -1804,7 +1804,7 @@ class MessageDocument(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "document_type IN ('behaviour_report', 'recognition_certificate')",
+            "document_type IN ('behaviour_report', 'recognition_certificate', 'survey_summary')",
             name="ck_message_documents_type",
         ),
         CheckConstraint(

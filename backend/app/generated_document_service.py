@@ -28,7 +28,7 @@ GENERATED_DOCUMENT_ROOT = Path(
 STAGED_DOCUMENT_TTL = timedelta(hours=24)
 MAX_GENERATED_DOCUMENT_BYTES = 10 * 1024 * 1024
 CONTENT_EXTENSIONS = {"application/pdf": ".pdf", "text/csv": ".csv"}
-DOCUMENT_TYPES = {"behaviour_report", "recognition_certificate"}
+DOCUMENT_TYPES = {"behaviour_report", "recognition_certificate", "survey_summary"}
 _DELETE_AFTER_COMMIT = "generated_document_delete_after_commit"
 _DELETE_AFTER_ROLLBACK = "generated_document_delete_after_rollback"
 

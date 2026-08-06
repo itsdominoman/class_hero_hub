@@ -16,13 +16,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app import auth, database
+from app import auth, database, generated_document_service
 from app.database import Base, get_db
 from app.main import app
 from app.models_school import (
     AuditLog,
     Membership,
     MessagingPermissionGrant,
+    MessageDocument,
     FhhLink,
     School,
     Survey,
@@ -163,6 +164,41 @@ def test_permission_gates_draft_publish_and_preserves_question_order(db, client)
     assert published.status_code == 200, published.text
     assert published.json()["status"] == "open"
     assert client.put(f"/api/school/surveys/{draft['id']}", headers=allowed_headers, json=_payload()).status_code == 409
+
+
+def test_survey_summary_is_private_aggregate_generated_document(db, client, monkeypatch, tmp_path):
+    school, allowed_user, denied_user = _world(db)
+    monkeypatch.setattr(generated_document_service, "GENERATED_DOCUMENT_ROOT", tmp_path)
+    headers = _headers(allowed_user.email, school.id)
+    created = client.post("/api/school/surveys", headers=headers, json=_payload())
+    assert created.status_code == 201, created.text
+    survey_id = created.json()["id"]
+
+    denied = client.post(
+        f"/api/school/surveys/{survey_id}/generated-summary",
+        headers=_headers(denied_user.email, school.id),
+        json={"language": "en"},
+    )
+    assert denied.status_code == 403
+
+    response = client.post(
+        f"/api/school/surveys/{survey_id}/generated-summary",
+        headers=headers,
+        json={"language": "ar"},
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["document_type"] == "survey_summary"
+    assert response.json()["content_type"] == "text/csv"
+    row = db.query(MessageDocument).filter_by(public_id=UUID(response.json()["id"])).one()
+    content = generated_document_service.document_path(row.storage_key).read_text(encoding="utf-8-sig")
+    assert "ملخص نتائج الاستبيان" in content
+    assert "Pilot transport poll" in content
+    assert "Usual journey" in content
+    assert row.message_id is None and row.state == "ready"
+    database_survey = db.query(Survey).filter_by(public_id=UUID(survey_id)).one()
+    event_row = db.query(SurveyEvent).filter_by(survey_id=database_survey.id, action="exported").one()
+    assert event_row.detail == {"format": "summary_csv", "language": "ar"}
+    assert db.query(AuditLog).filter_by(action="school.survey.generated_summary.created", school_id=school.id).count() == 1
 
 
 def test_window_validation_lifecycle_and_duplicate_response_unit(db):

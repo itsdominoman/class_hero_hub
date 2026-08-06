@@ -21,3 +21,9 @@ test("free-text search stays bounded and stacks on narrow screens", () => {
     /class="w-full shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white sm:w-auto"/,
   );
 });
+
+test("survey summaries use the existing protected School Messages handoff", () => {
+  assert.match(source, /surveyApi\.generatedSummary/);
+  assert.match(source, /\/messages\?membership=\$\{membership\.membership_id\}&document=/);
+  assert.match(source, /surveyManagement\.shareSummary/);
+});

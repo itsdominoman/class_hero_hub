@@ -20,6 +20,11 @@ from ..database import get_db, settings
 from ..entitlement_service import FAMILY_CONNECTION, SURVEYS_POLLS, ensure_capabilities, require_school_entitlement
 from ..family_notifications import enqueue_family_notifications
 from ..fhh_messaging_assertions import verify_and_consume_actor_assertion
+from ..generated_document_service import (
+    GeneratedDocumentValidationError,
+    create_generated_document,
+    document_payload,
+)
 from ..models_school import (
     BranchCampus, ClassSection, FhhLink, FhhMessagingIdentity, FhhMessagingIdentityLink,
     GradeLevel, Membership, MessagingPermissionGrant, NotificationOutbox, School, SchoolSystemOwner, Student,
@@ -40,6 +45,11 @@ QUESTION_TYPES = {"single_choice", "multiple_choice", "yes_no", "rating", "short
 HOUSEHOLD_REF_RE = re.compile(r"^[0-9a-f]{64}$")
 CSV_FORMULA_PREFIX_RE = re.compile(r"^[ \t]*[=+\-@]")
 CSV_EXPORT_BATCH_SIZE = 200
+
+
+class SurveySummaryDocumentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    language: Literal["en", "ar"] = "en"
 
 
 class OptionInput(BaseModel):
@@ -709,6 +719,70 @@ def _csv_line(row: list[Any]) -> str:
     return output.getvalue()
 
 
+def _summary_csv(survey: Survey, *, response_count: int, eligible_count: int, question_results: list[dict[str, Any]], language: Literal["en", "ar"]) -> bytes:
+    copy = {
+        "en": {
+            "title": "Survey results summary",
+            "survey": "Survey",
+            "status": "Status",
+            "audience": "Audience",
+            "anonymous": "Anonymous",
+            "completed": "Completed responses",
+            "eligible": "Eligible recipients",
+            "outstanding": "Outstanding responses",
+            "question": "Question",
+            "type": "Question type",
+            "answers": "Answer count",
+            "summary": "Aggregate summary",
+            "average": "Average",
+            "text_withheld": "Individual free-text responses are excluded from this summary",
+        },
+        "ar": {
+            "title": "ملخص نتائج الاستبيان",
+            "survey": "الاستبيان",
+            "status": "الحالة",
+            "audience": "الجمهور",
+            "anonymous": "مجهول الهوية",
+            "completed": "الردود المكتملة",
+            "eligible": "المستلمون المؤهلون",
+            "outstanding": "الردود المتبقية",
+            "question": "السؤال",
+            "type": "نوع السؤال",
+            "answers": "عدد الإجابات",
+            "summary": "الملخص المجمع",
+            "average": "المتوسط",
+            "text_withheld": "لا يتضمن هذا الملخص الردود النصية الفردية",
+        },
+    }[language]
+    rows: list[list[Any]] = [
+        [copy["title"]],
+        [copy["survey"], survey.title],
+        [copy["status"], survey.status],
+        [copy["audience"], survey.audience_type],
+        [copy["anonymous"], str(bool(survey.anonymous)).lower()],
+        [copy["completed"], response_count],
+        [copy["eligible"], eligible_count],
+        [copy["outstanding"], max(eligible_count - response_count, 0)],
+        [],
+        [copy["question"], copy["type"], copy["answers"], copy["summary"]],
+    ]
+    for result in question_results:
+        distribution = result.get("distribution") or []
+        if distribution:
+            aggregate = " | ".join(f"{item['label']}: {item['count']}" for item in distribution)
+            if result.get("average") is not None:
+                aggregate = f"{copy['average']}: {result['average']} | {aggregate}"
+        else:
+            aggregate = copy["text_withheld"]
+        rows.append([
+            result.get("prompt") or "",
+            result.get("question_type") or "",
+            int(result.get("answer_count") or 0),
+            aggregate,
+        ])
+    return ("\ufeff" + "".join(_csv_line(row) for row in rows)).encode("utf-8")
+
+
 def _csv_chunks(
     db: Session,
     *,
@@ -836,6 +910,58 @@ def export_csv(survey_id: UUID, membership: Membership = Depends(require_survey_
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{safe_title}-results.csv"', "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
     )
+
+
+@router.post("/surveys/{survey_id}/generated-summary", status_code=status.HTTP_201_CREATED)
+def generate_survey_summary(
+    survey_id: UUID,
+    body: SurveySummaryDocumentRequest,
+    membership: Membership = Depends(require_survey_admin),
+    db: Session = Depends(get_db),
+):
+    survey = _survey_or_404(db, membership, survey_id)
+    questions = (
+        db.query(SurveyQuestion)
+        .filter(SurveyQuestion.survey_id == survey.id)
+        .order_by(SurveyQuestion.sort_order, SurveyQuestion.id)
+        .all()
+    )
+    response_count = int(db.query(func.count(SurveyResponse.id)).filter(SurveyResponse.survey_id == survey.id).scalar() or 0)
+    eligible_count = _eligible_count(db, survey)
+    content = _summary_csv(
+        survey,
+        response_count=response_count,
+        eligible_count=eligible_count,
+        question_results=_answer_results(db, questions),
+        language=body.language,
+    )
+    safe_title = re.sub(r"[^A-Za-z0-9_-]+", "-", survey.title).strip("-")[:60] or "survey"
+    try:
+        row = create_generated_document(
+            db,
+            school_id=membership.school_id,
+            membership_id=membership.id,
+            document_type="survey_summary",
+            source_ref=f"survey:{survey.public_id}",
+            filename=f"{safe_title}-summary.csv",
+            content_type="text/csv",
+            content=content,
+        )
+    except GeneratedDocumentValidationError as exc:
+        db.rollback()
+        raise HTTPException(422, str(exc))
+    _event(db, survey, membership, "exported", {"format": "summary_csv", "language": body.language})
+    write_audit(
+        db,
+        membership.user_id,
+        "school.survey.generated_summary.created",
+        row,
+        {"survey_id": str(survey.public_id), "format": "csv", "language": body.language},
+        school_id=membership.school_id,
+    )
+    db.commit()
+    db.refresh(row)
+    return document_payload(row)
 
 
 def _response_key(survey: Survey, identity: FhhMessagingIdentity, household_ref: str) -> str:
