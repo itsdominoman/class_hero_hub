@@ -21,8 +21,9 @@ This ordered list is updated after each completed implementation checkpoint.
 |---:|---|---|---|---|---|
 | 1 | CHH | `e329142` | Audit current pre-demo state and define role/report scope | Repository/runtime/schema inspection | Implementation findings remain tracked below |
 | 2 | CHH | `a953e42` | Permit active staff to discover and message active staff in the same school | 2 focused backend authorisation tests and 19 messaging presentation tests passed | Full local messaging file also requires guardian-router configuration and media binaries not present in the Windows harness |
-| 3 | FHH development | `fc0637c` | Replace the two-option language selector with the requested opposite-language action | Focused Vitest passed | Full local Svelte check is blocked by pre-existing generated public-env declarations; container validation remains required |
+| 3 | FHH development | `fc0637c` | Replace the two-option language selector with the requested opposite-language action | Focused Vitest passed; later full FHH checks passed with explicit development public env values | Physical shell switch remains in the final device checklist |
 | 4 | CHH | `1a2395b` | Apply the same language-selector behaviour across CHH navigation contexts | Focused presentation test and Svelte check passed with 0 errors/warnings | Physical mobile-shell switch remains for final device smoke testing |
+| 5 | FHH development | `02d6965` | Align the parent School dashboard with the student design while preserving guardian-only areas | 197 unit tests, Svelte check, i18n parity and 4 Chromium desktop/mobile/Android-shell scenarios passed | Physical Android Back, WebView and touch testing remains in the device smoke checklist |
 
 ## Backups and migrations
 
@@ -43,7 +44,7 @@ This ordered list is updated after each completed implementation checkpoint.
 - UIS entitlement, feature-control and messaging-policy state inspected.
 - Jason Green's active UIS teacher membership and three active teaching assignments verified.
 - Seed manifest namespaces/entity counts inspected without reading private content.
-- Same-school staff messaging and the shared CHH/FHH language-selector behaviour have focused automated coverage.
+- Same-school staff messaging, shared CHH/FHH language selection and FHH parent/student School dashboard boundaries have focused automated coverage.
 
 ## Remaining work
 
