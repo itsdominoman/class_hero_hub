@@ -31,6 +31,7 @@ This ordered list is updated after each completed implementation checkpoint.
 | 10 | CHH | `329051b` | Publish the canonical messaging-warning version through the authenticated private FHH integration | Focused service-authentication and no-store response test passed | Source only; depends on controlled CHH/FHH rollout order |
 | 11 | FHH development | `35964c4` | Source the warning version from authoritative CHH while retaining FHH-owned parent acknowledgement identity | Focused parent versioning/user-scope test passed | Source only; a CHH outage intentionally prevents accepting an unverified policy version |
 | 12 | CHH | `9ce5619` | Remove infrastructure telemetry and operations controls from school routes/navigation while retaining platform-admin monitoring APIs | 3 production-hardening backend tests, 19 messaging presentation tests, Svelte check and language parity passed | Platform monitoring remains API-backed; no school-facing operations page remains |
+| 13 | CHH | `95614ec` | Add reusable debounced teacher search, school-first server scope, Arabic/identity/assignment/department matching, natural education-aware setup ordering and stronger desktop/mobile navigation hierarchy | 63 focused backend tests, Svelte check with 0 errors/warnings, 2,244-key English/Arabic parity and 18 navigation/state presentation tests passed | Source only; physical keyboard, RTL and long-roster browser checks remain |
 
 ## Backups and migrations
 
@@ -55,7 +56,7 @@ This ordered list is updated after each completed implementation checkpoint.
 - UIS entitlement, feature-control and messaging-policy state inspected.
 - Jason Green's active UIS teacher membership and three active teaching assignments verified.
 - Seed manifest namespaces/entity counts inspected without reading private content.
-- Same-school staff messaging, shared CHH/FHH language selection, FHH parent/student School dashboard boundaries, leadership/HOD reporting scope, department administration and audited communication-oversight scope have focused automated coverage.
+- Same-school staff messaging, shared CHH/FHH language selection, FHH parent/student School dashboard boundaries, leadership/HOD reporting scope, department administration, audited communication-oversight scope, scoped teacher search, cross-school search isolation, natural setup ordering and responsive school-menu hierarchy have focused automated coverage.
 
 ## Remaining work
 
