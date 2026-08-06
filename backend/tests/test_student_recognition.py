@@ -69,12 +69,16 @@ def recognition_world(db):
     school = School(name="Alpha School", slug="recognition-alpha", status="active", timezone="Asia/Muscat")
     other_school = School(name="Beta School", slug="recognition-beta", status="active")
     admin = User(email="recognition.admin@example.test", name="Admin")
+    principal = User(email="recognition.principal@example.test", name="Principal")
+    deputy = User(email="recognition.deputy@example.test", name="Deputy Principal")
     teacher = User(email="recognition.teacher@example.test", name="Teacher")
     outsider = User(email="recognition.outsider@example.test", name="Outsider")
-    db.add_all([school, other_school, admin, teacher, outsider])
+    db.add_all([school, other_school, admin, principal, deputy, teacher, outsider])
     db.flush()
     db.add_all([
         Membership(school_id=school.id, user_id=admin.id, role="school_admin", status="active"),
+        Membership(school_id=school.id, user_id=principal.id, role="principal", status="active"),
+        Membership(school_id=school.id, user_id=deputy.id, role="deputy_principal", status="active"),
         Membership(school_id=school.id, user_id=teacher.id, role="teacher", status="active"),
         Membership(school_id=other_school.id, user_id=outsider.id, role="school_admin", status="active"),
     ])
@@ -130,6 +134,8 @@ def recognition_world(db):
         "school": school,
         "other_school": other_school,
         "admin": admin,
+        "principal": principal,
+        "deputy": deputy,
         "teacher": teacher,
         "outsider": outsider,
         "branch": branch,
@@ -203,6 +209,51 @@ def test_configuration_is_positive_only_admin_scoped_and_audited(client, db, rec
     assert config["maximum_needs_work_events"] == 0
     assert config["needs_work_category_ids"] == []
     assert db.query(AuditLog).filter_by(action="recognition.config.created", school_id=world["school"].id).count() == 1
+
+
+def test_certificate_branding_is_school_scoped_audited_and_available_to_leadership(client, db, recognition_world):
+    world = recognition_world
+    endpoint = "/api/school/recognition/branding"
+    initial = client.get(endpoint, headers=headers(world["principal"], world["school"]))
+    assert initial.status_code == 200
+    assert initial.json() == {"logo_url": None, "accent_color": "gold"}
+    assert client.get(endpoint, headers=headers(world["teacher"], world["school"])).status_code == 403
+
+    invalid = client.put(
+        endpoint,
+        headers=headers(world["principal"], world["school"]),
+        json={"logo_url": "http://example.test/logo.png", "accent_color": "gold"},
+    )
+    assert invalid.status_code == 422
+    invalid_accent = client.put(
+        endpoint,
+        headers=headers(world["principal"], world["school"]),
+        json={"logo_url": None, "accent_color": "orange"},
+    )
+    assert invalid_accent.status_code == 422
+
+    saved = client.put(
+        endpoint,
+        headers=headers(world["principal"], world["school"]),
+        json={"logo_url": "https://school.example.test/logo.png", "accent_color": "navy"},
+    )
+    assert saved.status_code == 200, saved.text
+    assert saved.json() == {"logo_url": "https://school.example.test/logo.png", "accent_color": "navy"}
+    assert client.get(endpoint, headers=headers(world["deputy"], world["school"])).json() == saved.json()
+    db.refresh(world["school"])
+    assert world["school"].certificate_accent_color == "navy"
+    assert world["other_school"].certificate_logo_url is None
+    assert db.query(AuditLog).filter_by(
+        action="recognition.certificate_branding.updated",
+        school_id=world["school"].id,
+    ).count() == 1
+
+    leadership_config = client.post(
+        "/api/school/recognition/configs",
+        headers=headers(world["deputy"], world["school"]),
+        json=config_body(world, name="Leadership recognition"),
+    )
+    assert leadership_config.status_code == 201, leadership_config.text
 
 
 def test_shortlist_uses_only_unreversed_positive_scoped_period_evidence_and_shows_ties(client, db, recognition_world):
@@ -576,5 +627,5 @@ def test_review_detail_and_lists_cannot_cross_school_boundary(client, recognitio
     assert client.get(f"/api/school/recognition/reviews/{review['id']}", headers=headers(world["outsider"], world["other_school"])).status_code == 404
     assert client.get("/api/school/recognition/reviews", headers=headers(world["outsider"], world["other_school"])).json() == {"reviews": []}
     detail = client.get(f"/api/school/recognition/reviews/{review['id']}", headers=headers(world["admin"], world["school"])).json()
-    assert detail["school"] == {"name": "Alpha School", "name_ar": None, "logo_url": None}
+    assert detail["school"] == {"name": "Alpha School", "name_ar": None, "logo_url": None, "accent_color": "gold"}
     assert "private negative evidence" not in str(detail)

@@ -68,6 +68,8 @@ class School(Base):
     locale_default = Column(String, default="en")
     points_label = Column(String, default="Points")
     grade_level_label = Column(String, default="Grade")
+    certificate_logo_url = Column(String(1000), nullable=True)
+    certificate_accent_color = Column(String(24), nullable=False, default="gold", server_default="gold")
     status = Column(String, default="pending_setup")
     suspended_at = Column(DateTime(timezone=True), nullable=True)
     suspended_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)

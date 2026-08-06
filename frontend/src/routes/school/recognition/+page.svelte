@@ -4,6 +4,8 @@
   import { api } from '$lib/api';
 
   type Membership = { school_id: number; membership_id: number; school_name: string; role: string };
+  type CertificateAccent = 'gold' | 'violet' | 'emerald' | 'navy' | 'burgundy';
+  type CertificateBranding = { logo_url: string | null; accent_color: CertificateAccent };
   type Option = { id: number; name?: string; name_ar?: string | null; label?: string; points_value?: number };
   type RecognitionConfig = {
     id: number;
@@ -65,8 +67,17 @@
     archived_at?: string | null;
     archive_reason?: string | null;
     was_existing_draft?: boolean;
-    school?: { name: string; name_ar?: string | null; logo_url?: string | null };
+    school?: { name: string; name_ar?: string | null; logo_url?: string | null; accent_color?: CertificateAccent };
   };
+
+  const recognitionRoles = new Set(['school_admin', 'principal', 'deputy_principal']);
+  const certificateAccents: { value: CertificateAccent; border: string; text: string }[] = [
+    { value: 'gold', border: '#d4a72c', text: '#a16207' },
+    { value: 'violet', border: '#7c3aed', text: '#6d28d9' },
+    { value: 'emerald', border: '#059669', text: '#047857' },
+    { value: 'navy', border: '#1e3a8a', text: '#1e3a8a' },
+    { value: 'burgundy', border: '#9f1239', text: '#881337' }
+  ];
 
   const emptyForm = () => ({
     recognition_type: 'star_of_week' as const,
@@ -113,6 +124,8 @@
   let discardReason = $state('');
   let archivingConfigId = $state<number | null>(null);
   let configArchiveReason = $state('');
+  let branding = $state<CertificateBranding>({ logo_url: null, accent_color: 'gold' });
+  let brandingLogoUrl = $state('');
 
   function schoolOptions() {
     return membership ? { headers: { 'X-School-Id': String(membership.school_id), 'X-Membership-Id': String(membership.membership_id) } } : {};
@@ -156,6 +169,11 @@
 
   function optionName(row: Option) {
     return $locale === 'ar' && row.name_ar ? row.name_ar : row.name || row.label || '';
+  }
+
+  function accentStyle(accent: CertificateAccent | undefined) {
+    const selected = certificateAccents.find((row) => row.value === accent) || certificateAccents[0];
+    return `--certificate-accent: ${selected.border}; --certificate-accent-text: ${selected.text}`;
   }
 
   function statusLabel(status: Review['status']) {
@@ -240,16 +258,19 @@
     error = '';
     try {
       const me = await api.get('/me');
-      membership = (me.memberships || []).find((row: Membership) => row.role === 'school_admin') || null;
+      membership = (me.memberships || []).find((row: Membership) => recognitionRoles.has(row.role)) || null;
       if (!membership) throw new Error($_('recognitionPage.adminRequired'));
-      const [loadedOptions, loadedConfigs, loadedReviews] = await Promise.all([
+      const [loadedOptions, loadedConfigs, loadedReviews, loadedBranding] = await Promise.all([
         api.get('/school/recognition/options', schoolOptions()),
         api.get('/school/recognition/configs?include_archived=true', schoolOptions()),
-        api.get('/school/recognition/reviews?limit=25&include_archived=true', schoolOptions())
+        api.get('/school/recognition/reviews?limit=25&include_archived=true', schoolOptions()),
+        api.get('/school/recognition/branding', schoolOptions())
       ]);
       options = loadedOptions;
       configs = loadedConfigs.configs;
       reviews = loadedReviews.reviews;
+      branding = loadedBranding;
+      brandingLogoUrl = loadedBranding.logo_url || '';
       if (!reviewConfigId && activeConfigs().length) reviewConfigId = String(activeConfigs()[0].id);
       const requested = requestedReviewId();
       if (requested) await openReview(requested, false, 'none');
@@ -257,6 +278,26 @@
       error = caught?.message || $_('recognitionPage.loadError');
     } finally {
       loading = false;
+    }
+  }
+
+  async function saveBranding(event: SubmitEvent) {
+    event.preventDefault();
+    saving = true;
+    error = '';
+    notice = '';
+    try {
+      branding = await api.put(
+        '/school/recognition/branding',
+        { logo_url: brandingLogoUrl.trim() || null, accent_color: branding.accent_color },
+        schoolOptions()
+      );
+      brandingLogoUrl = branding.logo_url || '';
+      notice = $_('recognitionPage.brandingSaved');
+    } catch (caught: any) {
+      error = caught?.message || $_('recognitionPage.brandingError');
+    } finally {
+      saving = false;
     }
   }
 
@@ -535,7 +576,7 @@
 
 <section class="recognition-page mx-auto max-w-7xl px-4 py-8">
   <div class="no-print">
-    <a href="/school/administration" class="text-sm font-bold text-hero"><span class="inline-block rtl:-scale-x-100" aria-hidden="true">←</span> {$_('recognitionPage.back')}</a>
+    <a href="/school?tab=behaviour" class="text-sm font-bold text-hero"><span class="inline-block rtl:-scale-x-100" aria-hidden="true">←</span> {$_('recognitionPage.back')}</a>
     <p class="eyebrow mt-4">{$_('recognitionPage.eyebrow')}</p>
     <h1 class="mt-2 text-3xl font-black text-slate-900">{$_('recognitionPage.title')}</h1>
     <p class="mt-2 max-w-3xl text-slate-600">{$_('recognitionPage.intro')}</p>
@@ -546,6 +587,27 @@
     {#if loading}
       <div class="card mt-6 p-6">{$_('common.loading')}…</div>
     {:else if membership}
+      <form class="card mt-6 p-6" onsubmit={saveBranding}>
+        <h2 class="text-xl font-black text-slate-900">{$_('recognitionPage.brandingTitle')}</h2>
+        <p class="mt-2 text-sm text-slate-600">{$_('recognitionPage.brandingHelp')}</p>
+        <div class="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem_auto] lg:items-end">
+          <label class="text-sm font-bold text-slate-700">{$_('recognitionPage.logoUrl')}
+            <input type="url" inputmode="url" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" bind:value={brandingLogoUrl} maxlength="1000" placeholder="https://…" />
+          </label>
+          <label class="text-sm font-bold text-slate-700">{$_('recognitionPage.accentColor')}
+            <select class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" bind:value={branding.accent_color}>
+              {#each certificateAccents as accent}
+                <option value={accent.value}>{$_(`recognitionPage.accents.${accent.value}`)}</option>
+              {/each}
+            </select>
+          </label>
+          <button type="submit" class="btn-hero rounded-xl px-5 py-2.5" disabled={saving}>{$_('recognitionPage.saveBranding')}</button>
+        </div>
+        <div class="mt-4 flex items-center gap-3 rounded-xl border-2 bg-white px-4 py-3" style={`border-color: ${certificateAccents.find((row) => row.value === branding.accent_color)?.border}`}>
+          {#if brandingLogoUrl}<img class="h-12 w-12 object-contain" src={brandingLogoUrl} alt="" referrerpolicy="no-referrer" />{/if}
+          <span class="font-black" style={`color: ${certificateAccents.find((row) => row.value === branding.accent_color)?.text}`}>{$_('recognitionPage.brandingPreview')}</span>
+        </div>
+      </form>
       <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,.7fr)]">
         <form class="card p-6" onsubmit={saveConfig}>
           <h2 class="text-xl font-black text-slate-900">{editingConfigId ? $_('recognitionPage.editConfig') : $_('recognitionPage.newConfig')}</h2>
@@ -771,10 +833,10 @@
   </div>
 
   {#if currentReview?.status === 'confirmed' && currentReview.selected_candidate}
-    <section class="certificate mt-8 bg-white p-10 text-center">
-      {#if currentReview.school?.logo_url}<img class="mx-auto mb-5 h-24 w-24 object-contain" src={currentReview.school.logo_url} alt="" />{/if}
+    <section class="certificate mt-8 bg-white p-10 text-center" style={accentStyle(currentReview.school?.accent_color)}>
+      {#if currentReview.school?.logo_url}<img class="mx-auto mb-5 h-24 w-24 object-contain" src={currentReview.school.logo_url} alt="" referrerpolicy="no-referrer" />{/if}
       <p class="text-lg font-bold text-slate-700">{$locale === 'ar' && currentReview.school?.name_ar ? currentReview.school.name_ar : currentReview.school?.name}</p>
-      <p class="mt-8 text-sm font-black uppercase tracking-[.3em] text-amber-700">{$_('recognitionPage.certificateOfRecognition')}</p>
+      <p class="certificate-eyebrow mt-8 text-sm font-black uppercase tracking-[.3em]">{$_('recognitionPage.certificateOfRecognition')}</p>
       <h2 class="mt-5 text-4xl font-black text-slate-900">{currentReview.criteria.certificate_title}</h2>
       <p class="mt-8 text-lg text-slate-600">{$_('recognitionPage.presentedTo')}</p>
       <p class="mt-3 text-4xl font-black text-hero">{$locale === 'ar' && currentReview.selected_candidate.student_name_ar ? currentReview.selected_candidate.student_name_ar : currentReview.selected_candidate.student_name}</p>
@@ -806,7 +868,8 @@
   @media (min-width: 1280px) {
     .recognition-decision-controls { position: sticky; top: 1rem; }
   }
-  .certificate { border: 12px double #d4a72c; min-height: 720px; display: flex; flex-direction: column; justify-content: center; }
+  .certificate { border: 12px double var(--certificate-accent, #d4a72c); min-height: 720px; display: flex; flex-direction: column; justify-content: center; }
+  .certificate-eyebrow { color: var(--certificate-accent-text, #a16207); }
   @media print {
     :global(header), :global(footer), .no-print { display: none !important; }
     :global(body) { background: white !important; }

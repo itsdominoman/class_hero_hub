@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from typing import Literal
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -37,7 +38,35 @@ from ..recognition_service import (
 from ..school_scope import require_school_role, write_audit
 
 
-router = APIRouter(dependencies=[Depends(require_school_role("school_admin")), Depends(require_school_entitlement(POSITIVE_RECOGNITION))])
+RECOGNITION_MANAGEMENT_ROLES = ("school_admin", "principal", "deputy_principal")
+CERTIFICATE_ACCENT_COLORS = ("gold", "violet", "emerald", "navy", "burgundy")
+
+router = APIRouter(dependencies=[Depends(require_school_role(*RECOGNITION_MANAGEMENT_ROLES)), Depends(require_school_entitlement(POSITIVE_RECOGNITION))])
+
+
+class CertificateBrandingRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    logo_url: str | None = Field(default=None, max_length=1000)
+    accent_color: Literal["gold", "violet", "emerald", "navy", "burgundy"] = "gold"
+
+    @field_validator("logo_url")
+    @classmethod
+    def validate_logo_url(cls, value: str | None) -> str | None:
+        value = value.strip() if value else None
+        if value is None:
+            return None
+        parsed = urlparse(value)
+        if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
+            raise ValueError("Logo URL must be an HTTPS URL without embedded credentials")
+        return value
+
+
+def _branding_payload(school: School) -> dict[str, str | None]:
+    accent_color = school.certificate_accent_color or "gold"
+    if accent_color not in CERTIFICATE_ACCENT_COLORS:
+        accent_color = "gold"
+    return {"logo_url": school.certificate_logo_url, "accent_color": accent_color}
 
 
 class RecognitionConfigRequest(BaseModel):
@@ -193,7 +222,7 @@ def _write_safeguard_categories(db: Session, config_id: int, categories: list[Be
 
 @router.get("/recognition/options")
 def recognition_options(
-    membership: Membership = Depends(require_school_role("school_admin")),
+    membership: Membership = Depends(require_school_role(*RECOGNITION_MANAGEMENT_ROLES)),
     db: Session = Depends(get_db),
 ):
     school_id = membership.school_id
@@ -211,10 +240,44 @@ def recognition_options(
     }
 
 
+@router.get("/recognition/branding")
+def get_certificate_branding(
+    membership: Membership = Depends(require_school_role(*RECOGNITION_MANAGEMENT_ROLES)),
+    db: Session = Depends(get_db),
+):
+    school = db.query(School).filter(School.id == membership.school_id).one()
+    return _branding_payload(school)
+
+
+@router.put("/recognition/branding")
+def update_certificate_branding(
+    body: CertificateBrandingRequest,
+    membership: Membership = Depends(require_school_role(*RECOGNITION_MANAGEMENT_ROLES)),
+    user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    school = db.query(School).filter(School.id == membership.school_id).one()
+    before = _branding_payload(school)
+    school.certificate_logo_url = body.logo_url
+    school.certificate_accent_color = body.accent_color
+    after = _branding_payload(school)
+    write_audit(
+        db,
+        user,
+        "recognition.certificate_branding.updated",
+        school,
+        {"before": before, "after": after},
+        membership.school_id,
+    )
+    db.commit()
+    db.refresh(school)
+    return _branding_payload(school)
+
+
 @router.get("/recognition/configs")
 def list_configs(
     include_archived: bool = Query(default=False),
-    membership: Membership = Depends(require_school_role("school_admin")),
+    membership: Membership = Depends(require_school_role(*RECOGNITION_MANAGEMENT_ROLES)),
     db: Session = Depends(get_db),
 ):
     query = db.query(StudentRecognitionConfig).filter(StudentRecognitionConfig.school_id == membership.school_id)
@@ -232,7 +295,7 @@ def list_configs(
 @router.post("/recognition/configs", status_code=201)
 def create_config(
     body: RecognitionConfigRequest,
-    membership: Membership = Depends(require_school_role("school_admin")),
+    membership: Membership = Depends(require_school_role(*RECOGNITION_MANAGEMENT_ROLES)),
     user: User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -285,7 +348,7 @@ def create_config(
 def update_config(
     config_id: int,
     body: RecognitionConfigRequest,
-    membership: Membership = Depends(require_school_role("school_admin")),
+    membership: Membership = Depends(require_school_role(*RECOGNITION_MANAGEMENT_ROLES)),
     user: User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -322,7 +385,7 @@ def update_config(
 def archive_config(
     config_id: int,
     body: ArchiveRequest,
-    membership: Membership = Depends(require_school_role("school_admin")),
+    membership: Membership = Depends(require_school_role(*RECOGNITION_MANAGEMENT_ROLES)),
     user: User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -353,7 +416,7 @@ def archive_config(
 def list_reviews(
     limit: int = Query(default=25, ge=1, le=100),
     include_archived: bool = Query(default=False),
-    membership: Membership = Depends(require_school_role("school_admin")),
+    membership: Membership = Depends(require_school_role(*RECOGNITION_MANAGEMENT_ROLES)),
     db: Session = Depends(get_db),
 ):
     query = db.query(StudentRecognitionReview).filter(
@@ -371,7 +434,7 @@ def list_reviews(
 def create_review(
     body: GenerateReviewRequest,
     response: Response,
-    membership: Membership = Depends(require_school_role("school_admin")),
+    membership: Membership = Depends(require_school_role(*RECOGNITION_MANAGEMENT_ROLES)),
     user: User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -436,13 +499,13 @@ def create_review(
 @router.get("/recognition/reviews/{review_id}")
 def get_review(
     review_id: int,
-    membership: Membership = Depends(require_school_role("school_admin")),
+    membership: Membership = Depends(require_school_role(*RECOGNITION_MANAGEMENT_ROLES)),
     db: Session = Depends(get_db),
 ):
     review = _review(db, membership.school_id, review_id)
     school = db.query(School).filter(School.id == membership.school_id).one()
     payload = review_payload(db, review)
-    payload["school"] = {"name": school.name, "name_ar": school.name_ar, "logo_url": None}
+    payload["school"] = {"name": school.name, "name_ar": school.name_ar, **_branding_payload(school)}
     return payload
 
 
@@ -450,7 +513,7 @@ def get_review(
 def archive_review(
     review_id: int,
     body: ArchiveRequest,
-    membership: Membership = Depends(require_school_role("school_admin")),
+    membership: Membership = Depends(require_school_role(*RECOGNITION_MANAGEMENT_ROLES)),
     user: User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -486,7 +549,7 @@ def exclude_candidate(
     review_id: int,
     candidate_id: int,
     body: ExcludeCandidateRequest,
-    membership: Membership = Depends(require_school_role("school_admin")),
+    membership: Membership = Depends(require_school_role(*RECOGNITION_MANAGEMENT_ROLES)),
     user: User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -517,7 +580,7 @@ def override_candidate_safeguard(
     review_id: int,
     candidate_id: int,
     body: OverrideSafeguardRequest,
-    membership: Membership = Depends(require_school_role("school_admin")),
+    membership: Membership = Depends(require_school_role(*RECOGNITION_MANAGEMENT_ROLES)),
     user: User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -560,7 +623,7 @@ def override_candidate_safeguard(
 def confirm_review(
     review_id: int,
     body: ConfirmReviewRequest,
-    membership: Membership = Depends(require_school_role("school_admin")),
+    membership: Membership = Depends(require_school_role(*RECOGNITION_MANAGEMENT_ROLES)),
     user: User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -609,7 +672,7 @@ def confirm_review(
 def revoke_review(
     review_id: int,
     body: RevokeReviewRequest,
-    membership: Membership = Depends(require_school_role("school_admin")),
+    membership: Membership = Depends(require_school_role(*RECOGNITION_MANAGEMENT_ROLES)),
     user: User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):

@@ -7,7 +7,8 @@ const administration = readFileSync(new URL('../src/routes/school/administration
 const messages = readFileSync(new URL('../src/lib/i18n/messages.ts', import.meta.url), 'utf8');
 
 test('recognition keeps positive ranking and adds a staff-only eligibility safeguard', () => {
-  assert.match(administration, /href="\/school\/recognition"/);
+  assert.doesNotMatch(administration, /href="\/school\/recognition"/);
+  assert.match(source, /href="\/school\?tab=behaviour"/);
   assert.match(source, /\/school\/recognition\/options/);
   assert.match(source, /\/school\/recognition\/reviews/);
   assert.match(source, /noAutomaticWinner/);
@@ -85,6 +86,10 @@ test('confirmed award renders a browser-printable certificate without publicatio
   assert.match(source, /window\.print\(\)/);
   assert.match(source, /@media print/);
   assert.match(source, /@page \{ size: A4 landscape/);
+  assert.match(source, /\/school\/recognition\/branding/);
+  assert.match(source, /certificate_logo_url|logo_url/);
+  assert.match(source, /--certificate-accent/);
+  assert.match(source, /certificateAccents/);
   assert.match(source, /notPublished/);
   assert.doesNotMatch(source, /api\.post\([^\n]*(publish|notification)/i);
   const certificate = source.slice(source.indexOf('{#if currentReview?.status'), source.indexOf('<style>'));
