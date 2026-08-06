@@ -14,6 +14,8 @@ async function emulateAndroidShell(page: Page) {
     Object.assign(window, { androidBridge: {} });
     Object.assign(globalThis, {
       Capacitor: {
+        isNativePlatform: () => true,
+        getPlatform: () => 'android',
         PluginHeaders: [
           {
             name: 'SecureStorage',
@@ -50,9 +52,10 @@ async function mockTeacherDashboard(page: Page) {
     membership_id: 51,
     school_id: 7,
     school_name: 'Al Noor School',
-    role: 'teacher'
+    role: 'teacher',
+    capabilities: ['behaviour_points']
   };
-  await page.route('**/api/auth/refresh', (route) => route.fulfill({ status: 404, json: { detail: 'No refresh required in UI test' } }));
+  await page.route('**/api/auth/refresh', (route) => route.fulfill({ json: {} }));
   await page.route('**/api/me', (route) => json(route, {
     id: 5,
     name: 'Teacher One',
@@ -68,12 +71,12 @@ async function mockTeacherDashboard(page: Page) {
     conversations: 0
   }));
   await page.route('**/api/teach/dashboard', (route) => json(route, {
-    schools: [{ id: 7, name: 'Al Noor School' }],
+    schools: [{ id: 7, name: 'Al Noor School', capabilities: ['behaviour_points'] }],
     assignments: Array.from({ length: 18 }, (_, index) => ({
       id: index + 1,
       role: 'homeroom',
       target_type: 'class_section',
-      school: { id: 7, name: 'Al Noor School' },
+      school: { id: 7, name: 'Al Noor School', capabilities: ['behaviour_points'] },
       class_section: { id: index + 20, name: `${index + 1}A`, code: `${index + 1}A` },
       subject_group: null,
       branch: { name: 'Main' },
@@ -141,18 +144,24 @@ async function mockAuthenticatedRouteAudit(page: Page) {
     membership_id: 51,
     school_id: 7,
     school_name: 'Al Noor School',
-    role: 'teacher'
+    role: 'teacher',
+    capabilities: ['behaviour_points']
   };
   const adminMembership = {
     membership_id: 52,
     school_id: 7,
     school_name: 'Al Noor School',
-    role: 'school_admin'
+    role: 'school_admin',
+    capabilities: ['behaviour_points', 'reports_insights']
   };
   const memberships = [teacherMembership, adminMembership];
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
+    if (path.endsWith('/api/auth/refresh')) {
+      await json(route, {});
+      return;
+    }
     if (path.endsWith('/api/me') || path.endsWith('/api/me/v2')) {
       await json(route, { id: 5, name: 'Teacher Admin', is_platform_admin: false, memberships });
       return;
@@ -163,12 +172,12 @@ async function mockAuthenticatedRouteAudit(page: Page) {
     }
     if (path.endsWith('/teach/dashboard')) {
       await json(route, {
-        schools: [{ id: 7, name: 'Al Noor School' }],
+        schools: [{ id: 7, name: 'Al Noor School', capabilities: ['behaviour_points'] }],
         assignments: Array.from({ length: 18 }, (_, index) => ({
           id: index + 1,
           role: 'homeroom',
           target_type: 'class_section',
-          school: { id: 7, name: 'Al Noor School' },
+          school: { id: 7, name: 'Al Noor School', capabilities: ['behaviour_points'] },
           class_section: { id: index + 20, name: `${index + 1}A`, code: `${index + 1}A` },
           subject_group: null,
           branch: { name: 'Main' },
@@ -186,7 +195,7 @@ async function mockAuthenticatedRouteAudit(page: Page) {
           id: 77,
           role: 'homeroom',
           target_type: 'class_section',
-          school: { id: 7, name: 'Al Noor School' },
+          school: { id: 7, name: 'Al Noor School', capabilities: ['behaviour_points'] },
           class_section: { id: 12, name: 'KG1A' },
           subject_group: null,
           subject: null,
@@ -223,6 +232,14 @@ async function mockAuthenticatedRouteAudit(page: Page) {
     }
     if (path.endsWith('/school/settings')) {
       await json(route, { grade_level_label: 'Grade' });
+      return;
+    }
+    if (path.endsWith('/school/entitlements')) {
+      await json(route, {
+        school: { id: 7, name: 'Al Noor School' },
+        foundation: [],
+        entitlements: []
+      });
       return;
     }
     if (path.endsWith('/school/feature-controls')) {
@@ -305,6 +322,17 @@ async function mockAuthenticatedRouteAudit(page: Page) {
         weekly_summary_time: '15:00:00',
         monthly_summary_time: '15:00:00',
         policy_version: 1
+      });
+      return;
+    }
+    if (path.includes('/school/reports/behaviour/context')) {
+      await json(route, {
+        scope: { type: 'school', departments: [] },
+        grade_levels: [],
+        class_sections: [],
+        subjects: [],
+        categories: [],
+        staff: []
       });
       return;
     }

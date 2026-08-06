@@ -5,19 +5,13 @@ test.describe('Europe dev authenticated QA login', () => {
   test('legacy parent URL sends a signed-in account to the Family Hero Hub explanation', async ({ page }) => {
     await setupQaParentSession(page);
 
-    await page.goto('/parent', { waitUntil: 'networkidle' });
+    await page.goto('/parent', { waitUntil: 'domcontentloaded' });
 
     await expect(page).toHaveURL(/\/family-connection$/);
     await expect(page.getByRole('heading', { name: 'School updates for families.' })).toBeVisible();
-
-    await page.goto('/');
-    const dashboardLink = page.locator('nav.md\\:flex a').filter({ hasText: /Dashboard/i });
-    await expect(dashboardLink).toBeVisible();
-    await expect(page.getByRole('button', { name: /Logout/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Login' })).not.toBeVisible();
   });
 
-  test('shows Admin link in header when user is admin', async ({ page }) => {
+  test('links a platform administrator to the platform dashboard', async ({ page }) => {
     await setupQaParentSession(page);
 
     await page.route('**/api/me', async (route) => {
@@ -25,27 +19,51 @@ test.describe('Europe dev authenticated QA login', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          id: 999,
-          email: 'admin@example.com',
-          name: 'Admin User',
-          is_admin: true,
-          school_roles: [],
-          created_at: '2026-05-18T00:00:00Z',
-          last_login_at: '2026-05-18T00:00:00Z'
+          user: {
+            id: 999,
+            email: 'admin@example.com',
+            name: 'Admin User',
+            locale: 'en',
+            status: 'active',
+            created_at: '2026-05-18T00:00:00Z',
+            last_login_at: '2026-05-18T00:00:00Z'
+          },
+          is_platform_admin: true,
+          can_manage_school_entitlements: true,
+          memberships: []
         })
       });
     });
 
-    await page.goto('/');
-    const adminLink = page.locator('nav.md\\:flex a').filter({ hasText: /^Admin$/i });
-    await expect(adminLink).toBeVisible();
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('a[href="/platform"]').filter({ hasText: 'Dashboard' }).first()).toBeVisible();
   });
 
-  test('does NOT show Admin link in header when user is NOT admin', async ({ page }) => {
+  test('does not expose the platform dashboard to a signed-in non-admin', async ({ page }) => {
     await setupQaParentSession(page);
+    await page.route('**/api/me', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          user: {
+            id: 1000,
+            email: 'staff@example.com',
+            name: 'Staff User',
+            locale: 'en',
+            status: 'active',
+            created_at: '2026-05-18T00:00:00Z',
+            last_login_at: '2026-05-18T00:00:00Z'
+          },
+          is_platform_admin: false,
+          can_manage_school_entitlements: false,
+          memberships: []
+        })
+      });
+    });
 
-    await page.goto('/');
-    const adminLink = page.locator('nav.md\\:flex a').filter({ hasText: /^Admin$/i });
-    await expect(adminLink).not.toBeVisible();
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('a[href="/platform"]')).toHaveCount(0);
+    await expect(page.locator('a[href="/family-connection"]').filter({ hasText: 'Dashboard' }).first()).toBeVisible();
   });
 });

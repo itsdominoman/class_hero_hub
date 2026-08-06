@@ -939,8 +939,8 @@
           Number.isInteger(row.membership_id)
       );
       const requestedMembership = memberships.find((row) => row.membership_id === requestedMembershipId());
-      membership = requestedMembership || memberships[0] || null;
       const membershipCandidates = requestedMembership ? [requestedMembership] : memberships;
+      membership = null;
       for (const candidate of membershipCandidates) {
         try {
           await messagingApi.unreadCount(candidate);
@@ -950,6 +950,7 @@
           if (errorStatus(cause) !== 403 && errorStatus(cause) !== 404) break;
         }
       }
+      available = Boolean(membership);
       if (membership) {
         updateConversationQuery(requestedConversationId(), 'replace');
         await loadPolicyAcknowledgement();

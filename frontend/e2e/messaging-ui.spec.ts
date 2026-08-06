@@ -12,7 +12,8 @@ const membership = {
   membership_id: 51,
   school_id: 7,
   school_name: 'Al Noor School',
-  role: 'teacher'
+  role: 'teacher',
+  capabilities: ['school_chats']
 };
 
 const conversation = {
@@ -48,17 +49,23 @@ const conversation = {
     can_send: true,
     can_close: false,
     delivery_receipts_visible: true,
-    read_receipts_visible: true
+    read_receipts_visible: true,
+    photos_enabled: true,
+    voice_notes_enabled: true,
+    can_mark_urgent: true
   }
 };
 
 async function mockSession(page: Page, accountId = 5) {
+  await page.route('**/api/auth/refresh', async (route) => {
+    await route.fulfill({ json: {} });
+  });
   await page.route('**/api/me', async (route) => {
     await route.fulfill({
       json: {
-        id: accountId,
-        name: 'Teacher One',
+        user: { id: accountId, name: 'Teacher One' },
         is_platform_admin: false,
+        can_manage_school_entitlements: false,
         memberships: [membership]
       }
     });
@@ -78,6 +85,7 @@ async function mockEnabledMessaging(
     conversation_id?: string | null;
   }
 ) {
+  let policyAcknowledged = false;
   await page.route('**/api/messaging/**', async (route: Route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -87,6 +95,28 @@ async function mockEnabledMessaging(
 
     if (path.endsWith('/unread-count')) {
       await route.fulfill({ json: { total: 1, conversations: 1 } });
+      return;
+    }
+    if (path.endsWith('/policy-acknowledgement')) {
+      if (request.method() === 'POST') policyAcknowledged = true;
+      await route.fulfill({
+        json: {
+          policy_version: '2026-08-06',
+          acknowledged: policyAcknowledged,
+          acknowledged_at: policyAcknowledged ? '2026-08-06T08:00:00Z' : null
+        }
+      });
+      return;
+    }
+    if (path.endsWith('/notification-preferences')) {
+      await route.fulfill({
+        json: {
+          allowed_by_school: false,
+          stored_out_of_hours_notifications_enabled: false,
+          effective_out_of_hours_notifications_enabled: false,
+          preference_version: 1
+        }
+      });
       return;
     }
     if (path.endsWith('/inbox')) {
@@ -230,6 +260,11 @@ async function mockEnabledMessaging(
     }
     await route.fulfill({ status: 404, json: { detail: 'Not found' } });
   });
+  return {
+    resetPolicyAcknowledgement() {
+      policyAcknowledged = false;
+    }
+  };
 }
 
 async function mockTeacherAssignment(page: Page) {
@@ -242,7 +277,11 @@ async function mockTeacherAssignment(page: Page) {
             id: 77,
             role: 'homeroom',
             target_type: 'class_section',
-            school: { id: 7, name: 'Al Noor School' },
+            school: {
+              id: 7,
+              name: 'Al Noor School',
+              capabilities: ['behaviour_points', 'school_chats', 'family_connection']
+            },
             class_section: { id: 12, name: 'KG1A' },
             subject_group: null,
             subject: null,
@@ -290,7 +329,11 @@ async function mockBobTeacherAssignment(page: Page) {
             id: 77,
             role: 'homeroom',
             target_type: 'class_section',
-            school: { id: 7, name: 'Al Noor School' },
+            school: {
+              id: 7,
+              name: 'Al Noor School',
+              capabilities: ['behaviour_points', 'school_chats', 'family_connection']
+            },
             class_section: { id: 12, name: 'KG1A' },
             subject_group: null,
             subject: null,
@@ -452,7 +495,8 @@ test('dual-role switching persists actor context and never acknowledges the othe
     membership_id: 61,
     school_id: 7,
     school_name: 'Al Noor School',
-    role: 'school_admin'
+    role: 'school_admin',
+    capabilities: ['school_chats']
   };
   const adminConversationId = '00000000-0000-4000-8000-000000000201';
   const acknowledgements: Array<{
@@ -486,6 +530,16 @@ test('dual-role switching persists actor context and never acknowledges the othe
     };
     if (path.endsWith('/unread-count')) {
       await route.fulfill({ json: { total: 1, conversations: 1 } });
+      return;
+    }
+    if (path.endsWith('/policy-acknowledgement')) {
+      await route.fulfill({
+        json: {
+          policy_version: '2026-08-06',
+          acknowledged: true,
+          acknowledged_at: '2026-08-06T08:00:00Z'
+        }
+      });
       return;
     }
     if (path.endsWith('/notification-preferences')) {
@@ -649,7 +703,16 @@ test('Quick Award recognizes Bob-like FHH guardians, opens the existing conversa
 });
 
 test('deep link loads the staff thread and reconciles a stable optimistic send', async ({ page }) => {
-  await mockEnabledMessaging(page);
+  let policyAcknowledgementPayload: unknown = null;
+  page.on('request', (request) => {
+    if (
+      request.method() === 'POST' &&
+      new URL(request.url()).pathname.endsWith('/messaging/policy-acknowledgement')
+    ) {
+      policyAcknowledgementPayload = request.postDataJSON();
+    }
+  });
+  const messagingFixture = await mockEnabledMessaging(page);
   await page.goto(`/messages?conversation=${conversationId}`);
 
   await expect(page.getByRole('heading', { name: 'Mariam Al Harthy · KG1A' })).toBeVisible();
@@ -661,11 +724,16 @@ test('deep link loads the staff thread and reconciles a stable optimistic send',
   await expect(notice.getByText(/School administrators may review school communications/)).toBeVisible();
   await expect(notice.getByText('Aisha Al Balushi · Mother', { exact: true })).toBeVisible();
   await expect(notice.getByText('Fatma Al Balushi · Guardian', { exact: true })).toBeVisible();
+  await page.getByRole('checkbox', { name: 'I acknowledge this conversation visibility and safeguarding notice.' }).check();
   await page.getByRole('button', { name: 'I understand' }).click();
   await expect(notice).toHaveCount(0);
   const informationButton = page.getByRole('button', { name: 'Conversation information' });
   await expect(informationButton).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem('chh.messaging.conversation-notice.s25j.user.5'))).toBe('acknowledged');
+  expect(policyAcknowledgementPayload).toEqual({
+    policy_version: '2026-08-06',
+    acknowledged: true
+  });
+  expect(await page.evaluate(() => localStorage.getItem('chh.messaging.conversation-notice.s25j.user.5'))).toBeNull();
   await expect(thread.getByText('Aisha Al Balushi · Mother')).toBeVisible();
   await expect(thread.getByText('Please review the homework')).toBeVisible();
 
@@ -683,6 +751,7 @@ test('deep link loads the staff thread and reconciles a stable optimistic send',
 
   await page.unroute('**/api/me');
   await mockSession(page, 6);
+  messagingFixture.resetPolicyAcknowledgement();
   await page.reload();
   await expect(page.getByRole('button', { name: 'I understand' })).toBeVisible();
 });

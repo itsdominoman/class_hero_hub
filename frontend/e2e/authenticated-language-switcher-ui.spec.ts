@@ -12,6 +12,8 @@ async function emulateAndroidShell(page: Page) {
     Object.assign(window, { androidBridge: {} });
     Object.assign(globalThis, {
       Capacitor: {
+        isNativePlatform: () => true,
+        getPlatform: () => "android",
         PluginHeaders: [
           {
             name: "SecureStorage",
@@ -57,14 +59,15 @@ async function mockAuthenticatedShell(page: Page, initialLocale?: "en" | "ar") {
     school_id: 7,
     school_name: "Language Test School",
     role: "school_admin",
+    capabilities: [],
   };
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith("/api/me") || path.endsWith("/api/me/v2")) {
       await json(route, {
-        id: 5,
-        name: "Language Test User",
+        user: { id: 5, name: "Language Test User" },
         is_platform_admin: false,
+        can_manage_school_entitlements: false,
         memberships: [membership],
       });
       return;
@@ -95,29 +98,31 @@ for (const width of [1280, 1440]) {
     await mockAuthenticatedShell(page, "en");
     await page.goto(CONTEXT_PATH);
 
+    await expect(page.locator('a[href="/school"]').filter({ hasText: "Dashboard" }).first()).toBeVisible({ timeout: 15_000 });
     const selector = page.locator(".app-header nav").getByTestId("language-selector");
     await expect(selector).toBeVisible({ timeout: 15_000 });
     await expect(selector.getByTestId("language-globe")).toBeVisible();
-    const englishControl = selector.getByRole("combobox", { name: "Language" });
-    await expect(englishControl).toHaveValue("en");
-    await expect(englishControl.locator("option")).toHaveText(["English", "العربية"]);
+    const englishControl = selector;
+    await expect(englishControl).toHaveAccessibleName("التبديل إلى العربية");
+    await expect(englishControl).toContainText("العربية");
     await englishControl.focus();
     await expect(englishControl).toBeFocused();
 
     const initialUrl = page.url();
-    await englishControl.selectOption("ar");
+    await englishControl.click();
     await expect(page).toHaveURL(initialUrl);
     await expect(page.locator("html")).toHaveAttribute("lang", "ar");
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-    await expect(selector.getByRole("combobox", { name: "اللغة" })).toHaveValue("ar");
+    await expect(selector).toHaveAccessibleName("Switch to English");
+    await expect(selector).toContainText("English");
     await expectStoredLanguage(page, "ar");
 
     await page.reload();
     await expect(page).toHaveURL(initialUrl);
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-    const arabicControl = page.locator(".app-header nav").getByRole("combobox", { name: "اللغة" });
-    await expect(arabicControl).toHaveValue("ar");
-    await arabicControl.selectOption("en");
+    const arabicControl = page.locator(".app-header nav").getByTestId("language-selector");
+    await expect(arabicControl).toHaveAccessibleName("Switch to English");
+    await arabicControl.click();
     await expect(page).toHaveURL(initialUrl);
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await expect(page.locator("html")).toHaveAttribute("dir", "ltr");
@@ -126,7 +131,7 @@ for (const width of [1280, 1440]) {
     await page.reload();
     await expect(page).toHaveURL(initialUrl);
     await expect(page.locator("html")).toHaveAttribute("dir", "ltr");
-    await expect(page.locator(".app-header nav").getByRole("combobox", { name: "Language" })).toHaveValue("en");
+    await expect(page.locator(".app-header nav").getByTestId("language-selector")).toHaveAccessibleName("التبديل إلى العربية");
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   });
 }
@@ -143,13 +148,14 @@ for (const width of [390, 768, 1024]) {
     const selector = drawer.getByTestId("language-selector");
     await expect(selector.getByTestId("language-globe")).toBeVisible();
     const initialUrl = page.url();
-    await selector.getByRole("combobox", { name: "Language" }).selectOption("ar");
+    await expect(selector).toHaveAccessibleName("التبديل إلى العربية");
+    await selector.click();
 
     drawer = page.getByRole("dialog", { name: "القائمة" });
     await expect(drawer).toBeVisible();
     await expect(page).toHaveURL(initialUrl);
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-    await expect(drawer.getByRole("combobox", { name: "اللغة" })).toHaveValue("ar");
+    await expect(drawer.getByTestId("language-selector")).toHaveAccessibleName("Switch to English");
     await expectStoredLanguage(page, "ar");
     const drawerBox = await drawer.boundingBox();
     expect(drawerBox?.x ?? 1).toBeLessThanOrEqual(1);
@@ -161,7 +167,7 @@ for (const width of [390, 768, 1024]) {
     await page.reload();
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
     await page.getByRole("button", { name: "فتح القائمة" }).click();
-    await expect(page.getByRole("dialog", { name: "القائمة" }).getByRole("combobox", { name: "اللغة" })).toHaveValue("ar");
+    await expect(page.getByRole("dialog", { name: "القائمة" }).getByTestId("language-selector")).toHaveAccessibleName("Switch to English");
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   });
 }
@@ -172,7 +178,7 @@ test("native language preference survives cold pages and a later authenticated s
   await mockAuthenticatedShell(page, "en");
   await page.goto(CONTEXT_PATH);
   await page.getByRole("button", { name: "Open menu" }).click();
-  await page.getByRole("dialog", { name: "Menu" }).getByRole("combobox", { name: "Language" }).selectOption("ar");
+  await page.getByRole("dialog", { name: "Menu" }).getByRole("button", { name: "التبديل إلى العربية" }).click();
   const preservedUrl = page.url();
   await page.close();
 
@@ -183,7 +189,7 @@ test("native language preference survives cold pages and a later authenticated s
   await restarted.goto(preservedUrl);
   await expect(restarted.locator("html")).toHaveAttribute("dir", "rtl");
   await restarted.getByRole("button", { name: "فتح القائمة" }).click();
-  await restarted.getByRole("dialog", { name: "القائمة" }).getByRole("combobox", { name: "اللغة" }).selectOption("en");
+  await restarted.getByRole("dialog", { name: "القائمة" }).getByRole("button", { name: "Switch to English" }).click();
   await expect(restarted.locator("html")).toHaveAttribute("dir", "ltr");
   await expectStoredLanguage(restarted, "en");
   await restarted.close();
@@ -197,7 +203,7 @@ test("native language preference survives cold pages and a later authenticated s
   await expect(laterSession.locator("html")).toHaveAttribute("lang", "en");
   await expect(laterSession.locator("html")).toHaveAttribute("dir", "ltr");
   await laterSession.getByRole("button", { name: "Open menu" }).click();
-  await expect(laterSession.getByRole("dialog", { name: "Menu" }).getByRole("combobox", { name: "Language" })).toHaveValue("en");
+  await expect(laterSession.getByRole("dialog", { name: "Menu" }).getByRole("button", { name: "التبديل إلى العربية" })).toContainText("العربية");
 });
 
 test("public login language behaviour remains available and route-neutral", async ({ page }) => {
@@ -217,9 +223,10 @@ test("public login language behaviour remains available and route-neutral", asyn
   await expect(selector).toHaveCount(1);
   await expect.poll(() => meRequests).toBeGreaterThanOrEqual(2);
   await expect(selector.getByTestId("language-globe")).toBeVisible();
-  const control = selector.getByRole("combobox", { name: "Language" });
-  await expect(control.locator("option")).toHaveText(["English", "العربية"]);
-  await control.selectOption("ar");
+  const control = selector;
+  await expect(control).toHaveAccessibleName("التبديل إلى العربية");
+  await expect(control).toContainText("العربية");
+  await control.click();
   await expect(page).toHaveURL(initialUrl);
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expectStoredLanguage(page, "ar");
