@@ -26,17 +26,22 @@ This ordered list is updated after each completed implementation checkpoint.
 | 5 | FHH development | `02d6965` | Align the parent School dashboard with the student design while preserving guardian-only areas | 197 unit tests, Svelte check, i18n parity and 4 Chromium desktop/mobile/Android-shell scenarios passed | Physical Android Back, WebView and touch testing remains in the device smoke checklist |
 | 6 | CHH | `7ef053e` | Checkpoint immediately before school-role, department and permission-schema work | Clean source checkpoint plus fresh verified PostgreSQL custom-format backup | No migration was applied |
 | 7 | CHH | `8f28ec8` | Add Principal, Deputy Principal, HOD and Support Staff roles; dated department assignments; scoped reporting; communication oversight; and same-school staff messaging | 16 focused backend tests, 19 messaging presentation tests, Svelte check and 2,233-key English/Arabic parity passed; Alembic upgrade/downgrade SQL validated offline | Source only: migration and demo-role assignments are not deployed; physical workflow checks remain |
+| 8 | CHH | `5297384` | Persist a one-time, versioned staff conversation-visibility and safeguarding acknowledgement | 5 role/messaging backend tests, 19 messaging presentation tests, Svelte check, 2,236-key language parity, compileall and offline migration upgrade/downgrade SQL passed | Source only: revision `f0e1d2c3b4a5` is not applied; physical mobile-shell flow remains |
+| 9 | FHH development | `bdda9d4` | Persist the matching one-time parent school-messaging acknowledgement | All 23 school-messaging proxy tests, Svelte check, 1,571-key language parity, compileall and offline migration upgrade/downgrade SQL passed | Source only: revision `d2e3f4a5b6c7` is not applied; physical Android-shell flow remains |
 
 ## Backups and migrations
 
 - No migration, deletion or database mutation has occurred during the audit.
 - Before the role/department schema work, CHH PostgreSQL backup `/opt/apps/class_hero_hub/backups/pre-ceo-demo/chh-pre-role-expansion-20260806T115820Z.dump` was created on the pilot server: 1,390,354 bytes; SHA-256 `fcda2c0fa2d4296f9332e25aa6be93c6fbe897e9b412270965bbc5c5840d17be`; `pg_restore --list` verified the catalogue.
 - Alembic revision `b3c4d5e6f7a8` was validated with offline upgrade and downgrade SQL. Applying it remains a separately authorised deployment step.
+- Before the FHH acknowledgement-schema work, development dump `/opt/apps/family-hero-hub/backups/pre-ceo-demo/fhh-dev-pre-messaging-ack-20260806T124500Z.dump` was created: 195,871 bytes; SHA-256 `cbf1d4e7aeb42e321ef69571f25c14424837aff7faec2876301fc28b055107e1`; its `pg_restore --list` catalogue was verified inside the healthy PostgreSQL container.
+- The normal FHH pgBackRest command was attempted first and failed before backup because the existing encrypted local `backup.info` could not be decoded and repository `2` was rejected. The fallback dump above is valid; repairing pgBackRest is an operations follow-up and was not mixed into this product task.
+- Acknowledgement revisions `f0e1d2c3b4a5` (CHH) and `d2e3f4a5b6c7` (FHH) were validated with offline upgrade and downgrade SQL. Neither has been applied.
 
 ## Runtime/deployment impact
 
 - No service was rebuilt or restarted.
-- CHH source through `7ef053e` is present in the pilot server worktree without rebuilding or restarting services; `8f28ec8` and later checkpoints remain local pending the next controlled source transfer.
+- CHH source through `7ef053e` and FHH development source through `02d6965` are present in their authoritative server worktrees without rebuilding or restarting services. Later checkpoints remain local.
 - No deployment, push, APK build or Android package change occurred.
 
 ## Validation completed so far
