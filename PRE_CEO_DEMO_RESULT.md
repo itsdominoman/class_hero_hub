@@ -1,6 +1,6 @@
 # CHH/FHH pre-CEO-demo result
 
-Status: active  
+Status: locally complete; release and live demo identities require deployment authorisation
 Started: 2026-08-06  
 Push/deployment authorisation: none
 
@@ -39,6 +39,10 @@ This ordered list is updated after each completed implementation checkpoint.
 | 18 | CHH | `bf9967a` | Add shared school certificate logo/accent branding, extend positive-recognition management to Principal and Deputy Principal, and keep recognition in the Behaviour & recognition workspace | 10 focused backend tests, Svelte check with 0 errors/warnings, 8 recognition presentation tests, 2,257-key English/Arabic parity and guarded PostgreSQL upgrade/downgrade SQL passed | Source only: revision `c6d7e8f9a0b1` is not applied; physical EN/AR browser print/PDF output remains in the final checklist |
 | 19 | CHH | `b40d221` | Add permission-scoped behaviour PDF/CSV exports and immutable report/certificate sharing through existing School Messages | 55 focused backend tests, bounded inbox/history query regression, compileall, Svelte check with 0 errors/warnings, 2,274-key EN/AR parity, visual PDF QA and guarded PostgreSQL upgrade/downgrade SQL passed | Source only: revision `c7d8e9f0a1b2` is not applied; backend PDFs deliberately do not fetch remote logo URLs across an SSRF boundary |
 | 20 | FHH development | `cc15c95` | Receive protected staff-generated report/certificate documents through the exact-child School Chats proxy | 24 proxy tests, 197 frontend unit tests, Svelte check with 0 errors/warnings and 1,574-key EN/AR parity passed | Source only; physical parent Android download remains in the final device checklist |
+| 21 | FHH development | `434a91a` | Align family and child profiles to the shared CHH avatar catalogue with deterministic legacy mapping | Focused backend and frontend catalogue coverage plus the later full FHH gates passed | Source only; no family record was rewritten and no APK was built |
+| 22 | CHH | `5c64802` | Restore deterministic backend coverage while preserving the production CHH/FHH guardian boundary | Full CHH backend collection passed: 621 tests with 19 explicit environment skips | FFmpeg-dependent audio processing remains for the Linux/container gate |
+| 23 | FHH development | `413e960` | Harden deterministic parent/child browser acceptance coverage | 74/74 Chromium cases, 200 unit tests, Svelte 0/0, 1,574-key EN/AR parity and production build passed | Test-harness only; this did not deploy or change the live browser header |
+| 24 | CHH | `caac5ac` | Align browser fixtures with hardened role, entitlement, acknowledgement and native-shell contracts; fail messaging closed when no candidate membership is authorised | Svelte 0/0; 16/17 bounded messaging/mobile cases passed together, with the sole cold-start timeout passing immediately in isolation | Deliberately stopped short of another full browser matrix; release-device checks remain in the runbook |
 
 ## Backups and migrations
 
@@ -70,7 +74,11 @@ This ordered list is updated after each completed implementation checkpoint.
 - Manifest-only seeded-content cleanup removed 166 announcements, 208 calendar events, 512 homework/diary items and 155 update posts; its retained tombstones, audit event, preserved counts and zero-repeat dry-run were verified.
 - Same-school staff messaging, shared CHH/FHH language selection, FHH parent/student School dashboard boundaries, leadership/HOD reporting scope, department administration, audited communication-oversight scope, scoped teacher search, cross-school search isolation, natural setup ordering, responsive school-menu hierarchy and leadership-managed school certificate branding have focused automated coverage.
 - Filter-preserving behaviour PDF/CSV exports, CSV formula neutralisation, staged-document transaction safety, exact-generator attachment scope, idempotent retry, participant-scoped document download, FHH exact-child proxying and retention disposal now have focused automated coverage. English/Arabic behaviour reports and certificates were rendered to page images and visually inspected for clipping, hierarchy and RTL layout.
+- FHH's bounded browser gate passed 74/74 across authenticated parent/child, linked-school, Android-shell, Arabic/RTL, messaging, surveys and visual-width cases. CHH's full backend collection passed 621 tests with 19 explicit environment skips; the final changed CHH messaging/mobile browser surfaces were checked narrowly rather than repeating the entire matrix.
 
-## Remaining work
+## Deployment and physical-device handoff
 
-Priority 3 avatar alignment, broader test suites, manual browser/mobile/RTL checks, demo relationship completion, runbook and final tags remain active.
+- The implementation and local evidence are complete enough for handoff. No push, deployment, migration or APK build was authorised or performed.
+- Leadership/HOD demo identities and the deterministic linked demo family cannot be made usable on the live demo until the paired CHH/FHH source and migrations are released in a controlled window.
+- Physical Android/WebView, download, keyboard, touch and final EN/AR device checks remain release gates, not unfinished local implementation.
+- The authorised release order, demo journeys, rollback points and known live-browser risks are recorded in `CEO_DEMO_RUNBOOK.md`.
