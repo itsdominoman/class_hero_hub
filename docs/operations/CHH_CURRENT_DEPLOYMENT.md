@@ -1,5 +1,35 @@
 # CHH current pilot deployment
 
+## 2026-08-06 Phase 1 CHH pilot release
+
+The audited CHH release candidate was deployed to the CHH pilot only. The
+server fast-forwarded from `7ef053e68e1a` to `28eaf82b1b61`, followed by the
+focused readiness correction at `7001a16e2d2e`. FHH, the native application and
+the APK were not deployed or changed.
+
+Before deployment, a custom-format PostgreSQL recovery point was written to
+`/opt/apps/class_hero_hub/backups/pre-ceo-demo/chh-phase1-release-20260806T180235Z.dump`.
+It is 1,371,480 bytes with SHA-256
+`0c40712c958520202674d3cc250fe79c521b75d9e9fcbdf1988bf660f1b12b4d`;
+`pg_restore --list` successfully read 1,298 catalogue entries.
+
+The database advanced from `a2b3c4d5e6f7` through the school-role,
+messaging-policy, certificate-branding and generated-document migrations to
+`c7d8e9f0a1b2`. The release candidate initially left the readiness constant on
+the old revision; commit `7001a16e2d2e` corrected it and all five focused
+operational-health tests passed before the backend services were rebuilt.
+
+The deployment recreated backend `fc7e44372a38` from image
+`sha256:c6190395caa1`, frontend `b6729dcf323b` from image
+`sha256:a8e7a7f05335`, notification scheduler `7b5bb489292f` from image
+`sha256:f0efe723602a`, and messaging worker `fcd04bdf3b13` from image
+`sha256:a991419ebc00`. PostgreSQL `9653df2c5588` retained its existing container
+and volume. All five services finished healthy, readiness reported
+`database=ok` and `migration=current`, both the local frontend and public CHH
+root returned HTTP 200, and no traceback, uncaught, critical or fatal log lines
+appeared in the final five-minute check. Role-based physical acceptance remains
+the final manual pilot gate.
+
 ## 2026-08-06 Docker cache storage recovery
 
 The pilot root filesystem reached 99.5% usage (192 GB of 193 GB), leaving only
