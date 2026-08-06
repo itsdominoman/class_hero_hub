@@ -19,7 +19,7 @@ test('School setup uses the agreed workflow groups and item order', () => {
     ),
     [
       ['checklist', 'settings', 'branches', 'years', 'stages', 'levels', 'sections'],
-      ['rosters', 'teachers', 'subjects', 'defaults', 'groups'],
+      ['/school/staff', 'rosters', 'teachers', 'subjects', 'defaults', 'groups'],
       ['/school/students', '/school/students/data'],
       ['announcements', 'calendar'],
       ['behaviour', '/school/reports', '/school/recognition'],

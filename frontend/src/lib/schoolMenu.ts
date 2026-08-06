@@ -40,6 +40,7 @@ export const SCHOOL_MENU_GROUPS: SchoolMenuGroup[] = [
     key: 'teaching',
     label: 'school.menu.groups.teaching',
     items: [
+      { type: 'link', href: '/school/staff', label: 'staffManagement.title' },
       { type: 'tab', key: 'rosters', label: 'school.tabs.rosters' },
       { type: 'tab', key: 'teachers', label: 'school.tabs.teachers' },
       { type: 'tab', key: 'subjects', label: 'school.tabs.subjects' },
