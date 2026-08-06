@@ -16,9 +16,12 @@ os.environ["DEV_AUTH_ENABLED"] = "false"
 
 from app import auth, database  # noqa: E402
 from app.database import Base  # noqa: E402
+from app.demo_seed_cleanup import DEFAULT_ENTITY_TYPES, StorageRoots, cleanup_seeded_content  # noqa: E402
 from app.models_school import (  # noqa: E402
     AcademicYear,
     Announcement,
+    AnnouncementAttachment,
+    AnnouncementRead,
     AuditLog,
     BehaviourCategory,
     BehaviourEvent,
@@ -32,6 +35,8 @@ from app.models_school import (  # noqa: E402
     FhhLink,
     FhhLinkInvite,
     HomeworkItem,
+    HomeworkAttachment,
+    HomeworkItemCompletion,
     Membership,
     School,
     StaffAssignment,
@@ -642,6 +647,164 @@ def test_second_apply_creates_no_duplicates(db, world, monkeypatch):
     assert second.counts["created"] == 0
     assert second.counts["already_present"] > 0
     assert first_counts == second_counts
+
+
+def test_seeded_content_cleanup_dry_run_is_manifest_only_and_read_only(db, world, monkeypatch, tmp_path):
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("DEMO_SEED_CONFIRM", "united-international-school")
+    module.seed_school(
+        db,
+        school_slug="united-international-school",
+        as_of=module.parse_as_of("2026-07-12"),
+        apply=True,
+    )
+    expected_manifests = (
+        db.query(DemoSeedRecord)
+        .filter(DemoSeedRecord.entity_type.in_(DEFAULT_ENTITY_TYPES))
+        .count()
+    )
+    before = current_counts(db)
+    monkeypatch.setattr(db, "commit", lambda: (_ for _ in ()).throw(AssertionError("dry-run must not commit")))
+
+    summary = cleanup_seeded_content(
+        db,
+        school_slug="united-international-school",
+        storage_roots=StorageRoots(tmp_path / "announcements", tmp_path / "homework", tmp_path / "updates"),
+    )
+
+    assert summary.mode == "dry-run"
+    assert sum(summary.manifest_counts.values()) == expected_manifests
+    assert summary.delete_counts["behaviour_event"] == 0
+    assert summary.preserved_counts["announcement:not_selected"] == 1
+    assert summary.ambiguous_counts == {}
+    assert current_counts(db) == before
+
+
+def test_seeded_content_cleanup_removes_dependencies_preserves_manual_data_and_tombstones(db, world, monkeypatch, tmp_path):
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("DEMO_SEED_CONFIRM", "united-international-school")
+    module.seed_school(
+        db,
+        school_slug="united-international-school",
+        as_of=module.parse_as_of("2026-07-12"),
+        apply=True,
+    )
+    school_id = world["school"].id
+    guardian = db.query(User).filter(User.email == "guardian1@demo.test").one()
+    seeded_announcement = (
+        db.query(Announcement)
+        .join(DemoSeedRecord, DemoSeedRecord.model_id == Announcement.id)
+        .filter(DemoSeedRecord.entity_type == "announcement")
+        .first()
+    )
+    seeded_homework = (
+        db.query(HomeworkItem)
+        .join(DemoSeedRecord, DemoSeedRecord.model_id == HomeworkItem.id)
+        .filter(DemoSeedRecord.entity_type == "homework_item")
+        .first()
+    )
+    seeded_update = (
+        db.query(UpdatePost)
+        .join(DemoSeedRecord, DemoSeedRecord.model_id == UpdatePost.id)
+        .filter(DemoSeedRecord.entity_type == "update_post")
+        .first()
+    )
+    assert seeded_announcement and seeded_homework and seeded_update
+
+    announcement_key = f"school-{school_id}/announcement-{seeded_announcement.id}/seed.pdf"
+    homework_key = f"school-{school_id}/homework-{seeded_homework.id}/seed.pdf"
+    update_key = f"school-{school_id}/update-{seeded_update.id}/seed.jpg"
+    roots = StorageRoots(tmp_path / "announcements", tmp_path / "homework", tmp_path / "updates")
+    for root, key in (
+        (roots.announcements, announcement_key),
+        (roots.homework, homework_key),
+        (roots.updates, update_key),
+        (roots.updates, update_key.replace(".jpg", ".thumbnail.jpg")),
+        (roots.updates, update_key.replace(".jpg", ".thumbnail.webp")),
+    ):
+        path = root / key
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"seeded")
+
+    db.add_all(
+        [
+            AnnouncementAttachment(
+                post_id=seeded_announcement.id,
+                school_id=school_id,
+                uploaded_by_user_id=world["teachers"][0][0].id,
+                original_filename="seed.pdf",
+                storage_key=announcement_key,
+                content_type="application/pdf",
+                size_bytes=6,
+            ),
+            AnnouncementRead(announcement_id=seeded_announcement.id, user_id=guardian.id, school_id=school_id),
+            HomeworkAttachment(
+                homework_item_id=seeded_homework.id,
+                school_id=school_id,
+                uploaded_by_user_id=world["teachers"][0][0].id,
+                original_filename="seed.pdf",
+                storage_key=homework_key,
+                content_type="application/pdf",
+                size_bytes=6,
+            ),
+            HomeworkItemCompletion(homework_item_id=seeded_homework.id, school_id=school_id, guardian_user_id=guardian.id),
+            UpdatePhoto(
+                post_id=seeded_update.id,
+                school_id=school_id,
+                uploaded_by_user_id=world["teachers"][0][0].id,
+                original_filename="seed.jpg",
+                storage_key=update_key,
+                content_type="image/jpeg",
+                size_bytes=6,
+            ),
+        ]
+    )
+    db.commit()
+    behaviour_before = db.query(BehaviourEvent).filter(BehaviourEvent.school_id == school_id).count()
+    manifest_count = db.query(DemoSeedRecord).filter(DemoSeedRecord.entity_type.in_(DEFAULT_ENTITY_TYPES)).count()
+
+    summary = cleanup_seeded_content(
+        db,
+        school_slug="united-international-school",
+        apply=True,
+        storage_roots=roots,
+    )
+
+    assert summary.mode == "apply"
+    assert db.query(Announcement).filter(Announcement.id == world["manual_announcement_id"]).count() == 1
+    assert db.query(Announcement).filter(Announcement.school_id == school_id).count() == 1
+    assert db.query(HomeworkItem).filter(HomeworkItem.school_id == school_id).count() == 0
+    assert db.query(UpdatePost).filter(UpdatePost.school_id == school_id).count() == 0
+    assert db.query(CalendarEvent).filter(CalendarEvent.school_id == school_id).count() == 0
+    assert db.query(BehaviourEvent).filter(BehaviourEvent.school_id == school_id).count() == behaviour_before
+    assert db.query(AnnouncementAttachment).count() == 0
+    assert db.query(AnnouncementRead).count() == 0
+    assert db.query(HomeworkAttachment).count() == 0
+    assert db.query(HomeworkItemCompletion).count() == 0
+    assert db.query(UpdatePhoto).count() == 0
+    assert summary.deleted_files == 5
+    assert summary.missing_files == 0
+    assert summary.unsafe_files == 0
+    assert all(
+        (row.metadata_json or {}).get("cleanup", {}).get("state") == "removed"
+        for row in db.query(DemoSeedRecord).filter(DemoSeedRecord.entity_type.in_(DEFAULT_ENTITY_TYPES)).all()
+    )
+    assert db.query(DemoSeedRecord).filter(DemoSeedRecord.entity_type.in_(DEFAULT_ENTITY_TYPES)).count() == manifest_count
+    assert db.query(AuditLog).filter(AuditLog.action == "demo_seed.content_cleanup").count() == 1
+
+    second = cleanup_seeded_content(db, school_slug="united-international-school", storage_roots=roots)
+    assert sum(second.already_removed_counts.values()) == manifest_count
+    assert sum(second.delete_counts.values()) == 0
+
+    reseed = module.seed_school(
+        db,
+        school_slug="united-international-school",
+        as_of=module.parse_as_of("2026-07-12"),
+        apply=True,
+    )
+    assert reseed.counts["retired"] == manifest_count
+    assert db.query(Announcement).filter(Announcement.school_id == school_id).count() == 1
+    assert db.query(HomeworkItem).filter(HomeworkItem.school_id == school_id).count() == 0
 
 
 def test_seeded_behaviour_events_include_required_contexts(db, world, monkeypatch):

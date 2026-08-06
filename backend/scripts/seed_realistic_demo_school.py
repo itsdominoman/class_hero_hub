@@ -2469,6 +2469,14 @@ def persist_task(
     seed_namespace: str = SEED_NAMESPACE,
 ) -> int | None:
     existing = manifest_row(db, seed_namespace=seed_namespace, entity_type=task.entity_type, entity_key=task.entity_key)
+    cleanup_marker = (
+        existing.metadata_json.get("cleanup")
+        if existing is not None and isinstance(existing.metadata_json, dict)
+        else None
+    )
+    if isinstance(cleanup_marker, dict) and cleanup_marker.get("state") == "removed":
+        counts["retired"] += 1
+        return None
     if existing is not None and existing.model_id is not None:
         counts["already_present"] += 1
         return existing.model_id
@@ -2724,6 +2732,7 @@ def print_summary(summary: RunSummary) -> None:
         )
     print(f"Would create / created: {summary.counts['created']}")
     print(f"Already present: {summary.counts['already_present']}")
+    print(f"Retired by manifest cleanup: {summary.counts['retired']}")
     print(f"Skipped photos: {summary.counts['skipped_photos']}")
     print(f"Populated demo Arabic names: {summary.counts['populated_demo_name_ar']}")
     if summary.skipped_photos_reason:
