@@ -25,6 +25,7 @@
     offline = false,
     noticeOpen = false,
     noticeAcknowledged = false,
+    noticeAcknowledgementSaving = false,
     persistentBack = false,
     backLabel,
     draft = $bindable(''),
@@ -53,6 +54,7 @@
     offline?: boolean;
     noticeOpen?: boolean;
     noticeAcknowledged?: boolean;
+    noticeAcknowledgementSaving?: boolean;
     persistentBack?: boolean;
     backLabel?: string;
     draft?: string;
@@ -74,6 +76,7 @@
   } = $props();
 
   const arabic = $derived($locale === 'ar');
+  let acknowledgementChecked = $state(false);
   const hasConversationNotice = $derived(Boolean(
     conversation?.shared_guardian_visibility || conversation?.safeguarding_disclosure
   ));
@@ -94,6 +97,10 @@
   const headerSubtitle = $derived([headerContext, guardianCount ? guardianCountLabel : '']
     .filter(Boolean)
     .join(' · '));
+
+  $effect(() => {
+    if (!noticeOpen || noticeAcknowledged) acknowledgementChecked = false;
+  });
   let timeline = $state<HTMLDivElement>();
   let nearBottom = $state(true);
   let unseenMessages = $state(0);
@@ -261,12 +268,23 @@
                 </ul>
               </div>
             {/if}
+            {#if !noticeAcknowledged}
+              <label class="mt-3 flex items-start gap-2 rounded-xl border border-sky-200 bg-white/75 px-3 py-2 text-xs font-bold leading-5 text-sky-950">
+                <input
+                  class="mt-0.5 h-4 w-4 shrink-0 accent-sky-700"
+                  type="checkbox"
+                  bind:checked={acknowledgementChecked}
+                />
+                <span>{$_('messaging.acknowledgementCheckbox')}</span>
+              </label>
+            {/if}
             <button
               type="button"
-              class="mt-3 inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-xs font-extrabold text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero"
+              class="mt-3 inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-xs font-extrabold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hero"
+              disabled={!noticeAcknowledged && (!acknowledgementChecked || noticeAcknowledgementSaving)}
               onclick={noticeAcknowledged ? onclosenotice : onacknowledgenotice}
             >
-              {noticeAcknowledged ? $_('messaging.closeInformation') : $_('messaging.acknowledgeNotice')}
+              {noticeAcknowledged ? $_('messaging.closeInformation') : noticeAcknowledgementSaving ? $_('messaging.savingAcknowledgement') : $_('messaging.acknowledgeNotice')}
             </button>
           </div>
         </div>

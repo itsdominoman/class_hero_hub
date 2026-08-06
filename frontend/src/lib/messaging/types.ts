@@ -11,6 +11,12 @@ export type StaffNotificationPreference = {
   preference_version: number;
 };
 
+export type MessagingPolicyAcknowledgement = {
+  policy_version: string;
+  acknowledged: boolean;
+  acknowledged_at: string | null;
+};
+
 export type MessagingStudent = {
   id: number;
   display_name: string;

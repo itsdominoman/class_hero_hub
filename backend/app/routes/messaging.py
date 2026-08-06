@@ -80,6 +80,7 @@ from ..models_school import (
     Message,
     MessageMedia,
     MessageVoiceMedia,
+    MessagingPolicyAcknowledgement,
     NotificationOutbox,
     School,
     SchoolMessagingPolicy,
@@ -106,6 +107,7 @@ CURSOR_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
 MAX_INBOX_CANDIDATES = 2000
 MAX_RECIPIENT_CANDIDATES = 250
 STAFF_MEMBERSHIP_ROLES = STAFF_ROLES
+MESSAGING_POLICY_VERSION = "school-messaging-visibility-2026-08-v1"
 
 
 def _student_context_catalog(
@@ -316,6 +318,13 @@ class MessageAckRequest(BaseModel):
     client_ack_id: UUID
     occurred_at: datetime
     device_session_ref: str | None = Field(default=None, max_length=96)
+
+
+class MessagingPolicyAcknowledgementRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    policy_version: str = Field(min_length=1, max_length=64)
+    acknowledged: bool
 
 
 class ConversationCloseRequest(BaseModel):
@@ -2322,6 +2331,85 @@ def _staff_preference_payload(
         "effective_out_of_hours_notifications_enabled": allowed and stored,
         "preference_version": preference.preference_version if preference else 1,
     }
+
+
+def _messaging_policy_acknowledgement_payload(
+    row: MessagingPolicyAcknowledgement | None,
+) -> dict[str, Any]:
+    return {
+        "policy_version": MESSAGING_POLICY_VERSION,
+        "acknowledged": row is not None,
+        "acknowledged_at": row.acknowledged_at if row else None,
+    }
+
+
+@staff_router.get("/policy-acknowledgement")
+def get_messaging_policy_acknowledgement(
+    actor: StaffActor = Depends(require_staff_actor),
+    db: Session = Depends(get_db),
+):
+    row = (
+        db.query(MessagingPolicyAcknowledgement)
+        .filter(
+            MessagingPolicyAcknowledgement.user_id == actor.user.id,
+            MessagingPolicyAcknowledgement.policy_version
+            == MESSAGING_POLICY_VERSION,
+        )
+        .first()
+    )
+    return _messaging_policy_acknowledgement_payload(row)
+
+
+@staff_router.post("/policy-acknowledgement")
+def acknowledge_messaging_policy(
+    payload: MessagingPolicyAcknowledgementRequest,
+    actor: StaffActor = Depends(require_staff_actor),
+    db: Session = Depends(get_db),
+):
+    if payload.policy_version != MESSAGING_POLICY_VERSION:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "messaging_policy_version_changed",
+                "current_version": MESSAGING_POLICY_VERSION,
+            },
+        )
+    if not payload.acknowledged:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Messaging-policy acknowledgement is required",
+        )
+    user_id = actor.user.id
+    row = (
+        db.query(MessagingPolicyAcknowledgement)
+        .filter(
+            MessagingPolicyAcknowledgement.user_id == user_id,
+            MessagingPolicyAcknowledgement.policy_version
+            == MESSAGING_POLICY_VERSION,
+        )
+        .first()
+    )
+    if row is None:
+        row = MessagingPolicyAcknowledgement(
+            user_id=user_id,
+            policy_version=MESSAGING_POLICY_VERSION,
+            acknowledged_at=_utc_now(),
+        )
+        db.add(row)
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            row = (
+                db.query(MessagingPolicyAcknowledgement)
+                .filter(
+                    MessagingPolicyAcknowledgement.user_id == user_id,
+                    MessagingPolicyAcknowledgement.policy_version
+                    == MESSAGING_POLICY_VERSION,
+                )
+                .one()
+            )
+    return _messaging_policy_acknowledgement_payload(row)
 
 
 @staff_router.get(

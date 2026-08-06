@@ -888,6 +888,28 @@ class StaffMessagingPreference(Base):
     )
 
 
+class MessagingPolicyAcknowledgement(Base):
+    __tablename__ = "messaging_policy_acknowledgements"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    policy_version = Column(String(64), nullable=False)
+    acknowledged_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "policy_version",
+            name="uq_messaging_policy_acknowledgements_user_version",
+        ),
+        Index(
+            "ix_messaging_policy_acknowledgements_user_time",
+            "user_id",
+            "acknowledged_at",
+        ),
+    )
+
+
 class SchoolFeatureControl(Base):
     """Current school-level state for jurisdiction-sensitive product features."""
 

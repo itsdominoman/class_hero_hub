@@ -5,6 +5,7 @@ import type {
   MessageItem,
   MessagePage,
   MessagingMembership,
+  MessagingPolicyAcknowledgement,
   RecipientResults,
   StaffNotificationPreference
 } from './types';
@@ -51,6 +52,25 @@ export function errorStatus(error: unknown): number | undefined {
 }
 
 export const messagingApi = {
+  policyAcknowledgement(
+    membership: MessagingMembership
+  ): Promise<MessagingPolicyAcknowledgement> {
+    return api.get('/messaging/policy-acknowledgement', {
+      headers: contextHeaders(membership)
+    });
+  },
+
+  acknowledgePolicy(
+    membership: MessagingMembership,
+    policyVersion: string
+  ): Promise<MessagingPolicyAcknowledgement> {
+    return api.post(
+      '/messaging/policy-acknowledgement',
+      { policy_version: policyVersion, acknowledged: true },
+      { headers: contextHeaders(membership) }
+    );
+  },
+
   notificationPreference(
     membership: MessagingMembership
   ): Promise<StaffNotificationPreference> {

@@ -8,6 +8,7 @@ from app.models_school import (
     Department,
     Membership,
     MessagingAuditEvent,
+    MessagingPolicyAcknowledgement,
     StaffDepartmentAssignment,
     Student,
     User,
@@ -100,6 +101,56 @@ def test_staff_messaging_includes_support_and_new_management_roles_but_not_other
         json={"kind": "staff_direct", "other_staff_membership_id": other["teacher"].id},
     )
     assert denied.status_code == 404
+
+
+def test_staff_messaging_policy_acknowledgement_is_versioned_and_user_scoped(db, client):
+    world = _school_world(db, "messaging-policy-ack")
+    admin_headers = _headers(world["users"]["admin"], world["school"], world["admin"])
+    teacher_headers = _headers(world["users"]["teacher"], world["school"], world["teacher"])
+
+    initial = client.get("/api/messaging/policy-acknowledgement", headers=admin_headers)
+    assert initial.status_code == 200, initial.text
+    policy_version = initial.json()["policy_version"]
+    assert initial.json() == {
+        "policy_version": policy_version,
+        "acknowledged": False,
+        "acknowledged_at": None,
+    }
+    assert client.post(
+        "/api/messaging/policy-acknowledgement",
+        headers=admin_headers,
+        json={"policy_version": policy_version, "acknowledged": False},
+    ).status_code == 422
+    changed = client.post(
+        "/api/messaging/policy-acknowledgement",
+        headers=admin_headers,
+        json={"policy_version": "obsolete-policy", "acknowledged": True},
+    )
+    assert changed.status_code == 409
+    assert changed.json()["detail"]["current_version"] == policy_version
+
+    recorded = client.post(
+        "/api/messaging/policy-acknowledgement",
+        headers=admin_headers,
+        json={"policy_version": policy_version, "acknowledged": True},
+    )
+    assert recorded.status_code == 200, recorded.text
+    assert recorded.json()["acknowledged"] is True
+    assert recorded.json()["acknowledged_at"]
+    repeated = client.post(
+        "/api/messaging/policy-acknowledgement",
+        headers=admin_headers,
+        json={"policy_version": policy_version, "acknowledged": True},
+    )
+    assert repeated.json()["acknowledged_at"] == recorded.json()["acknowledged_at"]
+    assert db.query(MessagingPolicyAcknowledgement).count() == 1
+
+    teacher_status = client.get(
+        "/api/messaging/policy-acknowledgement",
+        headers=teacher_headers,
+    )
+    assert teacher_status.status_code == 200
+    assert teacher_status.json()["acknowledged"] is False
 
 
 def test_school_admin_department_configuration_enforces_role_and_school_boundaries(db, client):

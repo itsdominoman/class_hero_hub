@@ -22,7 +22,6 @@
     StaffNotificationPreference
   } from '$lib/messaging/types';
 
-  const NOTICE_PREFERENCE_PREFIX = 'chh.messaging.conversation-notice.s25j.user';
   const STAFF_ROLES = new Set([
     'school_admin',
     'principal',
@@ -71,8 +70,9 @@
   let conversationDrafts = $state<Record<string, string>>({});
   let selectedPhotos = $state<SelectedMessagePhoto[]>([]);
   let conversationPhotoDrafts = $state<Record<string, SelectedMessagePhoto[]>>({});
-  let noticeAccountId = $state<string | null>(null);
   let noticeAcknowledged = $state(false);
+  let noticePolicyVersion = $state<string | null>(null);
+  let noticeAcknowledgementSaving = $state(false);
   let noticeOpen = $state(false);
   let shortcutReturnPath = $state<string | null>(null);
   let noticeConversationKey = $state<string | null>(null);
@@ -209,20 +209,16 @@
     return membershipId ? `${membershipId}:${conversationId}` : null;
   }
 
-  function noticePreferenceKey(accountId: string) {
-    return `${NOTICE_PREFERENCE_PREFIX}.${accountId}`;
-  }
-
-  function loadNoticePreference(accountId: string) {
-    try {
-      return localStorage.getItem(noticePreferenceKey(accountId)) === 'acknowledged';
-    } catch {
-      return false;
-    }
+  async function loadPolicyAcknowledgement() {
+    if (!membership) return;
+    const status = await messagingApi.policyAcknowledgement(membership);
+    noticePolicyVersion = status.policy_version;
+    noticeAcknowledged = status.acknowledged;
+    if (noticeAcknowledged) noticeOpen = false;
   }
 
   function prepareConversationNotice(detail: ConversationDetail) {
-    const key = `${noticeAccountId || 'unknown'}:${detail.id}`;
+    const key = `${noticePolicyVersion || 'pending'}:${detail.id}`;
     if (noticeConversationKey === key) return;
     noticeConversationKey = key;
     noticeOpen = Boolean(
@@ -231,14 +227,20 @@
     );
   }
 
-  function acknowledgeConversationNotice() {
-    noticeAcknowledged = true;
-    noticeOpen = false;
-    if (!noticeAccountId) return;
+  async function acknowledgeConversationNotice() {
+    if (!membership || !noticePolicyVersion || noticeAcknowledgementSaving) return;
+    noticeAcknowledgementSaving = true;
     try {
-      localStorage.setItem(noticePreferenceKey(noticeAccountId), 'acknowledged');
-    } catch {
-      // The in-memory acknowledgement still keeps the current view compact.
+      const result = await messagingApi.acknowledgePolicy(membership, noticePolicyVersion);
+      noticePolicyVersion = result.policy_version;
+      noticeAcknowledged = result.acknowledged;
+      noticeOpen = !result.acknowledged;
+    } catch (cause) {
+      conversationError = cause instanceof Error
+        ? cause.message
+        : $_('messaging.acknowledgementError');
+    } finally {
+      noticeAcknowledgementSaving = false;
     }
   }
 
@@ -871,11 +873,7 @@
   async function initialize() {
     shortcutReturnPath = requestedShortcutReturnPath();
     try {
-      const user = (await api.get('/me')) as SessionUser & { id?: number | string };
-      if (user.id !== undefined && user.id !== null) {
-        noticeAccountId = String(user.id);
-        noticeAcknowledged = loadNoticePreference(noticeAccountId);
-      }
+      const user = (await api.get('/me')) as SessionUser;
       memberships = (user.memberships || []).filter(
         (row): row is MessagingMembership =>
           STAFF_ROLES.has(row.role) &&
@@ -896,6 +894,7 @@
       }
       if (membership) {
         updateConversationQuery(requestedConversationId(), 'replace');
+        await loadPolicyAcknowledgement();
         await Promise.all([
           loadInbox({ openRequested: true }),
           loadNotificationPreference()
@@ -1113,6 +1112,7 @@
           {offline}
           {noticeOpen}
           {noticeAcknowledged}
+          {noticeAcknowledgementSaving}
           persistentBack={Boolean(shortcutReturnPath)}
           backLabel={shortcutReturnPath ? $_('messaging.returnToQuickAward') : undefined}
           {selectedPhotos}
