@@ -1,5 +1,29 @@
 # CHH current pilot deployment
 
+## 2026-08-06 Docker cache storage recovery
+
+The pilot root filesystem reached 99.5% usage (192 GB of 193 GB), leaving only
+983 MB free. Docker build churn was the cause: Docker reported 150.3 GB of
+reclaimable build cache and 144.4 GB of unused image data. The checked-in CHH
+database backups occupied only 11 MB and were not responsible for the alert.
+
+Unused Docker images and the full rebuildable build cache were pruned without
+removing containers or volumes. CHH temporary files older than two days were
+then removed from `/opt/apps/class_hero_hub/tmp`, explicitly excluding its
+`backups` and `db-backups` directories. This removed a further 4.60 GB, mostly
+superseded APK build artefacts. The root filesystem finished at 16% usage with
+164 GB available. All nine hosted containers retained their uptime and healthy
+status, the public CHH endpoint returned HTTP 200, and the five CHH containers
+had no matching error, critical or traceback log lines in the final 15-minute
+check. No database, Docker volume, backup repository, application source,
+configuration, native bundle or APK was changed.
+
+The separate stale-backup warning was traced to the zero-byte
+`/app/data/backup-health.json` marker last modified on 2026-07-21. Both scheduled
+backup status markers reported `state=ok` on 2026-08-06, so the dashboard marker
+path remains an operational-health follow-up rather than evidence that backup
+data consumed the disk.
+
 ## 2026-08-04 one guardian invitation for all matching children
 
 When a school administrator sends a Family Hero Hub invitation from one active
