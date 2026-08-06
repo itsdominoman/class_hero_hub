@@ -19,7 +19,10 @@ This ordered list is updated after each completed implementation checkpoint.
 
 | Order | Repository | Commit | Purpose | Focused validation | Limitation/follow-up |
 |---:|---|---|---|---|---|
-| 1 | CHH | pending audit commit | Audit current pre-demo state and define role/report scope | Repository/runtime/schema inspection | Implementation not yet started |
+| 1 | CHH | `e329142` | Audit current pre-demo state and define role/report scope | Repository/runtime/schema inspection | Implementation findings remain tracked below |
+| 2 | CHH | `a953e42` | Permit active staff to discover and message active staff in the same school | 2 focused backend authorisation tests and 19 messaging presentation tests passed | Full local messaging file also requires guardian-router configuration and media binaries not present in the Windows harness |
+| 3 | FHH development | `fc0637c` | Replace the two-option language selector with the requested opposite-language action | Focused Vitest passed | Full local Svelte check is blocked by pre-existing generated public-env declarations; container validation remains required |
+| 4 | CHH | `1a2395b` | Apply the same language-selector behaviour across CHH navigation contexts | Focused presentation test and Svelte check passed with 0 errors/warnings | Physical mobile-shell switch remains for final device smoke testing |
 
 ## Backups and migrations
 
@@ -29,7 +32,7 @@ This ordered list is updated after each completed implementation checkpoint.
 ## Runtime/deployment impact
 
 - No service was rebuilt or restarted.
-- No source was transferred to a server worktree.
+- CHH checkpoints through `a953e42` were transferred to the pilot server worktree without rebuilding or restarting services; later checkpoints remain local pending the next controlled transfer.
 - No deployment, push, APK build or Android package change occurred.
 
 ## Validation completed so far
@@ -40,7 +43,8 @@ This ordered list is updated after each completed implementation checkpoint.
 - UIS entitlement, feature-control and messaging-policy state inspected.
 - Jason Green's active UIS teacher membership and three active teaching assignments verified.
 - Seed manifest namespaces/entity counts inspected without reading private content.
+- Same-school staff messaging and the shared CHH/FHH language-selector behaviour have focused automated coverage.
 
 ## Remaining work
 
-All Priority 0-3 implementation, backups, cleanup, test suites, manual browser/mobile/RTL checks, demo relationship completion, runbook and final tags remain active.
+Remaining Priority 0-3 implementation, backups, cleanup, broader test suites, manual browser/mobile/RTL checks, demo relationship completion, runbook and final tags remain active.
