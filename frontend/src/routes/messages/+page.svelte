@@ -23,6 +23,25 @@
   } from '$lib/messaging/types';
 
   const NOTICE_PREFERENCE_PREFIX = 'chh.messaging.conversation-notice.s25j.user';
+  const STAFF_ROLES = new Set([
+    'school_admin',
+    'principal',
+    'deputy_principal',
+    'head_of_department',
+    'teacher',
+    'support_staff'
+  ]);
+
+  function roleLabel(role: string | undefined) {
+    return $_(`messaging.staffRoles.${role || 'support_staff'}`);
+  }
+
+  function roleLandingPath(role: string | undefined) {
+    if (role === 'teacher') return '/teach';
+    if (role === 'school_admin') return '/school';
+    if (role === 'support_staff') return '/messages';
+    return '/school/reports';
+  }
 
   let loadingSession = $state(true);
   let available = $state(true);
@@ -859,7 +878,7 @@
       }
       memberships = (user.memberships || []).filter(
         (row): row is MessagingMembership =>
-          (row.role === 'teacher' || row.role === 'school_admin') &&
+          STAFF_ROLES.has(row.role) &&
           row.capabilities.includes('school_chats') &&
           Number.isInteger(row.membership_id)
       );
@@ -1002,11 +1021,11 @@
         <label class="mx-auto mt-5 block max-w-sm text-start text-xs font-bold text-slate-600" for="unavailable-messaging-membership">{$_('messaging.chooseSchool')}</label>
         <select id="unavailable-messaging-membership" value={membership?.membership_id} onchange={handleMembershipChange} class="mx-auto mt-1 block w-full max-w-sm rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
           {#each memberships as option (option.membership_id)}
-            <option value={option.membership_id}>{option.school_name} · {option.role === 'teacher' ? $_('messaging.teacher') : $_('messaging.schoolAdministrator')}</option>
+            <option value={option.membership_id}>{option.school_name} · {roleLabel(option.role)}</option>
           {/each}
         </select>
       {/if}
-      <a href={membership?.role === 'teacher' ? '/teach' : '/school'} class="btn-hero mt-6 inline-flex rounded-2xl px-5 py-3">{$_('messaging.returnDashboard')}</a>
+      <a href={roleLandingPath(membership?.role)} class="btn-hero mt-6 inline-flex rounded-2xl px-5 py-3">{$_('messaging.returnDashboard')}</a>
       {#if shortcutReturnPath}<button type="button" class="btn-secondary ms-2 mt-3 px-4 py-3" onclick={returnToQuickAward}>{$_('messaging.returnToQuickAward')}</button>{/if}
     </section>
   {:else}
@@ -1030,7 +1049,7 @@
             <label class="mt-3 block text-[0.68rem] font-bold uppercase tracking-wide text-slate-500" for="messaging-membership">{$_('messaging.actingAs')}</label>
             <select id="messaging-membership" value={membership?.membership_id} onchange={handleMembershipChange} class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700">
               {#each memberships as option (option.membership_id)}
-                <option value={option.membership_id}>{option.school_name} · {option.role === 'teacher' ? $_('messaging.teacher') : $_('messaging.schoolAdministrator')}</option>
+                <option value={option.membership_id}>{option.school_name} · {roleLabel(option.role)}</option>
               {/each}
             </select>
           {/if}

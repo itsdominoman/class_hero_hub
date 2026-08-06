@@ -5,16 +5,18 @@ from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy import String, and_, case, cast, exists, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from ..database import get_db
 from ..entitlement_service import REPORTS_INSIGHTS, require_school_entitlement
+from ..department_scope import active_department_membership_ids, active_head_department_ids
 from ..models_school import (
     BehaviourCategory,
     BehaviourEvent,
     BranchCampus,
     ClassSection,
+    Department,
     Enrolment,
     GradeLevel,
     Membership,
@@ -25,9 +27,10 @@ from ..models_school import (
     User,
 )
 from ..school_scope import require_school_role
+from ..school_roles import HEAD_OF_DEPARTMENT, REPORTING_ROLES, STAFF_ROLES
 
 
-router = APIRouter(dependencies=[Depends(require_school_role("school_admin")), Depends(require_school_entitlement(REPORTS_INSIGHTS))])
+router = APIRouter(dependencies=[Depends(require_school_role(*REPORTING_ROLES)), Depends(require_school_entitlement(REPORTS_INSIGHTS))])
 
 DUTY_CONTEXTS = {"break", "lunch", "playground", "hallway", "assembly", "bus", "general_duty"}
 MATRIX_DIMENSIONS = {"student", "class_section", "grade", "subject", "subject_group", "teacher", "duty_context", "category", "category_type", "date_bucket"}
@@ -89,6 +92,35 @@ def _require_school_row(db: Session, model, row_id: int | None, school_id: int, 
         raise HTTPException(422, f"Invalid {field} for school")
 
 
+def _scoped_actor_user_ids(db: Session, membership: Membership) -> frozenset[int] | None:
+    """Return None for school-wide management or current department staff for an HOD."""
+    if membership.role != HEAD_OF_DEPARTMENT:
+        return None
+    department_ids = active_head_department_ids(
+        db,
+        school_id=membership.school_id,
+        membership_id=membership.id,
+    )
+    membership_ids = active_department_membership_ids(
+        db,
+        school_id=membership.school_id,
+        department_ids=department_ids,
+    )
+    if not membership_ids:
+        return frozenset()
+    return frozenset(
+        row[0]
+        for row in db.query(Membership.user_id)
+        .filter(
+            Membership.school_id == membership.school_id,
+            Membership.id.in_(membership_ids),
+            Membership.status == "active",
+            Membership.revoked_at.is_(None),
+        )
+        .all()
+    )
+
+
 def _filters(
     db: Session, membership: Membership, *, date_from: date | None = None, date_to: date | None = None,
     branch_campus_id: int | None = None, grade_level_id: int | None = None, class_section_id: int | None = None,
@@ -105,8 +137,12 @@ def _filters(
     _require_school_row(db, SubjectGroup, subject_group_id, membership.school_id, "subject_group_id")
     _require_school_row(db, BehaviourCategory, category_id, membership.school_id, "category_id")
     _require_school_row(db, Student, student_id, membership.school_id, "student_id")
-    if actor_user_id is not None and not db.query(BehaviourEvent.id).filter(BehaviourEvent.school_id == membership.school_id, BehaviourEvent.actor_user_id == actor_user_id).first():
-        raise HTTPException(422, "Invalid actor_user_id for school")
+    if actor_user_id is not None:
+        scoped_actor_user_ids = _scoped_actor_user_ids(db, membership)
+        if scoped_actor_user_ids is not None and actor_user_id not in scoped_actor_user_ids:
+            raise HTTPException(422, "Invalid actor_user_id for reporting scope")
+        if not db.query(BehaviourEvent.id).filter(BehaviourEvent.school_id == membership.school_id, BehaviourEvent.actor_user_id == actor_user_id).first():
+            raise HTTPException(422, "Invalid actor_user_id for school")
     if duty_context is not None and duty_context not in DUTY_CONTEXTS:
         raise HTTPException(422, "Invalid duty_context")
     if category_type is not None and category_type not in {"positive", "needs_work"}:
@@ -141,8 +177,9 @@ def _local_day_expr(db: Session, timezone_name: str, timestamp=BehaviourEvent.cr
     return func.date(timestamp, modifier)
 
 
-def _query(db: Session, school_id: int, filters: ReportFilters):
+def _query(db: Session, membership: Membership, filters: ReportFilters):
     """Return one event-time query with only bounded, school-scoped rows."""
+    school_id = membership.school_id
     direct_section = aliased(ClassSection)
     group = aliased(SubjectGroup)
     group_section = aliased(ClassSection)
@@ -183,6 +220,9 @@ def _query(db: Session, school_id: int, filters: ReportFilters):
         BehaviourEvent.created_at >= filters.start,
         BehaviourEvent.created_at < filters.end,
     )
+    scoped_actor_user_ids = _scoped_actor_user_ids(db, membership)
+    if scoped_actor_user_ids is not None:
+        query = query.filter(BehaviourEvent.actor_user_id.in_(scoped_actor_user_ids))
 
     class_id = func.coalesce(BehaviourEvent.class_section_id, group.class_section_id, historic_section.id)
     grade_id = func.coalesce(grade.id, group_grade.id, historic_grade.id)
@@ -226,10 +266,199 @@ def _display_student(student: Student) -> str:
     return student.preferred_name or f"{student.first_name} {student.last_name}".strip()
 
 
+@router.get("/reports/behaviour/context")
+def report_context(
+    membership: Membership = Depends(require_school_role(*REPORTING_ROLES)),
+    db: Session = Depends(get_db),
+):
+    school_id = membership.school_id
+    scoped_user_ids = _scoped_actor_user_ids(db, membership)
+    grade_levels = (
+        db.query(GradeLevel)
+        .filter(GradeLevel.school_id == school_id, GradeLevel.status == "active")
+        .order_by(GradeLevel.sort_order, func.lower(GradeLevel.name), GradeLevel.id)
+        .all()
+    )
+    class_sections = (
+        db.query(ClassSection)
+        .filter(ClassSection.school_id == school_id, ClassSection.status == "active")
+        .order_by(ClassSection.grade_level_id, ClassSection.sort_order, func.lower(ClassSection.name), ClassSection.id)
+        .all()
+    )
+    subjects = (
+        db.query(Subject)
+        .filter(Subject.school_id == school_id, Subject.status == "active")
+        .order_by(func.lower(Subject.name), Subject.id)
+        .all()
+    )
+    categories = (
+        db.query(BehaviourCategory)
+        .filter(BehaviourCategory.school_id == school_id, BehaviourCategory.active.is_(True))
+        .order_by(BehaviourCategory.type, BehaviourCategory.sort_order, func.lower(BehaviourCategory.label), BehaviourCategory.id)
+        .all()
+    )
+    staff_query = (
+        db.query(Membership, User)
+        .join(User, User.id == Membership.user_id)
+        .filter(
+            Membership.school_id == school_id,
+            Membership.role.in_(STAFF_ROLES),
+            Membership.status == "active",
+            Membership.revoked_at.is_(None),
+            User.status == "active",
+        )
+    )
+    if scoped_user_ids is not None:
+        staff_query = staff_query.filter(Membership.user_id.in_(scoped_user_ids))
+    staff_rows = staff_query.order_by(func.lower(User.name), Membership.id).all()
+    department_ids = (
+        active_head_department_ids(db, school_id=school_id, membership_id=membership.id)
+        if membership.role == HEAD_OF_DEPARTMENT
+        else frozenset()
+    )
+    departments = (
+        db.query(Department)
+        .filter(Department.school_id == school_id, Department.id.in_(department_ids))
+        .order_by(func.lower(Department.name), Department.id)
+        .all()
+        if department_ids
+        else []
+    )
+    return {
+        "scope": {
+            "type": "department" if membership.role == HEAD_OF_DEPARTMENT else "school",
+            "departments": [
+                {"id": row.id, "name": row.name, "name_ar": row.name_ar}
+                for row in departments
+            ],
+        },
+        "grade_levels": [
+            {"id": row.id, "name": row.name, "name_ar": row.name_ar, "status": row.status, "sort_order": row.sort_order}
+            for row in grade_levels
+        ],
+        "class_sections": [
+            {
+                "id": row.id,
+                "name": row.name,
+                "name_ar": row.name_ar,
+                "status": row.status,
+                "sort_order": row.sort_order,
+                "grade_level_id": row.grade_level_id,
+                "branch_campus_id": row.branch_campus_id,
+            }
+            for row in class_sections
+        ],
+        "subjects": [
+            {"id": row.id, "name": row.name, "name_ar": row.name_ar, "status": row.status, "sort_order": row.sort_order}
+            for row in subjects
+        ],
+        "categories": [
+            {"id": row.id, "label": row.label, "type": row.type, "points_value": row.points_value}
+            for row in categories
+        ],
+        "staff": [
+            {"id": user.id, "name": user.name, "name_ar": user.name_ar, "role": staff_membership.role}
+            for staff_membership, user in staff_rows
+        ],
+    }
+
+
+@router.get("/reports/behaviour/students/search")
+def search_report_students(
+    search: str = Query(min_length=1, max_length=120),
+    class_section_id: int | None = Query(default=None, gt=0),
+    limit: int = Query(default=20, ge=1, le=20),
+    membership: Membership = Depends(require_school_role(*REPORTING_ROLES)),
+    db: Session = Depends(get_db),
+):
+    term = search.strip()
+    if not term:
+        return []
+    school_id = membership.school_id
+    normalized = term.casefold()
+    exact_identifier = or_(
+        cast(Student.id, String) == term,
+        func.lower(func.trim(func.coalesce(Student.external_ref, ""))) == normalized,
+    )
+    name_match = or_(
+        func.coalesce(Student.first_name, "").ilike(f"%{term}%"),
+        func.coalesce(Student.last_name, "").ilike(f"%{term}%"),
+        func.coalesce(Student.preferred_name, "").ilike(f"%{term}%"),
+        func.coalesce(Student.name_ar, "").ilike(f"%{term}%"),
+    )
+    query = db.query(Student).filter(Student.school_id == school_id, Student.status == "active")
+    query = query.filter(exact_identifier if len(term) < 2 else or_(exact_identifier, name_match))
+    if class_section_id is not None:
+        _require_school_row(db, ClassSection, class_section_id, school_id, "class_section_id")
+        query = query.filter(
+            exists().where(
+                and_(
+                    Enrolment.school_id == school_id,
+                    Enrolment.student_id == Student.id,
+                    Enrolment.class_section_id == class_section_id,
+                    Enrolment.kind == "member",
+                    Enrolment.valid_from <= date.today(),
+                    or_(Enrolment.valid_to.is_(None), Enrolment.valid_to > date.today()),
+                )
+            )
+        )
+    scoped_user_ids = _scoped_actor_user_ids(db, membership)
+    if scoped_user_ids is not None:
+        query = query.filter(
+            exists().where(
+                and_(
+                    BehaviourEvent.school_id == school_id,
+                    BehaviourEvent.student_id == Student.id,
+                    BehaviourEvent.actor_user_id.in_(scoped_user_ids),
+                )
+            )
+        )
+    students = query.order_by(func.lower(Student.last_name), func.lower(Student.first_name), Student.id).limit(limit).all()
+    student_ids = {row.id for row in students}
+    current_enrolments = (
+        db.query(Enrolment, ClassSection)
+        .join(ClassSection, ClassSection.id == Enrolment.class_section_id)
+        .filter(
+            Enrolment.school_id == school_id,
+            Enrolment.student_id.in_(student_ids),
+            Enrolment.kind == "member",
+            Enrolment.valid_from <= date.today(),
+            or_(Enrolment.valid_to.is_(None), Enrolment.valid_to > date.today()),
+            ClassSection.school_id == school_id,
+        )
+        .order_by(Enrolment.valid_from.desc(), Enrolment.id.desc())
+        .all()
+        if student_ids
+        else []
+    )
+    class_by_student: dict[int, ClassSection] = {}
+    for enrolment, section in current_enrolments:
+        class_by_student.setdefault(enrolment.student_id, section)
+    return [
+        {
+            "id": row.id,
+            "external_ref": row.external_ref,
+            "display_name": _display_student(row),
+            "name_ar": row.name_ar,
+            "current_class_section": (
+                {
+                    "id": class_by_student[row.id].id,
+                    "name": class_by_student[row.id].name,
+                    "name_ar": class_by_student[row.id].name_ar,
+                    "grade_level_id": class_by_student[row.id].grade_level_id,
+                }
+                if row.id in class_by_student
+                else None
+            ),
+        }
+        for row in students
+    ]
+
+
 @router.get("/reports/behaviour/overview")
-def overview(date_from: date | None = None, date_to: date | None = None, branch_campus_id: int | None = None, grade_level_id: int | None = None, class_section_id: int | None = None, subject_id: int | None = None, subject_group_id: int | None = None, duty_context: str | None = None, category_id: int | None = None, actor_user_id: int | None = None, student_id: int | None = None, category_type: str | None = None, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+def overview(date_from: date | None = None, date_to: date | None = None, branch_campus_id: int | None = None, grade_level_id: int | None = None, class_section_id: int | None = None, subject_id: int | None = None, subject_group_id: int | None = None, duty_context: str | None = None, category_id: int | None = None, actor_user_id: int | None = None, student_id: int | None = None, category_type: str | None = None, membership: Membership = Depends(require_school_role(*REPORTING_ROLES)), db: Session = Depends(get_db)):
     filters = _filters(db, membership, **_report_params(date_from, date_to, branch_campus_id, grade_level_id, class_section_id, subject_id, subject_group_id, duty_context, category_id, actor_user_id, student_id, category_type))
-    row = _query(db, membership.school_id, filters).with_entities(*_measures(), func.count(func.distinct(BehaviourEvent.actor_user_id)).label("active_teachers")).one()
+    row = _query(db, membership, filters).with_entities(*_measures(), func.count(func.distinct(BehaviourEvent.actor_user_id)).label("active_teachers")).one()
     metrics = _metric_payload(row); metrics["active_teachers"] = int(row.active_teachers or 0)
     metrics["positive_ratio"] = round(metrics["positive_count"] / metrics["total_events"], 4) if metrics["total_events"] else 0
     return {"filters": filters.payload(), "metrics": metrics}
@@ -244,10 +473,10 @@ def _report_params(
 
 
 @router.get("/reports/behaviour/trends")
-def trends(date_from: date | None = None, date_to: date | None = None, branch_campus_id: int | None = None, grade_level_id: int | None = None, class_section_id: int | None = None, subject_id: int | None = None, subject_group_id: int | None = None, duty_context: str | None = None, category_id: int | None = None, actor_user_id: int | None = None, student_id: int | None = None, category_type: str | None = None, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+def trends(date_from: date | None = None, date_to: date | None = None, branch_campus_id: int | None = None, grade_level_id: int | None = None, class_section_id: int | None = None, subject_id: int | None = None, subject_group_id: int | None = None, duty_context: str | None = None, category_id: int | None = None, actor_user_id: int | None = None, student_id: int | None = None, category_type: str | None = None, membership: Membership = Depends(require_school_role(*REPORTING_ROLES)), db: Session = Depends(get_db)):
     filters = _filters(db, membership, **_report_params(date_from, date_to, branch_campus_id, grade_level_id, class_section_id, subject_id, subject_group_id, duty_context, category_id, actor_user_id, student_id, category_type))
     local_day = _local_day_expr(db, filters.school_timezone)
-    rows = _query(db, membership.school_id, filters).with_entities(local_day.label("day"), *_measures()).group_by(local_day).order_by(local_day).all()
+    rows = _query(db, membership, filters).with_entities(local_day.label("day"), *_measures()).group_by(local_day).order_by(local_day).all()
     return {"filters": filters.payload(), "interval": "day", "series": [{"date": str(row.day), **_metric_payload(row)} for row in rows]}
 
 
@@ -259,9 +488,9 @@ def _grouped(query, label_expr, key_expr=None, *, limit: int = 100):
 
 
 @router.get("/reports/behaviour/breakdowns")
-def breakdowns(date_from: date | None = None, date_to: date | None = None, branch_campus_id: int | None = None, grade_level_id: int | None = None, class_section_id: int | None = None, subject_id: int | None = None, subject_group_id: int | None = None, duty_context: str | None = None, category_id: int | None = None, actor_user_id: int | None = None, student_id: int | None = None, category_type: str | None = None, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+def breakdowns(date_from: date | None = None, date_to: date | None = None, branch_campus_id: int | None = None, grade_level_id: int | None = None, class_section_id: int | None = None, subject_id: int | None = None, subject_group_id: int | None = None, duty_context: str | None = None, category_id: int | None = None, actor_user_id: int | None = None, student_id: int | None = None, category_type: str | None = None, membership: Membership = Depends(require_school_role(*REPORTING_ROLES)), db: Session = Depends(get_db)):
     filters = _filters(db, membership, **_report_params(date_from, date_to, branch_campus_id, grade_level_id, class_section_id, subject_id, subject_group_id, duty_context, category_id, actor_user_id, student_id, category_type))
-    base = _query(db, membership.school_id, filters); dims = base._report_aliases
+    base = _query(db, membership, filters); dims = base._report_aliases
     class_name = func.coalesce(dims["direct_section"].name, dims["group_section"].name, dims["historic_section"].name)
     grade_name = func.coalesce(dims["grade"].name, dims["group_grade"].name, dims["historic_grade"].name)
     class_key = func.coalesce(BehaviourEvent.class_section_id, dims["group"].class_section_id, dims["historic_section"].id)
@@ -282,13 +511,13 @@ def _student_rows(query, type_value: str, limit: int = 20):
 
 
 @router.get("/reports/behaviour/students")
-def students(date_from: date | None = None, date_to: date | None = None, branch_campus_id: int | None = None, grade_level_id: int | None = None, class_section_id: int | None = None, subject_id: int | None = None, subject_group_id: int | None = None, duty_context: str | None = None, category_id: int | None = None, actor_user_id: int | None = None, student_id: int | None = None, category_type: str | None = None, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+def students(date_from: date | None = None, date_to: date | None = None, branch_campus_id: int | None = None, grade_level_id: int | None = None, class_section_id: int | None = None, subject_id: int | None = None, subject_group_id: int | None = None, duty_context: str | None = None, category_id: int | None = None, actor_user_id: int | None = None, student_id: int | None = None, category_type: str | None = None, membership: Membership = Depends(require_school_role(*REPORTING_ROLES)), db: Session = Depends(get_db)):
     filters = _filters(db, membership, **_report_params(date_from, date_to, branch_campus_id, grade_level_id, class_section_id, subject_id, subject_group_id, duty_context, category_id, actor_user_id, student_id, category_type))
-    base = _query(db, membership.school_id, filters)
+    base = _query(db, membership, filters)
     previous_start = filters.date_from - timedelta(days=(filters.date_to - filters.date_from).days + 1)
     previous = replace(filters, date_from=previous_start, date_to=filters.date_from - timedelta(days=1), start=filters.start - timedelta(days=(filters.date_to - filters.date_from).days + 1), end=filters.start)
     current_signed = base.with_entities(BehaviourEvent.student_id.label("student_id"), func.sum(BehaviourEvent.points_delta).label("current_total")).group_by(BehaviourEvent.student_id).subquery()
-    prior_signed = _query(db, membership.school_id, previous).with_entities(BehaviourEvent.student_id.label("student_id"), func.sum(BehaviourEvent.points_delta).label("prior_total")).group_by(BehaviourEvent.student_id).subquery()
+    prior_signed = _query(db, membership, previous).with_entities(BehaviourEvent.student_id.label("student_id"), func.sum(BehaviourEvent.points_delta).label("prior_total")).group_by(BehaviourEvent.student_id).subquery()
     changes = db.query(Student.id.label("dimension_key"), Student.first_name, Student.last_name, Student.preferred_name, current_signed.c.current_total, func.coalesce(prior_signed.c.prior_total, 0).label("prior_total")).join(current_signed, current_signed.c.student_id == Student.id).outerjoin(prior_signed, prior_signed.c.student_id == Student.id).order_by((current_signed.c.current_total - func.coalesce(prior_signed.c.prior_total, 0)).desc()).limit(20).all()
     improving = [{"display_name": r.preferred_name or f"{r.first_name} {r.last_name}".strip(), "dimension_key": r.dimension_key, "signed_points_change": int(r.current_total - r.prior_total)} for r in changes if r.current_total > r.prior_total]
     worsening = [{"display_name": r.preferred_name or f"{r.first_name} {r.last_name}".strip(), "dimension_key": r.dimension_key, "signed_points_change": int(r.current_total - r.prior_total)} for r in reversed(changes) if r.current_total < r.prior_total]
@@ -296,9 +525,9 @@ def students(date_from: date | None = None, date_to: date | None = None, branch_
 
 
 @router.get("/reports/behaviour/teachers")
-def teachers(date_from: date | None = None, date_to: date | None = None, branch_campus_id: int | None = None, grade_level_id: int | None = None, class_section_id: int | None = None, subject_id: int | None = None, subject_group_id: int | None = None, duty_context: str | None = None, category_id: int | None = None, actor_user_id: int | None = None, student_id: int | None = None, category_type: str | None = None, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+def teachers(date_from: date | None = None, date_to: date | None = None, branch_campus_id: int | None = None, grade_level_id: int | None = None, class_section_id: int | None = None, subject_id: int | None = None, subject_group_id: int | None = None, duty_context: str | None = None, category_id: int | None = None, actor_user_id: int | None = None, student_id: int | None = None, category_type: str | None = None, membership: Membership = Depends(require_school_role(*REPORTING_ROLES)), db: Session = Depends(get_db)):
     filters = _filters(db, membership, **_report_params(date_from, date_to, branch_campus_id, grade_level_id, class_section_id, subject_id, subject_group_id, duty_context, category_id, actor_user_id, student_id, category_type))
-    query = _query(db, membership.school_id, filters); actor = query._report_aliases["actor"]
+    query = _query(db, membership, filters); actor = query._report_aliases["actor"]
     rows = query.with_entities(actor.id.label("dimension_key"), actor.name.label("display_name"), *_measures()).group_by(actor.id, actor.name).order_by(func.count(BehaviourEvent.id).desc(), actor.name.asc(), actor.id.asc()).limit(100).all()
     return {"filters": filters.payload(), "teachers": [{"display_name": row.display_name or "Staff member", "dimension_key": row.dimension_key, **_metric_payload(row)} for row in rows]}
 
@@ -340,11 +569,11 @@ def _selected_values(expression, values: list):
 
 
 @router.get("/reports/behaviour/matrix")
-def matrix(row_dimension: str, column_dimension: str | None = None, limit: int = Query(default=25, ge=1, le=MAX_MATRIX_ROWS), order_by: str = "total_events", date_from: date | None = None, date_to: date | None = None, branch_campus_id: int | None = None, grade_level_id: int | None = None, class_section_id: int | None = None, subject_id: int | None = None, subject_group_id: int | None = None, duty_context: str | None = None, category_id: int | None = None, actor_user_id: int | None = None, student_id: int | None = None, category_type: str | None = None, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+def matrix(row_dimension: str, column_dimension: str | None = None, limit: int = Query(default=25, ge=1, le=MAX_MATRIX_ROWS), order_by: str = "total_events", date_from: date | None = None, date_to: date | None = None, branch_campus_id: int | None = None, grade_level_id: int | None = None, class_section_id: int | None = None, subject_id: int | None = None, subject_group_id: int | None = None, duty_context: str | None = None, category_id: int | None = None, actor_user_id: int | None = None, student_id: int | None = None, category_type: str | None = None, membership: Membership = Depends(require_school_role(*REPORTING_ROLES)), db: Session = Depends(get_db)):
     _validate_matrix_dimensions(row_dimension, column_dimension)
     if order_by not in MATRIX_ORDER_BY: raise HTTPException(400, "Invalid matrix order_by")
     filters = _filters(db, membership, **_report_params(date_from, date_to, branch_campus_id, grade_level_id, class_section_id, subject_id, subject_group_id, duty_context, category_id, actor_user_id, student_id, category_type))
-    base = _query(db, membership.school_id, filters)
+    base = _query(db, membership, filters)
     dims = base._report_aliases
     selected_dimensions = {row_dimension, column_dimension}
     if selected_dimensions & {"subject", "subject_group"}:
@@ -388,9 +617,9 @@ def matrix(row_dimension: str, column_dimension: str | None = None, limit: int =
 
 
 @router.get("/reports/behaviour/events")
-def events(offset: int = Query(default=0, ge=0), limit: int = Query(default=50, ge=1, le=100), date_from: date | None = None, date_to: date | None = None, branch_campus_id: int | None = None, grade_level_id: int | None = None, class_section_id: int | None = None, subject_id: int | None = None, subject_group_id: int | None = None, duty_context: str | None = None, category_id: int | None = None, actor_user_id: int | None = None, student_id: int | None = None, category_type: str | None = None, membership: Membership = Depends(require_school_role("school_admin")), db: Session = Depends(get_db)):
+def events(offset: int = Query(default=0, ge=0), limit: int = Query(default=50, ge=1, le=100), date_from: date | None = None, date_to: date | None = None, branch_campus_id: int | None = None, grade_level_id: int | None = None, class_section_id: int | None = None, subject_id: int | None = None, subject_group_id: int | None = None, duty_context: str | None = None, category_id: int | None = None, actor_user_id: int | None = None, student_id: int | None = None, category_type: str | None = None, membership: Membership = Depends(require_school_role(*REPORTING_ROLES)), db: Session = Depends(get_db)):
     filters = _filters(db, membership, **_report_params(date_from, date_to, branch_campus_id, grade_level_id, class_section_id, subject_id, subject_group_id, duty_context, category_id, actor_user_id, student_id, category_type))
-    query = _query(db, membership.school_id, filters)
+    query = _query(db, membership, filters)
     total = query.with_entities(func.count(func.distinct(BehaviourEvent.id))).scalar() or 0
     rows = query.order_by(BehaviourEvent.created_at.desc(), BehaviourEvent.id.desc()).offset(offset).limit(limit).all()
     events_payload = []

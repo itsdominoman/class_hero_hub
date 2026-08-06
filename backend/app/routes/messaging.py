@@ -96,6 +96,7 @@ from ..schemas import (
 )
 from ..rosters import resolve_rosters_for_students
 from ..school_scope import open_interval_expression, write_audit
+from ..school_roles import STAFF_ROLES
 
 
 staff_router = APIRouter(dependencies=[Depends(require_school_entitlement(SCHOOL_CHATS))])
@@ -104,7 +105,7 @@ guardian_router = APIRouter(dependencies=[Depends(require_school_entitlement(SCH
 CURSOR_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
 MAX_INBOX_CANDIDATES = 2000
 MAX_RECIPIENT_CANDIDATES = 250
-STAFF_MEMBERSHIP_ROLES = ("school_admin", "teacher")
+STAFF_MEMBERSHIP_ROLES = STAFF_ROLES
 
 
 def _student_context_catalog(

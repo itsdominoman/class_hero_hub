@@ -19,9 +19,9 @@ from .models_school import (
     User,
     UserRefreshSession,
 )
+from .school_roles import STAFF_ROLES
 
 NOT_AUTHORISED_DETAIL = "This account is not authorised for Class Hero Hub."
-STAFF_ROLES = ("school_admin", "teacher")
 PENDING_STAFF_INVITE = "staff_invite"
 PENDING_GUARDIAN_INVITE = "guardian_invite"
 

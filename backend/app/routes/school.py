@@ -6,7 +6,7 @@ from typing import Any, Type
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -36,6 +36,7 @@ from ..models_school import (
     AuditLog,
     BranchCampus,
     ClassSection,
+    Department,
     DefaultSubjectTemplate,
     EducationStage,
     Enrolment,
@@ -49,6 +50,7 @@ from ..models_school import (
     Membership,
     School,
     StaffAssignment,
+    StaffDepartmentAssignment,
     StaffInvite,
     Student,
     StudentGuardianContact,
@@ -79,6 +81,7 @@ from ..student_exports import (
 from ..student_avatars import ensure_student_avatars
 from .platform import _invite_payload, _issue_staff_invite
 from ..school_scope import is_open_interval, open_interval_expression, require_school_role, write_audit
+from ..school_roles import HEAD_OF_DEPARTMENT, STAFF_ROLES
 
 router = APIRouter(dependencies=[Depends(require_school_role("school_admin"))])
 IMPORT_EXPORT_ENTITLEMENT = [Depends(require_school_entitlement(STUDENT_STAFF_IMPORT_EXPORT))]
@@ -186,6 +189,26 @@ class DefaultSubjectTemplateApplyRequest(BaseModel):
 
 class TeacherInviteRequest(BaseModel):
     email: EmailStr
+
+
+class StaffInviteRequest(BaseModel):
+    email: EmailStr
+    role: str = Field(min_length=1, max_length=40)
+
+
+class DepartmentRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=80)
+    name: str = Field(min_length=1, max_length=200)
+    name_ar: str | None = Field(default=None, max_length=200)
+    sort_order: int = 0
+    status: str = Field(default="active", pattern="^(active|archived)$")
+
+
+class DepartmentAssignmentRequest(BaseModel):
+    membership_id: int = Field(gt=0)
+    responsibility: str = Field(default="member", pattern="^(head|member)$")
+    valid_from: date | None = None
+    valid_to: date | None = None
 
 
 class AssignmentRequest(BaseModel):
@@ -611,6 +634,7 @@ def _user_payload(user: User | None) -> dict[str, Any]:
         "id": getattr(user, "id", None),
         "email": getattr(user, "email", None),
         "name": getattr(user, "name", None),
+        "name_ar": getattr(user, "name_ar", None),
     }
 
 
@@ -629,6 +653,64 @@ def _teacher_membership_or_404(db: Session, school_id: int, membership_id: int, 
     if require_active and (membership.status != "active" or membership.revoked_at is not None):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teacher membership is not active")
     return membership
+
+
+def _staff_membership_or_404(db: Session, school_id: int, membership_id: int, *, require_active: bool = True) -> Membership:
+    membership = (
+        db.query(Membership)
+        .filter(
+            Membership.id == membership_id,
+            Membership.school_id == school_id,
+            Membership.role.in_(STAFF_ROLES),
+        )
+        .first()
+    )
+    if not membership:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Staff membership not found")
+    if require_active and (membership.status != "active" or membership.revoked_at is not None):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Staff membership is not active")
+    return membership
+
+
+def _department_payload(row: Department) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "school_id": row.school_id,
+        "code": row.code,
+        "name": row.name,
+        "name_ar": row.name_ar,
+        "sort_order": row.sort_order,
+        "status": row.status,
+        "created_at": row.created_at,
+        "updated_at": row.updated_at,
+    }
+
+
+def _department_assignment_payload(
+    row: StaffDepartmentAssignment,
+    *,
+    department: Department | None = None,
+    staff_membership: Membership | None = None,
+    user: User | None = None,
+) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "school_id": row.school_id,
+        "department_id": row.department_id,
+        "membership_id": row.membership_id,
+        "responsibility": row.responsibility,
+        "valid_from": row.valid_from,
+        "valid_to": row.valid_to,
+        "is_open": is_open_interval(row, _today()),
+        "department": _department_payload(department) if department is not None else None,
+        "staff": {
+            "membership_id": staff_membership.id,
+            "role": staff_membership.role,
+            "user": _user_payload(user),
+        }
+        if staff_membership is not None
+        else None,
+    }
 
 
 def _ensure_active_target(row: Any, label: str) -> Any:
@@ -1972,6 +2054,318 @@ def apply_default_subject_templates(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Apply conflicted with a concurrent change. Re-run preview and try again.")
 
     return {"created": created, "restored": restored, "skipped": skipped, "failed": failed, "results": results}
+
+
+@router.get("/staff")
+def list_staff(
+    search: str | None = Query(default=None, max_length=120),
+    include_deactivated: bool = False,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    query = (
+        db.query(Membership, User)
+        .join(User, User.id == Membership.user_id)
+        .filter(Membership.school_id == school_id, Membership.role.in_(STAFF_ROLES))
+    )
+    if not include_deactivated:
+        query = query.filter(
+            Membership.status == "active",
+            Membership.revoked_at.is_(None),
+            User.status == "active",
+        )
+    term = (search or "").strip()
+    if term:
+        exact_identifier = or_(
+            Membership.id == int(term) if term.isdigit() else False,
+            func.lower(func.coalesce(User.email, "")) == term.casefold(),
+        )
+        if len(term) < 2:
+            query = query.filter(exact_identifier)
+        else:
+            pattern = f"%{term}%"
+            query = query.filter(
+                or_(
+                    exact_identifier,
+                    func.coalesce(User.name, "").ilike(pattern),
+                    func.coalesce(User.name_ar, "").ilike(pattern),
+                    func.coalesce(User.email, "").ilike(pattern),
+                    Membership.role.ilike(pattern),
+                )
+            )
+    rows = query.order_by(func.lower(User.name), func.lower(User.email), Membership.id).limit(200).all()
+    return {
+        "staff": [
+            {
+                "membership_id": staff_membership.id,
+                "school_id": staff_membership.school_id,
+                "role": staff_membership.role,
+                "status": staff_membership.status,
+                "created_at": staff_membership.created_at,
+                "revoked_at": staff_membership.revoked_at,
+                "user": _user_payload(user),
+            }
+            for staff_membership, user in rows
+        ]
+    }
+
+
+@router.post("/staff/invites", status_code=status.HTTP_201_CREATED)
+def create_staff_invite(
+    payload: StaffInviteRequest,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    role = payload.role.strip()
+    if role not in STAFF_ROLES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported staff role")
+    normalized_email = auth.normalize_email(str(payload.email))
+    invited_user = db.query(User).filter(User.email == normalized_email).first()
+    if invited_user is not None and db.query(Membership.id).filter(
+        Membership.school_id == school_id,
+        Membership.user_id == invited_user.id,
+        Membership.role == role,
+        Membership.status == "active",
+        Membership.revoked_at.is_(None),
+    ).first() is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Staff member already has this active role")
+    actor = db.query(User).filter(User.id == membership.user_id).one()
+    staff_invite, _raw_token, warning = _issue_staff_invite(
+        db,
+        _school(db, school_id),
+        normalized_email,
+        actor,
+        role=role,
+    )
+    write_audit(
+        db,
+        membership.user_id,
+        "school.staff_invite.created",
+        staff_invite,
+        {"email": staff_invite.email, "role": staff_invite.role},
+        school_id=school_id,
+    )
+    db.commit()
+    response = _invite_payload(staff_invite)
+    if warning:
+        response["warning"] = warning
+    return response
+
+
+@router.get("/departments")
+def list_departments(
+    include_archived: bool = False,
+    include_ended_assignments: bool = False,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    department_query = db.query(Department).filter(Department.school_id == school_id)
+    if not include_archived:
+        department_query = department_query.filter(Department.status == "active")
+    departments = department_query.order_by(func.lower(Department.name), Department.id).all()
+    department_ids = [row.id for row in departments]
+    assignment_query = (
+        db.query(StaffDepartmentAssignment, Membership, User)
+        .join(Membership, Membership.id == StaffDepartmentAssignment.membership_id)
+        .join(User, User.id == Membership.user_id)
+        .filter(
+            StaffDepartmentAssignment.school_id == school_id,
+            StaffDepartmentAssignment.department_id.in_(department_ids),
+            Membership.school_id == school_id,
+        )
+    )
+    if not include_ended_assignments:
+        assignment_query = assignment_query.filter(*open_interval_expression(StaffDepartmentAssignment, _today()))
+    assignments = assignment_query.order_by(
+        StaffDepartmentAssignment.department_id,
+        StaffDepartmentAssignment.responsibility,
+        func.lower(User.name),
+        StaffDepartmentAssignment.id,
+    ).all() if department_ids else []
+    assignments_by_department: dict[int, list[dict[str, Any]]] = {}
+    departments_by_id = {row.id: row for row in departments}
+    for assignment, staff_membership, user in assignments:
+        assignments_by_department.setdefault(assignment.department_id, []).append(
+            _department_assignment_payload(
+                assignment,
+                department=departments_by_id.get(assignment.department_id),
+                staff_membership=staff_membership,
+                user=user,
+            )
+        )
+    return [
+        {**_department_payload(row), "assignments": assignments_by_department.get(row.id, [])}
+        for row in departments
+    ]
+
+
+@router.post("/departments", status_code=status.HTTP_201_CREATED)
+def create_department(
+    payload: DepartmentRequest,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    code = payload.code.strip()
+    if db.query(Department.id).filter(
+        Department.school_id == school_id,
+        func.lower(Department.code) == code.casefold(),
+    ).first() is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Department code already exists")
+    row = Department(
+        school_id=school_id,
+        code=code,
+        name=payload.name.strip(),
+        name_ar=(payload.name_ar or "").strip() or None,
+        sort_order=payload.sort_order,
+        status=payload.status,
+        created_by_user_id=membership.user_id,
+    )
+    db.add(row)
+    db.flush()
+    write_audit(
+        db,
+        membership.user_id,
+        "school.department.created",
+        row,
+        {"code": row.code, "name": row.name},
+        school_id=school_id,
+    )
+    db.commit()
+    db.refresh(row)
+    return _department_payload(row)
+
+
+@router.put("/departments/{department_id}")
+def update_department(
+    department_id: int,
+    payload: DepartmentRequest,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    row = db.query(Department).filter(Department.id == department_id, Department.school_id == school_id).first()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Department not found")
+    code = payload.code.strip()
+    if db.query(Department.id).filter(
+        Department.school_id == school_id,
+        Department.id != row.id,
+        func.lower(Department.code) == code.casefold(),
+    ).first() is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Department code already exists")
+    before = {"code": row.code, "name": row.name, "status": row.status}
+    row.code = code
+    row.name = payload.name.strip()
+    row.name_ar = (payload.name_ar or "").strip() or None
+    row.sort_order = payload.sort_order
+    row.status = payload.status
+    write_audit(
+        db,
+        membership.user_id,
+        "school.department.updated",
+        row,
+        {"before": before, "after": {"code": row.code, "name": row.name, "status": row.status}},
+        school_id=school_id,
+    )
+    db.commit()
+    db.refresh(row)
+    return _department_payload(row)
+
+
+@router.post("/departments/{department_id}/assignments", status_code=status.HTTP_201_CREATED)
+def create_department_assignment(
+    department_id: int,
+    payload: DepartmentAssignmentRequest,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    department = db.query(Department).filter(
+        Department.id == department_id,
+        Department.school_id == school_id,
+        Department.status == "active",
+    ).first()
+    if department is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active department not found")
+    staff_membership = _staff_membership_or_404(db, school_id, payload.membership_id)
+    if payload.responsibility == "head" and staff_membership.role != HEAD_OF_DEPARTMENT:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Department heads require a Head of Department membership")
+    valid_from = payload.valid_from or _today()
+    valid_to = payload.valid_to
+    if valid_to is not None and valid_to <= valid_from:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="valid_to must be after valid_from")
+    overlap_query = db.query(StaffDepartmentAssignment.id).filter(
+        StaffDepartmentAssignment.school_id == school_id,
+        StaffDepartmentAssignment.department_id == department.id,
+        StaffDepartmentAssignment.membership_id == staff_membership.id,
+        StaffDepartmentAssignment.responsibility == payload.responsibility,
+        or_(StaffDepartmentAssignment.valid_to.is_(None), StaffDepartmentAssignment.valid_to > valid_from),
+    )
+    if valid_to is not None:
+        overlap_query = overlap_query.filter(StaffDepartmentAssignment.valid_from < valid_to)
+    if overlap_query.first() is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Overlapping department assignment already exists")
+    row = StaffDepartmentAssignment(
+        school_id=school_id,
+        department_id=department.id,
+        membership_id=staff_membership.id,
+        responsibility=payload.responsibility,
+        valid_from=valid_from,
+        valid_to=valid_to,
+        created_by_user_id=membership.user_id,
+    )
+    db.add(row)
+    db.flush()
+    write_audit(
+        db,
+        membership.user_id,
+        "school.department_assignment.created",
+        row,
+        {
+            "department_id": department.id,
+            "membership_id": staff_membership.id,
+            "responsibility": row.responsibility,
+            "valid_from": row.valid_from.isoformat(),
+            "valid_to": row.valid_to.isoformat() if row.valid_to else None,
+        },
+        school_id=school_id,
+    )
+    db.commit()
+    db.refresh(row)
+    user = db.query(User).filter(User.id == staff_membership.user_id).one()
+    return _department_assignment_payload(row, department=department, staff_membership=staff_membership, user=user)
+
+
+@router.post("/department-assignments/{assignment_id}/close")
+def close_department_assignment(
+    assignment_id: int,
+    payload: CloseAssignmentRequest | None = None,
+    membership: Membership = Depends(require_school_role("school_admin")),
+    db: Session = Depends(get_db),
+):
+    school_id = _school_id(membership)
+    row = db.query(StaffDepartmentAssignment).filter(
+        StaffDepartmentAssignment.id == assignment_id,
+        StaffDepartmentAssignment.school_id == school_id,
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Department assignment not found")
+    row.valid_to = _validate_close_date(row.valid_from, payload.valid_to if payload else None)
+    write_audit(
+        db,
+        membership.user_id,
+        "school.department_assignment.closed",
+        row,
+        {"department_id": row.department_id, "membership_id": row.membership_id, "valid_to": row.valid_to.isoformat()},
+        school_id=school_id,
+    )
+    db.commit()
+    db.refresh(row)
+    return _department_assignment_payload(row)
 
 
 @router.get("/teachers")

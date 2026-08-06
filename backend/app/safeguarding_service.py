@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from .message_media_service import protected_media_file
 from .message_voice_service import protected_voice_file
+from .department_scope import active_department_membership_ids, active_head_department_ids
 from .models_school import (
     Conversation,
     ConversationParticipant,
@@ -43,6 +44,7 @@ from .models_school import (
     School,
     User,
 )
+from .school_roles import HEAD_OF_DEPARTMENT, ROLE_DERIVED_OVERSIGHT_ROLES
 
 
 PERMISSION_REVIEW = "messaging.safeguarding_review"
@@ -121,6 +123,7 @@ class SafeguardingActor:
     school: School
     membership: Membership
     permissions: frozenset[str]
+    review_department_ids: frozenset[int] | None = None
 
 
 def utc_now() -> datetime:
@@ -189,21 +192,61 @@ def resolve_actor(
     if membership_id is not None:
         query = query.filter(Membership.id == membership_id)
     memberships = query.order_by(Membership.id).all()
-    eligible = [
-        (row, active_permission_names(db, school_id=school_id, membership_id=row.id))
-        for row in memberships
-    ]
-    eligible = [(row, permissions) for row, permissions in eligible if permissions]
+    eligible = []
+    for row in memberships:
+        permissions = set(active_permission_names(db, school_id=school_id, membership_id=row.id))
+        review_department_ids = None
+        if row.role in ROLE_DERIVED_OVERSIGHT_ROLES:
+            permissions.add(PERMISSION_REVIEW)
+        elif row.role == HEAD_OF_DEPARTMENT:
+            review_department_ids = active_head_department_ids(
+                db,
+                school_id=school_id,
+                membership_id=row.id,
+            )
+            if review_department_ids:
+                permissions.add(PERMISSION_REVIEW)
+        if permissions:
+            eligible.append((row, frozenset(permissions), review_department_ids))
     if len(eligible) != 1:
         if membership_id is None and len(eligible) > 1:
             raise SafeguardingValidationError("Explicit membership context required")
         raise SafeguardingAccessDenied("Safeguarding access denied")
-    membership, permissions = eligible[0]
+    membership, permissions, review_department_ids = eligible[0]
     return SafeguardingActor(
         user=user,
         school=school,
         membership=membership,
         permissions=permissions,
+        review_department_ids=review_department_ids,
+    )
+
+
+def conversation_within_review_scope(
+    db: Session,
+    *,
+    actor: SafeguardingActor,
+    conversation: Conversation,
+) -> bool:
+    if conversation.school_id != actor.school.id:
+        return False
+    if actor.review_department_ids is None:
+        return True
+    membership_ids = active_department_membership_ids(
+        db,
+        school_id=actor.school.id,
+        department_ids=actor.review_department_ids,
+    )
+    if not membership_ids:
+        return False
+    return (
+        db.query(ConversationParticipant.id)
+        .filter(
+            ConversationParticipant.conversation_id == conversation.id,
+            ConversationParticipant.membership_id.in_(membership_ids),
+        )
+        .first()
+        is not None
     )
 
 
@@ -346,6 +389,8 @@ def start_review_session(
     correlation_id: str | None = None,
 ) -> SafeguardingReviewSession:
     require_permission(actor, PERMISSION_REVIEW)
+    if not conversation_within_review_scope(db, actor=actor, conversation=conversation):
+        raise SafeguardingNotFound("Conversation not found")
     if conversation.school_id != actor.school.id:
         raise SafeguardingNotFound("Conversation not found")
     if not acknowledgement:
@@ -435,6 +480,8 @@ def active_review_session(
         conversation_public_id is not None
         and conversation.public_id != conversation_public_id
     ):
+        raise SafeguardingNotFound("Conversation not found for this review session")
+    if not conversation_within_review_scope(db, actor=actor, conversation=conversation):
         raise SafeguardingNotFound("Conversation not found for this review session")
     return row, conversation
 

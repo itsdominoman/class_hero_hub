@@ -324,6 +324,60 @@ def _default_assignment_valid_from():
     return datetime.now(timezone.utc).date()
 
 
+class Department(Base):
+    __tablename__ = "departments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    code = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    name_ar = Column(String, nullable=True)
+    sort_order = Column(Integer, default=0, server_default="0", nullable=False)
+    status = Column(String, default="active", server_default="active", nullable=False)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("school_id", "code", name="uq_departments_school_code"),
+        CheckConstraint("status IN ('active', 'archived')", name="ck_departments_status"),
+        Index("ix_departments_school_status", "school_id", "status"),
+    )
+
+
+class StaffDepartmentAssignment(Base):
+    __tablename__ = "staff_department_assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=False, index=True)
+    membership_id = Column(Integer, ForeignKey("memberships.id"), nullable=False, index=True)
+    responsibility = Column(String, nullable=False, default="member", server_default="member")
+    valid_from = Column(Date, nullable=False, default=_default_assignment_valid_from)
+    valid_to = Column(Date, nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("responsibility IN ('head', 'member')", name="ck_staff_department_assignments_responsibility"),
+        CheckConstraint("valid_to IS NULL OR valid_to >= valid_from", name="ck_staff_department_assignments_interval"),
+        Index(
+            "ix_staff_department_assignments_school_membership_interval",
+            "school_id",
+            "membership_id",
+            "valid_from",
+            "valid_to",
+        ),
+        Index(
+            "ix_staff_department_assignments_department_interval",
+            "department_id",
+            "valid_from",
+            "valid_to",
+        ),
+    )
+
+
 class StaffAssignment(Base):
     __tablename__ = "staff_assignments"
 

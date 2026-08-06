@@ -21,6 +21,7 @@ from ..models_school import (
     NotificationOutbox,
     User,
 )
+from ..school_roles import STAFF_ROLES
 
 
 router = APIRouter()
@@ -50,7 +51,7 @@ def _active_staff_membership(db: Session, user_id: int) -> bool:
         db.query(Membership.school_id)
         .filter(
             Membership.user_id == user_id,
-            Membership.role.in_(("teacher", "school_admin")),
+            Membership.role.in_(STAFF_ROLES),
             Membership.status == "active",
             Membership.revoked_at.is_(None),
         )
@@ -209,7 +210,7 @@ def notification_target(
             Membership.id == participant.membership_id,
             Membership.user_id == current_user.id,
             Membership.school_id == row.school_id,
-            Membership.role.in_(("teacher", "school_admin")),
+            Membership.role.in_(STAFF_ROLES),
             Membership.status == "active",
             Membership.revoked_at.is_(None),
         )

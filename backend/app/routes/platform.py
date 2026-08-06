@@ -416,7 +416,15 @@ def exchange_staff_invite(
         "status": "accepted",
         "school": {"id": school.id, "name": school.name, "status": school.status},
         "membership": {"id": membership.id, "role": membership.role},
-        "landing_path": "/teach" if membership.role == TEACHER_ROLE else "/school",
+        "landing_path": (
+            "/teach"
+            if membership.role == TEACHER_ROLE
+            else "/school"
+            if membership.role == SCHOOL_ADMIN_ROLE
+            else "/school/reports"
+            if membership.role in {"principal", "deputy_principal", "head_of_department"}
+            else "/messages"
+        ),
     }
 
 

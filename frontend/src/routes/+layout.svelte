@@ -40,6 +40,15 @@
     '/data-requests',
     '/login'
   ]);
+  const STAFF_ROLES = new Set([
+    'school_admin',
+    'principal',
+    'deputy_principal',
+    'head_of_department',
+    'teacher',
+    'support_staff'
+  ]);
+  const REPORTING_ROLES = new Set(['school_admin', 'principal', 'deputy_principal', 'head_of_department']);
 
   let { children } = $props();
   let currentUser = $state<SessionUser | null>(null);
@@ -78,7 +87,7 @@
       currentUser = await api.get('/me');
       messagingMemberships = (currentUser?.memberships || []).filter(
         (row): row is MessagingMembership =>
-          (row.role === 'teacher' || row.role === 'school_admin') &&
+          STAFF_ROLES.has(row.role) &&
           row.capabilities.includes('school_chats') &&
           Number.isInteger(row.membership_id)
       );
@@ -294,13 +303,14 @@
 
   let hasSchoolAdmin = $derived(hasRole(currentUser, 'school_admin'));
   let hasTeacher = $derived(hasRole(currentUser, 'teacher'));
+  let hasSchoolStaff = $derived(Boolean(currentUser?.memberships?.some((membership) => STAFF_ROLES.has(membership.role))));
   let schoolAdminCapabilities = $derived(Array.from(new Set(
     (currentUser?.memberships || [])
       .filter((membership) => membership.role === 'school_admin')
       .flatMap((membership) => membership.capabilities)
   )));
   let schoolMenuGroups = $derived(visibleSchoolMenuGroups(schoolAdminCapabilities));
-  let hasAnyRole = $derived(hasSchoolAdmin || hasTeacher || Boolean(currentUser?.is_platform_admin));
+  let hasAnyRole = $derived(hasSchoolStaff || Boolean(currentUser?.is_platform_admin));
   let dashboardHref = $derived(defaultLandingPath(currentUser));
   let safeguardingHref = $derived(
     safeguardingMemberships.length
@@ -324,7 +334,9 @@
       reports: {
         href: '/school/reports',
         labelKey: 'nav.reports',
-        visible: anyMembershipHasCapability(currentUser?.memberships, 'reports_insights', 'school_admin')
+        visible: Boolean(currentUser?.memberships?.some(
+          (membership) => REPORTING_ROLES.has(membership.role) && membership.capabilities.includes('reports_insights')
+        ))
       },
       system: {
         href: '/school/administration',

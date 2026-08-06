@@ -33,6 +33,7 @@ from .models_school import (
     PointNotificationSummary,
     User,
 )
+from .school_roles import STAFF_ROLES
 
 
 logger = logging.getLogger(__name__)
@@ -439,7 +440,7 @@ def _valid_chh_recipient(db: Session, context: DispatchContext) -> bool:
             Membership.id == participant.membership_id,
             Membership.user_id == row.recipient_user_id,
             Membership.school_id == row.school_id,
-            Membership.role.in_(("teacher", "school_admin")),
+            Membership.role.in_(STAFF_ROLES),
             Membership.status == "active",
             Membership.revoked_at.is_(None),
             User.status == "active",

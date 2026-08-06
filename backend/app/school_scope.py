@@ -132,6 +132,16 @@ def require_school_role(*roles: str):
             Membership.status == "active",
             Membership.revoked_at.is_(None),
         )
+        raw_membership_id = request.headers.get("X-Membership-Id")
+        if raw_membership_id is not None:
+            try:
+                membership_id = int(raw_membership_id)
+            except (TypeError, ValueError):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid membership context",
+                )
+            query = query.filter(Membership.id == membership_id)
         if allowed_roles:
             query = query.filter(Membership.role.in_(allowed_roles))
 

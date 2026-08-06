@@ -34,6 +34,7 @@ from .message_voice_service import (
 )
 from .rosters import resolve_rosters_for_students
 from .school_scope import open_interval_expression
+from .school_roles import STAFF_ROLES
 
 
 class MessagingAccessDenied(Exception):
@@ -48,7 +49,7 @@ class MessagingValidationError(Exception):
     pass
 
 
-STAFF_DIRECT_MEMBERSHIP_ROLES = {"school_admin", "teacher"}
+STAFF_DIRECT_MEMBERSHIP_ROLES = set(STAFF_ROLES)
 
 
 @dataclass(frozen=True)

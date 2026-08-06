@@ -79,7 +79,9 @@ from ..safeguarding_service import (
     update_flag_status,
     utc_now,
 )
+from ..department_scope import active_department_membership_ids, active_head_department_ids
 from ..legal_hold_service import place_hold, release_hold
+from ..school_roles import HEAD_OF_DEPARTMENT, ROLE_DERIVED_OVERSIGHT_ROLES
 from ..school_scope import write_audit
 
 
@@ -373,7 +375,34 @@ def availability(
     membership_id = _membership_id(request)
     if membership_id is None or current_user.status != "active":
         return {"available": False}
-    available = (
+    membership = (
+        db.query(Membership)
+        .join(School, School.id == Membership.school_id)
+        .filter(
+            Membership.id == membership_id,
+            Membership.school_id == school_id,
+            Membership.user_id == current_user.id,
+            Membership.status == "active",
+            Membership.revoked_at.is_(None),
+            School.status.in_(("pending_setup", "active")),
+        )
+        .first()
+    )
+    role_available = bool(
+        membership
+        and (
+            membership.role in ROLE_DERIVED_OVERSIGHT_ROLES
+            or (
+                membership.role == HEAD_OF_DEPARTMENT
+                and active_head_department_ids(
+                    db,
+                    school_id=school_id,
+                    membership_id=membership.id,
+                )
+            )
+        )
+    )
+    grant_available = (
         db.query(MessagingPermissionGrant.id)
         .join(Membership, Membership.id == MessagingPermissionGrant.membership_id)
         .join(School, School.id == MessagingPermissionGrant.school_id)
@@ -391,7 +420,7 @@ def availability(
         .first()
         is not None
     )
-    return {"available": available}
+    return {"available": role_available or grant_available}
 
 
 @router.get("/context")
@@ -693,6 +722,20 @@ def search_conversations(
     except SafeguardingError as exc:
         _raise_http(exc)
     query = db.query(Conversation).filter(Conversation.school_id == actor.school.id)
+    if actor.review_department_ids is not None:
+        scoped_membership_ids = active_department_membership_ids(
+            db,
+            school_id=actor.school.id,
+            department_ids=actor.review_department_ids,
+        )
+        query = query.filter(
+            exists().where(
+                and_(
+                    ConversationParticipant.conversation_id == Conversation.id,
+                    ConversationParticipant.membership_id.in_(scoped_membership_ids),
+                )
+            )
+        )
     if conversation_ref:
         query = query.filter(Conversation.public_id == conversation_ref)
     if reference:

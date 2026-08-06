@@ -11,13 +11,11 @@ from . import auth, invite_tokens
 from .database import settings
 from .mailer import StaffInviteEmail, send_staff_invite as default_send_staff_invite
 from .models_school import School, StaffInvite, User
+from .school_roles import STAFF_ROLES
 
 
 logger = logging.getLogger(__name__)
 STAFF_INVITE_TTL = timedelta(days=7)
-STAFF_ROLES = {"school_admin", "teacher"}
-
-
 def issue_staff_invite(
     db: Session,
     *,

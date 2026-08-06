@@ -3,7 +3,7 @@
   import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
 
-  type Membership = { school_id: number; school_name: string; role: string };
+  type Membership = { school_id: number; school_name: string; membership_id: number; role: string; capabilities?: string[] };
   type Option = { id: number; name: string; status?: string; grade_level_id?: number | null };
   type CategoryOption = { id: number; label: string; type: CategoryType };
   type TeacherOption = { id: number; name: string };
@@ -59,6 +59,8 @@
   };
 
   let schoolId = $state<number | null>(null);
+  let membershipId = $state<number | null>(null);
+  let reportScope = $state<{ type: 'school' | 'department'; departments: { id: number; name: string; name_ar?: string | null }[] } | null>(null);
   let allowed = $state(false);
   let loading = $state(true);
   let error = $state('');
@@ -109,9 +111,17 @@
   let visibleCategories = $derived(categories.filter((category) => !filters.categoryType || category.type === filters.categoryType));
   let visibleSections = $derived(sections.filter((section) => !filters.gradeLevelId || String(section.grade_level_id) === filters.gradeLevelId));
   let activeFilterChips = $derived(buildActiveFilterChips());
+  let reportScopeLabel = $derived.by(() => {
+    if (!reportScope) return '';
+    if (reportScope.type === 'school') return $_('reports.schoolScope');
+    const names = reportScope.departments.map((department) =>
+      $locale === 'ar' && department.name_ar ? department.name_ar : department.name
+    );
+    return $_('reports.departmentScope', { values: { departments: names.join(', ') } });
+  });
 
   function options(): RequestInit {
-    return { headers: { 'X-School-Id': String(schoolId) } };
+    return { headers: { 'X-School-Id': String(schoolId), 'X-Membership-Id': String(membershipId) } };
   }
 
   function hasReportContext() {
@@ -351,20 +361,15 @@
   }
 
   async function loadMetadata() {
-    const [gradeRows, sectionRows, subjectRows, categoryData, teacherData] = await Promise.all([
-      api.get('/school/grade-levels', options()),
-      api.get('/school/class-sections', options()),
-      api.get('/school/subjects', options()),
-      api.get('/school/behaviour/categories', options()),
-      api.get('/school/teachers', options())
-    ]);
-    grades = gradeRows.filter((row: Option) => row.status !== 'archived');
-    sections = sectionRows.filter((row: Option) => row.status !== 'archived');
-    subjects = subjectRows.filter((row: Option) => row.status !== 'archived');
-    categories = categoryData?.categories || [];
-    teachers = (teacherData?.teachers || []).map((row: { user: { id: number; name?: string | null } }) => ({
-      id: row.user.id,
-      name: row.user.name || $_('reports.staffMember')
+    const data = await api.get('/school/reports/behaviour/context', options());
+    reportScope = data?.scope || null;
+    grades = data?.grade_levels || [];
+    sections = data?.class_sections || [];
+    subjects = data?.subjects || [];
+    categories = data?.categories || [];
+    teachers = (data?.staff || []).map((row: { id: number; name?: string | null }) => ({
+      id: row.id,
+      name: row.name || $_('reports.staffMember')
     }));
   }
 
@@ -448,7 +453,7 @@
     try {
       const params = new URLSearchParams({ search: searchTerm });
       if (filters.classSectionId) params.set('class_section_id', filters.classSectionId);
-      const data = await api.get(`/school/students?${params}`, options());
+      const data = await api.get(`/school/reports/behaviour/students/search?${params}`, options());
       if (studentSearch.trim() !== searchTerm) return;
       studentResults = (data || []).slice(0, 20).map((student: StudentSearchResponse) => ({
         id: student.id,
@@ -546,9 +551,13 @@
   async function init() {
     try {
       const me = await api.get('/me/v2');
-      const membership = ((me?.memberships || []) as Membership[]).find((item) => item.role === 'school_admin');
+      const reportingRoles = ['school_admin', 'principal', 'deputy_principal', 'head_of_department'];
+      const membership = ((me?.memberships || []) as Membership[]).find(
+        (item) => reportingRoles.includes(item.role) && (item.capabilities || []).includes('reports_insights')
+      );
       if (!membership) return;
       schoolId = membership.school_id;
+      membershipId = membership.membership_id;
       allowed = true;
       await loadMetadata();
       restoreReportUrl();
@@ -605,6 +614,7 @@
         <h1 class="mt-1 text-3xl font-bold text-slate-900">{$_('reports.title')}</h1>
         <p class="mt-2 text-slate-600">{$_('reports.subtitle')}</p>
         {#if reportPeriod()}<p class="mt-2 text-sm font-semibold text-slate-700">{reportPeriod()}</p>{/if}
+        {#if reportScopeLabel}<p class="mt-2 inline-flex rounded-full bg-violet-50 px-3 py-1 text-sm font-bold text-violet-800">{$_('reports.scopeLabel')}: {reportScopeLabel}</p>{/if}
       </div>
       <p class="max-w-xs rounded-2xl bg-slate-100 px-4 py-3 text-xs text-slate-600">{$_('reports.teacherUsageGuardrail')}</p>
     </header>

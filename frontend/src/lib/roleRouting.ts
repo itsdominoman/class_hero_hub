@@ -23,6 +23,12 @@ export function defaultLandingPath(user: SessionUser | null | undefined): string
   if (!user) return '/login';
   if (hasRole(user, 'teacher')) return '/teach';
   if (hasRole(user, 'school_admin')) return '/school';
+  if (
+    hasRole(user, 'principal') ||
+    hasRole(user, 'deputy_principal') ||
+    hasRole(user, 'head_of_department')
+  ) return '/school/reports';
+  if (hasRole(user, 'support_staff')) return '/messages';
   if (user.is_platform_admin) return '/platform';
   return '/family-connection';
 }
