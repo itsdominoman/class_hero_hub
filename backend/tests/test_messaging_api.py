@@ -49,6 +49,8 @@ from app.models_school import (
     StaffMessagingPreference,
     StaffAssignment,
     Student,
+    Subject,
+    SubjectGroup,
     User,
 )
 from app import message_media_service, message_voice_service
@@ -811,6 +813,175 @@ def test_guardian_can_create_and_reply_only_for_explicit_link_and_assignment(db,
         json={"client_message_id": str(uuid4()), "body": "Too late"},
     )
     assert closed_reply.status_code == 409
+
+
+def test_teacher_family_scope_covers_multiple_classes_subject_and_temporary_assignments(db, client):
+    world = _school_world(db, "teacher-family-scope")
+    other_school = _school_world(db, "teacher-family-scope-other")
+    today = date.today()
+    second_branch = BranchCampus(
+        school_id=world["school"].id,
+        code="SECOND",
+        name="Second Campus",
+        status="active",
+    )
+    subject = Subject(
+        school_id=world["school"].id,
+        code="SCOPE-SCI",
+        name="Scope Science",
+        status="active",
+    )
+    db.add_all([second_branch, subject])
+    db.flush()
+
+    sections = {}
+    for code, branch in (
+        ("SUBJECT", world["section"].branch_campus_id),
+        ("COVER", second_branch.id),
+        ("EXPIRED", world["section"].branch_campus_id),
+        ("UNRELATED", world["section"].branch_campus_id),
+    ):
+        section = ClassSection(
+            school_id=world["school"].id,
+            branch_campus_id=branch,
+            academic_year_id=world["year"].id,
+            grade_level_id=world["grade"].id,
+            code=f"SCOPE-{code}",
+            name=f"Scope {code.title()}",
+            status="active",
+        )
+        db.add(section)
+        db.flush()
+        sections[code] = section
+
+    subject_group = SubjectGroup(
+        school_id=world["school"].id,
+        academic_year_id=world["year"].id,
+        class_section_id=sections["SUBJECT"].id,
+        subject_id=subject.id,
+        code="SCOPE-SUBJECT-SCI",
+        name="Scope Subject Science",
+        status="active",
+        enrolment_policy="explicit_only",
+    )
+    db.add(subject_group)
+    db.flush()
+
+    students = {}
+    for key in ("SUBJECT", "COVER", "EXPIRED", "UNRELATED"):
+        student = Student(
+            school_id=world["school"].id,
+            first_name=f"Scope {key.title()}",
+            last_name="Student",
+            status="active",
+        )
+        db.add(student)
+        db.flush()
+        students[key] = student
+        db.add_all(
+            [
+                Enrolment(
+                    school_id=world["school"].id,
+                    student_id=student.id,
+                    class_section_id=sections[key].id,
+                    kind="member",
+                    valid_from=today - timedelta(days=10),
+                ),
+                GuardianLink(
+                    school_id=world["school"].id,
+                    student_id=student.id,
+                    user_id=world["users"]["guardian2"].id,
+                    relationship="guardian",
+                    display_name=world["users"]["guardian2"].name,
+                    status="active",
+                ),
+            ]
+        )
+    db.add(
+        Enrolment(
+            school_id=world["school"].id,
+            student_id=students["SUBJECT"].id,
+            subject_group_id=subject_group.id,
+            kind="member",
+            valid_from=today - timedelta(days=10),
+        )
+    )
+    db.add_all(
+        [
+            StaffAssignment(
+                school_id=world["school"].id,
+                membership_id=world["teacher"].id,
+                subject_group_id=subject_group.id,
+                role="subject",
+                valid_from=today - timedelta(days=10),
+            ),
+            StaffAssignment(
+                school_id=world["school"].id,
+                membership_id=world["teacher"].id,
+                class_section_id=sections["COVER"].id,
+                role="homeroom",
+                valid_from=today - timedelta(days=2),
+                valid_to=today + timedelta(days=2),
+            ),
+            StaffAssignment(
+                school_id=world["school"].id,
+                membership_id=world["teacher"].id,
+                class_section_id=sections["EXPIRED"].id,
+                role="homeroom",
+                valid_from=today - timedelta(days=20),
+                valid_to=today,
+            ),
+        ]
+    )
+    db.commit()
+    teacher_headers = _headers(world["users"]["teacher"], world["school"], world["teacher"])
+
+    recipients = client.get("/api/messaging/recipients", headers=teacher_headers)
+    assert recipients.status_code == 200, recipients.text
+    visible_student_ids = {row["student_id"] for row in recipients.json()["students"]}
+    assert {world["student"].id, students["SUBJECT"].id, students["COVER"].id} <= visible_student_ids
+    assert students["EXPIRED"].id not in visible_student_ids
+    assert students["UNRELATED"].id not in visible_student_ids
+    assert other_school["student"].id not in visible_student_ids
+
+    for student in (students["SUBJECT"], students["COVER"]):
+        created = client.post(
+            "/api/messaging/conversations",
+            headers=teacher_headers,
+            json={"kind": "student_staff", "student_id": student.id},
+        )
+        assert created.status_code == 200, created.text
+
+    for student in (students["EXPIRED"], students["UNRELATED"]):
+        denied = client.post(
+            "/api/messaging/conversations",
+            headers=teacher_headers,
+            json={"kind": "student_staff", "student_id": student.id},
+        )
+        assert denied.status_code == 403
+    assert client.post(
+        "/api/messaging/conversations",
+        headers=teacher_headers,
+        json={"kind": "student_staff", "student_id": other_school["student"].id},
+    ).status_code == 404
+
+    admin_conversation = client.post(
+        "/api/messaging/conversations",
+        headers=_headers(world["users"]["admin"], world["school"], world["admin"]),
+        json={"kind": "student_staff", "student_id": students["UNRELATED"].id},
+    )
+    assert admin_conversation.status_code == 200, admin_conversation.text
+    unrelated_conversation_id = admin_conversation.json()["conversation_id"]
+    assert client.get(
+        f"/api/messaging/conversations/{unrelated_conversation_id}",
+        headers=teacher_headers,
+    ).status_code == 404
+    # Direct message/attachment submission cannot bypass the conversation gate.
+    assert client.post(
+        f"/api/messaging/conversations/{unrelated_conversation_id}/messages",
+        headers=teacher_headers,
+        json={"client_message_id": str(uuid4()), "body": "Not authorised"},
+    ).status_code == 404
 
 
 def test_cross_school_revocation_and_resource_enumeration_are_denied(db, client):
