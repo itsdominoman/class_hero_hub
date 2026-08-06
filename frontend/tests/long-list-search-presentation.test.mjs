@@ -47,6 +47,8 @@ test('student records use the shared debounced server-search control', () => {
   assert.match(studentRecords, /id="student-record-search"/);
   assert.match(studentRecords, /onquery=\{\(query\) => \{ search = query; void applyFilters\(\); \}\}/);
   assert.match(studentRecords, /school\.studentAdmin\.searchPatternHelp/);
+  assert.match(studentRecords, /const request = \+\+studentListRequest/);
+  assert.match(studentRecords, /if \(request !== studentListRequest\) return/);
 });
 
 test('survey recipient search filters the server-scoped audience context without losing selected ids', () => {

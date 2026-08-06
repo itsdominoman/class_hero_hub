@@ -142,6 +142,7 @@
   let studentPage = $state(1);
   let studentTotal = $state(0);
   let studentPages = $state(0);
+  let studentListRequest = 0;
   let selectedStudent = $state<Student | null>(null);
   let enrolments = $state<Enrolment[]>([]);
   let guardians = $state<Guardians | null>(null);
@@ -357,6 +358,7 @@
     historyMode?: 'push' | 'replace';
   } = {}) {
     if (!schoolId) return;
+    const request = ++studentListRequest;
     if (resetPage) studentPage = 1;
     const query = new URLSearchParams();
     if (search.trim()) query.set('search', search.trim());
@@ -364,6 +366,7 @@
     query.set('page', String(studentPage));
     query.set('page_size', String(STUDENT_PAGE_SIZE));
     const result: StudentPage = await api.get(`/school/students?${query.toString()}`, schoolOptions());
+    if (request !== studentListRequest) return;
     if (result.pages > 0 && studentPage > result.pages) {
       studentPage = result.pages;
       await loadStudents({ syncUrl, historyMode });
