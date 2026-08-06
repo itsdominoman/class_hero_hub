@@ -13,10 +13,10 @@ backend, schema, test and documentation work, but it does not establish that all
 
 Current deployment truth:
 
-- CHH pilot is deployed at `931eef68cd9566c9f7eed8d97a9474d4006f11ed`.
+- CHH pilot is deployed at product commit `e95f50bc1aeeb917c0eaf63835f68014a0752410`.
   Its database is current at `d8e9f0a1b2c3`; backend, frontend, database and
   workers are healthy; public home and readiness endpoints return HTTP 200.
-- FHH development is deployed at `97003047bb5d06a58d50658056b98aef15ce33be`.
+- FHH development is deployed at `d0121b7014f7442560ddea15ded278f04187118f`.
   Its database is current at `d3e4f5a6b7c8`; all five services are healthy and
   public home/readiness endpoints return HTTP 200. FHH production and the Play
   Store release were not changed.
@@ -37,7 +37,7 @@ marked complete.
 
 | # | Requirement | Current truth | Work still required for completion |
 |---:|---|---|---|
-| 1 | FHH parent dashboard visual parity | The redesigned parent School dashboard and common language control are deployed on FHH development. Automated desktop/mobile/Android-shell fixtures passed. The reported FHH production header and unlinked-parent Survey exposure were not changed because production is outside this development/UAT gate. | Physically verify the development parent dashboard in desktop, mobile browser and Android shell in EN/AR. Before any production promotion, reproduce and fix the production-only header/Survey defects if they remain present. |
+| 1 | FHH parent dashboard visual parity | The redesigned parent School dashboard and common language control are deployed on FHH development. The duplicate School Chats and Surveys destinations were removed from the global desktop/mobile header, restoring logo/title space. The Surveys API now returns 404 unless the household has an active same-family CHH-linked child; non-CHH, inactive, revoked and other-family links are excluded. Focused backend, frontend, desktop/mobile/Android-shell fixtures and production builds pass. | Physically verify the development parent dashboard/header in mobile browser and Android shell in EN/AR, including one unlinked parent. |
 | 2 | Demo relationships and accounts | Jason Green remains an active CHH teacher with assignments. The supported staff/department UI is deployed, but CHH still has no Principal, Deputy, HOD, Support Staff, department or dated assignment, and no deterministic linked FHH parent journey is recorded. | The user must supply or select the real invitation identities. Then use the supported UI to provision Principal, Deputy and HOD, create the department/assignment, complete the parent/child link and record the approved demo identities. |
 | 3 | Safe seeded-content cleanup | A verified backup and manifest-only cleanup removed 1,041 proven seeded notices, calendar items, homework items and updates while preserving manual data. Ten surveys, 11 conversations and 132 messages were retained because there was no reliable seed provenance. | Visually review the retained demo content. Remove any unwanted retained records only after establishing explicit provenance or obtaining item-level confirmation; do not weaken the existing safety boundary. |
 | 4 | Teacher-to-parent messaging restrictions | Server-side assignment and exact-student restrictions are deployed, with focused tests for class, subject, temporary, expired, unrelated and cross-school cases. The live direct-manipulation journey was not executed. | Run bounded live tests for authorised and unauthorised recipient discovery, conversation creation, direct identifiers and attachment sharing. Fix only failures found. |
@@ -72,8 +72,8 @@ marked complete.
 - verify acknowledgement, protected documents and avatars;
 - physically regression-test the existing Play Store APK against the preserved
   legacy avatar/API contract;
-- resolve the production mobile-header and unlinked-parent Survey defect before a
-  later production promotion if those defects reproduce there.
+- physically accept the development mobile-header and unlinked-parent Survey fix
+  before the later production promotion.
 
 ### 3. Provision and accept the actual demo
 

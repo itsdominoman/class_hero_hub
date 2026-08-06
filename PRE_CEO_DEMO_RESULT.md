@@ -51,6 +51,8 @@ truth is in the runtime section and the completion audit.
 | 28 | FHH development | `550ccd3` | Preserve the Play Store app's legacy avatar contract while adding the shared CHH avatar catalogue and survey-summary receiver | 30 focused backend tests, 4 frontend avatar tests and full Svelte check passed | Deployed to development only; old-APK physical regression remains |
 | 29 | CHH | `931eef6` | Track the deployed survey-document migration in readiness | 5 focused health tests passed | Deployed; database/current readiness is healthy |
 | 30 | FHH development | `9700304` | Track the deployed additive avatar migration in readiness | 6 focused health tests passed | Deployed; database/current readiness is healthy |
+| 31 | CHH | `e95f50b` | Complete the named long-list search/sorting inventory with shared class, Subject Group, report, student and survey-recipient controls plus expanded school-scoped backend search | 6 focused presentation tests, 2 cross-school backend tests, Svelte 0/0, 2,378-key EN/AR parity and production build passed; live Subject Group search reduced 258 rows to the expected 9 for `G12B` | Deployed to CHH pilot; representative mobile/Arabic physical acceptance remains |
+| 32 | FHH development | `d0121b7` | Remove duplicate school destinations from the global header and require an active same-family CHH child link for Survey access | 3 focused backend tests, 4 survey presentation tests, Svelte 0/0 and production build passed | Deployed to development only; physical linked/unlinked mobile acceptance remains |
 
 ## Backups and migrations
 
@@ -69,8 +71,8 @@ truth is in the runtime section and the completion audit.
 
 ## Runtime/deployment impact
 
-- CHH pilot is deployed at `931eef68cd9566c9f7eed8d97a9474d4006f11ed`, with database head `d8e9f0a1b2c3`; backend/frontend/database/workers are healthy and public home/readiness return HTTP 200.
-- FHH development is deployed at `97003047bb5d06a58d50658056b98aef15ce33be`, with database head `d3e4f5a6b7c8`; all five services are healthy and public home/readiness return HTTP 200.
+- CHH pilot product code is deployed at `e95f50bc1aeeb917c0eaf63835f68014a0752410`, with database head `d8e9f0a1b2c3`; backend/frontend/database/workers are healthy and public home/readiness return HTTP 200.
+- FHH development is deployed at `d0121b7014f7442560ddea15ded278f04187118f`, with database head `d3e4f5a6b7c8`; all five services are healthy and public home/readiness return HTTP 200.
 - FHH production, the Google Play release and the installed production APK were not changed.
 - Only affected backend/frontend services were rebuilt; no worker behaviour changed.
 
