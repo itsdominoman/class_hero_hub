@@ -1,6 +1,6 @@
 # Seeded data cleanup report
 
-Status: applied and post-operation verification complete  
+Status: applied and post-operation verification complete
 Target: CHH pilot/public, United International School (`united-international-school`)  
 Cleanup version: `manifest-content-cleanup-v1`  
 Dry-run date: 2026-08-06
