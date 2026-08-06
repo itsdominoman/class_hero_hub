@@ -475,6 +475,89 @@ def test_admin_teacher_receipts_advance_on_normal_participant_routes(db, client)
         assert receipt_only_poll.json()["receipt_updates"][-1]["receipt"]["state"] == expected_state
 
 
+def test_active_teachers_can_discover_and_message_each_other_with_school_isolation(db, client):
+    world = _school_world(db, "teacher-direct")
+    other_user = User(
+        email="other-teacher-direct@test",
+        name="Other Teacher",
+        name_ar="معلم آخر",
+        google_sub="other-teacher-direct",
+        status="active",
+    )
+    db.add(other_user)
+    db.flush()
+    other_teacher = Membership(
+        school_id=world["school"].id,
+        user_id=other_user.id,
+        role="teacher",
+        status="active",
+    )
+    db.add(other_teacher)
+    db.commit()
+
+    teacher_headers = _headers(
+        world["users"]["teacher"], world["school"], world["teacher"]
+    )
+    recipients = client.get(
+        "/api/messaging/recipients?q=Other",
+        headers=teacher_headers,
+    )
+    assert recipients.status_code == 200, recipients.text
+    assert recipients.json()["staff"] == [
+        {
+            "membership_id": other_teacher.id,
+            "display_name": "Other Teacher",
+            "name_ar": "معلم آخر",
+            "role": "teacher",
+        }
+    ]
+
+    created = client.post(
+        "/api/messaging/conversations",
+        headers=teacher_headers,
+        json={
+            "kind": "staff_direct",
+            "other_staff_membership_id": other_teacher.id,
+        },
+    )
+    assert created.status_code == 200, created.text
+    conversation_id = created.json()["conversation_id"]
+    sent = client.post(
+        f"/api/messaging/conversations/{conversation_id}/messages",
+        headers=teacher_headers,
+        json={"client_message_id": str(uuid4()), "body": "Same-school staff note"},
+    )
+    assert sent.status_code == 200, sent.text
+
+    other_headers = _headers(other_user, world["school"], other_teacher)
+    inbox = client.get("/api/messaging/inbox", headers=other_headers)
+    assert inbox.status_code == 200, inbox.text
+    assert inbox.json()["items"][0]["id"] == conversation_id
+
+    other_school = _school_world(db, "teacher-direct-other-school")
+    cross_school = client.post(
+        "/api/messaging/conversations",
+        headers=teacher_headers,
+        json={
+            "kind": "staff_direct",
+            "other_staff_membership_id": other_school["teacher"].id,
+        },
+    )
+    assert cross_school.status_code == 404
+
+    other_teacher.status = "inactive"
+    db.commit()
+    inactive = client.post(
+        "/api/messaging/conversations",
+        headers=teacher_headers,
+        json={
+            "kind": "staff_direct",
+            "other_staff_membership_id": other_teacher.id,
+        },
+    )
+    assert inactive.status_code == 404
+
+
 def test_shared_guardians_text_send_unread_ack_and_idempotent_retry(db, client):
     world = _school_world(db, "shared")
     conversation_id = _create_teacher_thread(client, world)

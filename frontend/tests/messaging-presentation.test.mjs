@@ -13,6 +13,7 @@ import { highestServerSequence, mergeIncomingMessages, mergeMessageReceipt, merg
 import { chooseNativeBackAction } from '../src/lib/native/back-policy.ts';
 
 const composerSource = readFileSync(new URL('../src/lib/components/messaging/MessageComposer.svelte', import.meta.url), 'utf8');
+const composeDialogSource = readFileSync(new URL('../src/lib/components/messaging/ComposeDialog.svelte', import.meta.url), 'utf8');
 const photoSource = readFileSync(new URL('../src/lib/components/messaging/ProtectedMessagePhoto.svelte', import.meta.url), 'utf8');
 const viewerSource = readFileSync(new URL('../src/lib/components/messaging/ProtectedPhotoViewer.svelte', import.meta.url), 'utf8');
 const pageSource = readFileSync(new URL('../src/routes/messages/+page.svelte', import.meta.url), 'utf8');
@@ -233,6 +234,12 @@ test('staff-direct conversations fall back to participant identity', () => {
   assert.equal(conversationTitle(direct), 'School Administrator');
   assert.equal(conversationSubtitle(direct), 'School Administrator');
   assert.deepEqual(filterConversations([direct], '', 'active'), [direct]);
+});
+
+test('compose exposes same-school staff recipients to every staff membership', () => {
+  assert.doesNotMatch(composeDialogSource, /membership\.role === 'school_admin'/);
+  assert.match(composeDialogSource, /recipients\.staff/);
+  assert.match(composeDialogSource, /onstaff\(staff\.membership_id\)/);
 });
 
 test('native Back policy avoids accidental exit and preserves non-root fallback', () => {

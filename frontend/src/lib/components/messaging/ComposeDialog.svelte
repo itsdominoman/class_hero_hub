@@ -99,25 +99,23 @@
           {/if}
         </div>
 
-        {#if membership.role === 'school_admin'}
-          <div class="mt-6 border-t border-slate-100 pt-5">
-            <h3 class="px-2 text-xs font-extrabold uppercase tracking-wide text-slate-400">{$_('messaging.staff')}</h3>
-            {#if recipients.staff.length === 0}
-              <p class="px-2 py-5 text-sm text-slate-500">{$_('messaging.noStaffMatches')}</p>
-            {:else}
-              <ul class="mt-2 space-y-1">
-                {#each recipients.staff as staff (staff.membership_id)}
-                  <li>
-                    <button type="button" disabled={creating} onclick={() => onstaff(staff.membership_id)} class="w-full rounded-2xl px-3 py-3 text-start hover:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-hero disabled:opacity-50">
-                      <span dir="auto" class="block text-sm font-bold text-slate-900">{staff.display_name}</span>
-                      <span class="mt-0.5 block text-xs text-slate-500">{staff.role === 'school_admin' ? $_('messaging.schoolAdministrator') : $_('messaging.teacher')}</span>
-                    </button>
-                  </li>
-                {/each}
-              </ul>
-            {/if}
-          </div>
-        {/if}
+        <div class="mt-6 border-t border-slate-100 pt-5">
+          <h3 class="px-2 text-xs font-extrabold uppercase tracking-wide text-slate-400">{$_('messaging.staff')}</h3>
+          {#if recipients.staff.length === 0}
+            <p class="px-2 py-5 text-sm text-slate-500">{$_('messaging.noStaffMatches')}</p>
+          {:else}
+            <ul class="mt-2 space-y-1">
+              {#each recipients.staff as staff (staff.membership_id)}
+                <li>
+                  <button type="button" disabled={creating} onclick={() => onstaff(staff.membership_id)} class="w-full rounded-2xl px-3 py-3 text-start hover:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-hero disabled:opacity-50">
+                    <span dir="auto" class="block text-sm font-bold text-slate-900">{staff.display_name}</span>
+                    <span class="mt-0.5 block text-xs text-slate-500">{staff.role === 'school_admin' ? $_('messaging.schoolAdministrator') : $_('messaging.teacher')}</span>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
       {/if}
     </div>
   </div>

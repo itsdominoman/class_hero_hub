@@ -104,6 +104,7 @@ guardian_router = APIRouter(dependencies=[Depends(require_school_entitlement(SCH
 CURSOR_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
 MAX_INBOX_CANDIDATES = 2000
 MAX_RECIPIENT_CANDIDATES = 250
+STAFF_MEMBERSHIP_ROLES = ("school_admin", "teacher")
 
 
 def _student_context_catalog(
@@ -457,7 +458,7 @@ async def require_staff_actor(
         .filter(
             Membership.school_id == school_id,
             Membership.user_id == current_user.id,
-            Membership.role.in_(("school_admin", "teacher")),
+            Membership.role.in_(STAFF_MEMBERSHIP_ROLES),
             Membership.status == "active",
             Membership.revoked_at.is_(None),
         )
@@ -1874,7 +1875,7 @@ def _target_staff(
         .filter(
             Membership.id == membership_id,
             Membership.school_id == school_id,
-            Membership.role.in_(("teacher", "school_admin")),
+            Membership.role.in_(STAFF_MEMBERSHIP_ROLES),
             Membership.status == "active",
             Membership.revoked_at.is_(None),
             User.status == "active",
@@ -1894,10 +1895,6 @@ def _create_staff_direct(
     )
     if other_membership.id == actor.membership.id:
         raise HTTPException(status_code=400, detail="Choose another staff member")
-    if "school_admin" not in {actor.membership.role, other_membership.role}:
-        raise HTTPException(
-            status_code=403, detail="Direct staff messaging requires an administrator"
-        )
     low, high = sorted((actor.membership.id, other_membership.id))
     existing = (
         db.query(Conversation)
@@ -2629,32 +2626,32 @@ def staff_recipients(
         )
         .all()
     } if candidate_student_ids else {}
-    staff_rows = []
-    if actor.membership.role == "school_admin":
-        staff_query = (
-            db.query(Membership, User)
-            .join(User, User.id == Membership.user_id)
-            .filter(
-                Membership.school_id == actor.school.id,
-                Membership.role.in_(("teacher", "school_admin")),
-                Membership.status == "active",
-                Membership.revoked_at.is_(None),
-                Membership.id != actor.membership.id,
+    staff_query = (
+        db.query(Membership, User)
+        .join(User, User.id == Membership.user_id)
+        .filter(
+            Membership.school_id == actor.school.id,
+            Membership.role.in_(STAFF_MEMBERSHIP_ROLES),
+            Membership.status == "active",
+            Membership.revoked_at.is_(None),
+            Membership.id != actor.membership.id,
+            User.status == "active",
+        )
+    )
+    if needle:
+        pattern = _search_pattern(needle)
+        staff_query = staff_query.filter(
+            or_(
+                func.coalesce(User.name, "").ilike(pattern, escape="\\"),
+                func.coalesce(User.name_ar, "").ilike(pattern, escape="\\"),
+                func.coalesce(User.email, "").ilike(pattern, escape="\\"),
             )
         )
-        if needle:
-            pattern = _search_pattern(needle)
-            staff_query = staff_query.filter(
-                or_(
-                    func.coalesce(User.name, "").ilike(pattern, escape="\\"),
-                    func.coalesce(User.name_ar, "").ilike(pattern, escape="\\"),
-                )
-            )
-        staff_rows = (
-            staff_query.order_by(User.name, Membership.id)
-            .limit(MAX_RECIPIENT_CANDIDATES)
-            .all()
-        )
+    staff_rows = (
+        staff_query.order_by(func.lower(User.name), Membership.id)
+        .limit(MAX_RECIPIENT_CANDIDATES)
+        .all()
+    )
     student_contexts, _, _ = _student_context_catalog(
         db,
         school_id=actor.school.id,

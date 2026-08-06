@@ -48,6 +48,9 @@ class MessagingValidationError(Exception):
     pass
 
 
+STAFF_DIRECT_MEMBERSHIP_ROLES = {"school_admin", "teacher"}
+
+
 @dataclass(frozen=True)
 class SequenceAccess:
     visible_from: int
@@ -190,9 +193,12 @@ def _source_is_current(
         if membership.role == "school_admin":
             return True
         # The approved ledger has a single membership-backed source value.
-        # A current teacher membership may use it only for a staff-direct
-        # conversation; student access remains assignment-backed.
-        return conversation.kind == "staff_direct" and membership.role == "teacher"
+        # Other current staff memberships may use it only for staff-direct
+        # conversations; exact-student access remains assignment-backed.
+        return (
+            conversation.kind == "staff_direct"
+            and membership.role in STAFF_DIRECT_MEMBERSHIP_ROLES
+        )
 
     if grant.source_type == "guardian_link":
         if participant.participant_kind != "chh_guardian" or participant.user_id is None:
@@ -518,7 +524,7 @@ def participant_sequence_access_map(
                     membership.role == "school_admin"
                     or (
                         conversation.kind == "staff_direct"
-                        and membership.role == "teacher"
+                        and membership.role in STAFF_DIRECT_MEMBERSHIP_ROLES
                     )
                 )
             )
