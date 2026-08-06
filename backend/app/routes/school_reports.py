@@ -48,6 +48,9 @@ MAX_RANGE_DAYS = 366
 MAX_MATRIX_ROWS = 100
 MAX_MATRIX_CELLS = 2_500
 MAX_EXPORT_EVENTS = 25_000
+STAFF_REVIEW_CURRENT_MIN_EVENTS = 20
+STAFF_REVIEW_PRIOR_MIN_EVENTS = 10
+STAFF_REVIEW_NEEDS_WORK_RATIO_DELTA = 0.20
 INCOMPATIBLE_MATRIX_PAIRS = {
     frozenset(("subject", "duty_context")),
     frozenset(("subject_group", "duty_context")),
@@ -558,7 +561,65 @@ def teachers(date_from: date | None = None, date_to: date | None = None, branch_
     filters = _filters(db, membership, **_report_params(date_from, date_to, branch_campus_id, grade_level_id, class_section_id, subject_id, subject_group_id, duty_context, category_id, actor_user_id, student_id, category_type))
     query = _query(db, membership, filters); actor = query._report_aliases["actor"]
     rows = query.with_entities(actor.id.label("dimension_key"), actor.name.label("display_name"), *_measures()).group_by(actor.id, actor.name).order_by(func.count(BehaviourEvent.id).desc(), actor.name.asc(), actor.id.asc()).limit(100).all()
-    return {"filters": filters.payload(), "teachers": [{"display_name": row.display_name or "Staff member", "dimension_key": row.dimension_key, **_metric_payload(row)} for row in rows]}
+    period_days = (filters.date_to - filters.date_from).days + 1
+    previous = replace(
+        filters,
+        date_from=filters.date_from - timedelta(days=period_days),
+        date_to=filters.date_from - timedelta(days=1),
+        start=filters.start - timedelta(days=period_days),
+        end=filters.start,
+    )
+    prior_query = _query(db, membership, previous); prior_actor = prior_query._report_aliases["actor"]
+    prior_rows = prior_query.with_entities(
+        prior_actor.id.label("dimension_key"), *_measures()
+    ).group_by(prior_actor.id).all()
+    prior_by_actor = {row.dimension_key: _metric_payload(row) for row in prior_rows}
+    indicator_available = filters.category_id is None and filters.category_type is None
+    teacher_rows = []
+    for row in rows:
+        current = _metric_payload(row)
+        prior = prior_by_actor.get(row.dimension_key, {
+            "total_events": 0,
+            "positive_count": 0,
+            "needs_work_count": 0,
+            "signed_points_total": 0,
+            "active_students": 0,
+        })
+        current_total = current["total_events"]
+        prior_total = prior["total_events"]
+        current_needs_work_ratio = current["needs_work_count"] / current_total if current_total else 0.0
+        prior_needs_work_ratio = prior["needs_work_count"] / prior_total if prior_total else 0.0
+        sample_sufficient = (
+            indicator_available
+            and current_total >= STAFF_REVIEW_CURRENT_MIN_EVENTS
+            and prior_total >= STAFF_REVIEW_PRIOR_MIN_EVENTS
+        )
+        teacher_rows.append({
+            "display_name": row.display_name or "Staff member",
+            "dimension_key": row.dimension_key,
+            **current,
+            "previous_total_events": prior_total,
+            "total_events_change": current_total - prior_total,
+            "current_needs_work_ratio": round(current_needs_work_ratio, 4),
+            "previous_needs_work_ratio": round(prior_needs_work_ratio, 4),
+            "needs_work_ratio_change": round(current_needs_work_ratio - prior_needs_work_ratio, 4),
+            "sample_sufficient": sample_sufficient,
+            "supportive_review": bool(
+                sample_sufficient
+                and current_needs_work_ratio - prior_needs_work_ratio >= STAFF_REVIEW_NEEDS_WORK_RATIO_DELTA
+            ),
+        })
+    return {
+        "filters": filters.payload(),
+        "comparison_period": {"date_from": previous.date_from.isoformat(), "date_to": previous.date_to.isoformat()},
+        "indicator": {
+            "available": indicator_available,
+            "current_min_events": STAFF_REVIEW_CURRENT_MIN_EVENTS,
+            "prior_min_events": STAFF_REVIEW_PRIOR_MIN_EVENTS,
+            "needs_work_ratio_delta": STAFF_REVIEW_NEEDS_WORK_RATIO_DELTA,
+        },
+        "teachers": teacher_rows,
+    }
 
 
 def _matrix_dimension(name: str, dims: dict, local_day):

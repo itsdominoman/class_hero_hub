@@ -306,6 +306,37 @@ def test_report_endpoint_smoke_and_matrix_pairs(client, db, report_world):
             assert forbidden not in str(response.json()).lower()
 
 
+def test_teacher_usage_compares_only_with_own_prior_period_and_requires_sample(client, db, report_world):
+    world = report_world
+    positive = db.query(BehaviourCategory).filter_by(school_id=world["school"].id, type="positive").one()
+    needs_work = db.query(BehaviourCategory).filter_by(school_id=world["school"].id, type="needs_work").one()
+    prior_day = datetime(2026, 6, 15, 10, 0, tzinfo=timezone.utc)
+    current_day = datetime(2026, 7, 15, 10, 0, tzinfo=timezone.utc)
+    for _ in range(10):
+        db.add(BehaviourEvent(school_id=world["school"].id, student_id=world["student"].id, category_id=positive.id, actor_user_id=world["teacher"].id, points_delta=2, context_type="general", source="teacher", created_at=prior_day))
+    for index in range(20):
+        category = needs_work if index < 10 else positive
+        db.add(BehaviourEvent(school_id=world["school"].id, student_id=world["student"].id, category_id=category.id, actor_user_id=world["teacher"].id, points_delta=category.points_value, context_type="general", source="teacher", created_at=current_day))
+    db.commit()
+
+    suffix = "date_from=2026-07-01&date_to=2026-07-30"
+    response = client.get(f"/api/school/reports/behaviour/teachers?{suffix}", headers=headers(world["admin"], world["school"]))
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["comparison_period"] == {"date_from": "2026-06-01", "date_to": "2026-06-30"}
+    assert payload["indicator"] == {"available": True, "current_min_events": 20, "prior_min_events": 10, "needs_work_ratio_delta": 0.2}
+    teacher = payload["teachers"][0]
+    assert teacher["display_name"] == "Teacher"
+    assert teacher["total_events"] == 20 and teacher["previous_total_events"] == 10
+    assert teacher["current_needs_work_ratio"] == 0.5 and teacher["previous_needs_work_ratio"] == 0
+    assert teacher["sample_sufficient"] is True and teacher["supportive_review"] is True
+
+    filtered = client.get(f"/api/school/reports/behaviour/teachers?{suffix}&category_type=needs_work", headers=headers(world["admin"], world["school"]))
+    assert filtered.status_code == 200, filtered.text
+    assert filtered.json()["indicator"]["available"] is False
+    assert filtered.json()["teachers"][0]["supportive_review"] is False
+
+
 def test_matrix_grade_by_duty_uses_event_time_enrolment(client, db, report_world):
     world = report_world
     context = add_context_events(db, world)

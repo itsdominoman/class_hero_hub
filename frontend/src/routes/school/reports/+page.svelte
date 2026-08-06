@@ -23,6 +23,21 @@
     signed_points_total: number;
   };
   type Row = Metrics & { label: string; dimension_key?: number | string | null; category_type?: CategoryType };
+  type StaffUsageRow = Row & {
+    previous_total_events: number;
+    total_events_change: number;
+    current_needs_work_ratio: number;
+    previous_needs_work_ratio: number;
+    needs_work_ratio_change: number;
+    sample_sufficient: boolean;
+    supportive_review: boolean;
+  };
+  type StaffUsageIndicator = {
+    available: boolean;
+    current_min_events: number;
+    prior_min_events: number;
+    needs_work_ratio_delta: number;
+  };
   type StudentRow = Partial<Metrics> & { display_name: string; dimension_key?: number | null; signed_points_change?: number };
   type EventRow = {
     created_at: string;
@@ -86,7 +101,9 @@
   let trends = $state<Row[]>([]);
   let breakdowns = $state<{ classes: Row[]; grades: Row[]; subjects: Row[]; duty_contexts: Row[]; categories: Row[] } | null>(null);
   let support = $state<{ repeated_needs_work: StudentRow[]; top_positive: StudentRow[]; improving: StudentRow[]; worsening: StudentRow[] } | null>(null);
-  let usage = $state<Row[]>([]);
+  let usage = $state<StaffUsageRow[]>([]);
+  let usageIndicator = $state<StaffUsageIndicator | null>(null);
+  let usageComparisonPeriod = $state<{ date_from: string; date_to: string } | null>(null);
 
   let eventsOpen = $state(false);
   let eventRows = $state<EventRow[]>([]);
@@ -465,7 +482,9 @@
       trends = (trendData?.series || []).map((row: Row & { date: string }) => ({ ...row, label: row.date }));
       breakdowns = breakdownData;
       support = studentData;
-      usage = (teacherData?.teachers || []).map((row: Row & { display_name?: string }) => ({ ...row, label: row.display_name || $_('reports.staffMember') }));
+      usage = (teacherData?.teachers || []).map((row: StaffUsageRow & { display_name?: string }) => ({ ...row, label: row.display_name || $_('reports.staffMember') }));
+      usageIndicator = teacherData?.indicator || null;
+      usageComparisonPeriod = teacherData?.comparison_period || null;
       if (eventsOpen) await loadEvents(eventOffset, 'none');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : $_('reports.loadError');
@@ -475,6 +494,8 @@
       breakdowns = null;
       support = null;
       usage = [];
+      usageIndicator = null;
+      usageComparisonPeriod = null;
     } finally {
       loading = false;
     }
@@ -788,7 +809,13 @@
         <section class="report-card card p-5">
           <h2 class="text-xl font-bold">{$_('reports.teacherUsage')}</h2>
           <p class="mt-1 text-sm text-slate-600">{$_('reports.teacherUsageGuardrail')}</p>
-          {@render SummaryTable($_('reports.teacherUsage'), usage, { key: 'actorUserId', label: $_('reports.teacher') })}
+          {#if usageComparisonPeriod}<p class="mt-1 text-xs text-slate-500">{$_('reports.staffComparisonPeriod', { values: { from: usageComparisonPeriod.date_from, to: usageComparisonPeriod.date_to } })}</p>{/if}
+          {#if usageIndicator?.available}
+            <p class="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">{$_('reports.staffIndicatorMethod', { values: { current: usageIndicator.current_min_events, prior: usageIndicator.prior_min_events, delta: percent(usageIndicator.needs_work_ratio_delta) } })}</p>
+          {:else if usageIndicator}
+            <p class="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">{$_('reports.staffIndicatorFiltered')}</p>
+          {/if}
+          {@render StaffUsageTable()}
         </section>
       </div>{/if}
 
@@ -839,6 +866,12 @@
   <article class:positive-card={tone === 'positive'} class:needs-work-card={tone === 'needs-work'} class="metric-card rounded-3xl p-5"><p class="text-xs font-bold uppercase text-slate-500">{label}</p><p class="mt-2 text-3xl font-bold text-slate-900">{value}</p></article>
 {/snippet}
 
+{#snippet StaffUsageTable()}
+  {#if usage.length}
+    <div class="mt-4 overflow-x-auto"><table><thead><tr><th>{$_('reports.teacher')}</th><th>{$_('reports.currentEvents')}</th><th>{$_('reports.previousEvents')}</th><th>{$_('reports.currentNeedsWorkRatio')}</th><th>{$_('reports.previousNeedsWorkRatio')}</th><th>{$_('reports.contextIndicator')}</th></tr></thead><tbody>{#each usage as row}<tr><td><button class="row-action" onclick={() => void openDrilldown([{ key: 'actorUserId', value: String(row.dimension_key) }], `${$_('reports.teacher')}: ${row.label}`)}>{row.label}<span class="inline-block rtl:-scale-x-100" aria-hidden="true"> →</span></button></td><td>{number(row.total_events)}</td><td>{number(row.previous_total_events)}</td><td>{percent(row.current_needs_work_ratio)}</td><td>{percent(row.previous_needs_work_ratio)}</td><td>{#if !usageIndicator?.available}<span class="text-slate-500">{$_('reports.notAvailableForFilteredCategory')}</span>{:else if !row.sample_sufficient}<span class="text-slate-500">{$_('reports.insufficientSample')}</span>{:else if row.supportive_review}<span class="supportive-review">{$_('reports.supportiveReview')}</span>{:else}<span class="text-slate-600">{$_('reports.withinOwnBaseline')}</span>{/if}</td></tr>{/each}</tbody></table></div>
+  {:else}<p class="mt-4 text-sm text-slate-500">{$_('reports.noRows')}</p>{/if}
+{/snippet}
+
 {#snippet Launcher(section: ReportSection, title: string, description: string)}
   <button type="button" onclick={() => activeSection === section ? closeSection() : openSection(section)} class:active-launcher={activeSection === section} class="report-launcher text-start">
     <span class="font-bold text-slate-900">{title}</span>
@@ -883,6 +916,7 @@
   .badge { display: inline-flex; margin-inline-start: .45rem; border-radius: 9999px; padding: .12rem .45rem; font-size: .68rem; font-weight: 700; vertical-align: middle; }
   .positive-badge { background: #ecfdf5; color: #047857; }
   .needs-work-badge { background: #fff7ed; color: #c2410c; }
+  .supportive-review { display: inline-block; border-radius: .6rem; background: #fff7ed; color: #9a3412; font-size: .75rem; font-weight: 700; padding: .3rem .5rem; }
   .positive-card { border-color: rgba(16, 185, 129, .42); background: linear-gradient(145deg, #f0fdf4, #ffffff); }
   .needs-work-card { border-color: rgba(249, 115, 22, .42); background: linear-gradient(145deg, #fff7ed, #ffffff); }
   .pagination-button { border-radius: .5rem; padding: .45rem .7rem; font-size: .875rem; font-weight: 700; color: #334155; }
