@@ -24,16 +24,19 @@ This ordered list is updated after each completed implementation checkpoint.
 | 3 | FHH development | `fc0637c` | Replace the two-option language selector with the requested opposite-language action | Focused Vitest passed; later full FHH checks passed with explicit development public env values | Physical shell switch remains in the final device checklist |
 | 4 | CHH | `1a2395b` | Apply the same language-selector behaviour across CHH navigation contexts | Focused presentation test and Svelte check passed with 0 errors/warnings | Physical mobile-shell switch remains for final device smoke testing |
 | 5 | FHH development | `02d6965` | Align the parent School dashboard with the student design while preserving guardian-only areas | 197 unit tests, Svelte check, i18n parity and 4 Chromium desktop/mobile/Android-shell scenarios passed | Physical Android Back, WebView and touch testing remains in the device smoke checklist |
+| 6 | CHH | `7ef053e` | Checkpoint immediately before school-role, department and permission-schema work | Clean source checkpoint plus fresh verified PostgreSQL custom-format backup | No migration was applied |
+| 7 | CHH | `8f28ec8` | Add Principal, Deputy Principal, HOD and Support Staff roles; dated department assignments; scoped reporting; communication oversight; and same-school staff messaging | 16 focused backend tests, 19 messaging presentation tests, Svelte check and 2,233-key English/Arabic parity passed; Alembic upgrade/downgrade SQL validated offline | Source only: migration and demo-role assignments are not deployed; physical workflow checks remain |
 
 ## Backups and migrations
 
-- No migration, deletion or database mutation occurred during the audit.
-- A fresh verified backup is required immediately before the first migration or seeded-data deletion.
+- No migration, deletion or database mutation has occurred during the audit.
+- Before the role/department schema work, CHH PostgreSQL backup `/opt/apps/class_hero_hub/backups/pre-ceo-demo/chh-pre-role-expansion-20260806T115820Z.dump` was created on the pilot server: 1,390,354 bytes; SHA-256 `fcda2c0fa2d4296f9332e25aa6be93c6fbe897e9b412270965bbc5c5840d17be`; `pg_restore --list` verified the catalogue.
+- Alembic revision `b3c4d5e6f7a8` was validated with offline upgrade and downgrade SQL. Applying it remains a separately authorised deployment step.
 
 ## Runtime/deployment impact
 
 - No service was rebuilt or restarted.
-- CHH checkpoints through `a953e42` were transferred to the pilot server worktree without rebuilding or restarting services; later checkpoints remain local pending the next controlled transfer.
+- CHH source through `7ef053e` is present in the pilot server worktree without rebuilding or restarting services; `8f28ec8` and later checkpoints remain local pending the next controlled source transfer.
 - No deployment, push, APK build or Android package change occurred.
 
 ## Validation completed so far
@@ -44,7 +47,7 @@ This ordered list is updated after each completed implementation checkpoint.
 - UIS entitlement, feature-control and messaging-policy state inspected.
 - Jason Green's active UIS teacher membership and three active teaching assignments verified.
 - Seed manifest namespaces/entity counts inspected without reading private content.
-- Same-school staff messaging, shared CHH/FHH language selection and FHH parent/student School dashboard boundaries have focused automated coverage.
+- Same-school staff messaging, shared CHH/FHH language selection, FHH parent/student School dashboard boundaries, leadership/HOD reporting scope, department administration and audited communication-oversight scope have focused automated coverage.
 
 ## Remaining work
 
