@@ -3,6 +3,7 @@
   import { onDestroy, onMount, tick } from 'svelte';
   import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
+  import EntitySearch from '$lib/components/EntitySearch.svelte';
 
   type Membership = { school_id: number; school_name: string; role: string };
   type Row = {
@@ -886,10 +887,15 @@
           <button type="button" class="btn-hero rounded-xl px-4 py-3" onclick={openAdd}>+ {$_('school.studentAdmin.addStudent')}</button>
         </div>
         <form class="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(200px,320px)_auto_auto]" onsubmit={(event) => { event.preventDefault(); void applyFilters(); }}>
-          <label class="text-sm font-bold text-slate-700">
-            {$_('school.students.search')}
-            <input class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" maxlength="100" bind:value={search} />
-          </label>
+          <EntitySearch
+            id="student-record-search"
+            label={$_('school.students.search')}
+            placeholder={$_('school.studentAdmin.searchPlaceholder')}
+            help={$_('school.studentAdmin.searchPatternHelp')}
+            clearLabel={$_('school.studentAdmin.clearStudentSearch')}
+            bind:value={search}
+            onquery={(query) => { search = query; void applyFilters(); }}
+          />
           <label class="text-sm font-bold text-slate-700">
             {$_('school.students.classSection')}
             <select class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" bind:value={sectionFilter}>

@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { _, locale } from 'svelte-i18n';
   import { api } from '$lib/api';
+  import EntitySearch from '$lib/components/EntitySearch.svelte';
 
   type Membership = { school_id: number; school_name: string; membership_id: number; role: string; capabilities?: string[] };
   type Option = { id: number; name: string; status?: string; grade_level_id?: number | null };
@@ -92,6 +93,8 @@
   let subjects = $state<Option[]>([]);
   let categories = $state<CategoryOption[]>([]);
   let teachers = $state<TeacherOption[]>([]);
+  let teacherFilterSearch = $state('');
+  let teacherFilterQuery = $state('');
   let studentResults = $state<StudentOption[]>([]);
   let studentSearch = $state('');
   let studentSearchOpen = $state(false);
@@ -130,6 +133,14 @@
   let hasActivity = $derived(Boolean(overview?.metrics.total_events));
   let visibleCategories = $derived(categories.filter((category) => !filters.categoryType || category.type === filters.categoryType));
   let visibleSections = $derived(sections.filter((section) => !filters.gradeLevelId || String(section.grade_level_id) === filters.gradeLevelId));
+  let visibleTeachers = $derived.by(() => {
+    const query = teacherFilterQuery.trim().toLocaleLowerCase();
+    const matching = query
+      ? teachers.filter((teacher) => String(teacher.id) === query || teacher.name.toLocaleLowerCase().includes(query))
+      : teachers;
+    const selected = teachers.find((teacher) => String(teacher.id) === filters.actorUserId);
+    return selected && !matching.some((teacher) => teacher.id === selected.id) ? [selected, ...matching] : matching;
+  });
   let activeFilterChips = $derived(buildActiveFilterChips());
   let reportScopeLabel = $derived.by(() => {
     if (!reportScope) return '';
@@ -727,7 +738,18 @@
         <label>{$_('reports.subject')}<select value={filters.subjectId} onchange={(event) => setFilter('subjectId', event.currentTarget.value)}><option value="">{$_('reports.all')}</option>{#each subjects as row}<option value={row.id}>{row.name}</option>{/each}</select></label>
         <label>{$_('reports.dutyContext')}<select value={filters.dutyContext} onchange={(event) => setFilter('dutyContext', event.currentTarget.value)}><option value="">{$_('reports.all')}</option>{#each duties as duty}<option value={duty}>{dutyLabel(duty)}</option>{/each}</select></label>
         <label>{$_('reports.category')}<select value={filters.categoryId} onchange={(event) => setFilter('categoryId', event.currentTarget.value)}><option value="">{$_('reports.all')}</option>{#each visibleCategories as category}<option value={category.id}>{category.label}</option>{/each}</select></label>
-        <label>{$_('reports.teacher')}<select value={filters.actorUserId} onchange={(event) => setFilter('actorUserId', event.currentTarget.value)}><option value="">{$_('reports.all')}</option>{#each teachers as teacher}<option value={teacher.id}>{teacher.name}</option>{/each}</select></label>
+        <div class="teacher-filter">
+          <EntitySearch
+            id="report-teacher-search"
+            label={$_('reports.teacherSearchLabel')}
+            placeholder={$_('reports.teacherSearchPlaceholder')}
+            help={$_('reports.teacherSearchHelp')}
+            clearLabel={$_('reports.clearTeacherSearch')}
+            bind:value={teacherFilterSearch}
+            onquery={(query) => { teacherFilterQuery = query; }}
+          />
+          <label class="mt-2 block">{$_('reports.teacher')}<select value={filters.actorUserId} onchange={(event) => setFilter('actorUserId', event.currentTarget.value)}><option value="">{$_('reports.all')}</option>{#each visibleTeachers as teacher}<option value={teacher.id}>{teacher.name}</option>{/each}</select>{#if teacherFilterQuery && !visibleTeachers.length}<span class="normal-case text-slate-500">{$_('reports.noMatchingStaff')}</span>{/if}</label>
+        </div>
         <label class="student-filter">{$_('reports.student')}<div class="student-autocomplete"><input bind:value={studentSearch} oninput={searchStudents} onfocus={() => { if (studentSearch.trim().length >= 2) studentSearchOpen = true; }} onblur={() => window.setTimeout(() => studentSearchOpen = false, 120)} placeholder={$_('reports.studentSearch')} autocomplete="off" aria-expanded={studentSearchOpen} aria-controls="student-suggestions" />{#if selectedStudent}<button type="button" class="clear-student" onclick={() => clearFilter('studentId')}>{$_('reports.clearStudent')}</button>{/if}{#if studentSearchOpen && studentSearch.trim().length >= 2}<div id="student-suggestions" class="student-suggestions" role="listbox">{#if studentResults.length}{#each studentResults as student}<button type="button" role="option" aria-selected={filters.studentId === String(student.id)} class="student-suggestion" onclick={() => selectStudent(student)}><span class="student-name">{student.name}</span><span class="student-class"> — {student.classLabel}</span></button>{/each}{:else}<p class="student-no-results">{$_('reports.noMatchingStudents')}</p>{/if}</div>{/if}</div></label>
       </div>
       <div class="mt-4 flex gap-3"><button class="rounded-xl bg-hero px-5 py-2.5 text-sm font-bold text-white">{$_('reports.apply')}</button></div>

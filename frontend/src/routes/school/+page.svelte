@@ -493,9 +493,15 @@
   let subjectEnrolmentGroupId = $state('');
   let moveSectionId = $state('');
   let rosterSectionId = $state('');
+  let rosterSectionSearch = $state('');
+  let rosterSectionSearchQuery = $state('');
   let classRoster = $state<ClassRosterSetup | null>(null);
   let rosterLoading = $state(false);
   let groupRosterId = $state('');
+  let groupSearch = $state('');
+  let groupSearchQuery = $state('');
+  let groupRosterSearch = $state('');
+  let groupRosterSearchQuery = $state('');
   let groupRosterStudentId = $state('');
   let groupRoster = $state<SubjectGroupRoster | null>(null);
   let groupRosterLoading = $state(false);
@@ -712,6 +718,43 @@
   function localizedRowName(row?: Pick<Row, 'name' | 'name_ar'> | null) {
     if (!row) return '';
     return $locale === 'ar' && row.name_ar ? row.name_ar : row.name;
+  }
+
+  function filteredGroupRows(query: string) {
+    const normalized = query.trim().toLocaleLowerCase();
+    if (!normalized) return groups;
+    return groups.filter((row) => {
+      const fields = [
+        String(row.id), row.code, row.name, row.name_ar,
+        yearName(row.academic_year_id),
+        row.class_section_id ? rowName(sections, row.class_section_id) : levelName(row.grade_level_id),
+        subjectName(row.subject_id), groupPolicyLabel(row)
+      ];
+      return fields.some((value) => String(value || '').toLocaleLowerCase().includes(normalized));
+    });
+  }
+
+  function rosterSectionOptions() {
+    const normalized = rosterSectionSearchQuery.trim().toLocaleLowerCase();
+    const rows = normalized
+      ? sections.filter((row) => {
+          const fields = [
+            String(row.id), row.code, row.name, row.name_ar,
+            yearName(row.academic_year_id), levelName(row.grade_level_id)
+          ];
+          return fields.some((value) => String(value || '').toLocaleLowerCase().includes(normalized));
+        })
+      : sections;
+    if (!rosterSectionId) return rows;
+    const selected = sections.find((row) => String(row.id) === rosterSectionId);
+    return selected && !rows.some((row) => row.id === selected.id) ? [selected, ...rows] : rows;
+  }
+
+  function groupRosterOptions() {
+    const rows = filteredGroupRows(groupRosterSearchQuery);
+    if (!groupRosterId) return rows;
+    const selected = groups.find((row) => String(row.id) === groupRosterId);
+    return selected && !rows.some((row) => row.id === selected.id) ? [selected, ...rows] : rows;
   }
 
   const checklistKeys = new Set([
@@ -3473,8 +3516,19 @@
             <div class="rounded-lg border border-slate-200 bg-white p-5">
               <h2 class="text-lg font-black text-slate-900">{$_('school.rosters.title')}</h2>
               <p class="mt-2 max-w-3xl text-sm text-slate-600">{$_('school.rosters.help')}</p>
+              <div class="mt-4 max-w-2xl">
+                <EntitySearch
+                  id="class-roster-search"
+                  label={$_('school.rosters.searchLabel')}
+                  placeholder={$_('school.rosters.searchPlaceholder')}
+                  help={$_('school.rosters.searchHelp')}
+                  clearLabel={$_('school.rosters.clearSearch')}
+                  bind:value={rosterSectionSearch}
+                  onquery={(query) => { rosterSectionSearchQuery = query; }}
+                />
+              </div>
               <div class="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                <SelectInput label={$_('school.sections.single')} bind:value={rosterSectionId} rows={sections} optional error={fieldError('class-roster', 'class_section_id')} />
+                <SelectInput label={$_('school.sections.single')} bind:value={rosterSectionId} rows={rosterSectionOptions()} optional error={fieldError('class-roster', 'class_section_id')} />
                 <button type="button" class="btn-hero self-end rounded-lg px-4 py-2" disabled={saving || rosterLoading} onclick={() => loadClassRoster()}>
                   {$_('school.rosters.view')}
                 </button>
@@ -4788,13 +4842,36 @@
 
             <div class="rounded-lg border border-slate-200 bg-white p-5">
               <h3 class="text-base font-black text-slate-900">{$_('school.groups.existing')}</h3>
-              <RowsTable rows={groups} extra={(row) => `${yearName(row.academic_year_id)} · ${row.class_section_id ? rowName(sections, row.class_section_id) : levelName(row.grade_level_id)} · ${subjectName(row.subject_id)} · ${groupPolicyLabel(row)}`} onedit={(row) => editRow('subject-groups', groupForm, row)} onarchive={(row) => archiveRow('subject-groups', row)} />
+              <div class="mt-4 max-w-xl">
+                <EntitySearch
+                  id="subject-group-search"
+                  label={$_('school.groups.searchLabel')}
+                  placeholder={$_('school.groups.searchPlaceholder')}
+                  help={$_('school.groups.searchHelp')}
+                  clearLabel={$_('school.groups.clearSearch')}
+                  bind:value={groupSearch}
+                  onquery={(query) => { groupSearchQuery = query; }}
+                />
+                <p class="mt-2 text-xs font-semibold text-slate-500">{$_('school.groups.results', { values: { count: filteredGroupRows(groupSearchQuery).length } })}</p>
+              </div>
+              <RowsTable rows={filteredGroupRows(groupSearchQuery)} extra={(row) => `${yearName(row.academic_year_id)} · ${row.class_section_id ? rowName(sections, row.class_section_id) : levelName(row.grade_level_id)} · ${subjectName(row.subject_id)} · ${groupPolicyLabel(row)}`} onedit={(row) => editRow('subject-groups', groupForm, row)} onarchive={(row) => archiveRow('subject-groups', row)} />
             </div>
 
             <div class="rounded-lg border border-slate-200 bg-white p-5">
               <h3 class="text-base font-black text-slate-900">{$_('school.groups.rosterTitle')}</h3>
+              <div class="mt-4 max-w-xl">
+                <EntitySearch
+                  id="subject-group-roster-search"
+                  label={$_('school.groups.rosterSearchLabel')}
+                  placeholder={$_('school.groups.searchPlaceholder')}
+                  help={$_('school.groups.searchHelp')}
+                  clearLabel={$_('school.groups.clearRosterSearch')}
+                  bind:value={groupRosterSearch}
+                  onquery={(query) => { groupRosterSearchQuery = query; }}
+                />
+              </div>
               <div class="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                <SelectInput label={$_('school.groups.title')} bind:value={groupRosterId} rows={groups} optional error={fieldError('group-roster', 'subject_group_id')} />
+                <SelectInput label={$_('school.groups.title')} bind:value={groupRosterId} rows={groupRosterOptions()} optional error={fieldError('group-roster', 'subject_group_id')} />
                 <button type="button" class="btn-hero self-end rounded-lg px-4 py-2" disabled={saving || groupRosterLoading} onclick={() => loadGroupRoster()}>
                   {$_('school.rosters.view')}
                 </button>

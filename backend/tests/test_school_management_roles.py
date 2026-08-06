@@ -182,6 +182,18 @@ def test_school_admin_department_configuration_enforces_role_and_school_boundari
     staff_search = client.get("/api/school/staff?search=Sam", headers=admin_headers)
     assert staff_search.status_code == 200, staff_search.text
     assert [row["membership_id"] for row in staff_search.json()["staff"]] == [roles["support"].id]
+
+    def found_staff(query: str) -> set[int]:
+        response = client.get("/api/school/staff", params={"search": query}, headers=admin_headers)
+        assert response.status_code == 200, response.text
+        return {row["membership_id"] for row in response.json()["staff"]}
+
+    assert found_staff(roles["department"].name) == {world["teacher"].id, roles["hod"].id}
+    assert found_staff(world["section"].name) == {world["teacher"].id}
+    assert found_staff(world["grade"].name) == {world["teacher"].id}
+    assert found_staff(str(roles["support"].id)) == {roles["support"].id}
+    assert found_staff("S") == set()
+    assert found_staff(other["users"]["teacher"].name) == set()
     created = client.post(
         "/api/school/departments",
         headers=admin_headers,

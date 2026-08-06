@@ -2186,14 +2186,88 @@ def list_staff(
         if len(term) < 2:
             query = query.filter(exact_identifier)
         else:
-            pattern = f"%{term}%"
+            escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            pattern = f"%{escaped}%"
+            assignment_match = (
+                select(StaffAssignment.id)
+                .outerjoin(
+                    ClassSection,
+                    and_(
+                        ClassSection.id == StaffAssignment.class_section_id,
+                        ClassSection.school_id == school_id,
+                    ),
+                )
+                .outerjoin(
+                    GradeLevel,
+                    and_(
+                        GradeLevel.id == ClassSection.grade_level_id,
+                        GradeLevel.school_id == school_id,
+                    ),
+                )
+                .outerjoin(
+                    SubjectGroup,
+                    and_(
+                        SubjectGroup.id == StaffAssignment.subject_group_id,
+                        SubjectGroup.school_id == school_id,
+                    ),
+                )
+                .outerjoin(
+                    Subject,
+                    and_(
+                        Subject.id == SubjectGroup.subject_id,
+                        Subject.school_id == school_id,
+                    ),
+                )
+                .where(
+                    StaffAssignment.school_id == school_id,
+                    StaffAssignment.membership_id == Membership.id,
+                    *open_interval_expression(StaffAssignment, _today()),
+                    or_(
+                        func.coalesce(ClassSection.name, "").ilike(pattern, escape="\\"),
+                        func.coalesce(ClassSection.name_ar, "").ilike(pattern, escape="\\"),
+                        func.coalesce(ClassSection.code, "").ilike(pattern, escape="\\"),
+                        func.coalesce(GradeLevel.name, "").ilike(pattern, escape="\\"),
+                        func.coalesce(GradeLevel.name_ar, "").ilike(pattern, escape="\\"),
+                        func.coalesce(GradeLevel.code, "").ilike(pattern, escape="\\"),
+                        func.coalesce(SubjectGroup.name, "").ilike(pattern, escape="\\"),
+                        func.coalesce(SubjectGroup.name_ar, "").ilike(pattern, escape="\\"),
+                        func.coalesce(Subject.name, "").ilike(pattern, escape="\\"),
+                        func.coalesce(Subject.name_ar, "").ilike(pattern, escape="\\"),
+                    ),
+                )
+                .exists()
+            )
+            department_match = (
+                select(StaffDepartmentAssignment.id)
+                .join(
+                    Department,
+                    and_(
+                        Department.id == StaffDepartmentAssignment.department_id,
+                        Department.school_id == school_id,
+                    ),
+                )
+                .where(
+                    StaffDepartmentAssignment.school_id == school_id,
+                    StaffDepartmentAssignment.membership_id == Membership.id,
+                    *open_interval_expression(StaffDepartmentAssignment, _today()),
+                    Department.status == "active",
+                    or_(
+                        Department.name.ilike(pattern, escape="\\"),
+                        func.coalesce(Department.name_ar, "").ilike(pattern, escape="\\"),
+                        Department.code.ilike(pattern, escape="\\"),
+                    ),
+                )
+                .exists()
+            )
             query = query.filter(
                 or_(
                     exact_identifier,
-                    func.coalesce(User.name, "").ilike(pattern),
-                    func.coalesce(User.name_ar, "").ilike(pattern),
-                    func.coalesce(User.email, "").ilike(pattern),
-                    Membership.role.ilike(pattern),
+                    func.coalesce(User.name, "").ilike(pattern, escape="\\"),
+                    func.coalesce(User.name_ar, "").ilike(pattern, escape="\\"),
+                    func.coalesce(User.email, "").ilike(pattern, escape="\\"),
+                    Membership.role.ilike(pattern, escape="\\"),
+                    assignment_match,
+                    department_match,
                 )
             )
     rows = query.order_by(func.lower(User.name), func.lower(User.email), Membership.id).limit(200).all()
@@ -2918,12 +2992,58 @@ def list_students(
     if not include_archived:
         query = query.filter(Student.status != "archived")
     for search_part in (search or "").split():
-        term = f"%{search_part}%"
+        escaped = search_part.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        term = f"%{escaped}%"
+        exact_identifier = or_(
+            Student.id == int(search_part) if search_part.isdigit() else False,
+            func.lower(func.coalesce(Student.external_ref, "")) == search_part.casefold(),
+        )
+        guardian_match = (
+            select(StudentGuardianContact.id)
+            .where(
+                StudentGuardianContact.school_id == school_id,
+                StudentGuardianContact.student_id == Student.id,
+                StudentGuardianContact.is_active.is_(True),
+                or_(
+                    func.coalesce(StudentGuardianContact.name, "").ilike(term, escape="\\"),
+                    func.coalesce(StudentGuardianContact.email, "").ilike(term, escape="\\"),
+                    func.coalesce(StudentGuardianContact.external_ref, "").ilike(term, escape="\\"),
+                ),
+            )
+            .exists()
+        )
+        placement_match = (
+            select(Enrolment.id)
+            .join(ClassSection, ClassSection.id == Enrolment.class_section_id)
+            .join(GradeLevel, GradeLevel.id == ClassSection.grade_level_id)
+            .where(
+                Enrolment.school_id == school_id,
+                Enrolment.student_id == Student.id,
+                Enrolment.kind == "member",
+                *open_interval_expression(Enrolment, _today()),
+                ClassSection.school_id == school_id,
+                or_(
+                    func.coalesce(ClassSection.name, "").ilike(term, escape="\\"),
+                    func.coalesce(ClassSection.name_ar, "").ilike(term, escape="\\"),
+                    func.coalesce(ClassSection.code, "").ilike(term, escape="\\"),
+                    func.coalesce(GradeLevel.name, "").ilike(term, escape="\\"),
+                    func.coalesce(GradeLevel.name_ar, "").ilike(term, escape="\\"),
+                    func.coalesce(GradeLevel.code, "").ilike(term, escape="\\"),
+                ),
+            )
+            .exists()
+        )
         query = query.filter(
-            (Student.first_name.ilike(term))
-            | (Student.last_name.ilike(term))
-            | (Student.preferred_name.ilike(term))
-            | (Student.external_ref.ilike(term))
+            or_(
+                exact_identifier,
+                func.coalesce(Student.first_name, "").ilike(term, escape="\\"),
+                func.coalesce(Student.last_name, "").ilike(term, escape="\\"),
+                func.coalesce(Student.preferred_name, "").ilike(term, escape="\\"),
+                func.coalesce(Student.name_ar, "").ilike(term, escape="\\"),
+                func.coalesce(Student.external_ref, "").ilike(term, escape="\\"),
+                guardian_match,
+                placement_match,
+            )
         )
     if class_section_id is not None:
         _get_owned(db, ClassSection, school_id, class_section_id)

@@ -5,6 +5,7 @@
   import { _, locale } from "svelte-i18n";
   import { api } from "$lib/api";
   import { surveyApi, type SurveyMembership } from "$lib/surveys/api";
+  import EntitySearch from "$lib/components/EntitySearch.svelte";
   import {
     ClipboardList,
     Plus,
@@ -62,6 +63,8 @@
   let previewOpen = $state(false);
   let saving = $state(false);
   let permissionBusy = $state<number | null>(null);
+  let targetSearch = $state("");
+  let targetSearchQuery = $state("");
   let createSurveyButton = $state<HTMLButtonElement>();
   let closeSurveyButton = $state<HTMLButtonElement>();
   let form = $state({
@@ -192,6 +195,20 @@
           : form.audience_type === "selected_families"
             ? context.linked_families
             : [];
+  }
+  function filteredTargetRows() {
+    const query = targetSearchQuery.trim().toLocaleLowerCase();
+    if (!query) return targetRows();
+    return targetRows().filter((row: any) =>
+      [row.id, row.name, row.name_ar, row.label, row.label_ar].some((value) =>
+        String(value || "").toLocaleLowerCase().includes(query),
+      ),
+    );
+  }
+  function changeAudience() {
+    form.target_ids = [];
+    targetSearch = "";
+    targetSearchQuery = "";
   }
   function schoolLocalToIso(value: string, zone: string) {
     const [date, time] = value.split("T");
@@ -533,7 +550,7 @@
               ><span>{$_("surveyManagement.audience")}</span><select
                 class="field"
                 bind:value={form.audience_type}
-                onchange={() => (form.target_ids = [])}
+                onchange={changeAudience}
                 ><option value="whole_school">{$_("surveyManagement.audiences.whole_school")}</option><option
                   value="branch">{$_("surveyManagement.audiences.branch")}</option
                 ><option value="grade">{$_("surveyManagement.audiences.grade")}</option><option
@@ -552,10 +569,19 @@
               ></label
             >
           </div>
-          {#if form.audience_type !== "whole_school"}<div
-              class="mt-3 grid gap-2 rounded-2xl border border-slate-200 p-3 sm:grid-cols-2"
-            >
-              {#each targetRows() as row}<label
+          {#if form.audience_type !== "whole_school"}<div class="mt-3 rounded-2xl border border-slate-200 p-3">
+              <EntitySearch
+                id="survey-target-search"
+                label={$_("surveyManagement.targetSearchLabel")}
+                placeholder={$_("surveyManagement.targetSearchPlaceholder")}
+                help={$_("surveyManagement.targetSearchHelp")}
+                clearLabel={$_("surveyManagement.clearTargetSearch")}
+                bind:value={targetSearch}
+                onquery={(query) => { targetSearchQuery = query; }}
+              />
+              <p class="mt-2 text-xs font-semibold text-slate-500">{$_("surveyManagement.targetResults", { values: { count: filteredTargetRows().length } })}</p>
+              <div class="mt-3 grid gap-2 sm:grid-cols-2">
+              {#each filteredTargetRows() as row}<label
                   class="flex items-center gap-2 rounded-xl p-2 text-sm font-bold hover:bg-slate-50"
                   ><input
                     type="checkbox"
@@ -568,6 +594,8 @@
                       : row.name || row.label}</span
                   ></label
                 >{/each}
+              {#if targetSearchQuery && filteredTargetRows().length === 0}<p class="text-sm text-slate-500">{$_("surveyManagement.noMatchingTargets")}</p>{/if}
+              </div>
             </div>{/if}
           <div class="mt-4 grid gap-2 sm:grid-cols-2">
             <label class="check"

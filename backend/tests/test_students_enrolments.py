@@ -165,6 +165,72 @@ def create_student_api(client, world, ref="S-001", first="Ali", last="Khan"):
     return client.post("/api/school/students", headers=bearer(world["alpha_admin"].email, world["alpha"].id), json=student_payload(ref, first, last))
 
 
+def test_student_list_search_covers_arabic_guardian_identity_placement_and_exact_id_without_cross_school_leakage(
+    db, client, enrolment_world
+):
+    world = enrolment_world
+    student = Student(
+        school_id=world["alpha"].id,
+        external_ref="UIS-SEARCH-1",
+        first_name="Noura",
+        last_name="Hassan",
+        name_ar="نورة حسن",
+        status="active",
+    )
+    hidden = Student(
+        school_id=world["beta"].id,
+        external_ref="HIDDEN-SEARCH-1",
+        first_name="Hidden",
+        last_name="Student",
+        name_ar="نورة حسن",
+        status="active",
+    )
+    db.add_all([student, hidden])
+    db.flush()
+    db.add_all([
+        Enrolment(
+            school_id=world["alpha"].id,
+            student_id=student.id,
+            class_section_id=world["section_a"].id,
+            kind="member",
+            valid_from=datetime.now(timezone.utc).date(),
+        ),
+        StudentGuardianContact(
+            school_id=world["alpha"].id,
+            student_id=student.id,
+            name="Mariam Search Guardian",
+            email="guardian-search@example.com",
+            external_ref="PARENT-SEARCH-1",
+            is_active=True,
+            status="linked",
+            source="manual",
+        ),
+        StudentGuardianContact(
+            school_id=world["beta"].id,
+            student_id=hidden.id,
+            name="Hidden Guardian",
+            email="hidden-guardian@example.com",
+            is_active=True,
+            status="linked",
+            source="manual",
+        ),
+    ])
+    db.commit()
+    headers = bearer(world["alpha_admin"].email, world["alpha"].id)
+
+    def found(query: str) -> set[int]:
+        response = client.get("/api/school/students", params={"search": query}, headers=headers)
+        assert response.status_code == 200, response.text
+        return {row["id"] for row in response.json()}
+
+    for query in [
+        "نورة", "Mariam Search", "guardian-search@example.com", "PARENT-SEARCH-1",
+        world["section_a"].name, world["level"].name, str(student.id), "uis-search-1",
+    ]:
+        assert found(query) == {student.id}
+    assert found("hidden-guardian@example.com") == set()
+
+
 def test_complete_student_flow_is_atomic_scoped_and_audited(
     db, client, enrolment_world
 ):
