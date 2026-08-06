@@ -37,6 +37,8 @@ This ordered list is updated after each completed implementation checkpoint.
 | 16 | CHH | `1856f00` | Record the completed manifest-only seeded-content cleanup and post-operation evidence | Zero-repeat dry-run, 1,041 tombstones, one audit event, preserved table counts, container health and affected logs verified | Recovery requires restoring the recorded pre-operation dump; no service restart occurred |
 | 17 | CHH | `cc50980` | Add explicit teacher-to-family assignment-scope regression coverage across homeroom, subject, multi-class, cross-branch cover, expired, unrelated and cross-school targets plus direct conversation/message manipulation | 4 focused staff-side messaging tests passed | Guardian-route companion tests remain unavailable in the local Windows harness because those routers are disabled there; existing authoritative integration coverage is retained |
 | 18 | CHH | `bf9967a` | Add shared school certificate logo/accent branding, extend positive-recognition management to Principal and Deputy Principal, and keep recognition in the Behaviour & recognition workspace | 10 focused backend tests, Svelte check with 0 errors/warnings, 8 recognition presentation tests, 2,257-key English/Arabic parity and guarded PostgreSQL upgrade/downgrade SQL passed | Source only: revision `c6d7e8f9a0b1` is not applied; physical EN/AR browser print/PDF output remains in the final checklist |
+| 19 | CHH | `b40d221` | Add permission-scoped behaviour PDF/CSV exports and immutable report/certificate sharing through existing School Messages | 55 focused backend tests, bounded inbox/history query regression, compileall, Svelte check with 0 errors/warnings, 2,274-key EN/AR parity, visual PDF QA and guarded PostgreSQL upgrade/downgrade SQL passed | Source only: revision `c7d8e9f0a1b2` is not applied; backend PDFs deliberately do not fetch remote logo URLs across an SSRF boundary |
+| 20 | FHH development | `cc15c95` | Receive protected staff-generated report/certificate documents through the exact-child School Chats proxy | 24 proxy tests, 197 frontend unit tests, Svelte check with 0 errors/warnings and 1,574-key EN/AR parity passed | Source only; physical parent Android download remains in the final device checklist |
 
 ## Backups and migrations
 
@@ -48,6 +50,7 @@ This ordered list is updated after each completed implementation checkpoint.
 - The normal FHH pgBackRest command was attempted first and failed before backup because the existing encrypted local `backup.info` could not be decoded and repository `2` was rejected. The fallback dump above is valid; repairing pgBackRest is an operations follow-up and was not mixed into this product task.
 - Acknowledgement revisions `f0e1d2c3b4a5` (CHH) and `d2e3f4a5b6c7` (FHH) were validated with offline upgrade and downgrade SQL. Neither has been applied.
 - Certificate-branding revision `c6d7e8f9a0b1` was validated with guarded PostgreSQL upgrade and downgrade SQL. It has not been applied.
+- Generated-message-document revision `c7d8e9f0a1b2` was validated against PostgreSQL with guarded offline upgrade and downgrade SQL. It has not been applied.
 
 ## Runtime/deployment impact
 
@@ -66,7 +69,8 @@ This ordered list is updated after each completed implementation checkpoint.
 - Seed manifest namespaces/entity counts inspected without reading private content.
 - Manifest-only seeded-content cleanup removed 166 announcements, 208 calendar events, 512 homework/diary items and 155 update posts; its retained tombstones, audit event, preserved counts and zero-repeat dry-run were verified.
 - Same-school staff messaging, shared CHH/FHH language selection, FHH parent/student School dashboard boundaries, leadership/HOD reporting scope, department administration, audited communication-oversight scope, scoped teacher search, cross-school search isolation, natural setup ordering, responsive school-menu hierarchy and leadership-managed school certificate branding have focused automated coverage.
+- Filter-preserving behaviour PDF/CSV exports, CSV formula neutralisation, staged-document transaction safety, exact-generator attachment scope, idempotent retry, participant-scoped document download, FHH exact-child proxying and retention disposal now have focused automated coverage. English/Arabic behaviour reports and certificates were rendered to page images and visually inspected for clipping, hierarchy and RTL layout.
 
 ## Remaining work
 
-Remaining Priority 0-3 implementation, broader test suites, manual browser/mobile/RTL checks, demo relationship completion, runbook and final tags remain active.
+Priority 3 avatar alignment, broader test suites, manual browser/mobile/RTL checks, demo relationship completion, runbook and final tags remain active.
