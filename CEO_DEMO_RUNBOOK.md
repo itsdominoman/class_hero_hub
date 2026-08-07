@@ -9,15 +9,13 @@ Detailed evidence: `PRE_CEO_DEMO_RESULT.md`
 ## Release decision
 
 The paired implementation now serves CHH pilot and FHH development. Health and
-migration gates passed. It is ready for bounded user acceptance, but the project
-is not complete until the role identities/relationships are provisioned and the
-full physical journey passes.
+migration gates passed. The role identities and family relationships are
+provisioned, but the project is not complete until the remaining state-changing
+and physical-device journey passes.
 
-The following remaining actions require explicit user input or authorisation:
-
-1. Select the real invitation identities for Principal, Deputy Principal and HOD.
-2. Provision those identities and the demo family relationships through supported UI.
-3. Promote any accepted work to FHH production or publish a new APK.
+The identities and demo family are now provisioned. The remaining actions that
+require explicit user input or authorisation are the physical-device checks and,
+after acceptance, any FHH production-code promotion or APK publication.
 
 ## Frozen source checkpoints
 
@@ -52,22 +50,56 @@ The following checks were observed against the deployed development systems on
   `1` returns only student ID `1` (`Showing 1–1 of 1 students`).
 - CHH and FHH development link counts reconcile at one active development link;
   both lifecycle and notification workers report healthy with no current error.
+- Active demo staff now exist for Principal (`principal@familyherohub.com`),
+  Deputy Principal (`deputy@familyherohub.com`) and English HOD
+  (`hod.english@familyherohub.com`). The English department has the HOD as head
+  and Jason Green as a current member.
+- Demo Parent (`demoparent@familyherohub.com`) accepted the normal invitation
+  flow on the production FHH account plane and has two active linked profiles:
+  Demo Child One in Grade 9 B and Demo Child Two in KG 1 A. The first dashboard
+  showed only Grade 9 B; the second showed only KG 1 A and its existing in-scope
+  updates. School Chats offered exactly those two children and linked-parent
+  Surveys access loaded. The family and exact-child School dashboard switched to
+  Arabic with translated navigation, tabs and empty-state content, retained the
+  same child/class context and were restored to English. This is production-code
+  compatibility evidence, not acceptance of the new development build.
+- Demo Parent discovered Jason as English for Demo Child One and ICT for Demo
+  Child Two, created one labelled no-action-required KG 1 A conversation,
+  accepted the one-time safeguarding notice and reloaded without a re-prompt.
+  Reusing that conversation identifier under the Grade 9 B child link failed
+  closed.
+- Principal and Deputy Reports showed whole-school scope. The English HOD report
+  showed `Assigned department: English` and only the HOD/Jason staff set. The
+  restricted Administration route denied HOD access.
+- Deputy Communication Oversight completed a reason-gated, audited read-only
+  review using a specific demo-verification justification. The protected view
+  stated that it did not add the reviewer or change receipts, unread counts or
+  notifications; the review was ended immediately after verification.
 
-The existing active development link is not suitable as the named CEO-demo
+The older active development link remains separate from the named CEO-demo
 family. It came from a consumed legacy invitation with no guardian-contact
 reference or recipient identity and is not the Jason/Green relationship. It was
 left intact because its history may be legitimate; do not repurpose or revoke it
-without item-level approval.
+without item-level approval. The two new named links use the production
+integration/account plane for demo data only; no FHH production code was
+promoted.
 
 ## Demo identity provisioning
 
-Provision identities only through the normal application/administrative paths after the migrations are live. Do not add hard-coded email, title or permission exceptions.
+Provisioning is complete through supported application/administrative paths; no
+hard-coded email, title or permission exception was added.
 
-- Preserve Jason Green's existing UIS teacher membership and its verified active assignments.
-- Create one deterministic FHH parent and linked child relationship through the supported invitation/link flow; verify exact-child access and absence of sibling/guardian leakage.
-- Create or assign one Principal, one Deputy Principal and one HOD membership. Give the HOD an explicit active department assignment and ensure the department's staff assignments are current.
-- Keep platform administration, school setup ownership and leadership/reporting capabilities separate.
-- Store credentials in the approved secret/password channel, never in this repository or runbook.
+- Jason Green's existing UIS teacher membership and assignments were preserved.
+- Principal membership 83, Deputy membership 84 and English HOD membership 85
+  are active.
+- Department `ENG` is active; the HOD is its head and Jason is a current member.
+- Demo Parent is Google-bound and linked to production child profiles 19 and 20
+  through two active production-environment CHH links created by the normal
+  invitation flow. CHH currently blocks a second invitation while those links
+  are active, so the same students cannot also be linked to FHH development
+  through the supported UI.
+- Platform administration and School Setup ownership remain separate from the
+  leadership/reporting roles.
 
 ## Suggested demo journey
 
@@ -102,18 +134,15 @@ needed:
 3. **CHH narrow layout:** on the pilot site, switch EN/AR on School Setup, Students
    and Reports; confirm the menu hierarchy, search keyboard, empty state and RTL
    layout at phone width.
-4. **Approved identities:** supply/select the Principal, Deputy Principal and HOD
-   invitation identities, then create the department and dated HOD/Jason
-   assignments through the supported Staff & Departments UI.
-5. **Role and denial matrix:** verify Principal/Deputy school scope, HOD department
+4. **Role and denial matrix:** retain the observed Principal/Deputy school scope and HOD department
    scope, teacher assignment scope, unauthorised direct identifiers, unrelated
    departments and cross-school denial.
-6. **State-changing messaging journey:** with the approved demo accounts, accept
+5. **State-changing messaging journey:** with the approved demo accounts, accept
    the safeguarding warning once, reload to prove persistence, send one staff
    message/attachment, generate one report/certificate, share it to the exact linked
    parent and verify protected download. Confirm no acknowledgement re-prompt for
    the unchanged policy version.
-7. **Promotion decision:** review the resulting evidence and only then promote the
+6. **Promotion decision:** review the resulting evidence and only then promote the
    accepted FHH development commit to production/build a release APK. Production is
    not part of the current authority.
 
