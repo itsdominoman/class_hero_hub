@@ -1,5 +1,22 @@
 # CHH current pilot deployment
 
+## 2026-08-07 demo-student avatar correction
+
+Demo Child One and Demo Child Two had been created as active CHH students with
+blank gender and `avatar_id = NULL`. CHH's gender-safe assignment service
+correctly refuses to guess a boy/girl avatar pool when gender is unspecified,
+so these two records bypassed the automatic avatar outcome expected for the demo.
+
+For the generic demo data, Demo Child One was recorded as male and Demo Child Two
+as female. The existing class-aware assignment service selected avatar 42 and
+avatar 82 respectively while preserving current-class collision checks. Both
+256px CHH assets return HTTP 200. Authenticated FHH school-workspace refreshes
+then rendered `/school-avatars/256/42-256.webp` and
+`/school-avatars/256/82-256.webp` and updated the corresponding FHH school-link
+cache values. FHH home-avatar choices remain separate and do not overwrite CHH's
+school-authoritative student avatar. This was a two-row demo-data correction;
+there was no code, schema, service-restart or APK impact.
+
 ## 2026-08-07 pre-CEO development acceptance checkpoint
 
 CHH pilot currently serves source `ea8507523c8b6dfc397f88b84289e8aedc95b186`
